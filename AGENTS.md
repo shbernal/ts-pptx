@@ -199,7 +199,12 @@ MCPs' corpora.
   A difference no note predicted is a defect. Both tiers run — tier B against the source
   deck as template, tier A with no template at all — because they gate different claims.
   It certifies "nothing the converter can see was lost", never "nothing was lost";
-  `read:census` is what measures the second thing.
+  `read:census` is what measures the second thing. It is also the **only** copy of that
+  sweep: the two Vitest suites each carried a byte-equivalent one, so a `verify:full` ran
+  the same 44 decks × 2 tiers twice. Those suites keep what the round trip rests on and
+  cannot itself establish (the diff fails when perturbed, a note excuses only its own
+  field, the canonicaliser is an equivalence). So `verify` alone does **not** cover the
+  corpus round trip — run `script:roundtrip:all` before pushing `src/script/` changes.
 - **`pnpm run script:census`** (~2s, in no gate) counts how many fixtures raise each
   fidelity note, per tier. It gates nothing on purpose — it is the number
   `docs/reference/pptx-to-script.md` publishes, and the round trip cannot keep it true,

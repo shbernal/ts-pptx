@@ -15,6 +15,7 @@ import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const fontsDir = path.join(__dirname, 'fixtures', 'fonts')
@@ -27,10 +28,6 @@ beforeAll(async () => {
 	regular = new Uint8Array(await readFile(path.join(fontsDir, 'Silkscreen-Regular.ttf')))
 	bold = new Uint8Array(await readFile(path.join(fontsDir, 'Silkscreen-Bold.ttf')))
 })
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 /** Load the LAYOUT_WIDE-sized theme-colors deck (has a "Blank" layout to bind to). */
 async function openTarget() {

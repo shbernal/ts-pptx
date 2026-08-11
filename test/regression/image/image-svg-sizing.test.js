@@ -1,4 +1,12 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
+import {
+	PNG_1X1,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertEqual,
+	captureDiagnostics,
+} from '../../helpers.js'
 import { EMU_PER_INCH } from '../../../dist/node.js'
 
 // A square SVG (1:1) — its intrinsic aspect must come from width/height or viewBox,
@@ -13,9 +21,6 @@ const SQUARE_SVG_WH =
 const WIDE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><rect width="200" height="100"/></svg>'
 // Neither width/height nor viewBox: nothing to measure, so nothing to place aspect-correctly.
 const UNMEASURABLE_SVG = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>'
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 function srcRectAttrs(xml) {
 	const m = /<a:srcRect\b([^/]*)\/>/.exec(xml)
@@ -132,7 +137,7 @@ defineRegressionSuite('Image SVG sizing', [
 	{
 		name: 'a raster still fills its box — the default changed for vectors only',
 		fn: async () => {
-			const xml = await slideXmlFor({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 1 })
+			const xml = await slideXmlFor({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 1 })
 			assertEqual(srcRectAttrs(xml), null, 'a raster must keep stretching to its box')
 		},
 	},
@@ -192,8 +197,8 @@ defineRegressionSuite('Image SVG sizing', [
 	{
 		name: "sizing w/h are optional and default to the picture's box",
 		fn: async () => {
-			const short = await slideXmlFor({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover' } })
-			const long = await slideXmlFor({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover', w: 4, h: 3 } })
+			const short = await slideXmlFor({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover' } })
+			const long = await slideXmlFor({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover', w: 4, h: 3 } })
 			assertEqual(short, long, 'omitting sizing w/h must mean the picture box, not a different crop')
 		},
 	},

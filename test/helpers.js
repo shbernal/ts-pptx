@@ -7,6 +7,21 @@ import JSZip from 'jszip'
 import TsPptx, { setDiagnosticHandler } from '../dist/node.js'
 import { describe, test } from 'vitest'
 
+/**
+ * A 1x1 transparent PNG, in the bare `type;base64,…` spelling `addImage` takes.
+ *
+ * The same 67 bytes were pasted into nineteen files under six different names (`PNG_DATA`,
+ * `PNG_1X1`, `PNG_1PX`, `PNG_A`, `PNG_B`, `PNG`), which made a grep for "the tests' image"
+ * miss most of them and made two files look like they used different images when they did
+ * not. Where a test needs a *second*, distinguishable image, keep a local constant and say
+ * what makes it different — that is a real distinction, unlike a sixth alias for this one.
+ */
+const PNG_1X1 =
+	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+/** The same bytes with the `data:` scheme, for the paths that assert both spellings are taken. */
+const PNG_1X1_DATA_URI = `data:${PNG_1X1}`
+
 async function build(buildFn) {
 	const pres = new TsPptx()
 	buildFn(pres)
@@ -27,15 +42,56 @@ function listEntries(zip) {
 	return Object.keys(zip.files)
 }
 
-function defineRegressionSuite(suiteName, legacyIssueOrCases, maybeCases) {
-	const cases = Array.isArray(legacyIssueOrCases) ? legacyIssueOrCases : maybeCases
-	if (!Array.isArray(cases)) throw new Error('defineRegressionSuite requires an array of test cases')
+/**
+ * Declare a regression suite from an array of `{ name, fn }` cases.
+ *
+ * **One signature.** There used to be two — a three-argument form carrying a provenance tag
+ * (`'legacy bug-14'`, `'upstream-issue-1451'`) which was destructured out and then dropped on
+ * the floor, so thirty-six suites recorded where their regression came from in a string that
+ * reached no reporter and no reader who was not looking at the call site. Those tags are now
+ * part of the suite name, where they are visible; a second positional argument is an error
+ * rather than a silently ignored one.
+ *
+ * **`fn` is handed to vitest as-is**, not wrapped in `async () => await fixture.fn()`. The
+ * wrapper put this file at the top of every regression failure's stack, above the case that
+ * actually failed.
+ *
+ * **Modifiers are per case**, because a case cannot reach `test.skipIf` / `test.todo` /
+ * `test.concurrent` from inside a plain array: `{ name, fn, skipIf: !validatorInstalled }`,
+ * `{ name, todo: true }`, `{ name, fn, timeout: 30_000 }`. Note that `concurrent` is safe only
+ * for cases that touch no process global — `captureDiagnostics` and `setDiagnosticHandler` are
+ * process-wide, and their safety rests on cases within a file running serially.
+ *
+ * @param {string} suiteName
+ * @param {{ name: string, fn?: () => unknown, only?: boolean, skip?: boolean, skipIf?: unknown,
+ *           runIf?: unknown, todo?: boolean, fails?: boolean, concurrent?: boolean,
+ *           timeout?: number }[]} cases
+ */
+function defineRegressionSuite(suiteName, cases) {
+	if (!Array.isArray(cases)) {
+		throw new Error(
+			`defineRegressionSuite(${JSON.stringify(suiteName)}, …) takes an array of test cases as its ` +
+				'second argument. The three-argument form carrying a provenance tag is gone — fold the tag ' +
+				'into the suite name, where it is actually reported.'
+		)
+	}
 
 	describe(suiteName, () => {
 		for (const fixture of cases) {
-			test(fixture.name, async () => {
-				await fixture.fn()
-			})
+			if (fixture.todo) {
+				test.todo(fixture.name)
+				continue
+			}
+			// `any`, because this *is* dynamic dispatch: each step narrows vitest's chainable to a
+			// different member of the family, and the whole point is that a case picks its own.
+			/** @type {any} */
+			let define = fixture.concurrent ? test.concurrent : test
+			if (fixture.fails) define = define.fails
+			if (fixture.only) define = define.only
+			else if (fixture.skip) define = define.skip
+			else if (fixture.skipIf !== undefined) define = define.skipIf(fixture.skipIf)
+			else if (fixture.runIf !== undefined) define = define.runIf(fixture.runIf)
+			define(fixture.name, fixture.fn, fixture.timeout)
 		}
 	})
 }
@@ -62,6 +118,31 @@ function assertIncludes(haystack, needle, label) {
 
 function assertNotIncludes(haystack, needle, label) {
 	assert(!haystack.includes(needle), `expected ${label || 'value'} not to include ${needle}; got: ${haystack}`)
+}
+
+/**
+ * Byte-for-byte equality of two `Uint8Array`s (or anything array-like), null-safe.
+ *
+ * Both spellings that were in the tree — with and without the `a && b` guard — are folded into
+ * the guarded one, which is the superset: an absent part compares unequal rather than throwing,
+ * which is what "did this part change?" means at the fifteen call sites that ask it.
+ */
+function bytesEqual(a, b) {
+	return Boolean(a && b && a.length === b.length && a.every((value, index) => value === b[index]))
+}
+
+/**
+ * True when `fn` throws. Deliberately says nothing about *what* it threw, so pair it with a
+ * separate assertion on the message when the distinction matters — a bare `throws()` passes
+ * just as happily on a `TypeError` from a typo in the test as on the guard under test.
+ */
+function throws(fn) {
+	try {
+		fn()
+		return false
+	} catch {
+		return true
+	}
 }
 
 function xmlBlocks(xml, tagName) {
@@ -186,6 +267,8 @@ export {
 	TsPptx,
 	setDiagnosticHandler,
 	captureDiagnostics,
+	PNG_1X1,
+	PNG_1X1_DATA_URI,
 	build,
 	readEntry,
 	listEntries,
@@ -194,6 +277,8 @@ export {
 	assertEqual,
 	assertIncludes,
 	assertNotIncludes,
+	bytesEqual,
+	throws,
 	xmlBlocks,
 	firstXmlBlock,
 	xmlAttributes,

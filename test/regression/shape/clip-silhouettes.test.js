@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
 import { clipPath, EMU_PER_INCH } from '../../../dist/node.js'
 
 // `clipPath` resolves a named silhouette to the freeform `points` path `addImage` emits as a
@@ -7,10 +7,6 @@ import { clipPath, EMU_PER_INCH } from '../../../dist/node.js'
 // to come back in the box's OWN inch space — every fraction pre-multiplied by w/h. A silhouette
 // that leaked normalized (0..1) coordinates would clip a sliver at the slide's top-left corner
 // on every box smaller than the slide, which is why the scaling is asserted directly.
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 /**
  * The resolved path as plain records. `GeometryPoint` is a union whose arms carry different
@@ -121,7 +117,7 @@ defineRegressionSuite('Clip silhouettes (clipPath)', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 0,
 					y: 0,
 					w,

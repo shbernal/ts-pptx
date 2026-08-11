@@ -5,17 +5,11 @@
 // p:embeddedFont, typeface 'Silkscreen', regular→font1 / bold→font2).
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { fixturePath } from './corpus.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
 }

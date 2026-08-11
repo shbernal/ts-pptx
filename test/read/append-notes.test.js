@@ -10,25 +10,19 @@
 // keeps it — the same "destination styling wins" rule `importNotes` follows.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', name)
-}
 
 /** Author `build` onto a template shell, append, save, and hand back the bytes + re-read deck. */
 async function appendOnto(fixture, build) {

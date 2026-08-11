@@ -163,10 +163,20 @@ directory — Vitest globs the tree — so a file can be moved between groups fr
 Paths inside a suite are relative to its group directory: `../../helpers.js`,
 `../../../dist/node.js`, `../../read/fixtures/…`.
 
-Each regression file calls `defineRegressionSuite()` from `test/helpers.js`.
-The optional second argument records legacy provenance, for example
-`legacy bug-21`, so old issue references remain traceable without making the
-suite name opaque.
+Each regression file calls `defineRegressionSuite(suiteName, cases)` from `test/helpers.js`.
+It takes exactly two arguments. There used to be a three-argument form whose middle argument
+recorded legacy provenance (`legacy bug-21`, `upstream-issue-1451`) — but that string was
+destructured out and then discarded, so it reached no reporter and no reader who was not
+already looking at the call site. Those tags now live inside the suite name itself
+(`'Table margins [legacy bug-14]'`), where the reporter prints them; a second positional
+argument is now an error rather than something silently ignored.
+
+A case is `{ name, fn }`, and `fn` is handed to Vitest directly rather than wrapped, so a
+failure's stack starts at the case rather than at `helpers.js`. Modifiers a case could not
+otherwise reach from inside a plain array are spelled as fields: `skipIf`, `runIf`, `skip`,
+`only`, `todo`, `fails`, `concurrent`, and `timeout`. Be careful with `concurrent` — the
+diagnostic handler `captureDiagnostics()` installs is process-global, and its safety rests on
+cases within a file running serially.
 
 Prefer public API deck generation plus focused package/XML assertions:
 
@@ -697,9 +707,26 @@ matches what it claims to produce.
 
 ## Converter And Read-Coverage Harnesses
 
-Four runnable measurement tools back the `ts-pptx/script` subsystem. Their
-suites are already inside `pnpm run verify`; run them directly to iterate or to
-point them at your own decks.
+Four runnable measurement tools back the `ts-pptx/script` subsystem. Run them
+directly to iterate or to point them at your own decks.
+
+`script:roundtrip` is the exception among them in one way worth stating: it is
+not merely a report but the **only** place the whole-corpus round trip runs.
+`test/read/script-roundtrip.test.js` and `test/read/script-standalone.test.js`
+each carried a byte-equivalent copy of it — same corpus, same `diffDeckIr`, same
+fidelity notes as the exclusion list, same failure condition — so `verify:full`
+paid for the identical 44-deck × 2-tier subprocess sweep twice, about 35 s of it.
+The script kept the job because it is the more capable copy (`--fixture`,
+`--dir`, `--verbose`, `--json`, and a per-deck table instead of one joined
+failure string). What stayed in those two suites is what the round trip *rests
+on* and cannot itself establish: that the diff fails when perturbed, that a note
+excuses only its own field, that the canonicaliser is an equivalence, and — in
+the standalone file — the chrome expectations read against `ts-pptx/read`'s own
+accessors rather than against the converter.
+
+The practical consequence: **`pnpm run verify` no longer runs the corpus round
+trip.** `verify:full` and CI do, via `script:roundtrip:all`. Run that before
+pushing a change to `src/script/`.
 
 ```bash
 pnpm run script:roundtrip                     # deck → script → run it → deck → diff the two IRs

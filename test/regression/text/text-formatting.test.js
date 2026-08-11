@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
-defineRegressionSuite('Text formatting', 'legacy bug-01', [
+defineRegressionSuite('Text formatting [legacy bug-01]', [
 	{
 		name: 'mixed-formatting paragraph emits at most one <a:pPr>',
 		fn: async () => {

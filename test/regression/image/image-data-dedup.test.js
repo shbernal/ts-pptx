@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
+import { PNG_1X1 as PNG_A, defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
 
 // Identical base64 `data:` images added to a slide previously embedded one media part PER
 // insertion: the duplicate-media check matched on `path`, but inline images carry no real
@@ -6,9 +6,6 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 // are now matched by their data payload, so an identical inline image reuses the original
 // `Target` and is embedded once. Distinct images must still embed separately.
 
-// Two visibly-distinct 1x1 PNGs (different pixel bytes → different base64 payloads).
-const PNG_A =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 const PNG_B =
 	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 

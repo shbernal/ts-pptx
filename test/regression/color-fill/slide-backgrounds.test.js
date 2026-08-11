@@ -10,7 +10,7 @@ import {
 	xmlAttributes,
 } from '../../helpers.js'
 
-defineRegressionSuite('Slide backgrounds', 'legacy bug-12', [
+defineRegressionSuite('Slide backgrounds [legacy bug-12]', [
 	{
 		name: 'solid-color slide.background <p:bgPr> contains <a:effectLst/>',
 		fn: async () => {

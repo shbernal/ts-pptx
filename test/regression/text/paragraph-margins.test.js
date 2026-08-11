@@ -8,7 +8,7 @@ async function paragraphProps(zip) {
 	return { xml, paras, pPrs: paras.map((p) => (p.match(/<a:pPr[^>]*(?:\/>|>[\s\S]*?<\/a:pPr>)/) ?? [''])[0]) }
 }
 
-defineRegressionSuite('Paragraph margins (a:pPr/@marL, @indent)', 'issue-15-followup', [
+defineRegressionSuite('Paragraph margins (a:pPr/@marL, @indent) [issue-15-followup]', [
 	{
 		// 27pt is DEF_BULLET_MARGIN, the hang every bulleted paragraph used to be pinned to.
 		name: 'paraMarginLeft/paraIndent override the bullet-derived default',

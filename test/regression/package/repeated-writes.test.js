@@ -11,7 +11,7 @@ async function buildOnce(pres) {
 	return entry.async('string')
 }
 
-defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
+defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 	{
 		name: 'two writes on same Presentation produce identical slide1.xml (text/shape branch)',
 		fn: async () => {

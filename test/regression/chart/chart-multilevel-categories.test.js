@@ -52,7 +52,7 @@ function cellType(sheetXml, addr) {
 	return t ? t[1] : null
 }
 
-defineRegressionSuite('Multi-level category chart embedded workbook', 'upstream-pr-1330', [
+defineRegressionSuite('Multi-level category chart embedded workbook [upstream-pr-1330]', [
 	{
 		name: 'shared-string indices for outer and leaf label cells are correct',
 		fn: async () => {

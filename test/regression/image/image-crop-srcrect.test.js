@@ -1,4 +1,5 @@
 import {
+	PNG_1X1,
 	setDiagnosticHandler,
 	defineRegressionSuite,
 	build,
@@ -13,9 +14,6 @@ import {
 //   1. the option must survive addImage's option assembly (it was once dropped by the allowlist
 //      in gen-objects.ts, so no srcRect was emitted at all — yet the package stayed schema-valid);
 //   2. the inset percentages must serialize in 1000ths of a percent (ST_Percentage: 100% = 100000).
-
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function srcRectFor(opts) {
 	const { zip } = await build((p) => {
@@ -34,7 +32,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 		// The core regression: the crop option must reach the renderer and emit a srcRect at all.
 		name: 'crop reaches the renderer and emits a populated srcRect',
 		fn: async () => {
-			const r = await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 2, h: 2, crop: { l: 0, t: 0, r: 50, b: 50 } })
+			const r = await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, crop: { l: 0, t: 0, r: 50, b: 50 } })
 			assert(
 				r.l === 0 && r.t === 0 && r.r === 50000 && r.b === 50000,
 				`top-left quadrant: expected l=0 t=0 r=50000 b=50000; got ${JSON.stringify(r)}`
@@ -45,7 +43,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 		// Omitted edges default to 0; non-round percentages round to the nearest 1000th.
 		name: 'omitted edges default to 0 and fractional percents round to 1000ths',
 		fn: async () => {
-			const r = await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 2, h: 2, crop: { l: 12.5, t: 33.333 } })
+			const r = await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, crop: { l: 12.5, t: 33.333 } })
 			assert(
 				r.l === 12500 && r.t === 33333 && r.r === 0 && r.b === 0,
 				`expected l=12500 t=33333 r=0 b=0; got ${JSON.stringify(r)}`
@@ -60,7 +58,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				const r = await srcRectFor({
-					data: PNG_1x1,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,
@@ -92,7 +90,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 			for (const c of cases) {
 				let threw = false
 				try {
-					await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 2, h: 2, crop: c.crop })
+					await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, crop: c.crop })
 				} catch {
 					threw = true
 				}

@@ -1,7 +1,7 @@
 import { ChartType } from '../../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
-defineRegressionSuite('Combo chart axes', 'legacy bug-06', [
+defineRegressionSuite('Combo chart axes [legacy bug-06]', [
 	{
 		name: 'combo chart with secondary*Axis flags emits all referenced axIds as defs',
 		fn: async () => {

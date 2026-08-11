@@ -1,15 +1,11 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
 async function expectCropError(sizingOpts, expectedFragment) {
 	let err
 	try {
 		await build((p) => {
 			const s = p.addSlide()
-			s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 3, sizing: sizingOpts })
+			s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: sizingOpts })
 		})
 	} catch (e) {
 		err = e
@@ -52,7 +48,7 @@ defineRegressionSuite('Image crop overflow', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				// x=0, y=0, w=4, h=3 exactly fills the 4x3 image — r=0, b=0
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'crop', x: 0, y: 0, w: 4, h: 3 } })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'crop', x: 0, y: 0, w: 4, h: 3 } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:srcRect l="0" r="0" t="0" b="0"\/>/.test(xml), 'expected zero-margin srcRect; got: ' + xml)
@@ -66,7 +62,7 @@ defineRegressionSuite('Image crop overflow', [
 				// 4x3 image, crop window x=0.5, y=0.5, w=3, h=2
 				// l=0.5/4=12.5% → 12500, r=(4-3.5)/4=12.5% → 12500
 				// t=0.5/3≈16.7% → 16667, b=(3-2.5)/3≈16.7% → 16667
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'crop', x: 0.5, y: 0.5, w: 3, h: 2 } })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'crop', x: 0.5, y: 0.5, w: 3, h: 2 } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(

@@ -25,7 +25,7 @@ function extractEffectLsts(xml) {
 	return blocks
 }
 
-defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
+defineRegressionSuite('Shared shadow options [legacy bug-05]', [
 	{
 		name: 'two addShape calls sharing one shadow object emit identical effectLst',
 		fn: async () => {

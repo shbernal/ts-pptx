@@ -14,13 +14,10 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))

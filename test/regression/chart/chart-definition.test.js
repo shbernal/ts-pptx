@@ -10,6 +10,7 @@ import {
 	assertIncludes,
 	assertNotIncludes,
 } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // The normalization half of `gen/define/chart.ts` -- everything `addChartDefinition` does to the
 // options bag before a byte of chart XML exists: the defensive copy, the enum corrections keyed to
@@ -51,12 +52,6 @@ import {
 // must always catch it -- but a branch counter records that the second operand was *evaluated*, not
 // that it was true, and any truthy width gets there. Both instances (plotArea and dataBorder) are
 // covered by passing a width rather than omitting one.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 /** The chartEx part, for the chart types that emit one (waterfall, funnel, ...). */
 function chartExXml(zip) {

@@ -1,6 +1,11 @@
-// The round-trip oracle for `ts-pptx/script`: source deck → IR₁ → script → run it →
-// output deck → IR₂, then diff IR₁ against IR₂ with the printer's fidelity notes as the
-// exclusion list.
+// The round-trip *oracle* for `ts-pptx/script` — the diff, the note table and the
+// canonicaliser that the round trip is built out of.
+//
+// The round trip itself is source deck → IR₁ → script → run it → output deck → IR₂, then
+// diff IR₁ against IR₂ with the printer's fidelity notes as the exclusion list, and it runs
+// as `pnpm run script:roundtrip:all` rather than from here (see the note below the imports).
+// What lives in this file is everything that comparison *rests on*, none of which running it
+// over a clean corpus can establish.
 //
 // **What makes this stronger than the tests before it.** `script-ir.test.js` checks the
 // mapping against the write API's own types, and `script-print.test.js` checks that the
@@ -19,17 +24,10 @@
 // so out loud: deleting the `flipH` mapping, or the text-box detection, leaves this suite
 // green, because the output deck then lacks the same thing the IR does. Those belong to
 // `script-ir.test.js`, whose expectations come from `src/types/*.ts` rather than from the
-// converter. Read a clean run here as "nothing the converter can distinguish was lost",
+// converter. Read a clean run there as "nothing the converter can distinguish was lost",
 // never as "nothing was lost".
-//
-// `pnpm run script:roundtrip` runs the same comparison as a report, with `--verbose` for
-// per-difference detail and `--dir` to point it at a corpus of real decks.
 
-import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import {
@@ -42,66 +40,26 @@ import {
 	readModelToIr,
 } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { SNAPSHOTS, fixtureNames, irFor, readFixture } from './corpus.js'
 
-const run = promisify(execFile)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = path.join(__dirname, 'fixtures')
-const REPO = path.join(__dirname, '..', '..')
-
-// Inside the repo, not the OS temp directory: the emitted script imports this package by
-// its published name, which Node resolves by the self-reference rule only from a path
-// underneath the package root. `/.tmp/` is gitignored.
-const SCRATCH = path.join(REPO, '.tmp')
-
-const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
-
-/** Print a script for one fixture, execute it, and read the deck it wrote back into an IR. */
-async function roundTrip(fixtureName) {
-	await mkdir(SCRATCH, { recursive: true })
-	const dir = await mkdtemp(path.join(SCRATCH, 'roundtrip-'))
-	try {
-		const bytes = await readFile(path.join(FIXTURES, fixtureName))
-		const ir = readModelToIr(await Presentation.load(bytes))
-		const printed = printScript(ir)
-
-		await writeFile(path.join(dir, 'script.ts'), printed.code)
-		// The template is the source deck unchanged — `fromTemplate` strips its slides itself.
-		await writeFile(path.join(dir, 'template.pptx'), bytes)
-		if (printed.assets.size > 0) {
-			await mkdir(path.join(dir, 'assets'), { recursive: true })
-			for (const [name, data] of printed.assets) await writeFile(path.join(dir, 'assets', name), data)
-		}
-
-		// Node's type stripping, so the script under test is the exact text a user is handed.
-		await run(process.execPath, ['--no-warnings', path.join(dir, 'script.ts')])
-		const output = readModelToIr(await Presentation.load(await readFile(path.join(dir, 'output.pptx'))))
-		return { ir, printed, output, report: diffDeckIr(canonicalDeckIr(ir), canonicalDeckIr(output), printed.notes) }
-	} finally {
-		await rm(dir, { recursive: true, force: true })
-	}
-}
-
-describe('script round trip — the corpus', () => {
-	test('every fixture regenerates with no undeclared difference', { timeout: 300_000 }, async () => {
-		const failures = []
-		for (const name of fixtureNames) {
-			const { report } = await roundTrip(name)
-			for (const difference of report.undeclared.slice(0, 5)) {
-				failures.push(
-					`${name} slide ${difference.slideNumber} ${difference.shapeName ?? '—'} ` +
-						`${difference.path}: ${difference.expected} → ${difference.actual} [${difference.kind}]`
-				)
-			}
-		}
-		assertEqual(failures.join('\n'), '', 'undeclared round-trip differences')
-	})
-})
+// The whole-corpus round trip itself is NOT here. It is `pnpm run script:roundtrip:all`
+// (`scripts/script-roundtrip.mjs`), which ran the identical comparison — same corpus, same
+// `diffDeckIr`, same fidelity notes as the exclusion list, same failure condition — in
+// `verify:full` and in CI, so every full run did it twice for ~20 s of subprocess work each
+// time.
+//
+// The script is the copy that survived because it is the more capable one: `--fixture` to
+// pin a single deck, `--dir` to point it at a corpus of real decks outside the repo,
+// `--verbose` for per-difference detail, `--json`, and a per-deck table instead of one
+// joined failure string. What is left below is everything that check *rests on* and cannot
+// itself verify — that the diff fails when it should, that a note excuses only its own
+// field, and that the canonicaliser's rules are an equivalence rather than a filter.
 
 describe('script round trip — the oracle has teeth', () => {
 	// Every check in this plan that measured nothing looked exactly like a passing one, so
 	// the diff is asked to fail on demand before its passing is worth anything.
 	test('a perturbed output IR produces an undeclared difference', async () => {
-		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'textbox.pptx'))))
+		const ir = await irFor('textbox.pptx')
 		const before = canonicalDeckIr(ir)
 		const after = canonicalDeckIr(ir)
 
@@ -126,7 +84,7 @@ describe('script round trip — the oracle has teeth', () => {
 		// stopped emitting transitions entirely would produce identical `calls` and report a
 		// clean round trip. `CanonicalSlide.transition` closes that, and this is the check that
 		// it is closed rather than merely declared.
-		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition.pptx'))))
+		const ir = await irFor('slide-transition.pptx')
 		const before = canonicalDeckIr(ir)
 		const after = canonicalDeckIr(ir)
 		assertEqual(diffDeckIr(before, after, []).differences.length, 0, 'a deck compared against itself is identical')
@@ -146,7 +104,7 @@ describe('script round trip — the oracle has teeth', () => {
 		// template-anchored tier keeps the transition and drops its embedded sound, so if the
 		// difference landed on `transition` the note declaring the sound would have to name that
 		// field — and would then also excuse a transition whose type or duration came back wrong.
-		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition-sound.pptx')))
+		const source = await Presentation.load(await readFixture('slide-transition-sound.pptx'))
 		const ir = readModelToIr(source)
 		const before = canonicalDeckIr(ir)
 		const after = canonicalDeckIr(ir)
@@ -168,7 +126,7 @@ describe('script round trip — the oracle has teeth', () => {
 	})
 
 	test('a note declaring that field silences it, and only that field', async () => {
-		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'textbox.pptx'))))
+		const ir = await irFor('textbox.pptx')
 		const before = canonicalDeckIr(ir)
 		const after = canonicalDeckIr(ir)
 		const call = after.slides[0].calls.find((c) => c.method === 'addText')
@@ -184,23 +142,21 @@ describe('script round trip — the oracle has teeth', () => {
 })
 
 describe('script round trip — the note coverage table', () => {
-	test('every construct the corpus emits has a field mapping, in both tiers', async () => {
-		// A note whose construct is absent from the table excludes nothing, so a typo or a new
-		// note silently turns the round trip back into a snapshot. Checked against the notes the
-		// corpus actually produces rather than a hand-kept list — and against *both* printers,
-		// since each suppresses notes the other keeps and adds ones of its own.
-		//
-		// `isKnownNoteConstruct` rather than the raw key set, because a `layout.`-prefixed
-		// construct resolves through its slide twin: a layout's decoration is transcribed by the
-		// slide shape mapper, so `layout.line.width` is `line.width`'s entry seen from the chrome.
+	// A note whose construct is absent from the table excludes nothing, so a typo or a new
+	// note silently turns the round trip back into a snapshot. Checked against the notes the
+	// corpus actually produces rather than a hand-kept list — and against *both* printers,
+	// since each suppresses notes the other keeps and adds ones of its own.
+	//
+	// `isKnownNoteConstruct` rather than the raw key set, because a `layout.`-prefixed
+	// construct resolves through its slide twin: a layout's decoration is transcribed by the
+	// slide shape mapper, so `layout.line.width` is `line.width`'s entry seen from the chrome.
+	test.for(fixtureNames)('%s emits only note constructs the table maps, in both tiers', async (name) => {
+		const ir = await irFor(name)
 		const missing = new Set()
-		for (const name of fixtureNames) {
-			const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-			for (const note of [...printScript(ir).notes, ...printStandaloneScript(ir).notes]) {
-				if (!isKnownNoteConstruct(note.construct)) missing.add(note.construct)
-			}
+		for (const note of [...printScript(ir).notes, ...printStandaloneScript(ir).notes]) {
+			if (!isKnownNoteConstruct(note.construct)) missing.add(note.construct)
 		}
-		assertEqual([...missing].sort().join(', '), '', 'note constructs with no entry in the coverage table')
+		assertEqual([...missing].sort().join(', '), '', `${name}: note constructs with no entry in the coverage table`)
 	})
 
 	test('the table itself is the only thing `isKnownNoteConstruct` accepts', async () => {
@@ -217,7 +173,7 @@ describe('script round trip — the note coverage table', () => {
 		// The suppression lists are the place a caveat quietly disappears. Pinned on the fixture
 		// that exercises the most chrome: the template-anchored tier must not report the chrome
 		// losses (it never rebuilds the chrome), and the standalone tier must report every one.
-		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx'))))
+		const ir = await irFor('mixed.pptx')
 		const anchored = new Set(printScript(ir).notes.map((note) => note.construct))
 		const standalone = new Set(printStandaloneScript(ir).notes.map((note) => note.construct))
 
@@ -261,7 +217,7 @@ describe('script round trip — canonicalisation is an equivalence', () => {
 	})
 
 	test('assets compare by content, so a renamed image is still the same image', async () => {
-		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'image.pptx'))))
+		const ir = await irFor('image.pptx')
 		const renamed = structuredClone(ir)
 		for (const asset of renamed.assets) asset.name = `renamed-${asset.name}`
 		// A `seen` set, because one `AssetRef` object is shared by every call using that image
@@ -285,9 +241,8 @@ describe('script round trip — printed text', () => {
 	// Regenerate with `vitest run script-roundtrip -u` after an intentional printer change.
 	for (const name of ['empty.pptx', 'hidden.pptx']) {
 		test(`${name} prints the same source as last time`, async () => {
-			const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-			await expect(printScript(ir).code).toMatchFileSnapshot(
-				path.join(__dirname, 'snapshots', `${name.replace(/\.pptx$/, '')}.script.ts.txt`)
+			await expect(printScript(await irFor(name)).code).toMatchFileSnapshot(
+				path.join(SNAPSHOTS, `${name.replace(/\.pptx$/, '')}.script.ts.txt`)
 			)
 		})
 	}

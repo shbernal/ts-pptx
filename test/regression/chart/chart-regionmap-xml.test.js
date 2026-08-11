@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build, readEntry, listEntries } from '../../helpers.js'
+import { chartExPath } from './chart-parts.js'
 
 // Region map (`regionMap`, a filled/geographic map) is a chartEx (cx:) layout. Confirmed against a
 // map PowerPoint authored (`Shapes.AddChart2(-1, 140, …)`) and read back as ChartType 140, the
@@ -27,12 +28,6 @@ const DATA = [
 		values: [100, 60, 40, 55],
 	},
 ]
-
-function chartExPath(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chartEx\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartExN.xml entry')
-	return path
-}
 
 async function buildMap(extra = {}) {
 	return build((p) => {

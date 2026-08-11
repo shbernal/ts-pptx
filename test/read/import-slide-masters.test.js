@@ -11,25 +11,20 @@
 // is rejected unless explicitly overridden.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { throws, bytesEqual, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
+import { assertNoDanglingRels, resolveSingle } from './opc.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const THEME_REL = `${R_NS}/theme`
 const OFFICE_DOCUMENT_REL = `${R_NS}/officeDocument`
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
@@ -43,25 +38,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a && b && a.length === b.length && a.every((value, index) => value === b[index])
-}
-
-function throws(fn) {
-	try {
-		fn()
-		return false
-	} catch {
-		return true
-	}
-}
-
-function resolveSingle(opc, partName, type) {
-	const rels = opc.relationshipsFor(partName)
-	const matches = [...rels].filter((rel) => rel.type === type)
-	return matches.length === 0 ? null : rels.resolveTarget(matches[0].id)
 }
 
 function presentationPartName(opc) {
@@ -133,18 +109,6 @@ function allMasterAndLayoutIds(opc) {
 		}
 	}
 	return ids
-}
-
-/** Every internal relationship of every part resolves to a part that exists. */
-function assertNoDanglingRels(opc) {
-	for (const partName of opc.parts.keys()) {
-		if (partName.endsWith('.rels')) continue
-		for (const rel of opc.relationshipsFor(partName)) {
-			if (rel.targetMode === 'External') continue
-			const target = opc.relationshipsFor(partName).resolveTarget(rel.id)
-			assert(opc.part(target), `${partName} → ${rel.id} targets an existing part (${target})`)
-		}
-	}
 }
 
 describe('Presentation.importSlideMasters', () => {

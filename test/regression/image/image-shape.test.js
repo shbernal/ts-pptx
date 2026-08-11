@@ -1,8 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
 defineRegressionSuite('Image shape clipping', [
 	{
@@ -10,7 +6,7 @@ defineRegressionSuite('Image shape clipping', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2, rounding: true })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, rounding: true })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:prstGeom\s+prst="ellipse"/.test(xml), 'expected prstGeom prst="ellipse"; got: ' + xml)
@@ -21,7 +17,7 @@ defineRegressionSuite('Image shape clipping', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2 })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:prstGeom\s+prst="rect"/.test(xml), 'expected prstGeom prst="rect"; got: ' + xml)
@@ -32,7 +28,7 @@ defineRegressionSuite('Image shape clipping', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2, shape: 'hexagon' })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, shape: 'hexagon' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:prstGeom\s+prst="hexagon"/.test(xml), 'expected prstGeom prst="hexagon"; got: ' + xml)
@@ -43,7 +39,7 @@ defineRegressionSuite('Image shape clipping', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2, shape: 'roundRect', rounding: true, rectRadius: 0.25 })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, shape: 'roundRect', rounding: true, rectRadius: 0.25 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:prstGeom\s+prst="roundRect"/.test(xml), 'expected prstGeom prst="roundRect"; got: ' + xml)
@@ -56,7 +52,7 @@ defineRegressionSuite('Image shape clipping', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2, shape: 'ellipse', sizing: { type: 'cover', w: 2, h: 2 } })
+				s.addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, shape: 'ellipse', sizing: { type: 'cover', w: 2, h: 2 } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:srcRect\b/.test(xml), 'expected srcRect from sizing:cover; got: ' + xml)
@@ -69,7 +65,7 @@ defineRegressionSuite('Image shape clipping', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,
@@ -96,7 +92,7 @@ defineRegressionSuite('Image shape clipping', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,
@@ -132,7 +128,7 @@ defineRegressionSuite('Image shape clipping', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,
@@ -164,7 +160,7 @@ defineRegressionSuite('Image shape clipping', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,
@@ -189,7 +185,7 @@ defineRegressionSuite('Image shape clipping', [
 				await build((p) => {
 					const s = p.addSlide()
 					s.addImage({
-						data: PNG_DATA,
+						data: PNG_1X1,
 						x: 1,
 						y: 1,
 						w: 2,
@@ -214,7 +210,7 @@ defineRegressionSuite('Image shape clipping', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,

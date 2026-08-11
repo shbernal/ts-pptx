@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { ShapeType } from '../../../dist/node.js'
 import {
+	PNG_1X1,
 	setDiagnosticHandler,
 	defineRegressionSuite,
 	build,
@@ -36,9 +37,6 @@ function tcPrBlocks(xml) {
 }
 
 // 1x1 transparent PNG (data URI). Used to exercise the picture-fill (`<a:blipFill>`) path
-// for shapes and text boxes.
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function captureWarnings(fn) {
 	const warnings = []
@@ -62,7 +60,7 @@ defineRegressionSuite('Image (blip) fills', [
 					y: 1,
 					w: 3,
 					h: 1,
-					fill: { type: 'image', image: { data: PNG_1x1 } },
+					fill: { type: 'image', image: { data: PNG_1X1 } },
 					line: { color: '111111', width: 1 },
 				})
 			})
@@ -98,7 +96,7 @@ defineRegressionSuite('Image (blip) fills', [
 					w: 3,
 					h: 2,
 					points: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { close: true }],
-					fill: { type: 'image', image: { data: PNG_1x1 } },
+					fill: { type: 'image', image: { data: PNG_1X1 } },
 				})
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -120,7 +118,7 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { image: { data: PNG_1x1 } } })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { image: { data: PNG_1X1 } } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assertIncludes(xml, '<a:blipFill', 'blip fill emitted from image-only fill')
@@ -136,7 +134,7 @@ defineRegressionSuite('Image (blip) fills', [
 					y: 1,
 					w: 3,
 					h: 1,
-					fill: { type: 'image', image: { data: PNG_1x1 }, transparency: 25 },
+					fill: { type: 'image', image: { data: PNG_1X1 }, transparency: 25 },
 				})
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -148,8 +146,8 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
-				s.addShape(ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1X1 } } })
+				s.addShape(ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1X1 } } })
 			})
 			const media = (await listEntries(zip)).filter((e) => e.startsWith('ppt/media/') && !e.endsWith('/'))
 			assert(media.length === 1, `expected a single shared media file; got ${JSON.stringify(media)}`)
@@ -160,7 +158,7 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addText('hello', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+				s.addText('hello', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assertIncludes(xml, '<a:blipFill', 'text box image fill')
@@ -252,7 +250,7 @@ defineRegressionSuite('Table cell image (blip) fills', [
 				s.addTable(
 					[
 						[
-							{ text: 'A1', options: { fill: { type: 'image', image: { data: PNG_1x1 } } } },
+							{ text: 'A1', options: { fill: { type: 'image', image: { data: PNG_1X1 } } } },
 							{ text: 'A2', options: { fill: { color: 'FF0000' } } },
 						],
 					],
@@ -299,7 +297,7 @@ defineRegressionSuite('Table cell image (blip) fills', [
 						y: 1,
 						w: 6,
 						h: 2,
-						fill: { type: 'image', image: { data: PNG_1x1 } },
+						fill: { type: 'image', image: { data: PNG_1X1 } },
 					}
 				)
 			})
@@ -329,7 +327,7 @@ defineRegressionSuite('Table cell image (blip) fills', [
 						y: 1,
 						w: 6,
 						h: 3,
-						headerRow: { fill: { type: 'image', image: { data: PNG_1x1 } } },
+						headerRow: { fill: { type: 'image', image: { data: PNG_1X1 } } },
 						columns: [{}, { fill: { image: { path: 'demos/common/images/cc_logo.jpg' } } }],
 					}
 				)
@@ -351,7 +349,7 @@ defineRegressionSuite('Table cell image (blip) fills', [
 						[
 							{
 								text: 'merged',
-								options: { colspan: 2, rowspan: 2, fill: { type: 'image', image: { data: PNG_1x1 } } },
+								options: { colspan: 2, rowspan: 2, fill: { type: 'image', image: { data: PNG_1X1 } } },
 							},
 							{ text: 'c' },
 						],
@@ -378,7 +376,7 @@ defineRegressionSuite('Table cell image (blip) fills', [
 			// `createHyperlinkRels` — otherwise every relationship would pile onto slide 1
 			// and the overflow slides would emit a dangling `r:embed`.
 			const rows = Array.from({ length: 60 }, (_, i) => [
-				{ text: `row ${i}`, options: { fill: { type: 'image', image: { data: PNG_1x1 } } } },
+				{ text: `row ${i}`, options: { fill: { type: 'image', image: { data: PNG_1X1 } } } },
 			])
 			const { zip } = await build((p) => {
 				p.addSlide().addTable(rows, { x: 0.5, y: 0.5, w: 6, h: 1, autoPage: true })

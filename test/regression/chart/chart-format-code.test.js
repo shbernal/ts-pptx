@@ -2,25 +2,18 @@ import { ChartType } from '../../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
-	readEntry,
-	listEntries,
 	assert,
 	assertIncludes,
 	assertNotIncludes,
 	firstXmlBlock,
 } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // a chart's `dataLabelFormatCode` / `valLabelFormatCode` renders in
 // LibreOffice but is ignored by PowerPoint and Google Slides (e.g. `0.1` shows instead of `10%`).
 // Root cause: PowerPoint and Google Slides display values using the cached *source* number format in
 // each series' `<c:val><c:numRef><c:numCache><c:formatCode>` — which was hard-coded to "General" — not
 // the `<c:dLbls><c:numFmt>` mask. The fix stamps the resolved value format onto every value numCache.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 // Pull the <c:formatCode> from the first value series cache (c:val for bar/line/pie, c:yVal for scatter).
 function valCacheFormatCode(xml, valTag) {

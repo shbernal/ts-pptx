@@ -15,7 +15,7 @@ async function buildSlide1(pres) {
 // shadow paths hardcoded <a:srgbClr val="..."> and silently emitted invalid OOXML when the
 // shadow color was a scheme color (e.g. "accent1"). These guard that scheme colors now
 // resolve to <a:schemeClr> in the shadow's <a:effectLst>.
-defineRegressionSuite('Shadow scheme colors', 'shadow-consolidation', [
+defineRegressionSuite('Shadow scheme colors [shadow-consolidation]', [
 	{
 		name: 'shape shadow with scheme color emits <a:schemeClr> (not srgbClr) inside effectLst',
 		fn: async () => {

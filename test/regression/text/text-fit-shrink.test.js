@@ -4,7 +4,7 @@ import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert }
 // so PowerPoint only shrank text after an edit/resize. The object form bakes explicit
 // fontScale/lnSpcReduction (authored as percent, stored in 1000ths of a percent) into
 // the file so the text renders pre-shrunk.
-defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction)', 'upstream-issue-1199', [
+defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction) [upstream-issue-1199]', [
 	{
 		name: "object 'shrink' emits fontScale + lnSpcReduction in 1000ths of a percent",
 		fn: async () => {

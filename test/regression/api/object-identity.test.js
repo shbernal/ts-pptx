@@ -14,7 +14,7 @@ import {
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-defineRegressionSuite('Object identity', 'legacy bug-21', [
+defineRegressionSuite('Object identity [legacy bug-21]', [
 	{
 		name: 'explicit objectName values are emitted as cNvPr names for slide objects',
 		fn: async () => {

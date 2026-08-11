@@ -4,7 +4,7 @@ import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.j
 // slide has a shape with a title placeholder (<p:ph type="title"/>). A standalone
 // `addText(..., { placeholder: 'title' })` on a blank/default layout must therefore
 // still emit a real <p:ph type="title"/> on its slide shape.
-defineRegressionSuite('Slide title placeholder', 'upstream-issue-1298', [
+defineRegressionSuite('Slide title placeholder [upstream-issue-1298]', [
 	{
 		name: 'standalone title text (no matching layout placeholder) emits <p:ph type="title">',
 		fn: async () => {

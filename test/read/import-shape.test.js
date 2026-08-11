@@ -12,47 +12,21 @@
 // package schema-valid.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { throws, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
+import { assertNoDanglingRels } from './opc.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
-
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
-}
-
-function throws(fn) {
-	try {
-		fn()
-		return false
-	} catch {
-		return true
-	}
-}
-
-/** Every internal relationship of every part resolves to a part that exists (no dangling rels). */
-function assertNoDanglingRels(opc) {
-	for (const partName of opc.parts.keys()) {
-		if (partName.endsWith('.rels')) continue
-		for (const rel of opc.relationshipsFor(partName)) {
-			if (rel.targetMode === 'External') continue
-			const target = opc.relationshipsFor(partName).resolveTarget(rel.id)
-			assert(opc.part(target), `${partName} → ${rel.id} targets an existing part (${target})`)
-		}
-	}
 }
 
 /** Count the package parts whose name matches `re`. */

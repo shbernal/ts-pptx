@@ -13,7 +13,7 @@ async function buildSlide1(pres) {
 // PowerPoint-aligned style props: BorderProps.width (points) and BorderProps.transparency
 // (0-100), plus ShadowProps.transparency (0-100, the value the PPT UI actually shows) —
 // the removed 0.0-1.0 `opacity` had the same role before it was dropped from the public API.
-defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-props', [
+defineRegressionSuite('PPT-aligned border/shadow props [border-shadow-ppt-props]', [
 	{
 		name: 'table cell border `width` emits the correct line w=',
 		fn: async () => {

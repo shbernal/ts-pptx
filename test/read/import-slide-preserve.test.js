@@ -66,22 +66,17 @@
 // validator rejects belongs in the four groups above, not in a test.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
+import { resolveSingle } from './opc.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
@@ -162,13 +157,6 @@ async function deckMixedWithExplicitTitleSize() {
 	)
 	zip.file('ppt/slides/slide1.xml', slide)
 	return zip.generateAsync({ type: 'uint8array' })
-}
-
-/** Resolve the single relationship of `type` owned by `partName`, or null. */
-function resolveSingle(opc, partName, type) {
-	const rels = opc.relationshipsFor(partName)
-	const match = [...rels].find((r) => r.type === type)
-	return match ? rels.resolveTarget(match.id) : null
 }
 
 /** empty.pptx with its master `p:bgRef` switched to an idx below 1000 (the regular `fillStyleLst`, not `bgFillStyleLst`). Returns package bytes. */

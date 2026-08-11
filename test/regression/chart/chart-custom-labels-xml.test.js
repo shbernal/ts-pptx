@@ -1,18 +1,13 @@
 import { ChartType } from '../../../dist/node.js'
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // Characterization test for per-point `customLabels` (makeCustomDLblXml) on a category-axis chart
 // (bar/line/area/radar) — ZERO coverage anywhere: no demo chart sets `customLabels`, so this
 // `<c:dLbl>` shape carries no baseline parts, and no existing regression test exercises it. Pins
 // the byte-level detail the el()/voidEl() migration must preserve: the custom label's `<a:t>` text
 // is escaped (previously a manual encodeXmlEntities call, now centralized via el()'s auto-escaping).
-
-async function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry')
-	return readEntry(zip, path)
-}
 
 describe('chart customLabels (makeCustomDLblXml)', () => {
 	test('per-point customLabels text is escaped and rendered as a c:dLbl rich run', async () => {

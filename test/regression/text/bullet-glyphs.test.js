@@ -18,7 +18,7 @@ function firstPPr(xml) {
 	return m[0]
 }
 
-defineRegressionSuite('Bullet glyph normalization', 'legacy bug-09', [
+defineRegressionSuite('Bullet glyph normalization [legacy bug-09]', [
 	{
 		name: 'addText("• item",{bullet:true}) strips leading bullet glyph from <a:t> while keeping <a:buChar/>',
 		fn: async () => {

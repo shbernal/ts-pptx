@@ -1,9 +1,13 @@
 import { Presentation, isGroupShape } from '../../../dist/read.js'
-import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+import {
+	PNG_1X1,
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertEqual,
+} from '../../helpers.js'
 
 // Group shapes: slide.addGroup() wraps child objects in a PowerPoint group (<p:grpSp>) with an
 // identity child coordinate space (chOff/chExt == off/ext) at every depth, so children — including
@@ -59,7 +63,7 @@ defineRegressionSuite('Group shapes', [
 				// rect at (1,1) 2x1in; image at (3.5,1) 1x1in -> bbox x=1..4.5in, y=1..2in
 				p.addSlide().addGroup([
 					{ rect: { x: 1, y: 1, w: 2, h: 1 } },
-					{ image: { data: PNG_DATA, x: 3.5, y: 1, w: 1, h: 1 } },
+					{ image: { data: PNG_1X1, x: 3.5, y: 1, w: 1, h: 1 } },
 				])
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -155,7 +159,7 @@ defineRegressionSuite('Group shapes', [
 					s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }])
 					s.addShape('rect', { x: 3, y: 1, w: 1, h: 1 })
 					s.addText('Hi', { x: 5, y: 1, w: 1, h: 1 })
-					s.addImage({ data: PNG_DATA, x: 7, y: 1, w: 1, h: 1 })
+					s.addImage({ data: PNG_1X1, x: 7, y: 1, w: 1, h: 1 })
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {

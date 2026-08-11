@@ -5,7 +5,7 @@ import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.j
 // input names ('image', 'table') - so the `type` attribute was silently
 // dropped for image and table placeholders. The mapping now accepts either
 // the friendly key or the OOXML value and emits the OOXML value.
-defineRegressionSuite('Placeholder type attribute', 'genXmlPlaceholder-type-map', [
+defineRegressionSuite('Placeholder type attribute [genXmlPlaceholder-type-map]', [
 	{
 		name: 'image + table placeholders (OOXML-value form) emit type="pic"/"tbl"',
 		fn: async () => {

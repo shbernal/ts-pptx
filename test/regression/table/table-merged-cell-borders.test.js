@@ -19,7 +19,7 @@ function coveredCellTcPr(xml, mergeAttr) {
 	return m[1]
 }
 
-defineRegressionSuite('Table merged-cell borders', 'upstream-issue-680', [
+defineRegressionSuite('Table merged-cell borders [upstream-issue-680]', [
 	{
 		name: 'colspan/rowspan covered cells inherit the origin cell border and fill',
 		fn: async () => {

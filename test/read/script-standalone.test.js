@@ -18,31 +18,17 @@
 //     fixture. Both are authored through the write API here rather than waited on as fixtures.
 
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { canonicalDeckIr, diffDeckIr, printScript, printStandaloneScript, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { REPO, SCRATCH, SNAPSHOTS, fixtureNames, irFor, readFixture } from './corpus.js'
 
 const run = promisify(execFile)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = path.join(__dirname, 'fixtures')
-const REPO = path.join(__dirname, '..', '..')
-
-// Inside the repo, not the OS temp directory: the emitted script imports this package by its
-// published name, which Node resolves by the self-reference rule only from a path underneath
-// the package root. `/.tmp/` is gitignored.
-const SCRATCH = path.join(REPO, '.tmp')
-
-const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
-
-async function irFor(name) {
-	return readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-}
 
 /**
  * Lay a standalone script out on disk, run it, and read back what it produced.
@@ -97,32 +83,28 @@ function shapeNames(shapes, out = []) {
 }
 
 describe('standalone printer — corpus invariants', () => {
-	test('every fixture prints, and prints identically twice', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			const first = printStandaloneScript(ir)
-			const second = printStandaloneScript(ir)
-			assert(first.code.length > 0, `${name}: printed nothing`)
-			assertEqual(first.code, second.code, `${name}: printing is not deterministic`)
-		}
+	// One case per fixture rather than one loop over all of them, so a printer change that
+	// breaks half the corpus says so instead of reporting the first deck it reached.
+	test.for(fixtureNames)('%s prints, and prints identically twice', async (name) => {
+		const ir = await irFor(name)
+		const first = printStandaloneScript(ir)
+		const second = printStandaloneScript(ir)
+		assert(first.code.length > 0, `${name}: printed nothing`)
+		assertEqual(first.code, second.code, `${name}: printing is not deterministic`)
 	})
 
-	test('no printed value is the literal `undefined`', async () => {
-		for (const name of fixtureNames) {
-			const { code } = printStandaloneScript(await irFor(name))
-			const offender = code.split('\n').find((line) => /(?<![A-Za-z0-9_$])undefined(?![A-Za-z0-9_$])/.test(line))
-			assertEqual(offender, undefined, `${name}: printed an \`undefined\``)
-		}
+	test.for(fixtureNames)('%s prints no value as the literal `undefined`', async (name) => {
+		const { code } = printStandaloneScript(await irFor(name))
+		const offender = code.split('\n').find((line) => /(?<![A-Za-z0-9_$])undefined(?![A-Za-z0-9_$])/.test(line))
+		assertEqual(offender, undefined, `${name}: printed an \`undefined\``)
 	})
 
-	test('nothing in the emitted script refers to a template', async () => {
+	test.for(fixtureNames)('%s prints nothing that refers to a template', async (name) => {
 		// The tier's defining claim. A stray `fromTemplate`, `Presentation` import or
 		// `template.pptx` path would make the script need the file it is meant to replace.
-		for (const name of fixtureNames) {
-			const { code } = printStandaloneScript(await irFor(name))
-			for (const banned of ['fromTemplate', 'template.pptx', 'appendSlides', 'importSlide']) {
-				assert(!code.includes(banned), `${name}: standalone output mentions ${banned}`)
-			}
+		const { code } = printStandaloneScript(await irFor(name))
+		for (const banned of ['fromTemplate', 'template.pptx', 'appendSlides', 'importSlide']) {
+			assert(!code.includes(banned), `${name}: standalone output mentions ${banned}`)
 		}
 	})
 
@@ -135,18 +117,16 @@ describe('standalone printer — corpus invariants', () => {
 		assert(!code.includes(`${manifest.name}/read`), 'a standalone script must not import the read half')
 	})
 
-	test('every master title is unique, because it is also the binding key', async () => {
+	test.for(fixtureNames)('%s gives every master a unique title, because it is also the binding key', async (name) => {
 		// `addSlide({ masterTitle })` resolves by title, and `defineSlideMaster` happily accepts a
 		// duplicate, so two same-named layouts would silently send both slides to whichever won.
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			const titles = ir.chrome.masters.map((master) => master.props.title)
-			assertEqual(new Set(titles).size, titles.length, `${name}: duplicate master titles ${titles.join(', ')}`)
-			for (const slide of ir.slides) {
-				if (slide.layout === null) continue
-				const master = ir.chrome.masters.find((entry) => entry.layoutIndex === slide.layout.index)
-				assert(master !== undefined, `${name}: slide ${slide.number} binds to a layout with no master`)
-			}
+		const ir = await irFor(name)
+		const titles = ir.chrome.masters.map((master) => master.props.title)
+		assertEqual(new Set(titles).size, titles.length, `${name}: duplicate master titles ${titles.join(', ')}`)
+		for (const slide of ir.slides) {
+			if (slide.layout === null) continue
+			const master = ir.chrome.masters.find((entry) => entry.layoutIndex === slide.layout.index)
+			assert(master !== undefined, `${name}: slide ${slide.number} binds to a layout with no master`)
 		}
 	})
 })
@@ -157,7 +137,7 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 	// (measured — three mutations survive there and are covered here instead). Expectations
 	// therefore come from `ts-pptx/read`'s own accessors.
 	test('the theme IR carries the deck’s colour scheme and font faces', async () => {
-		const presentation = await Presentation.load(await readFile(path.join(FIXTURES, 'theme-colors.pptx')))
+		const presentation = await Presentation.load(await readFixture('theme-colors.pptx'))
 		const theme = presentation.masters()[0].theme
 		assert(theme !== null, 'the fixture has a theme to compare against')
 
@@ -171,7 +151,7 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 	})
 
 	test('there is one master per source layout, in gallery order, carrying its background', async () => {
-		const presentation = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const presentation = await Presentation.load(await readFixture('mixed.pptx'))
 		const gallery = presentation.layouts()
 		const { chrome } = readModelToIr(presentation)
 		assertEqual(chrome.masters.length, gallery.length, 'one master per source layout')
@@ -202,7 +182,7 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 		// `read-stress.pptx` is the corpus's only multi-master deck — `multi-theme.pptx`, despite
 		// the name, carries several *themes* under one master.
 		const ir = await irFor('read-stress.pptx')
-		const presentation = await Presentation.load(await readFile(path.join(FIXTURES, 'read-stress.pptx')))
+		const presentation = await Presentation.load(await readFixture('read-stress.pptx'))
 		assert(presentation.masters().length > 1, 'the fixture has more than one master to flatten')
 		assert(
 			ir.fidelity.some((note) => note.construct === 'master.multiple'),
@@ -215,7 +195,7 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 
 describe('standalone printer — the emitted script runs, with no template in reach', () => {
 	test('a plain deck rebuilds its slides, hidden flag, text and layout gallery', async () => {
-		const { output, report } = await runStandalone(await readFile(path.join(FIXTURES, 'hidden.pptx')))
+		const { output, report } = await runStandalone(await readFixture('hidden.pptx'))
 		assertEqual(output.slides.length, 2, 'slide count')
 		assertEqual(output.slides[1].hidden, true, 'slide 2 stays hidden')
 		assert(output.slides[0].shapes.length > 0, 'slide 1 has content')
@@ -223,7 +203,7 @@ describe('standalone printer — the emitted script runs, with no template in re
 	})
 
 	test('the theme reaches the output deck, not just the script text', async () => {
-		const { ir, output } = await runStandalone(await readFile(path.join(FIXTURES, 'theme-colors.pptx')))
+		const { ir, output } = await runStandalone(await readFixture('theme-colors.pptx'))
 		const theme = output.masters()[0].theme
 		assert(theme !== null, 'the output deck has a theme')
 		for (const [slot, hex] of Object.entries(ir.chrome.theme.colorScheme ?? {})) {
@@ -232,7 +212,7 @@ describe('standalone printer — the emitted script runs, with no template in re
 	})
 
 	test('each slide binds to the master its source layout became', async () => {
-		const { ir, outputIr } = await runStandalone(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const { ir, outputIr } = await runStandalone(await readFixture('mixed.pptx'))
 		ir.slides.forEach((slide, index) => {
 			if (slide.layout === null) return
 			const master = ir.chrome.masters.find((entry) => entry.layoutIndex === slide.layout.index)
@@ -243,7 +223,7 @@ describe('standalone printer — the emitted script runs, with no template in re
 	test('a deck whose layout names repeat still binds each slide to its own layout', async () => {
 		// `read-stress.pptx` carries two layouts called "Title and Text", one per master. A title
 		// is the binding key here, so the duplicate has to be suffixed and the slide follow it.
-		const { printed, report } = await runStandalone(await readFile(path.join(FIXTURES, 'read-stress.pptx')))
+		const { printed, report } = await runStandalone(await readFixture('read-stress.pptx'))
 		assert(
 			printed.notes.some((note) => note.construct === 'master.nameCollision'),
 			'the rename is declared'
@@ -317,8 +297,8 @@ describe('standalone printer — cases the fixture corpus does not contain', () 
 
 describe('standalone printer — the fidelity contract', () => {
 	test('every shape missing from the output is named by a `dropped` note', async () => {
-		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
-		const { printed, output } = await runStandalone(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const source = await Presentation.load(await readFixture('mixed.pptx'))
+		const { printed, output } = await runStandalone(await readFixture('mixed.pptx'))
 		const dropped = new Set(
 			printed.notes.filter((note) => note.disposition === 'dropped').map((note) => note.shapeName)
 		)
@@ -367,24 +347,21 @@ describe('standalone printer — printed text', () => {
 	for (const name of ['empty.pptx', 'hidden.pptx']) {
 		test(`${name} prints the same source as last time`, async () => {
 			await expect(printStandaloneScript(await irFor(name)).code).toMatchFileSnapshot(
-				path.join(__dirname, 'snapshots', `${name.replace(/\.pptx$/, '')}.standalone.ts.txt`)
+				path.join(SNAPSHOTS, `${name.replace(/\.pptx$/, '')}.standalone.ts.txt`)
 			)
 		})
 	}
 })
 
-describe('standalone round trip — the corpus', () => {
-	test('every fixture regenerates with no undeclared difference', { timeout: 300_000 }, async () => {
-		const failures = []
-		for (const name of fixtureNames) {
-			const { report } = await runStandalone(await readFile(path.join(FIXTURES, name)))
-			for (const difference of report.undeclared.slice(0, 5)) {
-				failures.push(
-					`${name} slide ${difference.slideNumber} ${difference.shapeName ?? '—'} ` +
-						`${difference.path}: ${difference.expected} → ${difference.actual} [${difference.kind}]`
-				)
-			}
-		}
-		assertEqual(failures.join('\n'), '', 'undeclared round-trip differences')
-	})
-})
+// The whole-corpus tier-A round trip is NOT here. It is `pnpm run script:roundtrip:all`
+// (`scripts/script-roundtrip.mjs --tier a`), which ran the identical comparison — same
+// corpus, same `diffDeckIr`, same fidelity notes as the exclusion list, same failure
+// condition — in `verify:full` and in CI, so every full run did it twice for ~15 s of
+// subprocess work each time.
+//
+// The script is the copy that survived because it is the more capable one: `--fixture` to
+// pin a single deck, `--dir` to point it at a corpus of real decks outside the repo,
+// `--verbose` for per-difference detail, `--json`, and a per-deck table instead of one
+// joined failure string. The cases above are what it *cannot* do — they read the IR against
+// `ts-pptx/read`'s own accessors rather than against the converter, which is the half of
+// this tier the round trip is structurally blind to (see the module header).

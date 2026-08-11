@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assertXmlOrder } from '../../helpers.js'
 
-defineRegressionSuite('Presentation child order', 'legacy bug-20', [
+defineRegressionSuite('Presentation child order [legacy bug-20]', [
 	{
 		name: 'ppt/presentation.xml: notesMasterIdLst appears AFTER sldMasterIdLst',
 		fn: async () => {

@@ -14,7 +14,7 @@ async function buildSlideXml(pres) {
 // slide numbers already map arrays that way. This guards that textboxes agree, i.e. index 0
 // lands on tIns and index 3 on lIns (upstream-pr-1248). Margins are inches (marginToEmu),
 // so inch2Emu(in) = round(in * 914400).
-defineRegressionSuite('Text box margin array order', 'upstream-pr-1248', [
+defineRegressionSuite('Text box margin array order [upstream-pr-1248]', [
 	{
 		name: 'margin [T,R,B,L] maps each value to the correct bodyPr inset',
 		fn: async () => {

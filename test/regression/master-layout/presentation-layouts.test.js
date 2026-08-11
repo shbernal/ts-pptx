@@ -20,7 +20,7 @@ async function assertPresentationSize(buildFn, expected, label) {
 	assert(xml.includes(expectedTag), `${label}: expected presentation size ${expectedTag}, got ${xml}`)
 }
 
-defineRegressionSuite('Presentation layouts', 'legacy bug-22', [
+defineRegressionSuite('Presentation layouts [legacy bug-22]', [
 	{
 		name: 'public unit helpers expose PowerPoint EMU conversions',
 		fn: () => {

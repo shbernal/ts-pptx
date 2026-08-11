@@ -4,7 +4,7 @@ import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.j
 // the user supplies a non-numeric/non-array `margin` (string, plain object,
 // undefined slot, etc).  Falls back to defaults.
 
-defineRegressionSuite('Table margins', 'legacy bug-14', [
+defineRegressionSuite('Table margins [legacy bug-14]', [
 	{
 		name: 'cell margin set to a string falls back to defaults (no NaN)',
 		fn: async () => {

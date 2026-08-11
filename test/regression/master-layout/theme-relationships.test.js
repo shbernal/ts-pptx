@@ -9,7 +9,7 @@ import {
 	assertNotIncludes,
 } from '../../helpers.js'
 
-defineRegressionSuite('Theme relationships', 'legacy bug-15', [
+defineRegressionSuite('Theme relationships [legacy bug-15]', [
 	{
 		name: 'ppt/theme/theme2.xml is present in archive',
 		fn: async () => {

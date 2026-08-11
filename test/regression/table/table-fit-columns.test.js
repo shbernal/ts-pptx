@@ -10,7 +10,7 @@ const EMU = 914400
 const gridColsEmu = (xml) => [...xml.matchAll(/<a:gridCol w="(\d+)"\/>/g)].map((m) => Number(m[1]))
 const sumEmu = (cols) => cols.reduce((a, b) => a + b, 0)
 
-defineRegressionSuite('Table fitColumns shrink-to-fit', 'upstream-issue-1451', [
+defineRegressionSuite('Table fitColumns shrink-to-fit [upstream-issue-1451]', [
 	{
 		name: 'without fitColumns, an over-wide colW array overflows the slide (opt-in guard)',
 		fn: async () => {

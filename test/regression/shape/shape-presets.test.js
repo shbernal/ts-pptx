@@ -9,7 +9,7 @@ import {
 	assertXmlOrder,
 } from '../../helpers.js'
 
-defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
+defineRegressionSuite('Shape preset mapping [legacy bug-10]', [
 	{
 		name: 'addShape("oval", ...) emits prst="ellipse" (not invalid "oval")',
 		fn: async () => {

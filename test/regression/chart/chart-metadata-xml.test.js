@@ -1,17 +1,12 @@
 import { ChartType } from '../../../dist/node.js'
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // Characterization test for the chart `metadata` extLst that the byte-identity harness CANNOT see —
 // the demo deck never sets chart `metadata`, so `<c:extLst>`/`<pgm:item>` carry ZERO baseline parts.
 // Pins the byte-level detail the el()/voidEl() migration must preserve: key/value escaping on
 // `<pgm:item>` (previously manual encodeXmlEntities calls, now centralized via voidEl()'s attrs).
-
-async function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry')
-	return readEntry(zip, path)
-}
 
 const DATA = [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }]
 

@@ -14,7 +14,7 @@ function chartsOrEmbeddingsEntries(zip) {
 	)
 }
 
-defineRegressionSuite('Chart embedding parts', 'legacy bug-17', [
+defineRegressionSuite('Chart embedding parts [legacy bug-17]', [
 	{
 		name: 'empty deck (text-only) does not create ppt/charts or ppt/embeddings dirs',
 		fn: async () => {

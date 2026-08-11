@@ -15,22 +15,17 @@
 // sentinel — proof the colour re-brands rather than baking to the source RGB.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
+import { resolveSingle } from './opc.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
@@ -50,13 +45,6 @@ function countParts(opc, re) {
 /** The XML body of a part as a string (decoded from its bytes). */
 function partText(part) {
 	return new TextDecoder('utf-8').decode(part.bytes)
-}
-
-/** Resolve the single relationship of `type` owned by `partName`, or null. */
-function resolveSingle(opc, partName, type) {
-	const rels = opc.relationshipsFor(partName)
-	const match = [...rels].find((r) => r.type === type)
-	return match ? rels.resolveTarget(match.id) : null
 }
 
 /** The index of the first `mixed` slide that uses scheme colours + a p:style + a clrMapOvr. */

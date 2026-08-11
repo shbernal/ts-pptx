@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build, readEntry, listEntries } from '../../helpers.js'
+import { chartExPath } from './chart-parts.js'
 
 // Funnel is the second chartEx (cx:) chart type, landing on the subsystem waterfall introduced.
 // This pins the parts that are SPECIFIC to funnel (and were confirmed against a chart PowerPoint
@@ -18,12 +19,6 @@ const DATA = [
 		values: [5000, 4000, 3000, 1000, 250],
 	},
 ]
-
-function chartExPath(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chartEx\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartExN.xml entry')
-	return path
-}
 
 async function buildFunnel(extra = {}) {
 	return build((p) => {

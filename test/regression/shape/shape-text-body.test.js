@@ -1,7 +1,7 @@
 import { ShapeType } from '../../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
-defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
+defineRegressionSuite('Shape text bodies [legacy bug-13]', [
 	{
 		name: 'textless addShape emits <p:sp> containing <p:txBody>',
 		fn: async () => {

@@ -17,30 +17,16 @@
 // shape of check the full round-trip harness will apply field-by-field.
 
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import { Presentation, isGraphicFrame } from '../../dist/read.js'
 import { printScript, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { REPO, SCRATCH, fixtureNames, irFor, readFixture } from './corpus.js'
 
 const run = promisify(execFile)
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = path.join(__dirname, 'fixtures')
-const REPO = path.join(__dirname, '..', '..')
-
-// Inside the repo, not the OS temp directory, and deliberately so: the emitted script
-// imports this package by its published name, which resolves only from a path underneath
-// the package root (Node's self-reference rule). `/.tmp/` is gitignored.
-const SCRATCH = path.join(REPO, '.tmp')
-
-const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
-
-async function irFor(name) {
-	return readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-}
 
 /** Every shape name on a slide, descending into groups. */
 function shapeNames(shapes, out = []) {
@@ -62,7 +48,7 @@ async function runPrinted(fixtureName, options = {}) {
 	await mkdir(SCRATCH, { recursive: true })
 	const dir = await mkdtemp(path.join(SCRATCH, 'script-print-'))
 	try {
-		const bytes = await readFile(path.join(FIXTURES, fixtureName))
+		const bytes = await readFixture(fixtureName)
 		const printed = printScript(readModelToIr(await Presentation.load(bytes)), options)
 
 		await writeFile(path.join(dir, 'script.ts'), printed.code)
@@ -82,36 +68,32 @@ async function runPrinted(fixtureName, options = {}) {
 }
 
 describe('script printer — corpus invariants', () => {
-	test('every fixture prints, and prints identically twice', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			const first = printScript(ir)
-			const second = printScript(ir)
-			assert(first.code.length > 0, `${name}: printed nothing`)
-			assertEqual(first.code, second.code, `${name}: printing is not deterministic`)
-		}
+	// One case per fixture rather than one loop over all of them, so a printer change that
+	// breaks half the corpus says so instead of reporting the first deck it reached.
+	test.for(fixtureNames)('%s prints, and prints identically twice', async (name) => {
+		const ir = await irFor(name)
+		const first = printScript(ir)
+		const second = printScript(ir)
+		assert(first.code.length > 0, `${name}: printed nothing`)
+		assertEqual(first.code, second.code, `${name}: printing is not deterministic`)
 	})
 
-	test('no printed value is the literal `undefined`', async () => {
+	test.for(fixtureNames)('%s prints no value as the literal `undefined`', async (name) => {
 		// The IR forbids `undefined` so that "absent" has one spelling. If one ever leaks in,
 		// it prints as a bare identifier and the script throws or silently passes garbage.
-		for (const name of fixtureNames) {
-			const { code } = printScript(await irFor(name))
-			const offender = code.split('\n').find((line) => /(?<![A-Za-z0-9_$])undefined(?![A-Za-z0-9_$])/.test(line))
-			assertEqual(offender, undefined, `${name}: printed an \`undefined\``)
-		}
+		const { code } = printScript(await irFor(name))
+		const offender = code.split('\n').find((line) => /(?<![A-Za-z0-9_$])undefined(?![A-Za-z0-9_$])/.test(line))
+		assertEqual(offender, undefined, `${name}: printed an \`undefined\``)
 	})
 
-	test('every asset reference resolves to a declared binding', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			const { code, assets } = printScript(ir)
-			assertEqual(assets.size, ir.assets.length, `${name}: asset count`)
-			for (const asset of ir.assets) {
-				const identifier = asset.name.replace(/\.[^.]*$/, '')
-				assert(code.includes(`const ${identifier} = `), `${name}: no binding for ${asset.name}`)
-				assert(code.includes(`data: ${identifier}`), `${name}: ${asset.name} is declared but never used`)
-			}
+	test.for(fixtureNames)('%s resolves every asset reference to a declared binding', async (name) => {
+		const ir = await irFor(name)
+		const { code, assets } = printScript(ir)
+		assertEqual(assets.size, ir.assets.length, `${name}: asset count`)
+		for (const asset of ir.assets) {
+			const identifier = asset.name.replace(/\.[^.]*$/, '')
+			assert(code.includes(`const ${identifier} = `), `${name}: no binding for ${asset.name}`)
+			assert(code.includes(`data: ${identifier}`), `${name}: ${asset.name} is declared but never used`)
 		}
 	})
 
@@ -145,7 +127,7 @@ describe('script printer — the emitted script runs', () => {
 	test('connectors keep their endpoints, including the flipped diagonal', async () => {
 		// OOXML gives a connector a box plus flip flags; addConnector takes two points. Get the
 		// flips wrong and every up-or-leftward connector is silently mirrored.
-		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const source = await Presentation.load(await readFixture('mixed.pptx'))
 		const { output } = await runPrinted('mixed.pptx')
 		const connectorsOf = (pres) =>
 			pres.slides
@@ -191,7 +173,7 @@ describe('script printer — the emitted script runs', () => {
 		const dir = await mkdtemp(path.join(SCRATCH, 'script-print-'))
 		try {
 			await writeFile(path.join(dir, 'script.ts'), printScript(ir).code)
-			await writeFile(path.join(dir, 'template.pptx'), await readFile(path.join(FIXTURES, 'empty.pptx')))
+			await writeFile(path.join(dir, 'template.pptx'), await readFixture('empty.pptx'))
 			await run(process.execPath, ['--no-warnings', path.join(dir, 'script.ts')])
 			const output = await Presentation.load(await readFile(path.join(dir, 'output.pptx')))
 
@@ -212,7 +194,7 @@ describe('script printer — the fidelity contract', () => {
 		// The contract in one assertion: a note is a promise that a construct will not come
 		// back, so anything that fails to come back without one is a defect. Run over the
 		// richest fixture, which drops shapes for four different reasons.
-		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const source = await Presentation.load(await readFixture('mixed.pptx'))
 		const { printed, output } = await runPrinted('mixed.pptx')
 		const dropped = new Set(
 			printed.notes.filter((note) => note.disposition === 'dropped').map((note) => note.shapeName)

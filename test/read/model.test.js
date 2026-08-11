@@ -6,17 +6,10 @@
 // from the live DOM. No mutation here (that is Phase 3).
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import { Presentation, isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
+import { fixturePath } from './corpus.js'
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))

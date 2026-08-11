@@ -1,17 +1,13 @@
 import { writeFileSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
 // addImage() previously fell back to a 1in x 1in square whenever `w`/`h` were omitted, which
 // squished every dimensionless image into the wrong aspect ratio. For base64
 // `data` images the bytes are in hand, so we read the natural pixel size synchronously and
 // default the missing dimension(s) from it. PowerPoint inserts raster images at 96 DPI, so
 // natural pixels / 96 == inches, and inches * 914400 == EMU (the units in the emitted <a:ext>).
-
-// 1x1 transparent PNG → natural size 1x1 px → 1/96in → 9525 EMU per side.
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 // Minimal 4x2 (ratio 2:1) raster headers, one per supported format. Only the dimension header
 // bytes are meaningful — the parser reads headers, never pixel data. 4px/96 → 38100 EMU,
@@ -108,7 +104,7 @@ defineRegressionSuite('Image intrinsic-size defaults', [
 		// Neither w nor h: square 1x1 image must emit its natural 9525x9525 EMU box, not 1in.
 		name: 'no w/h: data image defaults to its natural pixel size (square)',
 		fn: async () => {
-			const r = await extFor({ data: PNG_1x1, x: 1, y: 1 })
+			const r = await extFor({ data: PNG_1X1, x: 1, y: 1 })
 			assert(r.cx === 9525 && r.cy === 9525, `expected cx=9525 cy=9525; got ${JSON.stringify(r)}`)
 		},
 	},

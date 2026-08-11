@@ -1,8 +1,4 @@
-import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+import { PNG_1X1, setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
 // Object lock flags (upstream-issue-438): user-facing spLocks / picLocks /
 // graphicFrameLocks. Each flag maps 1:1 to the OOXML attribute of the same name;
@@ -67,7 +63,7 @@ defineRegressionSuite('Object locks', [
 		name: 'image defaults to picLocks noChangeAspect="1" (output unchanged)',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addImage({ data: PNG_DATA, x: 1, y: 1, w: 2, h: 2 })
+				p.addSlide().addImage({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:picLocks noChangeAspect="1"\/>/.test(xml), 'expected default picLocks noChangeAspect; got: ' + xml)
@@ -78,7 +74,7 @@ defineRegressionSuite('Object locks', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addImage({
-					data: PNG_DATA,
+					data: PNG_1X1,
 					x: 1,
 					y: 1,
 					w: 2,

@@ -7,7 +7,7 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 //
 // Reproduces upstream-pr-1391 / upstream-issue-1231.
 
-defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
+defineRegressionSuite('Table autoPage rowspan [upstream-pr-1391]', [
 	{
 		name: 'rows under an active rowspan are kept on the same slide as the span anchor',
 		fn: async () => {

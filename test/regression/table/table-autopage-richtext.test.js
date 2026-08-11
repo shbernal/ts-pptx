@@ -7,7 +7,7 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 //
 // Reproduces upstream-pr-1237.
 
-defineRegressionSuite('Table autoPage rich-text line wrapping', 'upstream-pr-1237', [
+defineRegressionSuite('Table autoPage rich-text line wrapping [upstream-pr-1237]', [
 	{
 		name: 'two styled runs that fit on one line must not create a spurious slide break',
 		fn: async () => {

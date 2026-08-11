@@ -1,5 +1,5 @@
 import TsPptx from '../../../dist/node.js'
-import { defineRegressionSuite, assert } from '../../helpers.js'
+import { PNG_1X1_DATA_URI, defineRegressionSuite, assert } from '../../helpers.js'
 
 // Exports previously defaulted to STORE (and the typed-output `write()` branch
 // ignored `compression` entirely), producing packages several times larger than
@@ -38,13 +38,9 @@ function localHeaderEntries(buf) {
 	return entries
 }
 
-// 1x1 PNG (already entropy-coded; DEFLATE buys nothing).
-const PNG_1x1 =
-	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
-
 async function buildPresWithImage() {
 	const pres = new TsPptx()
-	pres.addSlide().addImage({ data: PNG_1x1, x: 1, y: 1, w: 1, h: 1 })
+	pres.addSlide().addImage({ data: PNG_1X1_DATA_URI, x: 1, y: 1, w: 1, h: 1 })
 	return pres
 }
 

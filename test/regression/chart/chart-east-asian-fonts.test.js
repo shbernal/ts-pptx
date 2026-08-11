@@ -1,5 +1,6 @@
 import { ChartType } from '../../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../../helpers.js'
+import { defineRegressionSuite, build, assertIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // chart title, legend, and axis/category label font settings did not
 // take effect for Chinese (and other East Asian) text, most visibly on PowerPoint for Mac.
@@ -7,12 +8,6 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert, assertInc
 // only to the script class of its element — `<a:latin>` covers Latin/ASCII, `<a:ea>` East Asian, `<a:cs>`
 // complex scripts — so East Asian glyphs fell back to the theme font. The fix stamps the requested
 // typeface onto all three (`<a:latin>/<a:ea>/<a:cs>`), which is what choosing a font in PowerPoint does.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 // Assert the latin/ea/cs trio is present for a given typeface.
 function assertFontTrio(xml, face, label) {

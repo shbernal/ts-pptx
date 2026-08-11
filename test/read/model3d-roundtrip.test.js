@@ -16,8 +16,9 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation, OpcPackage } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
@@ -25,10 +26,6 @@ const validatorInstalled = await validatorAvailable()
 const MODEL3D_REL = 'http://schemas.microsoft.com/office/2017/06/relationships/model3d'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const AM3D_NS = 'http://schemas.microsoft.com/office/drawing/2017/model3d'
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function partBodies(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
@@ -38,10 +35,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a && b && a.length === b.length && a.every((value, index) => value === b[index])
 }
 
 function text(bodies, name) {

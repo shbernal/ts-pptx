@@ -5,25 +5,19 @@
 // reserialize from their DOM and stay schema-valid.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ContentTypes, OpcPackage, Relationships, resolveRelativePartName, relsPartNameFor } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURES = ['empty', 'textbox', 'image', 'table', 'mixed']
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 
 const validatorInstalled = await validatorAvailable()
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function loadFixture(name) {
 	return readFile(fixturePath(name))
@@ -37,10 +31,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a.length === b.length && a.every((value, index) => value === b[index])
 }
 
 for (const name of FIXTURES) {

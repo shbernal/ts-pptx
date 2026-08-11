@@ -6,20 +6,14 @@
 // slide part, survive a save → reopen round-trip, and stay schema-valid.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
@@ -60,10 +54,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a.length === b.length && a.every((value, index) => value === b[index])
 }
 
 describe('Table read model', () => {

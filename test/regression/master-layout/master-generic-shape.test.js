@@ -9,7 +9,7 @@ async function layoutXmlMatching(zip, re) {
 	return null
 }
 
-defineRegressionSuite('Slide master generic shape object', 'issue-776', [
+defineRegressionSuite('Slide master generic shape object [issue-776]', [
 	{
 		name: 'master { shape: { type:"ellipse", options } } emits <a:prstGeom prst="ellipse"> in a layout',
 		fn: async () => {

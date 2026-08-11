@@ -11,7 +11,7 @@ async function buildSlide1(pres) {
 	return entry.async('string')
 }
 
-defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
+defineRegressionSuite('Hash-prefixed colors [legacy bug-07]', [
 	{
 		name: 'shape fill with "#FF0000" emits val="FF0000" (no leading hash)',
 		fn: async () => {

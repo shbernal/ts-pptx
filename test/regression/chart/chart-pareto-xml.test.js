@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build, readEntry, listEntries } from '../../helpers.js'
+import { chartExPath } from './chart-parts.js'
 
 // Pareto is the first MULTI-SERIES chartEx (cx:) layout. Confirmed against a chart PowerPoint
 // authored (`Shapes.AddChart2(-1, 122, …)`) and read back as ChartType 122, the pieces SPECIFIC to
@@ -27,12 +28,6 @@ const DATA = [
 		values: [45, 30, 15, 7, 3],
 	},
 ]
-
-function chartExPath(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chartEx\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartExN.xml entry')
-	return path
-}
 
 async function buildPareto(extra = {}) {
 	return build((p) => {

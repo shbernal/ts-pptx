@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
-defineRegressionSuite('Slide master placeholders', 'legacy bug-18', [
+defineRegressionSuite('Slide master placeholders [legacy bug-18]', [
 	{
 		name: 'master with title+body, only title populated → body stub emitted as placeholder (non-empty <a:lstStyle>)',
 		fn: async () => {

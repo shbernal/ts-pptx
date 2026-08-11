@@ -15,8 +15,10 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { bytesEqual, PNG_1X1, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
+import { fixturePath } from './corpus.js'
+import { resolveSingle } from './opc.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
@@ -31,14 +33,6 @@ const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
-// 1×1 transparent PNG.
-const PNG_1PX =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
-
 async function partBodies(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
 	const bodies = new Map()
@@ -49,10 +43,6 @@ async function partBodies(pptxBytes) {
 	return bodies
 }
 
-function bytesEqual(a, b) {
-	return a && b && a.length === b.length && a.every((value, index) => value === b[index])
-}
-
 async function rejects(fn) {
 	try {
 		await fn()
@@ -60,13 +50,6 @@ async function rejects(fn) {
 	} catch {
 		return true
 	}
-}
-
-function resolveSingle(opc, partName, type) {
-	const rels = opc.relationshipsFor(partName)
-	const matches = [...rels].filter((rel) => rel.type === type)
-	if (matches.length === 0) return null
-	return rels.resolveTarget(matches[0].id)
 }
 
 /** Resolve the absolute target a single `rId` points at, or `null`. */
@@ -108,7 +91,7 @@ describe('Presentation.appendSlides', () => {
 		const pptx = wideGenerator()
 		const slide = pptx.addSlide()
 		slide.addText('hello append', { x: 1, y: 1, w: 6, h: 1, color: 'FF0000' })
-		slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
+		slide.addImage({ data: PNG_1X1, x: 1, y: 3, w: 1, h: 1 })
 
 		const added = await pres.appendSlides(pptx, { layout: 'Blank' })
 		assertEqual(added.length, 1, 'one slide was appended')
@@ -182,7 +165,7 @@ describe('Presentation.appendSlides', () => {
 			const pptx = wideGenerator()
 			const slide = pptx.addSlide()
 			slide.addText('valid', { x: 1, y: 1, w: 6, h: 1, color: '0000FF', hyperlink: { slide: 2 } })
-			slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
+			slide.addImage({ data: PNG_1X1, x: 1, y: 3, w: 1, h: 1 })
 			slide.addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
 				type: ChartType.bar,
 				x: 7,
@@ -355,7 +338,7 @@ describe('Presentation.appendSlides', () => {
 		const pres = await Presentation.load(originalBytes)
 
 		const pptx = wideGenerator()
-		pptx.addSlide().addMedia({ type: 'online', link, cover: PNG_1PX, x: 1, y: 1, w: 4, h: 3 })
+		pptx.addSlide().addMedia({ type: 'online', link, cover: PNG_1X1, x: 1, y: 1, w: 4, h: 3 })
 
 		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
 		const out = await pres.save()
@@ -414,7 +397,7 @@ describe('Presentation.appendSlides', () => {
 		const pptx = wideGenerator()
 		pptx
 			.addSlide()
-			.addMedia({ type: 'online', link: 'https://example.com/v.mp4', cover: PNG_1PX, x: 1, y: 1, w: 4, h: 3 })
+			.addMedia({ type: 'online', link: 'https://example.com/v.mp4', cover: PNG_1X1, x: 1, y: 1, w: 4, h: 3 })
 		await pres.appendSlides(pptx, { layout: 'Blank' })
 
 		const errors = await validateBuf(Buffer.from(await pres.save()))
@@ -519,7 +502,7 @@ describe('Presentation.appendSlides', () => {
 		const pptx = wideGenerator()
 		const slide = pptx.addSlide()
 		slide.addText([{ text: 'link', options: { hyperlink: { url: LINK } } }], { x: 1, y: 1, w: 6, h: 1 })
-		slide.addMedia({ type: 'online', link: VIDEO, cover: PNG_1PX, x: 1, y: 3, w: 4, h: 3 })
+		slide.addMedia({ type: 'online', link: VIDEO, cover: PNG_1X1, x: 1, y: 3, w: 4, h: 3 })
 
 		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
 		const reopened = await Presentation.load(await pres.save())

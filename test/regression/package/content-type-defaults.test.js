@@ -86,7 +86,7 @@ function assertNoDefaults(xml, extensions) {
 	for (const extension of extensions) assertNoContentTypeDefault(xml, extension)
 }
 
-defineRegressionSuite('Content type defaults', 'legacy bug-16', [
+defineRegressionSuite('Content type defaults [legacy bug-16]', [
 	{
 		name: 'PNG-only deck emits png Default but not jpeg/jpg/svg/gif/m4v/mp4/vml/xlsx',
 		fn: async () => {

@@ -1,13 +1,6 @@
 import { ChartType } from '../../../dist/node.js'
-import {
-	defineRegressionSuite,
-	build,
-	readEntry,
-	listEntries,
-	assert,
-	assertIncludes,
-	assertNotIncludes,
-} from '../../helpers.js'
+import { defineRegressionSuite, build, assert, assertIncludes, assertNotIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // Scatter data labels (`showLabel` + `dataLabelFormatScatter`) drive a large,
 // otherwise-uncovered block of gen-charts. The three formats emit structurally
@@ -18,12 +11,6 @@ import {
 //   - 'XY'       → a single chart-level `<c:dLbls>` with showVal/showCatName toggled on
 // These are locked here as regression contracts so the scatter-label emission
 // cannot silently change shape.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 const XY_SERIES = [
 	{ name: 'X-Axis', values: [1, 2, 3] },

@@ -13,7 +13,7 @@ async function buildSlideXml(pres) {
 // `textWarp` maps to <a:prstTxWarp prst=".."> inside <a:bodyPr>. Per
 // CT_TextBodyProperties the warp child must come BEFORE the autofit group
 // (spAutoFit/normAutofit), so guard both presence and ordering.
-defineRegressionSuite('Preset text warp (prstTxWarp)', 'usages-transverses-textArchUp', [
+defineRegressionSuite('Preset text warp (prstTxWarp) [usages-transverses-textArchUp]', [
 	{
 		name: 'textWarp emits <a:prstTxWarp> with the requested preset',
 		fn: async () => {

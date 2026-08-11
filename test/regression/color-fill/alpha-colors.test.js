@@ -16,7 +16,7 @@ function alphaPct(hex) {
 	return Math.round((parseInt(hex, 16) / 255) * 100000)
 }
 
-defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
+defineRegressionSuite('Alpha channel colors [legacy bug-08]', [
 	{
 		name: 'fill color "00000020" splits to val="000000" + <a:alpha val="12549"/>',
 		fn: async () => {

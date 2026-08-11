@@ -8,7 +8,7 @@ async function getPPr(zip) {
 	return { xml, ppr: m[0] }
 }
 
-defineRegressionSuite('Bullet option serialization', 'legacy bug-19', [
+defineRegressionSuite('Bullet option serialization [legacy bug-19]', [
 	{
 		name: 'bullet:{type:"bullet"} emits default <a:buChar/> with marL/indent (was silently swallowed)',
 		fn: async () => {

@@ -2,11 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
-
-// 1x1 transparent PNG
-const PNG_DATA =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+import { PNG_1X1, defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
 
 const SVG_MARKUP =
 	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" data-marker="svg-source"><circle cx="12" cy="12" r="10"/></svg>'
@@ -91,7 +87,7 @@ defineRegressionSuite('Image svg source', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addImage({ data: PNG_DATA, svg: SVG_MARKUP, x: 1, y: 1, w: 1, h: 1 })
+				s.addImage({ data: PNG_1X1, svg: SVG_MARKUP, x: 1, y: 1, w: 1, h: 1 })
 			})
 			assert(!svgEntry(zip), 'svg should be ignored when data is provided; got an svg part')
 		},

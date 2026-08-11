@@ -8,25 +8,20 @@
 // appendSlides() and saved, reusing the template's chrome verbatim.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import JSZip from 'jszip'
+import { fixturePath } from './corpus.js'
+import { resolveSingle } from './opc.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const PRESENTATION_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 const TEMPLATE_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', name)
-}
 
 async function partBodies(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
@@ -36,17 +31,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a && b && a.length === b.length && a.every((value, index) => value === b[index])
-}
-
-function resolveSingle(opc, partName, type) {
-	const rels = opc.relationshipsFor(partName)
-	const matches = [...rels].filter((rel) => rel.type === type)
-	if (matches.length === 0) return null
-	return rels.resolveTarget(matches[0].id)
 }
 
 /** True for parts that are shared deck chrome (master/layout/theme). */

@@ -6,7 +6,7 @@ import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.j
 //
 // Reproduces upstream-issue-1405.
 
-defineRegressionSuite('Table autoPage section preservation', 'upstream-issue-1405', [
+defineRegressionSuite('Table autoPage section preservation [upstream-issue-1405]', [
 	{
 		name: 'overflow slides stay in the originating slide section, not Default-N',
 		fn: async () => {

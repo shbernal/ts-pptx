@@ -13,36 +13,24 @@
 // see at all (theme line width, embedded media, equations). Each of those was a real bug
 // caught by running this against the corpus rather than by reading the types.
 
-import { readFile, readdir } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import JSZip from 'jszip'
 import { Presentation, isAutoShape } from '../../dist/read.js'
 import { canonicalDeckIr, readModelToIr } from '../../dist/script.js'
-import { assert, assertEqual } from '../helpers.js'
+import { PNG_1X1, assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
+import { fixtureNames, fixturePath, freshIr, irFor, readFixture } from './corpus.js'
 
-/** A 1x1 transparent PNG and a 1x1 SVG; only the blip they produce matters here. */
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+/** A 1x1 SVG; only the blip it produces matters here. */
 const SVG_SQUARE =
 	'image/svg+xml;base64,' +
 	Buffer.from(
 		'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>'
 	).toString('base64')
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = path.join(__dirname, 'fixtures')
-
-const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
-
 /** PowerPoint-authored ground truth for the transition tests: see `deck IR — slide transitions`. */
-const transitionOracle = JSON.parse(await readFile(path.join(FIXTURES, 'slide-transition.oracle.json'), 'utf8'))
-
-async function irFor(name) {
-	return readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-}
+const transitionOracle = JSON.parse(await readFile(fixturePath('slide-transition.oracle.json'), 'utf8'))
 
 /** Every call across every slide, flattened. */
 function allCalls(ir) {
@@ -65,77 +53,72 @@ function* walk(value, trail = '$') {
 }
 
 describe('deck IR — corpus invariants', () => {
-	test('every fixture converts, and produces slides matching the source', async () => {
-		for (const name of fixtureNames) {
-			const source = await Presentation.load(await readFile(path.join(FIXTURES, name)))
-			const ir = await irFor(name)
-			assertEqual(ir.slides.length, source.slides.length, `${name}: slide count`)
-			assertEqual(
-				ir.slides.map((slide) => slide.number).join(','),
-				source.slides.map((_, index) => index + 1).join(','),
-				`${name}: slide numbers are 1-based and contiguous`
-			)
+	// One case per fixture rather than one loop over all of them: a loop stops at the first
+	// offender, so a change that breaks half the corpus reports the same single failure as one
+	// that breaks a single deck, and the fixture name only reaches you inside an assertion
+	// message. The conversions themselves are shared through `irFor`, so the split is free.
+	test.for(fixtureNames)('%s converts, and produces slides matching the source', async (name) => {
+		const source = await Presentation.load(await readFixture(name))
+		const ir = await irFor(name)
+		assertEqual(ir.slides.length, source.slides.length, `${name}: slide count`)
+		assertEqual(
+			ir.slides.map((slide) => slide.number).join(','),
+			source.slides.map((_, index) => index + 1).join(','),
+			`${name}: slide numbers are 1-based and contiguous`
+		)
+	})
+
+	test.for(fixtureNames)('%s produces a JSON-serializable IR, so it can be diffed and cached', async (name) => {
+		const ir = await irFor(name)
+		// Asset bytes are the one non-JSON member and are carried out-of-band by design.
+		const { assets, ...rest } = ir
+		JSON.parse(JSON.stringify(rest))
+		for (const asset of assets) {
+			assert(asset.bytes instanceof Uint8Array, `${name}: asset ${asset.name} carries raw bytes`)
+			assert(asset.name.length > 0 && asset.contentType.length > 0, `${name}: asset is named and typed`)
 		}
 	})
 
-	test('the IR is JSON-serializable, so it can be diffed and cached', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			// Asset bytes are the one non-JSON member and are carried out-of-band by design.
-			const { assets, ...rest } = ir
-			JSON.parse(JSON.stringify(rest))
-			for (const asset of assets) {
-				assert(asset.bytes instanceof Uint8Array, `${name}: asset ${asset.name} carries raw bytes`)
-				assert(asset.name.length > 0 && asset.contentType.length > 0, `${name}: asset is named and typed`)
-			}
+	test.for(fixtureNames)('%s holds no `undefined`, so "absent" has exactly one spelling', async (name) => {
+		for (const [trail, value] of walk(await irFor(name))) {
+			assert(value !== undefined, `${name}: ${trail} is undefined; absent keys must be omitted, not set to undefined`)
 		}
 	})
 
-	test('no value is `undefined`, so "absent" has exactly one spelling', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			for (const [trail, value] of walk(ir)) {
-				assert(value !== undefined, `${name}: ${trail} is undefined; absent keys must be omitted, not set to undefined`)
-			}
-		}
-	})
-
-	test('conversion is deterministic — the same deck twice gives the same IR', async () => {
+	test.for(fixtureNames)('%s converts deterministically — the same deck twice gives the same IR', async (name) => {
 		// Not a formality: asset names are assigned in first-reference order, so any
 		// nondeterminism in the walk would surface here as renamed images.
-		for (const name of fixtureNames) {
-			const [first, second] = [await irFor(name), await irFor(name)]
-			const strip = (ir) =>
-				JSON.stringify({ ...ir, assets: ir.assets.map((a) => [a.name, a.contentType, a.bytes.length]) })
-			assertEqual(strip(second), strip(first), `${name}: two conversions differ`)
+		//
+		// `freshIr`, deliberately: `irFor` memoizes, so it would hand back one object twice and
+		// compare it against itself. Two conversions is the whole assertion.
+		const [first, second] = [await freshIr(name), await freshIr(name)]
+		const strip = (ir) =>
+			JSON.stringify({ ...ir, assets: ir.assets.map((a) => [a.name, a.contentType, a.bytes.length]) })
+		assertEqual(strip(second), strip(first), `${name}: two conversions differ`)
+	})
+
+	// These counts were once copied from the same wrong belief the mapper held — `addChart`
+	// was listed as 3 because the code passed the chart type positionally, so the test
+	// confirmed the bug instead of catching it. They are transcribed from the `Slide`
+	// interface in `src/types/slide.ts`; check them there, not against the mapper.
+	const arity = { addText: 2, addShape: 2, addImage: 1, addTable: 2, addChart: 2, addConnector: 1, addGroup: 2 }
+
+	test.for(fixtureNames)('%s calls only real write-API methods, with their arguments', async (name) => {
+		for (const call of allCalls(await irFor(name))) {
+			assert(call.method in arity, `${name}: unknown method ${call.method}`)
+			assertEqual(call.args.length, arity[call.method], `${name}: ${call.method} argument count`)
 		}
 	})
 
-	test('every call names a real write-API method and carries its arguments', async () => {
-		// These counts were once copied from the same wrong belief the mapper held — `addChart`
-		// was listed as 3 because the code passed the chart type positionally, so the test
-		// confirmed the bug instead of catching it. They are transcribed from the `Slide`
-		// interface in `src/types/slide.ts`; check them there, not against the mapper.
-		const arity = { addText: 2, addShape: 2, addImage: 1, addTable: 2, addChart: 2, addConnector: 1, addGroup: 2 }
-		for (const name of fixtureNames) {
-			for (const call of allCalls(await irFor(name))) {
-				assert(call.method in arity, `${name}: unknown method ${call.method}`)
-				assertEqual(call.args.length, arity[call.method], `${name}: ${call.method} argument count`)
-			}
-		}
-	})
-
-	test('every fidelity note is fully populated and names a cause', async () => {
-		for (const name of fixtureNames) {
-			for (const note of (await irFor(name)).fidelity) {
-				assert(
-					['dropped', 'flattened', 'approximated'].includes(note.disposition),
-					`${name}: ${note.construct} has disposition ${note.disposition}`
-				)
-				assert(['unread', 'unwritable', 'unsupported'].includes(note.cause), `${name}: ${note.construct} cause`)
-				assert(/^[a-z][A-Za-z]*(\.[a-zA-Z]+)+$/.test(note.construct), `${name}: ${note.construct} is not a dotted key`)
-				assert(note.detail.length > 20, `${name}: ${note.construct} detail is too thin to act on`)
-			}
+	test.for(fixtureNames)('%s fully populates every fidelity note, and names a cause', async (name) => {
+		for (const note of (await irFor(name)).fidelity) {
+			assert(
+				['dropped', 'flattened', 'approximated'].includes(note.disposition),
+				`${name}: ${note.construct} has disposition ${note.disposition}`
+			)
+			assert(['unread', 'unwritable', 'unsupported'].includes(note.cause), `${name}: ${note.construct} cause`)
+			assert(/^[a-z][A-Za-z]*(\.[a-zA-Z]+)+$/.test(note.construct), `${name}: ${note.construct} is not a dotted key`)
+			assert(note.detail.length > 20, `${name}: ${note.construct} detail is too thin to act on`)
 		}
 	})
 })
@@ -159,7 +142,7 @@ describe('deck IR — geometry', () => {
 	})
 
 	test('custGeom path points land exactly where the source path puts them', async () => {
-		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'custgeom.pptx')))
+		const source = await Presentation.load(await readFixture('custgeom.pptx'))
 		const ir = await irFor('custgeom.pptx')
 		const shapes = allCalls(ir).filter((call) => call.args[0] === 'custGeom')
 		assert(shapes.length > 0, 'custgeom.pptx should produce custGeom shapes')
@@ -187,7 +170,7 @@ describe('deck IR — geometry', () => {
 		// ts-pptx itself writes — sets `a:path/@w` to the shape width, so the scale factor is
 		// 1 and a version that skipped scaling entirely would still pass. Halving the
 		// viewport through the documented raw hatch produces the case that tells them apart.
-		const deck = await Presentation.load(await readFile(path.join(FIXTURES, 'custgeom.pptx')))
+		const deck = await Presentation.load(await readFixture('custgeom.pptx'))
 		const shape = deck.slides
 			.flatMap((slide) => slide.shapes)
 			.filter(isAutoShape)
@@ -222,7 +205,7 @@ describe('deck IR — connectors', () => {
 	const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
 	async function connectorEndpoints({ flipH, flipV }) {
-		const deck = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const deck = await Presentation.load(await readFixture('mixed.pptx'))
 		const shape = deck.slides
 			.flatMap((slide) => slide.shapes)
 			.find((candidate) => candidate.constructor.name === 'Connector')
@@ -267,16 +250,15 @@ describe('deck IR — groups', () => {
 		assert(kinds.includes('group'), `nested group should emit a group child, got ${kinds.join(',')}`)
 	})
 
-	test('group children use the key-tagged GroupChildProps shape', async () => {
-		const allowed = new Set(['image', 'line', 'rect', 'roundRect', 'shape', 'text', 'group'])
-		for (const name of fixtureNames) {
-			for (const call of allCalls(await irFor(name))) {
-				if (call.method !== 'addGroup') continue
-				for (const child of call.args[0]) {
-					const keys = Object.keys(child)
-					assertEqual(keys.length, 1, `${name}: a group child must be a single-key descriptor`)
-					assert(allowed.has(keys[0]), `${name}: ${keys[0]} is not a GroupChildProps variant`)
-				}
+	const groupChildKeys = new Set(['image', 'line', 'rect', 'roundRect', 'shape', 'text', 'group'])
+
+	test.for(fixtureNames)('%s emits key-tagged GroupChildProps for every group child', async (name) => {
+		for (const call of allCalls(await irFor(name))) {
+			if (call.method !== 'addGroup') continue
+			for (const child of call.args[0]) {
+				const keys = Object.keys(child)
+				assertEqual(keys.length, 1, `${name}: a group child must be a single-key descriptor`)
+				assert(groupChildKeys.has(keys[0]), `${name}: ${keys[0]} is not a GroupChildProps variant`)
 			}
 		}
 	})
@@ -553,7 +535,7 @@ describe('deck IR — slide transitions', () => {
 	 * which is exactly the case that needs testing and that no fixture in the corpus contains.
 	 */
 	async function irWithTransitions(specs) {
-		const deck = await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition.pptx')))
+		const deck = await Presentation.load(await readFixture('slide-transition.pptx'))
 		deck.slides.forEach((slide, index) => {
 			slide.transition = specs[index] ?? null
 		})
@@ -734,7 +716,7 @@ describe('deck IR — picture fills', () => {
 		// the read model does not walk. Unwrapping it to the Fallback branch reaches
 		// PowerPoint's own shape XML and its own media relationship; the wrapper is not what
 		// is under test.
-		const buf = await readFile(path.join(FIXTURES, 'math-omml.pptx'))
+		const buf = await readFixture('math-omml.pptx')
 		const zip = await JSZip.loadAsync(buf)
 		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
 		const unwrapped = slideXml.replace(
@@ -763,7 +745,7 @@ describe('deck IR — picture fills', () => {
 				y: 1,
 				w: 3,
 				h: 1,
-				fill: { type: 'image', image: { data: PNG_1x1 }, transparency: 25 },
+				fill: { type: 'image', image: { data: PNG_1X1 }, transparency: 25 },
 			})
 		})
 		const fill = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addText').args[1].fill
@@ -776,7 +758,7 @@ describe('deck IR — picture fills', () => {
 		// `a:alphaModFix` for either — so emitting `transparency: 0` would fail the round trip
 		// against an output that cannot report it back.
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 		})
 		const fill = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addText').args[1].fill
 		assertEqual('transparency' in fill, false, `an opaque fill states no transparency, got ${JSON.stringify(fill)}`)
@@ -784,7 +766,7 @@ describe('deck IR — picture fills', () => {
 
 	test('a fill whose blip embeds nothing is dropped with a note, not emitted unfilled in silence', async () => {
 		const { buf } = await authorRead((pres) => {
-			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 		})
 		const zip = await JSZip.loadAsync(buf)
 		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
@@ -808,7 +790,7 @@ describe('deck IR — picture fills', () => {
 		// asset list becomes an observable answer to "did the converter register them?".
 		const { buf } = await authorRead((pres) => {
 			const slide = pres.addSlide()
-			slide.addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			slide.addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 			slide.addImage({ data: SVG_SQUARE, x: 5, y: 1, w: 1, h: 1 })
 		})
 		const zip = await JSZip.loadAsync(buf)
@@ -833,17 +815,15 @@ describe('deck IR — picture fills', () => {
 })
 
 describe('deck IR — slide sourcing', () => {
-	test('a slide is authored unless something on it has no write-API expression', async () => {
-		for (const name of fixtureNames) {
-			const ir = await irFor(name)
-			for (const slide of ir.slides) {
-				if (slide.source === 'authored') continue
-				assertEqual(slide.calls.length, 0, `${name}: a carried slide must emit no calls`)
-				assert(
-					ir.fidelity.some((note) => note.slideNumber === slide.number && note.construct === 'slide.carried'),
-					`${name}: slide ${slide.number} is carried without a note saying why`
-				)
-			}
+	test.for(fixtureNames)('%s authors every slide unless something on it has no write-API expression', async (name) => {
+		const ir = await irFor(name)
+		for (const slide of ir.slides) {
+			if (slide.source === 'authored') continue
+			assertEqual(slide.calls.length, 0, `${name}: a carried slide must emit no calls`)
+			assert(
+				ir.fidelity.some((note) => note.slideNumber === slide.number && note.construct === 'slide.carried'),
+				`${name}: slide ${slide.number} is carried without a note saying why`
+			)
 		}
 	})
 })

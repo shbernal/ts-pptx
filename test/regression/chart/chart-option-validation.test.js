@@ -1,25 +1,12 @@
 import { ChartType } from '../../../dist/node.js'
-import {
-	defineRegressionSuite,
-	build,
-	readEntry,
-	listEntries,
-	assert,
-	assertIncludes,
-	assertNotIncludes,
-} from '../../helpers.js'
+import { defineRegressionSuite, build, assert, assertIncludes, assertNotIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // addChart normalizes/validates several numeric and enum options before emitting.
 // These branches (clamping an out-of-range line-marker size; dropping invalid
 // gridLine size/style/cap so PowerPoint-invalid values never reach the XML) are
 // exercised here through the public API so the generated chart part proves the
 // scrub actually happened.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 const SERIES = [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }]
 const BASE = { x: 1, y: 1, w: 6, h: 3 }

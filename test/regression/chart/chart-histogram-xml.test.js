@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build, readEntry, listEntries } from '../../helpers.js'
+import { chartExPath } from './chart-parts.js'
 
 // Histogram is the category-less chartEx (cx:) layout. Unlike every other chart, it is fed RAW
 // OBSERVATIONS (a single `values` series, no `labels`) and PowerPoint bins them itself. Confirmed
@@ -19,12 +20,6 @@ const OBS = [
 		values: [55, 62, 68, 71, 72, 74, 75, 77, 78, 78, 80, 81, 82, 83, 85, 86, 88, 90, 92, 95],
 	},
 ]
-
-function chartExPath(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chartEx\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartExN.xml entry')
-	return path
-}
 
 async function buildHistogram(extra = {}) {
 	return build((p) => {

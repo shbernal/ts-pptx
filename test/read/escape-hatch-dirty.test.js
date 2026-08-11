@@ -9,20 +9,13 @@
 // also exposes a public `markDirty()` that makes the edit stick.
 
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ChartType } from '../../dist/node.js'
 import { Presentation, isGraphicFrame } from '../../dist/read.js'
 import { authorRead } from './authored.js'
-import { assert, assertEqual } from '../helpers.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
-}
+import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { fixturePath } from './corpus.js'
 
 async function partBodies(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
@@ -32,10 +25,6 @@ async function partBodies(pptxBytes) {
 		bodies.set(entry.name, await entry.async('uint8array'))
 	}
 	return bodies
-}
-
-function bytesEqual(a, b) {
-	return a.length === b.length && a.every((value, index) => value === b[index])
 }
 
 /**

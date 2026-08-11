@@ -1,13 +1,9 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
 // `cover`/`contain` crop the *source* bitmap, so the emitted `<a:srcRect>` must be derived
 // from the image's NATURAL pixel ratio — not the displayed box (options.w/h). Previously the
 // displayed EMU size was passed as the image size, so whenever display ratio == box ratio the
 // crop collapsed to all-zeros (no crop), squashing the image instead of cover-fitting it.
-
-// 1x1 transparent PNG → natural ratio is 1:1 (square), independent of how it is displayed.
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 // Synthesize a PNG header carrying an arbitrary intrinsic w×h. getImageSizeFromBase64 reads only
 // the IHDR dimension bytes (width@16 / height@20, big-endian), so a 24-byte header is enough to
@@ -61,7 +57,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 		// Natural ratio is 1:1, so cover must crop 12.5% off top and bottom.
 		name: 'cover: square image into wide (4:3) box crops top/bottom from natural ratio',
 		fn: async () => {
-			const r = await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover', w: 4, h: 3 } })
+			const r = await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'cover', w: 4, h: 3 } })
 			assert(
 				r.l === 0 && r.r === 0 && r.t === 12500 && r.b === 12500,
 				`expected l=0 r=0 t=12500 b=12500; got ${JSON.stringify(r)}`
@@ -72,7 +68,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 		// Square image cover-fit into a tall (3:4) box → crop left/right by 12.5%.
 		name: 'cover: square image into tall (3:4) box crops left/right from natural ratio',
 		fn: async () => {
-			const r = await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 3, h: 4, sizing: { type: 'cover', w: 3, h: 4 } })
+			const r = await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 3, h: 4, sizing: { type: 'cover', w: 3, h: 4 } })
 			assert(
 				r.l === 12500 && r.r === 12500 && r.t === 0 && r.b === 0,
 				`expected l=12500 r=12500 t=0 b=0; got ${JSON.stringify(r)}`
@@ -84,7 +80,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 		// left/right (negative srcRect insets) and leaves top/bottom flush.
 		name: 'contain: square image into wide (4:3) box pads left/right (negative inset)',
 		fn: async () => {
-			const r = await srcRectFor({ data: PNG_1x1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'contain', w: 4, h: 3 } })
+			const r = await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 4, h: 3, sizing: { type: 'contain', w: 4, h: 3 } })
 			assert(
 				r.l === -16667 && r.r === -16667 && r.t === 0 && r.b === 0,
 				`expected l=-16667 r=-16667 t=0 b=0; got ${JSON.stringify(r)}`

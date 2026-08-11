@@ -1,25 +1,12 @@
 import { ChartType } from '../../../dist/node.js'
-import {
-	defineRegressionSuite,
-	build,
-	readEntry,
-	listEntries,
-	assert,
-	assertIncludes,
-	assertNotIncludes,
-} from '../../helpers.js'
+import { defineRegressionSuite, build, assert, assertIncludes, assertNotIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // A `bar3d` chart emits a third axis — the series axis (`<c:serAx>`, `makeSerAxis`)
 // — that no other chart type produces. Its title, gridlines, tick-label skip,
 // number format, and time-unit options were entirely uncovered. These cases lock
 // the serAx emission and its input validation (garbage time units warn and are
 // dropped rather than corrupting the chart).
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 /** The `<c:serAx>…</c:serAx>` block (the bar3d series axis). */
 function serAxBlock(xml) {

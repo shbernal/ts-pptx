@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, xmlBlocks, firstXmlBlock } from '../../helpers.js'
+import { PNG_1X1, defineRegressionSuite, build, readEntry, assert, xmlBlocks, firstXmlBlock } from '../../helpers.js'
 
 // Regression (dn-negative-extent-normalization): a negative `w`/`h` must never reach
 // `<a:ext cx>`/`<a:ext cy>`. Both are ST_PositiveCoordinate, so a negative value is out of range and
@@ -99,13 +99,10 @@ defineRegressionSuite('Negative extent normalization', [
 	{
 		name: 'text boxes and images share the normalized placement path',
 		fn: async () => {
-			// 1x1 transparent PNG
-			const png =
-				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 			const xml = await slideXml((p) => {
 				const s = p.addSlide()
 				s.addText('up', { x: 1, y: 4, w: 2, h: -3 })
-				s.addImage({ data: png, x: 5, y: 4, w: -2, h: -1 })
+				s.addImage({ data: PNG_1X1, x: 5, y: 4, w: -2, h: -1 })
 			})
 			const sp = xmlBlocks(xml, 'p:sp')[0]
 			assert(sp.includes(`<a:off x="${IN}" y="${IN}"/>`), `expected text origin at (1in,1in); got: ${sp}`)

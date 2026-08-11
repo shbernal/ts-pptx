@@ -31,7 +31,7 @@ import { describe, test } from 'vitest'
 import JSZip from 'jszip'
 import { Presentation } from '../../dist/read.js'
 import { TableStyle } from '../../dist/node.js'
-import { assert, assertEqual } from '../helpers.js'
+import { PNG_1X1, assert, assertEqual } from '../helpers.js'
 import {
 	authorRead,
 	authorReadWithFixtureStyles,
@@ -42,10 +42,6 @@ import {
 } from './authored.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-// A 1x1 transparent PNG; the fill geometry lives on the blipFill, not the pixels.
-const PNG_1x1 =
-	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function openFixture(name) {
 	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
@@ -191,7 +187,7 @@ describe('AutoShape.pictureFill — p:spPr/a:blipFill (PowerPoint oracle)', () =
 
 	test('a shape image fill authored by the write API reads back', async () => {
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 		})
 		const shape = firstShape(presentation, (s) => s.shapeType === 'autoShape')
 		const fill = shape.pictureFill
@@ -210,7 +206,7 @@ describe('AutoShape.pictureFill — p:spPr/a:blipFill (PowerPoint oracle)', () =
 				y: 1,
 				w: 3,
 				h: 1,
-				fill: { type: 'image', image: { data: PNG_1x1 }, transparency: 25 },
+				fill: { type: 'image', image: { data: PNG_1X1 }, transparency: 25 },
 			})
 		})
 		const fill = firstShape(presentation, (s) => s.shapeType === 'autoShape').pictureFill
@@ -223,7 +219,7 @@ describe('AutoShape.pictureFill — p:spPr/a:blipFill (PowerPoint oracle)', () =
 		// A reader must not throw on a dangling r:embed: `Relationships.resolveTarget`
 		// does, so the decoder checks the id exists before resolving it.
 		const { buf } = await authorRead((pres) => {
-			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
 		})
 		const zip = await JSZip.loadAsync(buf)
 		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
@@ -248,7 +244,7 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 	function styledTable(pres) {
 		pres
 			.addSlide()
-			.addTable([[{ text: 'A', options: { fill: { type: 'image', image: { data: PNG_1x1 } } } }, { text: 'B' }]], {
+			.addTable([[{ text: 'A', options: { fill: { type: 'image', image: { data: PNG_1X1 } } } }, { text: 'B' }]], {
 				x: 1,
 				y: 1,
 				w: 6,
@@ -301,7 +297,7 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 describe('slide background — the image variant carries the full picture fill', () => {
 	test('an authored image background reports geometry alongside relId/partName', async () => {
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().background = { data: PNG_1x1 }
+			pres.addSlide().background = { data: PNG_1X1 }
 		})
 		const bg = presentation.slides[0].background
 		assert(bg.type === 'image', 'image background')

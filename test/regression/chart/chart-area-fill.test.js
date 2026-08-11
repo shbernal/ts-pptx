@@ -1,13 +1,6 @@
 import { ChartType } from '../../../dist/node.js'
-import {
-	defineRegressionSuite,
-	build,
-	readEntry,
-	listEntries,
-	captureDiagnostics,
-	assert,
-	assertEqual,
-} from '../../helpers.js'
+import { defineRegressionSuite, build, captureDiagnostics, assert, assertEqual } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // The fill slot of the two `c:spPr` elements a chart part carries: the plot area's (written by
 // `makeChartPlotAreaPropsXml`) and the chartSpace-level one (STEP 5 of `makeXmlCharts`).
@@ -24,13 +17,6 @@ import {
 // would therefore paint every plot area ever authored a default grey. `isStatedFill` gates on
 // `color || type` for that reason, and the baseline/`{}`/transparency-only cases below are what
 // hold that line.
-
-/** The chart part; charts always land at chart1.xml here since each case builds one. */
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 /**
  * The fill slot of both `c:spPr` elements, as raw XML (`''` when no fill child was emitted).

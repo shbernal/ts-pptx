@@ -7,7 +7,7 @@ import { defineRegressionSuite, build, assertEqual } from '../../helpers.js'
 //
 // Reproduces upstream-issue-1152.
 
-defineRegressionSuite('addSection duplicate-title guard', 'upstream-issue-1152', [
+defineRegressionSuite('addSection duplicate-title guard [upstream-issue-1152]', [
 	{
 		name: 'a duplicate section title is ignored, not appended',
 		fn: async () => {

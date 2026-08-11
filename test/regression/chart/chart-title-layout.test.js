@@ -1,24 +1,11 @@
 import { ChartType } from '../../../dist/node.js'
-import {
-	defineRegressionSuite,
-	build,
-	readEntry,
-	listEntries,
-	assert,
-	assertIncludes,
-	assertNotIncludes,
-} from '../../helpers.js'
+import { defineRegressionSuite, build, assert, assertIncludes, assertNotIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // Chart title layout options (`genXmlTitle`): alignment, rotation, and manual
 // positioning (`titlePos`). `titlePos` emits a `<c:manualLayout>` whose x and y
 // axes are independent — supplying only one of x/y leaves the other on automatic
 // layout (only the provided axis gets an `edge` mode entry).
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 function titleBlock(xml) {
 	const match = xml.match(/<c:title>[\s\S]*?<\/c:title>/)

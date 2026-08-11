@@ -1,4 +1,12 @@
-import { build, listEntries, readEntry, defineRegressionSuite, assert, assertEqual } from '../../helpers.js'
+import {
+	PNG_1X1_DATA_URI,
+	build,
+	listEntries,
+	readEntry,
+	defineRegressionSuite,
+	assert,
+	assertEqual,
+} from '../../helpers.js'
 
 // A background image rel's `Target` is used twice: written into the `.rels` part, and (with
 // `..` swapped for `ppt`) used verbatim as the ZIP entry name. A layout's name comes straight
@@ -8,9 +16,6 @@ import { build, listEntries, readEntry, defineRegressionSuite, assert, assertEqu
 //
 // The byte-identity harness cannot see any of this — the demo deck's master titles happen to
 // contain only safe characters — so these assertions are the only evidence for the fix.
-
-const PNG_1x1 =
-	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 /** Undo the XML escaping a consumer would undo before resolving the target. */
 function unescapeXml(str) {
@@ -34,7 +39,7 @@ function resolveTarget(relsPartName, target) {
 
 async function buildWithMasterTitle(title) {
 	const { zip } = await build((pres) => {
-		pres.defineSlideMaster({ title, background: { data: PNG_1x1 } })
+		pres.defineSlideMaster({ title, background: { data: PNG_1X1_DATA_URI } })
 		pres.addSlide({ masterTitle: title })
 	})
 	const entries = listEntries(zip)

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { build, readEntry, listEntries, assert } from '../../helpers.js'
+import { build, readEntry, listEntries } from '../../helpers.js'
+import { chartExPath } from './chart-parts.js'
 
 // Waterfall is the first chartEx (cx:) chart type. Unlike the classic 2007 charts it emits a
 // SEPARATE part (`ppt/charts/chartExN.xml`) in the Office-2016 chart-extension namespace, gets the
@@ -9,12 +10,6 @@ import { build, readEntry, listEntries, assert } from '../../helpers.js'
 // only an r:id — no `autoUpdate`).
 
 const DATA = [{ name: 'Cash Flow', labels: ['Start', 'Q1', 'Q2', 'Q3', 'End'], values: [100, 40, -30, 20, 130] }]
-
-function chartExPath(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chartEx\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartExN.xml entry')
-	return path
-}
 
 async function buildWaterfall(extra = {}) {
 	return build((p) => {

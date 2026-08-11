@@ -14,13 +14,12 @@
 
 import { ShapeType } from '../../dist/node.js'
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation, AutoShape, GroupShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { fixturePath } from './corpus.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -43,12 +42,6 @@ function shapeFromXml(Kind, local, innerXml) {
 /** A `p:pic` proxy whose blip carries the given recolour child XML. */
 function pictureWithBlipChild(innerXml) {
 	return shapeFromXml(Picture, 'pic', `<p:pic><p:blipFill><a:blip>${innerXml}</a:blip></p:blipFill></p:pic>`)
-}
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-function fixturePath(name) {
-	return path.join(__dirname, 'fixtures', `${name}.pptx`)
 }
 
 async function open(name) {

@@ -32,6 +32,21 @@ by directory (`vitest.config.ts`) because Playwright owns it. It also needs a
 browser download, so it is in neither `verify` nor `verify:full` — run
 `pnpm run test:browser` for it explicitly.
 
+### Shared modules
+
+Anything without `.test.` in the name is a module the suites import, not a suite Vitest
+collects. Reach for one of these before writing your own copy — each exists because the same
+helper had been re-derived in seven to twenty-six files, with the drift that always follows.
+
+| Module | What it holds |
+|---|---|
+| `test/helpers.js` | `build()`, `readEntry()`, the `assert*` family, the XML/content-type probes, `captureDiagnostics()`, `defineRegressionSuite()`, `bytesEqual`, `throws`, and `PNG_1X1` — the 1x1 transparent PNG that had six different names |
+| `test/validator.js` | the OOXML schema validator: `validatorAvailable()`, `validateBuf()`, and the batching that keeps one CLI child per worker |
+| `test/read/corpus.js` | the read fixture corpus — `FIXTURES`, `fixturePath()`, `readFixture()`, `openFixture()`, `SNAPSHOTS`, `SCRATCH`, `REPO`, the enumerated `fixtureNames` (with the floor that stops an empty corpus passing silently), and the memoized `irFor()` / uncached `freshIr()` |
+| `test/read/authored.js` | the write→read fidelity harness: `authorRead()`, the `first*` locators, `schemaErrors()` |
+| `test/read/opc.js` | relationship-graph checks over a loaded package: `resolveSingle()`, `assertNoDanglingRels()` |
+| `test/regression/chart/chart-parts.js` | locating the emitted chart part: `chartXml()`, `chartExPath()`, `chartExXml()` |
+
 ## `src/*.ts` → representative regression tests
 
 Most regression tests import the whole library from `dist/node.js` and assert on
@@ -95,6 +110,7 @@ test.
    the behavior.
 2. Name the new file after the **contract**, not a bug number
    (`slide-master-placeholders.test.js`, not `bug-123.test.js`). Record legacy
-   provenance in the second arg to `defineRegressionSuite()` if relevant.
+   provenance inside the suite name — `defineRegressionSuite('Table margins [legacy bug-14]', …)` —
+   which is where a reporter will show it.
 3. Prefer public-API deck generation + focused package/XML assertions. See
    [docs/testing.md § Regression Suite Layout](../docs/testing.md#regression-suite-layout).

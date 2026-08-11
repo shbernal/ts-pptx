@@ -1,15 +1,10 @@
 import { ChartType } from '../../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../../helpers.js'
+import { defineRegressionSuite, build, assert, assertIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 // bubble charts could not show each bubble's size as a data label.
 // The bubble `sizes` data already flowed into <c:bubbleSize>, but the data-label block hard-coded
 // <c:showBubbleSize val="0"/>. A new `showBubbleSize` chart option now toggles that flag.
-
-function chartXml(zip) {
-	const path = listEntries(zip).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
-	assert(path, 'expected a ppt/charts/chartN.xml entry; got: ' + JSON.stringify(listEntries(zip)))
-	return readEntry(zip, path)
-}
 
 const BUBBLE_DATA = [
 	{ name: 'X-Axis', values: [1, 2, 3, 4] },
