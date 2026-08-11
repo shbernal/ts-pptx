@@ -1,12 +1,12 @@
-# www/ — the site's application code
+# www/ (the site's application code)
 
 `docs/` holds the site's **content**: markdown pages under a frontmatter schema, checked by
 `docs:check` and navigated from `docs.json`. This directory holds the **code that renders
-it** — the VitePress theme, its stylesheet, and the Vue components a page can mount.
+it**: the VitePress theme, its stylesheet, and the Vue components a page can mount.
 
 The split exists because the demos page is a real application: it builds a `.pptx` in the
 tab, reads it back through [`pptx-html`](https://www.npmjs.com/package/pptx-html), and
-paints the result. Putting that inside `docs/` would make `docs/` stop being the docs — a
+paints the result. Putting that inside `docs/` would make `docs/` stop being the docs: a
 tree whose every page is validated by the docs kit is the wrong home for a component with
 a state machine in it.
 
@@ -31,7 +31,7 @@ pnpm run docs:build     # what CI publishes; runs docs:check on both sides of it
 pnpm run typecheck:site # tsc over www/**/*.ts and docs/.vitepress/**
 ```
 
-The `.vue` file's template is **not** typechecked — `tsc` does not read SFCs and this repo
+The `.vue` file's template is **not** typechecked: `tsc` does not read SFCs and this repo
 does not carry `vue-tsc`. That is why every non-trivial line lives in `deck-preview.ts`
 instead: the component is markup plus a handful of assignments, and the part that could be
 wrong is in a file the typechecker reads.

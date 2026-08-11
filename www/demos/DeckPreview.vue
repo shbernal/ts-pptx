@@ -121,7 +121,7 @@ onMounted(() => {
 					{{ download.status === 'saving' ? 'Building…' : `Build ${DECK.fileName}` }}
 				</button>
 				<p v-if="download.status === 'saved'" role="status" class="deck-preview__note">
-					Built <code>{{ DECK.fileName }}</code> — check your downloads.
+					Built <code>{{ DECK.fileName }}</code>. Check your downloads.
 				</p>
 				<p v-else-if="download.status === 'failed'" role="alert" class="deck-preview__note deck-preview__note--bad">
 					{{ download.error }}
@@ -163,13 +163,13 @@ onMounted(() => {
 			<p>
 				The renderer prints these beside the slide they apply to; this is the same set
 				gathered up, in its vocabulary rather than one invented here. They describe what a
-				reader would and would not carry back out of this package — a construct that is
+				reader would and would not carry back out of this package: a construct that is
 				<em>carried</em> untouched raises no note at all.
 			</p>
 			<dl>
 				<template v-for="note in notes" :key="note.key">
 					<dt>
-						<code>{{ note.construct }}</code> — {{ note.disposition }} ({{ note.cause }})
+						<code>{{ note.construct }}</code>: {{ note.disposition }} ({{ note.cause }})
 						<span class="deck-preview__slides">slide{{ note.slides.length === 1 ? '' : 's' }} {{ slideList(note.slides) }}</span>
 					</dt>
 					<dd>{{ note.detail }}</dd>

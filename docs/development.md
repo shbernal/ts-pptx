@@ -101,7 +101,7 @@ when touching the release/package boundary. Both deliberately omit `lint` and
 Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
-pnpm run check:static   # lint, format:check, all four typechecks, the two ratchets, and the docs build
+pnpm run check:static   # lint, lint:chars, format:check, all four typechecks, the two ratchets, and the docs build
 pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
 
@@ -191,6 +191,7 @@ that way:
 ```bash
 pnpm run typecheck     # tsc -p tsconfig.json --noEmit
 pnpm run lint          # oxlint .
+pnpm run lint:chars    # charcheck (em dashes in the README, www/ and docs/ prose)
 pnpm run format:check  # oxfmt --check (includes src/**/*.ts)
 ```
 
@@ -209,8 +210,27 @@ oxlint `--fix` and oxfmt `--write` over staged files and re-stages the result
 (`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
 `format:check` yourself can only cost you a check→fix→re-check cycle on files that
 were going to be fixed on commit anyway. What no hook covers is **tests** (none run
-any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`, `format:check`,
-`typecheck`, `typecheck:scripts` and `typecheck:site` only); those are `verify`'s job.
+any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`, `lint:chars`,
+`format:check`, `typecheck`, `typecheck:scripts` and `typecheck:site` only); those are
+`verify`'s job.
+
+`lint:chars` is owned by the hooks the same way, but it is the one gate that runs at two
+different scopes. Pre-commit scans the *staged content* of the files in the commit, which
+is what makes it accurate about what you are actually shipping. Pre-push scans the repo,
+because the `docs/` backlog is frozen as a total warning count and a per-commit scan only
+ever sees a slice of it. See [Static Checks](#static-checks) above and
+`charcheck.config.js`, which carries the reasoning for the two severities.
+
+When the gate itself looks wrong, the thing to reach for is
+`node node_modules/charcheck/dist/cli.js --report-issue`. charcheck's characteristic
+failure is silence rather than an exception: a rule whose globs reach no file reports a
+clean run and exits 0, which is indistinguishable from a scan that passed. That flag
+prints every rule *as it resolved*, including how many files each one matched, so a rule
+matching zero is visible instead of invisible. It reads no file's content and exits 0
+whatever the tree holds. The `charcheck-upstream` skill in `.agents/skills/` covers the
+triage and files the report; it ships inside the package, so refresh the copy
+(`npx skills update charcheck-upstream`) in the same commit that bumps the pin, and
+re-apply the local `metadata.internal: true` flag afterwards.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 oxfmt job uses an extension glob. Every extension in the former is covered by

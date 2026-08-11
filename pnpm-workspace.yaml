@@ -31,3 +31,7 @@ minimumReleaseAgeExclude:
   # which reports `undefined` while pnpm still enforces 1440 minutes.
   - 'pptx-html'
   - '@shbernal/ts-pptx'
+  # Same reasoning, same author: `charcheck` is the banned-character gate this
+  # repo runs in its own hooks, so waiting a day to adopt a fix we just published
+  # would only delay the gate, not vet it.
+  - 'charcheck'

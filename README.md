@@ -14,7 +14,7 @@ reproducible package verification, and agent-assisted OOXML development.
 > (MIT), detached at its v6.0.0 (June 2025) and developed independently since. It
 > does not track, merge from, or mirror the original project, and pursues its own
 > Node-first direction (see _Project Target_). The original work remains under its
-> MIT license — see _License_ below.
+> MIT license: see _License_ below.
 
 ## Project Target
 
@@ -50,7 +50,7 @@ Any commit is installable directly from GitHub, without waiting for a release:
 npm install github:shbernal/ts-pptx#<commit-sha>
 ```
 
-`master` (`github:shbernal/ts-pptx`) works too, but pin the sha — a branch spec
+`master` (`github:shbernal/ts-pptx`) works too, but pin the sha: a branch spec
 re-resolves to whatever is at the head of it when the lockfile is next written.
 
 `dist/` is not committed, so this builds the package on install: your package
@@ -96,21 +96,21 @@ await pptx.writeFile({ fileName: "example.pptx" })
 ## Scope And Contributions
 
 This project is **Node-first**: it generates and is tested without a browser or any
-office application. Two areas are out of *active* maintenance scope — not because
+office application. Two areas are out of *active* maintenance scope, not because
 they lack merit, but because there is no in-house use case driving them, so the
 maintainer generally will not pick up bugs or feature requests there:
 
-- **Live-DOM / browser-layout features** — anything whose answer comes from a
+- **Live-DOM / browser-layout features**, anything whose answer comes from a
   *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts as
   the browser actually chose them. (Converting an HTML `<table>` is *not* in this
-  category — see [HTML tables → slides](#html-tables--slides) below. Only real
+  category: see [HTML tables → slides](#html-tables--slides) below. Only real
   measurement needs a browser.)
 - **Third-party office-suite interop quirks** that appear only after a file is
   round-tripped through another application (for example, copy/paste inside WPS
   Office, then opening in PowerPoint) when the generated package is itself valid
   OOXML. The supported bar is that output opens cleanly in Microsoft PowerPoint.
 
-**Contributions in these areas are welcome** — issues and pull requests are
+**Contributions in these areas are welcome**: issues and pull requests are
 encouraged even though the maintainer is not actively developing them. See
 [`docs/project-target.md`](docs/project-target.md) for the full scope statement
 and suggested testing approaches.
@@ -118,7 +118,7 @@ and suggested testing approaches.
 ## Hit A Bug? There Is A Skill For That
 
 Most code that uses this library is written by an agent, and an agent that hits a
-library defect will usually route around it silently — so the defect is never
+library defect will usually route around it silently, so the defect is never
 reported and never fixed. `ts-pptx-upstream` is a skill that turns that moment into
 a filed issue with a minimal reproduction, which is what becomes a permanent
 regression test here. It ships inside the package, so it is already on disk:
@@ -132,19 +132,19 @@ npx skills add shbernal/ts-pptx   # same flags, straight from the repo instead o
 ```
 
 Drop the flags for an interactive prompt if you are at a terminal yourself. Do not reach
-for `--all` to avoid the prompt — it installs into every runtime the CLI knows about,
+for `--all` to avoid the prompt: it installs into every runtime the CLI knows about,
 around seventy of them, and leaves an `agent/` directory at your repository root for
 runtimes nobody there uses. Name the ones you have.
 
 Two things about living with the installed copy. It is a copy, so **a version bump does
-not update it** — re-run the command above, or `npx skills update ts-pptx-upstream`, in
+not update it**: re-run the command above, or `npx skills update ts-pptx-upstream`, in
 the same commit as the bump. And if you track it, track `skills-lock.json` and ignore the
 copy: `skills experimental_install` restores the file from that lock but creates none of
 the runtime links, so it is a record, not a restore command.
 
 It covers triage (is this ours, your deck's, or out of scope?), reducing a failure to
-a script that builds its own deck, and — because presentations carry client names and
-unreleased numbers — never uploading one to a public tracker. Once the reproduction
+a script that builds its own deck, and (because presentations carry client names and
+unreleased numbers) never uploading one to a public tracker. Once the reproduction
 stands on its own it files without interrupting you, and tells you the issue number
 afterwards. It also covers the far end of the cycle, which is the half that usually
 rots: when a release lands, finding every workaround it retires and deleting them.
@@ -168,8 +168,8 @@ Supported package surface:
 - `import { latexToOmml } from "@shbernal/ts-pptx/math"`
 - `import { tableToSlides } from "@shbernal/ts-pptx/html"`
 - `import TsPptx from "@shbernal/ts-pptx/node"`
-- `import TsPptx from "@shbernal/ts-pptx/browser"`
-  — the bare specifier resolves to one of these two by export condition, so Node
+- `import TsPptx from "@shbernal/ts-pptx/browser"`:
+  the bare specifier resolves to one of these two by export condition, so Node
   and bundled browser apps get the right build without naming it. A runtime that
   sets neither (Deno, Bun, edge workers) gets a runtime-agnostic build that
   authors and exports bytes normally but has no `writeFile` destination; see
@@ -234,7 +234,7 @@ the border box and computed `width` the content box, so padding alone can put th
 two bases in different proportions. The same table can therefore come out with
 different column widths in a browser and outside one.
 
-To pin widths regardless of runtime, annotate the `<thead>` header cells — these
+To pin widths regardless of runtime, annotate the `<thead>` header cells, which
 win outright on every path:
 
 ```html
@@ -291,7 +291,7 @@ pnpm run check:package
 - `demos/showcases` builds the two flagship decks from one command.
 - `demos/node` exercises Node.js ESM generation and stream output.
 - The [demos page](https://shbernal.github.io/ts-pptx/demos) builds the quarterly review in
-  your browser and previews the slides — nothing to clone.
+  your browser and previews the slides: nothing to clone.
 
 ## Relationship To Upstream
 

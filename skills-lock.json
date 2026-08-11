@@ -1,0 +1,10 @@
+{
+	"version": 1,
+	"skills": {
+		"charcheck-upstream": {
+			"source": "./node_modules/charcheck",
+			"sourceType": "local",
+			"computedHash": "753ee0168ec7f345f937a24e40a0fe62f506d49036252899ce94993586510690"
+		}
+	}
+}

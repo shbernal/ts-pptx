@@ -51,6 +51,24 @@ pre-commit:
       run: node node_modules/oxfmt/bin/oxfmt --write --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
+    # Em dashes in what a reader sees: the site, the docs, the README. Last in the
+    # pipe so it reads what oxfmt left behind rather than what was staged before it.
+    #
+    # No `{staged_files}`: `--staged` selects the staged files itself and reads their
+    # *staged content* from the index, so it reports what the commit contains rather
+    # than what the working tree happens to hold. Passing paths as well would scan
+    # twice and let the two lists disagree, which is why charcheck's own docs rule out
+    # running it under lint-staged. The glob is only a cheap way to skip the process
+    # on a commit that touches no prose; it does not narrow what the scan covers.
+    #
+    # No `--fix` here, deliberately. A fix is a guess about prose and the tool says so
+    # on every run; rewriting a sentence on its way into a commit is not a guess a hook
+    # should make unsupervised. `pnpm run lint:chars:fix` makes it, where you can read
+    # the diff first.
+    - name: charcheck
+      glob: '*.{md,vue,ts,mts}'
+      run: node node_modules/charcheck/dist/cli.js --staged
+
 commit-msg:
   # Backstop against a shell-quoting slip mangling a multi-line message (e.g. a
   # PowerShell `@'...'@` here-string run through POSIX sh, which leaks a literal
@@ -69,6 +87,11 @@ pre-push:
   jobs:
     - name: lint
       run: pnpm run lint
+    # pre-commit's `--staged` run cannot see this one: the docs backlog is frozen by a
+    # total warning count, and a per-commit scan only ever sees a slice of it. This is
+    # the run that fails when the total grows.
+    - name: lint-chars
+      run: pnpm run lint:chars
     - name: format
       run: pnpm run format:check
     - name: typecheck
