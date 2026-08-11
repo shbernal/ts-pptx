@@ -664,12 +664,32 @@ It runs `test/read/roundtrip.test.js` against real, PowerPoint-authored decks
 in `test/read/fixtures/` (provenance in that directory's README): part-set
 stability, per-part byte-identity for untouched parts, lazy-parse guarantees,
 save idempotence, content-type/relationship resolution, the dirty
-(mutate-and-reserialize) path, and schema validation of saved output. The
-schema cases require the OOXML validator above. When it is missing they are
+(mutate-and-reserialize) path, and schema validity. The schema cases require
+the OOXML validator above. When it is missing they are
 skipped locally — with an unmissable notice on stderr, because a green run that
 skipped a few hundred schema assertions must not read as a complete one — and
 they **fail hard under `CI`**, where installing the validator is part of the job.
 The gate is `validatorAvailable()` in `test/validator.js`.
+
+Every contract there runs against **every** `.pptx` in the corpus, via
+`fixtureNames` from `test/read/corpus.js`. It used to run against five decks
+named in a literal, with promotion asking for a manual edit to extend it — so
+the corpus grew to 44 while the OPC contract kept being proved against the same
+five, and the decks that actually stress it (chartEx, model3d, math-omml,
+embedded fonts, av-media, modern comments) were never round-tripped here at all.
+
+The schema case asserts that a round-trip introduces **no new** validator
+errors, rather than that the output is clean. Those are the same claim for 43 of
+the 44 decks and only one of them is true of the 44th:
+`bar-chart-data-labels.pptx` carries three Microsoft365 errors *as committed*,
+all in PowerPoint's own chart `c:extLst` — an undeclared `uri` on `c:ext`, a
+`chart:dataDisplayOptions16` where the SDK schema models only `dispNaAsBlank`,
+and a 2012-namespace `chart:leaderLines` under `c:dLbls`. The SDK does not model
+those extension namespaces and PowerPoint wrote them anyway, so this is the same
+class of blind spot as "The validator does not descend into `mc:Choice`" below.
+Comparing verdicts keeps the assertion honest without excluding the fixture or
+implying the library caused it, and it stays strictly stronger than the old form
+everywhere else: an empty verdict before still demands an empty verdict after.
 
 Changes under `src/read/` should run this suite; new read/edit capabilities
 should extend it (and grow the fixture set) alongside the code.
@@ -691,11 +711,11 @@ scratch, so treat anything you leave there as disposable.
 The automated suites must only point at `test/read/fixtures/`, since no other
 checkout or CI run will have your decks. When one of them proves a good minimal,
 license-clean regression case, **promote** it: copy it into
-`test/read/fixtures/`, add it to that directory's provenance table + SHA-256
-list and purpose notes, and wire it into the harness (`FIXTURES` in
-`test/read/roundtrip.test.js`). The `mixed.pptx` fixture arrived this way, to
-cover connectors, nested groups, charts, and SmartArt that the vendored
-fixtures lacked.
+`test/read/fixtures/`, and add it to that directory's provenance table + SHA-256
+list and purpose notes. There is no harness to wire it into — `fixtureNames`
+enumerates the directory, so the round-trip contracts pick it up on the next
+run. The `mixed.pptx` fixture arrived this way, to cover connectors, nested
+groups, charts, and SmartArt that the vendored fixtures lacked.
 
 Fixtures authored here with desktop PowerPoint COM keep their recipe in
 `test/read/fixtures/authoring/` (see that directory's README). Land the recipe there

@@ -10,9 +10,7 @@ import { describe, test } from 'vitest'
 import { ContentTypes, OpcPackage, Relationships, resolveRelativePartName, relsPartNameFor } from '../../dist/read.js'
 import { bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
-
-const FIXTURES = ['empty', 'textbox', 'image', 'table', 'mixed']
+import { fixtureNames, fixturePath } from './corpus.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
@@ -23,79 +21,138 @@ async function loadFixture(name) {
 	return readFile(fixturePath(name))
 }
 
-for (const name of FIXTURES) {
-	describe(`round-trip: ${name}.pptx`, () => {
-		test('part-set stability: load → save → reload keeps the same partnames', async () => {
+/**
+ * `{ input, saved }` for a fixture — its committed bytes, and what one load→save produces.
+ *
+ * Memoized because six contracts below each want the same pair and a save is deterministic
+ * (which `idempotence` asserts separately, so this does not assume what it is checking).
+ * Only *bytes* are cached, never an `OpcPackage`: `laziness` asserts no part was parsed, and
+ * a package shared with a test that read a DOM would fail on the neighbour's access rather
+ * than its own.
+ *
+ * @type {Map<string, Promise<{ input: Buffer, saved: Uint8Array }>>}
+ */
+const roundTripped = new Map()
+function roundTrip(name) {
+	let pending = roundTripped.get(name)
+	if (!pending) {
+		pending = (async () => {
 			const input = await loadFixture(name)
-			const pkg = await OpcPackage.load(input)
-			const saved = await pkg.save()
-			const inputBodies = await partBodies(input)
-			const outputBodies = await partBodies(saved)
-			assertEqual(
-				[...outputBodies.keys()].sort().join('\n'),
-				[...inputBodies.keys()].sort().join('\n'),
-				`${name}: part-name set after round-trip`
-			)
-		})
-
-		test('byte-identity: every untouched part body is identical to the input', async () => {
-			const input = await loadFixture(name)
-			const saved = await (await OpcPackage.load(input)).save()
-			const inputBodies = await partBodies(input)
-			const outputBodies = await partBodies(saved)
-			for (const [entryName, inputBody] of inputBodies) {
-				const outputBody = outputBodies.get(entryName)
-				assert(outputBody, `${name}: ${entryName} missing from output`)
-				assert(bytesEqual(inputBody, outputBody), `${name}: ${entryName} body differs after round-trip`)
-			}
-		})
-
-		test('laziness: no part is parsed as XML during load/save', async () => {
-			const pkg = await OpcPackage.load(await loadFixture(name))
-			await pkg.save()
-			for (const part of pkg.parts.values()) {
-				assert(!part.isParsed, `${part.partName} was parsed without any DOM access`)
-				assert(!part.isDirty, `${part.partName} was marked dirty without any mutation`)
-			}
-		})
-
-		test('idempotence: saving twice yields identical part bodies', async () => {
-			const pkg = await OpcPackage.load(await loadFixture(name))
-			const first = await partBodies(await pkg.save())
-			const second = await partBodies(await pkg.save())
-			assertEqual([...second.keys()].join('\n'), [...first.keys()].join('\n'), `${name}: partnames across saves`)
-			for (const [entryName, firstBody] of first) {
-				assert(bytesEqual(firstBody, second.get(entryName)), `${name}: ${entryName} differs between saves`)
-			}
-		})
-
-		test('content-type and relationship resolution', async () => {
-			const pkg = await OpcPackage.load(await loadFixture(name))
-			const slides = pkg.partsByContentType(SLIDE_CONTENT_TYPE)
-			assert(slides.length >= 1, `${name}: expected at least one slide part`)
-			assertEqual(pkg.contentTypes.contentTypeFor(slides[0].partName), SLIDE_CONTENT_TYPE, 'slide Override')
-
-			const packageRels = pkg.relationshipsFor('/')
-			const officeDocument = packageRels.byType(OFFICE_DOCUMENT_REL)
-			assertEqual(officeDocument.length, 1, `${name}: officeDocument relationship count`)
-			assertEqual(packageRels.resolveTarget(officeDocument[0].id), '/ppt/presentation.xml', 'officeDocument target')
-
-			const presentationRels = pkg.relationshipsFor('/ppt/presentation.xml')
-			assert(presentationRels.size > 0, `${name}: presentation part should have relationships`)
-			for (const relationship of presentationRels) {
-				if (relationship.targetMode === 'External') continue
-				const target = presentationRels.resolveTarget(relationship.id)
-				assert(pkg.part(target), `${name}: relationship ${relationship.id} target ${target} is not a part`)
-			}
-		})
-
-		test.skipIf(!validatorInstalled)('schema validity: saved output passes the OOXML validator', async () => {
-			const saved = await (await OpcPackage.load(await loadFixture(name))).save()
-			const errors = await validateBuf(Buffer.from(saved))
-			assertEqual(errors.length, 0, `${name}: validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
-		})
-	})
+			return { input, saved: await (await OpcPackage.load(input)).save() }
+		})()
+		roundTripped.set(name, pending)
+	}
+	return pending
 }
+
+// Every committed fixture, not a hand-picked five.
+//
+// This list used to be `['empty', 'textbox', 'image', 'table', 'mixed']`, and
+// docs/testing.md told you to add to it by hand when promoting a deck into the corpus.
+// Nobody did: the corpus grew to 44 and the OPC contract kept being proved against the
+// same 5, so the decks that actually stress it — chartEx, model3d, math-omml, embedded
+// fonts, av-media, modern comments — were carried without ever being round-tripped here.
+// Reading `fixtureNames` makes promotion the only step there is.
+//
+// One case per fixture rather than one loop over all of them, for the reason
+// script-ir.test.js gives: a loop stops at the first offender, so a change that breaks
+// half the corpus reports the same single failure as one that breaks a single deck.
+describe('OPC round-trip — corpus invariants', () => {
+	test.for(fixtureNames)('%s: load → save keeps the same part-name set', async (name) => {
+		const { input, saved } = await roundTrip(name)
+		assertEqual(
+			[...(await partBodies(saved)).keys()].sort().join('\n'),
+			[...(await partBodies(input)).keys()].sort().join('\n'),
+			`${name}: part-name set after round-trip`
+		)
+	})
+
+	test.for(fixtureNames)('%s: every untouched part body is byte-identical', async (name) => {
+		const { input, saved } = await roundTrip(name)
+		assertUnchangedExcept(await partBodies(input), await partBodies(saved), [], name)
+	})
+
+	test.for(fixtureNames)('%s: no part is parsed as XML during load/save', async (name) => {
+		const pkg = await OpcPackage.load(await loadFixture(name))
+		await pkg.save()
+		for (const part of pkg.parts.values()) {
+			assert(!part.isParsed, `${name}: ${part.partName} was parsed without any DOM access`)
+			assert(!part.isDirty, `${name}: ${part.partName} was marked dirty without any mutation`)
+		}
+	})
+
+	test.for(fixtureNames)('%s: saving twice yields identical part bodies', async (name) => {
+		const pkg = await OpcPackage.load(await loadFixture(name))
+		const first = await partBodies(await pkg.save())
+		const second = await partBodies(await pkg.save())
+		assertEqual([...second.keys()].join('\n'), [...first.keys()].join('\n'), `${name}: partnames across saves`)
+		assertUnchangedExcept(first, second, [], `${name}: between saves`)
+	})
+
+	test.for(fixtureNames)('%s: content types and relationships resolve', async (name) => {
+		const pkg = await OpcPackage.load(await loadFixture(name))
+		const slides = pkg.partsByContentType(SLIDE_CONTENT_TYPE)
+		assert(slides.length >= 1, `${name}: expected at least one slide part`)
+		assertEqual(pkg.contentTypes.contentTypeFor(slides[0].partName), SLIDE_CONTENT_TYPE, `${name}: slide Override`)
+
+		const packageRels = pkg.relationshipsFor('/')
+		const officeDocument = packageRels.byType(OFFICE_DOCUMENT_REL)
+		assertEqual(officeDocument.length, 1, `${name}: officeDocument relationship count`)
+		assertEqual(
+			packageRels.resolveTarget(officeDocument[0].id),
+			'/ppt/presentation.xml',
+			`${name}: officeDocument target`
+		)
+
+		const presentationRels = pkg.relationshipsFor('/ppt/presentation.xml')
+		assert(presentationRels.size > 0, `${name}: presentation part should have relationships`)
+		for (const relationship of presentationRels) {
+			if (relationship.targetMode === 'External') continue
+			const target = presentationRels.resolveTarget(relationship.id)
+			assert(pkg.part(target), `${name}: relationship ${relationship.id} target ${target} is not a part`)
+		}
+	})
+})
+
+/** A stable, order-independent identity for a validator verdict. */
+function errorFingerprint(errors) {
+	return errors
+		.map((e) => `${e.Id} ${e.Path?.PartUri ?? ''} ${e.Path?.XPath ?? ''}`)
+		.sort()
+		.join('\n')
+}
+
+// The claim is "a round-trip introduces no NEW errors", not "the output is clean".
+//
+// Those were the same assertion while this ran against five hand-picked decks that all
+// happened to validate. Across the whole corpus they are not: `bar-chart-data-labels.pptx`
+// carries three Microsoft365 errors *as committed*, in PowerPoint's own chart `c:extLst` —
+// an undeclared `uri` on `c:ext`, a `chart:dataDisplayOptions16` where the SDK's schema
+// models only `dispNaAsBlank`, and a 2012-namespace `chart:leaderLines` under `c:dLbls`.
+// The SDK does not model those extension namespaces; PowerPoint wrote them anyway. Nothing
+// of ours produced them and nothing of ours can fix them.
+//
+// So validate both sides and compare. That is strictly stronger than the old assertion for
+// the 43 clean decks — an empty verdict before still demands an empty verdict after — and
+// it is the only form that says anything true about the 44th. Asserting "clean" would have
+// forced the choice between excluding that fixture and pretending the library caused it.
+//
+// Concurrent, and its own block for that reason: the validator batches whatever is in
+// flight (test/validator.js), so 88 sequential validations would pay the ~0.4s .NET startup
+// 88 times where concurrent ones go out in a handful of invocations. Nothing here touches a
+// process global, which is what makes that safe.
+describe.concurrent('OPC round-trip — schema validity', () => {
+	test.skipIf(!validatorInstalled).for(fixtureNames)('%s: a round-trip introduces no new errors', async (name) => {
+		const { input, saved } = await roundTrip(name)
+		const [before, after] = await Promise.all([validateBuf(Buffer.from(input)), validateBuf(Buffer.from(saved))])
+		assertEqual(
+			errorFingerprint(after),
+			errorFingerprint(before),
+			`${name}: the saved package's validator verdict differs from the committed fixture's. ` +
+				`after: ${JSON.stringify(after).slice(0, 1500)}`
+		)
+	})
+})
 
 describe('dirty path: mutate one slide, save', () => {
 	async function mutateFirstTextRun() {
