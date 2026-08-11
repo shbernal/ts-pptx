@@ -55,8 +55,12 @@ function availableMemoryMb(): number {
 }
 
 function resolveMaxWorkers(): number {
-	// Escape hatch first: CI pins this to keep a job's cost predictable rather than
-	// dependent on whatever else the runner happens to be doing.
+	// Escape hatch first, for pinning the pool where a predictable cost beats an adaptive
+	// one — bisecting a concurrency-dependent failure, or a CI job that wants its footprint
+	// fixed rather than dependent on whatever else the runner is doing. Nothing under
+	// `.github/workflows/` sets it today; this comment used to assert that CI did, which
+	// was never true. The hosted runners are small enough that `byCpu` binds well below the
+	// memory budget anyway.
 	const override = Number(process.env.VITEST_MAX_WORKERS)
 	if (Number.isInteger(override) && override > 0) return override
 
@@ -108,6 +112,40 @@ export default defineConfig({
 		// `InlineConfig`, and setting it is a type error rather than a no-op), and
 		// the pool grows to this ceiling on demand rather than being preallocated.
 		maxWorkers,
+		// Share one module registry per worker instead of rebuilding it per test file.
+		//
+		// `dist/` is over 1 MB of JavaScript (`text-*.js` alone is 610 KB), 78 files import
+		// `dist/node.js` and 64 import `dist/read.js`. Under Vitest's default isolation each
+		// of the 235 files re-evaluates that graph from scratch, and the cost is not
+		// marginal: measured across three paired runs at `VITEST_MAX_WORKERS=4`, the
+		// `import` phase falls 136.0/114.5/84.8s to 34.4/30.6/22.0s — 3.5-4x, with no
+		// overlap between the two groups — taking wall clock down 22-37%. Two smaller wins
+		// come along with it, both from module state that now survives a file boundary:
+		// test/validator.js's batch queue can join requests across files instead of
+		// spawning one .NET validator per file, and corpus.js's `irFor` memo stops being
+		// rebuilt per file.
+		//
+		// What this gives up is a real guarantee, not a formality: isolation is what made
+		// cross-file state leakage impossible rather than merely absent. Two things replace
+		// it. `test/setup-globals.js` resets the one process-global the library owns
+		// (`setDiagnosticHandler`) after every test, so the leak channel is closed by
+		// construction. And `sequence.shuffle.files` below means a suite that grows an
+		// order dependence fails on it instead of hiding behind a stable file order.
+		//
+		// The other module-level state under `src/` is idempotent caching — `math.ts`'s
+		// lazy temml/mathml2omml handles and `measure/font-metrics.ts`'s heuristic
+		// singleton — which is better shared than rebuilt.
+		isolate: false,
+		sequence: {
+			// Randomize file order so that `isolate: false` cannot quietly acquire an
+			// order dependence. Vitest prints the seed on failure; re-run with
+			// `--sequence.seed=<n>` to reproduce one. Tests *within* a file stay in source
+			// order on purpose — `captureDiagnostics` and the warn-capturing schema
+			// fixtures rest on that, and shuffling them would trade a real guarantee for
+			// nothing.
+			shuffle: { files: true, tests: false },
+		},
+		setupFiles: ['./test/setup-globals.js'],
 		// The schema fixtures are `describe.concurrent` and `test/read` validates
 		// too. This used to be half of a `workers × maxConcurrency` process ceiling:
 		// every concurrent test spawned its own OOXMLValidatorCLI (.NET) process, so

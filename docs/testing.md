@@ -102,7 +102,50 @@ available. On Windows and macOS `os.freemem()` is already the right quantity.
 
 Set `VITEST_MAX_WORKERS` to pin the pool explicitly — useful in CI, where a
 predictable cost beats an adaptive one, and when bisecting a concurrency-
-dependent failure. An explicit pin is taken as given and is not clamped.
+dependent failure. An explicit pin is taken as given and is not clamped. No
+workflow sets it today; the hosted runners are small enough that the CPU bound
+binds well below the memory budget.
+
+### One module registry per worker (`isolate: false`)
+
+Vitest isolates each test file in a fresh module registry by default. This suite
+turns that off, because `dist/` is over 1 MB of JavaScript — `text-*.js` alone is
+610 KB — and 235 files were each re-evaluating it. Measured across three paired
+runs at `VITEST_MAX_WORKERS=4`:
+
+| | `import` phase | Wall |
+| --- | --- | --- |
+| `isolate: true` | 136.0s / 114.5s / 84.8s | 192.9s / 154.2s / 109.4s |
+| `isolate: false` | 34.4s / 30.6s / 22.0s | 102.1s / 96.4s / 85.4s |
+
+The absolute numbers move with machine load — those runs were interleaved on a
+busy box, which is why the wall column overlaps and the import column does not.
+The 3.5–4x on `import` is the reliable figure, and it carries 22–37% of wall
+clock with it.
+
+Two further wins come from module state that now survives a file boundary:
+`test/validator.js`'s batch queue joins requests across files rather than
+spawning a .NET validator per file, and `test/read/corpus.js`'s `irFor` memo
+stops being rebuilt per file.
+
+**What replaces the guarantee.** Isolation made cross-file state leakage
+impossible, not merely absent, and that is worth something specific. Two things
+stand in for it:
+
+- `test/setup-globals.js` resets `setDiagnosticHandler` after every test. It is
+  the one process-global the library owns, and a handler left installed would
+  otherwise swallow — or throw on — a diagnostic belonging to a test in another
+  directory, minutes later, which reads as a bug in the victim.
+- `sequence.shuffle.files` randomizes file order, so a suite that acquires an
+  order dependence fails on it rather than hiding behind a stable order. Vitest
+  prints the seed; reproduce a failure with `--sequence.seed=<n>`. Tests *within*
+  a file stay in source order deliberately — `captureDiagnostics()` and the
+  warn-capturing schema fixtures rest on that.
+
+If you add module-level mutable state to a test helper, it is now shared with
+every other file in that worker. That is usually what you want (both wins above
+are exactly this), but state that carries a test's *intent* rather than a cache
+does not belong there.
 
 For documentation-only changes, no automated test is required unless the docs
 change package, build, or testing claims.

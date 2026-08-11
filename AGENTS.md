@@ -193,6 +193,15 @@ MCPs' corpora.
   "fix" a slow run by raising `maxConcurrency` — since validator batching landed that
   knob no longer buys spawn parallelism. See docs/testing.md "Suite cost and the worker
   ceiling".
+- **The suite runs `isolate: false`**, so one module registry is shared per worker rather
+  than rebuilt per test file — `dist/` is >1 MB of JS and all 235 files were each
+  re-evaluating it (3.5–4x on the `import` phase, 22–37% of wall clock). The consequence
+  for you: module-level state in a test helper is now shared with every other file in
+  that worker. A cache wants that (`test/validator.js`'s batch queue and `corpus.js`'s
+  `irFor` memo both got better for it); state carrying one test's *intent* does not.
+  `test/setup-globals.js` resets `setDiagnosticHandler` after every test, and
+  `sequence.shuffle.files` randomizes file order so an order dependence fails rather than
+  hides. See docs/testing.md "One module registry per worker".
 - **`pnpm run script:roundtrip:all`** (~25s, in `verify:full` and CI) is the script
   converter's gate: for every read fixture it prints a script, runs it, and diffs the
   result against the source with the printer's own fidelity notes as the exclusion list.
