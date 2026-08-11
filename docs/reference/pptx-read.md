@@ -20,13 +20,13 @@ It is a separate subsystem from the generator (`ts-pptx`) and the inspector
 (`ts-pptx/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
-Status: **Phase 4 — rich content & structural edits**. On top of the Phase 1
+Status: **Phase 4, rich content & structural edits**. On top of the Phase 1
 OPC layer (load, parts, content types, relationships, lossless save), the
 Phase 2 navigable read model (`Presentation → slides → shapes → text frame →
 paragraphs → runs`), and the Phase 3 edit slice (**run text and character
 formatting**, **shape position/size**, and **shape fill/line colour**), the
 model now also covers
-**tables** (incl. cell borders, style id + cell picture fill), **charts** (read-only — classic
+**tables** (incl. cell borders, style id + cell picture fill), **charts** (read-only: classic
 `c:chart` with axes/labels/legend/series formatting, plus the `cx:` chartEx family:
 waterfall/funnel/treemap/…), **rich run formatting** (strike/caps/baseline/
 highlight/hyperlink + paragraph line spacing), **pattern/picture fill and the effect list**
@@ -83,7 +83,7 @@ caller's job, so it works in browsers too.
 
 - A `Part` keeps the **original bytes** from the zip for its whole life.
 - Accessing `part.dom` parses lazily; parsing alone changes nothing.
-- `save()` writes original bytes for every part that was never marked dirty —
+- `save()` writes original bytes for every part that was never marked dirty:
   **untouched part bodies are byte-identical** to the input.
 - Dirty parts (after `part.markDirty()`) are reserialized from their DOM:
   semantically equivalent and schema-valid, but not byte-identical (attribute
@@ -95,40 +95,40 @@ caller's job, so it works in browsers too.
 This is verified by `test/read/roundtrip.test.js` against PowerPoint-authored
 fixtures (see `test/read/fixtures/README.md`).
 
-### Preserve-only boundary — what the read model does *not* decode
+### Preserve-only boundary: what the read model does *not* decode
 
 Some parts round-trip **byte-perfect** but have no typed read surface: the model
 preserves their bytes and (where relevant) reports their presence, but never
-decodes them into getters. This is a deliberate boundary, not a backlog — each is
+decodes them into getters. This is a deliberate boundary, not a backlog: each is
 either a whole subsystem or an import-only surface with no authoring trigger, so a
 decoder would need a hand-authored fixture plus an independent oracle rather than a
 write→read round-trip. They stay parked until a real consumer names one:
 
-- **SmartArt** (`dgm:*` / `diagrams/`) — a four-part graph (data / layout /
+- **SmartArt** (`dgm:*` / `diagrams/`): a four-part graph (data / layout /
   quickStyle / colors) plus fallback drawing; a subsystem, not a getter.
-- **OLE objects** (`p:oleObj`, embedded workbooks/docs) — embedded foreign
+- **OLE objects** (`p:oleObj`, embedded workbooks/docs): embedded foreign
   packages; link metadata is conceivable, the payload is out of scope.
-- **Ink** (`p:contentPart` / `inkml`) — digitizer strokes; no renderer, no writer.
+- **Ink** (`p:contentPart` / `inkml`): digitizer strokes; no renderer, no writer.
 - **True 3D** beyond the modeled bevel/extrusion (`a:sp3d` / `a:scene3d`).
-- **Morph and `p14:*` transitions** beyond the modeled set — cross-slide object
+- **Morph and `p14:*` transitions** beyond the modeled set: cross-slide object
   matching is import-only.
-- **Media** (`p:media` / `a:audioFile` / `a:videoFile`) — the write side authors
+- **Media** (`p:media` / `a:audioFile` / `a:videoFile`): the write side authors
   media, but the read model does not decode the media relationship graph.
-- **Animations beyond the modeled presets** — the general `p:timing` tree past the
+- **Animations beyond the modeled presets**: the general `p:timing` tree past the
   modeled entrance/emphasis/exit set is not read-modeled.
-- **Custom XML data storage** (`customXml/item*.xml` + its `itemProps`) — opaque
+- **Custom XML data storage** (`customXml/item*.xml` + its `itemProps`): opaque
   application-defined XML (e.g. a Templafy- or SharePoint-authored deck's data
   island); no schema to decode against, so the bytes are preserved verbatim and
   reachable only via `OpcPackage.parts`. (Programmatic **tags**, once parked
-  alongside this, now decode — see `Presentation.tags` / `Slide.tags` below.)
-- **Modern comments** (`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`)
-  — the 2018 comment schema, distinct from the legacy `p:cm` surface `slide.comments`
+  alongside this, now decode: see `Presentation.tags` / `Slide.tags` below.)
+- **Modern comments** (`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`):
+  the 2018 comment schema, distinct from the legacy `p:cm` surface `slide.comments`
   decodes (above). No writer, so import-only.
 
-`Presentation.embeddedFonts` (above) enumerates the `p:embeddedFontLst` — typeface
-plus each face's `.fntdata` partname — but the **binary glyph payload** of those
+`Presentation.embeddedFonts` (above) enumerates the `p:embeddedFontLst` (typeface
+plus each face's `.fntdata` partname), but the **binary glyph payload** of those
 font parts is preserved verbatim, never decoded. Media has write-side support, so a
-future read item for it could be a genuine round-trip rather than a fixture project —
+future read item for it could be a genuine round-trip rather than a fixture project,
 but it stays parked until asked for.
 
 ## API
@@ -161,7 +161,7 @@ class OpcPackage {
 ```
 
 `load()` rejects when the input is not an OPC package or when a part has no
-resolvable content type (no `Override`, no `Default`) — the error names the
+resolvable content type (no `Override`, no `Default`): the error names the
 offending part.
 
 `[Content_Types].xml` is not enumerated in `parts`; it is managed by the
@@ -196,7 +196,7 @@ class Part {
 }
 ```
 
-The `Document` type is `@xmldom/xmldom`'s, not lib.dom's — they are not
+The `Document` type is `@xmldom/xmldom`'s, not lib.dom's: they are not
 assignable to each other.
 
 ### `ContentTypes`
@@ -425,7 +425,7 @@ interface ImportShapeOptions {
 
 #### Document properties (core + custom)
 
-`pres.coreProperties` decodes `docProps/core.xml` — the Dublin Core / OPC metadata
+`pres.coreProperties` decodes `docProps/core.xml`: the Dublin Core / OPC metadata
 (`title`, `subject`, `creator`, `keywords`, `revision`, `lastModifiedBy`, …) plus
 the `created`/`modified`/`lastPrinted` timestamps. Every field is optional and
 appears only when its element is present; a present-but-empty element decodes to
@@ -433,7 +433,7 @@ appears only when its element is present; a present-but-empty element decodes to
 not parsed to a `Date`, to avoid timezone round-trip loss. A deck with no
 core-properties part reads as `{}`.
 
-`pres.customProperties` decodes `docProps/custom.xml` — the user-defined
+`pres.customProperties` decodes `docProps/custom.xml`: the user-defined
 `{ name, value }` pairs from `pptx.setCustomProperty(...)`. Each value is typed
 from its `vt:` element: `vt:lpwstr`/`vt:lpstr`/`vt:bstr` → `string`, the integer
 types (`vt:i4`, …) and reals (`vt:r8`, …) → `number`, `vt:bool` → `boolean`, and
@@ -441,7 +441,7 @@ types (`vt:i4`, …) and reals (`vt:r8`, …) → `number`, `vt:bool` → `boole
 above). Order and count match the authored part; a deck with no custom-properties
 part reads as `[]`.
 
-Both are genuine round-trip surfaces — the write side authors both parts — so a
+Both are genuine round-trip surfaces (the write side authors both parts), so a
 consumer can set metadata with `pptx.title`/`subject`/`author` (→ `creator`)/
 `revision` and `pptx.setCustomProperty(...)`, then read it back through these
 getters. (Distinct from the `customXml/` item parts in the preserve-only boundary
@@ -456,14 +456,14 @@ pres.customProperties // [{ name: 'FiscalYear', value: 2025 }, …]
 
 #### Tags
 
-`pres.tags` and `slide.tags` decode **programmatic tags** — the `{ name, val }`
+`pres.tags` and `slide.tags` decode **programmatic tags**: the `{ name, val }`
 string pairs an add-in or host stores out-of-band from the visible content
 (`p:custDataLst/p:tags@r:id` on the owner, resolved to a `ppt/tags/tagN.xml`
 `p:tagLst`). PowerPoint exposes these as `Presentation.Tags` / `Slide.Tags`. An
 owner may reference more than one tag part; the getter flattens them in
 relationship order. An owner with no tags reads as `[]`.
 
-Unlike document properties, tags have **no writer** — the read model surfaces them
+Unlike document properties, tags have **no writer**: the read model surfaces them
 but authoring is not supported, and a deck's tag parts are preserved byte-for-byte
 on round-trip. (Not to be confused with the opaque `customXml/` item parts in the
 preserve-only boundary, which carry no `name`/`val` schema.)
@@ -520,7 +520,7 @@ PowerPoint writes `show="0"` when you hide a slide (the getter also accepts the
 This matters whenever you reconcile **render order** with **model order**:
 PowerPoint's "present" and LibreOffice both drop hidden slides from a slideshow
 and from exported PDFs, so once any earlier slide is hidden the Nth rendered page
-is no longer `presentation.slides[N]`. The reconciliation falls out directly —
+is no longer `presentation.slides[N]`. The reconciliation falls out directly, as
 `slides.length − (visible count) === (hidden count)`:
 
 ```ts
@@ -541,7 +541,7 @@ await presentation.save()
 #### Background, slide number, autofit
 
 `slide.background` reports the **effective** background by walking the inheritance
-chain — the slide's own `p:bg` wins, else the layout's, else the master's — and
+chain (the slide's own `p:bg` wins, else the layout's, else the master's) and
 `source` records which level won. That distinction matters: a plainly authored
 slide has *no* own `p:bg`, so it falls through to the default layout's
 `<p:bgRef idx="1001">` and reads as `{ type: 'themeRef', source: 'layout', idx: 1001 }`,
@@ -552,8 +552,8 @@ pattern/themeRef are read-only for imported decks.
 
 A `themeRef` keeps its raw `idx` for fidelity **and** resolves it to the concrete
 fill it renders as, in `resolvedFill: BackgroundFill | null`. `idx` is 1000-based
-into the theme's `a:fmtScheme` — `idx − 1000` is the 1-based `a:bgFillStyleLst`
-entry (an `idx` below 1000 selects `a:fillStyleLst`) — and its `phClr` is substituted
+into the theme's `a:fmtScheme`: `idx − 1000` is the 1-based `a:bgFillStyleLst`
+entry (an `idx` below 1000 selects `a:fillStyleLst`), and its `phClr` is substituted
 by the bgRef's own colour child, resolved through the slide theme (same path
 `importSlide({ theme: 'preserve' })` bakes with). So the default
 `{ type: 'themeRef', idx: 1001 }` above exposes
@@ -561,11 +561,11 @@ by the bgRef's own colour child, resolved through the slide theme (same path
 solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is `null` when the theme
 has no `fmtScheme`, the indexed entry is absent, or the colour cannot be resolved.
 `BackgroundFill` is the source-less fill union (`solid`/`gradient`/`image`/`pattern`/
-`none`) — the same payload the top-level variants carry. The `image` variant keeps
+`none`): the same payload the top-level variants carry. The `image` variant keeps
 its flat `relId`/`partName` and additionally carries the whole decoded
 `picture: PictureFill` (stretch/tile geometry, crop, alpha).
 
-`slideNumberPlaceholder` is scoped to the slide's **own** shape tree — the
+`slideNumberPlaceholder` is scoped to the slide's **own** shape tree: the
 `p:ph type="sldNum"` the per-slide `slide.slideNumber = {…}` setter emits. It
 deliberately does **not** resolve a number inherited purely from the master `p:hf`
 (a master-level concern); date/footer placeholders are deferred for the same
@@ -609,37 +609,37 @@ This is an **authorable** round-trip: the writer emits these via
 `slide.addComment(...)`, numbering each comment per-author (`idx`) and pooling
 authors deck-wide by name+initials. The 2018 **modern** comment parts
 (`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`) are a *different*
-schema with no writer — they round-trip byte-perfect but are not decoded here, so
+schema with no writer: they round-trip byte-perfect but are not decoded here, so
 `comments`/`commentAuthors` cover legacy comments only.
 
 #### Speaker notes
 
 `slide.addNotes(...)` authors a notes slide whose body placeholder (`p:ph
 type="body"`) holds the notes runs, serialized through the same text-run generator
-as any shape — so bold/italic/underline/colour/size/face and an external-`url`
+as any shape, so bold/italic/underline/colour/size/face and an external-`url`
 hyperlink all land in the notes `p:txBody`. The read side exposes that body two
 ways, sharing one body-placeholder lookup:
 
-- **`notesText`** — the flattened convenience: the body's text with paragraphs
+- **`notesText`**: the flattened convenience: the body's text with paragraphs
   joined by `\n`. Character formatting and links are dropped.
-- **`notesTextFrame`** — the same body as a navigable `TextFrame`
+- **`notesTextFrame`**: the same body as a navigable `TextFrame`
   (paragraphs → runs), so per-run formatting is recoverable and a notes hyperlink
   resolves its `url`. The frame is threaded with the **notes part's own rels**
-  (`notesSlideN.xml.rels`), so `Run.hyperlink.url` resolves for notes links —
+  (`notesSlideN.xml.rels`), so `Run.hyperlink.url` resolves for notes links:
   unlike a table-cell run, which reports only the raw `relId`.
 
 Both `notesText` and `notesTextFrame` are thin **delegates over `notesSlide.body`**
-(below). They are `null` under the same boundary — no notes-slide part at all — and
+(below). They are `null` under the same boundary (no notes-slide part at all) and
 `notesTextFrame` is *also* `null` when a notes part exists but carries no body text
 frame (there is no frame to hand back), where `notesText` still reports `''`. Note
 the writer attaches an **empty notes part to every authored slide** (to keep the
 `notesSlide` rel/`_rels` bookkeeping uniform), so an authored slide never hits the
-true no-part `null` path — that branch is reachable only from imported decks. A
+true no-part `null` path: that branch is reachable only from imported decks. A
 `\n` in a note starts a new paragraph, so a multi-line note reads back as multiple
 `paragraphs`.
 
-The frame *is* threaded with a **notes theme context** — resolved through the notes
-part's `notesMaster` rel → `theme2.xml` chain — so a notes run authored with a
+The frame *is* threaded with a **notes theme context** (resolved through the notes
+part's `notesMaster` rel → `theme2.xml` chain), so a notes run authored with a
 *scheme* colour resolves to a literal hex via `Run.resolvedColor` (the `clrMap`
 comes from the notesMaster's own `p:clrMap`, the `clrScheme`/`fontScheme` from
 `theme2.xml`).
@@ -650,9 +650,9 @@ The body frame *also* resolves **placeholder-inherited** character properties
 notesMaster's `p:notesStyle`, surfaced via `Run.resolvedSizePt`/`resolvedFontFace`/
 `resolvedBold`/`resolvedColor`. Notes don't inherit from a slide layout/master
 placeholder chain, so instead of `layoutRoot`/`masterRoot` the notes context carries
-the notesMaster's `p:notesStyle` as `FlattenContext.notesStyle` — the notes analogue
+the notesMaster's `p:notesStyle` as `FlattenContext.notesStyle` (the notes analogue
 of the master `p:txStyles` category style, keyed by paragraph *level* rather than
-placeholder type — and the body `TextFrame` is given a placeholder context so the
+placeholder type) and the body `TextFrame` is given a placeholder context so the
 same `resolveInherited*` chain that backs a slide placeholder run walks it. This is
 an **authorable** round-trip: a plain `addNotes('text')` emits a run with no `@sz`
 and no `<a:latin>` (an inherit trigger), and the writer authors its own notesMaster
@@ -664,8 +664,8 @@ minor face with no fixture. The `sldNum` field frame is given no placeholder con
 
 `slide.notesSlide` returns the whole notes slide (`notesSlideN.xml`) as a
 `NotesSlide`, or `null` at the same no-part boundary. A notes slide is a small,
-fixed surface — a shape tree of exactly three placeholders, never groups/pictures/
-connectors/charts — so it is modeled with a dedicated `NotesPlaceholder` rather than
+fixed surface (a shape tree of exactly three placeholders, never groups/pictures/
+connectors/charts), so it is modeled with a dedicated `NotesPlaceholder` rather than
 the full `Shape` hierarchy:
 
 ```ts
@@ -691,7 +691,7 @@ type NotesPlaceholder = {
 
 The measured fidelity is what the writer authors: the three placeholder
 `type`/`name`/`idx`, the **body** text (round-tripped through the same frame
-`notesTextFrame` hands back), and the **`sldNum`** slide-number `a:fld` — its value
+`notesTextFrame` hands back), and the **`sldNum`** slide-number `a:fld`, its value
 surfaces through `TextFrame.text` (which reads `a:fld` text), so `slideNumber.text`
 is the slide's number (`'1'` for the first slide). Geometry is **import-only**: the
 writer leaves the `sldImg`/`sldNum` `p:spPr` empty, so on an authored deck every
@@ -702,11 +702,11 @@ placeholder's `textFrame` shares the same notes theme context as `notesTextFrame
 #### The shared chrome: masters, layouts, and themes
 
 `slide.layout` → `slide.master` → `slide.theme` walk the property tiers a slide
-resolves against — the deck chrome reachable through the presentation → master →
+resolves against: the deck chrome reachable through the presentation → master →
 layout → theme graph but owned by no single slide. `Presentation.masters()` enters
 the same graph from the deck side. It is both a *property* model (colour scheme,
-font scheme, colour map, names, backgrounds) and — through `shapes` on the master
-and the layout — a full *shape* model of the template's own content.
+font scheme, colour map, names, backgrounds) and (through `shapes` on the master
+and the layout) a full *shape* model of the template's own content.
 
 ```ts
 class Theme {
@@ -774,8 +774,8 @@ class Placeholder {
 `SlideMaster.shapes` and `SlideLayout.shapes` return the same `AnyShape` union
 `Slide.shapes` and `GroupShape.shapes` do, built by the same dispatch, so
 shape-walking code applies unchanged to a template's own content. That content is
-what a viewer recognizes the deck by — the header band, the rule under the title,
-the logo, the footer furniture — and it is *not* reachable through `placeholders`,
+what a viewer recognizes the deck by (the header band, the rule under the title,
+the logo, the footer furniture) and it is *not* reachable through `placeholders`,
 which is the `p:ph`-only view of the same tree. Both views hand out the same live
 `p:sp` elements: read a placeholder through `placeholders` to **place** it, through
 `shapes` to **draw** it (only the latter carries `resolvedFill`, `resolvedLine`,
@@ -789,8 +789,8 @@ Groups recurse and `absoluteFrame` composes the enclosing group chain exactly as
 does at slide level.
 
 The write API authors the layout arm: every non-`placeholder` member of
-`defineSlideMaster({ objects })` — a `rect`, a `line`, an `image`, a `chart`, a
-`text` box, a `{ shape: { type } }` descriptor — lands in the layout's `p:spTree`.
+`defineSlideMaster({ objects })` (a `rect`, a `line`, an `image`, a `chart`, a
+`text` box, a `{ shape: { type } }` descriptor) lands in the layout's `p:spTree`.
 It authors nothing on the master's own tree (`defineSlideMaster` creates a *layout*
 under the shared master), so an authored deck reads `master.shapes` as `[]`; the
 master arm is measured against PowerPoint-authored fixtures
@@ -800,7 +800,7 @@ master arm is measured against PowerPoint-authored fixtures
 
 `p:sld/@showMasterSp` and `p:sldLayout/@showMasterSp` (ECMA-376 attributeGroup
 `AG_ChildSlide`) are `xsd:boolean` **defaulting to `true`**, so an absent attribute
-means shown — the same shape as `Slide.hidden`. PowerPoint writes `showMasterSp="0"`
+means shown: the same shape as `Slide.hidden`. PowerPoint writes `showMasterSp="0"`
 on a section divider or a full-bleed layout, and it suppresses only the master's
 *decorative* shapes; placeholders are unaffected.
 
@@ -815,27 +815,27 @@ Read-only on both classes: the write API authors neither attribute.
 
 The measured fidelity: `pres.theme = { colorScheme, headFontFace, bodyFontFace, … }`
 authors `theme1.xml`'s `a:clrScheme` (a caller override per slot, Office defaults for
-the rest — including the `dk1`/`lt1` `a:sysClr` slots, resolved here through their
+the rest, including the `dk1`/`lt1` `a:sysClr` slots, resolved here through their
 `lastClr`) and `a:fontScheme` (major/minor Latin faces; the `ea`/`cs` slots the
 writer leaves empty read as `null`, not `""`). `defineSlideMaster({ background,
 slideNumber, objects, … })` authors the master's `p:clrMap`, its slide-number
-placeholder with **explicit geometry** (`left`/`top`/`width`/`height` all round-trip
-— unlike a notes placeholder, a master/layout placeholder's `a:xfrm` is authored,
+placeholder with **explicit geometry** (`left`/`top`/`width`/`height` all round-trip:
+unlike a notes placeholder, a master/layout placeholder's `a:xfrm` is authored,
 not inherited), and its layout's own background, placeholders, and non-placeholder
 `objects` (a decorative rect is filtered out of `placeholders` but present in
 `shapes`). The import-only surfaces are `p:sldLayout/@type` and both `@showMasterSp`
-attributes — the writer authors none, so they read `null`/`true` on an authored deck;
+attributes: the writer authors none, so they read `null`/`true` on an authored deck;
 an imported deck carries PowerPoint's values.
 
 `SlideLayout.background`/`SlideMaster.background` report only that part's **own**
-`p:bg` — for the *effective* background a slide actually renders (walking slide →
+`p:bg`: for the *effective* background a slide actually renders (walking slide →
 layout → master), use `Slide.background` instead.
 
 Scope note: this pass ships the property model, the shape model, and navigation. It
 does not add new *inheritance-resolution* getters beyond what already existed (a
 slide placeholder's effective run colour/size/face already resolves via
 `Slide.themeContext` → `Run.resolved*`). Notes-body run inheritance from the
-notesMaster's `p:notesStyle` now resolves too (shipped 2026-07-23) — see the
+notesMaster's `p:notesStyle` now resolves too (shipped 2026-07-23): see the
 notes-frame section above. Nor does it *compose* the tiers for you: a renderer still
 decides for itself whether to paint `master.shapes` under `layout.shapes` under
 `slide.shapes`, with `showMasterSp` as the gate.
@@ -862,19 +862,19 @@ own transform (nothing to inherit), or a placeholder whose chain defines none ei
 
 The write API always inlines an explicit `a:xfrm` onto every placeholder it authors
 (`src/gen/slide/object.ts` resolves and copies bound layout geometry down
-unconditionally), so `source` reads `'own'` for every authored deck — there is no
+unconditionally), so `source` reads `'own'` for every authored deck: there is no
 writer trigger for the inherited branch. It matters for *imported* decks: PowerPoint
 itself leaves a placeholder's `p:spPr` empty when the user never repositions it (own
 xfrm omitted at every tier down to the master that finally defines one), which is the
 gap this getter closes. Verified against `test/read/fixtures/placeholder-inherit.pptx`
-(a genuine PowerPoint-authored deck whose title/body placeholders — and their layout's
-— both omit `a:xfrm`, resolving to the master); the oracle geometry was read directly
+(a genuine PowerPoint-authored deck whose title/body placeholders, and their layout's,
+both omit `a:xfrm`, resolving to the master); the oracle geometry was read directly
 off that fixture's own master/layout XML, not derived from the reader.
 
 ### `Shape` and subclasses
 
-`slide.shapes` — and, identically, `layout.shapes`, `master.shapes`, and
-`group.shapes` — returns one proxy per shape-tree child, by element:
+`slide.shapes` (and, identically, `layout.shapes`, `master.shapes`, and
+`group.shapes`) returns one proxy per shape-tree child, by element:
 
 | Element           | Class          | `shapeType`     |
 | ----------------- | -------------- | --------------- |
@@ -892,7 +892,7 @@ and all four reject `NaN`/`Infinity`.
 
 `rotation`/`flipH`/`flipV` are read-only reads of the shape's own `a:xfrm`.
 `rotation` is in **degrees** (the source stores 60000ths) and is faithful to the
-XML — a negative angle stored as e.g. `19216344` reads back as `320.27`, not
+XML: a negative angle stored as e.g. `19216344` reads back as `320.27`, not
 normalized to a signed range. Like the geometry getters, `rotation` is `null`
 when the shape has no own transform and `0` when it has one without a `@rot`.
 These report the shape's **own** orientation; they are the per-shape complement
@@ -996,7 +996,7 @@ raster (PNG/EMF) in `imageRelId`/`imagePartName`, and `a:blip/asvg:svgBlip/@r:em
 points at the vector original in `svgRelId`/`svgPartName`. Some exporters (Templafy,
 observed emitting 89 of 353 pictures this way on a real deck) instead emit an
 **SVG-only** blip: there is no `@r:embed` on the `a:blip` itself, so `imageRelId` is
-`null` and only `svgPartName` resolves. A faithful reader must consult **both** — an
+`null` and only `svgPartName` resolves. A faithful reader must consult **both**: an
 SVG picture is not "unsupported" just because `imagePartName` is `null`. Both
 getters resolve their rel id through the slide's relationships the same way
 `imagePartName` does; both are `null` when the corresponding blip is absent.
@@ -1008,13 +1008,13 @@ each end to a shape: the writer resolves each target's `objectName` → drawing 
 serialize time and emits
 `<p:cNvCxnSpPr><a:stCxn id idx/><a:endCxn id idx/></p:cNvCxnSpPr>`. The read side
 decodes that into `ConnectionSite` per end and resolves the `@id` back to the slide
-shape via `slide.shapeByIdDeep` (`boundShape`), which **descends into groups** — so
+shape via `slide.shapeByIdDeep` (`boundShape`), which **descends into groups**, so
 a connector bound to a shape nested in a group resolves the same as one bound to a
 top-level shape (the writer already ids and binds group children). The two-getter
 shape mirrors the write API's `startShape`/`endShape` split.
 
 - An **unbound** end (the writer emits a bare `<p:cNvCxnSpPr/>` when a connector
-  binds no shapes, or when an `objectName` doesn't resolve — it warns and falls
+  binds no shapes, or when an `objectName` doesn't resolve: it warns and falls
   back to static endpoint geometry) reports `null`, never a half-populated site.
 - A **present** binding whose `@id`/`@idx` is unparseable degrades to `null` rather
   than a partial site; a binding whose shape id isn't found *anywhere* on the slide
@@ -1035,7 +1035,7 @@ shape mirrors the write API's `startShape`/`endShape` split.
   scheme pair is non-null, so setting one **clears** the other.
 - Setting `fillColor = null` (or `lineColor = null`) removes the `a:solidFill`,
   restoring inheritance from the shape's style/placeholder. This is **distinct**
-  from `noFill()`, which writes an explicit `<a:noFill/>` — a deliberately
+  from `noFill()`, which writes an explicit `<a:noFill/>`: a deliberately
   transparent surface, not "inherit".
 - A setter creates the properties element (`p:spPr`/`p:grpSpPr`), the `a:ln`, and
   the `a:solidFill` in OOXML document order if absent.
@@ -1100,8 +1100,8 @@ the write-side `GeometryPoint` DSL, so a consumer maps a `GeometryCommand[]` to
 
 #### Picture fill
 
-`pictureFill` decodes `a:blipFill` from a *fill-bearing container* — a shape's
-`p:spPr`, a table cell's `a:tcPr`, a slide's `p:bgPr` — and is what the
+`pictureFill` decodes `a:blipFill` from a *fill-bearing container* (a shape's
+`p:spPr`, a table cell's `a:tcPr`, a slide's `p:bgPr`) and is what the
 `resolvedFill` accessors cannot report: they decode solid colours only, so
 without it an image-filled surface is indistinguishable from an unfilled one. A
 `Picture` is a different thing (a `p:pic` whose image is its sibling
@@ -1135,13 +1135,13 @@ interface FillRect {
 ```
 
 Rect edges follow the same fraction convention as `Picture.crop`, and an
-explicitly empty `<a:srcRect/>` reports zeros rather than `null` — its presence
+explicitly empty `<a:srcRect/>` reports zeros rather than `null`: its presence
 is meaningful. A slide background's `image` variant carries the whole thing under
 `picture`, alongside the flat `relId`/`partName` it always had.
 
 #### Pattern fill and effects
 
-`patternFill` decodes `a:pattFill` — `{ preset, foreground, background }`, with
+`patternFill` decodes `a:pattFill`: `{ preset, foreground, background }`, with
 `fgClr`/`bgClr` resolved through the shape's theme context (note they *wrap* a
 colour element, unlike `a:highlight`'s bare child). The effect getters generalize
 the shadow read over the shape's `a:effectLst`:
@@ -1171,9 +1171,9 @@ interface SoftEdge {
 ```
 
 FAITHFUL (the writer authors them): pattern fill, inner shadow, glow (write-side
-text glow emits `a:glow`). READ-ONLY (the writer authors none — carried for
+text glow emits `a:glow`). READ-ONLY (the writer authors none: carried for
 imported decks, never regenerated): reflection, soft edge. Every reflection field
-is optional — an absent attribute is **omitted**, not zeroed. Colour alpha rides
+is optional: an absent attribute is **omitted**, not zeroed. Colour alpha rides
 the colour transform (`transparency:25` → `a:alpha 75000` → `alpha 0.75`).
 
 ### `TextFrame`, `Paragraph`, `Run`
@@ -1223,14 +1223,14 @@ interface RunHyperlink {
 }
 ```
 
-Boolean run properties are `null` when the attribute is absent — the value is
+Boolean run properties are `null` when the attribute is absent: the value is
 inherited from the list/placeholder style, not `false`. Explicit RGB colour and
 theme colour are reported separately (`color` vs `schemeColor`); at most one is
 non-null for a given run.
 
 `strike`/`caps` surface the **raw OOXML token** (not a boolean), because the schema
 is tri-state. `baselinePct` divides the `ST_Percentage` (1000ths of a percent) by
-1000 to a plain percent — the writer maps `superscript`→30, `subscript`→−40.
+1000 to a plain percent: the writer maps `superscript`→30, `subscript`→−40.
 `highlight` is theme-resolved (the writer only ever emits a hex, so `effectiveHex`
 is that hex). `lineSpacing` is a discriminated union: `a:spcPts/@val` is hundredths
 of a point; `a:spcPct/@val` is `multiple × 100000` (÷1000 → percent).
@@ -1307,7 +1307,7 @@ class TableCell {
 }
 ```
 
-`styleId` surfaces the **raw** `a:tableStyleId` GUID, not a resolved style — the
+`styleId` surfaces the **raw** `a:tableStyleId` GUID, not a resolved style: the
 id is the codegen handoff to the writer's `tableStyle` option (whose built-in
 members *are* the GUID string, so it round-trips verbatim); resolving the style
 matrix is a separate concern. The stroke colour reuses the same solid-fill decode
@@ -1315,7 +1315,7 @@ as shape strokes.
 
 Borders are faithful, not collapsed. The writer emits a **full four-side set on
 every cell**, defaulting an unspecified side to `<a:ln w="0"><a:noFill/></a:ln>`,
-so a *written* table's cells never read `borders === null` — that null path is
+so a *written* table's cells never read `borders === null`: that null path is
 reachable only from PowerPoint-authored fixtures with a bare/absent `a:tcPr`. A
 `noFill` edge (explicit suppression) is reported as such and is **distinct** from
 an edge inherited from the table style; don't conflate them. The writer never
@@ -1328,7 +1328,7 @@ falls through to the table style graph, so `resolvedFill` reports the banding /
 header shading PowerPoint actually paints. A cell carrying some *other* fill
 choice (`a:blipFill`, `a:gradFill`, `a:pattFill`, `a:noFill`) overrides the style
 in PowerPoint, so `resolvedFill` reports `null` for one rather than the colour
-underneath it — read `pictureFill` for an image-filled cell.
+underneath it: read `pictureFill` for an image-filled cell.
 
 `columnIndex` counts `a:tc` elements in the row, so a cell that spans columns
 (`gridSpan > 1`) occupies one index; merged-away cells report
@@ -1437,13 +1437,13 @@ alongside the embedded workbook (`c:numCache` / `c:strCache`). Rewriting chart
 data (which means rewriting the embedded `.xlsx`) is not yet supported.
 
 The chart part has **no theme context**, so series/axis colours surface as a raw
-`color` (srgbClr hex) plus an unresolved `schemeColor` token — deliberately *not*
+`color` (srgbClr hex) plus an unresolved `schemeColor` token: deliberately *not*
 flattened to an effective hex the way shape/run colours are. `dataLabels` is the
 group-wide block after the series (not the per-series ones). Note that bar/area
 series carry no `a:ln` by default, so `ChartSeries.line` is `null` for them; the
 stroke path is exercised by line/radar series.
 
-### `ChartEx` — Office-2016 charts (waterfall / funnel / treemap / …)
+### `ChartEx`: Office-2016 charts (waterfall / funnel / treemap / …)
 
 The `cx:` chart family (waterfall, funnel, treemap, sunburst, histogram, pareto,
 box-and-whisker, region map) is a **separate subsystem** from classic `c:chart`:
@@ -1499,18 +1499,18 @@ Faithful-mapping decisions worth not re-litigating:
   a pareto both render as `clusteredColumn` (pareto adds a second `paretoLine`
   series), so the token doesn't uniquely identify the authoring type. The reader
   exposes the raw `layoutIds`, never a guessed type.
-- **Categories read the *first* `cx:lvl`** — the writer emits hierarchy levels
+- **Categories read the *first* `cx:lvl`**: the writer emits hierarchy levels
   leaf-first, so the first level is the leaf labels (a treemap reads
   `['US','CA','DE']`, not the parent continents).
 - **Axis kind comes from the scaling child** (`cx:catScaling` vs `cx:valScaling`),
-  not an element name; **`gapWidth` is a fraction** (0.5 = 50%), read as a float —
+  not an element name; **`gapWidth` is a fraction** (0.5 = 50%), read as a float:
   unlike the classic axis's integer percent.
 - Data lives in a top-level `cx:chartData/cx:data` block the series point at by
   `cx:dataId`, not the classic `c:cat`/`c:val` caches. The embedded workbook, the
   style/colors sidecars, and a region map's online geo-cache are out of scope.
 
 > **Enumeration prerequisite:** a chartEx frame is wrapped in `mc:AlternateContent`,
-> which the shape walker originally skipped — so the frame was invisible.
+> which the shape walker originally skipped, so the frame was invisible.
 > `buildShapes` now unwraps `mc:AlternateContent` (preferring the `mc:Choice` shape,
 > else `mc:Fallback`). This also surfaces zoom frames and inline-math shapes that
 > were likewise hidden.
@@ -1566,14 +1566,14 @@ slide.placeholder('subTitle', '1') // …narrowed by idx (defaults to '0' when a
 
 `placeholder(type, idx?)` returns an `AutoShape` (only `p:sp` shapes can be
 placeholders); read a shape's own placeholder identity via `shape.placeholder`
-(`{ type, idx } | null`). All three finders scan **top-level** shapes only — a
+(`{ type, idx } | null`). All three finders scan **top-level** shapes only: a
 shape nested in a group is not matched. To find a shape by id *across* groups, use
 `slide.shapeByIdDeep(id)`, which walks group subtrees pre-order (this backs the
 connector `boundShape` resolution); or walk `groupShape.shapes` yourself.
 
 To replace **all** of a shape's text in one call, set `shape.text` (or
 `textFrame.text`). It collapses the body to a single paragraph and run,
-preserving the **first** existing run's character formatting (`a:rPr`) — the same
+preserving the **first** existing run's character formatting (`a:rPr`): the same
 behaviour as `TableCell.text`:
 
 ```js
@@ -1583,7 +1583,7 @@ slide.placeholder('subTitle', '1').text = 'New subtitle'
 
 Setting `text` on a shape with no text frame (e.g. a picture) throws. For
 multiple runs or per-run formatting, edit `textFrame.paragraphs[].runs[]`
-directly instead — that path preserves every run's own formatting, so it is the
+directly instead: that path preserves every run's own formatting, so it is the
 right tool when you want to change one run and leave its siblings untouched.
 
 ### Adding and removing shapes (Phase 4)
@@ -1613,7 +1613,7 @@ slide.shapes.find((s) => s.name === 'Old caption')?.delete()
 preset geometry, and one paragraph). For richer shapes, add the text box and
 then mutate it, or use the low-level escape hatch below.
 
-Add a picture from raw image bytes — this creates a `/ppt/media/` part,
+Add a picture from raw image bytes: this creates a `/ppt/media/` part,
 registers its content type, and wires an `image` relationship from the slide:
 
 ```js
@@ -1627,11 +1627,11 @@ slide.addPicture(png, { left: 914400, top: 457200, width: 1828800, height: 18288
 
 On save, the new media part is appended, the slide's `.rels` is rewritten with
 the added relationship, and `[Content_Types].xml` is regenerated only if the
-image's type was not already registered — every other part stays byte-identical.
+image's type was not already registered: every other part stays byte-identical.
 
 ### Replacing a picture's image (Phase 4)
 
-`Picture.setImage` swaps the bytes behind an existing picture — the primitive a
+`Picture.setImage` swaps the bytes behind an existing picture: the primitive a
 stitching workflow needs when it lifts a slide from a reference deck and drops in
 its own logo or photo. Like `addPicture`, it mints a `/ppt/media/` part,
 registers its content type, and wires an `image` relationship from the slide;
@@ -1654,7 +1654,7 @@ overwriting bytes in place would silently change every picture pointing at it.
 Minting a fresh part means the swap affects exactly this one picture; the
 now-orphaned old part is left in place (harmless, just not pruned).
 
-Geometry and crop are left untouched — `setImage` repoints the blip and leaves
+Geometry and crop are left untouched: `setImage` repoints the blip and leaves
 `a:xfrm` and any `a:srcRect` as-is, so the caller owns sizing. To point a picture
 at an image **already** present in the slide's relationships without adding a
 part, assign the rel id directly: `picture.imageRelId = otherPicture.imageRelId`.
@@ -1681,15 +1681,15 @@ per-slide notes, or detach them afterward via the low-level API.
 Pass `{ at }` to place the duplicate at a specific deck position instead of
 appending: `presentation.cloneSlide(0, { at: 0 })` makes the copy the new first
 slide. `at` is a zero-based index into `p:sldIdLst` (deck order); an `at` past the
-current slide count — or omitting it — appends. The returned slide's `.index`
+current slide count (or omitting it) appends. The returned slide's `.index`
 reflects where it landed.
 
 ### Importing a slide from another deck (Phase 4)
 
 Copy a slide from one open package into a different one. Unlike `cloneSlide`
 (same-deck duplicate), `importSlide` copies the connected sub-graph the slide
-depends on — its `slideLayout → slideMaster → theme`, plus any media, charts, and
-embeddings — into the target under fresh partnames:
+depends on (its `slideLayout → slideMaster → theme`, plus any media, charts, and
+embeddings) into the target under fresh partnames:
 
 ```js
 const target = await Presentation.load(await readFile('deck.pptx'))
@@ -1699,7 +1699,7 @@ const bytes = await target.save()
 ```
 
 Only the layout(s) actually used by imported slides are copied, and the imported
-master's `p:sldLayoutIdLst` is pruned to exactly those — mirroring PowerPoint's
+master's `p:sldLayoutIdLst` is pruned to exactly those: mirroring PowerPoint's
 "Reuse Slides". Parts shared by repeated imports from the same source deck are
 copied once and reused. Untouched parts of the target stay byte-identical.
 
@@ -1710,10 +1710,10 @@ no geometry rescaling). Source notes are dropped, and fonts embedded via
 #### Slide position: `at`
 
 By default the imported slide appends. Pass `{ at }` to insert it at a specific
-deck position — the same zero-based `p:sldIdLst` index as `cloneSlide`'s `at`,
+deck position: the same zero-based `p:sldIdLst` index as `cloneSlide`'s `at`,
 where `0` makes it first and an out-of-range/omitted `at` appends. This places
 brand **bookends** around generator-authored interior slides regardless of import
-order — a cover first, a closer last:
+order: a cover first, a closer last:
 
 ```js
 deck.importSlide(source, COVER_INDEX, { theme: 'copy', at: 0 }) // cover first
@@ -1732,7 +1732,7 @@ theme`. The default `theme: 'copy'` brings that whole subgraph across, so a deck
 stitched from N source decks carries **N themes / N masters**. That renders
 faithfully in PowerPoint, but it is untidy for handoff and trips renderers
 (notably LibreOffice) that resolve a slide's per-element `schemeClr` / style-matrix
-references against the *wrong* (first) theme — branded backgrounds turn white and
+references against the *wrong* (first) theme: branded backgrounds turn white and
 scheme-coloured fills turn black, while literal `srgbClr` content is unaffected.
 
 `theme: 'preserve'` fixes both by **flattening then attaching**:
@@ -1741,7 +1741,7 @@ scheme-coloured fills turn black, while literal `srgbClr` content is unaffected.
 const imported = target.importSlide(source, 0, { theme: 'preserve' })
 ```
 
-- **Flatten** — bake what the *source* theme would have produced into the slide
+- **Flatten**: bake what the *source* theme would have produced into the slide
   XML: every `a:schemeClr` is resolved through the source `clrMap`/`clrScheme` to a
   literal `a:srgbClr` (colour transforms like `lumMod`/`shade` carried through
   unchanged, so tints render identically); each shape's `p:style`
@@ -1750,7 +1750,7 @@ const imported = target.importSlide(source, 0, { theme: 'preserve' })
   background* (its own `p:bg`, else the one it inherited from the source
   layout/master, including a theme-indexed `p:bgRef`) is resolved to a literal
   `p:bgPr` and written onto the slide so it survives rebinding.
-- **Carry inherited placeholder values** — a placeholder draws position, size,
+- **Carry inherited placeholder values**: a placeholder draws position, size,
   colour, and font from the source `slideLayout`/`slideMaster` it no longer
   points at after the rebind, so anything it does not set explicitly would snap
   to the destination master's defaults. `preserve` resolves and bakes that
@@ -1760,20 +1760,20 @@ const imported = target.importSlide(source, 0, { theme: 'preserve' })
   sets none of its own gets the inherited colour and size/weight (`sz`/`b`/`i`),
   resolved per paragraph list level through the source placeholder `a:lstStyle`
   → master `a:lstStyle` → master `p:txStyles` chain. Typeface (`a:latin`) is
-  deliberately left unbaked — it re-binds to the destination theme along with
+  deliberately left unbaked: it re-binds to the destination theme along with
   `fontRef` (see below).
-- **Attach** — bind the now theme-independent slide to *this* deck's existing
+- **Attach**: bind the now theme-independent slide to *this* deck's existing
   master/layout instead of importing the source theme. The result is a
   single-theme file whose imported slides keep their original colours.
 
 Because the colours are frozen to literals, `preserve` does not re-colour to the
-destination brand — its thesis is "same pixels, one theme". The `fontRef` and
+destination brand: its thesis is "same pixels, one theme". The `fontRef` and
 typeface are deliberately left to re-bind to the destination theme (a font
 normalization bonus on attach). Deliberate re-branding (a `restyle` mode) is not
 yet implemented.
 
 Decorative graphics on the source `slideMaster`/`slideLayout` shape trees (logos,
-accent shapes, drawn footers — everything there *except* placeholders) belong to
+accent shapes, drawn footers: everything there *except* placeholders) belong to
 the master that `preserve` drops, so by default they do not travel with the slide.
 Pass `carryMasterGraphics: true` to bake them onto the imported slide behind its
 own content (their media copied across and theme references flattened the same
@@ -1786,7 +1786,7 @@ const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterG
 ### Composing a slide from shapes of several decks (Phase 4)
 
 Where `importSlide` brings a **whole** slide across, `importShape` lifts an
-**individual** shape — an autoshape, picture, table, chart, connector, or group —
+**individual** shape (an autoshape, picture, table, chart, connector, or group)
 from any open deck onto a slide of *this* presentation. It is the primitive behind
 a "stitching" workflow: build one target slide from, say, the comparison table of
 deck A's slide 38 and the icon row of deck B's slide 34.
@@ -1810,8 +1810,8 @@ copies that subtree self-consistently:
 
 - **Dependencies travel.** Every media / chart (and its embedded workbook) /
   embedding the shape references is copied into this package under a fresh
-  partname — deduped against earlier imports from the same source deck via the
-  copy registry — and its `r:embed` / `r:id` / `r:link` are rewritten to fresh
+  partname (deduped against earlier imports from the same source deck via the
+  copy registry) and its `r:embed` / `r:id` / `r:link` are rewritten to fresh
   host-slide relationships. So pictures, styled tables, and charts come across
   intact, not as re-synthesized plain shapes.
 - **Ids cannot collide.** The lifted shape's `p:cNvPr/@id` (and every group
@@ -1825,16 +1825,16 @@ copies that subtree self-consistently:
 
 Same three semantics as `importSlide`, scoped to the one shape subtree:
 
-- **`preserve`** (default) — bake the shape's `a:schemeClr` and `p:style`
+- **`preserve`** (default): bake the shape's `a:schemeClr` and `p:style`
   `lnRef`/`fillRef`/`effectRef` to literals against the *source* theme, so it keeps
   its look on a host slide whose theme differs. A lifted *placeholder* also gets
-  its inherited geometry/colour/size baked (best-effort — prefer lifting concrete
+  its inherited geometry/colour/size baked (best-effort: prefer lifting concrete
   content shapes over placeholders). Unlike a slide import this never runs the
   slide-scoped background passes; a background belongs to a slide, not a shape.
-- **`restyle`** — leave the shape's theme references symbolic so it re-brands to
+- **`restyle`**: leave the shape's theme references symbolic so it re-brands to
   the host theme. Only *symbolic* colours re-brand; a literal `a:srgbClr` the
   source baked in stays put.
-- **`copy`** — bring the XML across untouched; only sane when the host already
+- **`copy`**: bring the XML across untouched; only sane when the host already
   shares the source theme.
 
 v1 limitations match `importSlide`: source and target slide sizes must match
@@ -1845,21 +1845,21 @@ lifted shape is dropped (the result is an editable static layout).
 
 `importSlide` / `importShape` move authored content *between loaded decks*. The
 complementary path is to **generate new slides and graft them onto a loaded deck**,
-reusing its masters/layouts/theme verbatim — the hybrid "generate-onto-existing"
+reusing its masters/layouts/theme verbatim: the hybrid "generate-onto-existing"
 workflow. Two methods cover it:
 
 - **`presentation.layouts()`** enumerates the deck's layout gallery as
-  `LayoutHandle[]` (master-then-layout order). It is a read-only discovery call —
+  `LayoutHandle[]` (master-then-layout order). It is a read-only discovery call:
   it copies nothing and leaves the package byte-identical. The `name` is the
   layout's `p:cSld@name` ("Title and Content", "Blank", …), which is what you bind
   to.
 - **`presentation.appendSlides(source, { layout })`** authors the slides of a
-  *generator* (`source` — any object exposing `extractSlides()`, which a `TsPptx`
+  *generator* (`source`: any object exposing `extractSlides()`, which a `TsPptx`
   instance does) and splices them into this deck, each slide bound to the named
   existing layout. Only `presentation.xml`, its `.rels`, `[Content_Types].xml`, and
   the new slide/media/chart parts change; masters, layouts, theme, and every other
   untouched part stay byte-identical. Source and deck slide sizes must match
-  (`appendSlides` throws otherwise — size the generator to the deck).
+  (`appendSlides` throws otherwise: size the generator to the deck).
 
 ```js
 import TsPptx from '@shbernal/ts-pptx'
@@ -1885,7 +1885,7 @@ convention as `cloneSlide`/`importSlide`), and `{ onMediaError: 'placeholder' }`
 substitute a placeholder instead of throwing when an `addImage` source can't be
 read.
 
-#### Starting from a PowerPoint template — `fromTemplate`
+#### Starting from a PowerPoint template: `fromTemplate`
 
 To author a fresh deck on a **corporate template** instead of an existing deck,
 open it with `Presentation.fromTemplate(input)`. It returns the template as an
@@ -1941,14 +1941,14 @@ const edited = await presentation.save()
 **`markDirty()` is not optional.** Skipping it is not an error and produces no
 warning: the part is still clean, so `save()` writes its original bytes and the
 edit simply vanishes. That is the deliberate cost of the byte-identity guarantee
-below — parsing and reading must never dirty a part — so the obligation stays
+below (parsing and reading must never dirty a part), so the obligation stays
 explicit. It is pinned by `test/read/escape-hatch-dirty.test.js`.
 
 `element_` is available at every level, and `markDirty()` on any of them reaches
-the same owning part: `Slide` (the `p:sld` root), `Shape` (its host's part — the
+the same owning part: `Slide` (the `p:sld` root), `Shape` (its host's part, the
 slide, layout, or master carrying the tree), `TextFrame`,
 `Paragraph`, `Run`, `Table`, `TableRow`, `TableCell`, `Placeholder`,
-`NotesPlaceholder`, `Theme`, and — reaching their *own* parts, not the slide —
+`NotesPlaceholder`, `Theme`, and (reaching their *own* parts, not the slide)
 `Chart`, `ChartAxis`, `ChartSeries`, `ChartEx`, `ChartExAxis`, `ChartExSeries`,
 and the `ResolvedTableStyle` returned by `table.resolvedStyle`.
 
@@ -1987,7 +1987,7 @@ shape fill/line tests (`test/read/shape-fill-edit.test.js`: `fillColor` /
 support, and edited packages staying schema-valid), and the
 picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
 part + content-type + relationship, format sniffing, and `setImage` swapping a
-picture's bytes copy-on-write — minting a fresh part, repointing the blip, and
+picture's bytes copy-on-write, minting a fresh part, repointing the blip, and
 leaving the old part and any sibling sharing it untouched), and the clone tests (`test/read/clone-slide.test.js`:
 `cloneSlide` appending an independent duplicate with correct presentation/rels
 wiring), and the import tests (`test/read/import-slide.test.js`: `importSlide`
@@ -2014,13 +2014,13 @@ byte-identical, carrying text/image/chart/internal-link/audio/video, and staying
 schema-valid), and the template tests (`test/read/template-masters.test.js`:
 `fromTemplate` stripping sample slides to a shell while preserving the layout
 gallery and chrome byte-for-byte, flipping a `.potx` main part to the editable
-presentation content type — verified against the PowerPoint-authored
-`template.potx` oracle — honouring `keepTemplateContentType`, and authoring onto a
+presentation content type, verified against the PowerPoint-authored
+`template.potx` oracle, honouring `keepTemplateContentType`, and authoring onto a
 zero-slide template shell to a schema-valid result).
 The read-model expansions above are each proven by a **write→read fidelity**
 suite built on the shared harness `test/read/authored.js`: author the feature with
 the write API (which already emits it), load the bytes back through the deep read
-model, and assert the extracted model — keeping the write and read paths
+model, and assert the extracted model, keeping the write and read paths
 independent so a bug in one can't mask a bug in the other. Those suites are
 `table-borders.test.js`, `chart-format.test.js`, `run-props.test.js`,
 `chartex-read.test.js`, `connector-read.test.js` (endpoint binding),
@@ -2034,10 +2034,10 @@ Beyond the automated suite, two scripts emit decks for a manual PowerPoint open
 prompt):
 
 - `pnpm run test:read:emit` writes each fixture's unmodified `load() → save()`
-  output to `.tmp/roundtrip/` — confirms the round-trip envelope opens clean.
+  output to `.tmp/roundtrip/`: confirms the round-trip envelope opens clean.
 - `pnpm run test:read:emit:edits` writes one *edited* deck per editing
   capability (added text box, added picture, deleted shape, cloned slide, edited
-  table cells, imported image/table slide) to `.tmp/read-edits/` — confirms the
+  table cells, imported image/table slide) to `.tmp/read-edits/`: confirms the
   reserialized/added parts open
   clean and render as intended. This is the check that matters for the editing
   API, since desktop PowerPoint validates the reserialized XML more strictly than

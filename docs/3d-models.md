@@ -13,7 +13,7 @@ doc_type: "guide"
 # 3D Models
 
 `slide.addModel3d()` embeds a glTF binary inside the `.pptx` and places it on the
-slide as a live 3D model — PowerPoint's **Insert ▸ 3D Models**. In PowerPoint
+slide as a live 3D model: PowerPoint's **Insert ▸ 3D Models**. In PowerPoint
 2019 or later the viewer can click and drag to orbit it.
 
 ```js
@@ -33,7 +33,7 @@ The model's bytes travel inside the package, so the deck stays self-contained.
 Either `data` (base64, with or without a `data:...;base64,` header) or `path` is
 required; everything else is optional.
 
-> Linked models — a model referenced from outside the package — are not
+> Linked models (a model referenced from outside the package) are not
 > supported. Only embedded payloads. Neither are animation scenes: a `.glb` with
 > animation clips embeds fine, but ts-pptx emits no `Model3DFormat` animation
 > settings, so PowerPoint shows the model at rest.
@@ -58,7 +58,7 @@ s.addModel3d({ path: 'engine.glb', preview: { path: 'engine-render.png' } })
 ```
 
 Omit it and a neutral gray placeholder is embedded, and the library emits a
-[`model3d/preview-missing`](diagnostics.md) warning — because the gap is
+[`model3d/preview-missing`](diagnostics.md) warning, because the gap is
 invisible exactly where you would check for it (on screen, in PowerPoint) and
 shows up later, in the thumbnail or the PDF someone else opens.
 
@@ -73,13 +73,13 @@ look wrong if left alone.**
 
 The `am3d` scene is measured in metres, so PowerPoint has to know how big a model
 unit is. When *PowerPoint* inserts a model it reads the bounding box out of the
-file and normalizes the largest dimension to 1 metre — a 240-unit-wide model gets
+file and normalizes the largest dimension to 1 metre: a 240-unit-wide model gets
 `meterPerModelUnit = 1/240`.
 
 ts-pptx never opens the `.glb` (there is no glTF parser here, deliberately), so it
 cannot measure that. It emits `0.5`, which is correct for a model 2 units across
 and wrong for everything else. Left at the default, a model 240 units across
-becomes a 120-metre object with the camera 2.26 metres from its centre — the
+becomes a 120-metre object with the camera 2.26 metres from its centre: the
 viewer is inside it, and the slide shows a wall of shading.
 
 So: set it to `1 / <largest bounding-box dimension, in model units>`. Most
@@ -120,7 +120,7 @@ exactly. Measured against three models, it places the camera at
 pos.z = |halfExtents / maxExtent| / sin(fov / 2)
 ```
 
-with `lookAt` at the origin — i.e. far enough back to contain the bounding sphere
+with `lookAt` at the origin: i.e. far enough back to contain the bounding sphere
 of the scaled model. For the default 45° fov and a cube that is
 `(√3 / 2) / sin(22.5°) = 2.2630334`, which is where the default comes from.
 
@@ -131,7 +131,7 @@ is not greater than zero each throw an
 
 ### What is *not* configurable
 
-The lighting is a fixed studio rig — one ambient light and three point lights,
+The lighting is a fixed studio rig: one ambient light and three point lights,
 transcribed from PowerPoint's output, which emitted the identical rig for every
 model tested. PowerPoint's own UI exposes lighting presets; ts-pptx does not, and
 a model authored here always gets the default rig.
@@ -139,7 +139,7 @@ a model authored here always gets the default rig.
 ## Sizing
 
 `w`/`h` default to **4 × 3 inches**. A 3D model has no intrinsic aspect ratio and
-the library never opens the payload, so there is nothing to measure — set them
+the library never opens the payload, so there is nothing to measure: set them
 explicitly. The model is drawn inside the frame at its camera's framing; a cube
 in a 4 × 3 frame renders as a 3 × 3 square, centred.
 
@@ -182,7 +182,7 @@ Details worth knowing, all transcribed from a PowerPoint-authored deck
 (`test/read/fixtures/model3d.pptx`, produced by `Shapes.Add3DModel`):
 
 - The rel type is under `2017/06`, which is **not** the `2017` of the namespace.
-- The content type is `model/gltf.binary`, spelled with a dot — not the
+- The content type is `model/gltf.binary`, spelled with a dot: not the
   IANA-style `model/gltf-binary`.
 - `am3d:raster`'s blip and the `mc:Fallback` picture share the *same* image
   relationship; the preview is stored once.
@@ -196,14 +196,14 @@ Details worth knowing, all transcribed from a PowerPoint-authored deck
 ## Reading a deck that contains a model
 
 There is no typed read accessor. A model read through `ts-pptx/read` surfaces as
-an inert `graphicFrame` shape carrying its `objectName` — visible to anything
+an inert `graphicFrame` shape carrying its `objectName`: visible to anything
 enumerating shapes, and preserved byte-intact through load → save and through
 `importSlide`, but with no camera or payload accessor. That is deliberate for
 now; see `test/read/model3d-roundtrip.test.js`, which pins the survival.
 
 ## A note on testing
 
-The Open XML SDK validator does **not** descend into an `mc:Choice` — it checks
+The Open XML SDK validator does **not** descend into an `mc:Choice`: it checks
 only the `mc:Fallback` branch. Measured at `Microsoft365`: a bogus attribute, an
 unknown child element, elements out of document order, a non-numeric `fov`, and
 even a missing required `r:embed` inside `am3d:model3d` all validate clean, while

@@ -30,8 +30,8 @@ You may branch on `instanceof` and on `code`, and treat both as part of the pack
 adding a code is back-compatible, and removing or renaming one is a breaking change with a
 `CHANGELOG.md` entry.
 
-The message is prose meant for a human reading a stack trace. It is free to improve — reworded,
-expanded, given a better example — in any release, including patch releases. Do not parse it, and
+The message is prose meant for a human reading a stack trace. It is free to improve (reworded,
+expanded, given a better example) in any release, including patch releases. Do not parse it, and
 do not assert on it in tests.
 
 Every error remains an `instanceof Error`, so a `catch` block that only knows about `Error` keeps
@@ -39,7 +39,7 @@ working unchanged.
 
 ## The five classes
 
-The classes are a deliberately coarse bucket — they answer *"whose problem is this?"* — and the
+The classes are a deliberately coarse bucket (they answer *"whose problem is this?"*) and the
 `code` carries the specificity.
 
 | class | the failure is | who fixes it |
@@ -48,7 +48,7 @@ The classes are a deliberately coarse bucket — they answer *"whose problem is 
 | `UnsupportedFeatureError` | a well-formed request this build, runtime, or shape cannot express | your expectations, or the environment |
 | `PackageReadError` | the input bytes are not a readable package | the input file |
 | `MediaError` | a referenced image, font, or A/V resource would not load or decode | the resource |
-| `InternalError` | an invariant of the library itself did not hold | ts-pptx — please file a bug |
+| `InternalError` | an invariant of the library itself did not hold | ts-pptx: please file a bug |
 
 The split is what lets a batch job react rather than just log:
 
@@ -81,7 +81,7 @@ This is a bug in ts-pptx, not in your deck or your code. Please report it:
 https://github.com/shbernal/ts-pptx/issues/new?template=agent-report.yml
 ```
 
-That is a message, so it is still not API — do not assert on it. It lives in the constructor rather
+That is a message, so it is still not API: do not assert on it. It lives in the constructor rather
 than at each throw site so a site added later cannot forget it, and it is on this class alone
 because the other four are routine outcomes of bad input or a bad call. A "report this" banner on
 every malformed package would train you to skip the line, including the one time it always means
@@ -89,20 +89,20 @@ something.
 
 ### Which failures are worth reporting
 
-`InternalError` always is. For the rest, the test is whether the environment disagrees with us —
+`InternalError` always is. For the rest, the test is whether the environment disagrees with us:
 the project's supported bar is *"the output opens cleanly in Microsoft PowerPoint"*, and it reads in
 both directions:
 
 | you saw | report it when |
 | --- | --- |
-| `PackageReadError` | the file opens cleanly in PowerPoint — then we are the ones who cannot read it |
+| `PackageReadError` | the file opens cleanly in PowerPoint, then we are the ones who cannot read it |
 | `MediaError` | the image, font, or A/V asset loads fine in other tools |
 | `UnsupportedFeatureError` | PowerPoint can plainly express the thing, so this is a gap rather than a limit |
 | `InvalidOptionError` | the deck it refused is one PowerPoint can express |
 | no error at all | PowerPoint repairs or misrenders the output, or a round trip loses a construct |
 
 A skill ships inside the package that walks through triage, reducing the failure to a script that
-builds its own deck, and filing — including the rule that a deck from a real project never goes to a
+builds its own deck, and filing: including the rule that a deck from a real project never goes to a
 public tracker:
 
 ```bash
@@ -119,7 +119,7 @@ whichever way it reaches you, so `coord/non-finite` means "a coordinate was `NaN
 whether it arrived as a thrown `InvalidOptionError` or as a `Diagnostic` on your handler. A consumer
 that special-cases a condition only has to learn one string for it.
 
-Each code belongs to exactly one class, and that pairing is type-enforced —
+Each code belongs to exactly one class, and that pairing is type-enforced:
 `new MediaError('coord/non-finite', …)` does not compile. If you are narrowing on both, `code` alone
 is sufficient; the class is the coarse view of the same fact.
 
@@ -136,7 +136,7 @@ catch (err) {
 
 ## Importing the classes
 
-The classes and the code types are re-exported from every entry point — `@shbernal/ts-pptx` and each
+The classes and the code types are re-exported from every entry point: `@shbernal/ts-pptx` and each
 subpath (`/read`, `/zip`, `/math`, …). They all resolve to one shared module, so `instanceof` works
 regardless of which subpath you imported from and which subpath threw.
 
@@ -144,15 +144,15 @@ regardless of which subpath you imported from and which subpath threw.
 
 A new throw site must name its condition in `src/codes.ts`, under the union belonging to the class
 that will carry it, before it will compile. That is the enforcement mechanism for keeping the
-vocabulary curated rather than accumulated — reuse an existing code when the condition is genuinely
+vocabulary curated rather than accumulated: reuse an existing code when the condition is genuinely
 the same, even if the wording differs and even if it is raised from a different entry point.
 
 Do not add a class per throw site. Five classes is the whole taxonomy; specificity belongs in the
 code.
 
-Write the message without an `ERROR:` / `ERROR!` prefix of its own — the class name already labels
+Write the message without an `ERROR:` / `ERROR!` prefix of its own: the class name already labels
 the failure in every stack trace and console rendering.
 
 Throwing is for a request the library ends up discarding. When it can carry on and still produce
-what the caller would recognise as their deck, warn instead — see
+what the caller would recognise as their deck, warn instead: see
 [Warn or throw?](diagnostics.md#warn-or-throw) for where the line sits.

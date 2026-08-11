@@ -39,18 +39,18 @@ A cell is a string, a number, or a `TableCell` object:
 { text: [{ text: 'mixed ' }, { text: 'runs', options: { bold: true } }] }
 ```
 
-`options` is a `TableCellProps`, which extends `TextBaseProps` — so everything that styles
+`options` is a `TableCellProps`, which extends `TextBaseProps`, so everything that styles
 text (`bold`, `color`, `fontFace`, `fontSize`, `align`, `valign`, `textDirection`, …) works
 on a cell, alongside the table-specific `fill`, `border`, `diagonal`, `margin`, `colspan`,
 `rowspan`, `anchorCtr`, `horzOverflow`, `cell3D` and `fit`.
 
 Rows may be **lopsided**. A row under a `rowspan` from above holds only the cells that
 actually start in it, and the emitter builds the rectangular merge grid itself. This is the
-one place authoring and reading differ in shape — see [Merging cells](#merging-cells).
+one place authoring and reading differ in shape: see [Merging cells](#merging-cells).
 
 ## Styling precedence
 
-Highest wins, matching how PowerPoint resolves styling — direct cell formatting always beats
+Highest wins, matching how PowerPoint resolves styling: direct cell formatting always beats
 a style region:
 
 | # | Source | Applied |
@@ -64,7 +64,7 @@ a style region:
 
 Exactly eleven table-level options inherit down to cells (row 4): `align`, `bold`, `border`,
 `color`, `fill`, `fontFace`, `fontSize`, `margin`, `textDirection`, `underline`, `valign`.
-The list is closed — `italic`, for instance, is **not** on it, so a table-level `italic: true`
+The list is closed: `italic`, for instance, is **not** on it, so a table-level `italic: true`
 styles nothing.
 
 ### The defaults tier
@@ -90,7 +90,7 @@ out black instead of following the link colour. Text then falls through to the t
 
 ### How to brand a table
 
-Direct formatting is the mechanism — `headerRow`, `columns[i]`, the table-level `border` /
+Direct formatting is the mechanism: `headerRow`, `columns[i]`, the table-level `border` /
 `fill` / `color`, and per-cell `options`:
 
 ```js
@@ -101,11 +101,11 @@ s.addTable(rows, {
 })
 ```
 
-For banded rows, set each row's `fill` as you build the data — a table style cannot supply
+For banded rows, set each row's `fill` as you build the data: a table style cannot supply
 brand colours (see [Table styles](#table-styles) below for why).
 
 The merge is **property-level**, not object-level. A header cell keeps `headerRow`'s
-typography *and* takes its column's `fill` when the two set different properties — which is
+typography *and* takes its column's `fill` when the two set different properties: which is
 what makes a graduated header band expressible without writing a fill onto every cell:
 
 ```js
@@ -123,7 +123,7 @@ Setting `headerRow` implies `hasHeader: true` unless you set `hasHeader` explici
 ### Table styles
 
 `tableStyle` takes a built-in `TableStyle` member. Which regions activate is controlled by the
-flags — `hasHeader` → `firstRow`, `hasFooter` → `lastRow`, `hasBandedRows` → `band1H`/`band2H`,
+flags: `hasHeader` → `firstRow`, `hasFooter` → `lastRow`, `hasBandedRows` → `band1H`/`band2H`,
 and so on.
 
 ```js
@@ -138,7 +138,7 @@ row regardless of styling.
 
 **PowerPoint resolves `<a:tableStyleId>` against its own table-style gallery. It never reads a
 style definition out of the package.** A GUID it recognises paints even when the deck defines
-nothing; a GUID it does not recognise paints nothing however complete the definition — the
+nothing; a GUID it does not recognise paints nothing however complete the definition: the
 table falls back to PowerPoint's no-style look, a black hairline grid on white.
 
 This was measured by rendering, not inferred from the schema (PowerPoint desktop 16.0):
@@ -146,13 +146,13 @@ This was measured by rendering, not inferred from the schema (PowerPoint desktop
 | how the style is offered | built-in GUID | custom GUID |
 | --- | --- | --- |
 | `<a:tableStyleId>` reference | **renders** | never |
-| inline `<a:tableStyle>` in `<a:tblPr>` | — | never |
+| inline `<a:tableStyle>` in `<a:tblPr>` | not tested | never |
 | `def=` default on `tableStyles.xml` | never | never |
 
 The decisive control: take a PowerPoint-authored deck and rewrite one style's GUID to a novel
 value in *both* the styles part and the slide, bytes otherwise identical. That table drops to
 the black grid while its untouched neighbours keep their styling. Lifting a genuine
-PowerPoint-authored `<a:tblStyle>` block under a custom GUID does not help either — the markup
+PowerPoint-authored `<a:tblStyle>` block under a custom GUID does not help either: the markup
 was never the problem. (This is consistent with PowerPoint having no "New Table Style" command,
 unlike Word and Excel.)
 
@@ -162,7 +162,7 @@ emitted well-formed, schema-valid, permanently invisible markup, and `styleDrive
 worse by standing down the direct formatting that was carrying the render. Use
 [direct formatting](#how-to-brand-a-table) for brand colours.
 
-The read side is unaffected and still resolves style graphs out of *imported* decks —
+The read side is unaffected and still resolves style graphs out of *imported* decks:
 `Table.resolvedStyle`, `TableCell.resolvedFill`, and `importSlideMasters({ tableStyles })` all
 work against the definitions PowerPoint itself wrote.
 
@@ -173,7 +173,7 @@ looks:
 
 - **`fill`** is *stamped onto every cell*. Each cell that sets none of its own gets this as
   its own `a:tcPr` fill.
-- **`tableFill`** is the table's *own* background — one `a:tblPr` fill that the cells sit on
+- **`tableFill`** is the table's *own* background: one `a:tblPr` fill that the cells sit on
   top of.
 
 They usually render alike. The difference matters when a cell is meant to be transparent:
@@ -182,7 +182,7 @@ such thing as a cell without a fill, so nothing can fall back to it. `tableFill`
 what a deck read back from PowerPoint actually carries, so it is the right choice when
 reproducing a source deck.
 
-A cell fill is a `ShapeFillProps`, so it takes the whole DrawingML fill group — solid,
+A cell fill is a `ShapeFillProps`, so it takes the whole DrawingML fill group: solid,
 gradient, pattern, or a picture:
 
 ```js
@@ -193,7 +193,7 @@ gradient, pattern, or a picture:
 { fill: { type: 'image', image: { path: 'logo.png' } } }
 ```
 
-A picture fill is embedded once and shared by every cell that inherits it. Raster only — an
+A picture fill is embedded once and shared by every cell that inherits it. Raster only: an
 SVG warns and is ignored, matching shape fills.
 
 ## Borders
@@ -211,12 +211,12 @@ s.addTable(rows, { border: [{ type: 'solid' }, { type: 'none' }, { type: 'solid'
 
 An array is read in **TRBL** order (`[top, right, bottom, left]`); a single `BorderProps` is
 broadcast to all four sides. A cell's own `options.border` overrides the table default
-entirely — the two do not merge per side.
+entirely: the two do not merge per side.
 
 ### `outerBorder` is the perimeter
 
-For the table's outside edge — the top of the first row, the bottom of the last, the left of
-the first column and the right of the last — use `outerBorder`:
+For the table's outside edge (the top of the first row, the bottom of the last, the left of
+the first column and the right of the last) use `outerBorder`:
 
 ```js
 s.addTable(rows, { outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } })   // box it
@@ -242,7 +242,7 @@ dash, set `dashType`, which takes the whole `ST_PresetLineDashVal` set:
 
 `dashType` wins over `type` when both are set, except that `type: 'none'` suppresses the
 border before any dash is chosen. An unrecognized value is reported as
-`border/invalid-dash-type` and falls back to what `type` implies — a value outside the enum
+`border/invalid-dash-type` and falls back to what `type` implies: a value outside the enum
 would make the slide part schema-invalid, which PowerPoint reports as a corrupt file rather
 than as a mis-set option.
 
@@ -272,13 +272,13 @@ s.addTable([
 ], { x: 1, y: 1, w: 9 })
 ```
 
-Rows are authored **lopsided** — a row covered by a `rowspan` from above simply omits that
-cell — and the emitter expands them into the rectangular grid OOXML requires, inserting the
+Rows are authored **lopsided** (a row covered by a `rowspan` from above simply omits that
+cell) and the emitter expands them into the rectangular grid OOXML requires, inserting the
 covered cells with their `hMerge`/`vMerge` flags.
 
 A covered cell inherits the origin's border and fill. That is a deliberate divergence from
-PowerPoint, which writes a bare `<a:tcPr/>` there: a covered cell is never rendered — the
-origin spans over it — so copying the fill is invisible either way, and keeping it uniform
+PowerPoint, which writes a bare `<a:tcPr/>` there: a covered cell is never rendered (the
+origin spans over it), so copying the fill is invisible either way, and keeping it uniform
 avoids a branch that would change nothing on screen. It also puts the merged region's outer
 edges where PowerPoint expects to find them.
 
@@ -289,19 +289,19 @@ the table's `w` is split evenly. `fitColumns: 'shrink'` scales every column down
 factor when the total exceeds the space available from `x`; it never grows a column and
 enforces no minimum width, so a very high column count can still end up thin.
 
-**Rows.** `rowH` takes inches, one number or an array. A row is auto-height — as tall as its
-content needs — only when the table sets **neither `rowH` nor `h`**. A table-level `h` is
+**Rows.** `rowH` takes inches, one number or an array. A row is auto-height (as tall as its
+content needs) only when the table sets **neither `rowH` nor `h`**. A table-level `h` is
 divided evenly across the rows, so `h` makes every row fixed just as surely as `rowH` does.
 
 **Text that does not fit.** `fit: 'shrink'`, on a cell or on the table, measures the wrapped
 text and bakes a reduced literal font size onto the runs. It requires the font registered via
 `registerFontMetrics` and only triggers when a row's height is **fixed** and the text exceeds
-it — which, per the previous paragraph, means a table with `rowH` *or* `h`. With neither, the
+it: which, per the previous paragraph, means a table with `rowH` *or* `h`. With neither, the
 row simply grows and nothing shrinks. See [Measured text fit](measured-text-fit.md).
 
 **Cell text always wraps.** PowerPoint has no per-cell no-wrap: `wrap="none"` on a cell's
 `a:bodyPr` renders inert and is stripped on the next save. `horzOverflow` is *not* that
-switch — it decides whether a single glyph too wide for the line is clipped at the cell edge
+switch: it decides whether a single glyph too wide for the line is clipped at the cell edge
 or draws past it, which matters for oversized display type and wide CJK/emoji glyphs.
 
 **Auto-paging.** `autoPage: true` shreds a table too tall for one slide across as many as it
@@ -313,10 +313,10 @@ How much fits is an **estimate**, not a measurement: the pager counts wrapped li
 characters-per-line approximation and prices each at the font size times a fixed line-height
 factor, plus the cell's top and bottom margins. It never asks a renderer. So the page break
 lands where the arithmetic says, and a font whose real metrics are far from the approximation
-can put it a row out — `autoPageCharWeight` (characters) and `autoPageLineWeight` (line
+can put it a row out: `autoPageCharWeight` (characters) and `autoPageLineWeight` (line
 height) nudge the two constants when it does. What the pager does guarantee is
 self-consistency: pages of equal usable height get equal row budgets. Continuation slides
-start at `autoPageSlideStartY`, or at the top margin when it is unset — so a first page
+start at `autoPageSlideStartY`, or at the top margin when it is unset, so a first page
 placed lower with `y` is the one page that legitimately holds fewer rows.
 
 ## Reading and editing an existing table
@@ -324,7 +324,7 @@ placed lower with `y` is the one page that legitimately holds fewer rows.
 `ts-pptx/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.
 Reading covers the cell model, the six borders, both fills, the spans and the style graph;
 `TableCell.resolvedFill` reports the colour a cell *renders* as, folding in the style's
-banding, and `TableCell.hasOwnFill` says whether that colour is the cell's own — which is
+banding, and `TableCell.hasOwnFill` says whether that colour is the cell's own: which is
 the distinction anything reproducing a table needs, since baking an inherited banding colour
 into a copy makes it stop responding to its own style.
 
@@ -337,7 +337,7 @@ Unlike the write path, an invalid value **throws** here rather than warning and 
 dropped: a caller editing one attribute would otherwise be left looking at an unchanged deck
 with nothing to explain it.
 
-A **stored** table's grid is already rectangular — unlike the authoring side, every `a:tr`
+A **stored** table's grid is already rectangular: unlike the authoring side, every `a:tr`
 holds one `a:tc` per column with the covered halves present and flagged. The structural
 editors keep it that way: inserting a row or column *through* a merge extends it rather than
 splitting it, removing a merge origin promotes its first continuation so the region survives
@@ -352,11 +352,11 @@ recorded so it is not re-attempted.
 | Construct | Why |
 | --- | --- |
 | **Per-cell no-wrap** | PowerPoint has none. `TextFrame.WordWrap` is read-only on a cell over COM, and `<a:bodyPr wrap="none"/>` in a cell renders inert and is stripped on the next save. Probe: `test/read/fixtures/authoring/probe-table-cell-wrap.ps1`. |
-| **`a:tc/@id` and `a:tcPr/a:headers`** | The screen-reader header association. PowerPoint opens a deck carrying both without complaint and then **strips them on the first save**, so an emitter would ship a feature that dies as soon as anyone edits the deck. Read accessors (`TableCell.id`, `.headerIds`) exist for decks from other producers. `hasHeader` is the header marker PowerPoint keeps — and the one its own accessibility checker reads. Probe: `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1`. |
+| **`a:tc/@id` and `a:tcPr/a:headers`** | The screen-reader header association. PowerPoint opens a deck carrying both without complaint and then **strips them on the first save**, so an emitter would ship a feature that dies as soon as anyone edits the deck. Read accessors (`TableCell.id`, `.headerIds`) exist for decks from other producers. `hasHeader` is the header marker PowerPoint keeps, and the one its own accessibility checker reads. Probe: `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1`. |
 | **Table-level effects** (`a:tblPr` `EG_EffectProperties`) | Schema-legal, but PowerPoint's UI exposes no table-level effect, so a source deck will not contain one and there is nothing to reproduce. |
 
 `a:tcPr/a:cell3D` is the counter-example that makes the header-association result
 trustworthy rather than circumstantial: it was injected into the **same** `a:tcPr` by the
 same probe, and PowerPoint preserved it verbatim while discarding `a:headers`. So it is a
-deliberate normalization, not a failed patch — and `cell3D` is authorable, via
+deliberate normalization, not a failed patch, and `cell3D` is authorable, via
 `TableCellProps.cell3D`.

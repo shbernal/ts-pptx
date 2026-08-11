@@ -24,10 +24,10 @@ import TsPptx from "@shbernal/ts-pptx"
 
 The package publishes:
 
-- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry — it
+- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry, it
   also exports the public enums, shared types, layout constants, and unit helpers.
-  See [Which Build The Bare Import Gives You](#which-build-the-bare-import-gives-you)
-  — under Node and in a browser bundle the same import gives you `dist/node.js` /
+  See [Which Build The Bare Import Gives You](#which-build-the-bare-import-gives-you),
+  under Node and in a browser bundle the same import gives you `dist/node.js` /
   `dist/browser.js` instead.
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
   inspection, slide/object extraction, and geometry helpers.
@@ -43,7 +43,7 @@ The package publishes:
 - `dist/zip.js` and `dist/zip.d.ts` for the shared OPC/zip package plumbing
   used by `read` and `inspect`.
 - `dist/html.js` and `dist/html.d.ts` for converting an existing HTML `<table>`
-  into slides. One artifact serves both runtimes — there is deliberately no
+  into slides. One artifact serves both runtimes: there is deliberately no
   `browser`/`node` condition split, because the entry works with whatever DOM
   the caller has (see
   [HTML tables → slides](https://github.com/shbernal/ts-pptx/blob/master/README.md#html-tables--slides)).
@@ -82,14 +82,14 @@ the artifact you get depends on the runtime doing the resolving:
 | --- | --- | --- |
 | `node` | `dist/node.js` | writes to disk via `node:fs` |
 | `browser` (bundlers, `--conditions=browser`) | `dist/browser.js` | triggers a download |
-| neither — Deno, Bun, edge workers | `dist/index.js` | throws `runtime/file-output-unavailable` |
+| neither: Deno, Bun, edge workers | `dist/index.js` | throws `runtime/file-output-unavailable` |
 
 Types resolve through the same condition as the code, so what TypeScript shows
 you is what that runtime actually has.
 
 The third row is the runtime-agnostic build. Authoring is identical to the other
-two, and everything that hands bytes back to you — `write()`, `stream()`,
-`toParts()` — works normally; a worker that returns a `.pptx` in a response body
+two, and everything that hands bytes back to you (`write()`, `stream()`,
+`toParts()`) works normally; a worker that returns a `.pptx` in a response body
 needs nothing else. What it cannot do is *place a file for you*: there is no
 filesystem and no DOM, so `writeFile()` throws an `UnsupportedFeatureError` naming
 the two entries that can, instead of failing on a missing `document` deep inside
@@ -102,7 +102,7 @@ you want a specific build regardless of how conditions resolve.
 ## What "Browser" Is Tested To Mean
 
 The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
-(`pnpm run test:browser` — Playwright, headless Chromium). It is not "supported by
+(`pnpm run test:browser`: Playwright, headless Chromium). It is not "supported by
 construction". Three fixtures: the site's own demos page (`www/demos/`) for the bundled
 path a real consumer takes, a static server handing the browser the shipped `dist/browser.js` unbundled
 for the runtime adapter itself, and a page that renders a real `<table>` so
@@ -115,10 +115,10 @@ Two claims, kept separate on purpose:
   what CI actually checks: the demo imports the same showcase module the Node
   target builds, and the deck the browser assembles is compared **part for part**
   against the Node-built one. They are byte-identical. So every serializer, the zip
-  writer, part ordering and relationship numbering are runtime-invariant — not by
+  writer, part ordering and relationship numbering are runtime-invariant: not by
   inspection, by comparison.
 - **Browser *layout* is not an oracle this library answers to.** The resolved CSS
-  cascade and fonts as the browser chose them remain out of active scope — see
+  cascade and fonts as the browser chose them remain out of active scope: see
   [Project Target](project-target.md). `tableToSlides()` runs anywhere there is a
   DOM, and only *measurement* is lost without a layout engine: `offsetWidth` is
   `0`, column widths fall back to computed CSS widths and then to an equal split,
@@ -126,15 +126,15 @@ Two claims, kept separate on purpose:
 
   Losing the measurement is not the same as losing precision, and this page used
   to say "degrades" as though it were. `offsetWidth` is the border box; computed
-  `width` is the content box. Padding alone is enough to make the two disagree —
-  the `html-table` fixture is built to, at 1:1 measured against 2:1 from CSS — so
+  `width` is the content box. Padding alone is enough to make the two disagree
+  (the `html-table` fixture is built to, at 1:1 measured against 2:1 from CSS) so
   one table converted in Chromium and under happy-dom can emit different column
   *proportions*, not the same proportions coarsened. Where both runtimes must
   agree on a column, state it with `data-pptx-width`.
 
   One part of the job does now drive a rendered page, and the line it holds is
   worth stating exactly. A `<table>` is laid out in Chromium and converted, and the
-  lane asserts that the measured `offsetWidth` is what sizes the emitted columns —
+  lane asserts that the measured `offsetWidth` is what sizes the emitted columns:
   that the measurement is *taken and honoured*, proportionally, with
   `data-pptx-width` still overriding it. It asserts nothing about whether that
   measurement is *correct*, or whether Firefox would agree. The library's contract
@@ -154,7 +154,7 @@ these actually assert:
 | adapter function | what the browser lane checks |
 | --- | --- |
 | `writeFile` | the object-URL `<a download>` fires and the downloaded bytes unzip to a real OPC package |
-| `loadMedia` | a fetched image lands in the package as **the same bytes** Node reads off disk — and as the same bytes as the source file. A 404 fails the export with `media/fetch-failed` as the cause of `media/load-failed` |
+| `loadMedia` | a fetched image lands in the package as **the same bytes** Node reads off disk, and as the same bytes as the source file. A 404 fails the export with `media/fetch-failed` as the cause of `media/load-failed` |
 | `createSvgPngPreview` | the `<canvas>` rasterizer emits a real PNG where Node can only stub a placeholder; an undecodable SVG and a zero-dimension SVG each fail rather than shipping a blank fallback |
 | `loadFontData` | a font fetched over HTTP measures to the same baked `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk. A 404 rejects with `font/fetch-failed` |
 
@@ -164,8 +164,8 @@ own machinery, so "the same bytes" means the same thing here as it does there.
 The one place the two runtimes are *expected* to disagree is
 `createSvgPngPreview`: Node has no rasterizer, so it writes a fixed placeholder
 into the PNG fallback rel where a browser draws the artwork. That is a documented
-divergence rather than a bug, and the lane asserts its exact shape — one changed
-part, and the browser's is a real PNG — so it cannot quietly become a different
+divergence rather than a bug, and the lane asserts its exact shape (one changed
+part, and the browser's is a real PNG), so it cannot quietly become a different
 divergence.
 
 ### Which Browsers The Lane Runs
@@ -187,7 +187,7 @@ cross-engine history. Not pre-emptively.
 
 Two gaps, stated rather than implied:
 
-- **Live-DOM layout**, as above — deliberate, and the subject of
+- **Live-DOM layout**, as above: deliberate, and the subject of
   [Project Target](project-target.md).
 - **Two arms of `createSvgPngPreview`**: a missing 2d context and a
   `toDataURL` that throws. Neither is reachable in a browser that has a working
@@ -204,7 +204,7 @@ otherwise. The decision is recorded here so it is not re-litigated per release.
 `node:module`'s `createRequire`. That is what keeps `latexToOmml()` and
 `mathmlToOmml()` **synchronous**. A browser has no `createRequire`, and the only
 browser-compatible replacement is a dynamic `import()`, which makes both
-functions async — a breaking change to a published API, paid by every existing
+functions async: a breaking change to a published API, paid by every existing
 caller, to serve a use case nobody has raised.
 
 The subpath is already documented as Node-only at the top of the module. If a
@@ -224,7 +224,7 @@ chunks, gzipped, and `pnpm run check:package` enforces it. Read the number as a
 **growth detector, not a download size**: `dist/` is unminified, and every real
 browser consumer runs it through a bundler that minifies before serving, so what
 anyone actually downloads is well under the figure the gate prints. What the gate
-is for is the step change — a dependency reaching the browser entry, or a chunk
+is for is the step change: a dependency reaching the browser entry, or a chunk
 split going wrong.
 
 `pnpm run bundle-size:list` prints the per-chunk breakdown; the budget lives in
@@ -235,8 +235,8 @@ split going wrong.
 
 Supported environments assume a bundler, and that remains the maintained target.
 But `dist/browser.js` does load in a browser as-is, over a plain
-`<script type="module">`, provided you resolve the two bare specifiers it reaches
-— which is exactly what the adapter harness does
+`<script type="module">`, provided you resolve the two bare specifiers it reaches:
+which is exactly what the adapter harness does
 (`test/browser/harness/index.html`):
 
 ```html
@@ -250,7 +250,7 @@ But `dist/browser.js` does load in a browser as-is, over a plain
 </script>
 ```
 
-`opentype.js` is a *dynamic* import inside the measure/fit chunk — nothing
+`opentype.js` is a *dynamic* import inside the measure/fit chunk: nothing
 requests it until a font is registered, so an app that never calls
 `registerFontMetrics` or `embedFont` will not notice its absence until it does.
 

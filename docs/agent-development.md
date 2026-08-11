@@ -54,7 +54,7 @@ The package smoke test should continue to prove that old artifacts are absent
 and that `@shbernal/ts-pptx`, `@shbernal/ts-pptx/inspect`,
 `@shbernal/ts-pptx/node`, and `@shbernal/ts-pptx/browser` resolve.
 The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
-exports but are not yet covered by `pnpm run test:package` — see
+exports but are not yet covered by `pnpm run test:package`: see
 [Runtime And Package Support](runtime-and-package-support.md).
 
 ## Promoting A Downstream Need
@@ -80,7 +80,7 @@ as a source of package-target decisions. PowerPoint repair prompts, invalid
 OOXML, content types, relationships, chart/table/media serialization, and current
 TypeScript or ESM behavior are candidates. Anything that depends on CommonJS,
 IIFE/global bundles, direct CDN script tags, or legacy generated artifact names is
-not, unless the documented project target changes first — and see
+not, unless the documented project target changes first, and see
 [Project target → What Stays In The Consumer](project-target.md#what-stays-in-the-consumer)
 for what this package refuses to absorb regardless of merit.
 

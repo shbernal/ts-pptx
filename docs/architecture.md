@@ -21,7 +21,7 @@ exports and let this repository own the internal OOXML generation details.
 - `src/index.ts`, `src/node.ts`, and `src/browser.ts` define the public entry
   points described by `package.json` exports. Each is a `PresentationCore`
   subclass differing only in the `RuntimeAdapter` it injects, and `.` resolves to
-  one of the three by condition — `node`, `browser`, or neither. `index.ts` is
+  one of the three by condition: `node`, `browser`, or neither. `index.ts` is
   that third case (Deno, Bun, edge workers): it authors and exports bytes like the
   others, and refuses only what needs a host it does not have.
 - `src/presentation.ts` owns the main presentation class: presentation-level state,
@@ -32,12 +32,12 @@ exports and let this repository own the internal OOXML generation details.
   `buildPackageParts` turns an authored deck into every OOXML part in emission order
   (`[Content_Types].xml`, the rels graph, docProps, theme, per-slide/layout/master
   parts, comments, chart/media rels), and `zipPackageParts` compresses that ordered
-  list to the requested output shape. `writePackage` is their composition — the entry
+  list to the requested output shape. `writePackage` is their composition: the entry
   behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the
   presentation class satisfies, so it does not depend on the class. The assembly half
   is also exposed publicly as `pptx.toParts()` (returning `PackagePart[]` = `{ path,
   data }`, dropping the internal-only STORE/DEFLATE hint): **part paths and their
-  emission order are a stability-guaranteed observable contract** — adding a part later
+  emission order are a stability-guaranteed observable contract**, adding a part later
   is back-compatible if existing paths/order do not shift; renaming/reordering is
   breaking. The per-part bytes are identical to what `write()` compresses.
 - `src/slide.ts` owns slide-level object collection and public slide methods.
@@ -47,7 +47,7 @@ exports and let this repository own the internal OOXML generation details.
   OOXML at export time. Chart emission is split per plot family under `gen/chart/`
   (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the `makeChartType`
   dispatch, and shape emission is split per shape kind under `gen/slide/objects/`
-  behind the `slideObjectToXml` dispatch — `gen/slide/object.ts` keeps only that
+  behind the `slideObjectToXml` dispatch: `gen/slide/object.ts` keeps only that
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
@@ -56,7 +56,7 @@ exports and let this repository own the internal OOXML generation details.
   a writer or an editor inserts into (`sequence.ts`), the `ST_` enumerations
   (`st-enums.ts`), and the two enum-validation policies (`check-enum.ts`). It exists
   because `src/gen/` and `src/read/` each used to keep a private copy of the same
-  constants, and a divergence between them had no compile-time signal — a wrong rel URI
+  constants, and a divergence between them had no compile-time signal: a wrong rel URI
   matches nothing, an out-of-order child makes the part invalid, and PowerPoint reports
   the latter as a *corrupt file* rather than as a bad edit. Two properties keep it from
   regressing: each successor list is **derived** by slicing one declared sequence rather
@@ -84,7 +84,7 @@ exports and let this repository own the internal OOXML generation details.
 - `src/types/index.ts` and `src/enums.ts` define the public typed contract.
   `types/index.ts` is a re-export barrel over its siblings in `src/types/*` (split
   by domain). The generator-internal `*Internal` wire shapes live in
-  `src/types/internal.ts` and are **not** re-exported — internal code imports them
+  `src/types/internal.ts` and are **not** re-exported: internal code imports them
   from there directly, the same non-published convention as `units-internal.ts`
   (lenient unit conversion) and `constants-internal.ts` (generator defaults, fixed
   ids, colour palettes), each of which sits beside the published module it extends.
@@ -96,22 +96,22 @@ exports and let this repository own the internal OOXML generation details.
   mapping testable without a printer and keeps "how a number is spelled" from
   changing what a deck means. Two printers sit over the one IR and differ only
   in where the deck's *chrome* comes from. `printScript` anchors its output on a
-  template — it reuses the *source deck itself*, because `fromTemplate` strips a
+  template, it reuses the *source deck itself*, because `fromTemplate` strips a
   package's slides while leaving masters, layouts, theme, and document properties
   byte-identical, so only slide content is ever regenerated.
   `printStandaloneScript` emits a module that depends on nothing but this
   package, re-authoring the theme and one `defineSlideMaster` per source layout
-  from what the read model exposes — including that layout's own decoration,
+  from what the read model exposes, including that layout's own decoration,
   re-tagged through the same mapper the slides use. The split is not a
   preference: a theme's `a:fmtScheme` and a master's `p:txStyles` are unreachable
   from *both* directions, and a master's own decoration has no write-side
   counterpart because `defineSlideMaster` creates a layout, so a rebuilt design
   can only ever be an approximation, while a reused one is exact. Each printer therefore returns the
-  note set that applies to **its** output — suppressing what its tier rescues and
-  adding what its tier costs — and that set, not `DeckIr.fidelity`, is what a
+  note set that applies to **its** output, suppressing what its tier rescues and
+  adding what its tier costs, and that set, not `DeckIr.fidelity`, is what a
   round-trip check excludes.
-  It is its own subsystem because it depends on **both** halves — the read model
-  and the write option types — so it fits inside neither, and because `src/read/`
+  It is its own subsystem because it depends on **both** halves, the read model
+  and the write option types, so it fits inside neither, and because `src/read/`
   is documented as isomorphic (bytes in, bytes out), which a converter emitting
   source text would quietly break for every `ts-pptx/read` consumer. Losses are
   data, not log lines: anything that cannot survive is a `FidelityNote` on the
@@ -122,14 +122,14 @@ exports and let this repository own the internal OOXML generation details.
   and `diffDeckIr` compares the source deck's IR against the IR of the deck a
   generated script produced, with the printer's notes as the exclusion list.
   It compares IRs rather than packages because the output can never be
-  byte-identical — fresh rel ids, regenerated shape ids — so a byte comparison
+  byte-identical (fresh rel ids, regenerated shape ids), so a byte comparison
   would fail for every deck and measure nothing. Its reach is bounded in two
   ways worth knowing before trusting a clean run: both IRs come from the same
   reader, so a construct the read path cannot see is absent from both, and the
   converter need not be injective, so two source constructs that map to the
   same call compare equal. It detects *asymmetry*; `pnpm run read:census` and
-  the IR unit tests cover the rest. The consumer-facing guide — both tiers, the
-  measured loss list, and how to read a fidelity note — is
+  the IR unit tests cover the rest. The consumer-facing guide (both tiers, the
+  measured loss list, and how to read a fidelity note) is
   [PPTX To Script](reference/pptx-to-script.md).
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
@@ -140,7 +140,7 @@ A starting point for "which function do I touch?". Two-phase pattern for most co
 an `add*Definition` in `gen/define/*` normalizes user options onto the slide model,
 then a serializer under `gen/{slide,drawingml,chart,anim,pres,opc}/*` emits OOXML at
 export time. Each module opens with a TSDoc header stating its job; larger files add
-`// ===== region =====` banners — grep those to jump within a file.
+`// ===== region =====` banners: grep those to jump within a file.
 
 | Task | Add / normalize (`src/…`) | Emit OOXML (`src/…`) |
 | --- | --- | --- |
@@ -157,14 +157,14 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Slide number | `presentation.ts` `setSlideNumber` | `gen/slide/object.ts` `slideObjectToXml` (`SLDNUMFLDID`) |
 | Transitions / animations | slide props (`slide.ts`) | `gen/anim/transition.ts` `slideTransitionToXml` / `gen/anim/animation.ts` `buildAnimationSeq` |
 | Slide master / layout | `gen/define/master.ts` `createSlideMaster` | `gen/slide/master.ts` `makeXmlMaster` / `gen/slide/layout.ts` `makeXmlLayout` |
-| Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
-| Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
-| Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
+| Theme colors | n/a | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
+| Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | n/a |
+| Colors, fills, borders, shadows | n/a | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
 | Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `presentation.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | HTML `<table>` → slides | `html.ts` `tableToSlides` (the `ts-pptx/html` subpath, any DOM); `browser.ts` `tableToSlides` (method form, delegates) | `gen/table/html-dom.ts` `genTableToSlides` |
-| Public API surface | `presentation.ts` (class), `slide.ts` (slide methods) | — |
-| Option / type definitions | `types/index.ts` (barrel over `types/*`) | — |
-| Enums & shared constants | `enums.ts` (public); `constants-internal.ts` (generator-only) | — |
+| Public API surface | `presentation.ts` (class), `slide.ts` (slide methods) | n/a |
+| Option / type definitions | `types/index.ts` (barrel over `types/*`) | n/a |
+| Enums & shared constants | `enums.ts` (public); `constants-internal.ts` (generator-only) | n/a |
 
 ## Boundaries
 
@@ -177,11 +177,11 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   `node`/`browser`/neutral entry subclasses inject the matching adapter into the
   shared core class. Live-DOM features that only work in a browser (currently
   `tableToSlides`) are defined on the browser entry subclass, not the core class,
-  so they stay off the Node build and out of the shared chunk — their code bundles
+  so they stay off the Node build and out of the shared chunk: their code bundles
   into the browser chunk alone.
 - A runtime that resolves neither the `node` nor the `browser` condition gets
   `runtime/neutral.ts`, which implements what is genuinely host-neutral (`fetch`,
-  `btoa`, `TextEncoder` — so remote media and fonts load) and throws
+  `btoa`, `TextEncoder`, so remote media and fonts load) and throws
   `runtime/file-output-unavailable` from `writeFile` rather than substituting a
   host it does not have. The neutral adapter is the fallback, never a default the
   other two fall back *to*: a capability missing from a real host is a bug in that

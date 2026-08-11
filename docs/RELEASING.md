@@ -35,7 +35,7 @@ matching tag as a retry path.
 
 ## Version Updates
 
-`package.json` holds the version of record — the publish workflow refuses to
+`package.json` holds the version of record: the publish workflow refuses to
 publish unless the tag matches it. The `VERSION` constant in
 `src/presentation.ts` that backs `pres.version` is *derived* from it and is not
 edited by hand.
@@ -53,11 +53,11 @@ That bumps `package.json`, runs the `version` lifecycle script
 makes one commit holding all three files and creates the annotated tag `vX.Y.Z`.
 Both flags are load-bearing:
 
-- **`--message`** — pnpm's default subject is the bare version (`3.2.0`), which
+- **`--message`**: pnpm's default subject is the bare version (`3.2.0`), which
   is not this repo's commit style. It does **not** read npm's `message` config;
   setting `message` in an `.npmrc` is silently ignored, so the flag is the only
   way to control the subject.
-- **`--no-git-checks`** — pnpm otherwise refuses to run against anything but a
+- **`--no-git-checks`**: pnpm otherwise refuses to run against anything but a
   spotless tree (`ERR_PNPM_UNCLEAN_WORKING_TREE`), and the staged `CHANGELOG.md`
   counts. Waiving the check is what keeps the release a single commit rather than
   two. It waives the check for *everything*, so run `git status` first and leave
@@ -66,13 +66,13 @@ Both flags are load-bearing:
 Still by hand, and unaffected by the above:
 
 - Demo package versions, when they intentionally track the release version.
-  (Neither does today — `demos/node` is on 5.0.2 and `demos/showcases` on 1.0.0 —
+  (Neither does today: `demos/node` is on 5.0.2 and `demos/showcases` on 1.0.0,
   so this is normally a no-op.)
 - Keep package import examples on the scoped package name:
   `@shbernal/ts-pptx`.
 
-If the constant ever does drift — a hand-edited `package.json`, or a bump made
-some other way — `pnpm run version:check` reports it and `pnpm run version:sync`
+If the constant ever does drift (a hand-edited `package.json`, or a bump made
+some other way), `pnpm run version:check` reports it and `pnpm run version:sync`
 repairs it. `test/regression/api/public-accessors.test.js` fails in `verify`
 either way, and the release path cannot skip that, so a mis-reported version
 cannot ship.
@@ -94,7 +94,7 @@ pnpm run verify:full
 ```
 
 Together these are what CI runs. `check:static` adds `lint` and `format:check`,
-which `verify:full` deliberately omits because the git hooks own them — but a
+which `verify:full` deliberately omits because the git hooks own them, but a
 release is exactly the moment to confirm them explicitly.
 
 Check that the target version is not already published:
@@ -108,7 +108,7 @@ The command should fail with a registry 404 for a new release version.
 ## Automated npm Publish
 
 1. Merge the release commit into `master`.
-2. Push `master` and the `vX.Y.Z` tag that `pnpm version` created — it already
+2. Push `master` and the `vX.Y.Z` tag that `pnpm version` created: it already
    matches `package.json#version`, which is what the workflow checks:
 
    ```bash
@@ -166,7 +166,7 @@ when the fix merges, which is the right moment for this repo and the wrong signa
 for a consumer: merged and unreleased is a state that can last weeks, and a
 workaround deleted on the strength of a closed issue breaks against the version
 that is actually installed. The skill this package ships tells consumers to trust
-the published version over the issue state for exactly that reason — this comment
+the published version over the issue state for exactly that reason: this comment
 is what makes the two agree. `CHANGELOG.md` already cites the numbers, so the list
 is the entry you just wrote.
 
@@ -174,17 +174,17 @@ is the entry you just wrote.
 
 The site's demos page renders its preview with [`pptx-html`](https://www.npmjs.com/package/pptx-html),
 which depends on `@shbernal/ts-pptx` at a caret range and therefore installs its **own**
-published copy — see `www/README.md` for why that duplication is deliberate rather than an
+published copy: see `www/README.md` for why that duplication is deliberate rather than an
 oversight.
 
 The consequence lands on a **major**. When this package goes 4.x, `pptx-html`'s reader is
 still built against 3.x, so the preview keeps rendering decks the *old* writer produced and
-the docs build keeps resolving — but the page stops demonstrating the version it sits beside
+the docs build keeps resolving, but the page stops demonstrating the version it sits beside
 until `pptx-html` ships a matching release. Nothing in this repo's gates detects that, because
 nothing here asserts what the preview looks like (docs/testing.md, "Demos Are Not Tests").
 
 So: release, then open an issue on `pptx-html`. Do not hold a release for it, and do not
-pin the site to the workspace copy to avoid it — that trade makes the first breaking change
+pin the site to the workspace copy to avoid it: that trade makes the first breaking change
 break the docs *deploy* of the release introducing it, which is strictly worse.
 
 ## Package Surface Checks
@@ -217,7 +217,7 @@ The package should ship:
 tarball: every one is imported and checked for a sample of load-bearing named
 exports, and all but `./browser` are additionally put through esbuild on the
 `node` platform. Both lists come off one `EXPORT_MATRIX` in
-`scripts/package-smoke.mjs`, so a new subpath is covered by being added there —
+`scripts/package-smoke.mjs`, so a new subpath is covered by being added there,
 but it still has to be added *here* by hand, and this list has drifted before.)
 
 The package should not ship or document:

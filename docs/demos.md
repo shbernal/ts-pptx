@@ -26,14 +26,14 @@ the package; this one can only appear if the bytes are a deck a reader can open.
 
 ## What you are looking at
 
-- **The deck** is `demos/showcases/quarterly-review/` in this repository — eleven slides,
+- **The deck** is `demos/showcases/quarterly-review/` in this repository: eleven slides,
   five slide masters, three charts with real embedded workbooks, a styled table, grouped
   KPI cards and speaker notes. Kestrel Analytics is fictional.
 - **The renderer** is a separate library. `pptx-html` reads a package into a slide model and
   renders that model; it does not approximate. Where it cannot model something it says so,
   and those declarations are listed under the preview.
 - **The download button** builds the same deck again and saves it, through the browser
-  runtime's own file-writing path. Open the result in PowerPoint — that, not the picture
+  runtime's own file-writing path. Open the result in PowerPoint: that, not the picture
   above, is the output this library is judged on.
 
 ## Running the showcases yourself

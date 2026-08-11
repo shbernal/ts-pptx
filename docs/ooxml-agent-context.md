@@ -71,15 +71,15 @@ useful.
 
 **For preset-shape adj guide names**, use the local reference file:
 
-- `docs/preset-shape-adj-guides.tsv` — complete shape → adj guide name mapping for all
+- `docs/preset-shape-adj-guides.tsv`: complete shape → adj guide name mapping for all
   preset shapes that take adjust values. Sourced from ECMA-376 Annex D, cross-checked
   against LibreOffice `oox-drawingml-adj-names` and ONLYOFFICE `OOXMLShapes/` implementations.
 
 **For full geometry formulas** (avLst defaults, gdLst, path construction), the best external
 fallbacks are:
 
-- [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes) — each shape has its own `.cpp` file with the full avLst and gdLst inline as XML strings.
-- [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx) — adj handle constraints.
+- [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes): each shape has its own `.cpp` file with the full avLst and gdLst inline as XML strings.
+- [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx): adj handle constraints.
 
 ## Retrieval Workflow
 
@@ -95,7 +95,7 @@ fallbacks are:
 5. Validate with a minimal generated fixture. For serialization changes, add or
    update a focused case in `test/schema-cases.js` and run
    `pnpm run test:schema`. When the only valid oracle is genuine PowerPoint
-   output and no such fixture exists yet, stop rather than guess — see
+   output and no such fixture exists yet, stop rather than guess: see
    [Evidence and fixtures](evidence-and-fixtures.md).
 
 ## What Not To Do
@@ -118,7 +118,7 @@ attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce in
 
 - `el(name, attrs, children, fmt)` always emits a **paired** tag; `voidEl(name, attrs, fmt)`
   always **self-closes**. Self-closing is chosen by which function you call, never by the
-  child's value — `encodeXmlEntities(undefined)` is `''`, so a value-based rule would
+  child's value: `encodeXmlEntities(undefined)` is `''`, so a value-based rule would
   silently rewrite `<dc:title></dc:title>` as `<dc:title/>`.
 - `raw(xml)` interpolates already-serialized markup verbatim (child elements, or values
   that are deliberately not escaped).
@@ -135,7 +135,7 @@ attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce in
   emitter that writes an attribute with a template string rather than the builder (there are
   a few, e.g. `cNvPrOpen`) must call `encodeXmlAttrValue` itself.
 
-Migrating an existing emitter onto it is a byte-preserving refactor — gate it with
+Migrating an existing emitter onto it is a byte-preserving refactor: gate it with
 `pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").
 
 ## Local Validation Tools

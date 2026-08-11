@@ -30,7 +30,7 @@ drop-in-compatible continuation of the upstream release line.
 - Support the **browser as a runtime**, and prove it rather than assert it: the
   browser build and its runtime adapter are exercised in CI against a real
   Chromium, and the deck a browser assembles is compared part-for-part against
-  the Node-built one. This is a claim about *emission*, and it stops there —
+  the Node-built one. This is a claim about *emission*, and it stops there:
   see the Live-DOM bullet under Out Of Active Scope for where the line is.
 - Preserve broad OOXML feature coverage: slides, text, tables, charts, images,
   SVGs, media, and masters.
@@ -53,7 +53,7 @@ drop-in-compatible continuation of the upstream release line.
 Distinct from the bullets above, which are package *shapes* this project dropped.
 The following encode a specific consumer's brand, content, or deck workflow. They
 are not candidates for this package at any priority, and the boundary holds even
-when the code involved looks generic — do not raise them:
+when the code involved looks generic: do not raise them:
 
 - Brand guidance, workflow-specific scripts, and consumer content.
 - A consumer's default font choice.
@@ -66,7 +66,7 @@ when the code involved looks generic — do not raise them:
 
 What this package owes such a consumer is that the primitives it composes exist
 and are sound; the composition itself is the consumer's. A generic PPTX gap
-uncovered while building one of these *is* in scope — see
+uncovered while building one of these *is* in scope: see
 [Agent development guide → Promoting A Downstream Need](agent-development.md#promoting-a-downstream-need)
 for how it moves across.
 
@@ -74,12 +74,12 @@ for how it moves across.
 
 The project is **Node-first**: the generator runs and is tested without any
 office application, and the Node suite is where nearly all of it is proven. That
-is a statement about where the evidence lives, not a hedge about the browser —
+is a statement about where the evidence lives, not a hedge about the browser:
 the browser is a supported runtime with its own CI lane (see
 [Runtime And Package Support](runtime-and-package-support.md#what-browser-is-tested-to-mean)).
 Two domains fall outside what the maintainer actively develops, because there is
 no in-house use case driving them. They are **not
-rejected on merit** — they are simply not on the maintenance roadmap, and the
+rejected on merit**: they are simply not on the maintenance roadmap, and the
 maintainer will generally not pick up bugs or feature requests in these areas.
 **Pull requests that fix or extend them are welcome** (ideally with the testing
 approach noted below), and the OOXML-emission core they build on is fully
@@ -94,7 +94,7 @@ supported.
   two are worth keeping apart, because a report lands in one bucket or the
   other. Running the library in a browser is supported and tested. Committing
   that the library's output *matches how a browser laid something out* is not,
-  and there is no oracle for it — every other gate in this repo has one (schema
+  and there is no oracle for it: every other gate in this repo has one (schema
   validation, byte identity, a PowerPoint render); "renders differently in
   Firefox" has none, so correctness would become a judgement call per report.
   A `.pptx` a browser builds differently from Node is a defect; a layout
@@ -103,7 +103,7 @@ supported.
   Two triage rules, both learned rather than assumed. **A report is only a
   live-DOM report when the disagreement sits upstream of PowerPoint.** A
   construct PowerPoint renders as intended and another viewer does not belongs
-  to the third-party bullet below — a browser-layout oracle would not answer it,
+  to the third-party bullet below: a browser-layout oracle would not answer it,
   because nothing about the rendered page is in dispute (`upstream-issue-1402`,
   bullet indentation in LibreOffice and OnlyOffice, is the worked case). And
   **a report arriving in browser clothes is not yet a layout report:** ask what
@@ -111,13 +111,13 @@ supported.
   `gitbrent/PptxGenJS#1200`, `tableToSlides` auto-paging overflow, sat out of
   scope on the reasoning that the sizing input driving it could not be exercised
   without a browser. The headless repro was eventually built, it reproduced, and
-  the bug was arithmetic — the pager dropped one row's cell margins at every
+  the bug was arithmetic: the pager dropped one row's cell margins at every
   page break, reproducible through `addTable(rows, { autoPage })` with no DOM at
   all. The browser supplies column widths to that path and nothing the vertical
   arithmetic reads.
 
-  Revisiting the exclusion has a stated entry cost — a headless-browser layout
-  oracle plus an engine matrix, maintained indefinitely — and a prerequisite: a
+  Revisiting the exclusion has a stated entry cost (a headless-browser layout
+  oracle plus an engine matrix, maintained indefinitely) and a prerequisite: a
   real consumer whose use case cannot be served by `data-pptx-width` /
   `data-pptx-min-width`. Absent that the answer is no. The failure space is
   otherwise unbounded, being the intersection of CSS layout, font fallback, and
@@ -127,16 +127,16 @@ supported.
   is a supported, tested, portable path: it ships as a free function on
   `ts-pptx/html`, runs under Node with any DOM implementation, and is covered
   end-to-end against happy-dom (`test/regression/html/html-to-slides-node.test.js`).
-  What it cannot do without a browser is *measure* — `offsetWidth` is `0` where
-  nothing laid the table out — so column widths fall back to the computed CSS
+  What it cannot do without a browser is *measure* (`offsetWidth` is `0` where
+  nothing laid the table out), so column widths fall back to the computed CSS
   widths, then to an equal split, and `data-pptx-width` /
   `data-pptx-min-width` are there to pin them. That fallback is the scope
   boundary: everything except real measurement works anywhere.
 
-  A *fallback*, deliberately, and not a *degradation* — the two bases do not
+  A *fallback*, deliberately, and not a *degradation*: the two bases do not
   measure the same box. `offsetWidth` is the **border box**; computed `width` is
   the **content box**. Padding alone is enough to separate them, so one table can
-  emit different column *proportions* on either side of a layout engine — a
+  emit different column *proportions* on either side of a layout engine: a
   different answer, not the same answer less precisely. The fixture behind
   `test/browser/table-widths.spec.mjs` is built to show it: 1:1 measured against
   2:1 from CSS. Where both runtimes have to agree on a column, state it with
@@ -155,7 +155,7 @@ supported.
   `readCellText` (`test/regression/html/html-table-portable-basis.test.js`), and the
   HTML-vs-pptx grid reconciliation added `measureGridColumns` / `extendColBasis`
   (`test/regression/html/html-table-grid.test.js`). Follow
-  it — those helpers are why the flow could be made portable at all. A
+  it: those helpers are why the flow could be made portable at all. A
   full-fidelity *layout* repro still needs a headless browser
   (Playwright/Puppeteer), which is not a project dependency; a DOM-only repro no
   longer does.
@@ -182,23 +182,23 @@ a proposed one is acceptable is:
 > higher bar when it bypasses a **guarantee**.
 
 The guarantee here is *the bytes we author are valid OOXML that PowerPoint opens
-cleanly*. Everything else — unit conversion, autocomplete on a colour string, a
-curated enum subset — is convenience, and a hatch through it costs the caller
+cleanly*. Everything else (unit conversion, autocomplete on a colour string, a
+curated enum subset) is convenience, and a hatch through it costs the caller
 nothing but their own care.
 
 That single rule produces the read/write asymmetry the codebase already has:
 
-- **Write path** — the library authors the bytes, so the guarantee applies. Only
+- **Write path**: the library authors the bytes, so the guarantee applies. Only
   narrow, typed, validated hatches. Where a hatch takes uninterpreted input
   (`ShapeGuide.formula`, `shapeAdjust`, a `"<n>emu"` coordinate), it is guarded
   the way the rest of the write path is: warn and skip, warn and fall back, or
-  throw — never silently emit a degenerate result (see the API Evolution Policy
+  throw, never silently emit a degenerate result (see the API Evolution Policy
   in `AGENTS.md`).
-- **Read path** — the library never authored the bytes, so no such guarantee is
+- **Read path**: the library never authored the bytes, so no such guarantee is
   on offer. One deep raw hatch is therefore acceptable: `part.dom` plus
   `element_` on the read model gives direct DOM access at every level. The
-  promise the read path *does* make — untouched parts round-trip
-  byte-identically — survives it, because reserialization is scoped to parts the
+  promise the read path *does* make (untouched parts round-trip
+  byte-identically) survives it, because reserialization is scoped to parts the
   caller explicitly marked dirty. The obligation that comes with the hatch is
   that the caller must call `markDirty()`; every class exposing `element_` also
   exposes it. See `docs/reference/pptx-read.md`.
@@ -206,7 +206,7 @@ That single rule produces the read/write asymmetry the codebase already has:
 The worked precedent for a rejection is the caller-provided XML transform hook: a
 generic write-side hook over the emitted XML bypasses the guarantee itself and
 leaves the library unable to make any claim about its own output. A concrete need behind such a request is met with a typed, validated
-primitive instead — not by widening the hatch.
+primitive instead: not by widening the hatch.
 
 ## Maintenance Posture
 

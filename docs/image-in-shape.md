@@ -15,8 +15,8 @@ doc_type: "guide"
 
 `slide.addImage()` can clip a picture to a shape and, independently, crop the
 source bitmap so it fills that shape at the right aspect ratio. This is the
-idiomatic OOXML form — a `<p:pic>` whose `<p:spPr>` carries the clip geometry and
-whose `<p:blipFill>` carries the source crop — exactly what a PowerPoint *picture
+idiomatic OOXML form (a `<p:pic>` whose `<p:spPr>` carries the clip geometry and
+whose `<p:blipFill>` carries the source crop) exactly what a PowerPoint *picture
 placeholder* produces.
 
 ## Choosing the clip geometry
@@ -25,8 +25,8 @@ Three mutually exclusive ways to set the clip, in precedence order:
 
 | Option | Emits | Use when |
 |--------|-------|----------|
-| `points` | `<a:custGeom>` (freeform path) | Arbitrary outline — a half-disc, a speech bubble, any custom silhouette. **Wins over `shape`/`rounding`.** |
-| `shape` | `<a:prstGeom prst="…">` | A named PowerPoint preset — `'roundRect'`, `'hexagon'`, `'ellipse'`, etc. |
+| `points` | `<a:custGeom>` (freeform path) | Arbitrary outline: a half-disc, a speech bubble, any custom silhouette. **Wins over `shape`/`rounding`.** |
+| `shape` | `<a:prstGeom prst="…">` | A named PowerPoint preset: `'roundRect'`, `'hexagon'`, `'ellipse'`, etc. |
 | `rounding: true` | `<a:prstGeom prst="ellipse">` | Shorthand for a circular/elliptical crop. Lowest precedence. |
 
 With none of these the picture stays a plain rectangle (`prst="rect"`).
@@ -65,19 +65,19 @@ slide.addImage({
 })
 ```
 
-- `cover` — scales the source to **cover** the box, cropping the overflow (no
+- `cover`: scales the source to **cover** the box, cropping the overflow (no
   distortion, no gaps). This is what you want for a photo behind a clip shape.
-- `contain` — scales the source to **fit** inside the box (letterbox; negative
+- `contain`: scales the source to **fit** inside the box (letterbox; negative
   `srcRect` inset).
-- `crop` — cuts an explicit window using `x`/`y`/`w`/`h` offsets.
-- `stretch` — fills the box regardless of aspect. A raster's default; name it to
+- `crop`: cuts an explicit window using `x`/`y`/`w`/`h` offsets.
+- `stretch`: fills the box regardless of aspect. A raster's default; name it to
   opt a vector out of the one below.
 
 `sizing.w` / `sizing.h` default to the picture's own `w` / `h`, so supply them only
 when the fit box is genuinely something other than the picture.
 
-`cover`/`contain` read the image's natural dimensions from the embedded bytes — a
-PNG/JPEG/GIF/BMP/WebP header, or an SVG's `width`/`height` or `viewBox` — so the
+`cover`/`contain` read the image's natural dimensions from the embedded bytes (a
+PNG/JPEG/GIF/BMP/WebP header, or an SVG's `width`/`height` or `viewBox`), so the
 crop is aspect-correct. For an unrecognized format, or an SVG carrying no
 intrinsic size at all, the displayed `w`/`h` ratio is used as a fallback and a
 warning is logged.
@@ -86,8 +86,8 @@ warning is logged.
 
 An SVG states its own aspect ratio, and a glyph squashed into a box that disagrees
 with it is a defect rather than a layout choice. So a **vector** source with no
-`sizing` is letterboxed to its intrinsic ratio inside its box — exactly as
-`sizing: { type: 'contain' }` would — instead of being stretched:
+`sizing` is letterboxed to its intrinsic ratio inside its box (exactly as
+`sizing: { type: 'contain' }` would) instead of being stretched:
 
 ```js
 // A square icon in a non-square box: centered at its true aspect, not squashed.
@@ -97,13 +97,13 @@ slide.addImage({ svg: iconMarkup, x: 1, y: 1, w: 3, h: 1 })
 slide.addImage({ svg: bandMarkup, x: 0, y: 0, w: 13.33, h: 0.4, sizing: { type: 'stretch' } })
 ```
 
-Nothing is emitted when the ratios already agree — a square glyph in a square box
+Nothing is emitted when the ratios already agree: a square glyph in a square box
 produces the same plain `<a:stretch>` it always did. An SVG with neither a
 `viewBox` nor `width`/`height` cannot be measured, so it stretches, silently: no
 sizing was requested, so there is nothing to warn about.
 
 The same intrinsic ratio fills in a missing dimension: `{ svg, w: 4 }` on a 2:1
-`viewBox` is 4in × 2in. What it will *not* do is treat user units as pixels — an
+`viewBox` is 4in × 2in. What it will *not* do is treat user units as pixels: an
 SVG given neither `w` nor `h` falls back to 1 inch rather than becoming a
 quarter-inch object because its icon set was authored on a 24-unit grid.
 
@@ -112,7 +112,7 @@ so the two compose freely. The emitted blip fill uses the canonical
 `<a:srcRect/><a:stretch><a:fillRect/></a:stretch>` form (ECMA-376 §L.4.8.4.3),
 which PowerPoint and LibreOffice both render with a clean clip edge.
 
-## Worked example — the half-disc ("D") cover
+## Worked example: the half-disc ("D") cover
 
 A right-flush half-disc photo, the curved edge expressed with a single `arcTo`,
 center-cropped to fill the portrait box. The flat side sits at `0.3179·w` from the
@@ -138,21 +138,21 @@ slide.addImage({
 })
 ```
 
-An `arc` node takes no `x`/`y`. An `<a:arcTo>` carries no explicit end point —
-PowerPoint derives it from the current pen position, the radii and the swept
-angle — so the arc above ends where the 180° sweep lands, back at the flat edge.
+An `arc` node takes no `x`/`y`. An `<a:arcTo>` carries no explicit end point
+(PowerPoint derives it from the current pen position, the radii and the swept
+angle), so the arc above ends where the 180° sweep lands, back at the flat edge.
 Supplying an end point emits a warning and is otherwise ignored. Unlike a shape
 rotation, arc angles are not wrapped into `0..360`: `swAng: 400` draws a 400°
 sweep, not a 40° one.
 
-The wide source photo is cropped to the box aspect — not squashed — and the curved
+The wide source photo is cropped to the box aspect (not squashed) and the curved
 edge is a smooth ellipse arc. See `test/regression/image/image-shape.test.js` for the
 composition tests.
 
 ## Named silhouettes: `clipPath()`
 
-The half-disc above recurs often enough — it is what a cover-slide picture
-placeholder cuts — that it is available as data rather than as arithmetic.
+The half-disc above recurs often enough (it is what a cover-slide picture
+placeholder cuts) that it is available as data rather than as arithmetic.
 `clipPath(shape, w, h)` resolves a named `ClipShape` to the same `points` array:
 
 ```js
@@ -168,11 +168,11 @@ slide.addImage({
 ```
 
 `flat` names the edge the straight side sits on (`'right'` = flat right edge, arc
-bulging left); `preset` picks the proportion — `'deep'` (the default; the arc spans
+bulging left); `preset` picks the proportion: `'deep'` (the default; the arc spans
 about 32% of the box width, symmetric about mid-height) or `'shallow'` (about 13%,
 with its apex just below mid-height). Both are traced as two cubic Béziers rather
 than an `arcTo`, so unlike the hand-authored example above they are not perfect
-half-ellipses — they are the placeholder proportions PowerPoint decks actually use.
+half-ellipses: they are the placeholder proportions PowerPoint decks actually use.
 
 **`w` and `h` must be the size the picture is drawn at.** The returned path is in
 the image box's *own* inch space (`0..w`, `0..h`), because a `custGeom` point given
@@ -184,7 +184,7 @@ different size and the clip lands in the wrong place.
 ## Borders, shadows, recolor
 
 A clipped picture still supports `line` (a `<a:ln>` outline that follows the clip
-geometry), `shadow`, `transparency`, and the recolor modes — the same
+geometry), `shadow`, `transparency`, and the recolor modes: the same
 picture-formatting vocabulary as an unclipped image. The recolor options are
 `duotone` (`{ shadow, highlight }`), `grayscale` (`true`), `biLevel`
 (`{ threshold }`, a `0.0–1.0` luminance split into black/white), and `clrChange`

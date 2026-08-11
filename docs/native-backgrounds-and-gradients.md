@@ -171,8 +171,8 @@ Initial validation rules:
 
 ## Radial gradients
 
-Radial fills reuse the linear plumbing — same `type: 'gradient'` fill object,
-same `<a:gradFill>`/`<a:gsLst>` stop list and color handling — and swap the
+Radial fills reuse the linear plumbing (same `type: 'gradient'` fill object,
+same `<a:gradFill>`/`<a:gsLst>` stop list and color handling) and swap the
 shade element from `<a:lin>` (linear) to `<a:path path="circle">` (radial).
 
 ```ts
@@ -217,7 +217,7 @@ rect`, §20.1.10.38) carrying a single `<a:fillToRect>` focus rectangle
 Notes that make the mapping correct:
 
 1. **Stop direction is inverted from the geometric reading.** For `<a:path>`,
-   the stop at `pos="0"` is the *center* and later stops radiate outward — the
+   the stop at `pos="0"` is the *center* and later stops radiate outward: the
    opposite mental model from a linear sweep. The public `position` ordering is
    unchanged (0 first), so `position: 0` is documented as the center color.
 2. **`fillToRect` is a focus rectangle, not a center point.** Its `l/t/r/b` are

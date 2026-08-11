@@ -65,9 +65,13 @@ pre-commit:
     # on every run; rewriting a sentence on its way into a commit is not a guess a hook
     # should make unsupervised. `pnpm run lint:chars:fix` makes it, where you can read
     # the diff first.
+    #
+    # `--max-warnings 0` matches `lint:chars`. Every rule errors today, so it changes
+    # nothing now; it is here so that a rule added at `warn` later fails the commit
+    # rather than printing into a hook's scrollback where nobody reads it.
     - name: charcheck
       glob: '*.{md,vue,ts,mts}'
-      run: node node_modules/charcheck/dist/cli.js --staged
+      run: node node_modules/charcheck/dist/cli.js --staged --max-warnings 0
 
 commit-msg:
   # Backstop against a shell-quoting slip mangling a multi-line message (e.g. a
@@ -87,9 +91,11 @@ pre-push:
   jobs:
     - name: lint
       run: pnpm run lint
-    # pre-commit's `--staged` run cannot see this one: the docs backlog is frozen by a
-    # total warning count, and a per-commit scan only ever sees a slice of it. This is
-    # the run that fails when the total grows.
+    # Not redundant with pre-commit's `--staged` run, which only ever sees the files of
+    # one commit. This is the whole-repo scan, and it is what catches prose that reached
+    # the branch without passing that hook: a commit made with `--no-verify`, one merged
+    # in, or a rebase that resurrected a line. It is the last check before the tree
+    # leaves the machine.
     - name: lint-chars
       run: pnpm run lint:chars
     - name: format

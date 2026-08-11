@@ -15,9 +15,9 @@ doc_type: "guide"
 A group is a single selectable PowerPoint object (`<p:grpSp>`) that contains other
 objects. ts-pptx offers two entry points:
 
-- `slide.addGroup(children, options?)` — build a group from child *descriptors*
+- `slide.addGroup(children, options?)`:build a group from child *descriptors*
   (the same shorthand `addShape`/`addText`/`addImage` accept), in one call.
-- `slide.groupObjects(objectNames, options?)` — wrap objects that are **already on
+- `slide.groupObjects(objectNames, options?)`:wrap objects that are **already on
   the slide**, addressed by their `objectName`. Use this when independent renderers
   each added their own objects and you want to group them after the fact without
   replaying their descriptors.
@@ -30,15 +30,15 @@ Every group ts-pptx writes keeps an **identity child coordinate space**:
 `chOff/chExt == off/ext` at every nesting depth. The practical consequence:
 
 > A group's own frame only places the selection handle and the rotate pivot. It
-> never moves or scales the children — they keep their slide-absolute `x/y/w/h`.
+> never moves or scales the children: they keep their slide-absolute `x/y/w/h`.
 
 This makes grouping visually a no-op: the objects render exactly where they did
 before, but PowerPoint now treats them as one unit (one Selection Pane entry, one
 drag target, one rotate handle). It also means you never recompute child
-coordinates to "put them inside" a group — you author each child at its final
+coordinates to "put them inside" a group: you author each child at its final
 slide position and let the group wrap it.
 
-## `addGroup()` — build a group from descriptors
+## `addGroup()`: build a group from descriptors
 
 ```js
 slide.addGroup(
@@ -57,8 +57,8 @@ inches, exactly as the top-level `add*` methods take them.
 
 **Not supported as children yet:** `chart`, `table`, `media`, and `placeholder`.
 Each is skipped with a warning (the relationship/id/transform plumbing to nest them
-is pending). A group left with no renderable children — e.g. because every child
-was an unsupported kind — warns and emits a degenerate zero-size group rather than
+is pending). A group left with no renderable children: e.g. because every child
+was an unsupported kind: warns and emits a degenerate zero-size group rather than
 silently producing one.
 
 ### Framing: auto-bounds or an explicit frame (all-or-nothing)
@@ -70,7 +70,7 @@ The group frame is **all-or-nothing**:
 - **Pass all four** → the frame is used verbatim. Because the child space stays
   identity, this only relocates the handle/pivot; the children do not move.
 
-A **partial** frame (some axes set, others not) is ambiguous — `{ x: 5 }` reads
+A **partial** frame (some axes set, others not) is ambiguous: `{ x: 5 }` reads
 like a reposition but cannot be one without moving the children out from under the
 box. So a partial frame **warns and falls back to auto-bounds** on every axis. Pass
 all four or none.
@@ -110,7 +110,7 @@ slide.addGroup([
 ], { objectName: 'Outer' })
 ```
 
-## `groupObjects()` — group objects already on the slide
+## `groupObjects()`: group objects already on the slide
 
 ```js
 const s = pptx.addSlide()
@@ -124,10 +124,10 @@ s.groupObjects(['Header', 'Caption'], { objectName: 'Banner' })
 
 Two ordering rules keep the lift visually a no-op:
 
-- **Children keep their existing slide z-order** — *not* the order you name them.
+- **Children keep their existing slide z-order**: *not* the order you name them.
   Naming is a selection, not a restack; `['Top', 'Bottom']` never lifts `Top`
   above `Bottom`.
-- **The wrapper takes the topmost member's former slot** — it sits above everything
+- **The wrapper takes the topmost member's former slot**: it sits above everything
   the selection sat above and below everything it sat below. A non-member that sat
   between two members surfaces above the group.
 
@@ -138,7 +138,7 @@ groups you already made.
 
 Unlike `addGroup` (which warns and skips), every `groupObjects` failure **throws**,
 because each one would otherwise leave the intended object silently loose on the
-slide — the footgun the group was meant to remove. Resolution runs fully *before*
+slide: the footgun the group was meant to remove. Resolution runs fully *before*
 anything moves, so a bad name leaves the slide untouched rather than half-grouped:
 
 - a name no top-level object has (distinguished from one that is already inside
@@ -149,8 +149,8 @@ anything moves, so a bad name leaves the slide untouched rather than half-groupe
 
 ## Cross-references into a group
 
-A connector or animation can target a shape **inside** a group by its `objectName`
-— group children are `<p:cNvPr>`-named on the same slide and are valid targets:
+A connector or animation can target a shape **inside** a group by its `objectName`:
+group children are `<p:cNvPr>`-named on the same slide and are valid targets:
 
 ```js
 s.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'boxInGroup' } }], { objectName: 'Grp' })
@@ -171,7 +171,7 @@ reports a `group` element with its children and applies the same composition. Se
 [PPTX read API](reference/pptx-read.md) and
 [PPTX Inspection](reference/pptx-inspection.md).
 
-Grouped text still participates in the export-time measured-fit pass — the fit pass
+Grouped text still participates in the export-time measured-fit pass: the fit pass
 descends into groups, and because the child space is identity, a grouped text box's
 authored `w/h` is its true rendered size (see `docs/measured-text-fit.md`).
 

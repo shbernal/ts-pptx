@@ -10,7 +10,7 @@ doc_type: "overview"
 hero:
   name: "ts-pptx"
   text: "PowerPoint decks from TypeScript"
-  tagline: "Write .pptx packages that open cleanly in PowerPoint — read them back, and turn one into the script that would rebuild it."
+  tagline: "Write .pptx packages that open cleanly in PowerPoint, read them back, and turn one into the script that would rebuild it."
   actions:
     - theme: brand
       text: See a deck built in your browser
@@ -23,7 +23,7 @@ hero:
       link: /reference/api/
 features:
   - title: Write
-    details: "Slides, masters and themes, charts with real embedded workbooks, tables, groups, connectors, gradients, images in shapes, OLE objects, 3D models and LaTeX maths — emitted as OOXML, validated against the ECMA-376 schemas."
+    details: "Slides, masters and themes, charts with real embedded workbooks, tables, groups, connectors, gradients, images in shapes, OLE objects, 3D models and LaTeX maths. Emitted as OOXML, validated against the ECMA-376 schemas."
     link: /reference/api/
     linkText: API reference
   - title: Read
@@ -35,7 +35,7 @@ features:
     link: /reference/pptx-to-script
     linkText: pptx → script
   - title: Node-first
-    details: "ESM only, Node 24+, no browser and no office application in the loop. It runs in a browser too, and that lane is tested — it is simply not what the project is aimed at."
+    details: "ESM only, Node 24+, no browser and no office application in the loop. It runs in a browser too, and that lane is tested: it is simply not what the project is aimed at."
     link: /runtime-and-package-support
     linkText: Runtime support
 ---

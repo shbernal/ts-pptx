@@ -32,9 +32,9 @@ For emitted OOXML changes, the implementation should carry a focused fixture in
 ## Fixture-Gated Work: Ask For The Fixture, Don't Guess
 
 When a feature can only be tested against OOXML that must be **genuine
-PowerPoint output** — a read-model accessor validated against real Office XML, or
+PowerPoint output**, a read-model accessor validated against real Office XML, or
 a write-side behaviour whose target XML is "what PowerPoint authors" (preset IDs,
-part wiring, namespaces, inheritance) — and that fixture/oracle does **not** yet
+part wiring, namespaces, inheritance), and that fixture/oracle does **not** yet
 exist, do not implement against synthetic, hand-typed, or write→read
 round-tripped XML. Guessing the target XML produces circular or wrong evidence.
 
@@ -53,9 +53,9 @@ then implement.
 
 ## Related
 
-- [Testing guide](testing.md) — the verification commands, and
+- [Testing guide](testing.md): the verification commands, and
   [The object model is not a render oracle](testing.md#the-object-model-is-not-a-render-oracle)
   for the one claim that needs *render* evidence specifically.
-- [OOXML agent context](ooxml-agent-context.md) — where to look up the structure
+- [OOXML agent context](ooxml-agent-context.md): where to look up the structure
   a fixture is supposed to demonstrate.
-- [Project target](project-target.md) — whether the behaviour belongs here at all.
+- [Project target](project-target.md): whether the behaviour belongs here at all.

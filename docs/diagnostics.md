@@ -31,8 +31,8 @@ A code is a stable identifier of a *condition*, in `area/condition` form. You ma
 it, count it, and treat it as part of the package's contract: adding a code is back-compatible, and
 removing or renaming one is a breaking change with a `CHANGELOG.md` entry.
 
-The message is prose meant for a human reading a build log. It is free to improve — reworded,
-expanded, given a better example — in any release, including patch releases. Do not parse it, and
+The message is prose meant for a human reading a build log. It is free to improve (reworded,
+expanded, given a better example) in any release, including patch releases. Do not parse it, and
 do not assert on it in tests.
 
 `DiagnosticCode` is a closed union, so your editor will complete the available codes and TypeScript
@@ -89,8 +89,8 @@ setDiagnosticHandler((d) => {
 ```
 
 The throw propagates out of whatever library call emitted the diagnostic. This composes with
-whatever policy you want — escalate one code, escalate everything under `chart/`, escalate in CI
-and warn locally — without the library having to model any of it.
+whatever policy you want (escalate one code, escalate everything under `chart/`, escalate in CI
+and warn locally) without the library having to model any of it.
 
 ## Repeated conditions
 
@@ -103,7 +103,7 @@ reports on its own.
 
 A new warning site must name its condition in `DiagnosticCode` (`src/codes.ts`) before it will
 compile. That is the enforcement mechanism for keeping the vocabulary curated rather than
-accumulated — reuse an existing code when the condition is genuinely the same, even if the wording
+accumulated: reuse an existing code when the condition is genuinely the same, even if the wording
 differs and even if it is reported from a different entry point.
 
 Write the message without a `ts-pptx:` prefix; the default handler stamps that.
@@ -112,8 +112,8 @@ Write the message without a `ts-pptx:` prefix; the default handler stamps that.
 
 Ask what the library does *next*, not how bad the input looks:
 
-- If it can carry on and still produce something the caller would recognise as their deck — clamp
-  the value, ignore the option, fall back to a default glyph — **warn**.
+- If it can carry on and still produce something the caller would recognise as their deck (clamp
+  the value, ignore the option, fall back to a default glyph), **warn**.
 - If the request is discarded and the deck comes out missing what was asked for, **throw**. A deck
   that opens cleanly and is quietly missing an image is worse than a failed build.
 
@@ -122,7 +122,7 @@ nothing to place, so it throws; a bullet image with no usable source falls back 
 warns. See [Errors](./errors.md) for the thrown half.
 
 Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
-rejects it under `eslint/no-console` — such a line cannot be captured, silenced, or branched on. The only
+rejects it under `eslint/no-console`: such a line cannot be captured, silenced, or branched on. The only
 exemptions are `diagnostics.ts`, which owns the default handler, and the two `verbose: true`
 table tracers (`gen/table/autopage.ts`, `gen/table/html-dom.ts`), whose output reports no
 condition and is opt-in.

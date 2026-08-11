@@ -13,7 +13,7 @@ doc_type: "guide"
 # OLE Embedded Objects
 
 `slide.addOleObject()` embeds a file inside the `.pptx` and places it on the slide
-as a live OLE object — PowerPoint's **Insert ▸ Object ▸ Create from File**.
+as a live OLE object: PowerPoint's **Insert ▸ Object ▸ Create from File**.
 Double-clicking it opens the source in place (Excel's grid, Word's page) rather
 than launching a separate window on a separate file.
 
@@ -33,7 +33,7 @@ The payload's bytes travel inside the package, so the deck stays self-contained.
 Either `data` (base64, with or without a `data:...;base64,` header) or `path` is
 required; everything else is optional.
 
-> Linked objects — a `<p:link>` pointing at a file outside the package — are not
+> Linked objects (a `<p:link>` pointing at a file outside the package) are not
 > supported. Only embedded payloads.
 
 ## The preview picture (`cover`)
@@ -47,8 +47,8 @@ s.addOleObject({ path: 'model.xlsx', cover: { path: 'model-preview.png' } })
 ```
 
 Omit it and a neutral gray placeholder is embedded instead. That is usually
-survivable — PowerPoint reads the `mc:Choice` branch, which carries no picture at
-all, and draws the live object over it — but **every other consumer** (and
+survivable (PowerPoint reads the `mc:Choice` branch, which carries no picture at
+all, and draws the live object over it), but **every other consumer** (and
 PowerPoint's own `mc:Fallback` path) shows exactly the placeholder. Ship a real
 screenshot for any deck meant to read correctly outside PowerPoint.
 
@@ -68,7 +68,7 @@ It is resolved from, in order: an explicit `extn`, a `data:` URI's MIME type, th
 
 Those six are OPC packages (Office files are themselves ZIP archives) and keep
 their own extension. Everything else is embedded as a generic OLE-server blob in
-a `.bin` part — the same thing PowerPoint writes for a shell-packaged payload, so
+a `.bin` part: the same thing PowerPoint writes for a shell-packaged payload, so
 an unrecognized extension never leaks into `[Content_Types].xml`.
 
 Set `progId` explicitly to override the default, e.g. when passing raw base64
@@ -80,7 +80,7 @@ s.addOleObject({ data: rawBase64Xlsx, progId: 'Excel.Sheet.12' })
 
 ## Sizing
 
-`w`/`h` default to **4 × 3 inches** — the library cannot measure a document it
+`w`/`h` default to **4 × 3 inches**: the library cannot measure a document it
 does not open, so there is no natural size to fall back on. Set them explicitly.
 
 `imgW`/`imgH` are the preview's *native* size in EMU, which PowerPoint uses to
@@ -137,12 +137,12 @@ images *are* deduplicated, exactly like any other image.)
 
 ## Verifying
 
-A `<p:oleObj>` that PowerPoint dislikes is not reported as a corrupt file — the
+A `<p:oleObj>` that PowerPoint dislikes is not reported as a corrupt file: the
 graphicFrame is silently dropped and the slide simply has no shape where the
 object was. Schema validation cannot see that. `pnpm run test:com` (Windows +
 PowerPoint) opens a generated OLE deck and reads each shape's `OLEFormat.ProgID`
 back out, which is the check that actually catches it.
 
 One trap if you write your own COM check: a *windowless* PowerPoint does not
-instantiate embedded objects, so `Shapes` comes back without them — even for a
+instantiate embedded objects, so `Shapes` comes back without them, even for a
 deck PowerPoint authored itself. Open with a window when reading OLE objects back.

@@ -18,15 +18,15 @@ doc_type: "decision"
 (text boxes) and `TableCellProps.fit:'shrink'` (table cells) is implemented and
 calibrated against PowerPoint-authored fixtures. Source:
 
-- `src/measure/font-metrics.ts` — opentype.js metrics provider (+ heuristic
+- `src/measure/font-metrics.ts`: opentype.js metrics provider (+ heuristic
   fallback), the `FontMetricsRegistry`, and `makeRegistryResolver`.
-- `src/measure/text-fit.ts` — `wrap=square` simulator and the shrink/resize solvers.
-- `src/measure/paragraphs.ts` — turns an authored slide object into the
+- `src/measure/text-fit.ts`: `wrap=square` simulator and the shrink/resize solvers.
+- `src/measure/paragraphs.ts`: turns an authored slide object into the
   simulator's inputs (runs → `FitParagraph`s, insets, box, anchor share).
-- `src/measure/table-fit.ts` — `computeTableLayout` and the cell-grid walk.
-- `src/measure/fit.ts` — the export-time pass that measures text boxes and table
+- `src/measure/table-fit.ts`: `computeTableLayout` and the cell-grid walk.
+- `src/measure/fit.ts`: the export-time pass that measures text boxes and table
   cells and rewrites the slide object before the sync XML build.
-- `pptx.registerFontMetrics()` — the public registration API.
+- `pptx.registerFontMetrics()`: the public registration API.
 
 Held conservative by `test/read/autofit-calibration-oracle.test.js` (computed
 shrink `fontScale` ≤ PowerPoint's; computed resize `cy` ≥ PowerPoint's *and* ≥
@@ -44,7 +44,7 @@ computation to an interactive edit/resize event that a headless render never
 fires, so in a headless LibreOffice → PNG pipeline (and on plain file-open)
 nothing recomputes and the text still overflows.
 
-This is **not** an inherent renderer limitation — both PowerPoint and LibreOffice
+This is **not** an inherent renderer limitation: both PowerPoint and LibreOffice
 honor a fit that is already baked into the file. The catch is that the two
 mechanisms store the fitted answer in **different places**, so the fix is not
 symmetric:
@@ -57,8 +57,8 @@ symmetric:
 The missing capability was **measurement**: the library had no font metrics, so it
 could not compute the value to bake. This feature adds serialize-time measured fit
 so overflow self-corrects in headless renders without a human round-trip through
-PowerPoint. It is generic ts-pptx value — every consumer that renders or ships
-pptx headlessly hits it — so it lives upstream, not as a downstream workaround.
+PowerPoint. It is generic ts-pptx value (every consumer that renders or ships
+pptx headlessly hits it), so it lives upstream, not as a downstream workaround.
 
 ## Design
 
@@ -67,7 +67,7 @@ pptx headlessly hits it — so it lives upstream, not as a downstream workaround
 - Loads a font file (TTF/OTF) and exposes per-glyph advance widths +
   ascent/descent/line-gap. **`opentype.js`** (new dependency, lazily imported,
   Node/web only).
-- Width is summed from **raw `charToGlyph` advances** — deliberately **no**
+- Width is summed from **raw `charToGlyph` advances**: deliberately **no**
   GPOS/GSUB shaping. Kerning almost always narrows a line, so summing raw advances
   over-estimates width, the conservative direction (shrink a touch too much, never
   overflow). (`getAdvanceWidth()` also runs shaping and throws on unsupported
@@ -136,7 +136,7 @@ PowerPoint has **no** text-autofit for table cells: `a:tcPr`
 occupancy sweep; column widths from the shared `resolveTableColWidthsEmu`; row
 heights from `rowH`/table `h`; cell margins + table→cell inheritance), runs the
 **same** shrink solver, and bakes a **reduced literal font size** (floored to
-0.1pt) onto the cell runs — which both PowerPoint and LibreOffice render
+0.1pt) onto the cell runs: which both PowerPoint and LibreOffice render
 identically with no edit/resize. Only fixed-height rows are touched; auto-height
 rows are skipped (they grow). Options objects are cloned before mutation because
 plain-string cells share the table's single `opt` object. `'resize'`/object forms
@@ -159,13 +159,13 @@ The **layout-time** side (`measureText`) resolves runs identically, with one
 deliberate difference: the empty-registry case. `applyMeasuredFit` reads "no metrics"
 as "this deck never opted into measured fit" and bakes nothing, but `measureText` is
 a read-only query with nothing to opt into, so it returns heuristic numbers and stays
-useful with zero setup. The two therefore diverge for an empty registry — the query
-predicts a shrink the export will not bake — and that is intentional, not a bug:
+useful with zero setup. The two therefore diverge for an empty registry (the query
+predicts a shrink the export will not bake) and that is intentional, not a bug:
 
 | | `measureText` | `applyMeasuredFit` |
 |---|---|---|
 | kind | read-only query | mutates the deck at export |
-| empty registry | heuristic, useful with zero setup | no-op — the deck never opted in |
+| empty registry | heuristic, useful with zero setup | no-op: the deck never opted in |
 
 The library cannot tell "never intended to register" from "intended to register and
 the load silently failed"; detecting the latter is the caller's job, at font-load
@@ -182,7 +182,7 @@ grid, detect overflow) instead of relying only on the export-time bake. For any 
 that opted into measured fit (i.e. registered at least one face), a layout-time
 prediction must never disagree with what the export then bakes, so both paths share
 one converter (`buildFitParagraphs`), one resolver (`makeRegistryResolver`), and one
-layout function (`measureLayout`) — there is no second wrap model. The one deliberate
+layout function (`measureLayout`): there is no second wrap model. The one deliberate
 exception is an **empty** registry (see below). Source: `src/measure.ts` (subpath entry), `measureText` +
 `buildFitParagraphs` in `src/measure/paragraphs.ts`, `makeRegistryResolver` in
 `src/measure/font-metrics.ts`, and `measureLayout` in `src/measure/text-fit.ts`.
@@ -210,12 +210,12 @@ if (pptx.overflowsBox(text, { wIn, hIn, fontSize, fontFace })) warn() // conserv
 the export pass run-for-run: exact metrics → conservative heuristic for any **named**
 face without exact metrics (reported in `approximatedFaces`) → `measurable:false`
 only for an unnamed theme-default face. The one place the two paths differ by design
-is an empty registry — see "Unregistered-font heuristic" above. Units are inches
+is an empty registry: see "Unregistered-font heuristic" above. Units are inches
 (width/height) + points (type/spacing); `insetIn` is subtracted from `wIn` on both
 sides if a raw box width is passed.
 
 Because the model errs **tall** (the same `WIDTH_SAFETY`/`HEIGHT_SAFETY` factors as
-the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render — right for
+the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render: right for
 "grow a container", and why `overflowsBox` is a *conservative* (slightly
 over-reporting) check suited to a build-time **warning**, not a hard gate. An
 unmeasurable face makes `overflowsBox` return `false` (no false positive).
@@ -248,7 +248,7 @@ spacing is font-metric-derived; a font carries hhea vs OS/2 win-* vs typo-* pair
 gated by the `USE_TYPO_METRICS` bit; PowerPoint and LibreOffice can pick different
 pairs). A consumer may render through headless LibreOffice, but the file must also
 be correct in PowerPoint, so the solver is conservative against the **taller** of
-the two — which is why the fixtures measure both engines.
+the two: which is why the fixtures measure both engines.
 
 The axes are split to avoid a combinatorial explosion: **per-font metric
 calibration** sweeps all 5 fonts on a small core (this pins each family's advance
@@ -259,18 +259,18 @@ swept on a single anchor font.
 ### Fixture decks
 
 Four desktop-PowerPoint-authored decks live in `test/read/fixtures/` (inspection
-only — not loaded by `test:read`). PowerPoint baked every fit value
+only: not loaded by `test:read`). PowerPoint baked every fit value
 non-interactively on `SaveAs`. Fonts: **Aptos, Aptos SemiBold, Calibri, Tahoma,
 Arial**.
 
-- `autofit-line-metrics.pptx` (90 cases) — per-font single-line height and advance
+- `autofit-line-metrics.pptx` (90 cases): per-font single-line height and advance
   widths straight from XML, plus a LibreOffice cross-measure column.
-- `autofit-shrink.pptx` (29 cases) — `normAutofit` calibration: per-font core +
+- `autofit-shrink.pptx` (29 cases): `normAutofit` calibration: per-font core +
   Aptos policy sweep (overflow ladder, lnSpcReduction onset, line spacing,
   space-before/after, multi-run, insets, charSpacing, anchor).
-- `autofit-resize.pptx` (19 cases) — `spAutoFit`/baked-`cy` calibration: per-font
+- `autofit-resize.pptx` (19 cases): `spAutoFit`/baked-`cy` calibration: per-font
   core + Aptos anchor/under-fill/spacing/inset sweep.
-- `autofit-edge.pptx` (11 cases) — over-long unbreakable tokens, trailing spaces,
+- `autofit-edge.pptx` (11 cases): over-long unbreakable tokens, trailing spaces,
   empty paragraphs, tabs, whitespace-only runs, mixed sizes, plus documented
   unsupported CJK/RTL boxes.
 
@@ -301,7 +301,7 @@ Provenance, SHA-256 hashes, and the case-id scheme are in
 - **resize ≠ "extend the card".** Baking `ext.cy` grows only the *text box*. A card
   background rectangle and an adjacent icon are separate shapes the library does not
   know are related, so resize alone will not "extend the card" or un-overlap the
-  icon — that layout coordination lives in the consumer's component. This makes
+  icon: that layout coordination lives in the consumer's component. This makes
   **shrink** the higher-leverage fix for the actual driver; resize is a partial
   answer for grouped card components.
 - Metric fidelity vs PowerPoint's layout engine (kerning, ligatures, GPOS) and vs

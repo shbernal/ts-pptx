@@ -5,15 +5,11 @@
  * The banned characters are built from their code points rather than written literally,
  * so this file does not report itself.
  *
- * Two rules cover the same prose at two severities, because this gate arrived on a repo
- * that already had 695 em dashes in `docs/`. Erroring on all of them would have meant
- * either rewriting the author's prose wholesale or turning the hook off, and a hook that
- * blames you for text you did not write is a hook you disable within a week. So the
- * surfaces that are clean today error, the docs backlog warns, and `--max-warnings` in
- * `lint:chars` freezes the backlog at its current size: it can shrink, never grow.
- *
- * To retire a docs page from the backlog, clean it, add it to `DOCS_CLEAN`, and lower the
- * `--max-warnings` number in the `lint:chars` script by what you removed.
+ * Every surface errors. The gate arrived on a repo that already had 684 em dashes in
+ * `docs/`, which warned under a frozen `--max-warnings` while they were worked off; that
+ * backlog is now empty, so the second severity and its `DOCS_CLEAN` allowlist are gone
+ * and there is one rule per surface. `lint:chars` keeps `--max-warnings 0` so that a rule
+ * added at `warn` in future fails the gate rather than scrolling past in a hook.
  */
 
 import { strategies } from 'charcheck/config'
@@ -28,18 +24,20 @@ const DASHES = [cp(0x2014), cp(0x2015)]
  * Matches the dash together with the space around it, which is what `clauseSeparator`
  * needs in order to put a line break back rather than swallow it. Written as regex
  * escapes so the characters never appear literally in this file.
+ *
+ * The whitespace is `[ \t]`, not `\s`, and that is load-bearing rather than pedantic.
+ * `\s` matches a newline, so a trailing `\s*` runs the match off the end of a
+ * hard-wrapped line and into the next node; when that node is an inline code span,
+ * charcheck drops the finding silently and reports a clean scan (charcheck#16). That is
+ * not a hypothetical: it hid 11 real dashes here, every one of them a dash ending a
+ * wrapped line whose continuation began with a code span. Horizontal-only whitespace
+ * keeps the match inside the line, which reports all of them and leaves the fixer's
+ * output unchanged on the cases both forms could already see. Restore `\s` after the
+ * upstream fix ships, re-run, and expect those findings to keep being reported.
  */
-const DASH_PATTERN = '\\s*[\\u2014\\u2015]\\s*'
+const DASH_PATTERN = '[ \\t]*[\\u2014\\u2015][ \\t]*'
 
 const MESSAGE = 'Use a comma, a colon, parentheses, or reword.'
-
-/**
- * Docs pages cleaned of em dashes and promoted out of the backlog below. Every entry
- * here is a page that now errors rather than warns; the list only grows.
- *
- * @type {string[]}
- */
-const DOCS_CLEAN = []
 
 /**
  * Written by a generator, so a finding has no author to tell. `docs/reference/api/` is
@@ -68,19 +66,7 @@ export default {
 			scope: 'markdown',
 			fix: strategies.clauseSeparator,
 			message: MESSAGE,
-			include: ['README.md', 'www/**/*.md', ...DOCS_CLEAN],
-		},
-		{
-			// The `docs/` backlog. Same rule, same fix, reported rather than enforced, and
-			// held to its current size by `--max-warnings`.
-			id: 'no-em-dash-in-prose-backlog',
-			pattern: DASH_PATTERN,
-			scope: 'markdown',
-			fix: strategies.clauseSeparator,
-			severity: 'warn',
-			message: MESSAGE,
-			include: ['docs/**/*.md'],
-			exclude: DOCS_CLEAN,
+			include: ['README.md', 'www/**/*.md', 'docs/**/*.md'],
 		},
 		{
 			// The site's one Vue component: template text and allowlisted attributes. Its

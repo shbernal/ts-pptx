@@ -14,8 +14,8 @@ doc_type: "guide"
 
 A connector is a line drawn between two points, emitted as a PowerPoint connector
 (`<p:cxnSp>`) rather than a plain line shape. Because it is a real connector,
-PowerPoint treats it as selectable and reroutable, and — when its endpoints are
-bound to shapes — reroutes it automatically as those shapes move.
+PowerPoint treats it as selectable and reroutable, and (when its endpoints are
+bound to shapes) reroutes it automatically as those shapes move.
 
 ```js
 const s = pptx.addSlide()
@@ -33,7 +33,7 @@ preset variant (how many adjustable jogs it has):
 
 | `type` | `bends` | OOXML preset | Jogs |
 | --- | --- | --- | --- |
-| `'straight'` (default) | — | `straightConnector1` | none |
+| `'straight'` (default) | n/a | `straightConnector1` | none |
 | `'elbow'` | `1` (default) / `2` / `3` | `bentConnector3` / `4` / `5` | 1 / 2 / 3 |
 | `'curved'` | `1` (default) / `2` / `3` | `curvedConnector3` / `4` / `5` | 1 / 2 / 3 |
 
@@ -60,7 +60,7 @@ s.addConnector({ type: 'curved', x1: 1, y1: 4, x2: 5, y2: 6, bends: 3, adj: [10,
 
 Values are emitted as `<a:gd name="adjN" fmla="val …"/>` guides (OOXML
 1000ths-of-a-percent, so `25` → `25000`). When omitted, PowerPoint uses the preset
-default (50%). Out-of-range values are **allowed with a warning** — they place a
+default (50%). Out-of-range values are **allowed with a warning**: they place a
 jog beyond the endpoint box, as PowerPoint itself does when endpoints flip. A
 non-finite `adj`, or an `adj` array whose length does not match `bends`,
 **throws** rather than emitting a degenerate guide.
@@ -69,7 +69,7 @@ non-finite `adj`, or an `adj` array whose length does not match `bends`,
 
 You give the two endpoints directly; the bounding box is derived. The connector's
 origin is the **min corner** of the two points, and `flipH` / `flipV` are set when
-the end point is left of / above the start point — so the connector draws
+the end point is left of / above the start point, so the connector draws
 correctly from any pair of endpoints, in any direction:
 
 ```js
@@ -114,14 +114,14 @@ s.addConnector({
 
 - `startShape` / `endShape` name the target; `startShapeIdx` / `endShapeIdx` pick
   the connection site on that shape (0-based; a shape's `<a:cxnLst>` enumerates its
-  sites — the valid range is preset-dependent, default `0`).
+  sites: the valid range is preset-dependent, default `0`).
 - The target's `<p:cNvPr>` id is resolved at serialize time, so the shape may be
   added before or after the connector.
 - `x1/y1/x2/y2` remain the static fallback geometry and are used if a name can't be
   resolved. An **unresolved** name **warns** and emits an empty `<p:cNvCxnSpPr/>`
   rather than a dangling id; a negative connection-site index **throws**.
 
-A shape **inside a group** is a valid target — group children are named on the same
+A shape **inside a group** is a valid target: group children are named on the same
 slide (see [Grouping objects](groups.md#cross-references-into-a-group)). The
 connector itself cannot be a group child.
 
@@ -144,13 +144,13 @@ s.addConnector({
 
 There are two ways to place a connector geometry, and they are not the same object:
 
-- **`addConnector()`** emits a live `<p:cxnSp>` — a real connector that is
+- **`addConnector()`** emits a live `<p:cxnSp>`: a real connector that is
   selectable, reroutable, and can bind to shapes. This is almost always what you
   want. It reaches `straightConnector1`, `bentConnector3/4/5`, and
   `curvedConnector3/4/5`.
 - **`addShape('<preset>', …)`** emits a static `<p:sp>` positioned by a box.
   The raw connector preset names are part of the public `SHAPE_NAME` union, so you
-  can pass them as ordinary shape geometry — but the result is a fixed drawing, not
+  can pass them as ordinary shape geometry, but the result is a fixed drawing, not
   a connector: it does not reroute and cannot bind to shapes.
 
 The single-segment variants **`bentConnector2`** and **`curvedConnector2`** (a
@@ -162,7 +162,7 @@ which maps to the `…Connector3` variants.
 
 - API reference: [`ConnectorProps`](reference/api/index/interfaces/ConnectorProps.md),
   [`ConnectorType`](reference/api/index/type-aliases/ConnectorType.md).
-- Where it lives in the pipeline: [Architecture](architecture.md) —
+- Where it lives in the pipeline: [Architecture](architecture.md).
   `gen/define/connector.ts` `addConnectorDefinition` (add) →
   `gen/slide/objects/connector.ts` `renderConnectorObject` (emit `<p:cxnSp>`).
 - Regression coverage: `test/regression/shape/connector-shape.test.js`.

@@ -29,7 +29,7 @@ The generated TypeDoc reference is built from public entry points:
 by the generated TypeDoc reference; they're documented by hand instead:
 [PPTX Inspection](pptx-inspection.md), [PPTX Read / Round-Trip](pptx-read.md),
 [PPTX To Script](pptx-to-script.md), [Measured Text Fit](../measured-text-fit.md),
-and [Math Equations](../math-latex.md). `src/zip.ts` has no dedicated page yet —
+and [Math Equations](../math-latex.md). `src/zip.ts` has no dedicated page yet:
 it is internal OPC/zip plumbing shared by `read` and `inspect`.
 
 After running `pnpm run docs:api`, read the generated reference at

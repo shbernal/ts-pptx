@@ -22,7 +22,7 @@ LaTeX  --temml-->  MathML  --mathml2omml-->  OMML  -->  { math: … } on addText
 
 ## Install the converters
 
-The converters are **optional peer dependencies** — the core package does not pull
+The converters are **optional peer dependencies**: the core package does not pull
 them in, so consumers who never author math carry no extra weight. Install them to use
 this subpath:
 
@@ -30,8 +30,8 @@ this subpath:
 npm install temml mathml2omml
 ```
 
-- `temml` — LaTeX → MathML ([MIT](https://github.com/ronkok/Temml)).
-- `mathml2omml` — MathML → OMML ([LGPL-3.0-or-later](https://github.com/fiduswriter/mathml2omml)).
+- `temml`: LaTeX → MathML ([MIT](https://github.com/ronkok/Temml)).
+- `mathml2omml`: MathML → OMML ([LGPL-3.0-or-later](https://github.com/fiduswriter/mathml2omml)).
 
 `mathml2omml` is LGPL. It is never bundled into this package's output (it stays a
 separate, replaceable dependency in your `node_modules`), and because it is opt-in,
@@ -70,8 +70,8 @@ ignored (see [`TextProps.math`](./reference/api/index/interfaces/TextProps.md)).
 
 Convert a LaTeX math expression to OMML.
 
-- `latex: string` — e.g. `\sum_{i=1}^{n} i = \frac{n(n+1)}{2}`.
-- `opts.display?: boolean` (default `true`) — display (block) math: render in
+- `latex: string`: e.g. `\sum_{i=1}^{n} i = \frac{n(n+1)}{2}`.
+- `opts.display?: boolean` (default `true`) selects display (block) math: render in
   `displayMode` and wrap the result in a centered `<m:oMathPara>` display paragraph.
   With `display: false`, temml renders in inline mode and a bare `<m:oMath>` is returned.
 - **Returns** OMML: `<m:oMathPara>…</m:oMathPara>` (display) or `<m:oMath>…</m:oMath>`
@@ -91,7 +91,7 @@ Convert a MathML string (`<math>…</math>`) to OMML.
 ## Output form
 
 Both functions emit OMML in the `m:` (`http://schemas.openxmlformats.org/officeDocument/2006/math`)
-namespace with **no namespace declarations of their own** — the `<a14:m>` envelope that
+namespace with **no namespace declarations of their own**: the `<a14:m>` envelope that
 `math:` authors declares `m`. `mathmlToOmml` always returns a bare `<m:oMath>`;
 `latexToOmml` returns that same `<m:oMath>` wrapped in a centered `<m:oMathPara>` unless
 `display: false`. All three shapes (inner OMML, `<m:oMath>`, `<m:oMathPara>`) are valid
@@ -123,19 +123,19 @@ shape level, exactly as for display math.
 
 ## Scope and limits
 
-- **No LaTeX preprocessing / macro packages** — the input goes straight to temml. Custom
+- **No LaTeX preprocessing / macro packages**: the input goes straight to temml. Custom
   macros, `\usepackage`, and environments temml does not support are out of scope.
-- **No raster fallback** — output relies on the `Requires="a14"` envelope, understood by
+- **No raster fallback**: output relies on the `Requires="a14"` envelope, understood by
   PowerPoint 2010+. There is no `mc:Fallback` image for non-a14 consumers.
 - **Fidelity is temml + mathml2omml's**, with one correction applied in between. Accent
-  commands (`\hat`, `\bar`, `\vec`, `\ddot`, …) used to render as `<m:limUpp>` — an
-  over-*limit*, with limit spacing — because temml emits a bare `<mover>` and mathml2omml
+  commands (`\hat`, `\bar`, `\vec`, `\ddot`, …) used to render as `<m:limUpp>` (an
+  over-*limit*, with limit spacing), because temml emits a bare `<mover>` and mathml2omml
   keys strictly off `accent="true"`. `latexToOmml` now stamps that attribute, and swaps
   temml's *spacing* modifier (U+02C6, U+2192) for the combining mark ECMA-376 §22.1.2.20
   says an `accPr` character should be (U+0302, U+20D7), so accents come out as `<m:acc>`
   with the character Word itself writes. This applies to `latexToOmml` only: `mathmlToOmml`
   passes your MathML through as written, because there the `accent` attribute is yours to
-  set. Constructs that were already mapping well are untouched — `\widehat` and
+  set. Constructs that were already mapping well are untouched: `\widehat` and
   `\overbrace` stay `<m:groupChr>`, `\overline`/`\underline` stay `<m:borderBox>`,
   `\stackrel` stays `<m:limUpp>`. Two cases remain limits by necessity: `\utilde` and other
   under-accents (OMML has no under-accent object, and the symmetric `accentunder="true"`
@@ -145,5 +145,5 @@ shape level, exactly as for display math.
 ## Error policy
 
 Invalid LaTeX **throws** (with temml's parse position) rather than emitting a degenerate
-equation — consistent with the library's no-silent-coercion rule. Wrap calls in
+equation: consistent with the library's no-silent-coercion rule. Wrap calls in
 `try/catch` if you convert untrusted input.
