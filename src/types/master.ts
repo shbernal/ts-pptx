@@ -33,7 +33,9 @@ export type SlideMasterObject =
 	 * Any preset shape, addressed by `SHAPE_NAME` (e.g. `ShapeType.ellipse`).
 	 * Generalizes the `line`/`rect`/`roundRect` shortcuts to every preset the
 	 * `addShape()` serializer supports (ellipse, triangle, chevron, …).
-	 * @example { shape: { type: 'ellipse', options: { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } } } }
+	 *
+	 * A union member's comment cannot carry block tags, so this stands in for `@example`:
+	 * `{ shape: { type: 'ellipse', options: { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } } } }`
 	 */
 	| { shape: { type: SHAPE_NAME; options?: ShapeProps } }
 	| { text: { text: string | number | TextProps[]; options?: TextPropsOptions } }
