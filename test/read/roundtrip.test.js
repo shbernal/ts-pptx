@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ContentTypes, OpcPackage, Relationships, resolveRelativePartName, relsPartNameFor } from '../../dist/read.js'
-import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 
@@ -21,16 +21,6 @@ const validatorInstalled = await validatorAvailable()
 
 async function loadFixture(name) {
 	return readFile(fixturePath(name))
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
 }
 
 for (const name of FIXTURES) {
@@ -126,10 +116,7 @@ describe('dirty path: mutate one slide, save', () => {
 		const outputBodies = await partBodies(saved)
 		const dirtyEntry = slide.partName.slice(1)
 		assert(!bytesEqual(inputBodies.get(dirtyEntry), outputBodies.get(dirtyEntry)), 'dirty part body should differ')
-		for (const [entryName, inputBody] of inputBodies) {
-			if (entryName === dirtyEntry) continue
-			assert(bytesEqual(inputBody, outputBodies.get(entryName)), `${entryName} should be untouched`)
-		}
+		assertUnchangedExcept(inputBodies, outputBodies, [dirtyEntry])
 	})
 
 	test('the edit survives a reload', async () => {

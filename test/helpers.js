@@ -43,6 +43,69 @@ function listEntries(zip) {
 }
 
 /**
+ * Every part of a `.pptx`, keyed by zip entry name, as raw bytes.
+ *
+ * Sixteen read tests each re-derived this. Fifteen read `'uint8array'` and one read
+ * `'string'`; this is the byte spelling, which is the stronger of the two — a decoded
+ * comparison cannot see a BOM or an encoding change, and every caller is asking whether
+ * the bytes moved.
+ *
+ * @param {Uint8Array | Buffer} pptxBytes
+ * @returns {Promise<Map<string, Uint8Array>>}
+ */
+async function partBodies(pptxBytes) {
+	const zip = await JSZip.loadAsync(pptxBytes)
+	const bodies = new Map()
+	for (const entry of Object.values(zip.files)) {
+		if (entry.dir) continue
+		bodies.set(entry.name, await entry.async('uint8array'))
+	}
+	return bodies
+}
+
+/**
+ * Every part in `before` survives into `after` with identical bytes, except those named in
+ * `allowedToChange`.
+ *
+ * This is the "did the edit stay local?" assertion, which was written out longhand in a
+ * dozen read tests with three different filter spellings. Two properties it adds over the
+ * hand-rolled loops:
+ *
+ * **It fails when it compared nothing.** A loop whose filter stops matching passes having
+ * checked nothing, and that is indistinguishable from success in a reporter — the same
+ * failure mode `test/read/corpus.js` guards the fixture list against.
+ *
+ * **A part missing from `after` is a failure, not a skip.** One hand-rolled copy skipped
+ * absent parts, which turns "this part was deleted" into a pass.
+ *
+ * `allowedToChange` is permission, not obligation: it says nothing about whether those
+ * parts actually differ. Where that matters the caller asserts it separately, which keeps
+ * the two claims legible instead of folding them into one helper that means both.
+ *
+ * @param {Map<string, Uint8Array>} before
+ * @param {Map<string, Uint8Array>} after
+ * @param {Iterable<string>} [allowedToChange]
+ * @param {string} [label]
+ */
+function assertUnchangedExcept(before, after, allowedToChange = [], label = '') {
+	const allowed = new Set(allowedToChange)
+	const prefix = label ? label + ': ' : ''
+	let checked = 0
+	for (const [name, body] of before) {
+		if (allowed.has(name)) continue
+		const actual = after.get(name)
+		assert(actual, `${prefix}${name} is missing from the saved package`)
+		assert(bytesEqual(body, actual), `${prefix}${name} should be untouched`)
+		checked++
+	}
+	assert(
+		checked > 0,
+		`${prefix}compared no parts — every one of the ${before.size} input parts was allowed to change, ` +
+			'so this assertion proved nothing'
+	)
+}
+
+/**
  * Declare a regression suite from an array of `{ name, fn }` cases.
  *
  * **One signature.** There used to be two — a three-argument form carrying a provenance tag
@@ -272,6 +335,8 @@ export {
 	build,
 	readEntry,
 	listEntries,
+	partBodies,
+	assertUnchangedExcept,
 	defineRegressionSuite,
 	assert,
 	assertEqual,

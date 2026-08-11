@@ -11,9 +11,8 @@ import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import JSZip from 'jszip'
 import { fixturePath } from './corpus.js'
 import { resolveSingle } from './opc.js'
 
@@ -22,16 +21,6 @@ const validatorInstalled = await validatorAvailable()
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const PRESENTATION_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 const TEMPLATE_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
-}
 
 /** True for parts that are shared deck chrome (master/layout/theme). */
 function isChromePart(name) {

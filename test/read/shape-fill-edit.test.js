@@ -7,10 +7,9 @@
 // have no own fill model (picture fill, graphicFrame) reject the setter.
 
 import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, bytesEqual, assert, assertEqual } from '../helpers.js'
+import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 
@@ -25,16 +24,6 @@ async function editAndReopen(name, edit) {
 	await edit(presentation)
 	const saved = await presentation.save()
 	return { presentation, saved, reopened: await Presentation.load(saved) }
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
 }
 
 function replaceTextShape(presentation) {
@@ -206,10 +195,7 @@ describe('fidelity and schema validity', () => {
 		const outputBodies = await partBodies(await presentation.save())
 		const dirty = 'ppt/slides/slide1.xml'
 		assert(!bytesEqual(inputBodies.get(dirty), outputBodies.get(dirty)), 'edited slide differs')
-		for (const [name, body] of inputBodies) {
-			if (name === dirty) continue
-			assert(bytesEqual(body, outputBodies.get(name)), `${name} should be untouched`)
-		}
+		assertUnchangedExcept(inputBodies, outputBodies, [dirty])
 	})
 
 	test.skipIf(!validatorInstalled)('fill + line + noFill edits stay schema-valid', async () => {

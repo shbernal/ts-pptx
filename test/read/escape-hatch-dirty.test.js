@@ -9,23 +9,12 @@
 // also exposes a public `markDirty()` that makes the edit stick.
 
 import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ChartType } from '../../dist/node.js'
 import { Presentation, isGraphicFrame } from '../../dist/read.js'
 import { authorRead } from './authored.js'
-import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { fixturePath } from './corpus.js'
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
-}
 
 /**
  * Load `input`, run `mutate(presentation)` (which is expected to reach the DOM

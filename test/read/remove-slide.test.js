@@ -8,10 +8,10 @@
 // schema-valid; untouched parts stay byte-identical.
 
 import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
+
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, assert, assertEqual } from '../helpers.js'
+import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
@@ -85,19 +85,26 @@ describe('Presentation.removeSlide', () => {
 		const deck = await Presentation.load(input)
 		deck.removeSlide(0)
 
-		const inBodies = new Map()
-		for (const e of Object.values((await JSZip.loadAsync(input)).files))
-			if (!e.dir) inBodies.set(e.name, await e.async('uint8array'))
-		const outBodies = new Map()
-		for (const e of Object.values((await JSZip.loadAsync(await deck.save())).files))
-			if (!e.dir) outBodies.set(e.name, await e.async('uint8array'))
+		const inBodies = await partBodies(input)
+		const outBodies = await partBodies(await deck.save())
 
-		const allowedToChange = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
-		for (const [name, body] of inBodies) {
-			if (allowedToChange.has(name) || !outBodies.has(name)) continue // removed parts are expected gone
-			const out = outBodies.get(name)
-			assert(out && out.length === body.length && out.every((v, i) => v === body[i]), `${name} should be untouched`)
-		}
+		// Name the parts the removal is expected to take with it, rather than skipping
+		// whatever happens to be absent. The loop this replaced did the latter, which meant
+		// any part vanishing — including one the removal had no business touching — read as
+		// a pass. Slide 1, its rels, and the notes slide it privately owned; nothing else.
+		const removed = ['ppt/slides/slide1.xml', 'ppt/slides/_rels/slide1.xml.rels']
+		const removedNotes = ['ppt/notesSlides/notesSlide1.xml', 'ppt/notesSlides/_rels/notesSlide1.xml.rels']
+		assertEqual(
+			[...inBodies.keys()]
+				.filter((name) => !outBodies.has(name))
+				.sort()
+				.join('\n'),
+			[...removed, ...removedNotes].sort().join('\n'),
+			'exactly the removed slide’s private parts are gone'
+		)
+
+		const rewritten = ['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml']
+		assertUnchangedExcept(inBodies, outBodies, [...rewritten, ...removed, ...removedNotes])
 	})
 
 	test('rejects an out-of-range index', async () => {

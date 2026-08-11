@@ -6,10 +6,9 @@
 // chart dirties nothing, so save() stays byte-identical.
 
 import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { fixturePath } from './corpus.js'
 
 async function open(name) {
@@ -24,16 +23,6 @@ function firstChart(presentation) {
 		}
 	}
 	return null
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
 }
 
 describe('Chart read model', () => {

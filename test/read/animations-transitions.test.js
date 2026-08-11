@@ -15,6 +15,7 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
+import { partBodies, assertUnchangedExcept } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
@@ -30,16 +31,6 @@ async function loadOracle(name) {
 async function slidePartXml(pptxBytes, slideNumber) {
 	const zip = await JSZip.loadAsync(pptxBytes)
 	return zip.file(`ppt/slides/slide${slideNumber}.xml`).async('string')
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('string'))
-	}
-	return bodies
 }
 
 describe('slide.transition (read)', () => {
@@ -61,15 +52,15 @@ describe('slide.transition (read)', () => {
 		}
 	})
 
-	test('untouched slides round-trip byte-identically', async () => {
+	test('an untouched deck round-trips byte-identically', async () => {
 		const original = await readFile(fixturePath('slide-transition'))
 		const pres = await Presentation.load(original)
 		// touch nothing
 		const before = await partBodies(original)
 		const after = await partBodies(await pres.save())
-		for (const [name, body] of before) {
-			if (name.startsWith('ppt/slides/slide')) assert.equal(after.get(name), body, `${name} unchanged`)
-		}
+		// Every part, not just `ppt/slides/*`: load→save is byte-identical across the whole
+		// package, so narrowing this to slides only ever hid a regression in the rest of it.
+		assertUnchangedExcept(before, after, [], 'slide-transition')
 	})
 })
 
@@ -156,14 +147,12 @@ describe('slide animations (opaque, spid-aware)', () => {
 		assert.deepEqual(pres.slides[0].animationSpids(), [])
 	})
 
-	test('untouched animated slides round-trip byte-identically', async () => {
+	test('an untouched animated deck round-trips byte-identically', async () => {
 		const original = await readFile(fixturePath('slide-animation-rich'))
 		const pres = await Presentation.load(original)
 		const before = await partBodies(original)
 		const after = await partBodies(await pres.save())
-		for (const [name, body] of before) {
-			if (name.startsWith('ppt/slides/slide')) assert.equal(after.get(name), body, `${name} unchanged`)
-		}
+		assertUnchangedExcept(before, after, [], 'slide-animation-rich')
 	})
 
 	test('remapAnimationSpids rewrites every spTgt and bldP reference', async () => {
@@ -267,13 +256,11 @@ describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
 		}
 	})
 
-	test('untouched presets slide round-trips byte-identically', async () => {
+	test('an untouched presets deck round-trips byte-identically', async () => {
 		const original = await readFile(fixturePath('slide-animation-presets'))
 		const before = await partBodies(original)
 		const after = await partBodies(await (await Presentation.load(original)).save())
-		for (const [name, body] of before) {
-			if (name.startsWith('ppt/slides/slide')) assert.equal(after.get(name), body, `${name} unchanged`)
-		}
+		assertUnchangedExcept(before, after, [], 'slide-animation-presets')
 	})
 })
 
@@ -313,15 +300,11 @@ describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 		assert.ok(ct.includes('<Default Extension="wav" ContentType="audio/x-wav"/>'), 'wav Default content type')
 	})
 
-	test('untouched transition-sound slides round-trip byte-identically', async () => {
+	test('an untouched transition-sound deck round-trips byte-identically', async () => {
 		const original = await readFile(fixturePath('slide-transition-sound'))
 		const before = await partBodies(original)
 		const after = await partBodies(await (await Presentation.load(original)).save())
-		for (const [name, body] of before) {
-			if (name.startsWith('ppt/slides/slide') || name.startsWith('ppt/media/')) {
-				assert.equal(after.get(name), body, `${name} unchanged`)
-			}
-		}
+		assertUnchangedExcept(before, after, [], 'slide-transition-sound')
 	})
 })
 

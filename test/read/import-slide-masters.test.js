@@ -15,7 +15,7 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { throws, bytesEqual, assert, assertEqual } from '../helpers.js'
+import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
@@ -28,16 +28,6 @@ const OFFICE_DOCUMENT_REL = `${R_NS}/officeDocument`
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
 }
 
 function presentationPartName(opc) {
@@ -178,11 +168,11 @@ describe('Presentation.importSlideMasters', () => {
 
 		const inputBodies = await partBodies(input)
 		const outputBodies = await partBodies(await target.save())
-		const allowedToChange = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
-		for (const [name, body] of inputBodies) {
-			if (allowedToChange.has(name)) continue
-			assert(bytesEqual(body, outputBodies.get(name)), `${name} should be untouched`)
-		}
+		assertUnchangedExcept(inputBodies, outputBodies, [
+			'ppt/presentation.xml',
+			'ppt/_rels/presentation.xml.rels',
+			'[Content_Types].xml',
+		])
 		const added = [...outputBodies.keys()].filter((name) => !inputBodies.has(name))
 		assert(
 			added.some((n) => /ppt\/slideMasters\/slideMaster\d+\.xml$/.test(n)),

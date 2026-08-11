@@ -8,10 +8,9 @@
 // keeps the package schema-valid.
 
 import { readFile } from 'node:fs/promises'
-import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, bytesEqual, assert, assertEqual } from '../helpers.js'
+import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 
@@ -24,16 +23,6 @@ const PNG_1X1 = new Uint8Array(
 
 async function open(name) {
 	return Presentation.load(await readFile(fixturePath(name)))
-}
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
 }
 
 describe('Slide.addPicture', () => {
@@ -76,15 +65,11 @@ describe('Slide.addPicture', () => {
 		const outputBodies = await partBodies(await presentation.save())
 
 		// The slide, its rels, and the content-types map are allowed to change.
-		const allowedToChange = new Set([
+		assertUnchangedExcept(inputBodies, outputBodies, [
 			'ppt/slides/slide1.xml',
 			'ppt/slides/_rels/slide1.xml.rels',
 			'[Content_Types].xml',
 		])
-		for (const [name, body] of inputBodies) {
-			if (allowedToChange.has(name)) continue
-			assert(bytesEqual(body, outputBodies.get(name)), `${name} should be untouched`)
-		}
 		const newMedia = [...outputBodies.keys()].filter((name) => name.startsWith('ppt/media/') && !inputBodies.has(name))
 		assertEqual(newMedia.length, 1, `exactly one new media part, got ${JSON.stringify(newMedia)}`)
 	})

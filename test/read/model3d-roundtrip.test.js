@@ -12,11 +12,10 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation, OpcPackage } from '../../dist/read.js'
-import { bytesEqual, assert, assertEqual } from '../helpers.js'
+import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { fixturePath } from './corpus.js'
 
@@ -26,16 +25,6 @@ const validatorInstalled = await validatorAvailable()
 const MODEL3D_REL = 'http://schemas.microsoft.com/office/2017/06/relationships/model3d'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const AM3D_NS = 'http://schemas.microsoft.com/office/drawing/2017/model3d'
-
-async function partBodies(pptxBytes) {
-	const zip = await JSZip.loadAsync(pptxBytes)
-	const bodies = new Map()
-	for (const entry of Object.values(zip.files)) {
-		if (entry.dir) continue
-		bodies.set(entry.name, await entry.async('uint8array'))
-	}
-	return bodies
-}
 
 function text(bodies, name) {
 	const bytes = bodies.get(name)
@@ -184,7 +173,8 @@ describe('3D model: ts-pptx-authored', () => {
 			h: 3,
 			...options,
 		})
-		return partBodies(await pptx.write({ outputType: 'nodebuffer' }))
+		// `write` is typed for every output target; `nodebuffer` resolves to a Buffer here.
+		return partBodies(/** @type {Buffer} */ (await pptx.write({ outputType: 'nodebuffer' })))
 	}
 
 	test('emits the rel graph and content type the PowerPoint fixture pins', async () => {
