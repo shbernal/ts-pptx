@@ -17,7 +17,7 @@ import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
@@ -25,10 +25,6 @@ const validatorInstalled = await validatorAvailable()
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const THEME_REL = `${R_NS}/theme`
 const OFFICE_DOCUMENT_REL = `${R_NS}/officeDocument`
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 
 function presentationPartName(opc) {
 	const rootRels = opc.relationshipsFor('/')
@@ -103,8 +99,8 @@ function allMasterAndLayoutIds(opc) {
 
 describe('Presentation.importSlideMasters', () => {
 	test('grafts a master with its WHOLE layout family, attached to no slide', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const slidesBefore = target.slides.length
 		const mastersBefore = registeredMasters(target.opc).length
 		const familySize = sourceLayoutCount(source.opc)
@@ -139,8 +135,8 @@ describe('Presentation.importSlideMasters', () => {
 		// offsetting past the destination's ids) collides. PowerPoint rejects the saved
 		// file as corrupt on such a duplicate; LibreOffice silently tolerates it, so this
 		// invariant has to be asserted directly.
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		assert(sourceLayoutCount(source.opc) > 1, 'source has a multi-layout family (collisions are possible)')
 		assert(allMasterAndLayoutIds(target.opc).length > 1, 'destination already owns master+layout ids to collide with')
 
@@ -163,7 +159,7 @@ describe('Presentation.importSlideMasters', () => {
 	test('grafted master + layouts + theme are added; existing parts stay byte-identical', async () => {
 		const input = await readFile(fixturePath('empty'))
 		const target = await Presentation.load(input)
-		const source = await open('image')
+		const source = await openFixture('image')
 		target.importSlideMasters(source)
 
 		const inputBodies = await partBodies(input)
@@ -190,8 +186,8 @@ describe('Presentation.importSlideMasters', () => {
 	})
 
 	test('layouts filter grafts only the chosen subset', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const result = target.importSlideMasters(source, { layouts: (_name, index) => index < 3 })
 		assertEqual(result[0].layoutPartNames.length, 3, 'only the first three layouts were grafted')
 
@@ -202,16 +198,16 @@ describe('Presentation.importSlideMasters', () => {
 	})
 
 	test('masters filter selects which masters to graft', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const none = target.importSlideMasters(source, { masters: () => false })
 		assertEqual(none.length, 0, 'no master matched, nothing grafted')
 		assertEqual(registeredMasters(target.opc).length, 1, 'destination master count unchanged')
 	})
 
 	test('re-grafting the same source is idempotent (no duplicate layouts/masters)', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		target.importSlideMasters(source)
 		const afterFirst = registeredMasters(target.opc).length
 		const familySize = sourceLayoutCount(source.opc)
@@ -225,8 +221,8 @@ describe('Presentation.importSlideMasters', () => {
 	})
 
 	test('rejects a slide-size mismatch unless overridden', async () => {
-		const target = await open('empty') // 16:9
-		const source = await open('mixed') // 4:3
+		const target = await openFixture('empty') // 16:9
+		const source = await openFixture('mixed') // 4:3
 		assert(
 			throws(() => target.importSlideMasters(source)),
 			'mismatched sizes throw by default'
@@ -237,8 +233,8 @@ describe('Presentation.importSlideMasters', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a grafted master stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		target.importSlideMasters(source)
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -255,8 +251,8 @@ describe('Presentation.importSlideMasters', () => {
 // 'Silkscreen', regular + bold) + embedded-fonts.oracle.json.
 describe('Presentation.importSlideMasters({ embedFonts })', () => {
 	async function graft(options) {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlideMasters(source, options)
 		return JSZip.loadAsync(await target.save())
 	}
@@ -306,8 +302,8 @@ describe('Presentation.importSlideMasters({ embedFonts })', () => {
 	})
 
 	test('is idempotent: grafting the same source twice carries each face once', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlideMasters(source, { embedFonts: true })
 		target.importSlideMasters(source, { embedFonts: true })
 
@@ -326,8 +322,8 @@ describe('Presentation.importSlideMasters({ embedFonts })', () => {
 	})
 
 	test('the carry adds no slide — the master stays gallery-only', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		const slidesBefore = target.slides.length
 		target.importSlideMasters(source, { embedFonts: true })
 
@@ -337,8 +333,8 @@ describe('Presentation.importSlideMasters({ embedFonts })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a graft with carried embedded fonts stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlideMasters(source, { embedFonts: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -372,8 +368,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	}
 
 	test('carries every source style and the source default', async () => {
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 
 		const before = await tableStylesXmlOf(await target.save())
 		assertEqual(styleIds(before).length, 0, 'precondition: destination defines no table styles')
@@ -393,8 +389,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	})
 
 	test('default (flag off) leaves the destination table styles untouched', async () => {
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 		const before = await tableStylesXmlOf(await target.save())
 
 		target.importSlideMasters(source)
@@ -405,8 +401,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	})
 
 	test('is idempotent: grafting twice defines each style once', async () => {
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 		target.importSlideMasters(source, { tableStyles: true })
 		const once = await tableStylesXmlOf(await target.save())
 
@@ -421,8 +417,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 
 	test('a style the destination already defines wins over the source', async () => {
 		// Union is destination-wins per id, matching the embedded-font carry's de-dupe.
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 		target.importSlideMasters(source, { tableStyles: true })
 		const first = await tableStylesXmlOf(await target.save())
 		const marker = first.match(new RegExp(`<a:tblStyle[^>]*styleId="\\${ACCENT3}"[\\s\\S]*?</a:tblStyle>`))?.[0]
@@ -439,8 +435,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	})
 
 	test('the carry adds no slide — the master stays gallery-only', async () => {
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 		const slidesBefore = target.slides.length
 		target.importSlideMasters(source, { tableStyles: true })
 
@@ -450,8 +446,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a graft with carried table styles stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('table-styles')
+		const target = await openFixture('empty')
+		const source = await openFixture('table-styles')
 		target.importSlideMasters(source, { tableStyles: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -464,8 +460,8 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 // a slide resolves its theme through its own layout's master, not through list order.
 describe('Presentation.importSlideMasters({ primary })', () => {
 	test('grafted master leads p:sldMasterIdLst; without the flag it trails', async () => {
-		const graftedFirst = await open('empty')
-		const sourceA = await open('image')
+		const graftedFirst = await openFixture('empty')
+		const sourceA = await openFixture('image')
 		const beforeCount = registeredMasters(graftedFirst.opc).length
 		const result = graftedFirst.importSlideMasters(sourceA, { primary: true })
 		assertEqual(result.length, 1, 'one master grafted')
@@ -475,8 +471,8 @@ describe('Presentation.importSlideMasters({ primary })', () => {
 		assertEqual(withFlag[0], result[0].partName, 'the grafted master now leads the list')
 
 		// Same graft without the flag: the grafted master appends after the original.
-		const appended = await open('empty')
-		const sourceB = await open('image')
+		const appended = await openFixture('empty')
+		const sourceB = await openFixture('image')
 		const trailing = appended.importSlideMasters(sourceB)
 		const withoutFlag = registeredMasters((await Presentation.load(await appended.save())).opc)
 		assertEqual(
@@ -489,13 +485,13 @@ describe('Presentation.importSlideMasters({ primary })', () => {
 	test('reorders the id list only — every other part stays byte-identical', async () => {
 		const input = await readFile(fixturePath('empty'))
 		const withPrimary = await Presentation.load(input)
-		const source = await open('image')
+		const source = await openFixture('image')
 		withPrimary.importSlideMasters(source, { primary: true })
 
 		// A plain graft (append) and a primary graft from the same inputs differ in
 		// exactly one part: presentation.xml, where the id list is reordered.
 		const plain = await Presentation.load(input)
-		plain.importSlideMasters(await open('image'))
+		plain.importSlideMasters(await openFixture('image'))
 
 		const primaryBodies = await partBodies(await withPrimary.save())
 		const plainBodies = await partBodies(await plain.save())
@@ -510,8 +506,8 @@ describe('Presentation.importSlideMasters({ primary })', () => {
 	})
 
 	test('is idempotent: a second primary graft does not reshuffle', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		target.importSlideMasters(source, { primary: true })
 		const once = registeredMasters((await Presentation.load(await target.save())).opc)
 
@@ -523,8 +519,8 @@ describe('Presentation.importSlideMasters({ primary })', () => {
 	})
 
 	test('the promotion adds no slide and leaves no dangling rels', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const slidesBefore = target.slides.length
 		target.importSlideMasters(source, { primary: true })
 
@@ -534,8 +530,8 @@ describe('Presentation.importSlideMasters({ primary })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a primary graft stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		target.importSlideMasters(source, { primary: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -561,7 +557,7 @@ describe('generate → read slide-master graft bridge', () => {
 		const deck = await Presentation.load(await generatedDeckBytes())
 		const slidesBefore = deck.slides.length
 		const mastersBefore = registeredMasters(deck.opc).length
-		const source = await open('image')
+		const source = await openFixture('image')
 
 		deck.importSlideMasters(source)
 		const reopened = await Presentation.load(await deck.save())
@@ -572,7 +568,7 @@ describe('generate → read slide-master graft bridge', () => {
 
 	test.skipIf(!validatorInstalled)('the bridged deck stays schema-valid', async () => {
 		const deck = await Presentation.load(await generatedDeckBytes())
-		const source = await open('image')
+		const source = await openFixture('image')
 		deck.importSlideMasters(source)
 		const errors = await validateBuf(Buffer.from(await deck.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

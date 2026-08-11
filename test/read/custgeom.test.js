@@ -12,17 +12,17 @@
 //   the outer rect = 3 lnTo) — pins multi-contour single-path traversal.
 // - preset-rect: <a:prstGeom prst="rect"> — the negative case (customGeometry === null).
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function openCustgeom() {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', 'custgeom.pptx')))
+	return openFixture('custgeom')
 }
 
 function shapeNamed(slide, name) {

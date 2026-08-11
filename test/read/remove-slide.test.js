@@ -13,7 +13,7 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
@@ -22,16 +22,13 @@ const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationship
 const SLIDE_MASTER_REL = `${R_NS}/slideMaster`
 const SLIDE_LAYOUT_REL = `${R_NS}/slideLayout`
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 function partNames(opc) {
 	return new Set(opc.parts.keys())
 }
 
 describe('Presentation.removeSlide', () => {
 	test('removes a slide, its part, and its rel; survives a round-trip', async () => {
-		const deck = await open('mixed')
+		const deck = await openFixture('mixed')
 		const before = deck.slides.length
 		assert(before > 1, 'fixture has multiple slides')
 		const removedId = deck.slides[0].slideId
@@ -48,7 +45,7 @@ describe('Presentation.removeSlide', () => {
 	})
 
 	test('keeps shared chrome (layout/master/theme) when a slide is removed', async () => {
-		const deck = await open('mixed')
+		const deck = await openFixture('mixed')
 		const layout = resolveSingle(deck.opc, deck.slides[0].partName, SLIDE_LAYOUT_REL)
 		const master = resolveSingle(deck.opc, layout, SLIDE_MASTER_REL)
 		deck.removeSlide(0)
@@ -59,7 +56,7 @@ describe('Presentation.removeSlide', () => {
 	})
 
 	test('removing every slide yields a valid master/layout-only shell', async () => {
-		const deck = await open('image')
+		const deck = await openFixture('image')
 		const layoutCount = [...partNames(deck.opc)].filter((n) => /slideLayouts\/slideLayout\d+\.xml$/.test(n)).length
 		while (deck.slides.length) deck.removeSlide(0)
 		assertEqual(deck.slides.length, 0, 'no slides remain in-memory')
@@ -108,7 +105,7 @@ describe('Presentation.removeSlide', () => {
 	})
 
 	test('rejects an out-of-range index', async () => {
-		const deck = await open('mixed')
+		const deck = await openFixture('mixed')
 		assert(
 			throws(() => deck.removeSlide(999)),
 			'removing a missing slide throws'
@@ -116,7 +113,7 @@ describe('Presentation.removeSlide', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a master/layout-only shell stays schema-valid', async () => {
-		const deck = await open('image')
+		const deck = await openFixture('image')
 		while (deck.slides.length) deck.removeSlide(0)
 		const errors = await validateBuf(Buffer.from(await deck.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

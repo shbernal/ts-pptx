@@ -71,16 +71,12 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { resolveSingle } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 
 /** The serialized XML of a part, by partname, from saved package bytes. */
 async function slideXml(bytes, partName) {
@@ -459,8 +455,8 @@ const THEMED_SLIDE_INDEX = 4 // slide5: 69 schemeClr, 18 p:style (Fusion theme: 
 
 describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test('flattens a non-default PowerPoint theme source into literals when importing into a default-theme deck', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -479,8 +475,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('flattens scheme colours to the resolved source RGB, carrying transforms', async () => {
 		// Import mixed→mixed (equal slide size); slide5 binds to theme1 "Fusion".
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -494,8 +490,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('materializes p:style fill/line/effect into spPr and neutralizes the refs', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -515,8 +511,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// mixed slides define no own p:bg; the master does (bgPr/solidFill schemeClr
 		// bg1 → clrMap bg1=lt1 → lt1 = FFFFFF). Rebinding to the destination master
 		// would otherwise drop it, so preserve must bake it onto the slide.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -534,8 +530,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test('materializes an inherited bgRef background into an explicit fill', async () => {
 		// The empty deck's master uses a theme-indexed background (bgRef idx="1001").
 		// preserve must resolve it through fmtScheme into a literal bgPr fill.
-		const target = await open('empty')
-		const source = await open('empty')
+		const target = await openFixture('empty')
+		const source = await openFixture('empty')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -551,8 +547,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// from the source master titleStyle (defRPr/solidFill schemeClr tx2 → clrMap
 		// tx2=dk2 → 333399). Rebinding to the destination master would drop that
 		// inheritance, so preserve must write the resolved colour explicitly.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -570,8 +566,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('attaches to the destination master/layout without importing a new theme', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		const mastersBefore = countParts(target.opc, /\/slideMasters\/slideMaster\d+\.xml$/)
 
@@ -605,11 +601,11 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('preserve carries the slide media across (image slide stays intact)', async () => {
 		// The image fixture's slide carries a picture; import it with preserve.
-		const source = await open('image')
+		const source = await openFixture('image')
 		const picSlide = source.slides.findIndex((s) => s.shapes.some((sh) => sh.shapeType === 'picture'))
 		assert(picSlide >= 0, 'image fixture has a slide with a picture')
 
-		const target = await open('image')
+		const target = await openFixture('image')
 		const imported = target.importSlide(source, picSlide, { theme: 'preserve' })
 		const reopened = await Presentation.load(await target.save())
 		const last = reopened.slides[reopened.slides.length - 1]
@@ -626,8 +622,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// mixed's slideMaster1 carries non-placeholder rectangles ("Rectangle 2".."8");
 		// slide1's layout1 carries more (groups + rectangles). preserve drops the source
 		// master, so by default those decorations vanish; carryMasterGraphics bakes them on.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true }) // slide1: ctrTitle
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -644,9 +640,9 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test('carryMasterGraphics carries no placeholder shapes from the master/layout', async () => {
 		// The master/layout placeholders are inherited via the placeholder mechanism, not
 		// baked as decorations; carry must add only non-placeholder shapes.
-		const target = await open('mixed')
-		const plain = target.importSlide(await open('mixed'), 0, { theme: 'preserve' })
-		const withGfx = target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		const target = await openFixture('mixed')
+		const plain = target.importSlide(await openFixture('mixed'), 0, { theme: 'preserve' })
+		const withGfx = target.importSlide(await openFixture('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
 		const bytes = await target.save()
 		const countPh = (xml) => (xml.match(/<p:ph[ />]/g) ?? []).length
 
@@ -656,19 +652,19 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('without carryMasterGraphics, master/layout decorations are not carried (default)', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // no carry flag
 		const xml = await slideXml(await target.save(), imported.partName)
 		assert(!xml.includes('name="Rectangle 2"'), 'no source-master decoration leaks in without the flag')
 	})
 
 	test('carryMasterGraphics still attaches to the destination master without importing a theme', async () => {
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		const mastersBefore = countParts(target.opc, /\/slideMasters\/slideMaster\d+\.xml$/)
 
-		target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		target.importSlide(await openFixture('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
 		const reopened = await Presentation.load(await target.save())
 		const opc = reopened.opc
 		assertEqual(countParts(opc, /\/theme\/theme\d+\.xml$/), themesBefore, 'carry adds no new theme part')
@@ -689,7 +685,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// mixed's master has no picture decoration, so splice one (a p:pic on the master
 		// spTree referencing a fresh media part) into a source deck, then carry it across.
 		const source = await Presentation.load(await deckWithMasterPicture())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true })
 		const reopened = await Presentation.load(await target.save())
 
@@ -711,8 +707,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// slide1's ctrTitle carries no own a:xfrm; its position/size are inherited from
 		// slideLayout1's ctrTitle (off 990600,1828800; ext 7772400,1143000). Rebinding to
 		// the destination master would drop that, so preserve must bake the layout xfrm on.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle, no own xfrm
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -728,7 +724,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// With slideLayout1's ctrTitle xfrm stripped, the ctrTitle's geometry falls through
 		// to slideMaster1's title placeholder (off 1023938,131763; ext 7793037,1143000).
 		const source = await Presentation.load(await deckMixedNoLayoutCtrTitleXfrm())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -742,8 +738,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test('leaves a placeholder that already has its own a:xfrm untouched', async () => {
 		// slide2's title placeholder defines its own xfrm (off 1115616,3200); explicit
 		// geometry is not inherited, so preserve must not overwrite it.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 1, { theme: 'preserve' }) // slide2: title with own xfrm
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -756,8 +752,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test('bakes placeholder-inherited run size onto runs that set none', async () => {
 		// slide1's ctrTitle runs set no sz; the size comes from the master titleStyle lvl1
 		// (defRPr sz="3200"). Rebinding would drop it, so preserve bakes sz onto each run.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle, runs carry no sz
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -773,7 +769,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// slide1's first ctrTitle run is given an explicit sz="4444"; preserve must keep it
 		// while its siblings still inherit the resolved master size (3200).
 		const source = await Presentation.load(await deckMixedWithExplicitTitleSize())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -789,7 +785,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('materializes a bgRef idx below 1000 through the regular fillStyleLst (not bgFillStyleLst)', async () => {
 		const source = await Presentation.load(await deckEmptyBgRefFillStyleLst())
-		const target = await open('empty')
+		const target = await openFixture('empty')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -804,7 +800,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('an unresolved bgRef (idx=0) falls back to an explicit a:noFill', async () => {
 		const source = await Presentation.load(await deckEmptyBgRefIdxZero())
-		const target = await open('empty')
+		const target = await openFixture('empty')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -814,7 +810,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test("a slide's own background is left in place, not overwritten by the inherited one", async () => {
 		const source = await Presentation.load(await deckMixedSlideOwnBackground())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: now carries its own p:bg
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -829,7 +825,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('a slide with no inherited background anywhere gains no synthetic p:bg', async () => {
 		const source = await Presentation.load(await deckMixedNoBackgroundAnywhere())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: no own bg
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -838,7 +834,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 
 	test('materializes a p:style effectRef into spPr (effectLst + scene3d + sp3d lifted from the fmtScheme)', async () => {
 		const source = await Presentation.load(await deckMixedEffectRefMaterialized())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -851,8 +847,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('leaves a run that already carries its own colour untouched (not overwritten by the inherited one)', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, 1, { theme: 'preserve' }) // slide2: body run has its own FF00FF fill
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -869,8 +865,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// trio by txStyles category (all `other`) would bake the date box onto all
 		// three; preserve must bake each its own-type box (values read straight out of
 		// the fixture's slideMaster1.xml).
-		const target = await open('placeholder-footer-trio')
-		const source = await open('placeholder-footer-trio')
+		const target = await openFixture('placeholder-footer-trio')
+		const source = await openFixture('placeholder-footer-trio')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -894,7 +890,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// The body placeholder carries 5 paragraphs at lvl 0..4, each with a bare run; the
 		// master bodyStyle defines a different sz per level (2800/2400/2000/1800/1800).
 		const source = await Presentation.load(await deckMultiLevelBody())
-		const target = await open('layout-placeholder-bodypr')
+		const target = await openFixture('layout-placeholder-bodypr')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -912,7 +908,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// four text passes must skip it without aborting — the geometry pass, which does
 		// not read the text body, still bakes its inherited box.
 		const source = await Presentation.load(await deckMixedPlaceholderNoTxBody())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -934,7 +930,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// placeholder's `p:txBody`; with no text body that tier contributes nothing and
 		// resolution must continue to the master titleStyle rather than stop.
 		const source = await Presentation.load(await deckMixedLayoutPlaceholderNoTxBody())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -951,7 +947,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// bake the same colour/size as the first — the per-level lookup is memoized, and
 		// a memo that returned a different answer on the second hit would show up here.
 		const source = await Presentation.load(await deckMixedTwoParagraphsSameLevel())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -979,7 +975,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// rather than invent a value — the run re-binds to the destination, which is the
 		// only thing left that can style it.
 		const source = await Presentation.load(await deckMixedInheritsNothing())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1003,7 +999,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// fixes colour and size via `a:pPr/a:defRPr`, and paragraph 2 (which sets no
 		// `a:pPr` at all) has its size fixed by the text body's `a:lstStyle`.
 		const source = await Presentation.load(await deckMixedSlideFixesRunProps())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1037,7 +1033,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// addresses entry 0 — one below the first. It resolves to nothing, the same as
 		// idx=0, rather than off-by-one'ing onto the first entry.
 		const source = await Presentation.load(await deckEmptyBgRefIdx1000())
-		const target = await open('empty')
+		const target = await openFixture('empty')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1051,8 +1047,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// end of the theme's three-entry lists (`@idx` is an unbounded unsignedInt). Both
 		// must leave `spPr` alone while the ref is still neutralized, so nothing re-resolves
 		// against the destination theme.
-		const baseline = await open('mixed')
-		baseline.importSlide(await open('mixed'), THEMED_SLIDE_INDEX, { theme: 'preserve' })
+		const baseline = await openFixture('mixed')
+		baseline.importSlide(await openFixture('mixed'), THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const baseXml = await slideXml(await baseline.save(), baseline.slides[baseline.slides.length - 1].partName)
 		const countLines = (xml) => (xml.match(/<a:ln[ >]/g) ?? []).length
 		assert(countLines(baseXml) > 0, 'precondition: the unmutated import materializes lines from the style matrix')
@@ -1061,7 +1057,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			'idx="0"': deckMixedLnRefIdxZero,
 			'idx past the end of the list': deckMixedStyleRefOutOfRange,
 		})) {
-			const target = await open('mixed')
+			const target = await openFixture('mixed')
 			const imported = target.importSlide(await Presentation.load(await build()), THEMED_SLIDE_INDEX, {
 				theme: 'preserve',
 			})
@@ -1072,7 +1068,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		}
 
 		// The out-of-range effectRef lifts no effect children either.
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(
 			await Presentation.load(await deckMixedStyleRefOutOfRange()),
 			THEMED_SLIDE_INDEX,
@@ -1090,7 +1086,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// Away from a fmtScheme entry there is no such colour, so it must survive the
 		// scheme-colour sweep untouched rather than resolve to some slot.
 		const source = await Presentation.load(await deckMixedStraySchemePhClr())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1103,7 +1099,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// the `phClr` the ref supplies. The substitution must replace only the `phClr`;
 		// the fixed slot then flattens through the ordinary scheme-colour sweep.
 		const source = await Presentation.load(await deckMixedFillStyleFixedSchemeStop())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1125,7 +1121,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// then has no source chain to read, and must no-op rather than throw or invent a
 		// value; the slide still imports, and still flattens what it owns outright.
 		const source = await Presentation.load(await deckMixedSlideNoLayoutRel())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1154,7 +1150,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		// symbolic, so the colour re-binds to the destination, rather than emitting a
 		// bogus `a:srgbClr`.
 		const source = await Presentation.load(await deckMixedUnreadableColorScheme())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -1164,8 +1160,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('the default (no option) still copies the source theme subgraph', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		target.importSlide(source, THEMED_SLIDE_INDEX) // default: copy
 		const after = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
@@ -1173,8 +1169,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a preserve-imported deck stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		target.importSlide(source, 5, { theme: 'preserve' }) // slide6: also themed (schemeClr + p:style)
 		const errors = await validateBuf(Buffer.from(await target.save()))
@@ -1182,8 +1178,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a carryMasterGraphics-imported deck stays schema-valid', async () => {
-		const target = await open('mixed')
-		target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		const target = await openFixture('mixed')
+		target.importSlide(await openFixture('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
 		target.importSlide(await Presentation.load(await deckWithMasterPicture()), 0, {
 			theme: 'preserve',
 			carryMasterGraphics: true,
@@ -1193,8 +1189,8 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with baked placeholder geometry/size stays schema-valid', async () => {
-		const target = await open('mixed')
-		target.importSlide(await open('mixed'), 0, { theme: 'preserve' }) // slide1: geometry + run size baked
+		const target = await openFixture('mixed')
+		target.importSlide(await openFixture('mixed'), 0, { theme: 'preserve' }) // slide1: geometry + run size baked
 		target.importSlide(await Presentation.load(await deckMixedNoLayoutCtrTitleXfrm()), 0, { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -1237,7 +1233,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	test.skipIf(!validatorInstalled)(
 		'a deck imported from a degenerate placeholder chain stays schema-valid',
 		async () => {
-			const target = await open('mixed')
+			const target = await openFixture('mixed')
 			target.importSlide(await Presentation.load(await deckMixedPlaceholderNoTxBody()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedLayoutPlaceholderNoTxBody()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedTwoParagraphsSameLevel()), 0, { theme: 'preserve' })

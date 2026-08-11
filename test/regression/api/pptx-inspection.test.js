@@ -13,12 +13,11 @@ import JSZip from 'jszip'
 import { defineRegressionSuite, build, assert, assertEqual, setDiagnosticHandler } from '../../helpers.js'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
+
+import { FIXTURES } from '../../read/corpus.js'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'read', 'fixtures')
 
 /** Inches, generous next to the ~0.4in group-scale error this guards, tight next to PowerPoint's own EMU rounding (2 EMU ≈ 2.2e-6in). */
 const INCH_TOLERANCE = 1e-5

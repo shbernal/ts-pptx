@@ -20,16 +20,12 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { resolveSingle } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 
 /** The serialized XML of a part, by partname, from saved package bytes. */
 async function slideXml(bytes, partName) {
@@ -72,8 +68,8 @@ async function deckMixedRecoloredAccent1() {
 
 describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 	test('keeps a non-default PowerPoint theme source symbolic when importing into a default-theme deck', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 
 		const imported = target.importSlide(source, 0, { theme: 'restyle' })
@@ -93,7 +89,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		// is the sentinel. restyle keeps accent1 symbolic and binds it to the
 		// destination theme, so the slide adopts the sentinel — not the source 00E4A8.
 		const target = await Presentation.load(await deckMixedRecoloredAccent1())
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
@@ -122,8 +118,8 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 	test('leaves the slide bound to the destination master/layout with style refs intact', async () => {
 		// Unlike preserve (which neutralizes p:style refs to idx="0"), restyle leaves
 		// fillRef/lnRef indices alone so they re-resolve against the destination fmtScheme.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		const mastersBefore = countParts(target.opc, /\/slideMasters\/slideMaster\d+\.xml$/)
 
@@ -162,8 +158,8 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 
 	test('drops the source slide clrMapOvr so the destination clrMap governs the re-brand', async () => {
 		// slide5 carries a p:clrMapOvr/a:overrideClrMapping; restyle must remove it.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		assert(
 			partText(source.opc.part(source.slides[THEMED_SLIDE_INDEX].partName)).includes('clrMapOvr'),
 			'precondition: the source slide carries a clrMapOvr'
@@ -179,7 +175,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		// slide5 has a literal yellow (srgbClr FFFF00) with no theme reference. restyle
 		// can only recolour symbolic colours, so this literal must survive untouched.
 		const target = await Presentation.load(await deckMixedRecoloredAccent1())
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
 		const xml = await slideXml(await target.save(), imported.partName)
 		assert(/<a:srgbClr val="FFFF00"/.test(xml), 'the source literal colour is unchanged by restyle')
@@ -188,8 +184,8 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 	test('does not bake an inherited background (leaves it symbolic to re-brand)', async () => {
 		// preserve bakes the slide's effective master/layout background onto the slide;
 		// restyle must NOT — leaving the background to re-resolve against the destination.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle' }) // slide1: no own p:bg
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -201,8 +197,8 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 	test('carryMasterGraphics composes with restyle, leaving carried decorations symbolic', async () => {
 		// mixed's slideMaster1/slideLayout1 carry non-placeholder decorations. carry bakes
 		// them onto the slide; restyle leaves them (and the slide) symbolic, not flattened.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle', carryMasterGraphics: true })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -215,8 +211,8 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 	})
 
 	test('the default (no option) still copies the source theme subgraph', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		target.importSlide(source, THEMED_SLIDE_INDEX) // default: copy
 		const after = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
@@ -225,7 +221,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 
 	test.skipIf(!validatorInstalled)('a restyle-imported deck stays schema-valid', async () => {
 		const target = await Presentation.load(await deckMixedRecoloredAccent1())
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 		target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' }) // slide5
 		target.importSlide(source, 5, { theme: 'restyle' }) // slide6: also themed
 		target.importSlide(source, 0, { theme: 'restyle', carryMasterGraphics: true }) // slide1 + carry
@@ -251,8 +247,8 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 	const TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}' // slide3 table @tableStyleId (Medium Style 2 - Accent 1)
 
 	test('remaps a source-theme literal to a symbolic schemeClr, leaving a non-slot literal alone', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -265,8 +261,8 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 	})
 
 	test('without the flag, plain restyle leaves the source-theme literal byte-identical', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle' })
 		const xml = await slideXml(await target.save(), imported.partName)
 		assert(
@@ -277,8 +273,8 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 	})
 
 	test('copies the referenced source table style into this deck, without duplicating on repeat', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 
 		const before = await slideXml(await target.save(), '/ppt/tableStyles.xml')
 		assert(!before.includes(`styleId="${TABLE_STYLE_ID}"`), 'precondition: the destination defines no such table style')
@@ -293,16 +289,16 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 	})
 
 	test('does not copy a table style without remapLiterals (the table falls back)', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		target.importSlide(source, SLIDE3, { theme: 'restyle' })
 		const after = await slideXml(await target.save(), '/ppt/tableStyles.xml')
 		assert(!after.includes(`styleId="${TABLE_STYLE_ID}"`), 'plain restyle leaves the destination tableStyles untouched')
 	})
 
 	test.skipIf(!validatorInstalled)('a remap + table-copy restyle import stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('multi-theme')
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -370,7 +366,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 
 	test('picks the first slot on a shared RGB and the first token on a shared slot', async () => {
 		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -389,7 +385,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		// members of `ST_SchemeColorVal` and address the slot directly, bypassing the
 		// clrMap — so emitting the slot name is a correct answer, not a fallback to junk.
 		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -405,7 +401,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		// literal to match, so every literal must stay exactly as authored — the same
 		// outcome as plain restyle, not a crash or a wrong match.
 		const source = await Presentation.load(await deckMixedUnreadableColorModels())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
 		const xml = await slideXml(await target.save(), imported.partName)
 
@@ -424,7 +420,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 				assertEqual(errors.length, 0, `${name} source: ${JSON.stringify(errors).slice(0, 2000)}`)
 			}
 
-			const target = await open('mixed')
+			const target = await openFixture('mixed')
 			for (const build of [deckMixedCollidingSlotsAndTokens, deckMixedUnreadableColorModels]) {
 				target.importSlide(await Presentation.load(await build()), 0, { theme: 'restyle', remapLiterals: true })
 			}

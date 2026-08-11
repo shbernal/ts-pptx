@@ -13,13 +13,13 @@
 //   circular if tested only through this library's writer.
 
 import { ShapeType } from '../../dist/node.js'
-import { readFile } from 'node:fs/promises'
+
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation, AutoShape, GroupShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { fixturePath } from './corpus.js'
+import { openFixture } from './corpus.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -42,10 +42,6 @@ function shapeFromXml(Kind, local, innerXml) {
 /** A `p:pic` proxy whose blip carries the given recolour child XML. */
 function pictureWithBlipChild(innerXml) {
 	return shapeFromXml(Picture, 'pic', `<p:pic><p:blipFill><a:blip>${innerXml}</a:blip></p:blipFill></p:pic>`)
-}
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
 }
 
 /** Flatten a shape list, descending into groups. */
@@ -73,7 +69,7 @@ function allParagraphs(slide) {
 describe('Shape style reads — real PowerPoint XML (mixed.pptx)', () => {
 	test('lineWidthPt converts a:ln/@w (EMU) to points', async () => {
 		// slide5/slide6 draw connectors/borders with <a:ln w="15875"> = 1.25pt.
-		const slide = (await open('mixed')).slides[5]
+		const slide = (await openFixture('mixed')).slides[5]
 		const widths = allShapes(slide.shapes)
 			.map((shape) => shape.lineWidthPt)
 			.filter((w) => w !== null)
@@ -82,7 +78,7 @@ describe('Shape style reads — real PowerPoint XML (mixed.pptx)', () => {
 	})
 
 	test('shapes without a hidden flag report hidden=false', async () => {
-		const slide = (await open('mixed')).slides[5]
+		const slide = (await openFixture('mixed')).slides[5]
 		for (const shape of allShapes(slide.shapes)) {
 			assertEqual(shape.hidden, false, `${shape.name || shape.shapeType} has no @hidden, so reads false`)
 		}
@@ -93,7 +89,7 @@ describe('Paragraph style reads — real PowerPoint XML (mixed.pptx slide7)', ()
 	// slide7 (index 6) is a bulleted, multi-level outline authored in PowerPoint:
 	// algn, a:spcBef/a:spcAft (spcPts), marL/indent, and buChar/buNone bullets.
 	async function slide7Paragraphs() {
-		const paragraphs = allParagraphs((await open('mixed')).slides[6])
+		const paragraphs = allParagraphs((await openFixture('mixed')).slides[6])
 		assert(paragraphs.length > 5, `expected a multi-paragraph outline, got ${paragraphs.length}`)
 		return paragraphs
 	}
@@ -139,7 +135,7 @@ describe('Paragraph style reads — real PowerPoint XML (mixed.pptx slide7)', ()
 
 describe('Picture SVG blip reads (image.pptx)', () => {
 	test('svgRelId / svgPartName resolve the asvg:svgBlip extension embed', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const pictures = presentation.slides
 			.flatMap((slide) => allShapes(slide.shapes))
 			.filter((s) => s.shapeType === 'picture')
@@ -153,7 +149,7 @@ describe('Picture SVG blip reads (image.pptx)', () => {
 	})
 
 	test('a raster-only picture has no svgRelId', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const pictures = presentation.slides
 			.flatMap((slide) => allShapes(slide.shapes))
 			.filter((s) => s.shapeType === 'picture')
@@ -162,7 +158,7 @@ describe('Picture SVG blip reads (image.pptx)', () => {
 	})
 
 	test('mediaKind / mediaPartName classify the raster+SVG pairing and a raster-only picture', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const pictures = presentation.slides
 			.flatMap((slide) => allShapes(slide.shapes))
 			.filter((s) => s.shapeType === 'picture')
@@ -183,14 +179,14 @@ describe('Picture SVG blip reads (image.pptx)', () => {
 
 describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 	test('lineWidthPt reads an explicit 2pt theme-colour line', async () => {
-		const shape = shapeNamed((await open('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
 		assertEqual(shape.lineWidthPt, 2, '<a:ln w="25400"> is 2pt')
 		assertEqual(shape.lineSchemeColor, 'accent2', 'line is a real PowerPoint scheme colour')
 		assertEqual(shape.resolvedLine.hex, 'EA6312', 'accent2 resolves through the non-default Ion theme')
 	})
 
 	test('adjustValues exposes PowerPoint-authored avLst handles', async () => {
-		const slide = (await open('preset-geometry')).slides[0]
+		const slide = (await openFixture('preset-geometry')).slides[0]
 
 		const roundRect = shapeNamed(slide, 'roundRect-adj')
 		assertEqual(roundRect.presetGeometry, 'roundRect', 'fixture shape is a roundRect')
@@ -211,7 +207,7 @@ describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 	})
 
 	test('gradientStops reads PowerPoint-authored gsLst stops with position + colour split', async () => {
-		const slide = (await open('gradient-fill')).slides[0]
+		const slide = (await openFixture('gradient-fill')).slides[0]
 
 		const linear2 = shapeNamed(slide, 'grad-linear-2')
 		assertEqual(linear2.gradientStops.length, 2, 'two-stop linear gradient')
@@ -372,13 +368,13 @@ describe('TextFrame.resolvedAnchor — real PowerPoint XML (layout-placeholder-b
 	// - Content Placeholder 2 inherits the layout body anchor="ctr".
 	// bodyProperties.anchor (own attribute only) stays null for both.
 	test('a placeholder title inherits its anchor from the layout bodyPr', async () => {
-		const title = shapeNamed((await open('layout-placeholder-bodypr')).slides[0], 'Title 1')
+		const title = shapeNamed((await openFixture('layout-placeholder-bodypr')).slides[0], 'Title 1')
 		assertEqual(title.textFrame.bodyProperties?.anchor ?? null, null, 'the slide bodyPr sets no own @anchor')
 		assertEqual(title.textFrame.resolvedAnchor, 'b', 'inherits the layout title anchor="b"')
 	})
 
 	test('a placeholder body inherits a different anchor from the layout bodyPr', async () => {
-		const body = shapeNamed((await open('layout-placeholder-bodypr')).slides[0], 'Content Placeholder 2')
+		const body = shapeNamed((await openFixture('layout-placeholder-bodypr')).slides[0], 'Content Placeholder 2')
 		assertEqual(body.textFrame.bodyProperties?.anchor ?? null, null, 'the slide bodyPr sets no own @anchor')
 		assertEqual(body.textFrame.resolvedAnchor, 'ctr', 'inherits the layout body anchor="ctr"')
 	})
@@ -386,7 +382,7 @@ describe('TextFrame.resolvedAnchor — real PowerPoint XML (layout-placeholder-b
 
 describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', () => {
 	test('resolvedFill resolves a scheme fill to the theme hex, and an explicit fill to itself', async () => {
-		const slide = (await open('theme-colors')).slides[0]
+		const slide = (await openFixture('theme-colors')).slides[0]
 		const scheme = shapeNamed(slide, 'accent1-plain')
 		assertEqual(scheme.resolvedFill.hex, 'B01513', 'accent1 resolves to the Ion theme accent1 hex')
 		// The raw read still reports the unresolved token — resolution is opt-in.
@@ -397,15 +393,15 @@ describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', 
 	})
 
 	test('resolvedLine resolves a scheme line colour; null when there is no solid fill', async () => {
-		const lined = shapeNamed((await open('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
+		const lined = shapeNamed((await openFixture('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
 		assertEqual(lined.resolvedLine.hex, 'EA6312', 'accent2 line resolves to the Ion theme accent2 hex')
 		// A gradient-filled shape has no a:solidFill to resolve as a fill colour.
-		const gradient = shapeNamed((await open('gradient-fill')).slides[0], 'grad-linear-3-scheme')
+		const gradient = shapeNamed((await openFixture('gradient-fill')).slides[0], 'grad-linear-3-scheme')
 		assertEqual(gradient.resolvedFill, null, 'a gradient fill has no a:solidFill to resolve')
 	})
 
 	test('resolvedFill reports the base hex + raw transforms and the applied effectiveHex', async () => {
-		const shape = shapeNamed((await open('theme-colors')).slides[0], 'accent1-lm60-lo40')
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'accent1-lm60-lo40')
 		const fill = shape.resolvedFill
 		assertEqual(fill.hex, 'B01513', 'base colour stays the theme hex')
 		assertEqual(fill.transforms.length, 2, 'lumMod/lumOff transform children reported')
@@ -417,7 +413,7 @@ describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', 
 	})
 
 	test('Run.resolvedColor resolves a scheme run colour to the theme hex', async () => {
-		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.schemeColor, 'accent5', 'the raw read reports the scheme token')
 		assertEqual(run.resolvedColor.hex, '54849A', 'accent5 resolves to the Ion theme accent5 hex')
@@ -430,7 +426,7 @@ describe('Style-matrix fill/line resolution — real PowerPoint XML (multi-theme
 	// (idx 2, accent1 + shade). resolvedFill/resolvedLine must walk that style
 	// matrix the same way the `theme: 'preserve'` flatten path bakes it.
 	test('resolvedFill walks a p:style fillRef when the shape has no explicit fill', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[0], 'style-matrix-default')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[0], 'style-matrix-default')
 		// Nothing explicit on the shape itself — the raw reads still report null.
 		assertEqual(shape.fillColor, null, 'no explicit srgb fill')
 		assertEqual(shape.fillSchemeColor, null, 'no explicit scheme fill')
@@ -443,7 +439,7 @@ describe('Style-matrix fill/line resolution — real PowerPoint XML (multi-theme
 	})
 
 	test('resolvedLine walks a p:style lnRef, carrying the ref colour transform', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[0], 'style-matrix-default')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[0], 'style-matrix-default')
 		assertEqual(shape.lineColor, null, 'no explicit srgb line')
 		assertEqual(shape.lineSchemeColor, null, 'no explicit scheme line')
 
@@ -458,7 +454,7 @@ describe('Style-matrix fill/line resolution — real PowerPoint XML (multi-theme
 	test('an explicit spPr fill/line still wins over the style matrix', async () => {
 		// scheme-accent1-fill has explicit solidFill accent1 + an explicit accent2 line,
 		// alongside a p:style fillRef/lnRef — the explicit spPr children must govern.
-		const shape = shapeNamed((await open('multi-theme')).slides[0], 'scheme-accent1-fill')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[0], 'scheme-accent1-fill')
 		assertEqual(shape.resolvedFill.hex, 'B01513', 'explicit accent1 fill resolves to the Ion accent1 hex')
 		assertEqual(shape.resolvedLine.hex, 'EA6312', 'explicit accent2 line wins over the lnRef accent1')
 	})
@@ -472,7 +468,7 @@ describe('Placeholder-inherited run colour — real PowerPoint XML (multi-theme.
 	// Run.resolvedColor must walk the placeholder/list-style chain for the first and
 	// keep the explicit colour for the second.
 	test('a colourless placeholder run resolves through the master text style', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'inherited-title')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.color, null, 'the run sets no explicit srgb colour')
 		assertEqual(run.schemeColor, null, 'the run sets no explicit scheme colour')
@@ -481,7 +477,7 @@ describe('Placeholder-inherited run colour — real PowerPoint XML (multi-theme.
 	})
 
 	test('an explicit run colour still wins over the inherited placeholder colour', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'explicit-body')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.color, 'FF00FF', 'the run carries an explicit srgb colour')
 		assertEqual(run.resolvedColor.hex, 'FF00FF', 'the explicit colour governs, not the inherited body colour')
@@ -495,7 +491,7 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 	// explicit-body sets an explicit colour but no sz/latin, so size/face still
 	// resolve through the body chain (master bodyStyle lvl1: sz=2000 → 20pt, +mj-lt).
 	test('a placeholder title run with no own size/face resolves both through the master text style', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'inherited-title')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.fontSizePt, null, 'the run sets no own @sz')
 		assertEqual(run.fontName, null, 'the run sets no own a:latin')
@@ -504,7 +500,7 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 	})
 
 	test('a colourful body placeholder run still resolves its inherited size/face', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'explicit-body')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.fontSizePt, null, 'the run sets no own @sz')
 		assertEqual(run.resolvedSizePt, 20, 'inherits bodyStyle lvl1 sz=2000 from the master')
@@ -516,7 +512,7 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 		// size, and with no own a:latin and no placeholder chain the face falls through to
 		// the presentation's p:defaultTextStyle (+mn-lt → the theme minor font, here Ion's
 		// Century Gothic). Before defaultTextStyle joined the chain this read as null.
-		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.resolvedSizePt, 24, "the run's own sz=2400 is reported as 24pt")
 		assertEqual(run.resolvedFontFace, 'Century Gothic', 'inherits +mn-lt from p:defaultTextStyle')
@@ -530,21 +526,21 @@ describe('Placeholder-inherited run bold — real PowerPoint XML', () => {
 	// "sets none and inherits none". A plain text box has no placeholder chain, so
 	// its resolvedBold falls back to the run's own value (null here).
 	test('a placeholder run with no own @b resolves inherited bold from the master text style', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'inherited-title')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.bold, null, 'the run sets no own @b')
 		assertEqual(run.resolvedBold, false, 'inherits titleStyle b="0" from the master (explicit non-bold, not null)')
 	})
 
 	test('a colourful body placeholder run also resolves its inherited bold', async () => {
-		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'explicit-body')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.bold, null, 'the run sets no own @b')
 		assertEqual(run.resolvedBold, false, 'inherits bodyStyle lvl1 b="0" from the master')
 	})
 
 	test('a non-placeholder run reports no inherited bold (own value governs)', async () => {
-		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.resolvedBold, null, 'no own @b and no placeholder chain to inherit from')
 	})
@@ -554,7 +550,7 @@ describe('Picture recolour reads (recolor)', () => {
 	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
 		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:
 		// <a:duotone><a:prstClr val="black"/><a:srgbClr val="B6D3ED">…</a:srgbClr></a:duotone>.
-		const pictures = (await open('image')).slides
+		const pictures = (await openFixture('image')).slides
 			.flatMap((slide) => allShapes(slide.shapes))
 			.filter((s) => s.shapeType === 'picture')
 		const tinted = pictures.find((p) => p.recolor !== null)
@@ -635,7 +631,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 		// One slide5 group translates its children down by 145757 EMU (off.y 3301445
 		// vs chOff.y 3155688) with ext == chExt (no scaling). A child whose own
 		// a:off.y is 3155688 must therefore resolve to an absolute top of 3301445.
-		const slide = (await open('mixed')).slides[4]
+		const slide = (await openFixture('mixed')).slides[4]
 		const groups = slide.shapes.filter((s) => s.shapeType === 'group')
 		assert(groups.length > 0, 'expected groups on slide5')
 		const child = groups.flatMap((g) => g.shapes).find((s) => s.top === 3155688 && s.absoluteFrame)
@@ -669,7 +665,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 	})
 
 	test('composes scale, rotation, and flips to match PowerPoint ungroup output', async () => {
-		const [grouped, ungrouped] = (await open('group-transform')).slides
+		const [grouped, ungrouped] = (await openFixture('group-transform')).slides
 		const flattenedGroups = allShapes(ungrouped.shapes).filter((shape) => shape.shapeType === 'group')
 		assertEqual(flattenedGroups.length, 0, 'slide 2 is PowerPoint-ungrouped ground truth')
 
@@ -774,7 +770,7 @@ describe('Per-shape rotation / flip (rotation, flipH, flipV)', () => {
 		// De-circularised: was a write→read round-trip (addShape{rotate,flipH}→reopen);
 		// now reads two desktop-PowerPoint-authored rectangles. PowerPoint stored
 		// rot="2700000" (2700000 / 60000 = 45°) on rotated-45 and flipH="1" on flipped-h.
-		const presentation = await open('rotation-flip')
+		const presentation = await openFixture('rotation-flip')
 		const shapes = presentation.slides[0].shapes
 		const rotated = shapes.find((s) => s.name === 'rotated-45')
 		const flipped = shapes.find((s) => s.name === 'flipped-h')

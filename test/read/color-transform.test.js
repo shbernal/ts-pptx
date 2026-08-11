@@ -7,12 +7,12 @@
 // PowerPoint-authored deck. Expected effective colours were read back from
 // PowerPoint COM (`Shape.Fill.ForeColor.RGB`) after opening the saved fixture.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { applyColorTransforms, Presentation } from '../../dist/read.js'
+import { applyColorTransforms } from '../../dist/read.js'
 import { assert } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 /** Parse `RRGGBB` → [r,g,b] 0–255. */
 function channels(hex) {
@@ -35,10 +35,6 @@ function tf(...pairs) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
-
 function shapeNamed(slide, name) {
 	const shape = slide.shapes.find((s) => s.name === name)
 	assert(shape, `expected shape named ${name}`)
@@ -58,7 +54,7 @@ const POWERPOINT_ORACLE = [
 describe('applyColorTransforms — PowerPoint fixture oracle', () => {
 	for (const [shapeName, expected] of POWERPOINT_ORACLE) {
 		test(shapeName, async () => {
-			const shape = shapeNamed((await open('theme-colors')).slides[0], shapeName)
+			const shape = shapeNamed((await openFixture('theme-colors')).slides[0], shapeName)
 			const { hex: base, transforms } = shape.resolvedFill
 			const { hex } = applyColorTransforms(base, transforms)
 			assertHexClose(hex, expected, 1, shapeName)

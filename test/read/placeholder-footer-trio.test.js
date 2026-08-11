@@ -20,18 +20,14 @@
 // out of ppt/slideMasters/slideMaster1.xml (independent of the reader under
 // test), not produced by running the getter.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 // Read from ppt/slideMasters/slideMaster1.xml inside placeholder-footer-trio.pptx.
 // Three visibly distinct boxes -- a mismatch is unambiguous.
@@ -49,7 +45,7 @@ function phShape(slide, type) {
 describe('read: footer-trio placeholder geometry inheritance', () => {
 	for (const type of ['dt', 'ftr', 'sldNum']) {
 		test(`a slide ${type} placeholder resolves to its OWN-TYPE master box, not another member of the trio`, async () => {
-			const slide = (await open('placeholder-footer-trio')).slides[0]
+			const slide = (await openFixture('placeholder-footer-trio')).slides[0]
 			const shape = phShape(slide, type)
 			assert(shape, `expected a slide ${type} placeholder`)
 

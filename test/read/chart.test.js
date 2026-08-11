@@ -9,11 +9,7 @@ import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
-import { fixturePath } from './corpus.js'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
+import { fixturePath, openFixture } from './corpus.js'
 
 /** The first chart on any slide of the fixture. */
 function firstChart(presentation) {
@@ -27,7 +23,7 @@ function firstChart(presentation) {
 
 describe('Chart read model', () => {
 	test('resolves the chart part and reads type + title', async () => {
-		const chart = firstChart(await open('mixed'))
+		const chart = firstChart(await openFixture('mixed'))
 		assert(chart, 'mixed.pptx has a chart')
 		assert(chart.partName.startsWith('/ppt/charts/'), `chart partname: ${chart.partName}`)
 		assertEqual(chart.chartType, 'line', 'chart type')
@@ -36,7 +32,7 @@ describe('Chart read model', () => {
 	})
 
 	test('reads series names, indices, and cached values', async () => {
-		const chart = firstChart(await open('mixed'))
+		const chart = firstChart(await openFixture('mixed'))
 		const series = chart.series
 		assertEqual(series.length, 2, 'two series')
 		assertEqual(series[0].name, 'Costs', 'first series name')
@@ -54,7 +50,7 @@ describe('Chart read model', () => {
 	})
 
 	test('reads category labels from the first series cache', async () => {
-		const chart = firstChart(await open('mixed'))
+		const chart = firstChart(await openFixture('mixed'))
 		const categories = chart.categories
 		assertEqual(categories.length, 16, '16 categories')
 		assertEqual(categories[0], '3200', 'first category as written')
@@ -62,7 +58,7 @@ describe('Chart read model', () => {
 	})
 
 	test('element_ escape hatches expose the underlying chartSpace and c:ser elements', async () => {
-		const chart = firstChart(await open('mixed'))
+		const chart = firstChart(await openFixture('mixed'))
 		const space = chart.element_
 		assert(space, 'chart.element_ returns the chartSpace document element')
 		assertEqual(space.localName, 'chartSpace', 'element_ is the c:chartSpace root')
@@ -71,7 +67,7 @@ describe('Chart read model', () => {
 	})
 
 	test('a non-chart graphic frame has a null chart', async () => {
-		const slides = (await open('mixed')).slides
+		const slides = (await openFixture('mixed')).slides
 		const tableFrame = slides
 			.flatMap((s) => s.shapes)
 			.filter((shape) => shape.shapeType === 'graphicFrame')

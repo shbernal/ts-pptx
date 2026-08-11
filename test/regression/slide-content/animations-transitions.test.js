@@ -1,6 +1,6 @@
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readOracle } from '../../read/corpus.js'
 import {
 	setDiagnosticHandler,
 	defineRegressionSuite,
@@ -17,10 +17,6 @@ import {
 // PowerPoint oracles in test/read/fixtures (slide-transition / slide-animation-*).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function loadOracle(name) {
-	return JSON.parse(await readFile(path.join(__dirname, '..', '..', 'read', 'fixtures', `${name}.oracle.json`), 'utf8'))
-}
 
 async function slideXml(buildFn, n = 1) {
 	const { zip } = await build(buildFn)
@@ -53,7 +49,7 @@ defineRegressionSuite('Slide transitions (write)', [
 	{
 		name: 'emits each PowerPoint transition form byte-for-byte (bare + mc:AlternateContent)',
 		fn: async () => {
-			const oracle = await loadOracle('slide-transition')
+			const oracle = await readOracle('slide-transition')
 			const inputs = [
 				{ type: 'fade' },
 				{ type: 'push', durationMs: 1250, speed: 'slow', variant: { dir: 'd' } },
@@ -101,7 +97,7 @@ defineRegressionSuite('Preset build animations (write)', [
 		// appear/wipe/spin/flyOut templates against the PowerPoint oracle.
 		name: 'emits every preset (incl. appear/wipe/spin/flyOut) byte-for-byte',
 		fn: async () => {
-			const oracle = await loadOracle('slide-animation-presets')
+			const oracle = await readOracle('slide-animation-presets')
 			const order = ['fadeIn', 'flyIn', 'appear', 'wipe', 'grow', 'spin', 'fadeOut', 'flyOut']
 			const names = [
 				'entr-fadeIn',
@@ -124,7 +120,7 @@ defineRegressionSuite('Preset build animations (write)', [
 	{
 		name: 'emits the rich multi-effect mainSeq byte-for-byte',
 		fn: async () => {
-			const oracle = await loadOracle('slide-animation-rich')
+			const oracle = await readOracle('slide-animation-rich')
 			const xml = await slideXml((p) => {
 				const s = p.addSlide()
 				for (const nm of ['ent-fade-click', 'ent-fly-after', 'emph-grow-with', 'exit-fade-click'])
@@ -140,7 +136,7 @@ defineRegressionSuite('Preset build animations (write)', [
 	{
 		name: 'emits the basic single fade-on-click mainSeq byte-for-byte',
 		fn: async () => {
-			const oracle = await loadOracle('slide-animation-basic')
+			const oracle = await readOracle('slide-animation-basic')
 			const xml = await slideXml((p) => {
 				const s = p.addSlide()
 				s.addText('fade-target', { x: 1, y: 1, w: 3, h: 1, objectName: 'fade-target' })
@@ -266,7 +262,7 @@ defineRegressionSuite('Transition sounds (write)', [
 	{
 		name: 'emits the sndAc start/loop/stop forms matching the PowerPoint oracle (rId-normalized)',
 		fn: async () => {
-			const oracle = await loadOracle('slide-transition-sound')
+			const oracle = await readOracle('slide-transition-sound')
 			const { zip } = await build((p) => {
 				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { data: SOUND_WAV, name: 'ding.wav' } }
 				p.addSlide().transition = {

@@ -4,18 +4,19 @@
 // schema). The fixture modern-comments.pptx was authored by desktop PowerPoint via
 // the Comments.Add2 / Replies.Add2 COM API: slide 2 carries one comment by Ada
 // Lovelace with one reply by Grace Hopper; slide 1 has none.
-import { readFile } from 'node:fs/promises'
+
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function load(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', name)))
+	return openFixture(name)
 }
 
 describe('modern (2018) comments', () => {

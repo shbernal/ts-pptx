@@ -49,7 +49,6 @@
 // each patched package is run past the schema validator, which is what separates
 // these from the four groups above: the input is legal, so the contract is real.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
@@ -57,11 +56,12 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function open(name, ext = 'pptx') {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.${ext}`)))
+	return openFixture(`${name}.${ext}`)
 }
 
 /**

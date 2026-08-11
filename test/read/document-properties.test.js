@@ -6,13 +6,13 @@
 // no hand-crafted fixture — the writer is the oracle. Two authored fixtures cover
 // the missing-part and real-PowerPoint edges.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -23,10 +23,6 @@ async function roundTrip(setup) {
 	pptx.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })
 	const buf = /** @type {Uint8Array} */ (await pptx.stream())
 	return Presentation.load(buf)
-}
-
-async function openFixture(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
 }
 
 describe('Presentation.coreProperties', () => {

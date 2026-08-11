@@ -15,18 +15,18 @@
 // (picture-recolor.test.js), the 'both' raster+SVG mediaKind (style-accessors),
 // and hdphoto/.wdp artistic-effect layers.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let cached
 async function pres() {
-	if (!cached) cached = Presentation.load(await readFile(path.join(__dirname, 'fixtures', 'read-stress.pptx')))
+	if (!cached) cached = openFixture('read-stress')
 	return cached
 }
 

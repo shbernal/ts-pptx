@@ -15,7 +15,6 @@
 // (the Ion theme) rather than synthesized, since it pins whose relationships a
 // theme-materialized fill resolves against.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
@@ -23,6 +22,7 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -127,7 +127,7 @@ describe('slide background — a theme-materialized image fill resolves against 
 	// instead silently returns whatever rId1 means there (a slide layout), so this
 	// pins whose relationship table a materialized fill belongs to.
 	async function ionDeck() {
-		return Presentation.load(await readFile(path.join(__dirname, 'fixtures', 'theme-colors.pptx')))
+		return openFixture('theme-colors')
 	}
 
 	test("the master's picture background resolves to the theme's media part", async () => {

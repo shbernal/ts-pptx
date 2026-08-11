@@ -19,18 +19,14 @@
 // geometry below was read directly out of that XML (independent of the reader
 // code under test), not derived by running the getter.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 // Read from ppt/slideMasters/slideMaster1.xml inside placeholder-inherit.pptx.
 const MASTER_TITLE = { left: 838200, top: 365125, width: 10515600, height: 1325563 }
@@ -38,7 +34,7 @@ const MASTER_BODY = { left: 838200, top: 1825625, width: 10515600, height: 43513
 
 describe('read: placeholder effective geometry', () => {
 	test('a title placeholder with no own a:xfrm resolves through layout to the master geometry', async () => {
-		const slide = (await open('placeholder-inherit')).slides[0]
+		const slide = (await openFixture('placeholder-inherit')).slides[0]
 		const title = slide.shapes.find((s) => (s.name ?? '').startsWith('Title'))
 		assert(title, 'expected a title placeholder shape')
 
@@ -58,7 +54,7 @@ describe('read: placeholder effective geometry', () => {
 	})
 
 	test('a body placeholder with no own a:xfrm resolves through layout to the master geometry', async () => {
-		const slide = (await open('placeholder-inherit')).slides[0]
+		const slide = (await openFixture('placeholder-inherit')).slides[0]
 		const body = slide.shapes.find((s) => !(s.name ?? '').startsWith('Title') && s.textFrame)
 		assert(body, 'expected a body placeholder shape')
 
@@ -75,7 +71,7 @@ describe('read: placeholder effective geometry', () => {
 	})
 
 	test('a shape with its own a:xfrm reports source "own" and does not consult the chain (negative control)', async () => {
-		const presentation = await open('rotation-flip')
+		const presentation = await openFixture('rotation-flip')
 		const shapes = presentation.slides[0].shapes
 		const rotated = shapes.find((s) => s.name === 'rotated-45')
 		assert(rotated, 'expected the rotated-45 rect')

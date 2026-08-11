@@ -4,17 +4,18 @@
 // verified against what PowerPoint renders, read back per cell over COM from the
 // `table-styles.pptx` fixture (three tables, each a distinct built-in style, all
 // cells with an empty `<a:tcPr/>`, `firstRow` + `bandRow` on).
-import { readFile } from 'node:fs/promises'
+
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation, isGraphicFrame } from '../../dist/read.js'
+import { isGraphicFrame } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function tables() {
-	const pres = await Presentation.load(await readFile(path.join(__dirname, 'fixtures', 'table-styles.pptx')))
+	const pres = await openFixture('table-styles')
 	return pres.slides[0].shapes
 		.filter(isGraphicFrame)
 		.filter((s) => s.table)

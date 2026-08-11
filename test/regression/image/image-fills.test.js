@@ -1,8 +1,8 @@
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { ShapeType } from '../../../dist/node.js'
+import { readFixture } from '../../read/corpus.js'
 import {
 	PNG_1X1,
 	setDiagnosticHandler,
@@ -21,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** Read a slide's XML straight out of a PowerPoint-authored fixture package. */
 async function fixtureSlideXml(name, n = 1) {
-	const buf = await readFile(path.join(__dirname, '..', '..', 'read', 'fixtures', `${name}.pptx`))
+	const buf = await readFixture(name)
 	const zip = await JSZip.loadAsync(buf)
 	return zip.file(`ppt/slides/slide${n}.xml`).async('string')
 }

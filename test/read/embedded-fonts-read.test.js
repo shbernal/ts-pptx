@@ -4,19 +4,14 @@
 // test/read/fixtures/embedded-fonts.pptx + embedded-fonts.oracle.json (one
 // p:embeddedFont, typeface 'Silkscreen', regular→font1 / bold→font2).
 
-import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { fixturePath } from './corpus.js'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
+import { openFixture } from './corpus.js'
 
 describe('Presentation.embeddedFonts', () => {
 	test('enumerates the embedded typeface and resolves each face to its font part', async () => {
-		const pres = await open('embedded-fonts')
+		const pres = await openFixture('embedded-fonts')
 		const fonts = pres.embeddedFonts
 
 		assertEqual(fonts.length, 1, 'one embedded typeface')
@@ -45,7 +40,7 @@ describe('Presentation.embeddedFonts', () => {
 	})
 
 	test('is [] for a deck that embeds no fonts', async () => {
-		const pres = await open('empty')
+		const pres = await openFixture('empty')
 		assertEqual(pres.embeddedFonts.length, 0, 'no embeddedFontLst → []')
 	})
 
@@ -53,8 +48,8 @@ describe('Presentation.embeddedFonts', () => {
 		// The write side carries a source deck's embedded fonts into a target; the
 		// read accessor then sees the merged list on the target — a genuine
 		// write→read round-trip, not just a fixture read.
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlide(source, 0, { embedFonts: true })
 
 		const reopened = await Presentation.load(await target.save())

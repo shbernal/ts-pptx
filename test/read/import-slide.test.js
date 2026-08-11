@@ -13,7 +13,7 @@ import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
@@ -22,10 +22,6 @@ const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 
 /** Walk a slide's layout → master → theme chain, asserting every hop targets an existing part. */
 function assertGraphResolves(opc, slidePartName) {
@@ -78,8 +74,8 @@ function registeredMasters(opc) {
 
 describe('Presentation.importSlide', () => {
 	test('imports an image slide into another deck; the graph + media survive a round-trip', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const beforeCount = target.slides.length
 		const sourcePicCount = source.slides[0].shapes.filter((s) => s.shapeType === 'picture').length
 		assert(sourcePicCount > 0, 'source slide actually has a picture to carry')
@@ -115,8 +111,8 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('imports a table slide into another deck; the table survives a round-trip', async () => {
-		const target = await open('empty')
-		const source = await open('table')
+		const target = await openFixture('empty')
+		const source = await openFixture('table')
 		const sourceTableSlide = source.slides.findIndex((s) =>
 			s.shapes.some((sh) => sh.shapeType === 'graphicFrame' && sh.table)
 		)
@@ -135,7 +131,7 @@ describe('Presentation.importSlide', () => {
 	test('only the presentation part + its rels + content types change; imported parts are added', async () => {
 		const input = await readFile(fixturePath('empty'))
 		const target = await Presentation.load(input)
-		const source = await open('image')
+		const source = await openFixture('image')
 		target.importSlide(source, 0)
 		const inputBodies = await partBodies(input)
 		const outputBodies = await partBodies(await target.save())
@@ -171,8 +167,8 @@ describe('Presentation.importSlide', () => {
 
 	test('dedups a shared master across imports and accumulates its used layouts', async () => {
 		// mixed slide 1 uses layout1, slide 2 uses layout2 — both on the same master.
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const beforeCount = target.slides.length
 
 		target.importSlide(source, 0)
@@ -212,8 +208,8 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('registers each copied master in p:sldMasterIdLst (so master graphics render)', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const before = registeredMasters(target.opc).length
 
 		target.importSlide(source, 0)
@@ -227,8 +223,8 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('imports a chart slide with its embedded data', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const chartSlide = source.slides.findIndex((s) =>
 			s.shapes.some((sh) => sh.shapeType === 'graphicFrame' && sh.chart)
 		)
@@ -241,7 +237,7 @@ describe('Presentation.importSlide', () => {
 
 		// A chart part and an embedded workbook were copied in.
 		const partNames = [...opc.parts.keys()]
-		const chartsBefore = [...(await open('mixed')).opc.parts.keys()].filter((n) =>
+		const chartsBefore = [...(await openFixture('mixed')).opc.parts.keys()].filter((n) =>
 			/\/charts\/chart\d+\.xml$/.test(n)
 		).length
 		const chartsAfter = partNames.filter((n) => /\/charts\/chart\d+\.xml$/.test(n)).length
@@ -253,8 +249,8 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('rejects a slide-size mismatch between source and target', async () => {
-		const target = await open('empty') // 16:9
-		const source = await open('mixed') // 4:3
+		const target = await openFixture('empty') // 16:9
+		const source = await openFixture('mixed') // 4:3
 		assert(
 			throws(() => target.importSlide(source, 0)),
 			'importing across mismatched slide sizes throws'
@@ -262,8 +258,8 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('rejects an out-of-range index', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		assert(
 			throws(() => target.importSlide(source, 99)),
 			'importing a missing slide throws'
@@ -271,16 +267,16 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with an imported slide stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		target.importSlide(source, 0)
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with two imported same-master slides stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		target.importSlide(source, 0)
 		target.importSlide(source, 1)
 		const errors = await validateBuf(Buffer.from(await target.save()))
@@ -295,7 +291,7 @@ describe('Presentation.importSlide', () => {
 describe('Presentation.importSlide({ at })', () => {
 	// Tag the target's existing slides so we can recognise where the import landed.
 	async function targetWithMarkedSlides() {
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const ids = target.slides.map((s) => s.slideId)
 		assert(ids.length >= 1, 'mixed has at least one slide to anchor against')
 		return { target, ids }
@@ -303,7 +299,7 @@ describe('Presentation.importSlide({ at })', () => {
 
 	test('at: 0 inserts the imported slide first', async () => {
 		const { target, ids } = await targetWithMarkedSlides()
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 
 		const imported = target.importSlide(source, 0, { at: 0 })
 		assertEqual(imported.index, 0, 'imported slide reports index 0 in-memory')
@@ -321,7 +317,7 @@ describe('Presentation.importSlide({ at })', () => {
 
 	test('omitting at appends (unchanged behaviour)', async () => {
 		const { target, ids } = await targetWithMarkedSlides()
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 
 		const imported = target.importSlide(source, 0)
 		assertEqual(imported.index, ids.length, 'imported slide reports the last index')
@@ -334,7 +330,7 @@ describe('Presentation.importSlide({ at })', () => {
 
 	test('an out-of-range at appends rather than throwing', async () => {
 		const { target, ids } = await targetWithMarkedSlides()
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 
 		const imported = target.importSlide(source, 0, { at: 999 })
 		assertEqual(imported.index, ids.length, 'an at past the end appends')
@@ -347,7 +343,7 @@ describe('Presentation.importSlide({ at })', () => {
 	test('cover-first + closer-last bookend placement around an interior', async () => {
 		// One source deck supplies both bookends; place cover at 0 and append closer.
 		const { target, ids } = await targetWithMarkedSlides()
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 
 		const cover = target.importSlide(source, 0, { at: 0 })
 		const closer = target.importSlide(source, 1) // append
@@ -365,7 +361,7 @@ describe('Presentation.importSlide({ at })', () => {
 	})
 
 	test('cloneSlide accepts at to place the duplicate', async () => {
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const firstId = target.slides[0].slideId
 
 		const clone = target.cloneSlide(target.slides.length - 1, { at: 0 })
@@ -378,8 +374,8 @@ describe('Presentation.importSlide({ at })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('an at-inserted import stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		target.importSlide(source, 0, { at: 0 })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -409,7 +405,7 @@ describe('generate → read import bridge', () => {
 		const interiorCount = deck.slides.length
 		assertEqual(interiorCount, 2, 'the generated interior has two slides')
 
-		const source = await open('image')
+		const source = await openFixture('image')
 		const cover = deck.importSlide(source, 0, { at: 0 })
 
 		const reopened = await Presentation.load(await deck.save())
@@ -421,7 +417,7 @@ describe('generate → read import bridge', () => {
 
 	test.skipIf(!validatorInstalled)('the bridged deck stays schema-valid', async () => {
 		const deck = await Presentation.load(await generatedDeckBytes())
-		const source = await open('image')
+		const source = await openFixture('image')
 		deck.importSlide(source, 0, { at: 0 })
 		const errors = await validateBuf(Buffer.from(await deck.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -457,8 +453,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	const near = (got, want, label) => assert(Math.abs(got - want) <= 2, `${label}: ${got} ≈ ${want}`)
 
 	test("'fit' rescales slide geometry uniformly and centers the slack", async () => {
-		const target = await open('mixed') // 4:3
-		const source = await open('image') // 16:9
+		const target = await openFixture('mixed') // 4:3
+		const source = await openFixture('image') // 16:9
 		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
 
 		target.importSlide(source, 0, { rescale: 'fit' })
@@ -474,8 +470,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	})
 
 	test("'stretch' scales each axis independently (height unchanged when only width differs)", async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
 
 		target.importSlide(source, 0, { rescale: 'stretch' })
@@ -488,8 +484,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	})
 
 	test('true is an alias for fit', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
 
 		target.importSlide(source, 0, { rescale: true })
@@ -499,8 +495,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	})
 
 	test('copy mode also rescales the imported layout (inherited geometry stays aligned)', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 
 		const srcLayout = resolveSingle(source.opc, source.slides[0].partName, SLIDE_LAYOUT_REL)
 		const srcLayoutCx = firstExtCx(partText(await partBodies(await readFile(fixturePath('image'))), srcLayout))
@@ -520,8 +516,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	})
 
 	test('still throws on a size mismatch when rescale is not requested', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		assert(
 			throws(() => target.importSlide(source, 0)),
 			'a size mismatch without rescale throws'
@@ -529,8 +525,8 @@ describe('Presentation.importSlide({ rescale })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a rescaled import stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		target.importSlide(source, 0, { rescale: 'fit' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -573,8 +569,8 @@ describe('Presentation.importSlide({ importNotes })', () => {
 	}
 
 	test('default drops the source slide notes (no notesSlide rel on the import)', async () => {
-		const target = await open('empty')
-		const source = await open('notes-slide-image')
+		const target = await openFixture('empty')
+		const source = await openFixture('notes-slide-image')
 		const imported = target.importSlide(source, 0)
 
 		const reopened = await Presentation.load(await target.save())
@@ -589,8 +585,8 @@ describe('Presentation.importSlide({ importNotes })', () => {
 	})
 
 	test('importNotes carries the notes text and registers a notesMaster (target had none)', async () => {
-		const target = await open('empty') // empty.pptx has no notesMaster
-		const source = await open('notes-slide-image')
+		const target = await openFixture('empty') // empty.pptx has no notesMaster
+		const source = await openFixture('notes-slide-image')
 		const imported = target.importSlide(source, 0, { importNotes: true })
 
 		const savedBytes = await target.save()
@@ -620,10 +616,10 @@ describe('Presentation.importSlide({ importNotes })', () => {
 	})
 
 	test('importNotes reuses the destination notesMaster (target already had one)', async () => {
-		const target = await open('mixed') // mixed.pptx already ships a notesMaster
+		const target = await openFixture('mixed') // mixed.pptx already ships a notesMaster
 		const before = registeredNotesMasters(target.opc)
 		assertEqual(before.length, 1, 'mixed starts with one notesMaster')
-		const source = await open('notes-slide-image')
+		const source = await openFixture('notes-slide-image')
 
 		const imported = target.importSlide(source, 0, { importNotes: true, rescale: 'fit' })
 
@@ -644,16 +640,16 @@ describe('Presentation.importSlide({ importNotes })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with imported notes stays schema-valid (register branch)', async () => {
-		const target = await open('empty')
-		const source = await open('notes-slide-image')
+		const target = await openFixture('empty')
+		const source = await openFixture('notes-slide-image')
 		target.importSlide(source, 0, { importNotes: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with imported notes stays schema-valid (reuse branch)', async () => {
-		const target = await open('mixed')
-		const source = await open('notes-slide-image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('notes-slide-image')
 		target.importSlide(source, 0, { importNotes: true, rescale: 'fit' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

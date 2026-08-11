@@ -15,18 +15,14 @@
 // explicit run formatting, so the inherited-value paths (notably the font-face
 // resolution and the "chain defines no bold" fallthrough) stayed uncovered.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 /** First run of the first paragraph of a shape's text frame. */
 function firstRun(shape) {
@@ -41,7 +37,7 @@ function firstRun(shape) {
 
 describe('read: placeholder text-property inheritance', () => {
 	test('a bare title run inherits size + theme (major) face from the master txStyles', async () => {
-		const slide = (await open('placeholder-inherit')).slides[0]
+		const slide = (await openFixture('placeholder-inherit')).slides[0]
 		const title = slide.shapes.find((s) => (s.name ?? '').startsWith('Title'))
 		assert(title, 'expected a title placeholder shape')
 		const run = firstRun(title)
@@ -59,7 +55,7 @@ describe('read: placeholder text-property inheritance', () => {
 	})
 
 	test('a bare body run inherits size + theme (minor) face from the master txStyles', async () => {
-		const slide = (await open('placeholder-inherit')).slides[0]
+		const slide = (await openFixture('placeholder-inherit')).slides[0]
 		// The body placeholder is the non-title text placeholder.
 		const body = slide.shapes.find((s) => !(s.name ?? '').startsWith('Title') && s.textFrame)
 		assert(body, 'expected a body placeholder shape')

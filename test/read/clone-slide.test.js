@@ -10,17 +10,13 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 describe('Presentation.cloneSlide', () => {
 	test('appends an independent duplicate that reloads with the source content', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const beforeCount = presentation.slides.length
 		const sourceText = presentation.slides[0].shapes.find((s) => s.hasTextFrame).text
 		const clone = presentation.cloneSlide(0)
@@ -38,7 +34,7 @@ describe('Presentation.cloneSlide', () => {
 	})
 
 	test('clone is independent of the source (editing one does not affect the other)', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const clone = presentation.cloneSlide(0)
 		clone.shapes.find((s) => s.hasTextFrame).textFrame.paragraphs[0].runs[0].text = 'CLONE ONLY'
 
@@ -70,7 +66,7 @@ describe('Presentation.cloneSlide', () => {
 	})
 
 	test('rejects an out-of-range index', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		assert(
 			throws(() => presentation.cloneSlide(99)),
 			'cloning a missing slide throws'
@@ -78,7 +74,7 @@ describe('Presentation.cloneSlide', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a cloned slide stays schema-valid', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		presentation.cloneSlide(0)
 		const errors = await validateBuf(Buffer.from(await presentation.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

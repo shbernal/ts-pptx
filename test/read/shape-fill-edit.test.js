@@ -11,16 +11,12 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 async function editAndReopen(name, edit) {
-	const presentation = await open(name)
+	const presentation = await openFixture(name)
 	await edit(presentation)
 	const saved = await presentation.save()
 	return { presentation, saved, reopened: await Presentation.load(saved) }
@@ -101,7 +97,7 @@ describe('Shape fill editing', () => {
 	})
 
 	test('rejects a malformed hex colour', async () => {
-		const shape = replaceTextShape(await open('textbox'))
+		const shape = replaceTextShape(await openFixture('textbox'))
 		assert(
 			throws(() => (shape.fillColor = 'nothex')),
 			'malformed fill colour should throw'
@@ -150,7 +146,7 @@ describe('Per-kind fill / line support', () => {
 	})
 
 	test('group shape rejects a line colour (grpSpPr has no a:ln)', async () => {
-		const group = findByKind(await open('mixed'), 'group')
+		const group = findByKind(await openFixture('mixed'), 'group')
 		assert(
 			throws(() => (group.lineColor = '000000')),
 			'group lineColor should throw'
@@ -158,7 +154,7 @@ describe('Per-kind fill / line support', () => {
 	})
 
 	test('picture rejects fill but accepts a border (lineColor)', async () => {
-		const picture = findByKind(await open('image'), 'picture')
+		const picture = findByKind(await openFixture('image'), 'picture')
 		assert(
 			throws(() => (picture.fillColor = '000000')),
 			'picture fillColor should throw'
@@ -174,7 +170,7 @@ describe('Per-kind fill / line support', () => {
 	})
 
 	test('graphic frame rejects both fill and line colours', async () => {
-		const frame = findByKind(await open('mixed'), 'graphicFrame')
+		const frame = findByKind(await openFixture('mixed'), 'graphicFrame')
 		assert(
 			throws(() => (frame.fillColor = '000000')),
 			'graphicFrame fillColor should throw'

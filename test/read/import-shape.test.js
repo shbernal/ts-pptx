@@ -17,17 +17,13 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels } from './opc.js'
 
 const validatorInstalled = await validatorAvailable()
 
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 
 /** Count the package parts whose name matches `re`. */
 function countParts(opc, re) {
@@ -201,8 +197,8 @@ async function deckMixedLayoutNoMasterRel() {
 
 describe('Presentation.importShape', () => {
 	test('lifts a picture onto a foreign host; media copied once, survives a round-trip', async () => {
-		const target = await open('empty') // 16:9, slide[0] holds one autoShape
-		const source = await open('image') // 16:9
+		const target = await openFixture('empty') // 16:9, slide[0] holds one autoShape
+		const source = await openFixture('image') // 16:9
 		const targetSlide = target.slides[0]
 		const picIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		assert(picIndex >= 0, 'source slide has a picture to lift')
@@ -224,8 +220,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('lifts a table; cells intact on a host with a different theme', async () => {
-		const target = await open('empty')
-		const source = await open('table')
+		const target = await openFixture('empty')
+		const source = await openFixture('table')
 		const tableIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'graphicFrame' && s.table)
 		assert(tableIndex >= 0, 'source slide has a table')
 		const srcFrame = source.slides[0].shapes[tableIndex]
@@ -247,8 +243,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('lifts a chart with its part and embedded workbook', async () => {
-		const target = await open('mixed') // 4:3
-		const source = await open('mixed')
+		const target = await openFixture('mixed') // 4:3
+		const source = await openFixture('mixed')
 		const chartSlide = source.slides.findIndex((s) =>
 			s.shapes.some((sh) => sh.shapeType === 'graphicFrame' && sh.chart)
 		)
@@ -267,8 +263,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('lifts a group; child ids reassigned, child offsets intact', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const grpSlide = source.slides.findIndex((s) => s.shapes.some((sh) => sh.shapeType === 'group'))
 		assert(grpSlide >= 0, 'source deck has a group')
 		const grpIndex = findShapeIndex(source.slides[grpSlide], (s) => s.shapeType === 'group')
@@ -296,7 +292,7 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('preserve bakes scheme colours to literals; restyle leaves them symbolic', async () => {
-		const source = await open('mixed')
+		const source = await openFixture('mixed')
 		const schemeSlide = source.slides.findIndex((s) =>
 			s.shapes.some((sh) => sh.shapeType === 'autoShape' && schemeClrCount(sh.element_) > 0)
 		)
@@ -307,14 +303,14 @@ describe('Presentation.importShape', () => {
 		)
 		const sourceSchemeClrs = schemeClrCount(source.slides[schemeSlide].shapes[schemeIndex].element_)
 
-		const preserveTarget = await open('mixed')
+		const preserveTarget = await openFixture('mixed')
 		const preserved = preserveTarget.importShape(preserveTarget.slides[0], source.slides[schemeSlide], schemeIndex, {
 			theme: 'preserve',
 		})
 		assert(schemeClrCount(preserved.element_) < sourceSchemeClrs, 'preserve resolved scheme colours to literals')
 		assert(srgbClrCount(preserved.element_) > 0, 'preserve emitted literal srgbClr')
 
-		const restyleTarget = await open('mixed')
+		const restyleTarget = await openFixture('mixed')
 		const restyled = restyleTarget.importShape(restyleTarget.slides[0], source.slides[schemeSlide], schemeIndex, {
 			theme: 'restyle',
 		})
@@ -322,8 +318,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('reassigns the lifted shape id off every host id (no collision)', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const hostIdsBefore = new Set(cNvPrIds(target.slides[0].shapeTree()))
 		const picIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 
@@ -334,8 +330,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('honours placement overrides and z-order', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const picIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 
 		const shape = target.importShape(target.slides[0], source.slides[0], picIndex, {
@@ -353,8 +349,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('batch imports several shapes in order, with unique ids', async () => {
-		const target = await open('image')
-		const source = await open('image')
+		const target = await openFixture('image')
+		const source = await openFixture('image')
 		const targetSlide = target.slides[0]
 		const indices = [0, 1] // picture + autoShape on image slide[0]
 		const before = targetSlide.shapes.length
@@ -372,8 +368,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('dedupes shared media across repeated imports from the same source', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const picIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		const before = countParts(target.opc, /ppt\/media\//)
 
@@ -388,8 +384,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('rejects a slide-size mismatch between source and target', async () => {
-		const target = await open('empty') // 16:9
-		const source = await open('mixed') // 4:3
+		const target = await openFixture('empty') // 16:9
+		const source = await openFixture('mixed') // 4:3
 		assert(
 			throws(() => target.importShape(target.slides[0], source.slides[0], 0)),
 			'lifting a shape across mismatched slide sizes throws'
@@ -397,8 +393,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('rejects an out-of-range shape index', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		assert(
 			throws(() => target.importShape(target.slides[0], source.slides[0], 99)),
 			'lifting a missing shape throws'
@@ -406,9 +402,9 @@ describe('Presentation.importShape', () => {
 	})
 
 	test('rejects a target slide from another presentation', async () => {
-		const target = await open('empty')
-		const other = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const other = await openFixture('empty')
+		const source = await openFixture('image')
 		assert(
 			throws(() => target.importShape(other.slides[0], source.slides[0], 0)),
 			'a target slide not owned by this presentation throws'
@@ -416,8 +412,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a lifted picture stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('image')
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
 		const picIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		target.importShape(target.slides[0], source.slides[0], picIndex)
 		const errors = await validateBuf(Buffer.from(await target.save()))
@@ -425,8 +421,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a lifted table stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('table')
+		const target = await openFixture('empty')
+		const source = await openFixture('table')
 		const tableIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'graphicFrame' && s.table)
 		target.importShape(target.slides[0], source.slides[0], tableIndex)
 		const errors = await validateBuf(Buffer.from(await target.save()))
@@ -434,8 +430,8 @@ describe('Presentation.importShape', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a lifted chart and group stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('mixed')
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
 		const chartSlide = source.slides.findIndex((s) =>
 			s.shapes.some((sh) => sh.shapeType === 'graphicFrame' && sh.chart)
 		)
@@ -451,8 +447,8 @@ describe('Presentation.importShape', () => {
 
 describe('Presentation.importShape (placeholder lift)', () => {
 	test('preserve demotes a lifted placeholder to a self-contained plain shape', async () => {
-		const source = await open('mixed') // slide 0 shape 0: ctrTitle placeholder, no own geometry
-		const target = await open('mixed') // host slide 0 already has its OWN ctrTitle placeholder
+		const source = await openFixture('mixed') // slide 0 shape 0: ctrTitle placeholder, no own geometry
+		const target = await openFixture('mixed') // host slide 0 already has its OWN ctrTitle placeholder
 		const srcEl = source.slides[0].shapes[0].element_
 		assertEqual(phElements(srcEl).length, 1, 'source shape is a placeholder')
 		assert(!hasXfrm(srcEl), 'source placeholder inherits its geometry (no own a:xfrm)')
@@ -473,8 +469,8 @@ describe('Presentation.importShape (placeholder lift)', () => {
 	})
 
 	test('preserve bakes the placeholder-inherited vertical anchor before demotion', async () => {
-		const source = await open('layout-placeholder-bodypr') // slide 0 shape 0: title, inherits anchor "b"
-		const target = await open('layout-placeholder-bodypr')
+		const source = await openFixture('layout-placeholder-bodypr') // slide 0 shape 0: title, inherits anchor "b"
+		const target = await openFixture('layout-placeholder-bodypr')
 		assertEqual(source.slides[0].shapes[0].textFrame.resolvedAnchor, 'b', 'source title inherits a bottom anchor')
 
 		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
@@ -484,8 +480,8 @@ describe('Presentation.importShape (placeholder lift)', () => {
 	})
 
 	test('preserve bakes the inherited list style so demotion keeps bullets/indent', async () => {
-		const source = await open('multi-theme') // slide 1 shape 1: body placeholder, empty own lstStyle
-		const target = await open('multi-theme')
+		const source = await openFixture('multi-theme') // slide 1 shape 1: body placeholder, empty own lstStyle
+		const target = await openFixture('multi-theme')
 		assertEqual(
 			lstStyleLevels(source.slides[1].shapes[1].element_).length,
 			0,
@@ -499,7 +495,7 @@ describe('Presentation.importShape (placeholder lift)', () => {
 
 	test('preserve leaves an already-anchored placeholder bodyPr untouched (not overwritten by the inherited anchor)', async () => {
 		const source = await Presentation.load(await deckBodyPrOwnAnchor())
-		const target = await open('layout-placeholder-bodypr')
+		const target = await openFixture('layout-placeholder-bodypr')
 		const shape = target.importShape(target.slides[0], source.slides[0], 1, { theme: 'preserve' }) // body placeholder, idx 1
 		const bodyPr = shape.element_.getElementsByTagNameNS(A_NS, 'bodyPr')[0]
 		assert(bodyPr && bodyPr.getAttribute('anchor') === 't', "the shape's own anchor is kept, not the inherited 'ctr'")
@@ -508,7 +504,7 @@ describe('Presentation.importShape (placeholder lift)', () => {
 
 	test('preserve inserts a fresh a:lstStyle when the lifted placeholder txBody carries none', async () => {
 		const source = await Presentation.load(await deckNoLstStyleElement())
-		const target = await open('multi-theme')
+		const target = await openFixture('multi-theme')
 		const before = source.slides[1].shapes[1].element_.getElementsByTagNameNS(A_NS, 'lstStyle').length
 		assertEqual(before, 0, 'the source txBody carries no a:lstStyle element at all')
 
@@ -517,15 +513,15 @@ describe('Presentation.importShape (placeholder lift)', () => {
 	})
 
 	test('restyle keeps the placeholder identity (no demotion, so it re-brands)', async () => {
-		const source = await open('mixed')
-		const target = await open('mixed')
+		const source = await openFixture('mixed')
+		const target = await openFixture('mixed')
 		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'restyle' })
 		assertEqual(phElements(shape.element_).length, 1, 'restyle leaves p:ph intact to re-resolve against the host theme')
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a lifted+demoted placeholder stays schema-valid', async () => {
-		const source = await open('mixed')
-		const target = await open('mixed')
+		const source = await openFixture('mixed')
+		const target = await openFixture('mixed')
 		target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -538,8 +534,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	const near = (got, want, label) => assert(Math.abs(got - want) <= 2, `${label}: ${got} ≈ ${want}`)
 
 	test("'fit' scales the lifted shape uniformly and centers the slack", async () => {
-		const target = await open('mixed') // 4:3
-		const source = await open('image') // 16:9
+		const target = await openFixture('mixed') // 4:3
+		const source = await openFixture('image') // 16:9
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		const src = source.slides[0].shapes[idx].absoluteFrame
 
@@ -551,8 +547,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test("'stretch' scales each axis independently (height holds when only width differs)", async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		const src = source.slides[0].shapes[idx].absoluteFrame
 
@@ -563,8 +559,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test('true is an alias for fit', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		const src = source.slides[0].shapes[idx].absoluteFrame
 
@@ -574,8 +570,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test('explicit left/width overrides win over rescale', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 
 		const shape = target.importShape(target.slides[0], source.slides[0], idx, {
@@ -588,8 +584,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test('scales a lifted table grid (gridCol@w, tr@h)', async () => {
-		const target = await open('mixed') // 4:3
-		const source = await open('table') // 16:9
+		const target = await openFixture('mixed') // 4:3
+		const source = await openFixture('table') // 16:9
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'graphicFrame' && s.table)
 		assert(idx >= 0, 'source slide has a table')
 		const srcCols = gridColWidths(source.slides[0].shapes[idx].element_)
@@ -604,8 +600,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test('still throws on a size mismatch when rescale is not requested', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		assert(
 			throws(() => target.importShape(target.slides[0], source.slides[0], 0)),
 			'a size mismatch without rescale throws'
@@ -613,8 +609,8 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a rescaled lifted shape stays schema-valid', async () => {
-		const target = await open('mixed')
-		const source = await open('image')
+		const target = await openFixture('mixed')
+		const source = await openFixture('image')
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'fit' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
@@ -631,7 +627,7 @@ describe('Presentation.importShape({ rescale })', () => {
 		// passes must skip the shape — while the demotion that makes it a plain shape
 		// still runs.
 		const source = await Presentation.load(await deckMixedPlaceholderNoTxBody())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const shape = target.importShape(target.slides[0], source.slides[0], 1, { theme: 'preserve' })
 		const el = shape.element_
 
@@ -656,7 +652,7 @@ describe('Presentation.importShape({ rescale })', () => {
 		// `a:lstStyle` behind — an empty one would override the destination defaults with
 		// nothing, which is not the same as inheriting them.
 		const source = await Presentation.load(await deckMixedInheritsNothing())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const orphan = target.importShape(target.slides[0], source.slides[0], 2, { theme: 'preserve' })
 		const title = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 
@@ -679,7 +675,7 @@ describe('Presentation.importShape({ rescale })', () => {
 		// so a lifted placeholder must come across exactly as authored — and still be
 		// demoted, since it has nothing left to inherit from anywhere.
 		const source = await Presentation.load(await deckMixedSlideNoLayoutRel())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 		const el = shape.element_
 
@@ -695,7 +691,7 @@ describe('Presentation.importShape({ rescale })', () => {
 		// the master `p:txStyles` below it do not. The list-style bake must take what the
 		// layout defines rather than bailing out because a lower tier is missing.
 		const source = await Presentation.load(await deckMixedLayoutNoMasterRel())
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 		const el = shape.element_
 
@@ -709,7 +705,7 @@ describe('Presentation.importShape({ rescale })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('lifted degenerate placeholders stay schema-valid', async () => {
-		const target = await open('mixed')
+		const target = await openFixture('mixed')
 		const noTxBody = await Presentation.load(await deckMixedPlaceholderNoTxBody())
 		target.importShape(target.slides[0], noTxBody.slides[0], 1, { theme: 'preserve' })
 		const bare = await Presentation.load(await deckMixedInheritsNothing())

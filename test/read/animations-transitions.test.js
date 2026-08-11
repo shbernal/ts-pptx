@@ -14,19 +14,11 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture, readOracle } from './corpus.js'
 import { partBodies, assertUnchangedExcept } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
-
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
-async function loadOracle(name) {
-	return JSON.parse(await readFile(path.join(__dirname, 'fixtures', `${name}.oracle.json`), 'utf8'))
-}
 
 async function slidePartXml(pptxBytes, slideNumber) {
 	const zip = await JSZip.loadAsync(pptxBytes)
@@ -35,8 +27,8 @@ async function slidePartXml(pptxBytes, slideNumber) {
 
 describe('slide.transition (read)', () => {
 	test('decodes every PowerPoint-authored transition form', async () => {
-		const oracle = await loadOracle('slide-transition')
-		const pres = await open('slide-transition')
+		const oracle = await readOracle('slide-transition')
+		const pres = await openFixture('slide-transition')
 		for (const expected of oracle.slides) {
 			const slide = pres.slides[expected.slide - 1]
 			const info = slide.transition
@@ -66,7 +58,7 @@ describe('slide.transition (read)', () => {
 
 describe('slide.transition (write/edit)', () => {
 	test('sets a bare transition when no duration is given', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		pres.slides[0].transition = { type: 'wipe', speed: 'med', variant: { dir: 'u' } }
 		const saved = await pres.save()
 		const xml = await slidePartXml(saved, 1)
@@ -82,7 +74,7 @@ describe('slide.transition (write/edit)', () => {
 	})
 
 	test('sets the mc:AlternateContent form when durationMs is given', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		pres.slides[2].transition = { type: 'dissolve', durationMs: 2000, speed: 'slow' }
 		const saved = await pres.save()
 		const xml = await slidePartXml(saved, 3)
@@ -98,14 +90,14 @@ describe('slide.transition (write/edit)', () => {
 	})
 
 	test('derives a speed bucket from durationMs when speed is omitted', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		pres.slides[0].transition = { type: 'fade', durationMs: 1500 }
 		const reopened = await Presentation.load(await pres.save())
 		assert.equal(reopened.slides[0].transition.speed, 'slow')
 	})
 
 	test('round-trips advTm / advClick auto-advance', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		pres.slides[0].transition = { type: 'fade', speed: 'med', advanceOnClick: false, advanceAfterMs: 3000 }
 		const reopened = await Presentation.load(await pres.save())
 		const info = reopened.slides[0].transition
@@ -114,7 +106,7 @@ describe('slide.transition (write/edit)', () => {
 	})
 
 	test('assigning null clears the transition', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		pres.slides[0].transition = null
 		const saved = await pres.save()
 		const xml = await slidePartXml(saved, 1)
@@ -126,23 +118,23 @@ describe('slide.transition (write/edit)', () => {
 
 describe('slide animations (opaque, spid-aware)', () => {
 	test('hasAnimations + animationSpids on the basic fixture', async () => {
-		const oracle = await loadOracle('slide-animation-basic')
-		const pres = await open('slide-animation-basic')
+		const oracle = await readOracle('slide-animation-basic')
+		const pres = await openFixture('slide-animation-basic')
 		const slide = pres.slides[0]
 		assert.equal(slide.hasAnimations, true)
 		assert.deepEqual(slide.animationSpids(), oracle.animationSpids)
 	})
 
 	test('hasAnimations + animationSpids on the rich fixture', async () => {
-		const oracle = await loadOracle('slide-animation-rich')
-		const pres = await open('slide-animation-rich')
+		const oracle = await readOracle('slide-animation-rich')
+		const pres = await openFixture('slide-animation-rich')
 		const slide = pres.slides[0]
 		assert.equal(slide.hasAnimations, true)
 		assert.deepEqual(slide.animationSpids(), oracle.animationSpids)
 	})
 
 	test('an unanimated fixture reports no animations', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		assert.equal(pres.slides[0].hasAnimations, false)
 		assert.deepEqual(pres.slides[0].animationSpids(), [])
 	})
@@ -156,7 +148,7 @@ describe('slide animations (opaque, spid-aware)', () => {
 	})
 
 	test('remapAnimationSpids rewrites every spTgt and bldP reference', async () => {
-		const pres = await open('slide-animation-rich')
+		const pres = await openFixture('slide-animation-rich')
 		const slide = pres.slides[0]
 		slide.remapAnimationSpids(
 			new Map([
@@ -173,7 +165,7 @@ describe('slide animations (opaque, spid-aware)', () => {
 	})
 
 	test('pruneAnimationSpids drops one shape, leaving the others coherent', async () => {
-		const pres = await open('slide-animation-rich')
+		const pres = await openFixture('slide-animation-rich')
 		const slide = pres.slides[0]
 		slide.pruneAnimationSpids([3])
 		assert.deepEqual(slide.animationSpids(), [2, 4, 5])
@@ -182,7 +174,7 @@ describe('slide animations (opaque, spid-aware)', () => {
 	})
 
 	test('pruning a click-effect collapses its emptied wrapper', async () => {
-		const pres = await open('slide-animation-rich')
+		const pres = await openFixture('slide-animation-rich')
 		const slide = pres.slides[0]
 		slide.pruneAnimationSpids([2])
 		assert.deepEqual(slide.animationSpids(), [3, 4, 5])
@@ -191,7 +183,7 @@ describe('slide animations (opaque, spid-aware)', () => {
 
 describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
 	test('strips the whole timing block, leaving every shape in place', async () => {
-		const pres = await open('slide-animation-rich')
+		const pres = await openFixture('slide-animation-rich')
 		const slide = pres.slides[0]
 		const shapeCountBefore = slide.shapes.length
 		assert.equal(slide.hasAnimations, true)
@@ -211,7 +203,7 @@ describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
 	})
 
 	test('flattening the basic fixture clears its animations', async () => {
-		const pres = await open('slide-animation-basic')
+		const pres = await openFixture('slide-animation-basic')
 		const slide = pres.slides[0]
 		assert.equal(slide.flattenAnimations(), true)
 		assert.equal(slide.hasAnimations, false)
@@ -219,14 +211,14 @@ describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
 	})
 
 	test('is a no-op on an unanimated slide and is idempotent', async () => {
-		const pres = await open('slide-transition')
+		const pres = await openFixture('slide-transition')
 		const slide = pres.slides[0]
 		assert.equal(slide.hasAnimations, false)
 		assert.equal(slide.flattenAnimations(), false, 'nothing to flatten')
 		// the slide-show transition is untouched by an animation flatten
 		assert.notEqual(slide.transition, null)
 
-		const rich = (await open('slide-animation-rich')).slides[0]
+		const rich = (await openFixture('slide-animation-rich')).slides[0]
 		assert.equal(rich.flattenAnimations(), true)
 		assert.equal(rich.flattenAnimations(), false, 'second call is a no-op')
 	})
@@ -240,14 +232,14 @@ describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
 
 describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
 	test('hasAnimations + animationSpids match the oracle', async () => {
-		const oracle = await loadOracle('slide-animation-presets')
-		const slide = (await open('slide-animation-presets')).slides[0]
+		const oracle = await readOracle('slide-animation-presets')
+		const slide = (await openFixture('slide-animation-presets')).slides[0]
 		assert.equal(slide.hasAnimations, true)
 		assert.deepEqual(slide.animationSpids(), oracle.animationSpids)
 	})
 
 	test('every preset template appears verbatim in the slide', async () => {
-		const oracle = await loadOracle('slide-animation-presets')
+		const oracle = await readOracle('slide-animation-presets')
 		const xml = await slidePartXml(await readFile(fixturePath('slide-animation-presets')), 1)
 		for (const [name, t] of Object.entries(oracle.presetTemplates)) {
 			assert.ok(xml.includes(t.effectParXml), `${name} effect node present verbatim`)
@@ -266,8 +258,8 @@ describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
 
 describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 	test('decodes the fade transition on every slide', async () => {
-		const oracle = await loadOracle('slide-transition-sound')
-		const pres = await open('slide-transition-sound')
+		const oracle = await readOracle('slide-transition-sound')
+		const pres = await openFixture('slide-transition-sound')
 		for (const s of oracle.slides) {
 			const info = pres.slides[s.slide - 1].transition
 			assert.ok(info, `slide ${s.slide} has a transition`)
@@ -284,7 +276,7 @@ describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 	})
 
 	test('sndAc + audio rel graph appear verbatim in the package', async () => {
-		const oracle = await loadOracle('slide-transition-sound')
+		const oracle = await readOracle('slide-transition-sound')
 		const bytes = await readFile(fixturePath('slide-transition-sound'))
 		const zip = await JSZip.loadAsync(bytes)
 		for (const s of oracle.slides) {
@@ -310,22 +302,22 @@ describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 
 describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
 	test('enumerates spids on both slides per the oracle', async () => {
-		const oracle = await loadOracle('import-animation-merge')
-		const pres = await open('import-animation-merge')
+		const oracle = await readOracle('import-animation-merge')
+		const pres = await openFixture('import-animation-merge')
 		assert.deepEqual(pres.slides[0].animationSpids(), oracle.source.animationSpids)
 		assert.deepEqual(pres.slides[1].animationSpids(), oracle.merged.animationSpids)
 	})
 
 	test('the merged slide matches the oracle timing verbatim', async () => {
-		const oracle = await loadOracle('import-animation-merge')
+		const oracle = await readOracle('import-animation-merge')
 		const xml = await slidePartXml(await readFile(fixturePath('import-animation-merge')), 2)
 		assert.ok(xml.includes(oracle.merged.timingXml), 'merged timing tree present verbatim')
 		assert.ok(xml.includes(oracle.merged.bldList.xml), 'merged bldLst present verbatim')
 	})
 
 	test('remapAnimationSpids stays coherent across the merged build', async () => {
-		const oracle = await loadOracle('import-animation-merge')
-		const pres = await open('import-animation-merge')
+		const oracle = await readOracle('import-animation-merge')
+		const pres = await openFixture('import-animation-merge')
 		const slide = pres.slides[1]
 		// Apply the oracle's spid remap (host stays, carried 2->3 simulated as a shift).
 		slide.remapAnimationSpids(
@@ -359,16 +351,16 @@ describe('importShape carryAnimation (Phase 2 capability A)', () => {
 	}
 
 	test('drops animation by default (opt-in only)', async () => {
-		const target = await open('slide-transition')
-		const source = await open('slide-animation-basic')
+		const target = await openFixture('slide-transition')
+		const source = await openFixture('slide-animation-basic')
 		target.importShape(target.slides[0], source.slides[0], 0, { theme: 'copy' })
 		assert.equal(target.slides[0].hasAnimations, false, 'no animation carried without the flag')
 	})
 
 	test('appends the carried build after the host build, remapped to the new spid', async () => {
 		// Host already animates spids 2..5; the lifted basic shape takes the next id (6).
-		const target = await open('slide-animation-rich')
-		const source = await open('slide-animation-basic')
+		const target = await openFixture('slide-animation-rich')
+		const source = await openFixture('slide-animation-basic')
 		const slide = target.slides[0]
 		const newSpid = slide.nextShapeId()
 		target.importShape(slide, source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
@@ -394,8 +386,8 @@ describe('importShape carryAnimation (Phase 2 capability A)', () => {
 	test('creates a fresh timing scaffold when the host has no animation', async () => {
 		// Target slide carries a transition but no animation; carry must build the
 		// tmRoot/mainSeq/bldLst scaffold and leave the transition intact.
-		const target = await open('slide-transition')
-		const source = await open('slide-animation-basic')
+		const target = await openFixture('slide-transition')
+		const source = await openFixture('slide-animation-basic')
 		const slide = target.slides[0]
 		assert.equal(slide.hasAnimations, false)
 		const newSpid = slide.nextShapeId()
@@ -411,8 +403,8 @@ describe('importShape carryAnimation (Phase 2 capability A)', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('the carried package stays schema-valid', async () => {
-		const target = await open('slide-animation-rich')
-		const source = await open('slide-animation-basic')
+		const target = await openFixture('slide-animation-rich')
+		const source = await openFixture('slide-animation-basic')
 		target.importShape(target.slides[0], source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assert.equal(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

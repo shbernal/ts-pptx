@@ -10,17 +10,13 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 describe('Slide.addTextBox', () => {
 	test('appends a text box that reloads with its text and geometry', async () => {
-		const presentation = await open('empty')
+		const presentation = await openFixture('empty')
 		const before = presentation.slides[0].shapes.length
 		const box = presentation.slides[0].addTextBox({
 			text: 'Hello',
@@ -44,7 +40,7 @@ describe('Slide.addTextBox', () => {
 	})
 
 	test('allocates a drawing id unique within the slide', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const slide = presentation.slides[0]
 		const existingIds = new Set(slide.shapes.map((shape) => shape.id))
 		const box = slide.addTextBox({ text: 'x', left: 0, top: 0, width: 100000, height: 100000 })
@@ -53,7 +49,7 @@ describe('Slide.addTextBox', () => {
 	})
 
 	test('rejects non-positive or non-finite geometry', async () => {
-		const slide = (await open('empty')).slides[0]
+		const slide = (await openFixture('empty')).slides[0]
 		const base = { left: 0, top: 0, width: 100000, height: 100000 }
 		assert(
 			throws(() => slide.addTextBox({ ...base, width: 0 })),
@@ -83,7 +79,7 @@ describe('Slide.addTextBox', () => {
 
 describe('Shape.delete', () => {
 	test('removes a shape and the removal survives a reload', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const slide = presentation.slides[0]
 		const before = slide.shapes.length
 		const target = slide.shapes.find((shape) => shape.name === 'replaceText')
@@ -99,7 +95,7 @@ describe('Shape.delete', () => {
 
 describe('schema validity of structural edits', () => {
 	test.skipIf(!validatorInstalled)('add + delete stays schema-valid', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const slide = presentation.slides[0]
 		slide.addTextBox({ text: 'Added', left: 914400, top: 914400, width: 1828800, height: 685800 })
 		slide.shapes.find((shape) => shape.name === 'replaceText')?.delete()

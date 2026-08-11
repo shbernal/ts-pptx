@@ -17,7 +17,7 @@ import TsPptx from '../../dist/node.js'
 import { Presentation, OpcPackage } from '../../dist/read.js'
 import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { FIXTURES, fixturePath } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await validatorAvailable()
@@ -165,8 +165,8 @@ describe('3D model: ts-pptx-authored', () => {
 		const pptx = new TsPptx()
 		pptx.layout = 'LAYOUT_WIDE'
 		pptx.addSlide().addModel3d({
-			path: path.join(__dirname, 'fixtures', 'authoring', 'assets', 'cube.glb'),
-			preview: { path: path.join(__dirname, 'fixtures', 'media', 'poster.png') },
+			path: path.join(FIXTURES, 'authoring', 'assets', 'cube.glb'),
+			preview: { path: path.join(FIXTURES, 'media', 'poster.png') },
 			x: 1,
 			y: 1,
 			w: 4,
@@ -246,8 +246,8 @@ describe('3D model: ts-pptx-authored', () => {
 		const pptx = new TsPptx()
 		pptx.layout = 'LAYOUT_WIDE'
 		pptx.addSlide().addModel3d({
-			path: path.join(__dirname, 'fixtures', 'authoring', 'assets', 'cube.glb'),
-			preview: { path: path.join(__dirname, 'fixtures', 'media', 'poster.png') },
+			path: path.join(FIXTURES, 'authoring', 'assets', 'cube.glb'),
+			preview: { path: path.join(FIXTURES, 'media', 'poster.png') },
 			x: 1,
 			y: 1,
 			w: 4,

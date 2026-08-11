@@ -15,7 +15,7 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
@@ -24,13 +24,9 @@ const PNG_1X1 = new Uint8Array(
 	Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 )
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 describe('shape addressing', () => {
 	test('shapeByName and shapeById resolve the same shape', async () => {
-		const slide = (await open('textbox')).slides[0]
+		const slide = (await openFixture('textbox')).slides[0]
 		const byName = slide.shapeByName('replaceText')
 		assert(byName, 'shapeByName finds the textbox')
 		const byId = slide.shapeById(byName.id)
@@ -40,7 +36,7 @@ describe('shape addressing', () => {
 	})
 
 	test('placeholder(type, idx?) targets master/layout placeholders', async () => {
-		const slide = (await open('mixed')).slides[0]
+		const slide = (await openFixture('mixed')).slides[0]
 		const title = slide.placeholder('ctrTitle')
 		assert(title, 'finds the centre-title placeholder')
 		assertEqual(title.name, 'Titre 1', 'ctrTitle is the expected shape')
@@ -53,14 +49,14 @@ describe('shape addressing', () => {
 	})
 
 	test('non-placeholder shapes report a null placeholder', async () => {
-		const slide = (await open('textbox')).slides[0]
+		const slide = (await openFixture('textbox')).slides[0]
 		assertEqual(slide.shapeByName('replaceText').placeholder, null, 'a plain text box is not a placeholder')
 	})
 })
 
 describe('whole-text-frame text swap', () => {
 	test('Shape.text collapses to one run, preserving the first run formatting, and reloads', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const shape = presentation.slides[0].shapeByName('replaceText')
 		shape.text = 'BRAND NEW TEXT'
 
@@ -76,21 +72,21 @@ describe('whole-text-frame text swap', () => {
 	})
 
 	test('TextFrame.text behaves identically to Shape.text', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		presentation.slides[0].shapeByName('replaceText').textFrame.text = 'VIA FRAME'
 		const reopened = await Presentation.load(await presentation.save())
 		assertEqual(reopened.slides[0].shapeByName('replaceText').text, 'VIA FRAME', 'textFrame.text reloads')
 	})
 
 	test('placeholder text can be replaced in place', async () => {
-		const presentation = await open('mixed')
+		const presentation = await openFixture('mixed')
 		presentation.slides[0].placeholder('ctrTitle').text = 'Replaced Title'
 		const reopened = await Presentation.load(await presentation.save())
 		assertEqual(reopened.slides[0].placeholder('ctrTitle').text, 'Replaced Title', 'placeholder title reloads')
 	})
 
 	test('Shape.text throws on a shape with no text frame', async () => {
-		const picture = (await open('image')).slides[0].shapeByName('Grafik 5')
+		const picture = (await openFixture('image')).slides[0].shapeByName('Grafik 5')
 		assert(picture, 'fixture has the picture')
 		assert(
 			throws(() => {
@@ -103,7 +99,7 @@ describe('whole-text-frame text swap', () => {
 
 describe('targeted run edit preserves sibling run formatting', () => {
 	test('replacing one run leaves its siblings (italic/bold) untouched', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const frame = presentation.slides[0].shapeByName('replaceText').textFrame
 		// Para 2 holds the "{{replace}}" run (16pt) among differently-formatted siblings.
 		const para = frame.paragraphs[2]
@@ -167,7 +163,7 @@ describe('acceptance: target a shape, swap text + image, untouched parts byte-st
 	})
 
 	test.skipIf(!validatorInstalled)('the edited deck stays schema-valid', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const slide = presentation.slides[0]
 		slide.shapeByName('Textfeld 1').text = 'swapped caption'
 		const grafik = slide.shapeByName('Grafik 5')

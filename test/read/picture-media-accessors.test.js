@@ -12,22 +12,18 @@
 // The 'both' (raster+SVG) and plain 'raster' mediaKind cases live in
 // style-accessors.test.js against image.pptx.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
-import { Presentation, Picture } from '../../dist/read.js'
+import { Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 /** Flatten a shape list, descending into groups. */
 function allShapes(shapes) {
@@ -51,13 +47,13 @@ function pictureFromXml(innerXml) {
 
 describe('Picture media accessors (picture-media.pptx)', () => {
 	test('mediaKind reports svg for an SVG-only picture and raster for a plain one', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		assertEqual(named(slide, 'SvgPic').mediaKind, 'svg', 'a blip with only asvg:svgBlip is svg-only')
 		assertEqual(named(slide, 'CroppedPic').mediaKind, 'raster', 'a blip with only r:embed is raster')
 	})
 
 	test('mediaPartName falls back to the SVG part when there is no raster', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		const svgPic = named(slide, 'SvgPic')
 		assertEqual(svgPic.imagePartName, null, 'an SVG-only picture has no raster part')
 		const part = svgPic.mediaPartName
@@ -66,7 +62,7 @@ describe('Picture media accessors (picture-media.pptx)', () => {
 	})
 
 	test('crop reads a:srcRect as per-edge fractions', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		const crop = named(slide, 'CroppedPic').crop
 		assert(crop, 'the cropped picture reports a crop')
 		// srcRect l="41666" t="27778" r="20833" b="13889" (thousandths of a percent).
@@ -77,21 +73,21 @@ describe('Picture media accessors (picture-media.pptx)', () => {
 	})
 
 	test('crop is null when the picture has no a:srcRect', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		assertEqual(named(slide, 'SvgPic').crop, null, 'an uncropped picture reports null')
 	})
 })
 
 describe('Shape accessibility accessors (picture-media.pptx)', () => {
 	test('description reads p:cNvPr/@descr and null when unset', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		assertEqual(named(slide, 'CroppedPic').description, 'A cropped stopwatch photo', 'alt text on a picture')
 		assertEqual(named(slide, 'DescRect').description, 'A described rectangle', 'alt text on an autoshape')
 		assertEqual(named(slide, 'DecoRect').description, null, 'a decorative shape has no description')
 	})
 
 	test('description is settable and clearable', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		const shape = named(slide, 'DescRect')
 		shape.description = 'Reworded alt text'
 		assertEqual(shape.description, 'Reworded alt text', 'the setter updates @descr')
@@ -100,14 +96,14 @@ describe('Shape accessibility accessors (picture-media.pptx)', () => {
 	})
 
 	test('isDecorative reflects the adec:decorative extension', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		assertEqual(named(slide, 'DecoRect').isDecorative, true, 'the marked shape reads decorative')
 		assertEqual(named(slide, 'DescRect').isDecorative, false, 'a described shape is not decorative')
 		assertEqual(named(slide, 'CroppedPic').isDecorative, false, 'a picture with alt text is not decorative')
 	})
 
 	test('title is null when no @title is present (modern PowerPoint omits it)', async () => {
-		const slide = (await open('picture-media')).slides[0]
+		const slide = (await openFixture('picture-media')).slides[0]
 		for (const name of ['SvgPic', 'CroppedPic', 'DecoRect', 'DescRect']) {
 			assertEqual(named(slide, name).title, null, `${name} has no @title`)
 		}

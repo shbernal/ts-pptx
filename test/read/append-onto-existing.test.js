@@ -16,7 +16,7 @@ import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { bytesEqual, PNG_1X1, assert, assertEqual, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { FIXTURES, fixturePath } from './corpus.js'
 import { resolveSingle } from './opc.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -56,7 +56,7 @@ function typeOfRid(opc, partName, rId) {
 }
 
 async function mediaFixture(name) {
-	const buf = await readFile(path.join(__dirname, 'fixtures', 'media', name))
+	const buf = await readFile(path.join(FIXTURES, 'media', name))
 	return buf.toString('base64')
 }
 

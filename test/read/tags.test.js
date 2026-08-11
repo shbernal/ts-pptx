@@ -5,18 +5,14 @@
 // empty-owner → [] case. There is no writer for tags, so a fixture is the only
 // source (unlike the document-properties round-trip).
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function openFixture(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 /** Render a tag list as "name=val,name=val" for order-preserving equality. */
 function flatten(tags) {

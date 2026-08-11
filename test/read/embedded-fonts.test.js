@@ -5,19 +5,15 @@
 // leaves the deck unchanged. Oracle: test/read/fixtures/embedded-fonts.pptx
 // (PowerPoint-authored) + embedded-fonts.oracle.json.
 
-import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+
 import { assert, assertEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
 async function entries(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
 	return zip
@@ -25,8 +21,8 @@ async function entries(pptxBytes) {
 
 describe('Presentation.importSlide({ embedFonts })', () => {
 	test('carries font parts, content-type Default, rels, and a merged embeddedFontLst', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlide(source, 0, { embedFonts: true })
 
 		const zip = await entries(await target.save())
@@ -68,8 +64,8 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 	})
 
 	test('is idempotent: importing the same slide twice carries each face once', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlide(source, 0, { embedFonts: true })
 		target.importSlide(source, 0, { embedFonts: true })
 
@@ -88,8 +84,8 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 	})
 
 	test('default (flag off) carries no fonts — unchanged behaviour', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlide(source, 0)
 
 		const zip = await entries(await target.save())
@@ -99,8 +95,8 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with carried embedded fonts stays schema-valid', async () => {
-		const target = await open('empty')
-		const source = await open('embedded-fonts')
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
 		target.importSlide(source, 0, { embedFonts: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

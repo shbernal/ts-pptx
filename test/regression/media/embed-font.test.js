@@ -13,9 +13,10 @@ import JSZip from 'jszip'
 import { describe, test, beforeAll } from 'vitest'
 import TsPptx from '../../../dist/node.js'
 import { assert, assertEqual } from '../../helpers.js'
+import { FIXTURES } from '../../read/corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const fontsDir = path.join(__dirname, '..', '..', 'read', 'fixtures', 'fonts')
+const fontsDir = path.join(FIXTURES, 'fonts')
 
 let regular
 let bold

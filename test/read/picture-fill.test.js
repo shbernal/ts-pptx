@@ -24,7 +24,6 @@
 // the package, so the write side emits `tableStyles.xml` as a bare stub and cannot
 // define a style for the read side to resolve. See `authorReadWithFixtureStyles`.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
@@ -32,6 +31,7 @@ import JSZip from 'jszip'
 import { Presentation } from '../../dist/read.js'
 import { TableStyle } from '../../dist/node.js'
 import { PNG_1X1, assert, assertEqual } from '../helpers.js'
+import { openFixture, readFixture } from './corpus.js'
 import {
 	authorRead,
 	authorReadWithFixtureStyles,
@@ -42,10 +42,6 @@ import {
 } from './authored.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function openFixture(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 function tableOf(presentation) {
 	for (const slide of presentation.slides) {
@@ -146,7 +142,7 @@ describe('TableCell.pictureFill — a:tcPr/a:blipFill (PowerPoint oracle)', () =
  * traverses it either way.
  */
 async function unwrappedFallbackShape() {
-	const buf = await readFile(path.join(__dirname, 'fixtures', 'math-omml.pptx'))
+	const buf = await readFixture('math-omml')
 	const zip = await JSZip.loadAsync(buf)
 	const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
 	const unwrapped = slideXml.replace(

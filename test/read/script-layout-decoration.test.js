@@ -45,10 +45,10 @@ import {
 	LAYOUT_NOTE_PREFIX,
 } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { FIXTURES } from './corpus.js'
 
 const run = promisify(execFile)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = path.join(__dirname, 'fixtures')
 const REPO = path.join(__dirname, '..', '..')
 // Inside the repo: an emitted script imports this package by its published name, which Node
 // resolves by the self-reference rule only from a path under the package root.

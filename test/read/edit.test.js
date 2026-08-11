@@ -10,17 +10,13 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 /** Open a fixture, mutate it via `edit`, then reopen the saved bytes. */
 async function editAndReopen(name, edit) {
-	const presentation = await open(name)
+	const presentation = await openFixture(name)
 	await edit(presentation)
 	const saved = await presentation.save()
 	return { presentation, saved, reopened: await Presentation.load(saved) }
@@ -109,7 +105,7 @@ describe('Run font properties', () => {
 	})
 
 	test('rejects a non-positive font size and a malformed colour', async () => {
-		const run = replaceTextShape(await open('textbox')).textFrame.paragraphs[0].runs[0]
+		const run = replaceTextShape(await openFixture('textbox')).textFrame.paragraphs[0].runs[0]
 		assert(
 			throws(() => (run.fontSizePt = 0)),
 			'fontSizePt = 0 should throw'
@@ -142,7 +138,7 @@ describe('Shape geometry editing', () => {
 	})
 
 	test('rounds fractional EMU and rejects NaN / negative extents', async () => {
-		const shape = replaceTextShape(await open('textbox'))
+		const shape = replaceTextShape(await openFixture('textbox'))
 		shape.left = 100.6
 		assertEqual(shape.left, 101, 'fractional EMU is rounded')
 		assert(
@@ -190,7 +186,7 @@ describe('Slide.hidden editing', () => {
 	})
 
 	test('toggling hidden marks only the owning slide part dirty', async () => {
-		const presentation = await open('textbox')
+		const presentation = await openFixture('textbox')
 		const inputBodies = await partBodies(await presentation.save())
 		presentation.slides[1].hidden = true
 		const outputBodies = await partBodies(await presentation.save())

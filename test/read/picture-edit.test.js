@@ -12,7 +12,7 @@ import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixturePath } from './corpus.js'
+import { fixturePath, openFixture } from './corpus.js'
 
 const validatorInstalled = await validatorAvailable()
 
@@ -21,13 +21,9 @@ const PNG_1X1 = new Uint8Array(
 	Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 )
 
-async function open(name) {
-	return Presentation.load(await readFile(fixturePath(name)))
-}
-
 describe('Slide.addPicture', () => {
 	test('adds a media part, relationship, and p:pic that reload correctly', async () => {
-		const presentation = await open('empty')
+		const presentation = await openFixture('empty')
 		const slide = presentation.slides[0]
 		const picture = slide.addPicture(PNG_1X1, {
 			left: 914400,
@@ -75,7 +71,7 @@ describe('Slide.addPicture', () => {
 	})
 
 	test('reserveMediaPartName does not collide with an existing image', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const slide =
 			presentation.slides.find((s) => s.shapes.some((shape) => shape.shapeType === 'picture')) ?? presentation.slides[0]
 		const before = new Set(presentation.opc.parts.keys())
@@ -93,7 +89,7 @@ describe('Slide.addPicture', () => {
 	})
 
 	test('throws when the image type cannot be determined', async () => {
-		const slide = (await open('empty')).slides[0]
+		const slide = (await openFixture('empty')).slides[0]
 		const notAnImage = new Uint8Array([1, 2, 3, 4])
 		assert(
 			throws(() => slide.addPicture(notAnImage, { left: 0, top: 0, width: 100000, height: 100000 })),
@@ -102,7 +98,7 @@ describe('Slide.addPicture', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with an added picture stays schema-valid', async () => {
-		const presentation = await open('empty')
+		const presentation = await openFixture('empty')
 		presentation.slides[0].addPicture(PNG_1X1, { left: 914400, top: 457200, width: 1828800, height: 1828800 })
 		const errors = await validateBuf(Buffer.from(await presentation.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -111,7 +107,7 @@ describe('Slide.addPicture', () => {
 
 describe('Picture.setImage', () => {
 	test('mints a new media part, repoints the blip, and leaves the old part untouched', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const slide = presentation.slides[0]
 		const picture = slide.shapes.find((shape) => shape.shapeType === 'picture')
 		assert(picture, 'fixture slide 1 has a picture')
@@ -142,7 +138,7 @@ describe('Picture.setImage', () => {
 	})
 
 	test('defaults the media extension from the content type', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
 		picture.setImage(PNG_1X1, { contentType: 'image/gif' })
 		const partName = picture.imagePartName
@@ -151,7 +147,7 @@ describe('Picture.setImage', () => {
 	})
 
 	test('throws when no content type is supplied', async () => {
-		const picture = (await open('image')).slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		const picture = (await openFixture('image')).slides[0].shapes.find((shape) => shape.shapeType === 'picture')
 		assert(
 			throws(() => picture.setImage(PNG_1X1, { contentType: '' })),
 			'empty content type should throw'
@@ -159,7 +155,7 @@ describe('Picture.setImage', () => {
 	})
 
 	test('a sibling picture sharing the old media part is unaffected (copy-on-write)', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		// On fixture slide 2, two pictures embed the same rel (image2.png).
 		const slide = presentation.slides[1]
 		const pictures = slide.shapes.filter((shape) => shape.shapeType === 'picture')
@@ -183,7 +179,7 @@ describe('Picture.setImage', () => {
 	})
 
 	test('imageRelId setter repoints the blip without adding a media part', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		const pictures = presentation.slides[1].shapes.filter((shape) => shape.shapeType === 'picture')
 		const [first, second] = pictures
 		assert(first && second && first.imageRelId !== second.imageRelId, 'two pictures with distinct rels')
@@ -195,7 +191,7 @@ describe('Picture.setImage', () => {
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with a swapped image stays schema-valid', async () => {
-		const presentation = await open('image')
+		const presentation = await openFixture('image')
 		presentation.slides[0].shapes
 			.find((shape) => shape.shapeType === 'picture')
 			.setImage(PNG_1X1, { contentType: 'image/png' })

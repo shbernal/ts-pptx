@@ -55,6 +55,20 @@ export function readFixture(name) {
 	return readFile(fixturePath(name))
 }
 
+/**
+ * A fixture's committed `*.oracle.json` sidecar — what desktop PowerPoint produced for that
+ * deck, recorded by the recipes in `fixtures/authoring/`.
+ *
+ * Both suites that read one hand-built the path, and the write-side copy reached across the
+ * tree for it (`'..', '..', 'read', 'fixtures'`) rather than through `fixturePath`, which has
+ * taken an explicit extension since it was written.
+ *
+ * @param {string} name
+ */
+export async function readOracle(name) {
+	return JSON.parse(await readFile(fixturePath(`${name}.oracle.json`), 'utf8'))
+}
+
 /** Every `.pptx` in the corpus, in a stable order. */
 export const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
 

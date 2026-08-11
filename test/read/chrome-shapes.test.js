@@ -31,19 +31,15 @@
 // of the attribute written via the `element_` hatch; the `true` default is asserted
 // against every fixture slide.
 
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
+import { openFixture } from './corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function open(name) {
-	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
-}
 
 /** The shapes of `host` that are not placeholders — a template's decorative furniture. */
 function decorative(host) {
@@ -52,7 +48,7 @@ function decorative(host) {
 
 describe('SlideMaster.shapes — PowerPoint-authored master furniture (mixed.pptx)', () => {
 	test('returns the whole spTree, placeholders included, in document order', async () => {
-		const master = (await open('mixed')).masters()[0]
+		const master = (await openFixture('mixed')).masters()[0]
 
 		assertEqual(master.shapes.length, 12, 'the master spTree holds twelve shapes')
 		assertEqual(master.placeholders.length, 5, 'five of them carry a p:ph')
@@ -72,7 +68,7 @@ describe('SlideMaster.shapes — PowerPoint-authored master furniture (mixed.ppt
 	})
 
 	test('a master shape carries the paint surface, not only its box', async () => {
-		const master = (await open('mixed')).masters()[0]
+		const master = (await openFixture('mixed')).masters()[0]
 		const band = master.shapes.find((shape) => shape.name === 'Rectangle 7')
 		assert(band, 'the master has a "Rectangle 7" bar')
 
@@ -100,7 +96,7 @@ describe('SlideMaster.shapes — PowerPoint-authored master furniture (mixed.ppt
 	})
 
 	test('placeholders is the same tree, filtered — same elements, same ids', async () => {
-		const master = (await open('mixed')).masters()[0]
+		const master = (await openFixture('mixed')).masters()[0]
 
 		const fromShapes = master.shapes.filter((shape) => shape.placeholder !== null)
 		assertEqual(
@@ -120,7 +116,7 @@ describe('SlideMaster.shapes — PowerPoint-authored master furniture (mixed.ppt
 	})
 
 	test('shapeByIdDeep finds a master shape by drawing id', async () => {
-		const master = (await open('mixed')).masters()[0]
+		const master = (await openFixture('mixed')).masters()[0]
 		assertEqual(master.shapeByIdDeep(1031)?.name, 'Rectangle 7', 'a top-level master shape resolves by id')
 		assertEqual(master.shapeByIdDeep(999999), undefined, 'an id no shape carries resolves to undefined')
 	})
@@ -128,7 +124,7 @@ describe('SlideMaster.shapes — PowerPoint-authored master furniture (mixed.ppt
 
 describe('SlideLayout.shapes — PowerPoint-authored layout furniture', () => {
 	test('a layout group recurses, and its children compose to slide-absolute frames', async () => {
-		const master = (await open('mixed')).masters()[0]
+		const master = (await openFixture('mixed')).masters()[0]
 		const title = master.layouts.find((layout) => layout.name === 'Diapositive de titre')
 		assert(title, 'the title layout reads back')
 
@@ -163,7 +159,7 @@ describe('SlideLayout.shapes — PowerPoint-authored layout furniture', () => {
 	})
 
 	test('decorative text on a layout reads its text frame (read-stress.pptx)', async () => {
-		const pres = await open('read-stress')
+		const pres = await openFixture('read-stress')
 		const quote = pres
 			.masters()
 			.flatMap((master) => master.layouts)
@@ -190,7 +186,7 @@ describe('showMasterSp — whether the master shapes are drawn', () => {
 			['mixed', 'Diapositive de titre'],
 			['read-stress', 'Title Slide'],
 		]) {
-			const layouts = (await open(fixture)).masters().flatMap((master) => master.layouts)
+			const layouts = (await openFixture(fixture)).masters().flatMap((master) => master.layouts)
 			const hidden = layouts.filter((layout) => !layout.showMasterSp)
 			assertEqual(hidden.length, 1, `${fixture}: exactly one layout sets showMasterSp="0"`)
 			assertEqual(hidden[0].name, suppressing, `${fixture}: it is the title layout`)
@@ -203,7 +199,7 @@ describe('showMasterSp — whether the master shapes are drawn', () => {
 
 	test('a slide with no attribute reads true (absent ⇒ shown)', async () => {
 		for (const fixture of ['mixed', 'read-stress', 'textbox']) {
-			const slides = (await open(fixture)).slides
+			const slides = (await openFixture(fixture)).slides
 			assert(
 				slides.length > 0 && slides.every((slide) => slide.showMasterSp),
 				`${fixture}: every slide defaults to showing the master shapes`
@@ -212,7 +208,7 @@ describe('showMasterSp — whether the master shapes are drawn', () => {
 	})
 
 	test('a slide that sets showMasterSp="0" reads false across a round trip', async () => {
-		const pres = await open('mixed')
+		const pres = await openFixture('mixed')
 		const slide = pres.slides[0]
 		slide.element_.setAttribute('showMasterSp', '0')
 		slide.markDirty()
