@@ -765,15 +765,19 @@ export default class PresentationCore {
 	// EXPORT METHODS
 
 	/**
-	 * Export the current Presentation to stream
+	 * Export the current presentation as portable ZIP bytes. Unlike the former
+	 * `stream()` method, this does not imply incremental output or convert the
+	 * archive to a Node `Buffer`: package assembly is synchronous and the returned
+	 * `Uint8Array` works unchanged in Node, browsers, and workers.
 	 * @param {WriteBaseProps} props - output properties
-	 * @returns {Promise<string | ArrayBuffer | Blob | Uint8Array>} file stream
+	 * @returns {Promise<Uint8Array>} complete `.pptx` archive bytes
 	 */
-	async stream(props?: WriteBaseProps): Promise<string | ArrayBuffer | Blob | Uint8Array> {
-		return await writePackage(this.packageSource(), {
+	async toBytes(props?: WriteBaseProps): Promise<Uint8Array> {
+		return (await writePackage(this.packageSource(), {
 			compression: props?.compression,
-			outputType: 'STREAM',
-		})
+			outputType: 'uint8array',
+			onMediaError: props?.onMediaError,
+		})) as Uint8Array
 	}
 
 	/**

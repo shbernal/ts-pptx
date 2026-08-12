@@ -69,7 +69,7 @@ describe('node runtime: image loading over http', () => {
 		const calls = stubFetch({ ok: true, body: PNG_1x1 })
 		const pptx = new TsPptx()
 		pptx.addSlide().addImage({ path: 'https://example.com/pixel.png', x: 1, y: 1, w: 1, h: 1 })
-		const buf = /** @type {Uint8Array} */ (await pptx.stream())
+		const buf = /** @type {Uint8Array} */ (await pptx.toBytes())
 		expect(calls).toEqual(['https://example.com/pixel.png'])
 
 		// The fetched image lands in the package as a media part.
@@ -84,6 +84,6 @@ describe('node runtime: image loading over http', () => {
 		pptx.addSlide().addImage({ path: 'http://example.com/missing.png', x: 1, y: 1, w: 1, h: 1 })
 		// The export wraps loadMedia's "Unable to load image (fetch)" as the cause of a
 		// "Failed to load media …" error; reaching either proves the non-ok fetch branch ran.
-		await expect(pptx.stream()).rejects.toThrow(/Failed to load media .*missing\.png/)
+		await expect(pptx.toBytes()).rejects.toThrow(/Failed to load media .*missing\.png/)
 	})
 })

@@ -31,7 +31,7 @@ function constructs(ir) {
 async function replay(call) {
 	const pres = new TsPptx()
 	pres.addSlide().addTable(call.args[0], call.args[1])
-	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const buf = /** @type {Uint8Array} */ (await pres.toBytes())
 	const zip = await JSZip.loadAsync(buf)
 	return zip.file('ppt/slides/slide1.xml').async('string')
 }

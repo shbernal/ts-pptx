@@ -350,14 +350,11 @@ async function zipPackageParts(
 	for (const part of parts) zip.add(part.path, part.data, { store: part.store })
 
 	const compression = props.compression !== false
-	if (props.outputType === 'STREAM') {
-		// A: stream file
-		return await zip.generate('nodebuffer', { compression })
-	} else if (props.outputType) {
-		// B: Node [fs]: Output type user option or default
+	if (props.outputType) {
+		// A: Output type selected by the caller or runtime adapter.
 		return await zip.generate(props.outputType, { compression })
 	} else {
-		// C: Browser: Output blob as app/ms-pptx
+		// B: Browser/neutral default: output a Blob as app/ms-pptx.
 		return await zip.generate('blob', { compression })
 	}
 }

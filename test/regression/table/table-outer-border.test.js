@@ -200,7 +200,7 @@ defineRegressionSuite('Table outerBorder', [
 						{ ...AT, outerBorder: SOLID }
 					)
 				})
-				const second = /** @type {Uint8Array} */ (await built.pres.stream())
+				const second = /** @type {Uint8Array} */ (await built.pres.toBytes())
 				return { first: await readEntry(built.zip, 'ppt/slides/slide1.xml'), second }
 			})
 

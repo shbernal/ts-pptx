@@ -79,4 +79,16 @@ async function download(name) {
 	return await pres.writeFile({ fileName: 'harness.pptx' })
 }
 
-Object.assign(window, { harness: { assets: ASSETS, build, download } })
+/** Prove the byte-oriented convenience works without Node's global `Buffer`. */
+async function bytes() {
+	const pres = new TsPptx()
+	pres.addSlide().addText('portable bytes', { x: 1, y: 1, w: 2, h: 1 })
+	const out = await pres.toBytes()
+	return {
+		constructorName: out.constructor.name,
+		isView: ArrayBuffer.isView(out),
+		prefix: Array.from(out.subarray(0, 2)),
+	}
+}
+
+Object.assign(window, { harness: { assets: ASSETS, build, bytes, download } })

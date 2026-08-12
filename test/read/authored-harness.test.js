@@ -17,7 +17,7 @@ describe('write→read harness (authored.js)', () => {
 		const { presentation, buf } = await authorRead((pres) => {
 			pres.addSlide().addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 		})
-		assert(buf.length > 0, 'stream() produced bytes')
+		assert(buf.length > 0, 'toBytes() produced bytes')
 		assertEqual(presentation.slides.length, 1, 'one authored slide is read back')
 
 		const rect = firstShape(presentation, (s) => s.shapeType === 'autoShape' && s.presetGeometry === 'rect')

@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing the published package *does* changed — the one `src/` edit below swaps a raw NUL
-byte for its escape, which is the same value at runtime. Everything else is the repository
-and the project site; it is here because the showcase deck and the demo layout are things
-people outside this repo look at.
+This release includes a breaking cleanup to the in-memory byte export API, plus repository
+and project-site changes.
 
 ### Changed
+
+- **`toBytes()` replaces `stream()`.** The old method did not stream: it assembled the
+  complete archive, then copied fflate's `Uint8Array` into a Node `Buffer`. It therefore
+  failed in browsers without a `Buffer` shim, returned an unnecessarily broad type, and
+  ignored `onMediaError`. `toBytes({ compression, onMediaError })` now returns exactly
+  `Promise<Uint8Array>` in Node, browsers, and workers without the extra archive-sized
+  copy. Migrate `await pptx.stream()` to `await pptx.toBytes()`; callers that need another
+  representation should continue using `write({ outputType })`.
 
 - **`pnpm run verify` no longer sizes itself off the host's CPU, and no longer builds the
   site.** The gate could take a developer machine down: Vitest sizes its fork pool from

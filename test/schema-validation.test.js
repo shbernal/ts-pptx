@@ -15,7 +15,7 @@ beforeAll(async () => {
 	}
 	const pres = new TsPptx()
 	pres.addSlide()
-	await validateBuf(/** @type {Uint8Array} */ (await pres.stream()))
+	await validateBuf(/** @type {Uint8Array} */ (await pres.toBytes()))
 })
 
 /**

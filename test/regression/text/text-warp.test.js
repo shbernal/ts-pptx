@@ -3,7 +3,7 @@ import TsPptx from '../../../dist/node.js'
 import { defineRegressionSuite, assert } from '../../helpers.js'
 
 async function buildSlideXml(pres) {
-	const buf = await pres.stream()
+	const buf = await pres.toBytes()
 	const zip = await JSZip.loadAsync(buf)
 	const entry = zip.file('ppt/slides/slide1.xml')
 	if (!entry) throw new Error('slide1.xml missing')

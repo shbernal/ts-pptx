@@ -13,7 +13,7 @@ import { defineRegressionSuite, assert, assertIncludes } from '../../helpers.js'
 const EMU_PER_INCH = 914400
 
 async function slide1Xml(pres) {
-	const zip = await JSZip.loadAsync(await pres.stream())
+	const zip = await JSZip.loadAsync(await pres.toBytes())
 	const entry = zip.file('ppt/slides/slide1.xml')
 	if (!entry) throw new Error('slide1.xml missing')
 	return entry.async('string')
@@ -139,7 +139,7 @@ defineRegressionSuite('EMU-exact geometry and scheme-colour passthrough', [
 			pres.addSlide().addText('inset', { x: 1, y: 1, w: 4, h: 1, margin: emuMargin })
 			let threw = null
 			try {
-				await pres.stream()
+				await pres.toBytes()
 			} catch (err) {
 				threw = err
 			}

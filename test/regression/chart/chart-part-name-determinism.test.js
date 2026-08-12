@@ -85,6 +85,6 @@ defineRegressionSuite('Chart part-name determinism', [
 
 async function reExport(pres) {
 	const JSZip = (await import('jszip')).default
-	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const buf = /** @type {Uint8Array} */ (await pres.toBytes())
 	return JSZip.loadAsync(buf)
 }

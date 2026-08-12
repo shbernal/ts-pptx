@@ -27,7 +27,7 @@ const EMU_PER_PT = 12700
 const OVERFLOW = 'The quick brown fox jumps over the lazy dog. '.repeat(6).trim()
 
 async function slide1Xml(pres) {
-	const buf = await pres.stream()
+	const buf = await pres.toBytes()
 	const zip = await JSZip.loadAsync(buf)
 	return zip.file('ppt/slides/slide1.xml').async('string')
 }

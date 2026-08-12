@@ -9,7 +9,7 @@
  * union automatically.
  */
 export type ZIP_OUTPUT_TYPE = `${OutputType}`
-export type WRITE_OUTPUT_TYPE = ZIP_OUTPUT_TYPE | 'STREAM'
+export type WRITE_OUTPUT_TYPE = ZIP_OUTPUT_TYPE
 /**
  * Public chart-type name accepted by `addChart()`. Derived from the internal
  * `ChartType` enum (see below) so the two never drift: adding a member to the

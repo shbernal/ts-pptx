@@ -88,7 +88,7 @@ Types resolve through the same condition as the code, so what TypeScript shows
 you is what that runtime actually has.
 
 The third row is the runtime-agnostic build. Authoring is identical to the other
-two, and everything that hands bytes back to you (`write()`, `stream()`,
+two, and everything that hands bytes back to you (`write()`, `toBytes()`,
 `toParts()`) works normally; a worker that returns a `.pptx` in a response body
 needs nothing else. What it cannot do is *place a file for you*: there is no
 filesystem and no DOM, so `writeFile()` throws an `UnsupportedFeatureError` naming

@@ -396,7 +396,7 @@ describe('generate → read import bridge', () => {
 		pres.layout = 'LAYOUT_WIDE'
 		pres.addSlide().addText('interior slide one', { x: 1, y: 1, w: 6, h: 1 })
 		pres.addSlide().addText('interior slide two', { x: 1, y: 1, w: 6, h: 1 })
-		const out = await pres.stream()
+		const out = await pres.toBytes()
 		return out instanceof Uint8Array ? out : new Uint8Array(/** @type {ArrayBuffer} */ (out))
 	}
 

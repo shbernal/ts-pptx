@@ -4,7 +4,7 @@ Generating a deck per request and streaming it straight to an HTTP response — 
 nothing to clean up.
 
 The showcase decks in [`../showcases`](../showcases/README.md) all end in `writeFile()`.
-This one uses `pptx.stream()` instead, which is the shape a server actually needs.
+This one uses `pptx.toBytes()` instead, which is the shape a server actually needs.
 
 ## Run it
 

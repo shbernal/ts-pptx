@@ -21,7 +21,7 @@ async function roundTrip(setup) {
 	const pptx = new TsPptx()
 	setup(pptx)
 	pptx.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })
-	const buf = /** @type {Uint8Array} */ (await pptx.stream())
+	const buf = /** @type {Uint8Array} */ (await pptx.toBytes())
 	return Presentation.load(buf)
 }
 

@@ -237,7 +237,7 @@ describe('resolveSlideThemeParts — a broken theme chain degrades, not throws',
 	async function slideWithNoLayoutRel() {
 		const pptx = new TsPptx()
 		pptx.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1, color: '0000FF' })
-		const zip = await JSZip.loadAsync(await pptx.stream())
+		const zip = await JSZip.loadAsync(await pptx.toBytes())
 		const relsName = 'ppt/slides/_rels/slide1.xml.rels'
 		const rels = await zip.file(relsName).async('string')
 		// Drop the single <Relationship … slideLayout … /> element.

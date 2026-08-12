@@ -31,7 +31,7 @@ export interface WriteBaseProps {
 export interface WriteProps extends WriteBaseProps {
 	/**
 	 * Output type
-	 * - values: 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array' | 'STREAM'
+	 * - values: 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array'
 	 * @default 'blob'
 	 */
 	outputType?: WRITE_OUTPUT_TYPE

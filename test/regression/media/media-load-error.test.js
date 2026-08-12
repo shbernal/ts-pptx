@@ -35,4 +35,9 @@ describe('media load failure policy', () => {
 		)
 		assert(buf && buf.length > 0, 'placeholder mode must produce a non-empty package')
 	})
+
+	test("toBytes() forwards onMediaError:'placeholder'", async () => {
+		const bytes = await deckWithMissingImage().toBytes({ onMediaError: 'placeholder' })
+		assert(bytes.length > 0, 'toBytes placeholder mode must produce a non-empty package')
+	})
 })

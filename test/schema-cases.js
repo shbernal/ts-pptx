@@ -967,7 +967,7 @@ export default [
 			await p.embedFont({ data: new Uint8Array(reg), typeface: 'Silkscreen' })
 			await p.embedFont({ data: new Uint8Array(bold), typeface: 'Silkscreen', style: 'bold' })
 			p.addSlide().addText('Silkscreen', { x: 1, y: 1, w: 8, h: 1, fontFace: 'Silkscreen', fontSize: 24 })
-			const buf = await p.stream()
+			const buf = await p.toBytes()
 
 			const zip = await JSZip.loadAsync(buf)
 			const names = listEntries(zip)
@@ -4249,7 +4249,7 @@ export default [
 				],
 				{ x: 1, y: 1, w: 9, colW: [3, 3, 3] }
 			)
-			const pres = await Presentation.load(await authored.stream())
+			const pres = await Presentation.load(await authored.toBytes())
 			const frame = pres.slides[0].shapes.find((shape) => shape.shapeType === 'graphicFrame')
 			const table = /** @type {any} */ (frame).table
 

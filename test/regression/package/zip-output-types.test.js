@@ -22,6 +22,13 @@ function isZipBytes(bytes) {
 }
 
 describe('zip output types', () => {
+	test('toBytes() returns a portable Uint8Array rather than a Node Buffer', async () => {
+		const out = await makePres().toBytes()
+		assert(out instanceof Uint8Array, `expected Uint8Array, got ${out?.constructor?.name}`)
+		assert(!Buffer.isBuffer(out), 'toBytes() must not copy the archive into a Node Buffer')
+		assert(isZipBytes(out), 'toBytes() output must start with the PK zip magic')
+	})
+
 	test("'uint8array' returns a Uint8Array of the archive", async () => {
 		const out = await makePres().write({ outputType: 'uint8array' })
 		assert(out instanceof Uint8Array, `expected Uint8Array, got ${out?.constructor?.name}`)

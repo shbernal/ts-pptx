@@ -1722,7 +1722,7 @@ deck.importSlide(source, CLOSER_INDEX, { theme: 'copy' })       // closer append
 
 `importSlide` and `cloneSlide` are the read/import API; interior slides are
 authored with the generate API (`new TsPptx()`). The two compose: emit the
-generated deck to bytes (`await pptx.stream()`), `Presentation.load` those bytes,
+generated deck to bytes (`await pptx.toBytes()`), `Presentation.load` those bytes,
 `importSlide` the bookends, then `await deck.save()`.
 
 #### Themes: `copy` (default) vs `preserve`

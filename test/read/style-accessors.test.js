@@ -614,7 +614,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 		const presentation = await (async () => {
 			const pres = new TsPptx()
 			pres.addSlide().addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
-			return Presentation.load(await pres.stream())
+			return Presentation.load(await pres.toBytes())
 		})()
 		const shape = presentation.slides[0].shapes.find((s) => s.shapeType === 'autoShape' && s.presetGeometry === 'rect')
 		const frame = shape.absoluteFrame

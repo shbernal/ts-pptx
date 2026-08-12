@@ -89,6 +89,8 @@ test('every RuntimeAdapter function runs, and dist/browser.js stays above its co
 	// that a sibling spec drops. Failures are outcomes here, not throws — the specs next
 	// door assert *which* failure each one is; this only needs the code to have run.
 	for (const deck of Object.keys(DECKS)) await buildDeckInHarness(page, deck)
+	const bytes = await page.evaluate(() => window['harness'].bytes())
+	expect(bytes).toEqual({ constructorName: 'Uint8Array', isView: true, prefix: [0x50, 0x4b] })
 
 	const downloadPromise = page.waitForEvent('download')
 	await page.evaluate(() => window['harness'].download('fonts'))

@@ -38,8 +38,7 @@ export const validatorInstalled = await validatorAvailable()
 export async function authorRead(build) {
 	const pres = new TsPptx()
 	await build(pres)
-	// Under Node, stream() resolves to a Uint8Array (see test/helpers.js build()).
-	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const buf = await pres.toBytes()
 	const presentation = await Presentation.load(buf)
 	return { presentation, buf, pres }
 }
@@ -65,7 +64,7 @@ export async function authorRead(build) {
 export async function authorReadWithFixtureStyles(build) {
 	const pres = new TsPptx()
 	await build(pres)
-	const authored = /** @type {Uint8Array} */ (await pres.stream())
+	const authored = /** @type {Uint8Array} */ (await pres.toBytes())
 
 	const fixture = await JSZip.loadAsync(
 		await readFile(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'table-styles.pptx'))

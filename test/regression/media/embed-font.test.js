@@ -27,7 +27,7 @@ beforeAll(async () => {
 })
 
 async function zipOf(pres) {
-	return JSZip.loadAsync(await pres.stream())
+	return JSZip.loadAsync(await pres.toBytes())
 }
 
 describe('TsPptx.embedFont', () => {

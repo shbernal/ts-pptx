@@ -25,9 +25,7 @@ const PNG_1X1_DATA_URI = `data:${PNG_1X1}`
 async function build(buildFn) {
 	const pres = new TsPptx()
 	buildFn(pres)
-	// stream() is typed for every output target (string/Blob/ArrayBuffer/Uint8Array);
-	// under Node it resolves to a Uint8Array, which the tests rely on for byte reads.
-	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const buf = await pres.toBytes()
 	const zip = await JSZip.loadAsync(buf)
 	return { pres, zip, buf }
 }

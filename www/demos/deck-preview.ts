@@ -42,7 +42,7 @@ export const DECK = showcase
 /** Assemble the showcase deck and return the package bytes. Nothing is written. */
 export async function buildDeckBytes(): Promise<Uint8Array> {
 	const pptx = await compose()
-	return (await pptx.write({ outputType: 'uint8array' })) as Uint8Array
+	return await pptx.toBytes()
 }
 
 /**

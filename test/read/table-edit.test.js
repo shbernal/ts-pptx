@@ -24,7 +24,7 @@ import { assert, assertEqual } from '../helpers.js'
 async function editable(build) {
 	const pres = new TsPptx()
 	build(pres)
-	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const buf = /** @type {Uint8Array} */ (await pres.toBytes())
 	const presentation = await Presentation.load(buf)
 	const table = firstTable(presentation)
 	assert(table, 'the authored table is found')

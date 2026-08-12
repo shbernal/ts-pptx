@@ -98,7 +98,7 @@ const FIXTURES = [
 async function buildFixture(fixture, dir) {
 	const pres = new TsPptx()
 	fixture.build(pres)
-	let buf = /** @type {Uint8Array} */ (await pres.stream())
+	let buf = await pres.toBytes()
 	if (fixture.corrupt) {
 		const zip = await JSZip.loadAsync(buf)
 		await fixture.corrupt(zip)

@@ -8,7 +8,7 @@ import JSZip from 'jszip'
 import TsPptx from '../../../dist/node.js'
 
 async function slide1Xml(pres) {
-	const buf = await pres.stream()
+	const buf = await pres.toBytes()
 	const zip = await JSZip.loadAsync(buf)
 	return zip.file('ppt/slides/slide1.xml').async('string')
 }

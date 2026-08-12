@@ -52,10 +52,10 @@ async function buildPres() {
 
 defineRegressionSuite('ZIP package compression default', [
 	{
-		name: 'stream() defaults to DEFLATE entries',
+		name: 'toBytes() defaults to DEFLATE entries',
 		fn: async () => {
 			const pres = await buildPres()
-			const buf = await pres.stream()
+			const buf = await pres.toBytes()
 			const methods = localHeaderMethods(buf)
 			assert(
 				methods.some((m) => m === 8),
@@ -71,7 +71,7 @@ defineRegressionSuite('ZIP package compression default', [
 		name: 'compression:false opts out (all entries STORE)',
 		fn: async () => {
 			const pres = await buildPres()
-			const buf = await pres.stream({ compression: false })
+			const buf = await pres.toBytes({ compression: false })
 			const methods = localHeaderMethods(buf)
 			assert(
 				methods.every((m) => m === 0),
@@ -97,7 +97,7 @@ defineRegressionSuite('ZIP package compression default', [
 		name: 'already-compressed media is STORE while XML stays DEFLATE',
 		fn: async () => {
 			const pres = await buildPresWithImage()
-			const buf = await pres.stream()
+			const buf = await pres.toBytes()
 			const entries = localHeaderEntries(buf)
 			const media = entries.filter((e) => e.name.startsWith('ppt/media/'))
 			assert(media.length > 0, 'expected at least one ppt/media/* entry')
@@ -116,7 +116,7 @@ defineRegressionSuite('ZIP package compression default', [
 		name: 'compression:false still stores media (no per-entry override regression)',
 		fn: async () => {
 			const pres = await buildPresWithImage()
-			const buf = await pres.stream({ compression: false })
+			const buf = await pres.toBytes({ compression: false })
 			const entries = localHeaderEntries(buf)
 			assert(
 				entries.every((e) => e.method === 0),
@@ -129,9 +129,8 @@ defineRegressionSuite('ZIP package compression default', [
 		fn: async () => {
 			const presA = await buildPres()
 			const presB = await buildPres()
-			// stream() is typed for every output target; under Node it is a Uint8Array.
-			const deflated = /** @type {Uint8Array} */ (await presA.stream())
-			const stored = /** @type {Uint8Array} */ (await presB.stream({ compression: false }))
+			const deflated = await presA.toBytes()
+			const stored = await presB.toBytes({ compression: false })
 			assert(
 				deflated.length < stored.length,
 				`expected DEFLATE output (${deflated.length}B) smaller than STORE output (${stored.length}B)`

@@ -56,7 +56,7 @@ defineRegressionSuite('Chart embedding parts [legacy bug-17]', [
 				},
 			]
 			slide.addChart(data, { type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
-			const buf = await pres.stream()
+			const buf = await pres.toBytes()
 			const zip = await JSZip.loadAsync(buf)
 			const entries = listEntries(zip)
 			const chartEntries = entries.filter((p) => p.startsWith('ppt/charts/'))
