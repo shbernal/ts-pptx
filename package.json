@@ -187,7 +187,7 @@
 		"lefthook": "^2.1.10",
 		"mathml2omml": "^0.5.0",
 		"micromark": "^4.0.2",
-		"oxfmt": "^0.62.0",
+		"oxfmt": "^0.63.0",
 		"oxlint": "^1.78.0",
 		"oxlint-tsgolint": "7.0.2001",
 		"pptx-html": "^0.1.2",
