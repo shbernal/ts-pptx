@@ -607,6 +607,52 @@ error lands on the request that caused it instead of failing 32 neighbours
 indistinguishably. Set `TSPPTX_VALIDATOR_NO_BATCH=1` to bypass batching entirely
 and pin a failure to a single fixture by hand.
 
+### The schema tier proves it can still fail
+
+Every fixture in `test/schema-cases.js` asserts **zero** errors, which means no
+fixture can tell "this deck is valid" apart from "the validator reported nothing".
+If `validateBuf` ever returned `[]` unconditionally, whether from a keying bug in
+the batcher, a spawn failure the JSON parse swallows, or an output-shape change on
+a `tools/ooxml-validator/version.json` bump, the entire tier would go green while
+proving nothing, and no other step in `verify` would notice.
+
+Two cases at the end of that file close the hole from both sides, and they are the
+only ones there that expect a non-zero count:
+
+- one perturbs a freshly built deck with an undeclared attribute on `<p:sp>` and
+  requires exactly one `Sch_UndeclaredAttribute` at the expected part and XPath.
+  That perturbation is the same one `scripts/ooxml-version-probe.mjs` leans on, a
+  core error reported identically at every conformance target, so the case cannot
+  start passing merely because `FILE_FORMAT` moved;
+- one feeds bytes that are not an OPC package and requires the
+  `OpenXmlPackageException` row. That is precisely the property "absent means
+  clean" rests on, and before these cases existed it had been established by hand,
+  once, against one pinned binary, and re-checked by nothing when the pin moved.
+
+Both were confirmed to fail with `validateBuf` stubbed to return `[]`. Both assert
+on `Id` and `Path.XPath`, never on `Description`, so an upstream rewording of the
+prose cannot break them.
+
+### What a validation error carries
+
+The CLI emits five fields per error, and a failure message should use all of them
+(`formatSchemaErrors` in `test/schema-cases.js` does):
+
+| Field | Notes |
+| --- | --- |
+| `Description` | The prose. Upstream's to reword, so never assert on it. |
+| `ErrorType` | `Schema` and `Semantic` are both observed here; `OpenXmlPackageException` is the package-level case. The SDK's own enum also carries `Package` and `MarkupCompatibility`. |
+| `Id` | A stable machine code: `Sch_UndeclaredAttribute`, `Sem_InvalidRelationshipId`. Assert on this. |
+| `Path.PartUri` | The part, for example `/ppt/slides/slide1.xml`. |
+| `Path.XPath` | The offending element, for example `/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]`. |
+
+Semantic errors do come through, not just schema ones, so a dangling `r:id` is
+caught here rather than only by PowerPoint.
+
+`Path` and `Id` are both `null` on an `OpenXmlPackageException`, where the file is
+not a readable package at all and there is no element to point at. Neither can be
+dereferenced without a guard.
+
 ### The conformance target is pinned
 
 Everything validates at **`Microsoft365`**, pinned as `FILE_FORMAT` in
