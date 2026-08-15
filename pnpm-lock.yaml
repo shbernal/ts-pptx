@@ -49,8 +49,8 @@ importers:
         specifier: ^1.0.5
         version: 1.0.5
       charcheck:
-        specifier: 0.2.3
-        version: 0.2.3(@vue/compiler-sfc@3.5.41)(micromark@4.0.2)(typescript@7.0.2)
+        specifier: 0.2.5
+        version: 0.2.5(@vue/compiler-sfc@3.5.41)(micromark@4.0.2)(typescript@7.0.2)
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
@@ -1858,8 +1858,8 @@ packages:
   character-entities@2.0.2:
     resolution: {integrity: sha512-shx7oQ0Awen/BRIdkjkvz54PnEEI/EjwXDSIZp86/KKdbafHh1Df/RYGBhn4hbe2+uKC9FnT5UCEdyPz3ai9hQ==}
 
-  charcheck@0.2.3:
-    resolution: {integrity: sha512-hz4NUerMnjKjdOZN/AJVu/dLavQjLtnKMzkgqrpd6FeKUMlwOK+yVCSBDICu14S55RWD/ydlWgJnFWQ1RVhP3w==}
+  charcheck@0.2.5:
+    resolution: {integrity: sha512-wh/wtUxFAhaRIomzZb1QWEViiEwjctpKxQDofRBJL1AsIeziXhqjHk1+1s26woUse9gfPKJ28LPP+tjeUNO/fA==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -4421,7 +4421,7 @@ snapshots:
 
   character-entities@2.0.2: {}
 
-  charcheck@0.2.3(@vue/compiler-sfc@3.5.41)(micromark@4.0.2)(typescript@7.0.2):
+  charcheck@0.2.5(@vue/compiler-sfc@3.5.41)(micromark@4.0.2)(typescript@7.0.2):
     dependencies:
       picocolors: 1.1.1
       tinyglobby: 0.2.17

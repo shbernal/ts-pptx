@@ -179,7 +179,7 @@
 		"@vitest/coverage-v8": "^4.1.10",
 		"@vue/compiler-sfc": "^3.5.41",
 		"ast-v8-to-istanbul": "^1.0.5",
-		"charcheck": "0.2.3",
+		"charcheck": "0.2.5",
 		"esbuild": "^0.28.2",
 		"happy-dom": "^20.11.2",
 		"istanbul-lib-coverage": "^3.2.2",
