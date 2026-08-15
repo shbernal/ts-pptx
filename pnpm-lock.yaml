@@ -79,8 +79,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       ooxml-validate:
-        specifier: ^0.0.2
-        version: 0.0.2
+        specifier: ^0.0.3
+        version: 0.0.3
       oxfmt:
         specifier: ^0.63.0
         version: 0.63.0
@@ -2528,8 +2528,8 @@ packages:
   oniguruma-to-es@3.1.1:
     resolution: {integrity: sha512-bUH8SDvPkH3ho3dvwJwfonjlQ4R80vjyvrU8YpxuROddv55vAEJrTuCuCVUhhsHbtlD9tGGbaNApGQckXhS8iQ==}
 
-  ooxml-validate@0.0.2:
-    resolution: {integrity: sha512-Uhf+UKdiaNGS89S0H68H5C3ZslgPdSF4cVNU2DQVeMYQ8qQHWYYoKSHCiQV1HyK1qsZQ9/cvDHLm4lpSWcNDuA==}
+  ooxml-validate@0.0.3:
+    resolution: {integrity: sha512-Cif+/v4YLOkV2tqwI0Ui/iJgzFdbfO58kkpiO26YpUlkCndMd6J6hDdVSQ5vRZ1Qz6gMy9KypH5ab5Ldgy9Nmg==}
     engines: {node: '>=24'}
     hasBin: true
 
@@ -5144,7 +5144,7 @@ snapshots:
       regex: 6.1.0
       regex-recursion: 6.0.2
 
-  ooxml-validate@0.0.2: {}
+  ooxml-validate@0.0.3: {}
 
   opentype.js@2.0.0: {}
 
