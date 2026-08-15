@@ -1214,9 +1214,10 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			'slide with no slideLayout relationship': deckMixedSlideNoLayoutRel,
 			'clrScheme stated in preset colours': deckMixedUnreadableColorScheme,
 		})
-		// Each validateBuf spawns its own OOXMLValidatorCLI process, so running a dozen of
-		// them end to end spends the whole per-test budget queueing. Four at a time is the
-		// same ceiling vitest.config.ts sets for the schema suite.
+		// Validation is batched by the package, but each case still builds and
+		// re-serializes a whole deck, so a dozen at once is a memory spike inside a single
+		// test. Four at a time is the same ceiling vitest.config.ts sets for the schema
+		// suite.
 		for (let i = 0; i < cases.length; i += 4) {
 			const done = await Promise.all(
 				cases.slice(i, i + 4).map(async ([name, build]) => ({

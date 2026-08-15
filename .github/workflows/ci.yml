@@ -88,8 +88,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install OOXML validator
-        run: ./tools/ooxml-validator/install.sh
+      # `ooxml-validate` fetches its oracle binary on first use rather than from a
+      # postinstall hook, so there is nothing to install — only something to keep.
+      # Keyed on the lockfile because the package's version IS its binary's version:
+      # a bump changes both, and the old cache entry stops being the right one.
+      - name: Cache the OOXML oracle
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ooxml-validate
+          key: ooxml-oracle-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # Resolve it once, before anything parallel starts. Two jobs at once: it keeps
+      # the vitest workers from racing to fetch the same archive on a cold cache, and
+      # it fails HERE, with the download's own error, rather than inside a suite whose
+      # schema assertions would otherwise be skipped. That hard failure is the property
+      # that stops a green run from proving nothing, and it must survive any change to
+      # this step.
+      - name: Fetch the OOXML oracle
+        env:
+          # The download verifies the archive's build provenance as well as its
+          # checksum, and `gh attestation verify` needs a token to query GitHub's
+          # attestation API. That check fails closed, so without this the step would
+          # fail — in the right direction, for the wrong reason.
+          GH_TOKEN: ${{ github.token }}
+        run: pnpm exec ooxml-validate --version
 
       - name: Test (with coverage thresholds)
         if: matrix.node == '24.x'

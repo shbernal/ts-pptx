@@ -31,7 +31,6 @@ pnpm install
 - `demos/node`: Node.js ESM demo.
 - `www/`: the site's theme and its Vue components, including the demos page.
 - `scripts/`: build, package, demo, and smoke-test automation.
-- `tools/ooxml-validator`: OOXML validator installer and wrapper.
 - `dist/`: generated package runtime and declaration artifacts.
 
 Do not hand-edit generated `dist/` outputs unless the task explicitly asks to
@@ -400,7 +399,6 @@ For serialization changes:
 5. Run schema validation:
 
 ```bash
-./tools/ooxml-validator/install.sh
 pnpm run test:schema
 ```
 

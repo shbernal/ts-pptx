@@ -525,11 +525,18 @@ migration is the byte-identity harness's.
 
 ## OOXML Schema Validation
 
-Install the validator once:
+Validation goes through [`ooxml-validate`](https://github.com/shbernal/ooxml-validate),
+a shared oracle around Microsoft's `OpenXmlValidator`. There is nothing to install: the
+package fetches its binary from GitHub Releases the first time something asks it to
+validate, verifies the download's checksum and build provenance, and caches it under
+`~/.cache/ooxml-validate/<version>/`. `test/validator.js` is a thin adapter over it.
 
-```bash
-./tools/ooxml-validator/install.sh
-```
+That package is also what `ts-xlsx` validates against. The two repos each used to carry
+their own validator pinned to a different Open XML SDK version, so they enforced
+different rule sets while appearing to enforce the same one. The consequence worth
+remembering here: the SDK version is pinned *there*, not in this repo. A bump arrives
+as an `ooxml-validate` release and moves both repos' baselines at once, which is why
+that repo carries its own fixture corpus and a committed diagnostic snapshot.
 
 Run schema fixtures:
 
@@ -546,10 +553,10 @@ from ~50s to ~10s and is what lets `verify` include it. Three consequences worth
 knowing:
 
 - Validator processes no longer scale with `maxConcurrency`. They used to: each
-  concurrent fixture spawned its own `OOXMLValidatorCLI`, so the real ceiling was
+  concurrent fixture spawned its own validator, so the real ceiling was
   workers × `maxConcurrency` and the memory cost of the suite was set by the
-  host's core count. `test/validator.js` now batches (see below) and holds at
-  most one validator child per worker. `maxConcurrency` still governs in-process
+  host's core count. Requests are batched now (see below) and each worker holds at
+  most one validator child. `maxConcurrency` still governs in-process
   interleaving; it is no longer the knob to reach for on memory pressure:
   `maxWorkers` is, and it sizes itself.
 - `testTimeout` is raised well above Vitest's 5s default: under concurrency a
@@ -566,45 +573,34 @@ knowing:
   quarantined without anyone having to remember.
 
 A file-level `beforeAll` validates one minimal deck serially before the
-concurrent fixtures start. `OOXMLValidatorCLI` is a .NET single-file app that
+concurrent fixtures start. The oracle is a .NET single-file app that
 self-extracts on first run, and firing many processes at a cold extract
-directory can race.
+directory can race; it also gets the one-time download out of the way before
+anything concurrent begins.
 
 ### Validator batching
 
-`OOXMLValidatorCLI` accepts a **directory** and validates every package in it in
-one process. The binary is a 110 MB self-contained .NET single-file app, and
-measured against the pinned release a run costs ~0.40s of startup plus only
-~0.048s per additional deck, at ~55 MB RSS regardless of file count. One deck per
-process therefore paid that startup and that 55 MB roughly 500 times per suite.
+The oracle accepts many packages per invocation. The binary is a ~110 MB
+self-contained .NET single-file app: a run costs ~0.3–0.4s of startup plus only
+milliseconds per additional deck, at a flat RSS regardless of file count. One deck
+per process therefore paid that startup and that memory roughly 500 times per suite.
 
-`test/validator.js` batches `validateBuf` requests: they accumulate while an
-invocation is in flight and go out together when it returns. This is self-tuning
-(batches grow under load, one timer tick when idle) and bounds each worker to a
-single validator child. Measured on the full suite, batching took it from 55.1s
-/ 4.03 GB / 17 concurrent validators to 48.4s / 3.40 GB / 7.
+`ooxml-validate` batches for us: requests accumulate while an invocation is in
+flight and go out together when it returns. This is self-tuning (batches grow under
+load, one timer tick when idle) and bounds each worker to a single validator child.
+That property is the one to protect: if the suite's memory ever starts scaling with
+core count again, this is what broke. Measured on the full suite after the migration:
+~20s wall, ~5.0 GB peak across the whole process tree, and **7** concurrent oracle
+children, the same child count as before it.
 
-`runValidatorOnFile` is deliberately *not* batched: its only caller is the
-serial version probe (`scripts/ooxml-version-probe.mjs`), which iterates
-conformance targets one at a time and would gain nothing.
-
-Directory mode's contract was established empirically against the pinned binary
-rather than assumed, because one of its properties is load-bearing:
-
-- a package with ≥1 error is reported, keyed by absolute `FilePath`, with the
-  same error list single-file mode gives it;
-- a **clean** package is omitted from the output entirely;
-- an unreadable or non-package file is **not** omitted: it comes back as an
-  `OpenXmlPackageException`. This is what makes "absent means clean" safe. Were
-  corrupt packages dropped instead, the batcher would report the very failures
-  the suite exists to catch as passes;
-- results arrive in arbitrary order, so they are keyed by filename, never
-  position;
-- the scan does not recurse, so a flat batch directory is sufficient.
+The report contract is explicit: **every input file comes back with its own `valid`
+flag**, clean ones included. Nothing infers cleanliness from absence, here or in the
+package. The batcher correlates results by path, never by position, because the
+oracle orders the report itself.
 
 If a batch invocation fails, the batch is retried one deck per process so the
 error lands on the request that caused it instead of failing 32 neighbours
-indistinguishably. Set `TSPPTX_VALIDATOR_NO_BATCH=1` to bypass batching entirely
+indistinguishably. Set `OOXML_VALIDATE_NO_BATCH=1` to bypass batching entirely
 and pin a failure to a single fixture by hand.
 
 ### The schema tier proves it can still fail
@@ -612,9 +608,9 @@ and pin a failure to a single fixture by hand.
 Every fixture in `test/schema-cases.js` asserts **zero** errors, which means no
 fixture can tell "this deck is valid" apart from "the validator reported nothing".
 If `validateBuf` ever returned `[]` unconditionally, whether from a keying bug in
-the batcher, a spawn failure the JSON parse swallows, or an output-shape change on
-a `tools/ooxml-validator/version.json` bump, the entire tier would go green while
-proving nothing, and no other step in `verify` would notice.
+the batcher, a spawn failure the report parse swallows, or an output-shape change on
+an `ooxml-validate` bump, the entire tier would go green while proving nothing, and
+no other step in `verify` would notice.
 
 Two cases at the end of that file close the hole from both sides, and they are the
 only ones there that expect a non-zero count:
@@ -624,46 +620,49 @@ only ones there that expect a non-zero count:
   That perturbation is the same one `scripts/ooxml-version-probe.mjs` leans on, a
   core error reported identically at every conformance target, so the case cannot
   start passing merely because `FILE_FORMAT` moved;
-- one feeds bytes that are not an OPC package and requires the
-  `OpenXmlPackageException` row. That is precisely the property "absent means
-  clean" rests on, and before these cases existed it had been established by hand,
-  once, against one pinned binary, and re-checked by nothing when the pin moved.
+- one feeds bytes that are not an OPC package and requires a `PackageOpenError` row.
+  A harness that reports a file it could not read as a file with nothing wrong with
+  it is the worst failure available to it, and this is the case that says so out
+  loud. It used to carry more weight still: batching read "absent from the output"
+  as "clean", and that inference was safe only for as long as unreadable files kept
+  being reported. The report contract is explicit now, so there is no absence left
+  to interpret.
 
 Both were confirmed to fail with `validateBuf` stubbed to return `[]`. Both assert
-on `Id` and `Path.XPath`, never on `Description`, so an upstream rewording of the
+on `id` and `xpath`, never on `description`, so an upstream rewording of the
 prose cannot break them.
 
 ### What a validation error carries
 
-The CLI emits five fields per error, and a failure message should use all of them
-(`formatSchemaErrors` in `test/schema-cases.js` does):
+The oracle emits five fields per diagnostic, and a failure message should use all of
+them (`formatSchemaErrors` in `test/schema-cases.js` does):
 
 | Field | Notes |
 | --- | --- |
-| `Description` | The prose. Upstream's to reword, so never assert on it. |
-| `ErrorType` | `Schema` and `Semantic` are both observed here; `OpenXmlPackageException` is the package-level case. The SDK's own enum also carries `Package` and `MarkupCompatibility`. |
-| `Id` | A stable machine code: `Sch_UndeclaredAttribute`, `Sem_InvalidRelationshipId`. Assert on this. |
-| `Path.PartUri` | The part, for example `/ppt/slides/slide1.xml`. |
-| `Path.XPath` | The offending element, for example `/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]`. |
+| `description` | The prose. Upstream's to reword, so never assert on it. |
+| `type` | `Schema` and `Semantic` are both observed here; `Package` is the package-level case, and `MarkupCompatibility` completes the set. |
+| `id` | A stable machine code: `Sch_UndeclaredAttribute`, `Sem_InvalidRelationshipId`, `PackageOpenError`. Assert on this. |
+| `partUri` | The part, for example `/ppt/slides/slide1.xml`. |
+| `xpath` | The offending element, for example `/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]`. |
 
 Semantic errors do come through, not just schema ones, so a dangling `r:id` is
 caught here rather than only by PowerPoint.
 
-`Path` and `Id` are both `null` on an `OpenXmlPackageException`, where the file is
+`partUri` and `xpath` are both `null` on a package-level failure, where the file is
 not a readable package at all and there is no element to point at. Neither can be
-dereferenced without a guard.
+printed without a guard.
 
 ### The conformance target is pinned
 
-Everything validates at **`Microsoft365`**, pinned as `FILE_FORMAT` in
-`test/validator.js` and passed explicitly on every CLI invocation.
+Everything validates at **`Microsoft365`**, pinned by `ooxml-validate` as
+`FILE_FORMAT`, re-exported from `test/validator.js` and passed explicitly on every
+invocation.
 
 This is worth stating because two upstream defaults disagree: the Open XML SDK's
-`new OpenXmlValidator()` defaults to `Office2007`, while the OOXMLValidatorCLI
-wrapper defaults to `Microsoft365`. Passing nothing left the project's conformance
-bar owned by the wrapper, where a bump to
-`tools/ooxml-validator/version.json` could have moved it without a line changing
-here.
+`new OpenXmlValidator()` defaults to `Office2007`, while the wrapper this project
+used before defaulted to `Microsoft365`. Passing nothing left the conformance bar
+owned by whichever dependency happened to be pinned, where a bump could have moved
+it without a line changing here.
 
 `Microsoft365` is also the strongest available setting, not merely the newest. The
 per-version schemas differ in how much markup they **model**, not in what they

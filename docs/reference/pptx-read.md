@@ -2025,9 +2025,9 @@ independent so a bug in one can't mask a bug in the other. Those suites are
 `table-borders.test.js`, `chart-format.test.js`, `run-props.test.js`,
 `chartex-read.test.js`, `connector-read.test.js` (endpoint binding),
 `notes-read.test.js` (speaker-notes rich text), and the fidelity legs added to
-`shape-effect-reads.test.js` and `slide-read-edges.test.js`. Schema cases require the OOXML validator
-(`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
-is absent. See [testing](../testing.md).
+`shape-effect-reads.test.js` and `slide-read-edges.test.js`. Schema cases require the
+OOXML oracle, which `ooxml-validate` fetches on first use, and are skipped with a
+notice when it cannot be obtained. See [testing](../testing.md).
 
 Beyond the automated suite, two scripts emit decks for a manual PowerPoint open
 (schema validity is necessary but does not prove PowerPoint won't show a repair

@@ -121,9 +121,9 @@ export default defineConfig({
 		// `import` phase falls 136.0/114.5/84.8s to 34.4/30.6/22.0s — 3.5-4x, with no
 		// overlap between the two groups — taking wall clock down 22-37%. Two smaller wins
 		// come along with it, both from module state that now survives a file boundary:
-		// test/validator.js's batch queue can join requests across files instead of
-		// spawning one .NET validator per file, and corpus.js's `irFor` memo stops being
-		// rebuilt per file.
+		// the validator's batch queue can join requests across files instead of spawning
+		// one .NET validator per file, and corpus.js's `irFor` memo stops being rebuilt
+		// per file.
 		//
 		// What this gives up is a real guarantee, not a formality: isolation is what made
 		// cross-file state leakage impossible rather than merely absent. Two things replace
@@ -148,12 +148,13 @@ export default defineConfig({
 		setupFiles: ['./test/setup-globals.js'],
 		// The schema fixtures are `describe.concurrent` and `test/read` validates
 		// too. This used to be half of a `workers × maxConcurrency` process ceiling:
-		// every concurrent test spawned its own OOXMLValidatorCLI (.NET) process, so
-		// this number multiplied directly into RAM. It does not any more —
-		// test/validator.js batches validation requests and holds at most ONE
-		// validator child per worker regardless of what this is set to, so the
-		// validator cost is now `workers × ~55 MB` and this knob only governs
-		// in-process test interleaving. Raising it no longer buys spawn parallelism;
+		// every concurrent test spawned its own .NET validator process, so this number
+		// multiplied directly into RAM. It does not any more — `ooxml-validate` batches
+		// validation requests and holds at most ONE validator child per worker
+		// regardless of what this is set to, so the validator cost is `workers × one
+		// oracle` and this knob only governs in-process test interleaving. Measured on
+		// the full suite: 7 concurrent oracle children at the peak, whatever this says.
+		// Raising it no longer buys spawn parallelism;
 		// lower `maxWorkers` (or let the memory budget do it) if the suite needs to
 		// shrink.
 		maxConcurrency: 8,

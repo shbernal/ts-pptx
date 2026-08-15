@@ -274,11 +274,8 @@ pnpm run verify
 ```
 
 OOXML serialization changes should also add or update a schema fixture in
-`test/schema-cases.js`. The schema suite needs the validator installed once:
-
-```bash
-./tools/ooxml-validator/install.sh
-```
+`test/schema-cases.js`. The schema suite validates through `ooxml-validate`, which
+fetches and caches its oracle binary on first use, so there is nothing to install.
 
 Package-boundary changes should run:
 

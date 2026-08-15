@@ -24,7 +24,7 @@ import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 
-/** True when the OOXML schema validator is installed; gate schema legs with this. */
+/** True when the OOXML oracle is available; gate schema legs with this. */
 export const validatorInstalled = await validatorAvailable()
 
 /**
@@ -106,12 +106,12 @@ export function firstTable(presentation) {
 }
 
 /**
- * Schema-validate authored bytes. Returns the validator's error array (empty ⇒
- * valid). Gate the calling test with `test.skipIf(!validatorInstalled)` so the
- * suite stays green where the OOXML validator isn't installed.
+ * Schema-validate authored bytes. Returns the oracle's diagnostics (empty ⇒ valid).
+ * Gate the calling test with `test.skipIf(!validatorInstalled)` so the suite stays
+ * green where the oracle cannot be obtained.
  *
  * @param {Uint8Array} buf
- * @returns {Promise<unknown[]>}
+ * @returns {Promise<readonly import('ooxml-validate').ValidationDiagnostic[]>}
  */
 export async function schemaErrors(buf) {
 	return validateBuf(Buffer.from(buf))

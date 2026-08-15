@@ -35,3 +35,8 @@ minimumReleaseAgeExclude:
   # repo runs in its own hooks, so waiting a day to adopt a fix we just published
   # would only delay the gate, not vet it.
   - 'charcheck'
+  # Same reasoning again: `ooxml-validate` is the schema oracle this repo's test
+  # suite is built on, published from a repo of the same author. Its version is
+  # also its binary's version, so a fix to either half arrives as a new release —
+  # holding those for a day would only delay the gate the suite depends on.
+  - 'ooxml-validate'

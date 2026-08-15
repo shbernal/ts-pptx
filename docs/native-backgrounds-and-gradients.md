@@ -319,9 +319,8 @@ pnpm run test:unit
 pnpm run test:schema
 ```
 
-If `test:schema` cannot run because the validator is missing, install it with
-`./tools/ooxml-validator/install.sh` before treating the implementation as
-accepted.
+If `test:schema` reports that the validator is unavailable, resolve that first:
+a skipped schema tier proves nothing about the implementation.
 
 ## Downstream Fallback Guidance
 

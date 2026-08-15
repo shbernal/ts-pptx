@@ -69,6 +69,9 @@ importers:
       micromark:
         specifier: ^4.0.2
         version: 4.0.2
+      ooxml-validate:
+        specifier: ^0.0.2
+        version: 0.0.2
       oxfmt:
         specifier: ^0.63.0
         version: 0.63.0
@@ -2506,6 +2509,11 @@ packages:
 
   oniguruma-to-es@3.1.1:
     resolution: {integrity: sha512-bUH8SDvPkH3ho3dvwJwfonjlQ4R80vjyvrU8YpxuROddv55vAEJrTuCuCVUhhsHbtlD9tGGbaNApGQckXhS8iQ==}
+
+  ooxml-validate@0.0.2:
+    resolution: {integrity: sha512-Uhf+UKdiaNGS89S0H68H5C3ZslgPdSF4cVNU2DQVeMYQ8qQHWYYoKSHCiQV1HyK1qsZQ9/cvDHLm4lpSWcNDuA==}
+    engines: {node: '>=24'}
+    hasBin: true
 
   opentype.js@2.0.0:
     resolution: {integrity: sha512-kCyjv6xdDY1W/jLWZ/L3QhhTlKUqDZMQ5+Jdlw12b3dXkKNpYBqqlMMj0YDQPShWFTMwgZI1hG14kN3XUDSg/A==}
@@ -5107,6 +5115,8 @@ snapshots:
       emoji-regex-xs: 1.0.0
       regex: 6.1.0
       regex-recursion: 6.0.2
+
+  ooxml-validate@0.0.2: {}
 
   opentype.js@2.0.0: {}
 

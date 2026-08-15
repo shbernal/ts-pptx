@@ -83,8 +83,8 @@ fallbacks are:
 
 ## Retrieval Workflow
 
-1. Start with local evidence. Search `src/`, `test/`, `tools/ooxml-validator/`,
-   `README.md`, and `docs/testing.md` before changing behavior.
+1. Start with local evidence. Search `src/`, `test/`, `README.md`, and
+   `docs/testing.md` before changing behavior.
 2. Use `ooxml` for normative structure: schema order, child elements,
    attributes, simple type enums, namespaces, and OPC package metadata.
 3. Use `microsoft_learn` for PowerPoint-specific behavior, Microsoft extension
@@ -140,7 +140,8 @@ Migrating an existing emitter onto it is a byte-preserving refactor: gate it wit
 
 ## Local Validation Tools
 
-- Install the validator once with `./tools/ooxml-validator/install.sh`.
+- Validation runs through `ooxml-validate`, which fetches and caches its oracle
+  binary on first use. Nothing to install.
 - Run OOXML fixtures with `pnpm run test:schema`.
 - Run the normal regression suite with `pnpm run test:unit`.
 - Run the full default test command with `pnpm test` when both regression and
@@ -148,7 +149,6 @@ Migrating an existing emitter onto it is a byte-preserving refactor: gate it wit
 
 Useful local files:
 
-- `tools/ooxml-validator/README.md`
 - `test/schema-cases.js`
 - `test/schema-validation.test.js`
 - `test/validator.js`

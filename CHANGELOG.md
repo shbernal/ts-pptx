@@ -55,6 +55,37 @@ and project-site changes.
   always latent; changing how fixtures interleave is what exposed it. Those fixtures now
   run in a sequential sibling suite, and new ones are routed there automatically.
 
+- **Schema validation moved to the shared `ooxml-validate` oracle.** This repo and
+  `ts-xlsx` each carried their own validator pinned to a different Open XML SDK version —
+  3.2.0 here, 3.5.1 there — so the two enforced different rule sets while looking like
+  they enforced the same one. Both now validate through one published package, and the
+  SDK pin lives in that package rather than in either consumer. Test tooling only;
+  nothing the published package does is affected.
+
+  - `tools/ooxml-validator/` is gone — installer, update checker, version pin and the
+    `check-validator` script with it. `ooxml-validate` fetches its oracle from GitHub
+    Releases on first use (never from a postinstall hook), verifies the download's
+    checksum *and* its build provenance, and caches it under `~/.cache/ooxml-validate`.
+    CI caches that directory instead of running an install step.
+  - `test/validator.js` shrank to an adapter. Batching, the one-child-at-a-time queue and
+    the CI gate belong to the package now; the suite's `validateBuf` /
+    `validatorAvailable` surface is unchanged, so no fixture moved.
+  - **Every input file now comes back with an explicit `valid` flag.** The old batcher
+    read "absent from the output" as "clean", which was safe only for as long as
+    unreadable packages kept being reported. Nothing infers cleanliness from absence any
+    more.
+  - Diagnostics are `{ id, type, description, partUri, xpath }` — the same five fields,
+    renamed with the report contract. A non-package file is now `PackageOpenError` /
+    `Package` rather than a null id and an `OpenXmlPackageException` type; the two
+    self-check fixtures in `test/schema-cases.js` pin the new shape.
+  - Validating at SDK 3.5.1 changed nothing about what this project emits. All 153
+    generated decks plus the 44 static fixtures were run through both oracles before the
+    switch: identical diagnostics, file for file, nothing new and nothing gone. The
+    conformance target is still `Microsoft365`, and `pnpm run schema:versions` still
+    prints the coverage table it printed at 3.2.0.
+  - Set `OOXML_VALIDATE_NO_BATCH=1` (was `TSPPTX_VALIDATOR_NO_BATCH`) to pin a batch
+    failure to one fixture.
+
 - **The browser demo is a page of the site, not a workspace.** `demos/vite-demo` — a React
   + Vite + Bootstrap app whose only output was a download — is deleted. Its replacement is
   `/demos` on the project site, which builds the same deck in the tab and then **shows you

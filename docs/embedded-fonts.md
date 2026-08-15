@@ -149,9 +149,8 @@ Per the project's fixture-gated-work rule, the emitted/merged XML is validated a
 - `test/read/fixtures/fonts/Silkscreen-Regular.ttf` / `Silkscreen-Bold.ttf`:
   raw redistributable (SIL OFL) faces fed to the author-side API in tests.
 
-`pnpm run test:schema` (validator installed via `./tools/ooxml-validator/install.sh`)
-confirms the validator accepts the `fntdata` Default and the `embeddedFontLst`
-placement.
+`pnpm run test:schema` confirms the validator accepts the `fntdata` Default and the
+`embeddedFontLst` placement.
 
 ## Standing caveats
 

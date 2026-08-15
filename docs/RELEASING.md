@@ -79,11 +79,11 @@ cannot ship.
 
 ## Local Release Gate
 
-Install dependencies and the OOXML validator:
+Install dependencies (the OOXML oracle needs no install step; `ooxml-validate`
+fetches it on first use):
 
 ```bash
 pnpm install --frozen-lockfile
-./tools/ooxml-validator/install.sh
 ```
 
 Run the full automated gate before tagging:

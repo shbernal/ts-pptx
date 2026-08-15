@@ -1,17 +1,22 @@
 import { beforeAll, describe, test } from 'vitest'
 import TsPptx from '../dist/node.js'
-import { isInstalled, validateBuf, VALIDATOR } from './validator.js'
+import { isInstalled, validateBuf } from './validator.js'
 import cases from './schema-cases.js'
 
 // Most fixtures run concurrently (see `describe.concurrent` below). Validate one
-// minimal deck serially first: the OOXMLValidatorCLI binary is a .NET single-file
-// app whose first invocation self-extracts its bundle into
-// DOTNET_BUNDLE_EXTRACT_BASE_DIR, and several processes racing on a cold extract
-// directory can collide. This is file-level rather than attached to one suite so
-// both blocks below are covered even when only one of them is selected by `-t`.
+// minimal deck serially first: the oracle is a .NET single-file app whose first
+// invocation self-extracts its bundle into DOTNET_BUNDLE_EXTRACT_BASE_DIR, and
+// several processes racing on a cold extract directory can collide. It also gets
+// the one-time download out of the way before anything concurrent starts. This is
+// file-level rather than attached to one suite so both blocks below are covered
+// even when only one of them is selected by `-t`.
 beforeAll(async () => {
 	if (!(await isInstalled())) {
-		throw new Error('OOXMLValidatorCLI not installed at ' + VALIDATOR + '\nRun: ./tools/ooxml-validator/install.sh')
+		throw new Error(
+			'the ooxml-validate oracle could not be obtained, so this suite would prove nothing.\n' +
+				'It is fetched from GitHub Releases on first use and cached under ~/.cache/ooxml-validate;\n' +
+				'see docs/testing.md if this machine cannot reach it.'
+		)
 	}
 	const pres = new TsPptx()
 	pres.addSlide()

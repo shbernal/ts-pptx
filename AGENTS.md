@@ -237,8 +237,8 @@ MCPs' corpora.
 ### Coverage: probe in the loop, gate before the commit
 
 - **`pnpm run test:coverage` (~2min, observed 60–185s) is a commit gate, not a loop
-  step.** It runs every test file, including the schema suite that spawns a .NET
-  OOXMLValidatorCLI process per concurrent case — none of which you need in order to
+  step.** It runs every test file, including the schema suite that drives a .NET
+  validator over every fixture — none of which you need in order to
   learn whether the test you just wrote reaches the line you wrote it for. Run it
   **once, immediately before each commit**, and never before an edit. A coverage
   session that runs the full gate after every edit spends more wall-clock waiting on
@@ -289,10 +289,10 @@ MCPs' corpora.
 Do not pipe a verification command through `| Select-Object -Last N` (or `tail`) the
 first time you run it. Failures often explain themselves in a `beforeAll` or setup
 message near the *top* of the output, and a tail filter scrolls exactly that off. The
-concrete case: `test:schema` requires the validator installed with
-`./tools/ooxml-validator/install.sh`, and its absence is reported up front — piping the
-first run turned one legible missing-validator error into three blind 40s re-runs. Run
-bare first; filter only on a re-run, once you know what you are looking for.
+concrete case: `test:schema` needs the OOXML oracle, and a machine that cannot obtain
+one says so up front — piping the first run turned one legible missing-validator error
+into three blind 40s re-runs. Run bare first; filter only on a re-run, once you know
+what you are looking for.
 
 ### Shell habit: reach a binary directly, keep `pnpm run` for scripts
 
@@ -342,7 +342,7 @@ already burned the commit attempt.
 
 ### Targeted checks the above does not cover
 
-- For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema` (which requires the validator installed with `./tools/ooxml-validator/install.sh`). `verify` already covers the schema suite; run `test:schema` alone only to iterate on a fixture.
+- For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema` (which needs the OOXML oracle; `ooxml-validate` fetches and caches it on first use, so there is nothing to install). `verify` already covers the schema suite; run `test:schema` alone only to iterate on a fixture.
 - For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It builds every deck registered in `demos/showcases/lib/showcases.mjs`, recurses into each embedded `.xlsx`, and diffs every part; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup. The corpus is only what those decks emit, so before trusting a PASS, confirm the part you touched is in it (`.tmp/byte-identity/baseline/`) — an emitter no showcase reaches is unproven, not proven unchanged.
 - `pnpm run raw-xml:check` (part of `verify` and `check:static`) is a **ratchet, not a ban**: `scripts/raw-xml-budget.json` freezes the per-file count of hand-built XML tag delimiters in string literals, and the check fails if any file goes up or a file not in the budget has any. Most of `src/gen/` builds through `gen/oxml/el.ts`, but the chart emitters do not, so a flat prohibition is not yet possible — the budget is what stops the migration silently un-doing itself. It fails when a count goes **down** as well: re-freeze with `pnpm run raw-xml:freeze` in the same commit, so the budget never carries slack. `pnpm run raw-xml:list` prints every occurrence with a line number. The scan is over the TypeScript AST, so doc comments and messages handed to `warn`/`notes.note`/`new *Error` are not findings.
 - `pnpm run path-refs:check` (part of `verify` and `check:static`) resolves every **backticked repo path** in `docs/`, `src/`, `test/`, `scripts/`, `tools/`, `demos/` and the root markdown. This repo cites files in backticks rather than as links, and those citations are usually the evidence for the claim beside them — `docs-check.mjs` only validates markdown *links*, so seven had rotted before the gate existed. A citation needs a `/` and a source extension; it resolves root-relative, file-relative, or as a path suffix (comments write `gen/oxml/el.ts` without the `src/` prefix), and `.js` falls back to `.ts`. Build output and `CHANGELOG.md` are skipped on purpose — `RELEASING.md` lists `dist/pptxgen.*` as negative space and those must *never* resolve. Anything else deliberately dead goes in `ALLOWLIST` in `scripts/path-refs.mjs` with its reason, and an allowlist entry that stops firing fails the gate too. `pnpm run path-refs:list` prints every citation with its verdict.

@@ -94,6 +94,5 @@
 		"**/*.min.js",
 		"demos/**/package-lock.json",
 		"demos/**/node_modules/",
-		"tools/ooxml-validator/bin/",
 	],
 }

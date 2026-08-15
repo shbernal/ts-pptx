@@ -117,7 +117,7 @@ describe('OPC round-trip — corpus invariants', () => {
 /** A stable, order-independent identity for a validator verdict. */
 function errorFingerprint(errors) {
 	return errors
-		.map((e) => `${e.Id} ${e.Path?.PartUri ?? ''} ${e.Path?.XPath ?? ''}`)
+		.map((e) => `${e.id} ${e.partUri ?? ''} ${e.xpath ?? ''}`)
 		.sort()
 		.join('\n')
 }

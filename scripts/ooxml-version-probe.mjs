@@ -22,20 +22,25 @@
 // Row 2 rises with version (newer schemas model chartEx and flag the known
 // cx:axisId divergence); row 4 is flat (a bogus attribute on <p:sp> is a core
 // ECMA-376 error every schema generation catches). Error count is monotonically
-// non-decreasing in version, which is why `test/validator.js` pins FILE_FORMAT to
+// non-decreasing in version, which is why `ooxml-validate` pins FILE_FORMAT to
 // Microsoft365: it is the strongest available check, and any lower version can only
 // lose coverage.
 //
 // WHAT IT IS FOR
 //
-//  1. Re-verifying that monotonicity after bumping tools/ooxml-validator/version.json.
-//     A DECREASE along the axis would break the premise the pin rests on, so the probe
-//     exits non-zero on one.
+//  1. Re-verifying that monotonicity after an `ooxml-validate` bump — which is also an
+//     Open XML SDK bump, since the package pins one. A DECREASE along the axis would
+//     break the premise the pin rests on, so the probe exits non-zero on one.
 //  2. Localizing a known divergence to the schema generation that introduced it. The
 //     version where a fixture's count first moves is the generation that started
 //     modelling that markup — that is how the pareto row above dates chartEx to 2016.
 //
-// It is deliberately NOT part of `verify`: 7 validator spawns per fixture, and it
+// The counting is `ooxml-validate`'s own `probeFormats`, so this script is the
+// project-specific half — the fixtures that make each row shape observable — over a
+// claim the package re-checks for every consumer. What is measured here is TsPptx's
+// output; what is asserted is the package's pin.
+//
+// It is deliberately NOT part of `verify`: seven validation passes per fixture, and it
 // asserts nothing about emitted markup that `test:schema` does not already assert
 // at Microsoft365.
 
@@ -43,9 +48,9 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import JSZip from 'jszip'
+import { probeFormats, validatorPath } from 'ooxml-validate'
 import TsPptx from '../dist/node.js'
 import { parseCliOrExit } from './script-utils.mjs'
-import { isInstalled, runValidatorOnFile, FILE_FORMATS, VALIDATOR } from '../test/validator.js'
 
 // Fixtures chosen to span the coverage axis, not to cover features — `test:schema`
 // does that. Each one exists to make a different row shape observable: flat-clean,
@@ -114,8 +119,8 @@ function shortLabel(version) {
 }
 
 async function main() {
-	// Arguments first, install check second: `--help` has to work on a machine that has
-	// never run tools/ooxml-validator/install.sh, which is exactly where someone reads it.
+	// Arguments first, validator second: `--help` has to work on a machine that has
+	// never fetched the oracle, which is exactly where someone reads it.
 	//
 	// `parseArgs` rejects a `--file` with no value itself, so the hand-rolled
 	// "requires a path" check that used to live here is gone with the indexOf form.
@@ -132,9 +137,9 @@ Options:
 	})
 	const explicitFile = values.file ?? null
 
-	if (!(await isInstalled())) {
-		console.error('OOXMLValidatorCLI not installed at ' + VALIDATOR)
-		console.error('Run: ./tools/ooxml-validator/install.sh')
+	if ((await validatorPath()) === null) {
+		console.error('the ooxml-validate oracle could not be obtained.')
+		console.error('It is fetched from GitHub Releases on first use; see docs/testing.md.')
 		process.exit(1)
 	}
 
@@ -144,27 +149,36 @@ Options:
 			? [{ name: path.basename(explicitFile), file: path.resolve(explicitFile) }]
 			: await Promise.all(FIXTURES.map(async (f) => ({ name: f.name, file: await buildFixture(f, dir) })))
 
-		const nameWidth = Math.max(...targets.map((t) => t.name.length), 7)
-		console.log('fixture'.padEnd(nameWidth), FILE_FORMATS.map((v) => shortLabel(v).padStart(6)).join(''))
+		// One call per conformance target for the whole set, not one per fixture: the
+		// package batches, so probing every fixture together costs seven oracle runs in
+		// total rather than seven per row.
+		const probe = await probeFormats(targets.map((t) => t.file))
+		const rowsByFile = new Map(probe.rows.map((row) => [row.file, row]))
 
-		let regressions = 0
+		const nameWidth = Math.max(...targets.map((t) => t.name.length), 7)
+		console.log('fixture'.padEnd(nameWidth), probe.formats.map((v) => shortLabel(v).padStart(6)).join(''))
+
 		for (const target of targets) {
-			const counts = []
-			for (const version of FILE_FORMATS) counts.push((await runValidatorOnFile(target.file, version)).length)
-			console.log(target.name.padEnd(nameWidth), counts.map((c) => String(c).padStart(6)).join(''))
+			const row = rowsByFile.get(target.file)
+			if (!row) {
+				console.error(`\n  NO RESULT for "${target.name}" (${target.file}).`)
+				continue
+			}
+			console.log(target.name.padEnd(nameWidth), row.counts.map((c) => String(c).padStart(6)).join(''))
 
 			// A decrease means a newer schema generation stopped modelling markup an older
 			// one flagged. That inverts the premise behind pinning to Microsoft365, so it is
 			// a hard failure rather than a note.
-			for (let i = 1; i < counts.length; i++) {
-				if (counts[i] < counts[i - 1]) {
+			for (let i = 1; i < row.counts.length; i++) {
+				const previous = row.counts[i - 1] ?? 0
+				const current = row.counts[i] ?? 0
+				if (current < previous) {
 					console.error(
 						`\n  MONOTONICITY BROKEN on "${target.name}": ` +
-							`${FILE_FORMATS[i - 1]}=${counts[i - 1]} -> ${FILE_FORMATS[i]}=${counts[i]}.\n` +
-							'  test/validator.js pins FILE_FORMAT=Microsoft365 on the premise that error count\n' +
+							`${probe.formats[i - 1]}=${previous} -> ${probe.formats[i]}=${current}.\n` +
+							'  ooxml-validate pins FILE_FORMAT=Microsoft365 on the premise that error count\n' +
 							'  never decreases with version. Re-read that comment before changing anything.'
 					)
-					regressions++
 				}
 			}
 		}
@@ -176,7 +190,7 @@ Options:
 			if (!control) console.error('WARNING: control fixture missing from this run.')
 		}
 
-		process.exit(regressions > 0 ? 1 : 0)
+		process.exit(probe.violated ? 1 : 0)
 	} finally {
 		await fs.rm(dir, { recursive: true, force: true })
 	}

@@ -6,7 +6,7 @@
 // discovery from treating it as a suite. Run the fixtures with: pnpm run test:schema
 //
 // Each case builds a representative `.pptx` and asserts the OpenXmlValidator (via
-// OOXMLValidatorCLI) reports zero errors. Fixtures are intentionally small and
+// `ooxml-validate`) reports zero errors. Fixtures are intentionally small and
 // orthogonal — one API surface each — so a validation error localizes cleanly.
 //
 // Two cases at the END of the array are the exception, and they are not fixtures:
@@ -46,25 +46,25 @@ async function expectNoSchemaErrors(buf, label) {
 }
 
 /**
- * One line per error, carrying every field OOXMLValidatorCLI actually emits.
+ * One line per error, carrying every field the oracle actually emits.
  *
- * It emits five — `Description`, `ErrorType`, `Id`, `Path.PartUri`, `Path.XPath` — and this
- * used to print three, dropping the two that localize a failure: the `XPath` naming the
- * offending *element* (rather than only the part it sits in), and the `Id`, a stable
- * machine code such as `Sch_UndeclaredAttribute` that survives an upstream rewording of
- * the prose.
+ * It emits five — `description`, `type`, `id`, `partUri`, `xpath` — and this used to
+ * print three, dropping the two that localize a failure: the `xpath` naming the
+ * offending *element* (rather than only the part it sits in), and the `id`, a stable
+ * machine code such as `Sch_UndeclaredAttribute` that survives an upstream rewording
+ * of the prose.
  *
- * `Path` and `Id` are both `null` on a package-level failure (`OpenXmlPackageException`
- * — the file is not a readable OPC package at all), so neither may be dereferenced blind.
- * The self-check case at the end of this file pins that shape.
+ * `partUri` and `xpath` are both `null` on a package-level failure — the file is not a
+ * readable OPC package at all, so there is nothing to point at — and must not be
+ * printed blind. The self-check case at the end of this file pins that shape.
  *
- * @param {{ Description: string, ErrorType: string, Id: string | null, Path: { PartUri?: string, XPath?: string } | null }[]} errors
+ * @param {readonly import('ooxml-validate').ValidationDiagnostic[]} errors
  * @param {number} limit
  */
 function formatSchemaErrors(errors, limit = 5) {
 	const lines = errors.slice(0, limit).map((e) => {
-		const where = e.Path ? `${e.Path.PartUri || '?'} ${e.Path.XPath || '(no xpath)'}` : '(package level — no part)'
-		return `  - [${e.ErrorType}${e.Id ? '/' + e.Id : ''}] ${e.Description}\n      at ${where}`
+		const where = e.partUri ? `${e.partUri} ${e.xpath || '(no xpath)'}` : '(package level — no part)'
+		return `  - [${e.type}/${e.id}] ${e.description}\n      at ${where}`
 	})
 	const more = errors.length > limit ? `\n  ...(${errors.length - limit} more)` : ''
 	return lines.join('\n') + more
@@ -1847,11 +1847,11 @@ export default [
 			const errors = await validateBuf(buf)
 			// The tolerated divergence: schema errors that localize to a <cx:axisId> element. Anything
 			// else is a real regression and fails the case.
-			const unexpected = errors.filter((e) => !/cx:axisId/.test((e.Path && e.Path.XPath) || ''))
+			const unexpected = errors.filter((e) => !/cx:axisId/.test(e.xpath || ''))
 			if (unexpected.length > 0) {
 				const summary = unexpected
 					.slice(0, 5)
-					.map((e) => `  - [${e.ErrorType}] ${e.Description} (path: ${(e.Path && e.Path.XPath) || '?'})`)
+					.map((e) => `  - [${e.type}] ${e.description} (path: ${e.xpath || '?'})`)
 					.join('\n')
 				assert(
 					false,
@@ -4307,15 +4307,15 @@ export default [
 		// SELF-CHECK, not a fixture. Nothing above this line asserts a non-zero error
 		// count, so nothing above this line would notice if `validateBuf` began returning
 		// `[]` unconditionally — a keying bug in the batcher, a spawn that fails in a way
-		// the JSON parse swallows, or an output-shape change on a
-		// `tools/ooxml-validator/version.json` bump. Any of those turns this entire tier
-		// green while proving nothing at all, and `verify` has no other way to see it.
+		// the report parse swallows, or an output-shape change on an `ooxml-validate`
+		// bump. Any of those turns this entire tier green while proving nothing at all,
+		// and `verify` has no other way to see it.
 		//
 		// So: perturb a deck that was valid a moment ago and require the gate to catch it.
 		// This is the same discipline the em-dash gate is held to in AGENTS.md — when a
 		// green run is load-bearing, prove it can still fail.
 		//
-		// The assertions are on `Id` and `XPath`, never `Description`: the id is a stable
+		// The assertions are on `id` and `xpath`, never `description`: the id is a stable
 		// machine code, the prose belongs to upstream and can be reworded in any release.
 		name: 'self-check: a bogus attribute is REPORTED (proves the gate can still fail)',
 		fn: async () => {
@@ -4335,32 +4335,34 @@ export default [
 			const errors = await validateBuf(await zip.generateAsync({ type: 'nodebuffer' }))
 			assertEqual(errors.length, 1, 'perturbed deck error count')
 			const err = errors[0]
-			assertEqual(err.Id, 'Sch_UndeclaredAttribute', 'error id')
-			assertEqual(err.ErrorType, 'Schema', 'error type')
-			assertEqual(err.Path && err.Path.PartUri, '/' + slidePath, 'error part uri')
-			assertEqual(err.Path && err.Path.XPath, '/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]', 'error xpath')
+			assertEqual(err.id, 'Sch_UndeclaredAttribute', 'error id')
+			assertEqual(err.type, 'Schema', 'error type')
+			assertEqual(err.partUri, '/' + slidePath, 'error part uri')
+			assertEqual(err.xpath, '/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]', 'error xpath')
 		},
 	},
 	{
-		// SELF-CHECK, not a fixture — the other half, and the load-bearing one.
+		// SELF-CHECK, not a fixture — the other half.
 		//
-		// `test/validator.js` batches decks into one directory-mode invocation and reads
-		// "absent from the output" as "clean". That shortcut is only safe because an
-		// unreadable file is *reported* as an `OpenXmlPackageException` rather than
-		// dropped; were corrupt packages dropped instead, the batcher would report the
-		// very failures this suite exists to catch as passes. Until now that property was
-		// established by hand, once, against one pinned binary, and re-checked by nothing
-		// when `version.json` moves — which is exactly when it could change.
+		// The worst thing a validation harness can do is report a file it could not read
+		// as a file with nothing wrong with it. This used to be the load-bearing case
+		// here, because batching read "absent from the output" as "clean" and that
+		// inference was safe only for as long as unreadable files kept being reported.
+		// The report contract is explicit now — every input comes back carrying its own
+		// verdict, so there is no absence left to interpret — but the failure it guarded
+		// against is worth an assertion regardless: a package that cannot be opened must
+		// arrive as a diagnostic, not as an empty error list.
 		name: 'self-check: a non-package file is REPORTED, not silently treated as clean',
 		fn: async () => {
 			const errors = await validateBuf(Buffer.from('not a pptx'))
 			assertEqual(errors.length, 1, 'non-package error count')
 			const err = errors[0]
-			assertEqual(err.ErrorType, 'OpenXmlPackageException', 'error type')
-			// A package-level failure carries no part and no code, which is why
-			// `formatSchemaErrors` must not dereference either without a guard.
-			assertEqual(err.Path, null, 'package-level error path')
-			assertEqual(err.Id, null, 'package-level error id')
+			assertEqual(err.type, 'Package', 'error type')
+			assertEqual(err.id, 'PackageOpenError', 'error id')
+			// A package-level failure has no part to point at, which is why
+			// `formatSchemaErrors` must not print either field without a guard.
+			assertEqual(err.partUri, null, 'package-level error part uri')
+			assertEqual(err.xpath, null, 'package-level error xpath')
 		},
 	},
 ]
