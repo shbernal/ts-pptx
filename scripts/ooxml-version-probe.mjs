@@ -55,6 +55,13 @@ import { parseCliOrExit } from './script-utils.mjs'
 // Fixtures chosen to span the coverage axis, not to cover features — `test:schema`
 // does that. Each one exists to make a different row shape observable: flat-clean,
 // rising (version-gated markup), and flat-dirty (core error caught everywhere).
+/**
+ * @typedef {object} Fixture
+ * @property {string} name
+ * @property {(pres: import('../dist/node.js').TsPptx) => void} build
+ * @property {(zip: import('jszip')) => Promise<void>} [corrupt] damage the built package on purpose
+ */
+/** @type {Fixture[]} */
 const FIXTURES = [
 	{
 		name: 'base (plain text slide)',
@@ -94,12 +101,19 @@ const FIXTURES = [
 			p.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1 })
 		},
 		corrupt: async (zip) => {
-			const xml = await zip.file('ppt/slides/slide1.xml').async('string')
+			const slide = zip.file('ppt/slides/slide1.xml')
+			if (!slide) throw new Error('built package has no ppt/slides/slide1.xml to corrupt')
+			const xml = await slide.async('string')
 			zip.file('ppt/slides/slide1.xml', xml.replace('<p:sp>', '<p:sp bogusAttr="1">'))
 		},
 	},
 ]
 
+/**
+ * @param {Fixture} fixture
+ * @param {string} dir
+ * @returns {Promise<string>} path to the built deck
+ */
 async function buildFixture(fixture, dir) {
 	const pres = new TsPptx()
 	fixture.build(pres)
@@ -114,6 +128,10 @@ async function buildFixture(fixture, dir) {
 	return file
 }
 
+/**
+ * @param {string} version
+ * @returns {string}
+ */
 function shortLabel(version) {
 	return version.replace('Microsoft365', 'M365').replace('Office', 'O')
 }

@@ -45,13 +45,21 @@ const GENERATED_TREES = ['reference/api/']
 // Markdown inline links, excluding images (`!` prefix) and tolerating a trailing "title".
 const MARKDOWN_LINK_RE = /(?<!!)\[[^\]]+\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g
 
-/** Normalize a site route: strip query/hash and surrounding slashes, keeping a leading `/`. */
+/**
+ * Normalize a site route: strip query/hash and surrounding slashes, keeping a leading `/`.
+ * @param {string} route
+ * @returns {string}
+ */
 function normalizeRoute(route) {
 	const bare = (route.split('#', 1)[0]?.split('?', 1)[0] ?? '').replace(/^\/+|\/+$/g, '')
 	return bare ? `/${bare}` : '/'
 }
 
-/** Every route a docs page is reachable at (a page, plus `/` for index pages). */
+/**
+ * Every route a docs page is reachable at (a page, plus `/` for index pages).
+ * @param {string} relativePath
+ * @returns {Set<string>}
+ */
 function routesFor(relativePath) {
 	const stem = relativePath.replace(/\.md$/, '')
 	const routes = new Set([normalizeRoute(stem)])
@@ -60,8 +68,13 @@ function routesFor(relativePath) {
 	return routes
 }
 
-/** Every `pages:` entry anywhere in a docs.json navigation tree. */
+/**
+ * Every `pages:` entry anywhere in a docs.json navigation tree.
+ * @param {unknown} value
+ * @returns {string[]}
+ */
 function collectNavPages(value) {
+	/** @type {string[]} */
 	const pages = []
 	if (Array.isArray(value)) {
 		for (const item of value) pages.push(...collectNavPages(item))
@@ -80,7 +93,11 @@ function collectNavPages(value) {
 	return pages
 }
 
-/** A link target that leaves the docs site entirely. */
+/**
+ * A link target that leaves the docs site entirely.
+ * @param {string} target
+ * @returns {boolean}
+ */
 function isExternal(target) {
 	return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('//')
 }
@@ -88,12 +105,20 @@ function isExternal(target) {
 /**
  * Is `target` inside `root`? Not a prefix test: `startsWith` would also accept a `docs-extra/`
  * sibling, which is outside the tree but shares the leading characters.
+ * @param {string} root
+ * @param {string} target
+ * @returns {boolean}
  */
 function isInside(root, target) {
 	const rel = path.relative(root, target)
 	return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
+/**
+ * @param {string} docsDir
+ * @param {string} rel docs-relative page path
+ * @returns {string[]} one message per problem found
+ */
 function checkFrontmatter(docsDir, rel) {
 	const { data, error } = parseFrontmatter(path.join(docsDir, rel))
 	if (error) return [`${rel}: ${error}`]
@@ -114,12 +139,22 @@ function checkFrontmatter(docsDir, rel) {
 	return errors
 }
 
+/**
+ * @param {string} docsDir
+ * @param {string} rel docs-relative page path
+ * @returns {string[]}
+ */
 function checkCodeFences(docsDir, rel) {
 	const text = readFileSync(path.join(docsDir, rel), 'utf8')
 	const fences = text.split(/\r?\n/).filter((line) => line.trimStart().startsWith('```')).length
 	return fences % 2 ? [`${rel}: unbalanced fenced code block`] : []
 }
 
+/**
+ * @param {string} docsDir
+ * @param {string[]} relPaths every docs-relative page path
+ * @returns {string[]}
+ */
 function checkDocsJson(docsDir, relPaths) {
 	const configPath = path.join(docsDir, 'docs.json')
 	if (!existsSync(configPath)) return ['docs/docs.json: missing docs navigation file']
@@ -131,8 +166,10 @@ function checkDocsJson(docsDir, relPaths) {
 		return [`docs/docs.json: invalid JSON: ${error instanceof Error ? error.message : String(error)}`]
 	}
 
-	const pageKeys = new Set(relPaths.map((rel) => rel.replace(/\.md$/, '')))
+	const pageKeys = new Set(relPaths.map(/** @param {string} rel */ (rel) => rel.replace(/\.md$/, '')))
+	/** @type {string[]} */
 	const errors = []
+	/** @type {Set<string>} */
 	const navKeys = new Set()
 	for (const page of collectNavPages(config.navigation ?? [])) {
 		const key = page.trim().replace(/^\/+|\/+$/g, '')
@@ -206,6 +243,8 @@ export function checkLinks(docsDir, rel, routes) {
  * The URL prefix the published site actually answers on, derived rather than restated: the
  * GitHub Pages host comes from `repository`, the path from the VitePress `base`. Writing the
  * value out a second time is what let `llms.txt` drift to a host that never existed.
+ * @param {string} docsDir
+ * @returns {{base: string | null, errors: string[]}}
  */
 function canonicalBase(docsDir) {
 	if (process.env.DOCS_BASE_URL) return { base: process.env.DOCS_BASE_URL.replace(/\/?$/, '/'), errors: [] }
@@ -237,7 +276,12 @@ const ADVERTISED_URL_RE = {
 	'llms.txt': /^- \[[^\]]+\]\((\S+?)\)/gm,
 }
 
-/** The URLs a generated llms file advertises. */
+/**
+ * The URLs a generated llms file advertises.
+ * @param {string} text
+ * @param {RegExp} pattern
+ * @returns {Set<string>}
+ */
 function advertisedUrls(text, pattern) {
 	const urls = [...text.matchAll(pattern)].map((match) => match[1] ?? '')
 	return new Set(urls.map((url) => url.split('#', 1)[0]?.split('?', 1)[0] ?? ''))
@@ -247,6 +291,8 @@ function advertisedUrls(text, pattern) {
  * Every advertised URL must map to a file in the build. VitePress runs with `cleanUrls`, so a
  * leaf page is `x.html` and only a directory index is `x/index.html` — the mapping below is the
  * one the server applies, so a route the generator invents cannot pass by looking plausible.
+ * @param {string} docsDir
+ * @returns {string[]}
  */
 function checkGeneratedUrls(docsDir) {
 	const dist = path.join(docsDir, '.vitepress', 'dist')

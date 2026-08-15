@@ -47,11 +47,31 @@ try {
 	)
 	process.exit(1)
 }
-const { Presentation } = await import(pathToFileURL(readEntry).href)
+// `readEntry` is always `dist/read.js`; the import is dynamic only so the check above can
+// print a build-first message instead of an unresolved-specifier stack.
+const { Presentation, isGraphicFrame } = /** @type {typeof import('../dist/read.js')} */ (
+	await import(pathToFileURL(readEntry).href)
+)
 
-/** Open a fixture by base name (without extension) as a Presentation. */
+/**
+ * Open a fixture by base name (without extension) as a Presentation.
+ * @param {string} name
+ * @returns {Promise<import('../dist/read.js').Presentation>}
+ */
 async function open(name) {
 	return Presentation.load(await fs.readFile(path.join(fixturesDir, `${name}.pptx`)))
+}
+
+/**
+ * The deck's first slide. Every fixture opened here has one, so an empty deck is a broken
+ * fixture rather than a case to edit around.
+ * @param {import('../dist/read.js').Presentation} presentation
+ * @returns {import('../dist/read.js').Slide}
+ */
+function firstSlide(presentation) {
+	const slide = presentation.slides[0]
+	if (!slide) throw new Error('fixture has no slides')
+	return slide
 }
 
 /** A real raster image (bytes + type) borrowed from the image fixture's media. */
@@ -80,7 +100,7 @@ const cases = [
 		// Verify: a text box reading "Added via addTextBox" appears on the slide.
 		async build() {
 			const presentation = await open('empty')
-			presentation.slides[0].addTextBox({
+			firstSlide(presentation).addTextBox({
 				text: 'Added via addTextBox',
 				left: 1 * inch,
 				top: 1 * inch,
@@ -97,7 +117,7 @@ const cases = [
 		async build() {
 			const presentation = await open('empty')
 			const image = await sampleImage()
-			presentation.slides[0].addPicture(image.bytes, {
+			firstSlide(presentation).addPicture(image.bytes, {
 				left: 1 * inch,
 				top: 1 * inch,
 				width: 3 * inch,
@@ -113,7 +133,9 @@ const cases = [
 		// Verify: the "replaceText" shape is gone; the rest of the slide is intact.
 		async build() {
 			const presentation = await open('textbox')
-			presentation.slides[0].shapes.find((shape) => shape.name === 'replaceText')?.delete()
+			firstSlide(presentation)
+				.shapes.find((shape) => shape.name === 'replaceText')
+				?.delete()
 			return presentation.save()
 		},
 	},
@@ -135,12 +157,12 @@ const cases = [
 			const presentation = await open('table')
 			const frame = presentation.slides
 				.flatMap((slide) => slide.shapes)
-				.find((shape) => shape.shapeType === 'graphicFrame' && shape.table)
-			const table = frame?.table
-			if (table) {
-				table.cell(0, 0).text = 'Edited A1'
-				table.cell(0, 1).text = 'Edited B1'
-			}
+				.find((shape) => isGraphicFrame(shape) && shape.hasTable)
+			const table = frame && isGraphicFrame(frame) ? frame.table : null
+			const a1 = table?.cell(0, 0)
+			const b1 = table?.cell(0, 1)
+			if (a1) a1.text = 'Edited A1'
+			if (b1) b1.text = 'Edited B1'
 			return presentation.save()
 		},
 	},
@@ -162,7 +184,7 @@ const cases = [
 			const target = await open('empty')
 			const source = await open('table')
 			const tableSlide = source.slides.findIndex((slide) =>
-				slide.shapes.some((shape) => shape.shapeType === 'graphicFrame' && shape.table)
+				slide.shapes.some((shape) => isGraphicFrame(shape) && shape.hasTable)
 			)
 			target.importSlide(source, tableSlide === -1 ? 0 : tableSlide)
 			return target.save()

@@ -151,7 +151,12 @@ const ALLOWLIST = [
 	},
 ]
 
-/** Every file under `dir`, recursively, skipping the generated and vendored trees. */
+/**
+ * Every file under `dir`, recursively, skipping the generated and vendored trees.
+ * @param {string} dir
+ * @param {string[]} out
+ * @returns {string[]}
+ */
 function walk(dir, out = []) {
 	if (!existsSync(dir)) return out
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -165,7 +170,11 @@ function walk(dir, out = []) {
 	return out
 }
 
-/** Repo-relative, forward-slashed — the form every message and allowlist key uses. */
+/**
+ * Repo-relative, forward-slashed — the form every message and allowlist key uses.
+ * @param {string} file
+ * @returns {string}
+ */
 function rel(file) {
 	return path.relative(ROOT, file).split(path.sep).join('/')
 }
@@ -201,6 +210,7 @@ function collect() {
 	}
 
 	const known = new Set(files.map(rel))
+	/** @type {{file: string, line: number, token: string, ok: boolean}[]} */
 	const citations = []
 	for (const file of files) {
 		if (!CITED_EXT.test(file)) continue

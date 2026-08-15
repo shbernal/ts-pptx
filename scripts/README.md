@@ -4,6 +4,14 @@ Build, gate and maintenance tooling. Every file here is plain ESM run on the rep
 Node — no transpile step — and is typechecked (`tsconfig.scripts.json`, `checkJs`),
 linted and formatted alongside `src/`.
 
+**Annotate what you add.** That project runs with `noImplicitAny`, the same as `src/`, so
+a parameter without a JSDoc `@param` fails `typecheck:scripts`. Types go in JSDoc rather
+than in `.ts` deliberately: annotations buy the checking, and the file extension buys
+nothing on top of it while costing every citation of these paths in `docs/` and every glob
+in the lint, format and tsconfig lists. Reach for a type from the library itself
+(`import('../dist/read.js').Slide`) rather than restating its shape — a hand-written
+duplicate is what goes stale when the API moves.
+
 The table exists because the single most useful fact about a script here is not what it
 does but **whether anything runs it**. A gate nobody invokes reads as coverage while
 proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Keep the

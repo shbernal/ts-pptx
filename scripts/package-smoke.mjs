@@ -152,6 +152,7 @@ const BUNDLED_DEPS = ['@xmldom/xmldom', 'fflate', 'opentype.js']
  *
  * Runs against both the npm and pnpm fixtures, which is not redundant: pnpm's symlinked
  * store is a genuinely different shape for a bundler to walk than npm's flat tree.
+ * @param {string} fixtureDir
  */
 async function bundleForNode(fixtureDir) {
 	const imports = []
@@ -240,6 +241,10 @@ async function bundleForNode(fixtureDir) {
 	console.log(`  node bundle: ${BUNDLE_MATRIX.length} subpaths bundled and run (esbuild ${esbuild.version})`)
 }
 
+/**
+ * @param {string} fixtureDir
+ * @param {string} manager package manager name, used in the fixture's package name
+ */
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
 	await fs.writeFile(
@@ -248,6 +253,11 @@ async function writeFixtureManifest(fixtureDir, manager) {
 	)
 }
 
+/**
+ * @param {string} manager `npm` or `pnpm`
+ * @param {string} fixtureDir
+ * @param {string} tarball path to the packed tarball
+ */
 async function installPackedPackage(manager, fixtureDir, tarball) {
 	if (manager === 'npm') {
 		await run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', tarball], { cwd: fixtureDir })
@@ -260,6 +270,7 @@ async function installPackedPackage(manager, fixtureDir, tarball) {
 	throw new Error('unsupported package manager for smoke test: ' + manager)
 }
 
+/** @param {string} fixtureDir */
 async function smokeInstalledPackage(fixtureDir) {
 	const installedPkgDir = path.join(fixtureDir, 'node_modules', ...packagePathParts)
 	await Promise.all([

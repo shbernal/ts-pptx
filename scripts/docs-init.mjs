@@ -234,7 +234,12 @@ Fix:
 `,
 }
 
-/** The display name templates are rendered with: the flag, else the literal, else package name. */
+/**
+ * The display name templates are rendered with: the flag, else the literal, else package name.
+ * @param {string} root
+ * @param {string | undefined} explicit
+ * @returns {string}
+ */
 function projectName(root, explicit) {
 	if (explicit) return explicit
 	if (!PROJECT_NAME.includes('{{')) return PROJECT_NAME
@@ -242,7 +247,7 @@ function projectName(root, explicit) {
 	if (existsSync(packageJson)) {
 		try {
 			const name = String(JSON.parse(readFileSync(packageJson, 'utf8')).name ?? '').trim()
-			if (name) return name.replace(/^@/, '').split('/').pop()
+			if (name) return name.replace(/^@/, '').split('/').pop() ?? name
 		} catch {
 			/* fall through to the directory name */
 		}
@@ -250,6 +255,14 @@ function projectName(root, explicit) {
 	return path.basename(root)
 }
 
+/**
+ * @param {string} root
+ * @param {string} relativePath
+ * @param {string} content
+ * @param {boolean} force overwrite an existing file
+ * @param {boolean} dryRun report what would happen, write nothing
+ * @returns {string} one line describing what was done
+ */
 function writeFile(root, relativePath, content, force, dryRun) {
 	const target = path.join(root, relativePath)
 	if (existsSync(target) && !force) return `preserve: ${relativePath}`
@@ -259,6 +272,11 @@ function writeFile(root, relativePath, content, force, dryRun) {
 	return `write: ${relativePath}`
 }
 
+/**
+ * @param {string} root
+ * @param {boolean} dryRun
+ * @returns {string | null}
+ */
 function addPackageScripts(root, dryRun) {
 	const packageJsonPath = path.join(root, 'package.json')
 	if (!existsSync(packageJsonPath)) return null

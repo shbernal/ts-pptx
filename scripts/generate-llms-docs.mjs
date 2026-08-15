@@ -10,7 +10,13 @@ const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/ts-pptx/').replace(/\/?$/, '/')
 const excludedDirs = new Set(['.vitepress', 'archive', 'public', 'research'])
 
+/**
+ * Every documented `.md` file under `dir`, recursively, sorted.
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function walkMarkdown(dir) {
+	/** @type {string[]} */
 	const out = []
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		if (entry.isDirectory()) {
@@ -25,25 +31,40 @@ function walkMarkdown(dir) {
 	return out.sort()
 }
 
+/**
+ * Split a page into its frontmatter fields and its body.
+ * @param {string} markdown
+ * @returns {[Record<string, string>, string]}
+ */
 function parseFrontmatter(markdown) {
 	if (!markdown.startsWith('---\n')) return [{}, markdown]
 	const end = markdown.indexOf('\n---\n', 4)
 	if (end === -1) return [{}, markdown]
 
+	/** @type {Record<string, string>} */
 	const frontmatter = {}
 	for (const line of markdown.slice(4, end).split('\n')) {
 		const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-		if (!match) continue
-		frontmatter[match[1]] = match[2].replace(/^"|"$/g, '')
+		if (!match?.[1]) continue
+		frontmatter[match[1]] = (match[2] ?? '').replace(/^"|"$/g, '')
 	}
 	return [frontmatter, markdown.slice(end + 5).trimStart()]
 }
 
+/**
+ * @param {string} body
+ * @param {string} fallback
+ * @returns {string}
+ */
 function titleFromBody(body, fallback) {
 	const heading = body.match(/^#\s+(.+)$/m)
-	return heading ? heading[1].trim() : fallback
+	return heading?.[1] ? heading[1].trim() : fallback
 }
 
+/**
+ * @param {string} filePath
+ * @returns {string}
+ */
 function routeFor(filePath) {
 	const rel = path.relative(docsDir, filePath).split(path.sep).join('/')
 	const withoutExt = rel.replace(/\.md$/, '')
@@ -58,6 +79,15 @@ function routeFor(filePath) {
 	return new URL(route, baseUrl).toString()
 }
 
+/**
+ * One page as the generated indexes consume it.
+ * @typedef {{body: string, rel: string, summary: string, title: string, url: string}} PageRecord
+ */
+
+/**
+ * @param {string} filePath
+ * @returns {PageRecord}
+ */
 function pageRecord(filePath) {
 	const raw = readFileSync(filePath, 'utf8')
 	const [frontmatter, body] = parseFrontmatter(raw)
@@ -72,8 +102,14 @@ function pageRecord(filePath) {
 	}
 }
 
+/**
+ * @param {PageRecord[]} records
+ * @returns {PageRecord[]}
+ */
 function docsNavigationOrder(records) {
-	const byRouteKey = new Map(records.map((record) => [record.rel.replace(/\.md$/, ''), record]))
+	const byRouteKey = new Map(
+		records.map(/** @param {PageRecord} record */ (record) => [record.rel.replace(/\.md$/, ''), record])
+	)
 	const ordered = []
 	for (const group of docsConfig.navigation ?? []) {
 		for (const page of group.pages ?? []) {

@@ -28,7 +28,11 @@ export const ALLOWED_DOC_TYPES = [
 	'troubleshooting',
 ]
 
-/** Drop one layer of matching surrounding quotes, if present. */
+/**
+ * Drop one layer of matching surrounding quotes, if present.
+ * @param {string} value
+ * @returns {string}
+ */
 function stripQuotes(value) {
 	const trimmed = value.trim()
 	if (trimmed.length >= 2 && trimmed[0] === trimmed[trimmed.length - 1] && (trimmed[0] === "'" || trimmed[0] === '"')) {
@@ -37,9 +41,14 @@ function stripQuotes(value) {
 	return trimmed
 }
 
-/** Non-empty, trimmed string values only — the shape every list field is consumed as. */
+/**
+ * Non-empty, trimmed string values only — the shape every list field is consumed as.
+ * @param {unknown} values
+ * @returns {string[]}
+ */
 export function compactStrings(values) {
 	if (!Array.isArray(values)) return []
+	/** @type {string[]} */
 	const out = []
 	for (const value of values) {
 		if (value === null || value === undefined) continue
@@ -49,7 +58,11 @@ export function compactStrings(values) {
 	return out
 }
 
-/** Parse an inline `[a, b]` list, tolerating single quotes. Returns `[]` when it is not one. */
+/**
+ * Parse an inline `[a, b]` list, tolerating single quotes. Returns `[]` when it is not one.
+ * @param {string} value
+ * @returns {string[]}
+ */
 function parseInlineList(value) {
 	let parsed
 	try {
@@ -122,7 +135,13 @@ export function parseFrontmatter(filePath) {
  * @returns {string[]} docs-relative POSIX paths
  */
 export function walkDocs(docsDir, skipName) {
+	/** @type {string[]} */
 	const found = []
+	/**
+	 * @param {string} dir
+	 * @param {string[]} relParts
+	 * @returns {void}
+	 */
 	const walk = (dir, relParts) => {
 		for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
 			if (entry.name.startsWith('.') || EXCLUDED_DIRS.has(entry.name)) continue
@@ -137,7 +156,11 @@ export function walkDocs(docsDir, skipName) {
 	return found.sort()
 }
 
-/** Resolve the docs directory, exiting with the script's own message when it is absent. */
+/**
+ * Resolve the docs directory, exiting with the script's own message when it is absent.
+ * @param {string} label the calling script's name, for the error message
+ * @returns {string}
+ */
 export function requireDocsDir(label) {
 	const docsDir = path.resolve('docs')
 	let ok

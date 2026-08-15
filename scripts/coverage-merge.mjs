@@ -80,8 +80,13 @@ const NODE_REPORT = path.join(ROOT, 'coverage', 'coverage-final.json')
 const BROWSER_DIR = path.join(ROOT, '.tmp', 'browser-coverage')
 const OUT_DIR = path.join(ROOT, 'coverage', 'merged')
 
+/** @type {(keyof import('istanbul-lib-coverage').CoverageSummaryData)[]} */
 const AXES = ['statements', 'branches', 'functions', 'lines']
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
 	console.error('coverage-merge: ' + message)
 	process.exit(1)
@@ -135,7 +140,9 @@ async function sourcesFor(distPath) {
 	const mapFile = file + '.map'
 	if (!fs.existsSync(mapFile)) fail(`${distPath} has no sourcemap; coverage cannot be remapped to src/.`)
 	const map = JSON.parse(fs.readFileSync(mapFile, 'utf8'))
-	map.sources = (map.sources ?? []).filter(Boolean).map((source) => new URL(source, url).href)
+	map.sources = (map.sources ?? [])
+		.filter(Boolean)
+		.map(/** @param {string} source */ (source) => new URL(source, url).href)
 
 	const entry = { code, url, map, ast: await parseAstAsync(code) }
 	sources.set(distPath, entry)
@@ -179,7 +186,7 @@ async function convertBrowserCoverage(records) {
 	// bundled dependencies' own sources while we are here — they are not in the Node
 	// report's file set, so adding them would grow the denominator with code this repo
 	// does not own.
-	map.filter((file) => fs.existsSync(file) && !file.includes('node_modules'))
+	map.filter(/** @param {string} file */ (file) => fs.existsSync(file) && !file.includes('node_modules'))
 
 	// Round-trip through JSON, which is not a no-op and is not cosmetic. Istanbul writes
 	// an open-ended location's end column as `Infinity` in memory, and `JSON.stringify`
@@ -209,7 +216,9 @@ const MAX_ORPHAN_SHARE = 5
  * is in fact exact. See the round-trip in `convertBrowserCoverage` for where `Infinity`
  * becomes `null` and why it has to.
  */
+/** @param {import('istanbul-lib-coverage').Location} p */
 const pos = (p) => `${p.line}:${Number.isFinite(p.column) ? p.column : -1}`
+/** @param {import('istanbul-lib-coverage').Range} loc */
 const locKey = (loc) => `${pos(loc.start)}-${pos(loc.end)}`
 
 /**
@@ -218,15 +227,28 @@ const locKey = (loc) => `${pos(loc.start)}-${pos(loc.end)}`
  * Counts are summed rather than replaced: the same location can appear more than once
  * across the lane's eight scenarios, and what matters downstream is only whether the
  * total is zero.
+ * @param {import('istanbul-lib-coverage').FileCoverageData} data
+ * @returns {Map<string, number>}
  */
 function hitsByLocation(data) {
+	/** @type {Map<string, number>} */
 	const hits = new Map()
+	/**
+	 * @param {string} key
+	 * @param {number} count
+	 */
 	const add = (key, count) => hits.set(key, (hits.get(key) ?? 0) + count)
 
 	for (const [index, loc] of Object.entries(data.statementMap)) add('s:' + locKey(loc), data.s[index] ?? 0)
 	for (const [index, fn] of Object.entries(data.fnMap)) add('f:' + locKey(fn.loc), data.f[index] ?? 0)
 	for (const [index, branch] of Object.entries(data.branchMap)) {
-		branch.locations.forEach((loc, arm) => add('b:' + locKey(loc), data.b[index]?.[arm] ?? 0))
+		branch.locations.forEach(
+			/**
+			 * @param {import('istanbul-lib-coverage').Range} loc
+			 * @param {number} arm
+			 */
+			(loc, arm) => add('b:' + locKey(loc), data.b[index]?.[arm] ?? 0)
+		)
 	}
 	return hits
 }
@@ -238,25 +260,38 @@ function hitsByLocation(data) {
  * `branchMap` — so merging it can only move hit counts, never the denominator — with each
  * count taken from whatever the browser recorded at that source location, or zero if it
  * recorded nothing there.
+ * @param {import('istanbul-lib-coverage').FileCoverageData} nodeData
+ * @param {import('istanbul-lib-coverage').FileCoverageData} browserData
  */
 function project(nodeData, browserData) {
 	const hits = hitsByLocation(browserData)
+	/** @type {Set<string>} */
 	const used = new Set()
+	/**
+	 * @param {string} key
+	 * @returns {number}
+	 */
 	const take = (key) => {
-		if (!hits.has(key)) return 0
+		const hit = hits.get(key)
+		if (hit === undefined) return 0
 		used.add(key)
-		return hits.get(key)
+		return hit
 	}
 
+	/** @type {Record<string, number>} */
 	const s = {}
 	for (const [index, loc] of Object.entries(nodeData.statementMap)) s[index] = take('s:' + locKey(loc))
 
+	/** @type {Record<string, number>} */
 	const f = {}
 	for (const [index, fn] of Object.entries(nodeData.fnMap)) f[index] = take('f:' + locKey(fn.loc))
 
+	/** @type {Record<string, number[]>} */
 	const b = {}
 	for (const [index, branch] of Object.entries(nodeData.branchMap)) {
-		b[index] = branch.locations.map((loc) => take('b:' + locKey(loc)))
+		b[index] = branch.locations.map(
+			/** @param {import('istanbul-lib-coverage').Range} loc */ (loc) => take('b:' + locKey(loc))
+		)
 	}
 
 	return {
@@ -278,12 +313,17 @@ function project(nodeData, browserData) {
 
 // --- reporting ---
 
+/** @param {import('istanbul-lib-coverage').CoverageMap} map */
 function summarize(map) {
 	const summary = libCoverage.createCoverageSummary()
 	for (const file of map.files()) summary.merge(map.fileCoverageFor(file).toSummary())
 	return summary
 }
 
+/**
+ * @param {import('istanbul-lib-coverage').CoverageSummaryData} before
+ * @param {import('istanbul-lib-coverage').CoverageSummaryData} after
+ */
 function printDelta(before, after) {
 	console.log('')
 	console.log('  merged coverage (Node suite + browser lane)')
@@ -330,7 +370,7 @@ for (const file of browserMap.files()) {
 		unknownFiles.push(file)
 		continue
 	}
-	const projected = project(nodeData.data, browserMap.fileCoverageFor(file).data)
+	const projected = project(nodeMap.fileCoverageFor(file).data, browserMap.fileCoverageFor(file).data)
 	orphans += projected.orphans
 	measured += projected.measured
 	merged.merge({ [file]: projected.coverage })
@@ -348,7 +388,11 @@ if (orphanShare > MAX_ORPHAN_SHARE) {
 
 fs.rmSync(OUT_DIR, { recursive: true, force: true })
 const context = libReport.createContext({ dir: OUT_DIR, coverageMap: merged })
-for (const reporter of ['json', 'json-summary', 'html']) {
+for (const reporter of /** @type {(keyof import('istanbul-reports').ReportOptions)[]} */ ([
+	'json',
+	'json-summary',
+	'html',
+])) {
 	reports.create(reporter, { projectRoot: ROOT }).execute(context)
 }
 

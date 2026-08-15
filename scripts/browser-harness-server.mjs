@@ -57,6 +57,7 @@ const MOUNTS = [
  * feeds that data URI to an `Image`, which refuses to decode it under the wrong type.
  * So this table is load-bearing, not decoration.
  */
+/** @type {Record<string, string>} */
 const CONTENT_TYPES = {
 	'.css': 'text/css; charset=utf-8',
 	'.html': 'text/html; charset=utf-8',

@@ -24,6 +24,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { ROOT, runCli } from './script-utils.mjs'
 
+/** @type {Record<string, string>} */
 const scripts = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).scripts
 
 /** This runner's own entry, as it appears in a package.json script body. */

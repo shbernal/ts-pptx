@@ -257,11 +257,16 @@ function solidPngBase64(rgb) {
 		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
 		return c
 	})
+	/** @param {Uint8Array} buf */
 	const crc = (buf) => {
 		let c = -1
 		for (const byte of buf) c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8)
 		return (c ^ -1) >>> 0
 	}
+	/**
+	 * @param {string} type four-character PNG chunk type
+	 * @param {Buffer} data
+	 */
 	const chunk = (type, data) => {
 		const len = Buffer.alloc(4)
 		len.writeUInt32BE(data.length)
@@ -406,6 +411,11 @@ function clearResiliency() {
  * them — indistinguishable from PowerPoint having discarded them. (A deck PowerPoint authored
  * itself enumerates zero shapes under a headless open too, which is how that was pinned down.)
  */
+/**
+ * @param {string} pptxFile
+ * @param {boolean} [withWindow] open with a window, for the features a headless open will not instantiate
+ * @returns {string}
+ */
 function vbsOpenHeader(pptxFile, withWindow = false) {
 	// WithWindow:=msoFalse (0) keeps it headless; ReadOnly avoids touching the file.
 	const openArgs = withWindow ? '0, 0, -1' : '-1, 0, 0'
@@ -436,6 +446,7 @@ WScript.Quit 0
 `
 }
 
+/** @param {string} pptxFile @returns {string} */
 function buildNavVbs(pptxFile) {
 	// Emits tab-separated `ACTION` lines (slideIdx, objectName, resolvedActionNum).
 	return (
@@ -456,6 +467,7 @@ Next
 	)
 }
 
+/** @param {string} pptxFile @returns {string} */
 function buildGeomVbs(pptxFile) {
 	// Emits one tab-separated `CONN` line per connector shape:
 	//   CONN <name> <beginConnected(-1/0)> <beginConnectedShapeName> <beginConnectionSite>
@@ -477,6 +489,7 @@ Next
 	)
 }
 
+/** @param {string} pptxFile @returns {string} */
 function buildOleVbs(pptxFile) {
 	// Emits one tab-separated `OLE` line per embedded-object shape: name, resolved ProgID.
 	// msoEmbeddedOLEObject = 7, msoLinkedOLEObject = 10.
@@ -497,6 +510,7 @@ Next
 	)
 }
 
+/** @param {string} pptxFile @returns {string} */
 function buildModel3dVbs(pptxFile) {
 	// Emits `M3D <name> <Shape.Type> <Model3D.CameraPositionZ>` per shape, then exports slide 1 to
 	// PNG so the caller can prove the model actually rasterized. A window is needed here for the
@@ -526,6 +540,10 @@ End If
 	)
 }
 
+/**
+ * @param {string} vbsFile
+ * @returns {Promise<{code: number, out: string, err: string}>}
+ */
 function runCscript(vbsFile) {
 	return new Promise((resolve) => {
 		const child = spawn('cscript', ['//nologo', '//B', vbsFile], { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -533,17 +551,26 @@ function runCscript(vbsFile) {
 		let err = ''
 		child.stdout.on('data', (d) => (out += d))
 		child.stderr.on('data', (d) => (err += d))
-		child.on('close', (code) => resolve({ code, out, err }))
+		// A `null` code means the process was killed by a signal; report it the way the
+		// spawn-error path does, so the retry in `driveDeck` treats the two alike.
+		child.on('close', (code) => resolve({ code: code ?? -1, out, err }))
 		child.on('error', (e) => resolve({ code: -1, out, err: String(e) }))
 	})
 }
 
-/** Write a VBS for `file`, drive PowerPoint (retry once), and return the raw cscript result. */
+/**
+ * Write a VBS for `file`, drive PowerPoint (retry once), and return the raw cscript result.
+ * @param {string} label
+ * @param {string} file the deck to open
+ * @param {(file: string) => string} buildVbs
+ * @returns {Promise<{code: number, out: string, err: string}>}
+ */
 async function driveDeck(label, file, buildVbs) {
 	const vbsFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-${label}-${process.pid}.vbs`)
 	await fs.writeFile(vbsFile, buildVbs(file))
 	// cscript can transiently fail if PowerPoint is mid-launch; retry once.
-	let result
+	/** @type {{code: number, out: string, err: string}} */
+	let result = { code: -1, out: '', err: 'cscript was never run' }
 	for (let attempt = 1; attempt <= 2; attempt++) {
 		clearResiliency()
 		result = await runCscript(vbsFile)
@@ -555,7 +582,13 @@ async function driveDeck(label, file, buildVbs) {
 }
 
 // --- 4. verifiers -----------------------------------------------------------
-/** Returns { skip, failures }. Handles the NO_POWERPOINT / OPEN_ERR / OPEN_OK common cases. */
+/**
+ * Returns { skip, failures }. Handles the NO_POWERPOINT / OPEN_ERR / OPEN_OK common cases.
+ * @param {string} label
+ * @param {string[]} lines cscript's stdout, split into lines
+ * @param {string} out cscript's raw stdout
+ * @returns {{skip: boolean, failures: string[]}}
+ */
 function checkOpen(label, lines, out) {
 	if (/NO_POWERPOINT/.test(out)) return { skip: true, failures: [] }
 	if (!lines.some((l) => l.startsWith('OPEN_OK'))) {
@@ -565,14 +598,19 @@ function checkOpen(label, lines, out) {
 			failures: [`[${label}] PowerPoint failed to open the deck (possible corruption / 0x80070570): ${openErr}`],
 		}
 	}
-	console.log(
-		`[${label}] ` + lines.find((l) => l.startsWith('OPEN_OK')).replace('OPEN_OK\t', 'opened OK; slide count = ')
-	)
+	const openOk = lines.find((l) => l.startsWith('OPEN_OK')) ?? ''
+	console.log(`[${label}] ` + openOk.replace('OPEN_OK\t', 'opened OK; slide count = '))
 	return { skip: false, failures: [] }
 }
 
+/**
+ * @param {string[]} lines
+ * @returns {string[]} one message per failure
+ */
 function verifyNav(lines) {
+	/** @type {string[]} */
 	const failures = []
+	/** @type {Map<string | undefined, number>} */
 	const seen = new Map()
 	for (const l of lines) {
 		if (!l.startsWith('ACTION\t')) continue
@@ -588,7 +626,12 @@ function verifyNav(lines) {
 	return failures
 }
 
+/**
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
 function verifyGeom(lines) {
+	/** @type {string[]} */
 	const failures = []
 	const conns = lines.filter((l) => l.startsWith('CONN\t')).map((l) => l.split('\t'))
 	if (!conns.length) {
@@ -596,7 +639,7 @@ function verifyGeom(lines) {
 		return failures
 	}
 	// The deck has exactly one bound connector.
-	const [, name, connected, targetName, site] = conns[0]
+	const [, name, connected, targetName, site] = conns[0] ?? []
 	if (String(connected) !== '-1') {
 		failures.push(
 			`connector "${name}" is not begin-connected (BeginConnected=${connected}); the connector did not snap to the custom shape's site`
@@ -613,8 +656,14 @@ function verifyGeom(lines) {
 	return failures
 }
 
+/**
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
 function verifyOle(lines) {
+	/** @type {string[]} */
 	const failures = []
+	/** @type {Map<string | undefined, string | undefined>} */
 	const seen = new Map()
 	for (const l of lines) {
 		if (!l.startsWith('OLE\t')) continue
@@ -637,10 +686,15 @@ function verifyOle(lines) {
 /**
  * Verifier for the 3D-model deck. Async because it reads back the exported PNG — which is the
  * only check here that distinguishes "PowerPoint resolved a model" from "PowerPoint drew one".
+ * @param {string[]} lines
+ * @returns {Promise<string[]>}
  */
 async function verifyModel3d(lines) {
+	/** @type {string[]} */
 	const failures = []
-	const row = lines.map((l) => l.split('\t')).find((p) => p[0] === 'M3D' && p[1] === MODEL3D_SHAPE_NAME)
+	const row = lines
+		.map(/** @param {string} l */ (l) => l.split('\t'))
+		.find(/** @param {string[]} p */ (p) => p[0] === 'M3D' && p[1] === MODEL3D_SHAPE_NAME)
 	if (!row) {
 		failures.push(
 			`3D model "${MODEL3D_SHAPE_NAME}": no such shape (PowerPoint discarded the graphicFrame, or resolved only the fallback picture)`
@@ -668,6 +722,10 @@ async function verifyModel3d(lines) {
 		return failures
 	}
 	const pngPath = exportLine.split('\t')[1]
+	if (!pngPath) {
+		failures.push('3D model: EXPORT line carries no path')
+		return failures
+	}
 	let img
 	try {
 		img = decodePng(await fs.readFile(pngPath))
@@ -712,6 +770,16 @@ async function verifyModel3d(lines) {
 // --- 5. orchestrate ---------------------------------------------------------
 async function main() {
 	/** @type {{label:string, file:string, generated:boolean, buildVbs:Function, verify:Function}[]} */
+	/**
+	 * One deck to drive: how to build its VBS, and how to read the result back.
+	 * @typedef {object} Spec
+	 * @property {string} label
+	 * @property {string} file
+	 * @property {boolean} generated whether this run created the deck and may delete it
+	 * @property {(file: string) => string} buildVbs
+	 * @property {(lines: string[]) => string[] | Promise<string[]>} verify
+	 */
+	/** @type {Spec[]} */
 	const specs = []
 
 	if (EXISTING_FILE) {
@@ -720,7 +788,7 @@ async function main() {
 			label: 'file',
 			file: path.resolve(EXISTING_FILE),
 			generated: false,
-			buildVbs: (f) => vbsOpenHeader(f) + vbsFooter(),
+			buildVbs: /** @param {string} f */ (f) => vbsOpenHeader(f) + vbsFooter(),
 			verify: () => [],
 		}
 		specs.push(fileSpec)

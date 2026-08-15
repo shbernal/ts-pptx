@@ -24,6 +24,7 @@ const SHOWCASES_ENTRY = path.join(ROOT, 'demos', 'showcases', 'lib', 'showcases.
  * Emitted values that legitimately differ between two identical runs.
  * Deliberately narrow: normalizing ONLY these keeps a changed *fixed* GUID
  * (e.g. a built-in table-style id) visible as a real diff.
+ * @type {[RegExp, string][]}
  */
 export const NORMALIZERS = [
 	// core.xml timestamps — the deck's and every embedded workbook's
@@ -37,7 +38,11 @@ export const NORMALIZERS = [
 	[/(<c16:uniqueId[^>]*\bval=")\{[^}]*\}"/g, '$1{NORMALIZED-UNIQUEID}"'],
 ]
 
-/** Apply every normalizer to one part's text. */
+/**
+ * Apply every normalizer to one part's text.
+ * @param {string} text
+ * @returns {string}
+ */
 export function normalize(text) {
 	return NORMALIZERS.reduce((out, [re, sub]) => out.replace(re, sub), text)
 }
@@ -57,7 +62,10 @@ export async function loadShowcases() {
 	return SHOWCASES
 }
 
-/** One showcase by slug, or a throw naming the ones that exist. */
+/**
+ * One showcase by slug, or a throw naming the ones that exist.
+ * @param {string} slug
+ */
 export async function loadShowcase(slug) {
 	const showcases = await loadShowcases()
 	const found = showcases.find((showcase) => showcase.slug === slug)
@@ -77,11 +85,19 @@ async function unzipSync() {
  * XML parts are written through `normalize()`; everything else is written verbatim.
  * Each embedded workbook is its own OPC zip, so it is recursed into rather than
  * diffed as opaque compressed bytes.
+ * @param {Uint8Array} bytes
+ * @param {string} destDir
+ * @returns {Promise<string>}
  */
 export async function explodePackage(bytes, destDir) {
 	const unzip = await unzipSync()
 	const decoder = new TextDecoder('utf-8')
 
+	/**
+	 * @param {Uint8Array} zipBytes
+	 * @param {string} dir
+	 * @returns {void}
+	 */
 	const dump = (zipBytes, dir) => {
 		const entries = unzip(zipBytes)
 		for (const name of Object.keys(entries).sort()) {
@@ -103,9 +119,19 @@ export async function explodePackage(bytes, destDir) {
 	return destDir
 }
 
-/** Every part path under an exploded package directory, depth-first and sorted. */
+/**
+ * Every part path under an exploded package directory, depth-first and sorted.
+ * @param {string} dir
+ * @returns {string[]}
+ */
 export function listParts(dir) {
+	/** @type {string[]} */
 	const out = []
+	/**
+	 * @param {string} d
+	 * @param {string} prefix
+	 * @returns {void}
+	 */
 	const walk = (d, prefix) => {
 		for (const entry of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
 			const rel = prefix ? prefix + '/' + entry.name : entry.name
@@ -117,7 +143,12 @@ export function listParts(dir) {
 	return out
 }
 
-/** Compare two exploded packages. Returns a list of human-readable differences. */
+/**
+ * Compare two exploded packages. Returns a list of human-readable differences.
+ * @param {string} baseDir
+ * @param {string} curDir
+ * @returns {string[]}
+ */
 export function diffParts(baseDir, curDir) {
 	const base = new Set(listParts(baseDir))
 	const cur = new Set(listParts(curDir))

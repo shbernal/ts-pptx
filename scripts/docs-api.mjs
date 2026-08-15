@@ -19,7 +19,13 @@ const typedocBin = path.join(
 	process.platform === 'win32' ? 'typedoc.cmd' : 'typedoc'
 )
 
+/**
+ * Every `.md` file under `dir`, recursively, sorted.
+ * @param {string} dir
+ * @returns {string[]}
+ */
 function walkMarkdown(dir) {
+	/** @type {string[]} */
 	const out = []
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		const filePath = path.join(dir, entry.name)
@@ -32,13 +38,23 @@ function walkMarkdown(dir) {
 	return out.sort()
 }
 
+/**
+ * @param {string} markdown
+ * @param {string} filePath
+ * @returns {string}
+ */
 function titleFromMarkdown(markdown, filePath) {
 	const heading = markdown.match(/^#\s+(.+)$/m)
-	if (heading) return heading[1].replace(/\s+\|.*$/, '').trim()
+	if (heading?.[1]) return heading[1].replace(/\s+\|.*$/, '').trim()
 	const basename = path.basename(filePath, '.md')
 	return basename === 'index' ? 'Public API Reference' : basename
 }
 
+/**
+ * @param {string} filePath
+ * @param {string} markdown
+ * @returns {string}
+ */
 function frontmatterFor(filePath, markdown) {
 	const rel = path.relative(outDir, filePath).split(path.sep).join('/')
 	const title = rel === 'index.md' ? 'Public API Reference' : titleFromMarkdown(markdown, filePath)
@@ -61,27 +77,35 @@ function frontmatterFor(filePath, markdown) {
 	].join('\n')
 }
 
+/**
+ * @param {string} markdown
+ * @returns {string}
+ */
 function escapeVueUnsafeHtml(markdown) {
 	let inFence = false
 	return markdown
 		.split('\n')
-		.map((line) => {
-			if (line.trimStart().startsWith('```')) {
-				inFence = !inFence
-				return line
-			}
-			if (inFence) return line
+		.map(
+			/** @param {string} line */ (line) => {
+				if (line.trimStart().startsWith('```')) {
+					inFence = !inFence
+					return line
+				}
+				if (inFence) return line
 
-			return line
-				.split('`')
-				.map((segment, index) => {
-					if (index % 2 === 1) return segment
-					return segment
-						.replaceAll(/<\/([A-Za-z][A-Za-z0-9:._-]*)>/g, '&lt;/$1&gt;')
-						.replaceAll(/<([A-Za-z][A-Za-z0-9:._-]*)(\s[^>\n]*)?>/g, '&lt;$1$2&gt;')
-				})
-				.join('`')
-		})
+				return line
+					.split('`')
+					.map(
+						/** @param {string} segment @param {number} index */ (segment, index) => {
+							if (index % 2 === 1) return segment
+							return segment
+								.replaceAll(/<\/([A-Za-z][A-Za-z0-9:._-]*)>/g, '&lt;/$1&gt;')
+								.replaceAll(/<([A-Za-z][A-Za-z0-9:._-]*)(\s[^>\n]*)?>/g, '&lt;$1$2&gt;')
+						}
+					)
+					.join('`')
+			}
+		)
 		.join('\n')
 }
 

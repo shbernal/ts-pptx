@@ -115,11 +115,18 @@ const requireFromRoot = createRequire(path.join(ROOT, 'package.json'))
 // Bin names owned by a local devDependency, mapped to the package that declares them.
 // These get resolved to their JS entry and run on the current node binary, so Windows
 // never has to exec a .bin/*.CMD shim (spawn refuses .cmd without a shell).
+/** @type {Record<string, string>} */
 const localBinPackages = {
 	attw: '@arethetypeswrong/cli',
 	publint: 'publint',
 }
 
+/**
+ * Absolute path to a local devDependency's JS entry, or `null` when the bin is not one
+ * this module owns or the package is not installed.
+ * @param {string} name
+ * @returns {string | null}
+ */
 function resolveLocalBin(name) {
 	const pkg = localBinPackages[name]
 	if (!pkg) return null
@@ -135,12 +142,30 @@ function resolveLocalBin(name) {
 	return path.resolve(path.dirname(manifestPath), entry)
 }
 
+/**
+ * Quote one argument for the Windows shell line built below.
+ * @param {string} arg
+ * @returns {string}
+ */
 function quoteArg(arg) {
 	return /[\s"^&|<>()]/.test(arg) ? '"' + arg.replace(/"/g, '\\"') + '"' : arg
 }
 
+/**
+ * Spawn a command, resolving when it exits 0 and rejecting with its output when it does not.
+ *
+ * `capture` decides whether the child's output is piped back to the caller or inherited by
+ * this process: a gate that reports on what a tool said wants the former, one that just
+ * needs the tool's exit status wants the latter, so the resolved `stdout`/`stderr` are
+ * empty strings unless `capture` is set.
+ * @param {string} command
+ * @param {readonly string[]} args
+ * @param {{env?: NodeJS.ProcessEnv, cwd?: string, capture?: boolean}} [options]
+ * @returns {Promise<{stdout: string, stderr: string}>}
+ */
 export function run(command, args, options = {}) {
 	return new Promise((resolve, reject) => {
+		/** @type {NodeJS.ProcessEnv} */
 		const env = {
 			...process.env,
 			npm_config_cache: path.join(packageManagerCache, 'npm'),

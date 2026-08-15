@@ -36,7 +36,11 @@ const INPUT_FILES = ['tsdown.config.ts', 'tsconfig.base.json', 'tsconfig.json', 
 const INPUT_DIR = 'src'
 const OUTPUT_FILES = ['dist/index.js', 'dist/index.d.ts']
 
-/** Newest mtime under `dir`, recursively. Returns 0 if the tree is absent. */
+/**
+ * Newest mtime under `dir`, recursively. Returns 0 if the tree is absent.
+ * @param {string} dir
+ * @returns {Promise<number>}
+ */
 async function newestMtimeIn(dir) {
 	let newest = 0
 	let entries
@@ -57,6 +61,11 @@ async function newestMtimeIn(dir) {
 	return newest
 }
 
+/**
+ * Mtime of one file, or 0 when it does not exist.
+ * @param {string} file
+ * @returns {Promise<number>}
+ */
 async function mtimeOf(file) {
 	try {
 		return (await fs.stat(file)).mtimeMs

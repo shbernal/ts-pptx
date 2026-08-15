@@ -88,7 +88,11 @@ if (names.length === 0) {
 
 await fs.mkdir(SCRATCH, { recursive: true })
 
-/** Print a script for one deck, run it, and read back what it produced. */
+/**
+ * Print a script for one deck, run it, and read back what it produced.
+ * @param {string} file path to the source deck
+ * @returns {Promise<import('../dist/script.js').RoundTripReport>}
+ */
 async function roundTrip(file) {
 	const dir = await fs.mkdtemp(path.join(SCRATCH, 'roundtrip-'))
 	try {
@@ -115,16 +119,23 @@ async function roundTrip(file) {
 	}
 }
 
+/**
+ * @typedef {import('../dist/script.js').RoundTripReport} Report
+ * @typedef {{fixture: string, failed: string | null, report: Report | null}} Result
+ */
+
+/** @type {Result[]} */
 const results = []
 for (const name of names) {
 	try {
 		results.push({ fixture: name, failed: null, report: await roundTrip(path.join(DIR, name)) })
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		results.push({ fixture: name, failed: message.split('\n')[0], report: null })
+		results.push({ fixture: name, failed: message.split('\n')[0] ?? message, report: null })
 	}
 }
 
+/** @param {Result} result */
 const ok = (result) => result.report !== null && result.report.undeclared.length === 0
 
 if (asJson) {
@@ -153,8 +164,13 @@ for (const result of results) {
 	}
 }
 
-/** Roll the differences up by field, which is the unit a fix or a note is written against. */
+/**
+ * Roll the differences up by field, which is the unit a fix or a note is written against.
+ * @param {(report: Report) => import('../dist/script.js').IrDifference[]} pick
+ * @returns {[string, number][]}
+ */
 function tally(pick) {
+	/** @type {Map<string, number>} */
 	const counts = new Map()
 	for (const result of results) {
 		if (!result.report) continue
@@ -166,10 +182,11 @@ function tally(pick) {
 	return [...counts].sort((a, b) => b[1] - a[1])
 }
 
+/** @param {(report: Report) => import('../dist/script.js').IrDifference[]} pick */
 const total = (pick) => results.reduce((sum, result) => sum + (result.report ? pick(result.report).length : 0), 0)
-const undeclared = total((report) => report.undeclared)
-const declared = total((report) => report.declared)
-const added = total((report) => report.added)
+const undeclared = total(/** @param {Report} report */ (report) => report.undeclared)
+const declared = total(/** @param {Report} report */ (report) => report.declared)
+const added = total(/** @param {Report} report */ (report) => report.added)
 const broken = results.filter((result) => result.report === null).length
 
 console.log(
@@ -179,13 +196,13 @@ console.log(
 
 if (undeclared > 0) {
 	console.log('\nUndeclared, by field — each is either a converter defect or a missing fidelity note:')
-	for (const [key, count] of tally((report) => report.undeclared).slice(0, 25)) {
+	for (const [key, count] of tally(/** @param {Report} report */ (report) => report.undeclared).slice(0, 25)) {
 		console.log(`  ${String(count).padStart(5)}  ${key}`)
 	}
 }
 if (added > 0 && verbose) {
 	console.log('\nWrite-path defaults, by field — benign only where the value matches what the source inherited:')
-	for (const [key, count] of tally((report) => report.added).slice(0, 25)) {
+	for (const [key, count] of tally(/** @param {Report} report */ (report) => report.added).slice(0, 25)) {
 		console.log(`  ${String(count).padStart(5)}  ${key}`)
 	}
 }

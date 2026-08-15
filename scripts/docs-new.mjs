@@ -9,14 +9,22 @@ import { parseArgs } from 'node:util'
 
 import { ALLOWED_DOC_TYPES } from './docs-frontmatter.mjs'
 
-/** `guides/my-page.md`, `/docs/guides/my-page`, … → `guides/my-page`. */
+/**
+ * `guides/my-page.md`, `/docs/guides/my-page`, … → `guides/my-page`.
+ * @param {string} slug
+ * @returns {string}
+ */
 function pageKey(slug) {
 	let key = slug.trim().replace(/^\/+|\/+$/g, '')
 	if (key.startsWith('docs/')) key = key.slice('docs/'.length)
 	return key.replace(/\.md$/, '')
 }
 
-/** `my-new-page` → `My New Page`. */
+/**
+ * `my-new-page` → `My New Page`.
+ * @param {string} slug
+ * @returns {string}
+ */
 function titleFromSlug(slug) {
 	return path
 		.basename(slug)
@@ -26,18 +34,35 @@ function titleFromSlug(slug) {
 		.join(' ')
 }
 
-/** Every `{ group, pages }` object anywhere in a navigation tree. */
+/**
+ * Every `{ group, pages }` object anywhere in a navigation tree.
+ * @param {unknown} value
+ * @returns {NavGroup[]}
+ */
 function collectGroups(value) {
+	/** @type {NavGroup[]} */
 	const groups = []
 	if (Array.isArray(value)) {
 		for (const item of value) groups.push(...collectGroups(item))
 	} else if (value && typeof value === 'object') {
-		if (typeof value.group === 'string' && Array.isArray(value.pages)) groups.push(value)
-		for (const item of Object.values(value)) groups.push(...collectGroups(item))
+		const record = /** @type {Record<string, unknown>} */ (value)
+		if (typeof record.group === 'string' && Array.isArray(record.pages)) groups.push(/** @type {NavGroup} */ (record))
+		for (const item of Object.values(record)) groups.push(...collectGroups(item))
 	}
 	return groups
 }
 
+/**
+ * One navigation group in `docs/docs.json`.
+ * @typedef {{group: string, pages: string[]}} NavGroup
+ */
+
+/**
+ * @param {string} docsJsonPath
+ * @param {string} key the page key to add
+ * @param {string} groupName the group to add it under, created if absent
+ * @returns {void}
+ */
 function addToNav(docsJsonPath, key, groupName) {
 	if (!existsSync(docsJsonPath)) return
 	const config = JSON.parse(readFileSync(docsJsonPath, 'utf8'))

@@ -31,7 +31,11 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-/** A `git` query, or undefined when git declines to answer — no repo, or the key is unset. */
+/**
+ * A `git` query, or undefined when git declines to answer — no repo, or the key is unset.
+ * @param {string[]} args
+ * @returns {string | undefined}
+ */
 function git(...args) {
 	const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' })
 	if (result.status !== 0) return undefined
@@ -45,6 +49,8 @@ function git(...args) {
  * `git config --get` reports the raw string from whichever file won, so the two conveniences git
  * applies to path-typed values — `~` expansion, and resolving a relative path against the top of
  * the working tree, where hooks are run from — have to be reapplied here.
+ * @param {string} topLevel the working tree root, for resolving a relative setting
+ * @returns {string | undefined}
  */
 function configuredHooksPath(topLevel) {
 	const raw = git('config', '--get', 'core.hooksPath')
@@ -53,7 +59,11 @@ function configuredHooksPath(topLevel) {
 	return isAbsolute(expanded) ? resolve(expanded) : resolve(topLevel, expanded)
 }
 
-/** Windows reaches the same directory through more than one spelling; git treats them as one. */
+/**
+ * Windows reaches the same directory through more than one spelling; git treats them as one.
+ * @param {string} a
+ * @param {string} b
+ */
 function samePath(a, b) {
 	return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
 }
@@ -83,6 +93,7 @@ function installedAsDependency() {
 	return rel !== '' && (rel.startsWith('..') || isAbsolute(rel))
 }
 
+/** @param {string[]} args extra arguments for `lefthook install` */
 function install(...args) {
 	// The package's own entry, not `node_modules/.bin/lefthook` — the shim is a `.CMD` on Windows,
 	// which Node will not spawn without a shell, and a shell here would be one more dialect to get

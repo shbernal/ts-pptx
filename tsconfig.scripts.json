@@ -10,12 +10,16 @@
 		"allowImportingTsExtensions": true,
 		"incremental": true,
 		"tsBuildInfoFile": ".tmp/tsconfig.scripts.tsbuildinfo",
-		// The build/maintenance scripts are plain untyped ESM. Relax the two
-		// annotation-demanding rules (implicit `any` params/vars, index-signature
-		// property access) that only make sense for annotated `.ts` sources, and
-		// keep the checks that catch real defects: strict null-safety, argument
-		// assignability, and property existence.
-		"noImplicitAny": false,
+		// The build/maintenance scripts are plain ESM annotated in JSDoc, not `.ts`, so
+		// they keep running on the repo's own Node with no transpile step — and they are
+		// held to the same `noImplicitAny` as `src/`. That was relaxed here while the tree
+		// was unannotated; paying the 291 annotations it wanted turned out to be the
+		// cheaper half of the "migrate scripts/ to TypeScript" question, since the rename
+		// buys nothing this flag does not. Annotate a new script when you add it.
+		//
+		// `noPropertyAccessFromIndexSignature` stays off: it is a house-style rule about
+		// `obj.foo` vs `obj['foo']` on index signatures, not a correctness one, and these
+		// scripts read a lot of JSON whose shape is `Record<string, …>` by nature.
 		"noPropertyAccessFromIndexSignature": false,
 		// Scoped to this project, deliberately not to tsconfig.base.json. Pulling
 		// `tsdown.config.ts` into a typechecked project also pulls in tsdown's own

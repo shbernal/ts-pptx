@@ -87,8 +87,10 @@ const failures = []
  * @param {import('../dist/script.js').FidelityNote[]} notes
  * @param {Map<string, number>} counts
  * @param {boolean} nameFixture whether to record the deck against each construct
+ * @param {string} fixture the deck's filename
  */
 function count(notes, counts, nameFixture, fixture) {
+	/** @type {Set<string>} */
 	const seen = new Set()
 	for (const note of notes) {
 		seen.add(note.construct)
@@ -123,10 +125,16 @@ for (const name of names) {
 }
 
 const measured = names.length - failures.length
+/** @param {Map<string, number>} map */
 const sorted = (map) => [...map].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))
+/**
+ * @param {Map<string, number>} from
+ * @param {Map<string, number>} without
+ */
 const only = (from, without) => new Map([...from].filter(([construct]) => !without.has(construct)))
 
 if (values.json) {
+	/** @param {Map<string, number>} map */
 	const entries = (map) => sorted(map).map(([construct, fixtures]) => ({ construct, fixtures, ...meta.get(construct) }))
 	console.log(
 		JSON.stringify(
@@ -152,6 +160,11 @@ if (values.json) {
 }
 
 const pad = Math.max(0, ...[...meta.keys()].map((construct) => construct.length))
+/**
+ * @param {string} title
+ * @param {Map<string, number>} map
+ * @returns {void}
+ */
 function section(title, map) {
 	console.log(`\n${title}`)
 	if (map.size === 0) {

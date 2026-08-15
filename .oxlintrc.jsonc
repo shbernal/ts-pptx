@@ -147,26 +147,29 @@
 			},
 		},
 		{
-			// Untyped, deliberately — and measured, so it does not get retried.
+			// Measured, so it does not get retried — but the measurement has moved once,
+			// and the reason it moved is worth keeping.
 			//
 			// `scripts/**` does have a typechecked project (`tsconfig.scripts.json`,
 			// `checkJs`), so type-aware rules are *available* here in a way they are not
 			// for the root configs below. Under the previous linter, turning them on
-			// reported 1849 errors, of which 1843 were the `no-unsafe-*` family: that
-			// project sets `noImplicitAny: false` on purpose, so every unannotated
-			// parameter is `any` and every member access on one is "unsafe". The rules
-			// actually worth having — `no-floating-promises`, `no-misused-promises` —
-			// reported zero. Re-measured under oxlint, with the list below deleted: 13798
-			// findings over `scripts/**` + `test/**` (1276 of them in `scripts/**` alone), of
-			// which 13760 — 99.7%, the same proportion the old measurement found — are the
-			// `no-unsafe-*` family. The shape transferred exactly; only the absolute number
-			// grew, because this override covers `test/**` too.
+			// reported 1849 errors, of which 1843 were the `no-unsafe-*` family, because
+			// that project then set `noImplicitAny: false`: every unannotated parameter was
+			// `any` and every member access on one "unsafe". Re-measured under oxlint with
+			// the list below deleted: 13798 findings over `scripts/**` + `test/**` (1276 of
+			// them in `scripts/**` alone), 99.7% of them that same family.
 			//
-			// So the trade is: disable a handful of rules to silence 99.7% of the
-			// output, and gain nothing `tsc -p tsconfig.scripts.json` does not already
-			// catch. Annotating 6.8k lines of maintenance tooling to buy the same result
-			// is not a good use of anyone's time either. `typecheck:scripts` is the type
-			// gate for this tree.
+			// `scripts/**` has since been annotated in JSDoc and `noImplicitAny` turned on
+			// there, which was the cheaper half of the "migrate scripts/ to TypeScript"
+			// question. Re-measured again on that tree: **289** findings in `scripts/**`,
+			// down from 1276 — but 285 of the 289 are still `no-unsafe-*`. The residue is
+			// not unannotated parameters any more; it is `JSON.parse` (which returns `any`
+			// by definition) and the handful of untyped modules these scripts import. So
+			// the rules stay off, for a different reason than before: what they now report
+			// is the `any` at an I/O boundary, which an annotation cannot remove and
+			// `tsc -p tsconfig.scripts.json` already understands. That is the type gate for
+			// this tree. `test/**` is unannotated and unmeasured since; it is the larger
+			// share of the 13798 and would have to be paid separately.
 			// The list below is every type-aware rule this config leaves enabled, minus
 			// `no-floating-promises` and `no-misused-promises`. Those two are the pair the
 			// old measurement called out as the ones actually worth having, they report

@@ -32,8 +32,17 @@ export function fixtureDecks() {
  * Only the diagnostic `code` is kept: the message is explicitly not API
  * (docs/diagnostics.md), so recording it would make a reworded sentence look
  * like a behaviour change.
+ *
+ * @typedef {import('../dist/inspect.js').PptxInspection} Inspection
+ * @typedef {{slideSize: Inspection['slideSize'], slides: Inspection['slides'], diagnostics: string[]}} OkRecord
+ * @typedef {{failed: {error: string, code: string | null}, diagnostics: string[]}} FailedRecord
+ * @typedef {OkRecord | FailedRecord} DeckRecord
+ *
+ * @param {string} deck fixture filename
+ * @returns {Promise<DeckRecord>}
  */
 export async function inspectForSnapshot(deck) {
+	/** @type {string[]} */
 	const diagnostics = []
 	setDiagnosticHandler((d) => diagnostics.push(d.code))
 	try {
@@ -50,14 +59,19 @@ export async function inspectForSnapshot(deck) {
 	}
 }
 
-/** Render the snapshot: pretty-printed down to the element level, one line per element. */
+/**
+ * Render the snapshot: pretty-printed down to the element level, one line per element.
+ * @param {Record<string, DeckRecord>} byDeck
+ * @returns {string}
+ */
 export function formatSnapshot(byDeck) {
 	const lines = ['{']
 	const decks = Object.keys(byDeck)
 	decks.forEach((deck, deckIndex) => {
 		const record = byDeck[deck]
+		if (!record) return
 		lines.push(`\t${JSON.stringify(deck)}: {`)
-		if (record.failed) lines.push(`\t\t"failed": ${JSON.stringify(record.failed)},`)
+		if ('failed' in record) lines.push(`\t\t"failed": ${JSON.stringify(record.failed)},`)
 		else {
 			lines.push(`\t\t"slideSize": ${JSON.stringify(record.slideSize)},`)
 			lines.push('\t\t"slides": [')
@@ -85,8 +99,12 @@ export function formatSnapshot(byDeck) {
 	return lines.join('\n') + '\n'
 }
 
-/** Inspect every fixture deck, keyed by filename. */
+/**
+ * Inspect every fixture deck, keyed by filename.
+ * @returns {Promise<Record<string, DeckRecord>>}
+ */
 export async function buildSnapshot() {
+	/** @type {Record<string, DeckRecord>} */
 	const byDeck = {}
 	for (const deck of fixtureDecks()) byDeck[deck] = await inspectForSnapshot(deck)
 	return byDeck
@@ -98,7 +116,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 	const byDeck = await buildSnapshot()
 	writeFileSync(SNAPSHOT_PATH, formatSnapshot(byDeck))
 	const elements = Object.values(byDeck)
-		.flatMap((record) => record.slides ?? [])
+		.flatMap((record) => ('failed' in record ? [] : record.slides))
 		.reduce((n, slide) => n + slide.elements.length, 0)
 	console.log(`wrote ${SNAPSHOT_PATH}: ${Object.keys(byDeck).length} decks, ${elements} elements`)
 }

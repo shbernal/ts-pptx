@@ -97,6 +97,8 @@ async function generateDecks() {
  * The per-slug prefix is what keeps a diff readable — two decks share part names
  * (`ppt/slides/slide1.xml` and friends), and flattening them into one tree would both
  * collide and hide which deck moved.
+ * @param {readonly {file: string, slug: string}[]} decks
+ * @param {string} destDir
  */
 async function explodeDecks(decks, destDir) {
 	fs.rmSync(destDir, { recursive: true, force: true })

@@ -24,7 +24,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { ROOT, parseCliOrExit } from './script-utils.mjs'
 import TsPptx from '../dist/node.js'
-import { Presentation } from '../dist/read.js'
+import { Presentation, isAutoShape, isGraphicFrame } from '../dist/read.js'
 
 const DEFAULT_TEMPLATE = path.join('test', 'read', 'fixtures', 'placeholder-inherit.pptx')
 
@@ -48,7 +48,19 @@ const TEMPLATE = path.join(ROOT, values.template ?? DEFAULT_TEMPLATE)
 
 const templateBytes = await fs.readFile(TEMPLATE)
 
-/** Author one slide, append it to the template, save, and hand back the re-read slide. */
+/** @typedef {import('../dist/node.js').Slide} WriteSlide */
+/** @typedef {import('../dist/node.js').TsPptx} WriteDeck */
+/** @typedef {import('../dist/read.js').Slide} ReadSlide */
+/** @typedef {import('../dist/read.js').Presentation} ReadDeck */
+/** @typedef {(slide: WriteSlide, pptx: WriteDeck) => void} Author */
+
+/**
+ * Author one slide, append it to the template, save, and hand back the re-read slide.
+ * A saved deck with no readable slide is a broken probe rather than a lost construct, so
+ * that throws here and lands in the runner's `threw` bucket.
+ * @param {Author} author
+ * @returns {Promise<{slide: ReadSlide, deck: ReadDeck}>}
+ */
 async function roundTrip(author) {
 	const deck = await Presentation.fromTemplate(templateBytes)
 	const size = deck.slideSize
@@ -64,15 +76,43 @@ async function roundTrip(author) {
 	const out = await deck.save()
 	const reread = await Presentation.load(out)
 	// fromTemplate stripped the original slides, so the appended one is the only slide.
-	return { slide: reread.slides[0], deck: reread }
+	const appended = reread.slides[0]
+	if (!appended) throw new Error('saved deck has no readable slide')
+	return { slide: appended, deck: reread }
 }
 
-const firstText = (slide) => slide.shapes.find((s) => s.textFrame?.paragraphs?.length)
-const firstRun = (slide) => firstText(slide)?.textFrame.paragraphs[0].runs[0]
+/**
+ * First shape on the slide carrying any text. `textFrame` is only on some members of the
+ * shape union, so this narrows before reaching for it.
+ * @param {ReadSlide} slide
+ * @returns {import('../dist/read.js').AutoShape | undefined}
+ */
+const firstText = (slide) =>
+	slide.shapes.find(
+		/** @returns {s is import('../dist/read.js').AutoShape} */ (s) =>
+			isAutoShape(s) && Boolean(s.textFrame?.paragraphs?.length)
+	)
+
+/**
+ * @param {ReadSlide} slide
+ * @returns {import('../dist/read.js').Run | undefined}
+ */
+const firstRun = (slide) => firstText(slide)?.textFrame?.paragraphs[0]?.runs[0]
+
+/**
+ * One probe: author a construct, then assert what came back. `check` returns the
+ * `[actual, expected]` pair the runner stringifies and compares.
+ * @typedef {object} Probe
+ * @property {string} construct
+ * @property {'loss' | 'partial'} [expected] a documented Tier B limitation
+ * @property {Author} author
+ * @property {(slide: ReadSlide, deck: ReadDeck) => [unknown, unknown]} check
+ */
 
 /**
  * Each probe: author a construct, then assert what came back.
  * `expected: 'loss'` = a documented Tier B limitation; failing is the plan holding.
+ * @type {Probe[]}
  */
 const PROBES = [
 	{
@@ -113,12 +153,15 @@ const PROBES = [
 	{
 		construct: 'paragraph align',
 		author: (s) => s.addText('A', { x: 1, y: 1, w: 4, h: 1, align: 'right' }),
-		check: (slide) => [firstText(slide)?.textFrame.paragraphs[0].align, 'r'],
+		check: (slide) => [firstText(slide)?.textFrame?.paragraphs[0]?.align, 'r'],
 	},
 	{
 		construct: 'bullet glyph',
 		author: (s) => s.addText('L', { x: 1, y: 1, w: 4, h: 1, bullet: { characterCode: '2022' } }),
-		check: (slide) => [firstText(slide)?.textFrame.paragraphs[0].bullet?.startsWith('char:'), true],
+		// `bulletDetail`, not the `bullet` accessor this probe used to read: that one was
+		// removed from the read model, so this check was comparing `undefined` and
+		// reporting a loss the append path was not causing.
+		check: (slide) => [firstText(slide)?.textFrame?.paragraphs[0]?.bulletDetail?.kind, 'char'],
 	},
 	{
 		construct: 'external hyperlink',
@@ -179,15 +222,15 @@ const PROBES = [
 				{ x: 1, y: 1, w: 6, colW: [3, 3] }
 			),
 		check: (slide) => {
-			const gf = slide.shapes.find((sp) => sp.table)
-			return [gf?.table?.rows?.[1]?.cells?.[0]?.text, 'r2c1']
+			const gf = slide.shapes.find((sp) => isGraphicFrame(sp) && sp.hasTable)
+			return [gf && isGraphicFrame(gf) ? gf.table?.rows?.[1]?.cells?.[0]?.text : undefined, 'r2c1']
 		},
 	},
 	{
 		construct: 'chart (graphic frame carried)',
 		author: (s) =>
 			s.addChart([{ name: 'S1', labels: ['a', 'b'], values: [1, 2] }], { type: 'bar', x: 1, y: 1, w: 5, h: 3 }),
-		check: (slide) => [slide.shapes.some((sp) => sp.chart), true],
+		check: (slide) => [slide.shapes.some((sp) => isGraphicFrame(sp) && sp.hasChart), true],
 	},
 	{
 		// The append path repoints `slide:N` at the Nth appended slide's new partname. Two
@@ -200,7 +243,7 @@ const PROBES = [
 		check: (slide, deck) => {
 			const link = firstRun(slide)?.hyperlink
 			// Resolves to a real slide in the saved deck, not a dangling target.
-			const target = link?.slidePartName ?? link?.targetPartName ?? link?.url
+			const target = link?.targetPartName ?? link?.url
 			return [Boolean(target && deck.slides.some((sl) => sl.partName === target)), true]
 		},
 	},
@@ -226,7 +269,7 @@ const PROBES = [
 			}),
 		check: (slide) => {
 			const stops = slide.shapes.map((sp) => sp.gradientStops).find((g) => g?.length)
-			return [stops?.map((st) => st.color ?? st.hex).join(','), 'FF0000,0000FF']
+			return [stops?.map((st) => st.color ?? st.effectiveHex).join(','), 'FF0000,0000FF']
 		},
 	},
 	{
@@ -261,16 +304,23 @@ const PROBES = [
 		// SlideBackground is a discriminated union; the solid variant carries a ResolvedColor.
 		check: (slide) => {
 			const bg = slide.background
-			return [
-				bg?.type === 'solid' ? (bg.color?.hex ?? bg.color?.value ?? JSON.stringify(bg.color)) : bg?.type,
-				'EEEEEE',
-			]
+			return [bg?.type === 'solid' ? (bg.color?.hex ?? JSON.stringify(bg.color)) : bg?.type, 'EEEEEE']
 		},
 	},
 ]
 
+/**
+ * @typedef {object} Result
+ * @property {string} construct
+ * @property {'survives' | 'lost' | 'threw'} status
+ * @property {'survives' | 'loss' | 'partial'} expected
+ * @property {string} detail
+ */
+
+/** @type {Result[]} */
 const results = []
 for (const probe of PROBES) {
+	/** @type {Result['status']} */
 	let status
 	let detail = ''
 	try {
@@ -299,6 +349,7 @@ if (asJson) {
 		`  ${survives.length}/${results.length} constructs survive the append round-trip ` +
 			`(${documented.length} documented losses, ${surprises.length} undocumented)`
 	)
+	/** @param {Result} r */
 	const line = (r) => {
 		const mark = r.status === 'survives' ? 'ok  ' : r.status === 'threw' ? 'THREW' : 'LOST'
 		console.log(`  ${mark.padEnd(6)} ${r.construct.padEnd(36)} ${r.detail}`)
