@@ -19,26 +19,50 @@ Codex loads it only when the project is trusted. In a running Codex session, use
 
 ### `ooxml`
 
-Endpoint: `https://api.ooxml.dev/mcp`
+Package: [`mcp-server-ooxml`](https://www.npmjs.com/package/mcp-server-ooxml),
+run locally over stdio (`npx -y mcp-server-ooxml`). Needs Node 24+.
 
-Purpose: ECMA-376 / Office Open XML reference lookup. This is a third-party MCP
-server, not an ISO, Ecma, or Microsoft service. Treat it as a fast retrieval and
-schema navigation layer, then verify behavior with generated fixtures and the
-OOXML validator.
+Purpose: ECMA-376 / Office Open XML **schema** lookup. The XSDs are ingested
+into a SQLite graph that ships inside the package, so there is no account, no
+network round-trip and no first-run download beyond the tarball, and the same
+question returns the same answer every time. Treat it as the normative structure
+layer, then verify behavior with generated fixtures and the OOXML validator.
 
-Available tool families:
+Available tools:
 
-- Prose search over ECMA-376: `ooxml_search`, `ooxml_section`, `ooxml_parts`.
-- Deterministic schema lookup: `ooxml_element`, `ooxml_type`, `ooxml_children`,
-  `ooxml_attributes`, `ooxml_enum`, `ooxml_namespace`.
-- OPC package metadata: `ooxml_package_part`.
+- Schema lookup: `ooxml_element`, `ooxml_type`, `ooxml_children`,
+  `ooxml_attributes`, `ooxml_values`, `ooxml_enum`, `ooxml_namespace`.
+- Profiles: `ooxml_diff_profiles`, which reports what Transitional adds back
+  over Strict for one name.
+- Validator follow-up: `ooxml_explain`. Hand it the `id`, `description`,
+  `xpath` and `partUri` of an `ooxml-validate` diagnostic and it answers what
+  *would* have been legal at that position. It consumes validator output; it
+  does not validate.
+- Name search: `ooxml_search`, a case-insensitive **substring match on symbol
+  names**. It is not semantic and not full-text; "how do I make text bold" finds
+  nothing.
 
 Use it when you need to answer questions such as:
 
-- Which children are legal under a PresentationML or DrawingML element?
-- Which attributes and enum values are valid?
-- Which package content type or relationship type belongs to a `.pptx` part?
-- Which ECMA-376 section describes a serialization rule?
+- Which children are legal under a PresentationML or DrawingML element, and in
+  what order?
+- Which attributes and enum values are valid, and what pattern must a value
+  match?
+- Which namespace URI goes with a prefix, and which profile is a document in?
+- The validator complained at this xpath: what was legal there?
+
+**What it does not have.** No specification prose, no PDFs, no semantic search,
+and no OPC part / content-type / relationship catalogue. It serves the schema
+graph and nothing else, so "which ECMA-376 section describes this serialization
+rule" and "which content type belongs to this `.pptx` part" fall through to
+`microsoft_learn` and then to web search. That is a deliberate scope boundary,
+not a missing feature: ooxml.dev is the hosted service that indexes the prose
+if a question genuinely needs it.
+
+The server is pre-1.0 and its tool surface may change without a deprecation
+period; a break is announced in its
+[changelog](https://github.com/shbernal/ooxml-ai-tooling/blob/main/CHANGELOG.md).
+`/mcp` lists what actually loaded in the running session.
 
 ### `microsoft_learn`
 
@@ -63,11 +87,11 @@ Use it when you need to answer questions such as:
 
 ## Known MCP Gap: Annex D Preset Shape Geometry Definitions
 
-The `ooxml` MCP indexes the ECMA-376 **main spec PDFs** (Parts 1–4) and the **transitional XSDs**.
-It does **not** index the Annex D electronic addenda (`OfficeOpenXML-DrawingMLGeometries.zip`
-inside the Part 1 ZIP), which is where the per-shape adjust-value guide names and geometry
-formulas live. Searching the MCP for things like "round2SameRect adj1 adj2" returns nothing
-useful.
+The `ooxml` MCP serves the ECMA-376 **XSD schema graph**, Transitional and Strict. It does
+**not** carry the Annex D electronic addenda (`OfficeOpenXML-DrawingMLGeometries.zip` inside
+the Part 1 ZIP), which is where the per-shape adjust-value guide names and geometry formulas
+live, and none of that is in any XSD. Searching the MCP for things like "round2SameRect adj1 adj2"
+returns nothing useful, and `ooxml_search` matches symbol names anyway.
 
 **For preset-shape adj guide names**, use the local reference file:
 
@@ -86,9 +110,13 @@ fallbacks are:
 1. Start with local evidence. Search `src/`, `test/`, `README.md`, and
    `docs/testing.md` before changing behavior.
 2. Use `ooxml` for normative structure: schema order, child elements,
-   attributes, simple type enums, namespaces, and OPC package metadata.
+   attributes, value spaces and enums, namespaces, and Transitional-vs-Strict
+   differences. After a validation failure, `ooxml_explain` on the diagnostic is
+   usually the fastest next step.
 3. Use `microsoft_learn` for PowerPoint-specific behavior, Microsoft extension
-   namespaces, Open XML SDK behavior, and Office compatibility notes.
+   namespaces, Open XML SDK behavior, Office compatibility notes, and the OPC
+   part / content-type / relationship questions the `ooxml` MCP no longer
+   answers.
 4. If the two sources disagree, document the difference in the code comment or
    test name only when it affects the implementation. Prefer PowerPoint and
    Open XML SDK behavior for this library's generated `.pptx` compatibility.

@@ -1,8 +1,13 @@
 #:schema https://developers.openai.com/codex/config-schema.json
 
+# Local stdio, not a hosted endpoint: the schema database ships inside the
+# package, so this needs no account and no network once npx has the tarball.
+# The startup allowance is larger than the HTTP servers' because the very first
+# run downloads it.
 [mcp_servers.ooxml]
-url = "https://api.ooxml.dev/mcp"
-startup_timeout_sec = 10
+command = "npx"
+args = ["-y", "mcp-server-ooxml"]
+startup_timeout_sec = 60
 tool_timeout_sec = 60
 enabled = true
 required = false

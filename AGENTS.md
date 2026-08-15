@@ -86,21 +86,31 @@
 Two MCP servers cover complementary parts of the OOXML/PowerPoint space. Work
 through them in order before falling back to web search.
 
-**Step 1 — `ooxml` MCP** (source: ECMA-376 / ISO 29500 parsed XSDs and spec PDFs)
+**Step 1 — `ooxml` MCP** (`mcp-server-ooxml`, source: the ECMA-376 / ISO 29500 XSDs)
 
-Use this for questions whose answer lives in the *standard itself*:
+Runs locally over stdio with the schema graph inside the package: no account, no
+network, and deterministic. Use it for questions whose answer lives in the
+*schema itself*:
 - Element and complexType definitions (`ooxml_element`, `ooxml_type`)
-- Legal child elements in document order (`ooxml_children`)
+- Legal child elements in schema order, with cardinality (`ooxml_children`)
 - Attribute names, types, defaults, and required/optional (`ooxml_attributes`)
-- Enum values for a type (`ooxml_enum`)
-- Namespace URIs (`ooxml_namespace`)
-- OPC package parts, content types, and relationships (`ooxml_package_part`, `ooxml_parts`)
-- Free-text search across the spec PDFs (`ooxml_search`, `ooxml_section`)
+- The legal value space of a type — facets, patterns, unions (`ooxml_values`),
+  or just the enumeration (`ooxml_enum`)
+- Namespace URIs and prefixes (`ooxml_namespace`)
+- Whether a construct survives in Strict as well as Transitional
+  (`ooxml_diff_profiles`)
+- Turning an `ooxml-validate` diagnostic into "what would have been legal here"
+  (`ooxml_explain` — pass the report's `id`, `description`, `xpath`, `partUri`)
+- Finding a half-remembered name (`ooxml_search` — a **substring match on
+  names**, not a semantic or full-text search)
 
-The `ooxml` MCP does **not** cover Microsoft-proprietary details such as built-in
-style GUIDs, behavior differences between Office versions, [MS-OE376] / [MS-PPTX]
-deviations from the standard, or Open XML SDK usage. If the answer requires any of
-those, move to Step 2 rather than falling back to web search.
+It answers from the schema graph and nothing else. It has **no specification
+prose, no PDFs, and no OPC part/content-type/relationship catalogue**, so
+"which ECMA-376 section describes this rule" and "which content type belongs to
+this `.pptx` part" are not questions it can take — for those, go to Step 2 and
+then Step 3. It equally does not cover Microsoft-proprietary details such as
+built-in style GUIDs, behavior differences between Office versions,
+[MS-OE376] / [MS-PPTX] deviations, or Open XML SDK usage; those are Step 2.
 
 **Step 2 — `microsoft_learn` MCP** (source: Microsoft Learn / Open Specifications)
 
