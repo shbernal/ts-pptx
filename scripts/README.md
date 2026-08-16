@@ -34,7 +34,6 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `browser-harness-server.mjs` | Library | Static server for the Playwright harness | started by `playwright.config.ts` |
 | `bundle-size-ratchet.mjs` | Gate | Gzipped size of the browser entry's closure vs `bundle-size-budget.json` | `verify:full`, `check:package` |
 | `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor | manual — see note below |
-| `check-commit-msg.mjs` | Gate | Rejects a shell-mangled commit message | `commit-msg` hook |
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |

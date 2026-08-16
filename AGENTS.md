@@ -346,9 +346,15 @@ POSIX shell and PowerShell available, and the two disagree on here-doc syntax (`
 is passed through as text and lands in the subject line. Routing the message through a file removes the shell from the path entirely,
 so there is no dialect left to get wrong.
 
-`scripts/check-commit-msg.mjs`, a lefthook `commit-msg` hook, rejects a subject that shows
-the damage. It is a backstop, not the place to learn the rule: by the time it fires you have
-already burned the commit attempt.
+`no-shell-quoting-leak`, a `commit-msg` rule this repo takes from
+[`shbernal/lefthook-rules`](https://github.com/shbernal/lefthook-rules) through the `remotes:`
+block in `lefthook.yml`, rejects a message that shows the damage: a line that is only `@`, `@'`
+or `@"`, an opener glued to the subject, or a closer at the end of a line. It is a backstop, not
+the place to learn the rule: by the time it fires you have already burned the commit attempt.
+Five commits in this history got past the shell before it existed, and it rejects all five and
+nothing else in 4361. The rule is shared rather than local because ts-xlsx carries the same
+damage; it replaced a local Node script that read the subject only, missed a closer on the last
+line, and would have rejected three legitimate subjects that open with a code span.
 
 ### Targeted checks the above does not cover
 

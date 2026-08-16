@@ -25,6 +25,29 @@
 # pre-push keeps `pnpm run`: those jobs name scripts, not binaries, and inlining
 # the script bodies here would be a second definition of each gate to keep in
 # sync. Once per push is a fair price for one definition.
+
+# The commit-msg gates live in shbernal/lefthook-rules, not here, because they
+# are not about this project: every repo wants them and every repo would
+# otherwise hold its own drifting copy. Lefthook fetches the remote on
+# `install` (not on `dump`), caches it under `.git/info/lefthook-remotes/`, and
+# merges its jobs into the same hook. `prepare` already runs install.
+#
+# `ref:` is a tag, never a branch — a branch would let any push to the rules
+# repo change what this repo runs. `refetch_frequency` is what lets a fix reach
+# here at all: without it the cached copy is permanent.
+#
+# A sync failure is not fatal. Lefthook prints "Couldn't sync … Will continue
+# anyway" and still exits 0, so an offline install does not take `prepare` down
+# — but it also leaves the rules unenforced until the next successful fetch.
+# Verify after a fresh clone: `git commit` should show the remote jobs run.
+remotes:
+  - git_url: https://github.com/shbernal/lefthook-rules
+    ref: v1
+    configs:
+      - rules/no-ai-attribution.yml
+      - rules/no-shell-quoting-leak.yml
+    refetch_frequency: 24h
+
 pre-commit:
   # Sequential (not parallel): oxlint --fix and oxfmt --write both touch the same
   # staged *.ts files, so running them concurrently could race on writes.
@@ -72,15 +95,6 @@ pre-commit:
     - name: charcheck
       glob: '*.{md,vue,ts,mts}'
       run: node node_modules/charcheck/dist/cli.js --staged --max-warnings 0
-
-commit-msg:
-  # Backstop against a shell-quoting slip mangling a multi-line message (e.g. a
-  # PowerShell `@'...'@` here-string run through POSIX sh, which leaks a literal
-  # `@` onto the subject). Multi-line messages should be written to a file and
-  # committed with `git commit -F <file>`. `{1}` is git's commit-message path.
-  jobs:
-    - name: check-message
-      run: node scripts/check-commit-msg.mjs {1}
 
 pre-push:
   # The whole-repo static gates that CI enforces but pre-commit's per-file
