@@ -1739,7 +1739,7 @@ generated deck to bytes (`await pptx.toBytes()`), `Presentation.load` those byte
 #### Importing several slides as one batch (`importSlides`)
 
 Stitching a deck from several sources needs each imported page at a specific
-position in the **final** slide list — and it needs the whole stitch to succeed
+position in the **final** slide list, and it needs the whole stitch to succeed
 or fail as one. `importSlides(requests)` takes all selections up front:
 
 ```js
@@ -1749,17 +1749,17 @@ target.importSlides([
 ])
 ```
 
-Every request is validated before any byte moves — source pages exist, no page
+Every request is validated before any byte moves (source pages exist, no page
 is selected twice, output positions are unique and within the final slide list,
-slide sizes match — so a rejected batch leaves the target byte-identical, where
+slide sizes match) so a rejected batch leaves the target byte-identical, where
 a loop of `importSlide` could leave a half-stitched deck behind.
 
 The batch also decides what a `slide → slide` link means. A jump link on a
 selected page must target another **selected** page (or one an earlier import
 from that source already brought across) and is rewritten to the fresh partname:
 importing page 3 of 10 does not drag pages 1–2 across as dependencies, and never
-strands the link. A link to an unselected page throws `import/unresolved-slide-link`
-— the same rule `appendSlides` enforces for generator decks.
+strands the link. A link to an unselected page throws `import/unresolved-slide-link`:
+the same rule `appendSlides` enforces for generator decks.
 
 Pages come across under `'copy'` theme semantics (their own layout → master →
 theme subgraph, shared parts deduped via the copy registry). Notes are dropped
