@@ -101,12 +101,44 @@ interface WordToken {
 }
 type Token = WordToken | { kind: 'space'; w: number } | { kind: 'newline'; w: 0 }
 
-const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch === ' ' || /\s/.test(ch)
+const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch === ' ' || /\s/.test(ch)
+
+/**
+ * A code point after which a line break is allowed without a space — the CJK and
+ * full-width ranges (Hangul Jamo through the CJK Compatibility Ideographs and the
+ * CJK Extension B/C blocks). Latin words break only at whitespace, but Chinese,
+ * Japanese and Korean text breaks between any two characters, so each such code
+ * point is its own wrap opportunity: PowerPoint lays these scripts out per
+ * character (UAX #14 class ID for Han/Hangul/Kana), and treating one long CJK run
+ * as a single unbreakable "word" would over-estimate the laid-out line count and
+ * shrink text that actually fits.
+ */
+export function isCjkBreakCharacter(ch: string): boolean {
+	const cp = ch.codePointAt(0) ?? 0
+	return (
+		(cp >= 0x1100 && cp <= 0x11ff) || // Hangul Jamo
+		(cp >= 0x2e80 && cp <= 0x2fff) || // CJK Radicals / Kangxi / CJK Symbols
+		(cp >= 0x3000 && cp <= 0x303f) || // CJK Symbols and Punctuation
+		(cp >= 0x3040 && cp <= 0x30ff) || // Hiragana / Katakana
+		(cp >= 0x3130 && cp <= 0x318f) || // Hangul Compatibility Jamo
+		(cp >= 0x31a0 && cp <= 0x31bf) || // Hangul Jamo Extended-A
+		(cp >= 0x31c0 && cp <= 0x31ef) || // CJK Strokes
+		(cp >= 0x3200 && cp <= 0x32ff) || // Enclosed CJK Letters and Months
+		(cp >= 0x3400 && cp <= 0x4dbf) || // CJK Unified Ideographs Extension A
+		(cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified Ideographs
+		(cp >= 0xac00 && cp <= 0xd7af) || // Hangul Syllables
+		(cp >= 0xf900 && cp <= 0xfaff) || // CJK Compatibility Ideographs
+		(cp >= 0xff00 && cp <= 0xffef) || // Halfwidth and Fullwidth Forms
+		(cp >= 0x20000 && cp <= 0x2ffff) || // CJK Extensions B, C… (Plane 2)
+		(cp >= 0x30000 && cp <= 0x323af) // CJK Extension G (Plane 3)
+	)
+}
 
 /**
  * Tokenize one paragraph at a given `fontScalePct`. Words can span run boundaries
- * (a break is only allowed at whitespace). Returns `null` if any run's face has no
- * registered metrics (the paragraph cannot be measured).
+ * (a break is only allowed at whitespace, or after a CJK character — see
+ * `isCjkBreakCharacter`). Returns `null` if any run's face has no registered
+ * metrics (the paragraph cannot be measured).
  */
 function tokenizeParagraph(
 	para: FitParagraph,
@@ -138,6 +170,11 @@ function tokenizeParagraph(
 				tokens.push({ kind: 'space', w })
 			} else {
 				const w = metrics.advanceWidthPt(ch, scaledSize, charSpacingPt) * widthSafety
+				if (isCjkBreakCharacter(ch)) {
+					flushWord()
+					tokens.push({ kind: 'word', w, charWidths: [w] })
+					continue
+				}
 				if (!curWord) curWord = { kind: 'word', w: 0, charWidths: [] }
 				curWord.w += w
 				curWord.charWidths.push(w)
