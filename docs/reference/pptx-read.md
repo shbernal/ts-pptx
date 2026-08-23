@@ -357,6 +357,17 @@ class Presentation {
 	importSlide(source: Presentation, index: number, options?: ImportSlideOptions): Slide
 
 	/**
+	 * Import selected pages from one or more loaded source presentations as one
+	 * batch, placing each at its `outputIndex` in the final slide list. All
+	 * requests are validated before anything is copied; a `slide → slide` link on
+	 * a selected page must target another selected page (or one already imported
+	 * from that source) and is rewritten to the fresh partnames. Pages come
+	 * across under `'copy'` theme semantics; notes and embedded fonts are not
+	 * carried. See "Importing several slides as one batch".
+	 */
+	importSlides(requests: readonly ImportSlidesRequest[]): Slide[]
+
+	/**
 	 * Phase 4 — copy one shape from `source.shapes[shapeIndex]` (a slide of any
 	 * open package) onto `target` (a slide of *this* presentation), returning the
 	 * new Shape. Drags the shape's media/chart/embedding parts across (deduped via
@@ -1724,6 +1735,35 @@ deck.importSlide(source, CLOSER_INDEX, { theme: 'copy' })       // closer append
 authored with the generate API (`new TsPptx()`). The two compose: emit the
 generated deck to bytes (`await pptx.toBytes()`), `Presentation.load` those bytes,
 `importSlide` the bookends, then `await deck.save()`.
+
+#### Importing several slides as one batch (`importSlides`)
+
+Stitching a deck from several sources needs each imported page at a specific
+position in the **final** slide list — and it needs the whole stitch to succeed
+or fail as one. `importSlides(requests)` takes all selections up front:
+
+```js
+target.importSlides([
+  { source: libraryA, sourceIndex: 2, outputIndex: 0 },   // cover first
+  { source: libraryB, sourceIndex: 0, outputIndex: last }, // closer last
+])
+```
+
+Every request is validated before any byte moves — source pages exist, no page
+is selected twice, output positions are unique and within the final slide list,
+slide sizes match — so a rejected batch leaves the target byte-identical, where
+a loop of `importSlide` could leave a half-stitched deck behind.
+
+The batch also decides what a `slide → slide` link means. A jump link on a
+selected page must target another **selected** page (or one an earlier import
+from that source already brought across) and is rewritten to the fresh partname:
+importing page 3 of 10 does not drag pages 1–2 across as dependencies, and never
+strands the link. A link to an unselected page throws `import/unresolved-slide-link`
+— the same rule `appendSlides` enforces for generator decks.
+
+Pages come across under `'copy'` theme semantics (their own layout → master →
+theme subgraph, shared parts deduped via the copy registry). Notes are dropped
+and embedded fonts are not carried; neither has a batch spelling yet.
 
 #### Themes: `copy` (default) vs `preserve`
 

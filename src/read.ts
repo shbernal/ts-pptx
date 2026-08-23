@@ -20,6 +20,7 @@ export type {
 	EmbeddedFontInfo,
 	EmbeddedFontFaceInfo,
 	ImportSlideOptions,
+	ImportSlidesRequest,
 	ImportShapeOptions,
 	ImportSlideMastersOptions,
 	ImportedSlideMaster,

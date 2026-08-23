@@ -52,6 +52,7 @@ import type {
 	EmbeddedFontInfo,
 	ImportSlideMastersOptions,
 	ImportSlideOptions,
+	ImportSlidesRequest,
 	ImportedSlideMaster,
 	LayoutHandle,
 	SlideSize,
@@ -529,6 +530,164 @@ export class Presentation {
 		if (options.embedFonts) carryEmbeddedFonts(this, source, importCtx)
 
 		return slide
+	}
+
+	/**
+	 * Import selected pages from one or more loaded source presentations as one
+	 * batch. All requests are validated before anything is copied: every request
+	 * names an existing source page, source pages and final output positions are
+	 * unique, and each source has this deck's slide size — so a rejected batch
+	 * changes nothing, while a per-page loop of {@link importSlide} could leave a
+	 * half-stitched deck behind. Each imported page lands at its `outputIndex` in
+	 * the complete destination slide list after the batch.
+	 *
+	 * The batch also decides what a `slide → slide` link means: an internal link
+	 * on a selected page must target another **selected** page (or one this deck
+	 * already contains via an earlier import from that source), and is rewritten
+	 * to the fresh partname — importing page 3 of 10 does not drag pages 1–2
+	 * across as dependencies, and never strands the link. This mirrors
+	 * `appendSlides`' `import/unresolved-slide-link`, which the write side already
+	 * enforces for generator decks.
+	 *
+	 * Scope: pages come across under `'copy'` theme semantics (their own layout →
+	 * master → theme subgraph, shared parts deduped via the copy registry). Notes
+	 * are dropped (as in plain {@link importSlide}) and embedded fonts are not
+	 * carried; neither has a batch spelling yet.
+	 */
+	importSlides(requests: readonly ImportSlidesRequest[]): Slide[] {
+		// 1. Validate everything up front: indexes exist, selections and output
+		//    positions are unique, sizes match. No part is touched until all pass.
+		const resolved = requests.map((request) => {
+			if (!Number.isInteger(request.sourceIndex) || request.sourceIndex < 0) {
+				throw new InvalidOptionError(
+					'slide/index-out-of-range',
+					`importSlides: sourceIndex must be a non-negative integer; received ${request.sourceIndex}`
+				)
+			}
+			if (!Number.isInteger(request.outputIndex) || request.outputIndex < 0) {
+				throw new InvalidOptionError(
+					'import/output-index-out-of-range',
+					`importSlides: outputIndex must be a non-negative integer; received ${request.outputIndex}`
+				)
+			}
+			const sourceSlide = request.source.slides[request.sourceIndex]
+			if (!sourceSlide) {
+				throw new InvalidOptionError(
+					'slide/index-out-of-range',
+					`importSlides: no slide at index ${request.sourceIndex} to import`
+				)
+			}
+			return { ...request, sourceSlide }
+		})
+
+		const finalSlideCount = this.slides.length + resolved.length
+		const selectedPages = new Map<OpcPackage, Map<string, undefined>>()
+		for (const request of resolved) {
+			let pages = selectedPages.get(request.source.opc)
+			if (!pages) {
+				pages = new Map()
+				selectedPages.set(request.source.opc, pages)
+			}
+			if (pages.has(request.sourceSlide.partName)) {
+				throw new InvalidOptionError(
+					'import/slide-selected-twice',
+					`importSlides: source slide ${request.sourceIndex} is selected more than once`
+				)
+			}
+			pages.set(request.sourceSlide.partName, undefined)
+		}
+
+		const outputIndexes = new Set<number>()
+		for (const request of resolved) {
+			if (request.outputIndex >= finalSlideCount) {
+				throw new InvalidOptionError(
+					'import/output-index-out-of-range',
+					`importSlides: outputIndex ${request.outputIndex} is outside the final slide list of ${finalSlideCount} slides`
+				)
+			}
+			if (outputIndexes.has(request.outputIndex)) {
+				throw new InvalidOptionError(
+					'import/output-index-conflict',
+					`importSlides: outputIndex ${request.outputIndex} is requested more than once`
+				)
+			}
+			outputIndexes.add(request.outputIndex)
+			const target = this.slideSize
+			const incoming = request.source.slideSize
+			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
+				const fmt = (size: SlideSize | null): string => (size ? `${size.widthEmu}×${size.heightEmu} EMU` : 'unknown')
+				throw new InvalidOptionError(
+					'import/slide-size-mismatch',
+					`importSlides requires equal slide sizes; target is ${fmt(target)}, source is ${fmt(incoming)}`
+				)
+			}
+		}
+
+		// 1b. Pre-validate every selected page's direct slide→slide links against
+		//    the selection, still before any byte moves: a link must target
+		//    another selected page or a page this deck already contains from an
+		//    earlier import of that source.
+		for (const request of resolved) {
+			const pages = selectedPages.get(request.source.opc)
+			const registry = this.#importContext(request.source.opc).registry
+			const sourceRels = request.source.opc.relationshipsFor(request.sourceSlide.partName)
+			for (const rel of sourceRels) {
+				if (rel.type !== SLIDE_REL || rel.targetMode === 'External') continue
+				const targetPartName = sourceRels.resolveTarget(rel.id)
+				if (!pages?.has(targetPartName) && !registry.has(targetPartName)) {
+					throw new InvalidOptionError(
+						'import/unresolved-slide-link',
+						`importSlides: source slide ${request.sourceSlide.partName} links to ${targetPartName}, which is not among the selected imported pages`
+					)
+				}
+			}
+		}
+
+		// 2. Materialize each selected page's part now, so the copy traversals can
+		//    wire slide→slide relationships to their pre-allocated destinations.
+		const destinationsBySource = new Map<OpcPackage, Map<string, string>>()
+		for (const request of resolved) {
+			let destinations = destinationsBySource.get(request.source.opc)
+			if (!destinations) {
+				destinations = new Map()
+				destinationsBySource.set(request.source.opc, destinations)
+			}
+			const sourcePart = request.source.opc.part(request.sourceSlide.partName)
+			if (!sourcePart) {
+				throw new PackageReadError(
+					'package/part-missing',
+					`importSlides: source package has no part ${request.sourceSlide.partName}`
+				)
+			}
+			const newPartName = this.opc.reservePartNameLike(request.sourceSlide.partName)
+			this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+			destinations.set(request.sourceSlide.partName, newPartName)
+		}
+
+		// 3. Copy each selected page and its dependency subgraph (theme/master/
+		//    layout/media/…), with links constrained to the selection.
+		for (const [sourceOpc, destinations] of destinationsBySource) {
+			const ctx: ImportContext = { ...this.#importContext(sourceOpc), selection: { destinations } }
+			for (const sourcePartName of destinations.keys()) void copyPart(ctx, sourcePartName)
+		}
+
+		// 4. Wire into p:sldIdLst at each requested final position. Ascending order
+		//    makes the raw final index the correct insertion point at every step:
+		//    earlier inserts all sit before it, so they shift it by exactly the
+		//    number of entries the final position already counts.
+		const added: Slide[] = []
+		for (const request of [...resolved].sort((left, right) => left.outputIndex - right.outputIndex)) {
+			const newPartName = destinationsBySource.get(request.source.opc)?.get(request.sourceSlide.partName)
+			const newPart = newPartName === undefined ? undefined : this.opc.part(newPartName)
+			if (!newPart) {
+				throw new InternalError(
+					'import/part-went-missing',
+					`importSlides: imported slide part went missing for source index ${request.sourceIndex}`
+				)
+			}
+			added.push(this.#insertSlidePart(newPart, request.outputIndex))
+		}
+		return added
 	}
 
 	/**
