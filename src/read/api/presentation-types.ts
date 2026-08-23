@@ -7,6 +7,9 @@
  */
 
 import type { EmbeddedFont } from '../../embedded-fonts.js'
+// Type-only: keeps this contract module free of any runtime dependency on the
+// class that implements it (the import is erased, so no cycle survives to ESM).
+import type { Presentation } from './presentation.js'
 
 /** Slide dimensions, in both EMU (the OOXML unit) and inches. */
 export interface SlideSize {
@@ -508,6 +511,16 @@ export interface AppendSlidesOptions {
 	at?: number
 	/** How `addImage` media errors surface during extraction (default `'throw'`). */
 	onMediaError?: 'throw' | 'placeholder'
+}
+
+/** One selected native source page and its final zero-based destination position. */
+export interface ImportSlidesRequest {
+	/** Already-loaded source presentation whose immutable package bytes own the page. */
+	source: Presentation
+	/** Zero-based source slide index. A source page may appear in one request only. */
+	sourceIndex: number
+	/** Zero-based position in the complete destination slide list after this batch. */
+	outputIndex: number
 }
 
 /** Options for {@link Presentation.fromTemplate}. */

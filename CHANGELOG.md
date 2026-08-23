@@ -357,6 +357,20 @@ and project-site changes.
   so the two cannot diverge. Nothing about the measured numbers changed — this is the
   signal that says when not to trust them.
 
+- **`Presentation.importSlides(requests)`, batch slide import across one or more loaded
+  sources** (#19). Stitching a deck from several sources needs each imported page at a
+  specific position in the *final* slide list, and needs the whole stitch to succeed or
+  fail as one. `importSlide` in a loop can leave a half-stitched deck when request three
+  of five fails on a size mismatch; `importSlides` validates everything up front — pages
+  exist, no page is selected twice, output positions are unique and within the final list,
+  sizes match — so a rejected batch leaves the target byte-identical. It also gives the
+  batch's `slide → slide` links a rule: a jump link on a selected page must target another
+  selected page (or one an earlier import from that source already brought across) and is
+  rewritten to the fresh partnames, so importing page 3 of 10 neither drags pages 1–2
+  across as dependencies nor strands the link — `appendSlides`' `import/unresolved-slide-link`,
+  enforced natively. Pages come across under `'copy'` theme semantics; notes and embedded
+  fonts are not carried, and neither has a batch spelling yet.
+
 - **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
   assembles the deck and returns the presentation, having written nothing. The preview needs
   the bytes; `pnpm demos:build` needs a file. `build` is now `compose` plus a destination.

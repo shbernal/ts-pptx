@@ -13,8 +13,8 @@ import type { OpcPackage } from '../../opc/package.js'
 import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
-import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
-import { PackageReadError } from '../../../errors.js'
+import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
+import { InvalidOptionError, PackageReadError } from '../../../errors.js'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
@@ -37,6 +37,20 @@ export interface ImportContext {
 	readonly source: OpcPackage
 	/** Source partname → the partname allocated for it in `dest`. */
 	readonly registry: Map<string, string>
+	/**
+	 * The batch-selection plan when copying for {@link Presentation.importSlides}:
+	 * source slide partname → the destination partname pre-allocated for it. When
+	 * present, `slide → slide` relationships resolve only within this set — an
+	 * imported page may link to another *selected* page (rewritten to its fresh
+	 * partname) but must not drag an unselected source page across as a dependency.
+	 */
+	readonly selection?: SelectionPlan
+}
+
+/** Which pages of one source package a batch import selected, and where each is headed. */
+export interface SelectionPlan {
+	/** Source slide partname → the destination partname reserved for it. */
+	readonly destinations: ReadonlyMap<string, string>
 }
 
 /**
@@ -48,17 +62,33 @@ export interface ImportContext {
  * dropped. A copied `slideMaster` does not drag in all its sibling layouts —
  * each imported `slideLayout` wires itself into the master instead (see
  * {@link linkLayoutIntoMaster}).
+ *
+ * With `ctx.selection`, partnames for the selected slides were already reserved
+ * by the caller ({@link Presentation.importSlides}); this traversal wires their
+ * relationships to each other instead of re-copying them, and refuses to pull a
+ * non-selected source page across as a `slide → slide` dependency.
  */
 export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 	const existing = ctx.registry.get(sourcePartName)
-	if (existing) return existing
+	const selectedDest = ctx.selection?.destinations.get(sourcePartName)
+	// Registry hit without a selection plan: plain idempotence. With a plan, a
+	// hit on the *selected* destination means this batch already walked the page
+	// (register-before-recurse makes mutually-linked selected pages terminate);
+	// a hit on any OTHER partname is either a shared non-slide dependency from
+	// an earlier traversal or a page a previous import brought across — both are
+	// reused rather than duplicated. Only a selected page whose registered
+	// partname differs (imported by a previous call) is re-materialized fresh:
+	// each batch request owns exactly one output page.
+	if (existing && (selectedDest === undefined || existing === selectedDest)) return existing
 
 	const sourcePart = ctx.source.part(sourcePartName)
 	if (!sourcePart)
 		throw new PackageReadError('package/part-missing', `importSlide: source package has no part ${sourcePartName}`)
 
-	const newPartName = ctx.dest.opc.reservePartNameLike(sourcePartName)
-	ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+	const newPartName =
+		ctx.selection?.destinations.get(sourcePartName) ?? ctx.dest.opc.reservePartNameLike(sourcePartName)
+	// A selected page's part was already materialized by the batch allocator.
+	if (!ctx.dest.opc.part(newPartName)) ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 	// Record before recursing so the master↔layout cycle terminates.
 	ctx.registry.set(sourcePartName, newPartName)
 
@@ -74,7 +104,24 @@ export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
-		const newTargetPartName = copyPart(ctx, sourceRels.resolveTarget(rel.id))
+		const sourceTargetPartName = sourceRels.resolveTarget(rel.id)
+		// Within a batch import, a slide→slide relationship must target another
+		// selected page: pulling the unselected source page across would add a
+		// slide nobody asked for, while dropping the rel would strand the link.
+		// (Already-copied targets pass — they are either selected pages from an
+		// earlier traversal or imports from a previous call sharing this source.)
+		if (
+			rel.type === SLIDE_REL &&
+			ctx.selection &&
+			!ctx.selection.destinations.has(sourceTargetPartName) &&
+			!ctx.registry.has(sourceTargetPartName)
+		) {
+			throw new InvalidOptionError(
+				'import/unresolved-slide-link',
+				`importSlides: source slide ${sourcePartName} links to ${sourceTargetPartName}, which is not among the selected imported pages`
+			)
+		}
+		const newTargetPartName = copyPart(ctx, sourceTargetPartName)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
 	}
 
