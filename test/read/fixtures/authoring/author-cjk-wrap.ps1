@@ -183,6 +183,9 @@ $oracle = [ordered]@{
   sizePt = $SIZE
   cases = $rows
 }
+# ConvertTo-Json emits two-space indent; the committed sidecar is in the repo
+# formatter's output, so run `pnpm exec oxfmt --write "test/read/fixtures/*.json"`
+# after regenerating or the diff is pure whitespace (see this directory's README).
 $json = $oracle | ConvertTo-Json -Depth 6
 [IO.File]::WriteAllText($oracleOut, $json, (New-Object Text.UTF8Encoding($false)))
 
