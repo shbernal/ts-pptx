@@ -132,6 +132,10 @@ over-long-token character-wrap fallback every unbreakable word gets, not a break
 class. Adding Hangul to the break set would *under*-report the line count, which is
 the direction that overflows, the one thing the resize path has no safety net for.
 
+The two **Bopomofo** blocks are in the break set even though they sit either side of
+the excluded Hangul Compatibility Jamo: they are Chinese phonetic notation, not
+Korean, and carry the same UAX #14 class as Han.
+
 Both halves are pinned by `autofit-cjk-wrap.pptx` and
 `test/read/cjk-line-breaking-oracle.test.js` (see [Calibration oracle](#calibration-oracle)).
 Two limitations are recorded rather than fixed:

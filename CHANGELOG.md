@@ -138,8 +138,8 @@ and project-site changes.
   `fontScale` PowerPoint would never have chosen, and `measureText`/`overflowsBox`
   reported vertical overflows that were not there.
 
-  `src/measure/text-fit.ts` now treats Han, Kana, the fullwidth and halfwidth forms,
-  the compatibility blocks and the Plane 2/3 ideograph extensions as per-character
+  `src/measure/text-fit.ts` now treats Han, Kana, Bopomofo, the fullwidth and halfwidth
+  forms, the compatibility blocks and the Plane 2/3 ideograph extensions as per-character
   wrap opportunities, matching how PowerPoint lays those scripts out.
 
   **Hangul is deliberately not in that set.** UAX #14 permits breaking Korean between
