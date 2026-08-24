@@ -830,6 +830,41 @@ Authored on Windows desktop PowerPoint, **2026-06-21**; each opens clean via COM
 with no repair prompt (verified with the `powerpoint-fixture-authoring` skill's
 `verify-powerpoint-fixture.ps1`).
 
+### CJK line breaking (`autofit-cjk-wrap.pptx`)
+
+A fifth deck, outside the four-deck matrix above because it calibrates a different
+axis — **where PowerPoint breaks a line**, not what fit value it bakes — and needs a
+font none of the others use.
+
+| Local name              | Application                 | AppVersion | Slides | Cases | SHA-256                                                            |
+| ----------------------- | --------------------------- | ---------- | ------ | ----- | ----------------------------------------------------------------- |
+| `autofit-cjk-wrap.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      | 11    | `a7a74b8e968a290836fecb53df749c575d5945a9f396994f4f88acb759392997` |
+
+Authored on Windows desktop PowerPoint, **2026-08-24**, by
+`authoring/author-cjk-wrap.ps1`; opens clean via COM with no repair prompt. One
+slide, eleven `spAutoFit` text boxes of identical width, each named after its case
+id, all in **Malgun Gothic** at 18 pt — a Windows-standard plain `.ttf` (the metrics
+parser cannot open a `.ttc`, which rules out MS Gothic, Yu Gothic and SimSun) that
+covers Han, Kana, Hangul and the fullwidth forms in one face.
+
+What it settles: Han, Kana, fullwidth Latin, halfwidth Katakana and Plane 2
+ideographs break **per character**; **Hangul does not** — the same box that lays out
+in two lines in Han takes three in Hangul, because the run moves down whole. It also
+records two things the model does not implement: PowerPoint's kinsoku (`、` hangs
+past the right inset rather than starting a line) and its font fallback for code
+points the named face lacks.
+
+- **`autofit-cjk-wrap.oracle.json`** — written by the recipe, **not** derived from
+  the deck, because nothing in the package records where a line broke: the `lines`
+  and `lineWidthsPt` columns come from `TextRange.Lines()` read over COM at
+  authoring time. The `bakedHeightPt` column *is* in the package (`a:ext/@cy`), and
+  `test/read/cjk-line-breaking-oracle.test.js` re-derives it from the committed deck
+  on every run, so a sidecar edited apart from its fixture stops matching it.
+- Case ids: `cjk__<han|kana|hangul|fullwidth_latin|halfwidth_kana|ext_b_astral>_…`
+  plus `cjk__kinsoku_hanging_comma` and an all-Latin `latin__control`.
+- Unlike the four decks above, this one **is** loaded by `test:read` (the oracle
+  test reads its slide XML directly).
+
 ### Files and provenance
 
 - **`autofit-*.pptx`** — the oracle decks (one slide groups one or more case

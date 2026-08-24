@@ -129,6 +129,36 @@ and project-site changes.
 
 ### Fixed
 
+- **Measured fit put Chinese and Japanese text on one line too many.** The wrap
+  simulator broke lines only at whitespace, so a CJK run tokenized as a single
+  unbreakable word: it fitted beside nothing, moved to the next line whole, and left
+  the rest of the current one empty. Harmless while such a run sat alone on its line
+  (the over-long-token fallback packed it identically), wrong the moment anything
+  preceded it. The inflated line count then propagated: `fit:'shrink'` baked a
+  `fontScale` PowerPoint would never have chosen, and `measureText`/`overflowsBox`
+  reported vertical overflows that were not there.
+
+  `src/measure/text-fit.ts` now treats Han, Kana, the fullwidth and halfwidth forms,
+  the compatibility blocks and the Plane 2/3 ideograph extensions as per-character
+  wrap opportunities, matching how PowerPoint lays those scripts out.
+
+  **Hangul is deliberately not in that set.** UAX #14 permits breaking Korean between
+  syllables; PowerPoint does not do it, because Korean is written with spaces between
+  words. A Hangul run still breaks when it is longer than a line, but through the
+  over-long-token character-wrap fallback rather than a break class. Including it
+  would have *under*-reported the line count for Korean, which is the direction that
+  overflows, and which the resize path has no safety net for.
+
+  Both halves are pinned to a new PowerPoint-authored fixture,
+  `test/read/fixtures/autofit-cjk-wrap.pptx` (11 boxes, Malgun Gothic, one claim
+  each), read by `test/read/cjk-line-breaking-oracle.test.js`. Reverting the fix fails
+  three of its cases; adding Hangul back fails a fourth. Two limitations are recorded
+  there rather than fixed — PowerPoint's kinsoku rules (`。`/`、` hang past the right
+  inset instead of starting a line) and its font fallback for code points the named
+  face lacks. See `docs/measured-text-fit.md`.
+
+  Thanks to **@flyisland** for the report and the original fix (#20, #21).
+
 - **Four source files were being tracked as binary, and it had already cost us.**
   `src/diagnostics.ts`, `src/measure/font-metrics.ts`, `src/script/fidelity.ts` and
   `www/demos/deck-preview.ts` each held a **literal `U+0000` byte** inside a template

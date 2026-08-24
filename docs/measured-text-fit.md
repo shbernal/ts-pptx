@@ -7,6 +7,7 @@ read_when:
   - Touching registerFontMetrics or the measured-fit export pass
   - Regenerating or interpreting the autofit calibration fixtures
   - Understanding why fit:'shrink'/'resize' now bake a value instead of a bare flag
+  - Measuring Chinese, Japanese or Korean text, or changing where lines may break
 doc_type: "decision"
 ---
 
@@ -66,7 +67,11 @@ pptx headlessly hits it), so it lives upstream, not as a downstream workaround.
 
 - Loads a font file (TTF/OTF) and exposes per-glyph advance widths +
   ascent/descent/line-gap. **`opentype.js`** (new dependency, lazily imported,
-  Node/web only).
+  Node/web only). A **TrueType Collection (`.ttc`) is not loadable**:
+  `parseFontMetrics` throws `Unsupported OpenType signature ttcf`. That is worth
+  knowing before registering an East Asian face on Windows, where MS Gothic, Yu
+  Gothic, SimSun and Microsoft YaHei all ship as `.ttc`; Malgun Gothic is a plain
+  `.ttf` and is what the CJK fixture uses.
 - Width is summed from **raw `charToGlyph` advances**: deliberately **no**
   GPOS/GSUB shaping. Kerning almost always narrows a line, so summing raw advances
   over-estimates width, the conservative direction (shrink a touch too much, never
@@ -94,7 +99,8 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 
 ### Wrap simulator + solvers (`src/measure/text-fit.ts`)
 
-- Greedy `wrap=square` line breaking that mirrors PowerPoint: break on whitespace,
+- Greedy `wrap=square` line breaking that mirrors PowerPoint: break on whitespace
+  or either side of a per-character breaking code point (below),
   hard-break over-long tokens, honor `\n`, `charSpacing`, bold/italic metrics, and
   multi-run paragraphs. Output: wrapped line count + laid-out height for a font
   scale.
@@ -107,6 +113,36 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
   there is no text-scaling fallback), so it **must err tall**.
 - Conservative WIDTH/HEIGHT safety factors (`1.03`/`1.04`) approximate
   PowerPoint's device-DPI advance rounding, so the simulator wraps slightly early.
+
+### East Asian line breaking
+
+Chinese and Japanese text has no spaces to break at: PowerPoint breaks it between
+any two characters. Tokenizing such a run as one unbreakable "word" moves the whole
+run to the next line, wastes the rest of the current one, and over-reports the line
+count, so `fit:'shrink'` bakes a `fontScale` PowerPoint would never have chosen and
+`measureText` reports a vertical overflow that is not there. `isCjkBreakCharacter`
+in `src/measure/text-fit.ts` therefore makes each such code point its own wrap
+opportunity (a break is allowed either side of it, whitespace or not).
+
+**Hangul is deliberately excluded**, and this is the part that is easy to get wrong.
+UAX #14 permits breaking Korean between syllables, but PowerPoint does not do it:
+Korean is written with spaces between words and the app breaks it like Latin. A
+Hangul run longer than a line still breaks between syllables, but that is the
+over-long-token character-wrap fallback every unbreakable word gets, not a break
+class. Adding Hangul to the break set would *under*-report the line count, which is
+the direction that overflows, the one thing the resize path has no safety net for.
+
+Both halves are pinned by `autofit-cjk-wrap.pptx` and
+`test/read/cjk-line-breaking-oracle.test.js` (see [Calibration oracle](#calibration-oracle)).
+Two limitations are recorded rather than fixed:
+
+- **No kinsoku.** PowerPoint will not start a line with `。` or `、` and hangs them
+  past the right inset instead; this model breaks before them. Same line count,
+  narrower widest line, so the height stays conservative.
+- **No font fallback.** PowerPoint silently substitutes another face for a code
+  point the named font lacks; the registry charges the named font's default advance
+  instead. That is a metrics gap rather than a break-class one, and it is why the
+  two fixture cases whose glyphs Malgun Gothic lacks are skipped by the oracle test.
 
 ### Integration (`src/measure/fit.ts`)
 
@@ -271,8 +307,23 @@ Arial**.
 - `autofit-resize.pptx` (19 cases): `spAutoFit`/baked-`cy` calibration: per-font
   core + Aptos anchor/under-fill/spacing/inset sweep.
 - `autofit-edge.pptx` (11 cases): over-long unbreakable tokens, trailing spaces,
-  empty paragraphs, tabs, whitespace-only runs, mixed sizes, plus documented
-  unsupported CJK/RTL boxes.
+  empty paragraphs, tabs, whitespace-only runs, mixed sizes, plus a documented
+  unsupported RTL box and a single-line CJK box kept from when CJK was a gap.
+
+A fifth deck sits outside that matrix because it calibrates a different axis, and
+needs a font none of the four use:
+
+- `autofit-cjk-wrap.pptx` (11 cases, **Malgun Gothic**): where PowerPoint breaks
+  **lines** in East Asian text. One `spAutoFit` box per case at a fixed width, so
+  the app's own answer is baked into `a:ext/@cy`. Han, Kana, fullwidth Latin,
+  halfwidth Katakana and Plane 2 all break per character; Hangul does not, and the
+  Hangul box spends a third line where the Han box spends two. Its sidecar,
+  `autofit-cjk-wrap.oracle.json`, is written by `authoring/author-cjk-wrap.ps1`
+  rather than derived from the deck, because **nothing in the package records where
+  a line broke**: the `lines` column is `TextRange.Lines()` read over COM at
+  authoring time. The `bakedHeightPt` column *is* in the package, and
+  `test/read/cjk-line-breaking-oracle.test.js` re-derives it from the committed deck
+  on every run so a hand-edited sidecar stops matching its own fixture.
 
 The decks are the source of truth; `test/read/fixtures/autofit-calibration.json`
 (with the LibreOffice cross-measure column) is the derived, regenerable table the
@@ -295,6 +346,10 @@ Provenance, SHA-256 hashes, and the case-id scheme are in
 - On `spAutoFit` growth, `off.y` shifts by **0 / half / full** of the height delta
   for anchor **t / ctr / b**.
 - PowerPoint vs LibreOffice autofit height agree to **≤ 0.05pt** for this font set.
+- Han, Kana, fullwidth Latin, halfwidth Katakana and Plane 2 ideographs break
+  **per character**; **Hangul does not** (it breaks at spaces, like Latin).
+- Kinsoku is on: PowerPoint hangs `。`/`、` past the right inset rather than start a
+  line with one.
 
 ## Standing caveats
 
@@ -307,5 +362,6 @@ Provenance, SHA-256 hashes, and the case-id scheme are in
 - Metric fidelity vs PowerPoint's layout engine (kerning, ligatures, GPOS) and vs
   LibreOffice's line metrics is mitigated by erring conservative (raw advances,
   taller-of-two line height) plus the calibration regression target.
-- CJK / RTL / complex shaping are out of scope (documented as unsupported).
+- **CJK line breaking is modeled** (see [East Asian line breaking](#east-asian-line-breaking));
+  kinsoku, font fallback for uncovered code points, RTL and complex shaping are not.
 - Keep `opentype.js` on the Node path / lazy-loaded to bound browser bundle size.
