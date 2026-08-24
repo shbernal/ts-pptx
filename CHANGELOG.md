@@ -363,13 +363,16 @@ and project-site changes.
   fail as one. `importSlide` in a loop can leave a half-stitched deck when request three
   of five fails on a size mismatch; `importSlides` validates everything up front — pages
   exist, no page is selected twice, output positions are unique and within the final list,
-  sizes match — so a rejected batch leaves the target byte-identical. It also gives the
+  sizes match, and a read-only dry run of the copy proves every part it would reach is
+  present — so a rejected batch leaves the target byte-identical whichever rule rejected
+  it. The returned array is parallel to `requests`. It also gives the
   batch's `slide → slide` links a rule: a jump link on a selected page must target another
   selected page (or one an earlier import from that source already brought across) and is
   rewritten to the fresh partnames, so importing page 3 of 10 neither drags pages 1–2
   across as dependencies nor strands the link — `appendSlides`' `import/unresolved-slide-link`,
-  enforced natively. Pages come across under `'copy'` theme semantics; notes and embedded
-  fonts are not carried, and neither has a batch spelling yet.
+  enforced natively. Pages come across under `'copy'` theme semantics; notes, embedded
+  fonts and `rescale` have no batch spelling yet, so reach for `importSlide` when you
+  need one of those.
 
 - **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
   assembles the deck and returns the presentation, having written nothing. The preview needs

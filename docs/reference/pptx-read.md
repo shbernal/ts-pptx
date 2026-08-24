@@ -358,12 +358,14 @@ class Presentation {
 
 	/**
 	 * Import selected pages from one or more loaded source presentations as one
-	 * batch, placing each at its `outputIndex` in the final slide list. All
-	 * requests are validated before anything is copied; a `slide → slide` link on
-	 * a selected page must target another selected page (or one already imported
-	 * from that source) and is rewritten to the fresh partnames. Pages come
-	 * across under `'copy'` theme semantics; notes and embedded fonts are not
-	 * carried. See "Importing several slides as one batch".
+	 * batch, placing each at its `outputIndex` in the final slide list; the
+	 * returned array is parallel to `requests`. Everything is checked before any
+	 * byte moves, a dry run of the copy included, so a rejected batch leaves this
+	 * deck byte-identical. A `slide → slide` link on a selected page must target
+	 * another selected page (or one already imported from that source) and is
+	 * rewritten to the fresh partnames. Pages come across under `'copy'` theme
+	 * semantics; notes, embedded fonts and `rescale` are not carried. See
+	 * "Importing several slides as one batch".
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[]
 
@@ -1743,16 +1745,25 @@ position in the **final** slide list, and it needs the whole stitch to succeed
 or fail as one. `importSlides(requests)` takes all selections up front:
 
 ```js
-target.importSlides([
-  { source: libraryA, sourceIndex: 2, outputIndex: 0 },   // cover first
+const last = target.slides.length + 1 // two pages are about to join the list
+
+const [cover, closer] = target.importSlides([
+  { source: libraryA, sourceIndex: 2, outputIndex: 0 },    // cover first
   { source: libraryB, sourceIndex: 0, outputIndex: last }, // closer last
 ])
 ```
 
-Every request is validated before any byte moves (source pages exist, no page
+`outputIndex` is a position in the **final** list, so it already counts the
+other pages of the same batch; positions must be unique and inside that list.
+The returned array is parallel to `requests`: `result[0]` is the cover above
+even though it was inserted after the closer.
+
+Every request is validated before any byte moves: source pages exist, no page
 is selected twice, output positions are unique and within the final slide list,
-slide sizes match) so a rejected batch leaves the target byte-identical, where
-a loop of `importSlide` could leave a half-stitched deck behind.
+slide sizes match, and a read-only dry run of the copy proves every part it
+would reach is present. A rejected batch therefore leaves the target
+byte-identical whichever rule rejected it, where a loop of `importSlide` could
+leave a half-stitched deck behind.
 
 The batch also decides what a `slide → slide` link means. A jump link on a
 selected page must target another **selected** page (or one an earlier import
@@ -1763,7 +1774,8 @@ the same rule `appendSlides` enforces for generator decks.
 
 Pages come across under `'copy'` theme semantics (their own layout → master →
 theme subgraph, shared parts deduped via the copy registry). Notes are dropped
-and embedded fonts are not carried; neither has a batch spelling yet.
+and embedded fonts are not carried, and there is no batch `rescale`, so the
+sizes really must match. Reach for `importSlide` when you need any of those.
 
 #### Themes: `copy` (default) vs `preserve`
 

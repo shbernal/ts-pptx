@@ -65,8 +65,11 @@ export interface SelectionPlan {
  *
  * With `ctx.selection`, partnames for the selected slides were already reserved
  * by the caller ({@link Presentation.importSlides}); this traversal wires their
- * relationships to each other instead of re-copying them, and refuses to pull a
- * non-selected source page across as a `slide → slide` dependency.
+ * relationships to each other instead of re-copying them. The batch's rule that
+ * a `slide → slide` link may not leave the selection is enforced ahead of the
+ * copy by {@link checkSelectionCopyable}, which also proves every part this
+ * traversal will reach exists — so once copying starts there is nothing left to
+ * throw, and a rejected batch never leaves a half-copied deck behind.
  */
 export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 	const existing = ctx.registry.get(sourcePartName)
@@ -104,24 +107,11 @@ export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
-		const sourceTargetPartName = sourceRels.resolveTarget(rel.id)
-		// Within a batch import, a slide→slide relationship must target another
-		// selected page: pulling the unselected source page across would add a
-		// slide nobody asked for, while dropping the rel would strand the link.
-		// (Already-copied targets pass — they are either selected pages from an
-		// earlier traversal or imports from a previous call sharing this source.)
-		if (
-			rel.type === SLIDE_REL &&
-			ctx.selection &&
-			!ctx.selection.destinations.has(sourceTargetPartName) &&
-			!ctx.registry.has(sourceTargetPartName)
-		) {
-			throw new InvalidOptionError(
-				'import/unresolved-slide-link',
-				`importSlides: source slide ${sourcePartName} links to ${sourceTargetPartName}, which is not among the selected imported pages`
-			)
-		}
-		const newTargetPartName = copyPart(ctx, sourceTargetPartName)
+		// A batch import's slide→slide rule is enforced by checkSelectionCopyable
+		// before this traversal starts, so the recursion below cannot reach an
+		// unselected page: by here every target is selected, already copied, or
+		// not a slide at all.
+		const newTargetPartName = copyPart(ctx, sourceRels.resolveTarget(rel.id))
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
 	}
 
@@ -140,6 +130,73 @@ export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 	}
 
 	return newPartName
+}
+
+/**
+ * Dry-run {@link copyPart} over one source's batch selection, reading only the
+ * *source* package: walk the graph the copy will walk, under the same
+ * relationship-skipping rules, and throw what the copy would throw — a source
+ * part that is missing, XML that will not parse, or a `slide → slide` link that
+ * escapes the selection.
+ *
+ * This is what makes a rejected batch leave the destination byte-identical.
+ * `importSlides` reserves partnames and mutates the destination only after this
+ * passes, at which point the copy has no reachable failure left; a check that
+ * lived inside the traversal instead would fire with parts already added, a
+ * master already registered in `presentation.xml`, and no way back.
+ *
+ * Keep this in step with `copyPart`: the two must skip the same relationships
+ * and stop at the same registry hits, or the guarantee is only as good as the
+ * drift between them.
+ *
+ * @param source     the package the pages are coming from
+ * @param registry   the copy registry for that source (parts already in `dest`)
+ * @param selected   source partnames of the pages this batch selected
+ */
+export function checkSelectionCopyable(
+	source: OpcPackage,
+	registry: ReadonlyMap<string, string>,
+	selected: ReadonlySet<string>
+): void {
+	const visited = new Set<string>()
+
+	const walk = (partName: string): void => {
+		if (visited.has(partName)) return
+		// `copyPart` reuses an already-copied part rather than recursing into it,
+		// and its subgraph was validated when that copy happened. A *selected*
+		// page is the exception the batch re-materializes, so it is always walked.
+		if (registry.has(partName) && !selected.has(partName)) return
+		visited.add(partName)
+
+		const part = source.part(partName)
+		if (!part)
+			throw new PackageReadError('package/part-missing', `importSlides: source package has no part ${partName}`)
+
+		const isMaster = part.contentType === SLIDE_MASTER_CONTENT_TYPE
+		// The copy re-parses a master/layout to rebuild its layout id list; force
+		// the same parse here so unparseable XML fails before anything moves.
+		if (isMaster || part.contentType === SLIDE_LAYOUT_CONTENT_TYPE) void part.dom
+
+		const rels = source.relationshipsFor(partName)
+		for (const rel of rels) {
+			if (rel.type === NOTES_SLIDE_REL) continue
+			if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
+			if (rel.targetMode === 'External') continue
+			const targetPartName = rels.resolveTarget(rel.id)
+			// A jump link must land on another selected page, or on one an earlier
+			// import from this source already brought across. Anything else would
+			// drag a page nobody asked for into the deck, or strand the link.
+			if (rel.type === SLIDE_REL && !selected.has(targetPartName) && !registry.has(targetPartName)) {
+				throw new InvalidOptionError(
+					'import/unresolved-slide-link',
+					`importSlides: source slide ${partName} links to ${targetPartName}, which is not among the selected imported pages`
+				)
+			}
+			walk(targetPartName)
+		}
+	}
+
+	for (const partName of selected) walk(partName)
 }
 
 /**

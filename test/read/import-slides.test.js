@@ -1,7 +1,9 @@
 // Batch slide import: `Presentation.importSlides(requests)` — the multi-page
 // sibling of `importSlide`. Contract under test:
-//   - every request lands at its `outputIndex` in the final slide list;
-//   - validation happens up front, so a rejected batch changes no byte;
+//   - every request lands at its `outputIndex` in the final slide list, and the
+//     returned array stays parallel to `requests`;
+//   - validation happens up front — including a dry run of the copy itself — so
+//     a rejected batch changes no byte, whichever rule did the rejecting;
 //   - a `slide → slide` link on an imported page resolves to another *selected*
 //     page's fresh partname (never back into the source package), and a link to
 //     an unselected page is refused rather than dragging that page across;
@@ -10,7 +12,7 @@
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual, bytesEqual, throws } from '../helpers.js'
+import { assert, assertEqual, bytesEqual } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { openFixture } from './corpus.js'
 import { assertNoDanglingRels } from './opc.js'
@@ -18,6 +20,7 @@ import { assertNoDanglingRels } from './opc.js'
 const validatorInstalled = await validatorAvailable()
 
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 
 /** The internal SLIDE_REL targets of one slide part, resolved via its own rels. */
 function slideLinkTargets(opc, partName) {
@@ -40,11 +43,16 @@ function catchCode(fn) {
 	}
 }
 
-/** A generated two-page deck whose first page optionally links to the second. */
+/**
+ * A generated two-page deck whose first page optionally links to the second and
+ * always carries an external hyperlink, so the copy has a rel of each target mode
+ * to route.
+ */
 async function generatedDeck(firstLinksToSecond = false) {
 	const pptx = new TsPptx()
 	const first = pptx.addSlide()
 	first.addText('first', { x: 1, y: 1, w: 4, h: 1 })
+	first.addText('outward', { x: 1, y: 2, w: 4, h: 1, hyperlink: { url: 'https://example.invalid/' } })
 	if (firstLinksToSecond) first.addText('jump', { x: 1, y: 3, w: 4, h: 1, hyperlink: { slide: 2, tooltip: 'onward' } })
 	pptx.addSlide().addText('second', { x: 1, y: 1, w: 4, h: 1 })
 	return Presentation.load(await pptx.write({ outputType: 'uint8array' }))
@@ -96,16 +104,80 @@ describe('Presentation.importSlides', () => {
 		assert(bytesEqual(beforeBytes, await target.save()), 'the refused batch changed no byte of the deck')
 
 		// Duplicate final positions are likewise caught before anything is copied.
-		assert(
-			throws(() =>
+		assertEqual(
+			catchCode(() =>
 				target.importSlides([
 					{ source: plain, sourceIndex: 0, outputIndex: 2 },
 					{ source: plain, sourceIndex: 1, outputIndex: 2 },
 				])
 			),
-			'duplicate output positions are rejected'
+			'import/output-index-conflict',
+			'duplicate output positions are rejected by the conflict rule, not by some other one'
 		)
 		assert(bytesEqual(beforeBytes, await target.save()), 'and again, no byte changed')
+	})
+
+	test('a source whose dependency graph is broken is refused before anything is copied', async () => {
+		// The copy phase used to be the last place a batch could fail, and it failed
+		// with parts already added and the copied master already registered in
+		// presentation.xml. A dry run of the traversal now runs first, so a damaged
+		// source is a validation error like any other.
+		const target = await generatedDeck(false)
+		const good = await generatedDeck(false)
+		const broken = await generatedDeck(false)
+		const rels = broken.opc.relationshipsFor(broken.slides[0].partName)
+		const layoutRel = [...rels].find((rel) => rel.type === SLIDE_LAYOUT_REL)
+		assert(layoutRel !== undefined, 'the generated page has a layout to snap')
+		broken.opc.removePart(rels.resolveTarget(layoutRel.id))
+
+		const beforeBytes = await target.save()
+		assertEqual(
+			catchCode(() =>
+				target.importSlides([
+					{ source: good, sourceIndex: 0, outputIndex: 0 },
+					{ source: broken, sourceIndex: 0, outputIndex: 1 },
+				])
+			),
+			'package/part-missing',
+			'a part the copy would have reached is missing from the source'
+		)
+		// The good request sits before the broken one, so a batch that copied as it
+		// went would have left its page, layout, master and theme behind here.
+		assert(bytesEqual(beforeBytes, await target.save()), 'the refused batch changed no byte')
+		assertEqual(target.slides.length, 2, 'and added no slide')
+	})
+
+	test('the returned array is parallel to the requests, not to the output order', async () => {
+		const target = await generatedDeck(false)
+		const source = await generatedDeck(false)
+
+		// Request 0 asks for the last position, request 1 for the first: sorting by
+		// outputIndex to insert must not reorder what the caller gets back.
+		const [first, second] = target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: 3 },
+			{ source, sourceIndex: 1, outputIndex: 0 },
+		])
+		assertEqual(first.index, 3, 'requests[0] landed at its outputIndex 3')
+		assertEqual(second.index, 0, 'requests[1] landed at its outputIndex 0')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides[3].partName, first.partName, 'and the deck agrees about the last page')
+		assertEqual(reopened.slides[0].partName, second.partName, 'and about the first')
+	})
+
+	test('a source with a different slide size is rejected', async () => {
+		const target = await generatedDeck(false)
+		const wide = new TsPptx()
+		wide.layout = 'LAYOUT_4x3'
+		wide.addSlide().addText('other canvas', { x: 1, y: 1, w: 4, h: 1 })
+		const source = await Presentation.load(await wide.write({ outputType: 'uint8array' }))
+		const beforeBytes = await target.save()
+		assertEqual(
+			catchCode(() => target.importSlides([{ source, sourceIndex: 0, outputIndex: 0 }])),
+			'import/slide-size-mismatch',
+			'importSlides has no rescale escape hatch, so a size difference is fatal'
+		)
+		assert(bytesEqual(beforeBytes, await target.save()), 'and the deck is untouched')
 	})
 
 	test('selecting one source page twice is rejected', () => {
@@ -162,6 +234,28 @@ describe('Presentation.importSlides', () => {
 		const targets = slideLinkTargets(reopened.opc, importedFirst)
 		assertEqual(targets.length, 1, 'the generated jump link survived the import')
 		assertEqual(targets[0], importedSecond, 'the link resolves to the second imported page')
+	})
+
+	test('a link into a page an earlier batch already imported resolves to that copy', async () => {
+		// The rule is not "selected in this batch" but "already in this deck from
+		// this source": importing the link target first has to satisfy it, and the
+		// registry must hand back the earlier copy rather than a second one.
+		const targetDeck = new TsPptx()
+		targetDeck.addSlide().addText('own', { x: 1, y: 1, w: 2, h: 1 })
+		const target = await Presentation.load(await targetDeck.write({ outputType: 'uint8array' }))
+		const source = await generatedDeck(true)
+
+		const [linkTarget] = target.importSlides([{ source, sourceIndex: 1, outputIndex: 1 }])
+		const [linkOwner] = target.importSlides([{ source, sourceIndex: 0, outputIndex: 0 }])
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, 3, 'the second batch added exactly its own page')
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(
+			JSON.stringify(slideLinkTargets(reopened.opc, linkOwner.partName)),
+			JSON.stringify([linkTarget.partName]),
+			'the jump link points at the page the first batch brought across'
+		)
 	})
 
 	test.skipIf(!validatorInstalled)('a batch-imported deck stays schema-valid', async () => {

@@ -62,7 +62,7 @@ import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
 import { carryTableStyles } from './ops/table-styles.js'
 import { promoteMasters } from './ops/master-registry.js'
-import { copyPart, type ImportContext } from './ops/part-copy.js'
+import { checkSelectionCopyable, copyPart, type ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
@@ -534,12 +534,17 @@ export class Presentation {
 
 	/**
 	 * Import selected pages from one or more loaded source presentations as one
-	 * batch. All requests are validated before anything is copied: every request
+	 * batch. Each imported page lands at its `outputIndex` in the complete
+	 * destination slide list after the batch, and the returned array is parallel
+	 * to `requests` — `result[i]` is the page `requests[i]` asked for, whatever
+	 * order the output positions were given in.
+	 *
+	 * Everything is checked before a single byte of this deck moves: every request
 	 * names an existing source page, source pages and final output positions are
-	 * unique, and each source has this deck's slide size — so a rejected batch
-	 * changes nothing, while a per-page loop of {@link importSlide} could leave a
-	 * half-stitched deck behind. Each imported page lands at its `outputIndex` in
-	 * the complete destination slide list after the batch.
+	 * unique, each source has this deck's slide size, and a read-only dry run of
+	 * the copy proves every part it would reach is present. A batch therefore
+	 * either applies in full or leaves this deck byte-identical, where a per-page
+	 * loop of {@link importSlide} can leave a half-stitched deck behind.
 	 *
 	 * The batch also decides what a `slide → slide` link means: an internal link
 	 * on a selected page must target another **selected** page (or one this deck
@@ -552,12 +557,13 @@ export class Presentation {
 	 * Scope: pages come across under `'copy'` theme semantics (their own layout →
 	 * master → theme subgraph, shared parts deduped via the copy registry). Notes
 	 * are dropped (as in plain {@link importSlide}) and embedded fonts are not
-	 * carried; neither has a batch spelling yet.
+	 * carried; sizes must match, since there is no batch spelling for `rescale`
+	 * either. Use {@link importSlide} when you need any of those.
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[] {
 		// 1. Validate everything up front: indexes exist, selections and output
 		//    positions are unique, sizes match. No part is touched until all pass.
-		const resolved = requests.map((request) => {
+		const resolved = requests.map((request, requestIndex) => {
 			if (!Number.isInteger(request.sourceIndex) || request.sourceIndex < 0) {
 				throw new InvalidOptionError(
 					'slide/index-out-of-range',
@@ -577,26 +583,37 @@ export class Presentation {
 					`importSlides: no slide at index ${request.sourceIndex} to import`
 				)
 			}
-			return { ...request, sourceSlide }
+			return { ...request, requestIndex, sourceSlide }
 		})
+		if (resolved.length === 0) return []
+
+		// Step 4 inserts into this element; failing on it here rather than there
+		// keeps the wiring loop, like the copy, unable to stop half-way.
+		if (!this.presentationPart.dom.documentElement) {
+			throw new PackageReadError(
+				'package/part-has-no-root',
+				'presentation.xml has no document element to insert slides into'
+			)
+		}
 
 		const finalSlideCount = this.slides.length + resolved.length
-		const selectedPages = new Map<OpcPackage, Map<string, undefined>>()
+		const selectedPages = new Map<OpcPackage, Set<string>>()
 		for (const request of resolved) {
 			let pages = selectedPages.get(request.source.opc)
 			if (!pages) {
-				pages = new Map()
+				pages = new Set()
 				selectedPages.set(request.source.opc, pages)
 			}
 			if (pages.has(request.sourceSlide.partName)) {
 				throw new InvalidOptionError(
 					'import/slide-selected-twice',
-					`importSlides: source slide ${request.sourceIndex} is selected more than once`
+					`importSlides: source slide ${request.sourceIndex} (${request.sourceSlide.partName}) is selected more than once`
 				)
 			}
-			pages.set(request.sourceSlide.partName, undefined)
+			pages.add(request.sourceSlide.partName)
 		}
 
+		const target = this.slideSize
 		const outputIndexes = new Set<number>()
 		for (const request of resolved) {
 			if (request.outputIndex >= finalSlideCount) {
@@ -612,7 +629,6 @@ export class Presentation {
 				)
 			}
 			outputIndexes.add(request.outputIndex)
-			const target = this.slideSize
 			const incoming = request.source.slideSize
 			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
 				const fmt = (size: SlideSize | null): string => (size ? `${size.widthEmu}×${size.heightEmu} EMU` : 'unknown')
@@ -623,46 +639,30 @@ export class Presentation {
 			}
 		}
 
-		// 1b. Pre-validate every selected page's direct slide→slide links against
-		//    the selection, still before any byte moves: a link must target
-		//    another selected page or a page this deck already contains from an
-		//    earlier import of that source.
-		for (const request of resolved) {
-			const pages = selectedPages.get(request.source.opc)
-			const registry = this.#importContext(request.source.opc).registry
-			const sourceRels = request.source.opc.relationshipsFor(request.sourceSlide.partName)
-			for (const rel of sourceRels) {
-				if (rel.type !== SLIDE_REL || rel.targetMode === 'External') continue
-				const targetPartName = sourceRels.resolveTarget(rel.id)
-				if (!pages?.has(targetPartName) && !registry.has(targetPartName)) {
-					throw new InvalidOptionError(
-						'import/unresolved-slide-link',
-						`importSlides: source slide ${request.sourceSlide.partName} links to ${targetPartName}, which is not among the selected imported pages`
-					)
-				}
-			}
+		// 1b. Dry-run the copy against each source, still reading only source
+		//     packages: every part the traversal will reach exists and parses, and
+		//     no selected page links outside the selection. Once this passes the
+		//     copy below has no reachable throw, which is what lets a rejected
+		//     batch leave this deck byte-identical instead of half-stitched.
+		for (const [sourceOpc, pages] of selectedPages) {
+			checkSelectionCopyable(sourceOpc, this.#importContext(sourceOpc).registry, pages)
 		}
 
 		// 2. Materialize each selected page's part now, so the copy traversals can
 		//    wire slide→slide relationships to their pre-allocated destinations.
 		const destinationsBySource = new Map<OpcPackage, Map<string, string>>()
-		for (const request of resolved) {
+		const planned = resolved.map((request) => {
 			let destinations = destinationsBySource.get(request.source.opc)
 			if (!destinations) {
 				destinations = new Map()
 				destinationsBySource.set(request.source.opc, destinations)
 			}
-			const sourcePart = request.source.opc.part(request.sourceSlide.partName)
-			if (!sourcePart) {
-				throw new PackageReadError(
-					'package/part-missing',
-					`importSlides: source package has no part ${request.sourceSlide.partName}`
-				)
-			}
+			const sourcePart = request.sourceSlide.part
 			const newPartName = this.opc.reservePartNameLike(request.sourceSlide.partName)
-			this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+			const destPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 			destinations.set(request.sourceSlide.partName, newPartName)
-		}
+			return { ...request, destPart }
+		})
 
 		// 3. Copy each selected page and its dependency subgraph (theme/master/
 		//    layout/media/…), with links constrained to the selection.
@@ -674,18 +674,12 @@ export class Presentation {
 		// 4. Wire into p:sldIdLst at each requested final position. Ascending order
 		//    makes the raw final index the correct insertion point at every step:
 		//    earlier inserts all sit before it, so they shift it by exactly the
-		//    number of entries the final position already counts.
+		//    number of entries the final position already counts. The result is
+		//    written back by request index, so `result[i]` is `requests[i]`'s page
+		//    whatever order the positions were given in.
 		const added: Slide[] = []
-		for (const request of [...resolved].sort((left, right) => left.outputIndex - right.outputIndex)) {
-			const newPartName = destinationsBySource.get(request.source.opc)?.get(request.sourceSlide.partName)
-			const newPart = newPartName === undefined ? undefined : this.opc.part(newPartName)
-			if (!newPart) {
-				throw new InternalError(
-					'import/part-went-missing',
-					`importSlides: imported slide part went missing for source index ${request.sourceIndex}`
-				)
-			}
-			added.push(this.#insertSlidePart(newPart, request.outputIndex))
+		for (const request of [...planned].sort((left, right) => left.outputIndex - right.outputIndex)) {
+			added[request.requestIndex] = this.#insertSlidePart(request.destPart, request.outputIndex)
 		}
 		return added
 	}
