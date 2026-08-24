@@ -101,44 +101,65 @@ interface WordToken {
 }
 type Token = WordToken | { kind: 'space'; w: number } | { kind: 'newline'; w: 0 }
 
-const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch === ' ' || /\s/.test(ch)
+const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch === ' ' || /\s/.test(ch)
 
 /**
- * A code point after which a line break is allowed without a space — the CJK and
- * full-width ranges (Hangul Jamo through the CJK Compatibility Ideographs and the
- * CJK Extension B/C blocks). Latin words break only at whitespace, but Chinese,
- * Japanese and Korean text breaks between any two characters, so each such code
- * point is its own wrap opportunity: PowerPoint lays these scripts out per
- * character (UAX #14 class ID for Han/Hangul/Kana), and treating one long CJK run
- * as a single unbreakable "word" would over-estimate the laid-out line count and
- * shrink text that actually fits.
+ * A code point that is its own wrap opportunity: a line may break either side of
+ * it, with no whitespace involved. Latin words break only at whitespace, but
+ * Chinese and Japanese text breaks between any two characters, so treating one
+ * long run of them as a single unbreakable "word" moves the whole run to the next
+ * line, over-reports the laid-out line count, and shrinks text that actually fits.
+ *
+ * **Hangul is deliberately absent.** UAX #14 makes Hangul breakable between
+ * syllables, but PowerPoint does not: Korean is written with spaces between words
+ * and the app breaks it like Latin. `autofit-cjk-wrap.pptx` pins that directly —
+ * the same box that lays out in 2 lines in Han or Kana takes 3 in Hangul, because
+ * the run moves down whole. A Hangul run longer than one line still breaks between
+ * syllables, but that is the over-long-token character-wrap fallback in
+ * `countLines`, which handles it without a break class. Adding Hangul here would
+ * *under*-report the line count for Korean, which is the direction that overflows.
+ *
+ * Backed by `autofit-cjk-wrap.pptx` (PowerPoint-authored, one case per claim):
+ * CJK Unified Ideographs, Hiragana/Katakana, fullwidth Latin, halfwidth Katakana
+ * and Plane 2 all break per character; Hangul syllables do not. The remaining
+ * ranges are the sibling blocks of the same UAX #14 class ID, generalized from
+ * those cases rather than pinned one by one.
+ *
+ * Known gap: no kinsoku (line-break prohibition) rules. PowerPoint will not start
+ * a line with `。` or `、` and hangs them past the right inset instead; this model
+ * breaks before them. That is a widest-line difference, not a line-count one, and
+ * `docs/measured-text-fit.md` records it.
  */
 export function isCjkBreakCharacter(ch: string): boolean {
 	const cp = ch.codePointAt(0) ?? 0
 	return (
-		(cp >= 0x1100 && cp <= 0x11ff) || // Hangul Jamo
-		(cp >= 0x2e80 && cp <= 0x2fff) || // CJK Radicals / Kangxi / CJK Symbols
-		(cp >= 0x3000 && cp <= 0x303f) || // CJK Symbols and Punctuation
-		(cp >= 0x3040 && cp <= 0x30ff) || // Hiragana / Katakana
-		(cp >= 0x3130 && cp <= 0x318f) || // Hangul Compatibility Jamo
-		(cp >= 0x31a0 && cp <= 0x31bf) || // Hangul Jamo Extended-A
-		(cp >= 0x31c0 && cp <= 0x31ef) || // CJK Strokes
-		(cp >= 0x3200 && cp <= 0x32ff) || // Enclosed CJK Letters and Months
-		(cp >= 0x3400 && cp <= 0x4dbf) || // CJK Unified Ideographs Extension A
-		(cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified Ideographs
-		(cp >= 0xac00 && cp <= 0xd7af) || // Hangul Syllables
+		// U+3000 IDEOGRAPHIC SPACE falls in this first range but never reaches here:
+		// `isWhitespace` claims it first, so it stays a space token.
+		(cp >= 0x2e80 && cp <= 0x303f) || // CJK Radicals / Kangxi / IDC / CJK Symbols and Punctuation
+		(cp >= 0x3040 && cp <= 0x30ff) || // Hiragana / Katakana (fixture)
+		(cp >= 0x3190 && cp <= 0x319f) || // Kanbun
+		(cp >= 0x31c0 && cp <= 0x31ff) || // CJK Strokes / Katakana Phonetic Extensions
+		(cp >= 0x3200 && cp <= 0x4dbf) || // Enclosed CJK / CJK Compatibility / Ideographs Ext A
+		(cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified Ideographs (fixture)
 		(cp >= 0xf900 && cp <= 0xfaff) || // CJK Compatibility Ideographs
-		(cp >= 0xff00 && cp <= 0xffef) || // Halfwidth and Fullwidth Forms
-		(cp >= 0x20000 && cp <= 0x2ffff) || // CJK Extensions B, C… (Plane 2)
-		(cp >= 0x30000 && cp <= 0x323af) // CJK Extension G (Plane 3)
+		(cp >= 0xfe10 && cp <= 0xfe1f) || // Vertical Forms
+		(cp >= 0xfe30 && cp <= 0xfe4f) || // CJK Compatibility Forms
+		// Halfwidth and Fullwidth Forms, minus U+FFA0..U+FFDF (halfwidth Hangul jamo),
+		// which follows the Hangul rule above. Fullwidth Latin and halfwidth Katakana
+		// are both fixture-backed.
+		(cp >= 0xff00 && cp <= 0xff9f) ||
+		(cp >= 0xffe0 && cp <= 0xffef) ||
+		(cp >= 0x1b000 && cp <= 0x1b16f) || // Kana Supplement / Kana Extended-A / Small Kana Extension
+		(cp >= 0x20000 && cp <= 0x2fffd) || // CJK Ideographs Extension B..F + Compatibility Supplement (fixture)
+		(cp >= 0x30000 && cp <= 0x323af) // CJK Ideographs Extension G, H, I (Plane 3)
 	)
 }
 
 /**
  * Tokenize one paragraph at a given `fontScalePct`. Words can span run boundaries
- * (a break is only allowed at whitespace, or after a CJK character — see
- * `isCjkBreakCharacter`). Returns `null` if any run's face has no registered
- * metrics (the paragraph cannot be measured).
+ * (a break is only allowed at whitespace, or either side of a per-character
+ * breaking code point — see `isCjkBreakCharacter`). Returns `null` if any run's
+ * face has no registered metrics (the paragraph cannot be measured).
  */
 function tokenizeParagraph(
 	para: FitParagraph,
