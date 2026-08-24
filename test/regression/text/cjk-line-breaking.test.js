@@ -112,6 +112,8 @@ describe('isCjkBreakCharacter: range boundaries', () => {
 			0x3001, // ideographic comma
 			0x3042, // Hiragana
 			0x30ab, // Katakana
+			0x3105, // Bopomofo — Chinese phonetic notation, not Hangul
+			0x31a0, // Bopomofo Extended, first
 			0x4e00, // CJK Unified Ideographs, first
 			0x9fff, // CJK Unified Ideographs, last
 			0x3400, // Extension A
@@ -132,6 +134,7 @@ describe('isCjkBreakCharacter: range boundaries', () => {
 			0x0020, // space (whitespace, claimed before this predicate runs)
 			0x1100, // Hangul Jamo
 			0x3130, // Hangul Compatibility Jamo
+			0x318e, // Hangul Compatibility Jamo, last assigned — the gap between the two Bopomofo arms
 			0xac00, // Hangul Syllables, first
 			0xd7af, // Hangul Syllables, last
 			0xffa0, // halfwidth Hangul jamo filler

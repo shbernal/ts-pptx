@@ -137,8 +137,12 @@ export function isCjkBreakCharacter(ch: string): boolean {
 		// `isWhitespace` claims it first, so it stays a space token.
 		(cp >= 0x2e80 && cp <= 0x303f) || // CJK Radicals / Kangxi / IDC / CJK Symbols and Punctuation
 		(cp >= 0x3040 && cp <= 0x30ff) || // Hiragana / Katakana (fixture)
+		// Bopomofo and Bopomofo Extended sit either side of the Hangul Compatibility
+		// Jamo block excluded below, but they are Chinese phonetic notation, not Korean:
+		// same UAX #14 class as Han, and PowerPoint breaks them the same way.
+		(cp >= 0x3100 && cp <= 0x312f) || // Bopomofo
 		(cp >= 0x3190 && cp <= 0x319f) || // Kanbun
-		(cp >= 0x31c0 && cp <= 0x31ff) || // CJK Strokes / Katakana Phonetic Extensions
+		(cp >= 0x31a0 && cp <= 0x31ff) || // Bopomofo Extended / CJK Strokes / Katakana Phonetic Extensions
 		(cp >= 0x3200 && cp <= 0x4dbf) || // Enclosed CJK / CJK Compatibility / Ideographs Ext A
 		(cp >= 0x4e00 && cp <= 0x9fff) || // CJK Unified Ideographs (fixture)
 		(cp >= 0xf900 && cp <= 0xfaff) || // CJK Compatibility Ideographs
