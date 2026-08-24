@@ -115,6 +115,175 @@ and project-site changes.
   the deck's exported `BRAND` is renamed rather than merely re-valued — a constant called
   `navy` holding a green is the exact thing that file's own doc comment argues against.
 
+- **The test suite shares one module registry per worker (`isolate: false`).** `dist/` is
+  over 1 MB of JavaScript, `text-*.js` alone is 610 KB, 78 test files import
+  `dist/node.js` and 64 import `dist/read.js`, and Vitest's default isolation had all 236
+  files re-evaluating that graph from scratch. It was the single largest line in the run.
+  Measured across three paired runs at `VITEST_MAX_WORKERS=4`, alternated so machine load
+  could not favour one setting, import time goes from 136.0s / 114.5s / 84.8s to
+  34.4s / 30.6s / 22.0s, and takes 22 to 37% of wall clock with it. The 3.5x to 4x on the
+  import column is the honest number; the wall figures overlap because the box was getting
+  quieter. On the single-worker path CI runs, a full `verify` now reports 14.7s of import.
+  Two module-level caches written to span files finally do: `test/validator.js` joins
+  validation requests across files instead of spawning one .NET child per file, and
+  `test/read/corpus.js`'s `irFor` memo stops being rebuilt per file.
+
+  Isolation made cross-file state leakage impossible rather than merely absent, so two
+  things stand in for it rather than a hope that nobody leaks. `test/setup-globals.js`
+  resets `setDiagnosticHandler` after every test, the one process-global the library owns,
+  and the deliberate leak/detector pair in
+  `test/regression/api/global-state-reset.test.js` fails when that setup file is removed.
+  `sequence.shuffle.files` randomizes file order, so an order dependence fails instead of
+  hiding behind a stable one; four full shuffled runs pass 3337 tests each. Tests *within*
+  a file stay in source order deliberately, because `captureDiagnostics()` and the
+  warn-capturing schema fixtures rest on it. The other module-level state under `src/` is
+  idempotent caching, which is better shared than rebuilt.
+
+- **Test helpers live in one module each, and four contracts widened on the way through.**
+  Every helper involved had been written out again in seven to twenty-six files, and the
+  copies had drifted the way copies do. `test/read/corpus.js` owns the read fixture corpus,
+  `test/read/opc.js` the relationship assertions, `test/regression/chart/chart-parts.js`
+  the chart part readers, and `test/helpers.js` `bytesEqual()`, `throws()`, `partBodies`
+  and the 67 bytes of 1x1 transparent PNG that had been pasted under six different names,
+  which made a grep for "the tests' image" miss most of them. corpus.js importers go from
+  30 to 52; twenty-eight files had defined `openFixture` inline, which corpus.js had
+  exported all along with zero importers. That is not only tidying, because a file that
+  builds its own fixture path never loads corpus.js and so sits outside the `MIN_CORPUS`
+  floor there, the check that stops a corpus which has silently resolved somewhere else
+  from turning every invariant into a loop over nothing. Twenty-six files were outside it.
+  None are now.
+
+  `defineRegressionSuite` takes exactly two arguments. The three-argument form's provenance
+  tag was destructured out and then dropped, so thirty-six suites recorded where their
+  regression came from in a string no reporter ever printed; those tags are in the suite
+  name now, and a second positional argument is an error rather than something ignored.
+  Its `fn` goes to vitest as-is, which takes `helpers.js` off the top of every regression
+  failure's stack, and per-case `skipIf` / `runIf` / `skip` / `only` / `todo` / `fails` /
+  `concurrent` / `timeout` fields let a case reach the modifiers it could not get at from
+  inside a plain array.
+
+  The shared untouched-parts assertion is stronger than the dozen longhand loops it
+  replaces, in two ways that each closed a live hole. It fails when it compared nothing, a
+  loop whose filter stops matching being indistinguishable from success in a reporter. And
+  a part missing from the output is a failure rather than a skip: `remove-slide.test.js`
+  skipped absent parts outright, so any part vanishing, including one the removal had no
+  business touching, read as a pass. It names the four parts a removal is expected to take
+  and asserts that set exactly. Four checks in `animations-transitions.test.js` widen while
+  passing through, having filtered to `ppt/slides/*` and left the rest of each package
+  unasserted; load then save is byte-identical across every part of all 44 committed
+  fixtures, so the narrowing bought nothing and hid the remainder.
+
+  `roundtrip.test.js` named its decks in a five-name literal, and `docs/testing.md` asked
+  for a manual edit to that literal when promoting a fixture. Nobody made it. The corpus
+  reached 44 while the OPC contract kept being proved against the same five, so the decks
+  that actually stress it (chartEx, model3d, math-omml, embedded fonts, av-media, modern
+  comments) were never round-tripped there at all. It reads `fixtureNames` now, promotion
+  is the only step there is, and 30 cases become 274 at a cost of about 22s. The widening
+  found something on its first run: `bar-chart-data-labels.pptx` fails "saved output passes
+  the validator" **as committed**, before this library touches it, with three Microsoft365
+  errors inside PowerPoint's own chart `c:extLst` that the SDK does not model. So the
+  assertion is now "a round trip introduces no *new* validator errors", which stays
+  strictly stronger everywhere else (an empty verdict before still demands an empty verdict
+  after) and avoids the choice between excluding that fixture and implying the library
+  caused what PowerPoint authored.
+
+  `test/schema-cases.js` gains the only two cases in the file that expect a non-zero error
+  count. Every other case asserted zero, so the tier could not tell "this deck is valid"
+  from "the validator reported nothing", and a keying bug in the batcher, a spawn failure
+  the JSON parse swallows, or an output-shape change on a version bump would have turned
+  the whole tier green while proving nothing, with no other step in `verify` noticing. One
+  case perturbs a freshly built deck with an undeclared attribute on `p:sp` and demands
+  exactly one `Sch_UndeclaredAttribute` at the expected part and XPath; the other feeds
+  bytes that are not an OPC package and demands the package-level row, which is the
+  property the batcher's old "absent means clean" shortcut rested on. Both were confirmed
+  to fail with `validateBuf` stubbed to return `[]`, and both assert on the id and the
+  XPath, never on the description, so an upstream rewording cannot break them. The failure
+  formatter was also dropping two of the CLI's five fields, the XPath that names the
+  offending element and the stable machine id; it prints all five now.
+
+  One consequence to know about, recorded in `AGENTS.md` and `docs/testing.md`: `verify`
+  alone no longer covers the script round trip over the corpus. `script-roundtrip.test.js`
+  and `script-standalone.test.js` each carried a byte-equivalent copy of what
+  `script:roundtrip:all` already runs, same corpus and same `diffDeckIr`, so `verify:full`
+  paid for the identical 44-deck two-tier subprocess sweep twice. The script keeps that
+  job, being the more capable copy, and the suites keep what the round trip rests on and
+  cannot itself establish. Run `pnpm run script:roundtrip:all` before pushing changes to
+  `src/script/`.
+
+- **The commit-message gates come from `shbernal/lefthook-rules`, not a local script.**
+  `scripts/check-commit-msg.mjs` encoded a rule that is not about this project: a heredoc
+  delimiter leaking into a commit subject when the shell dialect is wrong. ts-xlsx carries
+  the same damage, two commits of it. Both gates are lefthook remotes now, pinned to `v1`
+  with a 24h refetch. `no-shell-quoting-leak` is not a transcription of the script it
+  replaces. It drops the leading-backtick test, which would reject three legitimate
+  subjects here that open with a code span and never fired on a damaged one, and it adds
+  the closer test the script lacked, since two of the five damaged commits end with a
+  second delimiter line and the script caught them only because the opener leaked as well.
+  It reads every line rather than the subject alone, truncating at the `git commit -v`
+  scissors line first. Over this history it rejects those five commits and none of the
+  other 4356. `no-ai-attribution` arrives with it, and a remote job costs about 3 ms
+  against about 19 ms for the same logic in a Node process, which a commit-msg hook pays
+  every time.
+
+  Two properties of the mechanism are worth knowing. A remote that cannot sync prints a
+  warning and still exits 0, so `prepare` survives an offline install and the rules simply
+  do not run. A `configs:` entry the tag does not hold is silent. After a fresh clone,
+  confirm both job names appear in a commit.
+
+- **The OOXML schema MCP runs locally over stdio.** Both MCP configs point at
+  `mcp-server-ooxml` rather than the hosted `https://api.ooxml.dev/mcp` endpoint. The
+  schema graph ships inside the package, so a lookup needs no account and no network round
+  trip, and the same question returns the same answer every run. Codex gets a 60s startup
+  allowance because the first run downloads the tarball.
+
+  It is not the same tool surface, so the docs that route agents to it had to change with
+  it. It gained `ooxml_values`, `ooxml_diff_profiles` and `ooxml_explain`, and it lost the
+  prose half entirely: no spec PDFs, no `ooxml_section`, and no OPC part, content-type or
+  relationship catalogue. `AGENTS.md` and `docs/ooxml-agent-context.md` now say outright
+  that those questions fall through to `microsoft_learn` and then to web search, rather
+  than leaving an agent to discover the dead end. `ooxml_search` also narrowed to a
+  substring match on symbol names, which the Annex D note records: a semantic query would
+  not have worked there even if the geometry addenda were indexed.
+
+- **`scripts/` is held to `noImplicitAny`, annotated in JSDoc.** `tsconfig.scripts.json`
+  relaxed the flag while the tree was unannotated. Paying what it wanted, 291 annotations
+  across 24 files, is the cheaper half of the "migrate `scripts/` to TypeScript" question:
+  the annotations buy the checking, and the file extension buys nothing on top of it while
+  costing 49 path citations in `docs/` and every glob in the lint, format and tsconfig
+  lists. Types come from the library itself, `import('../dist/read.js').Slide` rather than
+  a restatement of its shape.
+
+  The flag was not bookkeeping. It surfaced six silent defects.
+  `scripts/append-ceiling.mjs` reported a false loss, its bullet-glyph probe reading
+  `paragraph.bullet`, an accessor the read model replaced with `bulletDetail`, so it
+  compared `undefined` and called the construct lost; it reports 23 of 24 surviving now,
+  the one failure being the documented `placeholder idx` loss.
+  `scripts/read-blindness-census.mjs --all` never censused a notes slide, because it
+  reached for a `NotesSlide.element_` that does not exist and its guard was therefore
+  always false, while `docs/testing.md` already advertised `--all` as covering notes.
+  Three dead `??` fallbacks sat on properties the types do not carry
+  (`hyperlink.slidePartName`, `GradientStop.hex`, `ResolvedColor.value`).
+  `typeof slide.notesSlide === 'function'` evaluates a getter and tests its result, so
+  that arm was unreachable and the getter ran twice on the way to the arm taken.
+  `scripts/docs-init.mjs` could render every template with `undefined` as the project
+  name, from a `.split('/').pop()` TypeScript knows can miss. And
+  `scripts/powerpoint-com-smoke.mjs` dropped a signal kill: `close` passes `null` for a
+  signalled child, which flowed into a `code !== -1` retry test and made a killed cscript
+  look like a clean run.
+
+  `@types/istanbul-lib-coverage`, `-lib-report` and `-reports` are new devDependencies,
+  since `scripts/coverage-merge.mjs` imports three untyped Istanbul modules and the
+  alternative was a hand-written shim that could mistype the API silently; with real types
+  that file went from 23 errors to 2. `noPropertyAccessFromIndexSignature` stays off, with
+  its reason recorded: it is house style about `obj.foo` against `obj['foo']`, not
+  correctness, and these scripts read a lot of JSON that is `Record<string, ...>` by
+  nature. `.oxlintrc.jsonc` and `scripts/README.md` both asserted this tree was
+  deliberately unannotated, so both are rewritten against a fresh measurement rather than a
+  guess: with the type-aware rules restored, `scripts/**` reports 289 findings against the
+  recorded 1276, and 285 of the 289 are still `no-unsafe-*`. The residue is `JSON.parse`
+  and untyped imports, not unannotated parameters, so the rules stay off for a different
+  reason than before. `test/**` is unannotated and unmeasured since, and is a separate job.
+
 ### Added
 
 - **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
@@ -126,6 +295,57 @@ and project-site changes.
   and runs in `verify`, `check:static` and pre-push. `.vue` files stay outside it — `tsc`
   does not read single-file components — which is why the demos page's logic is a plain
   `.ts` module and the component is markup around it.
+
+- **`pnpm run lint:chars`, which keeps em dashes out of what a reader sees.** The README,
+  the site and the docs are the only text a reader of this project ever meets, and nothing
+  checked what characters went into them. `charcheck` is that gate, wired into both hooks
+  and `check:static`, and `charcheck.config.js` carries one rule per surface, because the
+  surfaces differ in what reader-visible text even means. Markdown prose is scoped so a
+  dash inside a fenced or inline code sample is not a finding: it is part of the sample,
+  not something to reword. `www/**/*.vue` is scanned as markup, which reads template text
+  and allowlisted attributes while leaving the component's comments and its stylesheet
+  alone. The VitePress config and theme are scanned as strings only, since the nav labels,
+  the tagline and the meta description are the sole reader-visible text in those files.
+  Generated trees are ignored by path, so a scan of a built checkout agrees with a scan of
+  a clean one.
+
+  The gate arrived on a tree that already held 684 em dashes in `docs/`, which warned under
+  a frozen `--max-warnings` while they were worked off. They are worked off, so the second
+  severity and its `DOCS_CLEAN` allowlist are gone, every surface errors, and
+  `--max-warnings 0` is on both `lint:chars` and the pre-commit hook so that a rule added
+  at `warn` later fails rather than scrolling past in a hook's output. No hook passes
+  `--fix`, because a fix is a guess about prose and rewriting a sentence on its way into a
+  commit is not a guess a hook should make unsupervised. Reading that diff was not a
+  formality either: `--fix` broke a bracketed label in three places, nested parentheses two
+  deep in four more, converted only one half of five dash *pairs*, and turned a table cell
+  whose entire content was a dash into `|: |`, twice over seven such cells. None of that is
+  caught by a check.
+
+  Clearing the backlog also caught the gate lying. Eleven genuine dashes were sitting
+  behind a green run, every one of them the same shape: a dash ending a hard-wrapped line
+  whose continuation began with an inline code span. A trailing `\s*` in the pattern
+  matched the newline, carried the match off the end of the line and into the next node,
+  and charcheck dropped the finding without a word. Filed as `shbernal/charcheck#16`,
+  worked around with a horizontal-only `[ \t]` until the fix shipped, and back to `\s*` on
+  0.2.3, which reports the longest match that fits inside the region. The pin is exact for
+  that reason: below 0.2.3 this pattern under-reports, and it does so as a pass.
+
+- **`checkDocsJson` gates both directions of the sidebar.** It validated nav to page and
+  stopped there, which catches a page that was deleted or renamed and says nothing about
+  one that was added and never listed. That is the failure that actually happened: three
+  pages sat outside the sidebar with `docs:build` green, and finding them meant diffing
+  the tree against `docs.json` by hand. Page to nav is checked now, with two exemption
+  mechanisms, because the two exempt things are not the same shape. `NAV_EXEMPT` is by
+  exact key, currently `doc-index`, which `scripts/docs-index.mjs` generates for the
+  llms.txt build rather than for anyone to navigate to; listing an exempt page *in* the
+  nav is itself an error, so an exemption that stops being true reports rather than
+  silently granting slack, the same reasoning as the allowlist in `scripts/path-refs.mjs`.
+  `GENERATED_TREES` is by prefix, currently `reference/api/`, where TypeDoc emits a few
+  hundred pages behind one sidebar link, which is why it cannot be an exact-key exemption:
+  `reference/api/index` stays eligible for the nav direction. The prefix form is also what
+  keeps the verdict a property of the repo rather than of the machine, since that tree is
+  gitignored and so is absent in a fresh checkout and present in any working copy that has
+  run `docs:api`. Skipped by prefix, both states agree.
 
 ### Fixed
 
@@ -193,14 +413,85 @@ and project-site changes.
   `JSON.stringify(config, null, 2)`. The reasoning was still correct, the evidence for it
   was not. It also still ignored `demos/browser/js/*`, a tree not in this repository.
 
+- **`src/types/` had never been formatted.** `.oxfmtrc.jsonc` carried `types/` among a
+  group of build-output directories, next to `dist/` and `build/`, mirroring the `/types/`
+  in `.gitignore`. It lost the anchor on the way across, and oxfmt's patterns are
+  gitignore-flavoured, so an unanchored directory name matches at *any* depth. There is no
+  `types/` at the root and never has been, so the pattern had only ever matched one thing:
+  the library's entire public type surface. Seventeen files the formatter had never read,
+  while `format:run`'s `"src/**/*.ts"` glob says plainly that it covers them. The ignore
+  list is documented as a safety net rather than the definition of what gets formatted;
+  here it was quietly the definition, and it won.
+
+  Four of the seventeen had drifted, and `src/types/style.ts` carried a 129-column line
+  against a `printWidth` of 120, visible in any diff of that file for as long as it has
+  existed and invisible to every gate. Reformatted here: three union types split one
+  member per line, one import collapsed onto one. No semantic change, `typecheck` is
+  clean, and the emitted `.d.ts` is unaffected. The header already recorded this hazard in
+  its other direction, `tsconfig*.json` matching at any depth and reaching workspaces the
+  repo does not format, caught by `format:check` failing on three untouched files. That
+  one was loud. This one could not be, because an ignored file looks exactly like a
+  well-formatted one.
+
+- **Two claims in the demos READMEs had gone stale in a way `path-refs:check` cannot
+  see**, since the file each one cites exists and what the text says *about* it is what
+  rotted. The showcases README told the next author to register a third deck in
+  `build.mjs`; `SHOWCASES` moved to `lib/showcases.mjs` when the byte-identity harness
+  started enumerating decks from it, so following that instruction would have built the
+  deck by one list while leaving it out of the gate, the exact drift the move was made to
+  prevent. It now says where the registry lives, and why that is not an arbitrary file
+  choice.
+
+  And `demos/common/` is not read only by the Field Notes deck. Three of its twelve
+  surviving assets are read by the test suite: `cc_logo.jpg` by four regression suites and
+  by a fixture-authoring script, `logo_square.png` and `lock-green.svg` by both sides of
+  the browser lane. The table called the directory "shared images and media the Field
+  Notes deck draws on" one commit after that same directory was pruned on the rule "no
+  showcase references it", a rule which, applied literally to what was left, takes the
+  browser lane's fixtures with it. There is a table of who actually reads what now, and an
+  instruction to grep the repository rather than `showcases/`. A `<deck>/data.mjs` is also
+  the quarterly review's alone, not the shape both decks have; Field Notes carries its
+  captions inline.
+
+- **TypeDoc emitted nineteen warnings on every docs run.** Nine came from
+  `{@link PresentationCore.measureText}` and
+  `{@link PresentationCore.registerFontMetrics}`. `PresentationCore` is the
+  default-exported base class and is not itself an entry point, so the target resolved to
+  a symbol absent from the docs, and the miss multiplied across `index`, `node` and
+  `browser`. They point at `TsPptx` now, the subclass each entry point exports, which
+  resolves to a documented member and renders a real link. TypeDoc's own suggestion,
+  mapping the names to `"#"` in `externalSymbolLinkMappings`, silences the warning and
+  leaves a dead anchor.
+
+  Eight more were symbols a documented type references but that are not documented
+  themselves, plus one stale `intentionallyNotExported` entry for `ImageBaseProps`, which
+  is exported now. For the `st-enums.ts` tuples this is deliberate: `types/table.ts`
+  re-exports the four `a:cell3D` *type aliases* and keeps the backing tuples internal, so
+  the fix is to declare that intent rather than widen the public surface. The last warning
+  was an `@example` on a member of the `SlideMasterObject` union, where TypeDoc allows no
+  block tags; it is prose now, and says why.
+
+  `docs:api` reports zero warnings. A full `docs:dev` still prints esbuild's
+  `Unrecognized target environment "es2024"`, which is not ours to fix: VitePress 1.6.4
+  pins Vite 5.4, whose esbuild 0.21.5 predates ES2024 target support, and it reads the
+  root tsconfig when bundling the VitePress config. TypeDoc still documents three of the
+  ten published entry points, and covering the other seven surfaces about forty latent
+  link warnings, so that wants its own pass.
+
 ### Removed
 
-- **40 of the 53 files in `demos/common/` — about 34 MB of 37 MB.** They were the upstream
+- **41 of the 53 files in `demos/common/` — about 34 MB of 37 MB.** They were the upstream
   demos' feature-checklist props (`starlabs_*`, `title_bkgd*`, `cc_*`, `fediverse_*`,
   `krita_*`, `sample.{aif,avi,m4v,mov,mp3,mpg,wav}`, `earth-big.mp4`, `base64Images.js`,
   and the rest), and nothing referenced them: not a showcase, not a test, not the browser
-  harness. What is left is the 13 files the Field Notes deck draws, the regression suite
+  harness. What is left is the 12 files the Field Notes deck draws, the regression suite
   loads, and `scripts/browser-harness-server.mjs` serves.
+
+  `images/image2.jpg` was the last one out, and it survived the first sweep because the
+  grep that found the other forty matched it: `src/script/print/common.ts` documents the
+  read half's asset naming (`image1.png`, `image2.jpg`, and so on), so the name appears in
+  the tree without anything loading the file. That is a collision, not a use. After the
+  removal the only occurrence of the string anywhere in tracked source is that doc comment.
 
 - **`tslib` and `@arethetypeswrong/core` from `devDependencies`.** No tsconfig sets
   `importHelpers` and nothing in `dist/` imports tslib; it arrived in a bulk dependency
@@ -211,6 +502,63 @@ and project-site changes.
 
 - **`demos/.prettierrc.json`.** Prettier is gone; oxfmt does not read it, `demos/**` is
   oxlint-ignored, and `format:run`'s globs do not reach it. It configured nothing.
+
+- **`yaml` and `fast-xml-parser` from `devDependencies`.** `yaml` arrived for
+  `scripts/upstream-signals-ledger.mjs`; that script and its test are gone and upstream
+  tracking is retired, so nothing in the repo imports it. The comment in
+  `scripts/docs-frontmatter.mjs` explaining that the hand-rolled frontmatter parser
+  deliberately does not use it now states the standing constraint instead, since "the
+  `yaml` devDependency is deliberately not used here" stops parsing once there is no such
+  devDependency: this repo carries no YAML library, and do not add one for that file. A
+  real parser would reject frontmatter the hand-rolled one tolerates, which is what would
+  turn `docs:check` from a lint into a gate on YAML pedantry.
+
+  `fast-xml-parser` had exactly one consumer,
+  `test/read/fixtures/authoring/extract-autofit-calibration.mjs`, and `@xmldom/xmldom` is
+  already a runtime dependency, so the swap adds nothing and removes 11 packages from the
+  lockfile. That script still parses XML itself rather than going through this library's
+  read model, which covers every field it reads, and the reason is worth not
+  re-litigating: `autofit-calibration.json` is an **oracle**, held against the shrink
+  solver in `src/measure/text-fit.ts` by `test/read/autofit-calibration-oracle.test.js`,
+  so deriving it through the reader would make the oracle a function of the code it exists
+  to judge. It would also make `dist/` a prerequisite for regenerating a fixture, and this
+  is the one recipe in `authoring/` that needs nothing but Node. The three replacement
+  helpers walk *direct children* rather than searching descendants, which is what every
+  field lookup here means (`p:spPr` then `a:xfrm` then `a:off`); the one place recursion
+  is correct is the `p:sp` sweep, where a group nests shapes. The regenerated table is
+  byte-identical to the committed one across all 149 cases and every field, so
+  `autofit-calibration.json` is absent from that diff rather than buried in a 15,374-line
+  whitespace churn the pre-commit formatter used to flatten back.
+
+- **`tools/data2chart.html` and its stylesheet.** A gitbrent-era standalone page: paste
+  tab-separated data, get a snippet building a line chart, optionally `eval()` it in the
+  tab to produce a deck. Every load-bearing piece of it is gone. It loads
+  `dist/pptxgen.bundle.js` from a CDN, an artifact `docs/runtime-and-package-support.md`
+  lists as something this package deliberately does not ship and
+  `scripts/package-smoke.mjs` asserts the absence of. The code it emitted would throw even
+  if the bundle loaded, since it wrote the three-argument
+  `addChart(pptx.charts.LINE, data, opts)` signature against a `pptx.charts` enum bag
+  where the API is `addChart(data, { type })`. Its `images/favicon.png` has no counterpart
+  in the repository, and nothing anywhere referenced the page. Rebuilding it would have
+  meant a second standalone browser app one commit after the last one moved onto the site,
+  for a payload of about 35 lines of TSV transposition. Deleting it also makes
+  `runtime-and-package-support.md`'s "the legacy upstream browser demo for that workflow
+  is not included in this repository" true, rather than contradicted by a file sitting in
+  the tree.
+
+- **Ignore patterns for seven paths nothing writes**, from `.oxfmtrc.jsonc`
+  (`.docusaurus/`, `static/`, `libs/`, `build/`, `src/bld/`) and `.gitignore`
+  (`bower_components/`, `.nyc_output/`, `/types/`, `src/bld/`). The first two are the
+  layout of a site generator this repository replaced with VitePress, the next two a
+  package manager and a coverage tool it does not use, and the remainder match no
+  directory at any depth. Verified inert rather than assumed: bare oxfmt considers 600
+  files before and after, and `git status --untracked-files=all` reports nothing newly
+  visible. The reason to bother with patterns that cost nothing to run is the `src/types/`
+  fix above. A list that mixes live entries with speculative ones cannot be read, because
+  a pattern's presence stops being evidence that it matches something, and the one entry
+  that did match, and matched the wrong tree, read as unremarkable for as long as it sat
+  among six that matched nothing. Both files now say to add a path when a tool writes it,
+  rather than in case one might.
 
 ## [3.2.0] - 2026-08-10
 
