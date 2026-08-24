@@ -23,7 +23,7 @@ import { execFileSync } from 'node:child_process'
 import { unzipSync } from 'fflate'
 import { describe, test, expect } from 'vitest'
 import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from '../../src/measure/text-fit.ts'
-import { parseFontMetrics, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
+import { collectUncoveredCodepoints, parseFontMetrics, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
 import { fixturePath, readOracle } from './corpus.js'
 
 const EMU_PER_PT = 12700
@@ -111,11 +111,17 @@ describe(`CJK oracle: the wrap model reproduces PowerPoint's line breaking`, () 
 
 	for (const c of oracle.cases) {
 		test(`${c.id}: ${c.lineCount} line(s)`, (ctx) => {
+			const paragraphs = [{ runs: [{ text: c.text, sizePt: c.sizePt, fontFace: c.fontFace }] }]
 			if (!covered(c.text)) {
+				// The widths are unreproducible, but the model still has to SAY so: this is
+				// the one gap that can measure short rather than tall, so it is reported
+				// rather than absorbed (docs/measured-text-fit.md, "No font fallback").
+				const byFace = new Map()
+				collectUncoveredCodepoints(paragraphs, registry, byFace)
+				expect(byFace.get(c.fontFace)?.size ?? 0).toBeGreaterThan(0)
 				ctx.skip(`${c.fontFace} does not cover every code point in this case; PowerPoint fell back, the model cannot`)
 				return
 			}
-			const paragraphs = [{ runs: [{ text: c.text, sizePt: c.sizePt, fontFace: c.fontFace }] }]
 			const innerWidthPt = c.boxWidthPt - c.insetLeftPt - c.insetRightPt
 			const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 			expect(layout).not.toBeNull()

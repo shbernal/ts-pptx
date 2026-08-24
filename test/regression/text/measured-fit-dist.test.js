@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, test, expect } from 'vitest'
 import JSZip from 'jszip'
-import TsPptx from '../../../dist/node.js'
+import TsPptx, { setDiagnosticHandler } from '../../../dist/node.js'
 // The `ts-pptx/measure` entry publishes the calibrated constants the bake uses, so a test
 // can state "inflated by the height safety factor" instead of re-pinning its value here.
 import { HEIGHT_SAFETY_FACTOR } from '../../../dist/measure.js'
@@ -830,5 +830,90 @@ describe('applyMeasuredFit: the table cell shrink pass', () => {
 		slide.addImage({ data: 'image/png;base64,iVBORw0KGgo=', x: 1, y: 1, w: 1, h: 1 })
 		slide.addText(OVERFLOW, { x: 1, y: 3, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
 		expect(await slide1Xml(pres)).toMatch(/<a:normAutofit fontScale="\d+"/)
+	})
+})
+
+describe('measured fit: code points the registered face has no glyph for', () => {
+	// Silkscreen covers ASCII but not U+2011 (non-breaking hyphen), so a run containing
+	// one is laid out on its `.notdef` advance. PowerPoint would substitute another face
+	// and measure in ITS advances, which is the one approximation here that is not
+	// conservative in a fixed direction — see docs/measured-text-fit.md ("No font fallback").
+	const WITH_NBH = 'Fine print\u2011here'
+
+	/** Run `fn` with the process-global diagnostic handler capturing, then restore it. */
+	async function captured(fn) {
+		const seen = []
+		setDiagnosticHandler((d) => seen.push(d))
+		try {
+			await fn()
+		} finally {
+			setDiagnosticHandler(null)
+		}
+		return seen
+	}
+
+	test('measureText reports the uncovered code point', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText(WITH_NBH, { wIn: 4, fontSize: 18, fontFace: 'Silkscreen' })
+		expect(m.measurable).toBe(true)
+		expect(m.approximatedFaces).toEqual([]) // the face IS registered — a different condition
+		expect(m.uncoveredCodepoints).toEqual([0x2011])
+	})
+
+	test('measureText reports nothing for fully covered text', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText('Fine print here', { wIn: 4, fontSize: 18, fontFace: 'Silkscreen' })
+		expect(m.uncoveredCodepoints).toEqual([])
+	})
+
+	test('the export pass warns once, naming the face and the code point', async () => {
+		const seen = await captured(async () => {
+			const pres = await pptxWithSilkscreen()
+			const slide = pres.addSlide()
+			// Two boxes, so the "once per export" contract is what is being asserted.
+			slide.addText(WITH_NBH, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
+			slide.addText(WITH_NBH, { x: 1, y: 3, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'resize' })
+			await pres.toBytes()
+		})
+		const d = seen.filter((x) => x.code === 'measure/uncovered-codepoints')
+		expect(d).toHaveLength(1)
+		expect(d[0].message).toContain('Silkscreen')
+		expect(d[0].message).toContain('U+2011')
+	})
+
+	test('the export pass stays quiet when every code point is covered', async () => {
+		const seen = await captured(async () => {
+			const pres = await pptxWithSilkscreen()
+			pres.addSlide().addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
+			await pres.toBytes()
+		})
+		expect(seen.filter((x) => x.code === 'measure/uncovered-codepoints')).toEqual([])
+	})
+
+	test('the table-cell shrink pass is audited too', async () => {
+		const seen = await captured(async () => {
+			const pres = await pptxWithSilkscreen()
+			pres
+				.addSlide()
+				.addTable([[{ text: WITH_NBH, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }]], {
+					x: 0.5,
+					y: 0.5,
+					w: 3,
+					rowH: [0.4],
+				})
+			await pres.toBytes()
+		})
+		expect(seen.filter((x) => x.code === 'measure/uncovered-codepoints')).toHaveLength(1)
+	})
+
+	test('an unregistered face is NOT audited — the heuristic has no cmap to consult', async () => {
+		const seen = await captured(async () => {
+			const pres = await pptxWithSilkscreen()
+			pres.addSlide().addText(WITH_NBH, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Helvetica', fontSize: 18, fit: 'shrink' })
+			await pres.toBytes()
+		})
+		expect(seen.filter((x) => x.code === 'measure/uncovered-codepoints')).toEqual([])
+		// The condition that DOES apply to it is reported instead.
+		expect(seen.filter((x) => x.code === 'measure/heuristic-metrics')).toHaveLength(1)
 	})
 })

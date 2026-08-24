@@ -13,7 +13,7 @@
  */
 
 import { UnsupportedFeatureError } from '../errors.js'
-import type { MetricsResolver } from './text-fit.js'
+import type { FitParagraph, MetricsResolver } from './text-fit.js'
 
 /** Per-(face,bold,italic) advance-width source backed by a parsed font file. */
 export interface FontMetrics {
@@ -227,5 +227,50 @@ export function makeRegistryResolver(
 			return getHeuristicFontMetrics()
 		}
 		return undefined
+	}
+}
+
+/**
+ * Accumulate, per face, the code points `paragraphs` uses that the run's **registered**
+ * metrics have no glyph for.
+ *
+ * This is the one thing the width arithmetic cannot see. PowerPoint substitutes another
+ * face per code point and lays the run out in *that* font's advances; the model has no
+ * fallback and charges the registered font's `.notdef` advance instead, which is a single
+ * flat number unrelated to the glyph that actually paints. Unlike the other approximations
+ * here it is **not** conservative in a fixed direction: a `.notdef` wider than the real
+ * glyph over-reports (a phantom line — safe), a narrower one under-reports and can drop a
+ * line, which is the overflow direction the resize bake has no safety net for. So it is
+ * surfaced rather than absorbed — see `docs/measured-text-fit.md` ("No font fallback").
+ *
+ * Runs whose face has no registered metrics at all are skipped: they measure through the
+ * cmap-less heuristic, which has no coverage to report, and the caller already flags them
+ * as approximated faces.
+ * @param paragraphs - the runs to audit, as handed to the layout
+ * @param registry - the metrics the layout resolved against
+ * @param into - face → uncovered code points, added to in place
+ */
+export function collectUncoveredCodepoints(
+	paragraphs: FitParagraph[],
+	registry: FontMetricsRegistry,
+	into: Map<string, Set<number>>
+): void {
+	for (const para of paragraphs) {
+		for (const run of para.runs) {
+			const face = run.fontFace
+			if (typeof face !== 'string' || face.length === 0) continue
+			const metrics = registry.get(face, run.bold, run.italic)
+			if (!metrics) continue
+			let missing: Set<number> | undefined
+			// `for..of` iterates code points, so an astral character is audited whole
+			// rather than as two uncovered surrogates.
+			for (const ch of run.text) {
+				const cp = ch.codePointAt(0)
+				if (cp === undefined || metrics.hasCodepoint(cp)) continue
+				missing ??= into.get(face) ?? new Set<number>()
+				missing.add(cp)
+			}
+			if (missing) into.set(face, missing)
+		}
 	}
 }

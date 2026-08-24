@@ -144,9 +144,27 @@ Two limitations are recorded rather than fixed:
   past the right inset instead; this model breaks before them. Same line count,
   narrower widest line, so the height stays conservative.
 - **No font fallback.** PowerPoint silently substitutes another face for a code
-  point the named font lacks; the registry charges the named font's default advance
-  instead. That is a metrics gap rather than a break-class one, and it is why the
-  two fixture cases whose glyphs Malgun Gothic lacks are skipped by the oracle test.
+  point the named font lacks and lays the run out in *that* face's advances; the
+  model has no fallback and charges the named font's `.notdef` advance instead: one
+  flat number unrelated to the glyph that paints. That is a metrics gap rather than a
+  break-class one, and it is why the two fixture cases whose glyphs Malgun Gothic
+  lacks are skipped by the oracle test.
+
+  Unlike every other approximation here, **it is not conservative in a fixed
+  direction**, which is the part worth knowing. Malgun Gothic's `.notdef` advances
+  0.663 em: wider than the 0.5 em halfwidth Katakana it lacks, so that fixture case
+  gains a phantom line (safe); narrower than the 1.0 em Plane-2 ideographs it lacks,
+  so a run of those is measured **short** and can lose a line, which overflows. The
+  ext-B fixture case survives only because five astral characters sit in mostly-Latin
+  text; 24 of them in a 150 pt box measure 2 lines where PowerPoint lays out 3.
+
+  So the condition is **reported rather than absorbed**: `measureText` returns the
+  offending code points in `uncoveredCodepoints`, and the export pass warns once
+  (`measure/uncovered-codepoints`). Only faces that *are* registered are audited; an
+  unregistered face measures through the cmap-less heuristic and is reported in
+  `approximatedFaces` instead. `collectUncoveredCodepoints` in
+  `src/measure/font-metrics.ts` is the shared audit; the gap and its direction are
+  pinned in `measure-text-api.test.js`.
 
 ### Integration (`src/measure/fit.ts`)
 
@@ -210,7 +228,8 @@ predicts a shrink the export will not bake) and that is intentional, not a bug:
 The library cannot tell "never intended to register" from "intended to register and
 the load silently failed"; detecting the latter is the caller's job, at font-load
 time. `measureText` reports every named face it had to guess at in
-`approximatedFaces`, so a caller that needs exact numbers can check rather than
+`approximatedFaces`, and every code point a registered face cannot render in
+`uncoveredCodepoints`, so a caller that needs exact numbers can check rather than
 assume. `measured-fit-integration.test.js` pins this divergence so it cannot change
 silently.
 
@@ -239,6 +258,9 @@ const m = pptx.measureText('A long heading…', { wIn: 3, fontSize: 18, fontFace
 //                  unconstrained; widest wrapped line otherwise; errs slightly wide)
 // m.measurable → false only for an unnamed theme-default face
 // m.approximatedFaces → named faces guessed via the heuristic ([] when all exact)
+// m.uncoveredCodepoints → code points the REGISTERED face has no glyph for ([] when
+//                  fully covered). Non-empty means the height may err SHORT — the one
+//                  case this model does not err safe. See "No font fallback" above.
 // m.fitsBox(hIn)         → does it fit a box of inner height hIn?
 // m.shrinkScaleFor(hIn)  → the fontScale (%) that fits hIn (100 if it already does)
 
@@ -368,4 +390,8 @@ Provenance, SHA-256 hashes, and the case-id scheme are in
   taller-of-two line height) plus the calibration regression target.
 - **CJK line breaking is modeled** (see [East Asian line breaking](#east-asian-line-breaking));
   kinsoku, font fallback for uncovered code points, RTL and complex shaping are not.
+  Kinsoku costs nothing (same line count, narrower widest line), but font fallback is
+  the one gap that can measure **short** rather than tall, so it is surfaced:
+  `uncoveredCodepoints` on the measurement and a `measure/uncovered-codepoints`
+  warning at export.
 - Keep `opentype.js` on the Node path / lazy-loaded to bound browser bundle size.

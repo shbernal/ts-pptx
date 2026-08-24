@@ -239,6 +239,122 @@ describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
 	})
 })
 
+describe('measureText.uncoveredCodepoints (the font-fallback gap)', () => {
+	// Metrics with a real cmap: `covers` decides which code points have a glyph, and
+	// anything else is charged a NARROW `.notdef` — the shape of the gap this reports.
+	// Malgun Gothic is the real-world case: its .notdef advances 0.663 em while the
+	// Plane-2 ideographs it lacks are 1.0 em in the face PowerPoint substitutes.
+	const withCmap = (covers, { emCovered = 1.0, emNotdef = 0.5 } = {}) => ({
+		unitsPerEm: 1000,
+		advanceWidthPt(text, sizePt, charSpacingPt = 0) {
+			let w = 0
+			let n = 0
+			for (const ch of text) {
+				w += (covers(ch.codePointAt(0)) ? emCovered : emNotdef) * sizePt
+				n++
+			}
+			return w + n * charSpacingPt
+		},
+		hasCodepoint: (cp) => covers(cp),
+	})
+
+	const asciiOnly = (cp) => cp < 0x80
+
+	test('fully covered text reports nothing', () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Partial', withCmap(asciiOnly))
+		const m = measureText(reg, 'plain ascii', { wIn: 5, fontSize: 12, fontFace: 'Partial' })
+		expect(m.uncoveredCodepoints).toEqual([])
+	})
+
+	test('uncovered code points are listed once each, sorted', () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Partial', withCmap(asciiOnly))
+		const m = measureText(reg, 'a\u2011b\u2011c\u3042', { wIn: 5, fontSize: 12, fontFace: 'Partial' })
+		expect(m.uncoveredCodepoints).toEqual([0x2011, 0x3042])
+	})
+
+	test('an astral code point is reported whole, not as two surrogates', () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Partial', withCmap(asciiOnly))
+		const m = measureText(reg, 'a\u{20000}', { wIn: 5, fontSize: 12, fontFace: 'Partial' })
+		expect(m.uncoveredCodepoints).toEqual([0x20000])
+	})
+
+	test('per-run faces are audited against their own metrics', () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('AsciiOnly', withCmap(asciiOnly))
+		reg.set(
+			'Everything',
+			withCmap(() => true)
+		)
+		const m = measureText(
+			reg,
+			[
+				{ text: '\u2011', options: { fontFace: 'AsciiOnly' } },
+				{ text: '\u2012', options: { fontFace: 'Everything' } },
+			],
+			{ wIn: 20, fontSize: 12, fontFace: 'AsciiOnly' }
+		)
+		// U+2012 sits in a face that covers it, so only the AsciiOnly run's gap is reported.
+		expect(m.uncoveredCodepoints).toEqual([0x2011])
+	})
+
+	test('a face with NO registered metrics is not audited (the heuristic has no cmap)', () => {
+		const reg = regWith() // only 'Mono' registered
+		const m = measureText(reg, 'a\u2011b', { wIn: 5, fontSize: 12, fontFace: 'Unregistered' })
+		expect(m.uncoveredCodepoints).toEqual([])
+		expect(m.approximatedFaces).toEqual(['Unregistered']) // reported through the other channel
+	})
+
+	test('an unmeasurable (unnamed) face reports nothing', () => {
+		const reg = regWith()
+		expect(measureText(reg, 'a\u2011b', { wIn: 5, fontSize: 12 }).uncoveredCodepoints).toEqual([])
+	})
+
+	test('the list is a fresh array per call, not shared state', () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Partial', withCmap(asciiOnly))
+		const opts = { wIn: 5, fontSize: 12, fontFace: 'Partial' }
+		const m = measureText(reg, 'a\u2011', opts)
+		m.uncoveredCodepoints.push(0xffff)
+		m.shrinkScaleFor(0.1) // re-enters the resolver; must not re-collect into this result
+		expect(m.uncoveredCodepoints).toEqual([0x2011, 0xffff])
+		expect(measureText(reg, 'a\u2011', opts).uncoveredCodepoints).toEqual([0x2011])
+	})
+
+	// KNOWN GAP, pinned in the direction that matters. Every other approximation in this
+	// model errs tall/wide; a `.notdef` narrower than the glyph PowerPoint substitutes errs
+	// SHORT, which overflows. `uncoveredCodepoints` is the only signal a caller gets, so it
+	// has to be non-empty exactly when the height cannot be trusted.
+	test('KNOWN GAP: a narrow .notdef under-reports the line count, and says so', () => {
+		const lacksAstral = new FontMetricsRegistry()
+		lacksAstral.set(
+			'Partial',
+			withCmap((cp) => cp < 0x20000)
+		) // charges .notdef = 0.5 em
+		const hasAstral = new FontMetricsRegistry()
+		hasAstral.set(
+			'Partial',
+			withCmap(() => true)
+		) // 1.0 em, like the face PowerPoint falls back to
+
+		// 24 Plane-2 ideographs, which break per character (see cjk-line-breaking.test.js).
+		const text = '\u{20000}'.repeat(24)
+		const opts = { wIn: 2, fontSize: 18, fontFace: 'Partial' }
+		const modeled = measureText(lacksAstral, text, opts)
+		const truth = measureText(hasAstral, text, opts)
+
+		// The gap: half the advance charged, so barely half the lines — and a height that
+		// falls SHORT of what the text needs rather than erring tall.
+		expect(modeled.lineCount).toBeLessThan(truth.lineCount)
+		expect(modeled.heightIn).toBeLessThan(truth.heightIn)
+		// ...and the result flags exactly why it cannot be trusted.
+		expect(modeled.uncoveredCodepoints).toEqual([0x20000])
+		expect(truth.uncoveredCodepoints).toEqual([])
+	})
+})
+
 describe('FontMetricsRegistry.hasCodepoint (face-keyed coverage)', () => {
 	// Silkscreen is a committed pixel font with a small cmap: covers ASCII, lacks
 	// the U+2011 non-breaking hyphen — a deterministic covered/uncovered contrast

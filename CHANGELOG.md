@@ -286,6 +286,32 @@ and project-site changes.
 
 ### Added
 
+- **Measured fit now reports the code points a registered font cannot render**, rather
+  than measuring them silently. `measureText()` returns them in a new
+  `uncoveredCodepoints` array (sorted, deduplicated), and `applyMeasuredFit` warns once
+  per export with the new `measure/uncovered-codepoints` diagnostic, naming the face and
+  the code points.
+
+  This is the one approximation in the model that does not err safe. Everywhere else the
+  numbers are deliberately conservative — raw advances with no kerning, the taller of two
+  line heights, a width safety factor that wraps a hair early — so a wrong answer is a
+  too-tall box. Font fallback is different: PowerPoint substitutes another face per code
+  point and lays the run out in *that* face's advances, while this model has no fallback
+  and charges the registered font's `.notdef`, a single flat number unrelated to the glyph
+  that paints. Malgun Gothic's `.notdef` is 0.663 em — wider than the 0.5 em halfwidth
+  Katakana it lacks, so those gain a harmless phantom line, and narrower than the 1.0 em
+  Plane 2 ideographs it lacks, so a run of *those* measures short: 24 of them in a 150 pt
+  box lay out on 2 lines here and 3 in PowerPoint. A short measurement is a `fit:'resize'`
+  box baked smaller than its text, which is the overflow the resize path has no safety net
+  for.
+
+  Only faces that **are** registered are audited: an unregistered face measures through
+  the cmap-less average-advance heuristic, which has no coverage to report and is already
+  surfaced in `approximatedFaces`. The audit (`collectUncoveredCodepoints` in
+  `src/measure/font-metrics.ts`) is shared by the layout-time query and the export pass,
+  so the two cannot diverge. Nothing about the measured numbers changed — this is the
+  signal that says when not to trust them.
+
 - **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
   assembles the deck and returns the presentation, having written nothing. The preview needs
   the bytes; `pnpm demos:build` needs a file. `build` is now `compose` plus a destination.
@@ -375,7 +401,10 @@ and project-site changes.
   three of its cases; adding Hangul back fails a fourth. Two limitations are recorded
   there rather than fixed — PowerPoint's kinsoku rules (`。`/`、` hang past the right
   inset instead of starting a line) and its font fallback for code points the named
-  face lacks. See `docs/measured-text-fit.md`.
+  face lacks. Kinsoku costs nothing: same line count, narrower widest line, so the
+  height stays conservative. Font fallback does not have that property, and is now
+  reported through `uncoveredCodepoints` and a warning (see Added) rather than only
+  documented. See `docs/measured-text-fit.md`.
 
   Thanks to **@flyisland** for the report and the original fix (#20, #21).
 

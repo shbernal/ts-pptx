@@ -852,7 +852,10 @@ ideographs break **per character**; **Hangul does not** — the same box that la
 in two lines in Han takes three in Hangul, because the run moves down whole. It also
 records two things the model does not implement: PowerPoint's kinsoku (`、` hangs
 past the right inset rather than starting a line) and its font fallback for code
-points the named face lacks.
+points the named face lacks. The oracle test skips the two fallback cases, because
+their widths come from a font the model never saw, but asserts that the model reports
+those code points before it skips: fallback is the one gap that can measure short
+rather than tall, so it is surfaced and not absorbed.
 
 - **`autofit-cjk-wrap.oracle.json`** — written by the recipe, **not** derived from
   the deck, because nothing in the package records where a line broke: the `lines`

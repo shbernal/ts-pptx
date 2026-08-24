@@ -139,6 +139,7 @@ export type DiagnosticCode =
 	| 'measure/shrink-unmeasured'
 	| 'measure/resize-unmeasured'
 	| 'measure/heuristic-metrics'
+	| 'measure/uncovered-codepoints'
 	// Units and coordinates
 	| 'margin/legacy-points'
 	| 'transparency/out-of-range'

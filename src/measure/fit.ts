@@ -14,7 +14,7 @@ import { SlideObjectType } from '../enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu } from '../units-internal.js'
 import { warn } from '../diagnostics.js'
-import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
+import { collectUncoveredCodepoints, makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import {
 	solveShrink,
 	solveResize,
@@ -57,16 +57,34 @@ function measureOptsToRunOpts(opts: MeasureTextOptions): RunOpts {
 	}
 }
 
-/** A fresh result each call: `approximatedFaces` is caller-owned, so it cannot be shared. */
+/** A fresh result each call: the arrays are caller-owned, so they cannot be shared. */
 const unmeasurable = (): TextMeasurement => ({
 	heightIn: 0,
 	lineCount: 0,
 	widestLineIn: 0,
 	measurable: false,
 	approximatedFaces: [],
+	uncoveredCodepoints: [],
 	fitsBox: () => false,
 	shrinkScaleFor: () => 100,
 })
+
+/** Flatten a face → uncovered-code-point map into one sorted, deduplicated list. */
+function flattenCodepoints(byFace: Map<string, Set<number>>): number[] {
+	const all = new Set<number>()
+	for (const cps of byFace.values()) for (const cp of cps) all.add(cp)
+	return [...all].sort((a, b) => a - b)
+}
+
+/**
+ * Render uncovered code points for a warning as `U+XXXX`, capped so one bad run cannot
+ * flood the console with a whole unsupported script.
+ */
+function formatCodepoints(cps: Set<number>): string {
+	const all = [...cps].sort((a, b) => a - b)
+	const shown = all.slice(0, 8).map((cp) => `U+${cp.toString(16).toUpperCase().padStart(4, '0')}`)
+	return all.length > shown.length ? `${shown.join(' ')} +${all.length - shown.length} more` : shown.join(' ')
+}
 
 /**
  * Layout-time text measurement against registered metrics — the public engine
@@ -84,7 +102,9 @@ const unmeasurable = (): TextMeasurement => ({
  * Synchronous: assumes metrics are pre-registered (lookup is sync). A named face
  * with no exact metrics silently uses the conservative heuristic (same as export)
  * and is reported in `approximatedFaces`; an unnamed theme-default face returns
- * `measurable: false`.
+ * `measurable: false`. Code points a *registered* face has no glyph for are reported
+ * in `uncoveredCodepoints`, and are the one case where the height may come back short
+ * rather than tall — there is no font fallback here, only the font's `.notdef` advance.
  */
 export function measureText(
 	registry: FontMetricsRegistry,
@@ -101,6 +121,11 @@ export function measureText(
 	const heuristicFaces = new Set<string>()
 	const resolve = makeRegistryResolver(registry, (face) => heuristicFaces.add(face))
 
+	// Coverage is a property of the runs, not of the layout, so it is audited up front —
+	// which also keeps it out of the resolver that `shrinkScaleFor()` re-enters.
+	const uncoveredByFace = new Map<string, Set<number>>()
+	collectUncoveredCodepoints(paragraphs, registry, uncoveredByFace)
+
 	// Conservative (tall) layout at full size, mirroring solveResize: inflate width
 	// (earlier wrap) by WIDTH_SAFETY and the height by HEIGHT_SAFETY. The resolver runs
 	// during layout, so `heuristicFaces` is only populated once this returns.
@@ -116,6 +141,7 @@ export function measureText(
 		measurable: true,
 		// Snapshot: shrinkScaleFor() re-enters the same resolver, so the live set must not leak.
 		approximatedFaces: [...heuristicFaces],
+		uncoveredCodepoints: flattenCodepoints(uncoveredByFace),
 		// Mirrors solveShrink's fit check at scale 100 (height already inflated).
 		fitsBox: (hIn: number) => heightPt <= hIn * POINTS_PER_INCH,
 		shrinkScaleFor: (hIn: number) => {
@@ -138,7 +164,8 @@ export function measureText(
  *   left in place (the renderer draws the baked `cy`).
  *
  * Safe to call with an empty registry (no-op). Warns once if any opted-in box could
- * not be measured (missing metrics) so overflow is not silently ignored.
+ * not be measured (missing metrics), and once if one held code points its registered
+ * face has no glyph for, so neither kind of overflow is silently ignored.
  */
 export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetricsRegistry): void {
 	if (registry.size === 0) return
@@ -151,11 +178,16 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 	const resolve = makeRegistryResolver(registry, (face) => heuristicFaces.add(face))
 	const unmeasuredShrink = new Set<string>()
 	const unmeasuredResize = new Set<string>()
+	const uncoveredByFace = new Map<string, Set<number>>()
 
 	const collectUnmeasured = (paragraphs: FitParagraph[], into: Set<string>): void => {
 		for (const para of paragraphs)
 			for (const run of para.runs) if (!resolve(run)) into.add(run.fontFace ?? '(theme default)')
 	}
+
+	/** Audit every set of runs the pass is about to measure — see the warning below. */
+	const auditCoverage = (paragraphs: FitParagraph[]): void =>
+		collectUncoveredCodepoints(paragraphs, registry, uncoveredByFace)
 
 	/**
 	 * Bake measured shrink into a table's cells. Walks the cell grid (accounting for
@@ -216,6 +248,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 
 			const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as SlideObject)
 			if (!paragraphs) continue
+			auditCoverage(paragraphs)
 			const box: FitBox = { innerWidthPt, innerHeightPt }
 			const outcome = solveShrink(paragraphs, box, resolve)
 			if (outcome.kind === 'shrink') {
@@ -250,6 +283,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 
 		const paragraphs = extractParagraphs(obj)
 		if (!paragraphs) return
+		auditCoverage(paragraphs)
 		const box = computeBox(obj, layout)
 		if (!box) return
 
@@ -303,6 +337,16 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			`fit:'resize' could not be measured for font(s) [${[...unmeasuredResize].join(', ')}] — ` +
 				'no registered metrics. Emitting bare <a:spAutoFit/> with the authored height (box will not auto-grow in headless renders). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) to enable measured fit.'
+		)
+	}
+	if (uncoveredByFace.size > 0) {
+		const perFace = [...uncoveredByFace].map(([face, cps]) => `${face} → ${formatCodepoints(cps)}`).join('; ')
+		warn(
+			'measure/uncovered-codepoints',
+			`Measured fit charged the .notdef advance for code point(s) the registered face does not cover (${perFace}) — ` +
+				'PowerPoint renders those from a substituted font, so the measured width can be wrong in EITHER direction. ' +
+				'Too narrow drops a line and the text overflows the baked size, the one case measured fit does not err safe. ' +
+				'Register a face that covers them, or set an explicit fontFace on those runs.'
 		)
 	}
 	if (heuristicFaces.size > 0) {

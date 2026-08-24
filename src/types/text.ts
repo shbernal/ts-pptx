@@ -598,6 +598,24 @@ export interface TextMeasurement {
 	 * the face via {@link TsPptx.registerFontMetrics} for an exact result.
 	 */
 	approximatedFaces: string[]
+	/**
+	 * Code points in the measured text — sorted, deduplicated — whose run resolved to a
+	 * **registered** face that has no glyph for them. Empty for fully covered text.
+	 *
+	 * Unlike everything else here, a non-empty list means the numbers are **not reliably
+	 * conservative**. PowerPoint renders such a code point from a substituted face and
+	 * measures it in that face's advances; this model has no fallback and charges the
+	 * registered font's `.notdef` advance, which is unrelated to the glyph that paints. A
+	 * `.notdef` wider than the real glyph over-reports (harmless); a narrower one
+	 * under-reports the width and can drop a line, so `heightIn` may come back **short**
+	 * and the text overflow. Register a face that covers them (or set an explicit
+	 * `fontFace` on those runs) before trusting the height.
+	 *
+	 * Faces with no registered metrics are not audited — they measure through the
+	 * cmap-less heuristic and are reported in {@link approximatedFaces} instead.
+	 * `String.fromCodePoint(...uncoveredCodepoints)` renders the list.
+	 */
+	uncoveredCodepoints: number[]
 	/** True if the text fits a box of inner height `hIn` (inches) at full size. */
 	fitsBox: (hIn: number) => boolean
 	/** The `fontScale` (percent) that fits inner height `hIn`; `100` if it already fits, never below the shrink floor. */
