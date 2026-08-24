@@ -12,6 +12,9 @@
  * member into a standalone sfnt before handing the bytes over. It parses only the two
  * structures that requires: the table directories and the `name` table.
  *
+ * Upstream tracks the gap as opentypejs/opentype.js#379, open since 2019, with #866 an
+ * unmerged PR implementing it; check both before rewriting any of this.
+ *
  * ## Layout
  *
  * ```text
