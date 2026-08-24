@@ -273,6 +273,11 @@ export type InvalidOptionErrorCode =
 	| 'font/invalid-style-slot'
 	| 'font/invalid-base64'
 	| 'font/missing-source'
+	// Selecting one font out of a file that holds several (a `.ttc`/`.otc` collection).
+	// A plain TTF/OTF is a one-entry list, so an out-of-range index or an unmatched name
+	// raises these there too rather than being ignored.
+	| 'font/collection-index-out-of-range'
+	| 'font/collection-face-not-found'
 	// Deck-level authoring
 	| 'layout/unknown'
 	| 'master/missing-title'
@@ -346,6 +351,10 @@ export type MediaErrorCode =
 	| 'media/load-failed'
 	| 'font/fetch-failed'
 	| 'font/read-failed'
+	// The bytes loaded fine but are not a font this build can parse: a malformed table
+	// directory, or a container the parser rejects. Kept apart from `font/read-failed`,
+	// which is about not getting the bytes at all.
+	| 'font/parse-failed'
 	| 'media/fetch-failed'
 	| 'media/read-failed'
 	| 'media/decode-failed'

@@ -8,6 +8,7 @@ read_when:
   - Regenerating or interpreting the autofit calibration fixtures
   - Understanding why fit:'shrink'/'resize' now bake a value instead of a bare flag
   - Measuring Chinese, Japanese or Korean text, or changing where lines may break
+  - Registering a font collection (.ttc/.otc), or changing how one font is picked out of it
 doc_type: "decision"
 ---
 
@@ -65,13 +66,11 @@ pptx headlessly hits it), so it lives upstream, not as a downstream workaround.
 
 ### Font metrics provider (`src/measure/font-metrics.ts`)
 
-- Loads a font file (TTF/OTF) and exposes per-glyph advance widths +
+- Loads a font file and exposes per-glyph advance widths +
   ascent/descent/line-gap. **`opentype.js`** (new dependency, lazily imported,
-  Node/web only). A **TrueType Collection (`.ttc`) is not loadable**:
-  `parseFontMetrics` throws `Unsupported OpenType signature ttcf`. That is worth
-  knowing before registering an East Asian face on Windows, where MS Gothic, Yu
-  Gothic, SimSun and Microsoft YaHei all ship as `.ttc`; Malgun Gothic is a plain
-  `.ttf` and is what the CJK fixture uses.
+  Node/web only). Plain `.ttf`/`.otf` and **font collections** (`.ttc`/`.otc`) both
+  load; see "Font collections" below for how one font is picked out of a collection.
+  Malgun Gothic, which the CJK fixture uses, is a plain `.ttf`.
 - Width is summed from **raw `charToGlyph` advances**: deliberately **no**
   GPOS/GSUB shaping. Kerning almost always narrows a line, so summing raw advances
   over-estimates width, the conservative direction (shrink a touch too much, never
@@ -96,6 +95,55 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
 
 `source` is a path/URL or raw `Uint8Array`/`ArrayBuffer`; font bytes are loaded
 via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
+
+### Font collections (`src/measure/font-collection.ts`)
+
+A `.ttc`/`.otc` is one file holding several fonts over shared tables, and on Windows
+it is how most of the faces a consumer would reach for to measure East Asian text
+ship: `msgothic.ttc` is three fonts (MS Gothic, MS UI Gothic, MS PGothic) over one
+5.5 MB `glyf`, and Yu Gothic, SimSun, Microsoft YaHei, MingLiU and Nirmala UI are
+the same shape. Cambria is too, so this is not only a CJK concern.
+
+`opentype.js` does not read the `ttcf` wrapper (`parseBuffer` throws `Unsupported
+OpenType signature ttcf`, still true in 2.0.0), so the selected font is unwrapped
+into a standalone sfnt first. The unwrap rests on one property of the format: a
+member's table records carry offsets **absolute to the start of the file**, which is
+how two members name the same `glyf` bytes. A member therefore does not have to be
+copied out to be read on its own. It is enough to hand the parser a buffer whose
+first bytes are that member's table directory, leaving every table where it already
+sits, which is what `extractFontFace` does (one copy of the file, prologue
+overwritten, nothing moved).
+
+Because a collection has no single answer to "which font", one has to be chosen:
+
+```ts
+import { listFontFaces } from 'ts-pptx/measure'
+
+listFontFaces(bytes) // [{ index: 0, family: 'MS Gothic', postScriptName: 'MS-Gothic', ... }, ...]
+
+// `face` doubles as the selector when the deck-side name is the name in the file
+await pptx.registerFontMetrics('MS PGothic', 'C:/Windows/Fonts/msgothic.ttc')
+// ...or say so explicitly, by name or by index
+await pptx.registerFontMetrics('Cambria Math', 'C:/Windows/Fonts/cambria.ttc', { font: 1 })
+```
+
+A selector that matches nothing **throws** (`font/collection-face-not-found`,
+`font/collection-index-out-of-range`) rather than falling back to the first font.
+That is the one decision in here worth defending: measuring the wrong member is
+invisible downstream, because the wrong advances are still perfectly plausible
+numbers, and MS Gothic against MS PGothic is a 26% difference on Latin. The
+selector means the same thing for a plain `.ttf`, which is a one-entry list, so a
+wrong index or an unmatched name is an error there too rather than being ignored.
+
+Evidence: `test/regression/text/font-collection.test.js`. Two suites, because the
+claims have different reachability. A collection synthesized from the repo's own
+Silkscreen `.ttf` files runs everywhere and asserts that a member's metrics equal,
+exactly, the same font parsed as a plain `.ttf`. The genuine Windows collections are
+checked against `test/read/fixtures/fonts/windows-collections.oracle.json`, advances
+read by WPF's `GlyphTypeface`, an implementation sharing no code with this repo (38
+faces across 15 collections). The second suite is what rules out the failure the
+first cannot see: a builder and a reader agreeing on a format real files do not
+follow.
 
 ### Wrap simulator + solvers (`src/measure/text-fit.ts`)
 

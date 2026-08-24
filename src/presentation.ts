@@ -49,6 +49,7 @@ import type {
 import type { Slide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './measure/font-metrics.js'
+import { isFontCollection } from './measure/font-collection.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
 import { measureText } from './measure/fit.js'
 import { computeTableLayout } from './measure/table-fit.js'
@@ -614,23 +615,40 @@ export default class PresentationCore {
 	 * Without registered metrics, `fit:'shrink'` keeps its current behavior (a bare
 	 * `<a:normAutofit/>` that only PowerPoint recomputes on edit). Register the same
 	 * face once per weight/style you use; bold/italic advances differ.
+	 *
+	 * **Font collections** (`.ttc`/`.otc`, how MS Gothic, Yu Gothic, SimSun, Microsoft
+	 * YaHei and Cambria ship on Windows) hold several fonts in one file, so one has to be
+	 * chosen. With no `font` option, `face` is used as the selector, which is usually what
+	 * you meant; a `face` that names no font in the collection throws rather than falling
+	 * back to the first, since measuring the wrong member is invisible downstream. Pass
+	 * `font` when the deck-side name differs from the name inside the file, and use
+	 * `listFontFaces` from `ts-pptx/measure` to see what a file holds.
 	 * @param {string} face - font family name as used in `fontFace` (e.g. 'Aptos')
-	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF bytes
-	 * @param {object} [opts] - variant flags; advances differ per weight/style
+	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF/TTC bytes
+	 * @param {object} [opts] - variant flags (advances differ per weight/style) and collection selection
+	 * @param {boolean} [opts.bold] - these are the bold advances
+	 * @param {boolean} [opts.italic] - these are the italic advances
+	 * @param {number | string} [opts.font] - which font inside a collection: 0-based index, or a name
 	 * @example await pptx.registerFontMetrics('Aptos', '/usr/share/fonts/Aptos.ttf')
 	 * @example await pptx.registerFontMetrics('Aptos', aptosBoldBytes, { bold: true })
+	 * @example await pptx.registerFontMetrics('MS PGothic', 'C:/Windows/Fonts/msgothic.ttc')
+	 * @example await pptx.registerFontMetrics('Cambria Math', 'C:/Windows/Fonts/cambria.ttc', { font: 1 })
 	 */
 	async registerFontMetrics(
 		face: string,
 		source: string | Uint8Array | ArrayBuffer,
-		opts?: { bold?: boolean; italic?: boolean }
+		opts?: { bold?: boolean; italic?: boolean; font?: number | string }
 	): Promise<void> {
 		let bytes: Uint8Array
 		if (typeof source === 'string') bytes = await this._runtime.loadFontData(source)
 		else if (source instanceof Uint8Array) bytes = source
 		else bytes = new Uint8Array(source)
-		const metrics = await parseFontMetrics(bytes)
-		this._fontMetrics.set(face, metrics, opts)
+		// Only a collection is name-selected. A plain TTF holds one font whose internal
+		// name need not match the deck-side family (registering Silkscreen's bytes under
+		// any `face` has always worked), so defaulting `font` there would break that.
+		const font = opts?.font ?? (isFontCollection(bytes) ? face : undefined)
+		const metrics = await parseFontMetrics(bytes, font === undefined ? undefined : { font })
+		this._fontMetrics.set(face, metrics, { bold: opts?.bold, italic: opts?.italic })
 	}
 
 	/**

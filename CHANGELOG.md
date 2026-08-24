@@ -286,6 +286,51 @@ and project-site changes.
 
 ### Added
 
+- **Font collections (`.ttc`/`.otc`) are now readable by the measured-fit metrics.**
+  `parseFontMetrics` and `pptx.registerFontMetrics` previously threw `Unsupported
+  OpenType signature ttcf` on a collection, which is how most of the fonts a consumer
+  would reach for to measure East Asian text ship on Windows: MS Gothic, Yu Gothic,
+  SimSun, Microsoft YaHei, Microsoft JhengHei, MingLiU and Nirmala UI are all `.ttc`, and
+  so is Cambria, so this was never only a CJK gap. Measured fit on those faces fell back
+  to the cmap-less heuristic, or did not engage at all.
+
+  A collection holds several fonts, so one has to be chosen. Both APIs take a new `font`
+  option, either a 0-based index or a name matched case-insensitively against the family,
+  full, and PostScript names; `registerFontMetrics` additionally uses its own `face`
+  argument as the selector when `font` is omitted, so the common call needs nothing extra:
+
+  ```ts
+  await pptx.registerFontMetrics('MS PGothic', 'C:/Windows/Fonts/msgothic.ttc')
+  await pptx.registerFontMetrics('Cambria Math', 'C:/Windows/Fonts/cambria.ttc', { font: 1 })
+  ```
+
+  A selector matching nothing **throws** (`font/collection-face-not-found`,
+  `font/collection-index-out-of-range`) rather than falling back to the first font, and
+  the message lists what the file holds. Falling back is the failure worth refusing:
+  measuring the wrong member produces perfectly plausible numbers that nothing downstream
+  can question, and MS Gothic against MS PGothic is a 26% difference on Latin advances.
+  The selector means the same thing for a plain `.ttf`, which is a one-entry list, so a
+  wrong index or an unmatched name is an error there too rather than being ignored.
+  Registering a plain `.ttf` under any `face` name is unchanged: only a collection is
+  name-selected.
+
+  `ts-pptx/measure` gains `listFontFaces(bytes)` (every font in a file, with its `name`
+  table identity; a plain `.ttf` is a one-entry list) and `isFontCollection(bytes)`.
+
+  Grounding: the unwrap rests on the claim that a member's table records carry offsets
+  absolute to the file, which is how members share one `glyf`. A self-generated fixture
+  cannot test that, since a builder and a reader can agree on a format real files do not
+  follow, so the genuine Windows collections are checked against advances read by WPF's
+  `GlyphTypeface` (38 faces across 15 collections, `windows-collections.oracle.json`).
+  A collection synthesized from the repo's own Silkscreen files carries the same claims
+  on every platform, asserting that a member's metrics equal exactly the same font parsed
+  as a plain `.ttf`. See `docs/measured-text-fit.md` ("Font collections").
+
+- **A font the parser rejects now raises a classified `MediaError`** with the new
+  `font/parse-failed` code, instead of opentype.js's bare `Error` escaping the taxonomy.
+  A consumer catching library failures by class and `code` could not previously catch a
+  corrupt or unsupported font file that way.
+
 - **Measured fit now reports the code points a registered font cannot render**, rather
   than measuring them silently. `measureText()` returns them in a new
   `uncoveredCodepoints` array (sorted, deduplicated), and `applyMeasuredFit` warns once

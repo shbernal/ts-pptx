@@ -12,7 +12,8 @@
  * overflow). See `docs/measured-text-fit.md` ("Font metrics provider").
  */
 
-import { UnsupportedFeatureError } from '../errors.js'
+import { MediaError, UnsupportedFeatureError } from '../errors.js'
+import { extractFontFace, resolveFontFace } from './font-collection.js'
 import type { FitParagraph, MetricsResolver } from './text-fit.js'
 
 /** Per-(face,bold,italic) advance-width source backed by a parsed font file. */
@@ -132,8 +133,35 @@ export function getHeuristicFontMetrics(): FontMetrics {
 	return heuristicSingleton
 }
 
-/** Parse a font file (TTF/OTF) into a `FontMetrics`. Lazily imports opentype.js. */
-export async function parseFontMetrics(data: Uint8Array): Promise<FontMetrics> {
+/** Options for {@link parseFontMetrics}. */
+export interface ParseFontMetricsOptions {
+	/**
+	 * Which font to read out of a file that holds several: a 0-based index, or a name
+	 * matched case-insensitively against the family, full, and PostScript names
+	 * (`listFontFaces` lists them). Omitted selects the first.
+	 *
+	 * Collections (`.ttc`/`.otc`) are why this exists: `msgothic.ttc` is three fonts and
+	 * `cambria.ttc` is two. The selector means the same thing for a plain TTF/OTF, which
+	 * is a one-entry list, so a wrong index or an unmatched name is an error there rather
+	 * than being ignored.
+	 */
+	readonly font?: number | string
+}
+
+/**
+ * Parse a font file into a `FontMetrics`. Lazily imports opentype.js.
+ *
+ * Reads plain TTF/OTF and **font collections** (`.ttc`/`.otc`); for a collection, pass
+ * `font` to say which member, since a collection has no single answer. The underlying
+ * parser does not read the `ttcf` wrapper, so the selected member is unwrapped into a
+ * standalone sfnt first (see `measure/font-collection.ts`).
+ * @param {Uint8Array} data - the font file's bytes
+ * @param {ParseFontMetricsOptions} [opts] - which font, for a file holding several
+ * @returns {Promise<FontMetrics>} advance widths and cmap coverage for that font
+ * @example await parseFontMetrics(bytes) // a plain .ttf
+ * @example await parseFontMetrics(ttcBytes, { font: 'MS PGothic' })
+ */
+export async function parseFontMetrics(data: Uint8Array, opts?: ParseFontMetricsOptions): Promise<FontMetrics> {
 	// Dynamic import keeps opentype.js off the critical/browser path until a
 	// consumer actually registers metrics.
 	const mod = (await import('opentype.js')) as unknown as {
@@ -143,9 +171,16 @@ export async function parseFontMetrics(data: Uint8Array): Promise<FontMetrics> {
 	const parse = mod.parse ?? mod.default?.parse
 	if (typeof parse !== 'function')
 		throw new UnsupportedFeatureError('font/opentype-unavailable', 'opentype.js: parse() not found in module exports')
+	const sfnt = extractFontFace(data, resolveFontFace(data, opts?.font))
 	// opentype.parse needs a standalone ArrayBuffer view of exactly the font bytes.
-	const buf = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
-	return new OpentypeFontMetrics(parse(buf))
+	const buf = sfnt.buffer.slice(sfnt.byteOffset, sfnt.byteOffset + sfnt.byteLength) as ArrayBuffer
+	try {
+		return new OpentypeFontMetrics(parse(buf))
+	} catch (ex) {
+		// The parser throws bare `Error`s. Reclassify so a consumer can catch this by the
+		// same taxonomy as every other library failure instead of matching on a message.
+		throw new MediaError('font/parse-failed', `Unable to parse font file: ${String(ex)}`, { cause: ex })
+	}
 }
 
 /**

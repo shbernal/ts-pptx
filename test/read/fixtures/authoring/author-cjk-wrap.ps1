@@ -13,9 +13,12 @@ $ErrorActionPreference = 'Stop'
 #     (a:ext/@cy) and is re-checked against the committed deck by
 #     test/read/cjk-line-breaking-oracle.test.js on every run.
 #
-# One font, Malgun Gothic: a Windows-standard plain .ttf (not a .ttc, which the
-# metrics parser cannot open) that covers Han, Kana, Hangul, the fullwidth forms
-# and CJK punctuation in one face, so a single set of advances explains every case.
+# One font, Malgun Gothic: a Windows-standard plain .ttf that covers Han, Kana,
+# Hangul, the fullwidth forms and CJK punctuation in one face, so a single set of
+# advances explains every case. It was originally chosen for the second reason too,
+# that it is not a .ttc, which the metrics parser could not open at the time; that
+# no longer constrains the choice (src/measure/font-collection.ts reads collections),
+# but the single-face coverage still does.
 
 # --- repo-relative roots (this recipe lives in test/read/fixtures/authoring/) ---
 $REPO = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path

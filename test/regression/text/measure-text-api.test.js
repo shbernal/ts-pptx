@@ -208,6 +208,8 @@ describe('ts-pptx/measure subpath (P1 re-exports, built)', () => {
 			'parseFontMetrics',
 			'getHeuristicFontMetrics',
 			'FontMetricsRegistry',
+			'listFontFaces',
+			'isFontCollection',
 			'buildFitParagraphs',
 			'makeRegistryResolver',
 			'measureText',

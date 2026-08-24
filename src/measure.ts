@@ -42,7 +42,12 @@ export {
 	getHeuristicFontMetrics,
 	FontMetricsRegistry,
 	type FontMetrics,
+	type ParseFontMetricsOptions,
 } from './measure/font-metrics.js'
+
+// Font collections (`.ttc`/`.otc`): which fonts a file holds, so a consumer can pick one
+// by name or index before parsing. Works on a plain TTF/OTF too, as a one-entry list.
+export { listFontFaces, isFontCollection, type FontFaceInfo } from './measure/font-collection.js'
 
 // Higher-level helpers shared with the export pass: the public-props → FitParagraph
 // converter, the registry-backed resolver factory, and the inches-based measure used
