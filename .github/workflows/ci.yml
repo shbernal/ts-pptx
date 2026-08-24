@@ -69,6 +69,15 @@ jobs:
           - 24.x
           - 26.x
 
+    # The two measurement oracles (autofit calibration, CJK line breaking) measure with
+    # the genuine PowerPoint fonts where a machine has them and with the committed metrics
+    # sidecar where it does not. No hosted Linux runner has any of the six faces, so this
+    # leg always takes the sidecar path, and `required` is what makes that a real run: a
+    # face that resolves through neither source fails the suite instead of skipping the
+    # case and reporting green. See test/read/font-oracle.js.
+    env:
+      FONT_ORACLES: required
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -144,6 +153,58 @@ jobs:
           name: coverage-node
           path: coverage/coverage-final.json
           retention-days: 1
+
+  # The genuine-font leg.
+  #
+  # `test` above runs the same two oracles from recorded advances, which proves the model
+  # against numbers this repo committed. It cannot prove those numbers still describe the
+  # fonts they were read from, and derived data that nothing re-derives is exactly the kind
+  # of fixture that rots quietly. This leg is where that check has a home: `windows-latest`
+  # carries Arial, Calibri, Tahoma and Malgun Gothic as real files, so every push re-reads
+  # their advances out of the installed fonts and fails on any drift.
+  #
+  # `FONT_ORACLES_GENUINE` is the load-bearing part. Without it a runner image that drops a
+  # font would fall through to the sidecar and pass, which is the failure this whole
+  # arrangement exists to prevent: the leg would still be green and would no longer be
+  # verifying anything. Naming the families makes their absence a build failure. Aptos and
+  # Aptos SemiBold are deliberately NOT in the list: they ship with Microsoft 365, no runner
+  # has them, and their entries are re-derived on a workstation that does.
+  #
+  # Windows only, and only these three files: the fonts are the whole point of the leg, and
+  # the rest of the suite is already covered on Linux.
+  font-oracles:
+    name: Font oracles (genuine fonts)
+    runs-on: windows-latest
+
+    env:
+      FONT_ORACLES: required
+      FONT_ORACLES_GENUINE: Arial,Calibri,Tahoma,Malgun Gothic
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Starts with the probe (scripts/font-oracle-probe.mjs), which writes the face-by-face
+      # resolution table to the job summary and fails the leg if a declared family is absent
+      # — before the suites run, so the reason is the missing font rather than whatever the
+      # suites make of it.
+      - name: Font oracles
+        run: pnpm run test:oracles
 
   # The browser lane. The `test` job above proves the emission core against
   # `dist/node.js`; nothing proved `dist/browser.js`, whose adapter is the only

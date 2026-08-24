@@ -44,6 +44,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `docs-list.mjs` | Diagnostic | Lists docs with their `read_when` hints | manual (`docs:list`) |
 | `docs-new.mjs` | Generator | Creates a new doc page from the template | manual (`docs:new`) |
 | `ensure-dist.mjs` | Gate | `dist/` freshness guard; builds, or `--check` fails | almost every `pnpm run` |
+| `font-oracle-probe.mjs` | Gate | Which faces the measurement oracles resolve, and from where; fails when `FONT_ORACLES_GENUINE` names a family this machine does not have installed | `test:oracles`, CI (`font-oracles` job) |
 | `gen-inspect-snapshot.mjs` | Generator | The inspect-surface snapshot | manual; asserted by a regression test |
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |

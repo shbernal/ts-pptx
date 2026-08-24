@@ -887,6 +887,15 @@ rather than tall, so it is surfaced and not absorbed.
   the solver is conservative against it (computed `fontScale` ≤ PowerPoint's;
   computed `cy` ≥ PowerPoint's **and** ≥ the LibreOffice height).
 
+- **`autofit-font-metrics.json`** — the committed advance widths the oracles measure
+  with when the genuine fonts are absent (schema `font-metrics@1`): per face, the raw
+  `hmtx` advance in font design units of every code point the committed cases use, plus
+  the code points that face's cmap lacks. Written by `authoring/build-font-metrics.mjs`
+  from the installed fonts; `../font-metrics-sidecar.test.js` re-derives it wherever a
+  genuine font resolves, so it cannot drift away from what it was recorded from. It exists
+  because Aptos ships with Microsoft 365 and 35 of the 47 asserted autofit cases use it:
+  without it those cases skip everywhere except a workstation with Office.
+
 ### Case-id naming scheme
 
 - Deck 1: `linemetrics__<font>__sz<pt>__lines<n>` (resize box, `n` ∈ 1/2/3

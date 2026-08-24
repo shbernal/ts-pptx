@@ -93,6 +93,8 @@
 		"test:schema": "pnpm run ensure-dist && vitest run test/schema-validation.test.js",
 		"schema:versions": "pnpm run ensure-dist && node scripts/ooxml-version-probe.mjs",
 		"test:read": "pnpm run ensure-dist && vitest run test/read",
+		"test:oracles": "pnpm run ensure-dist && node scripts/font-oracle-probe.mjs && vitest run test/read/autofit-calibration-oracle.test.js test/read/cjk-line-breaking-oracle.test.js test/read/font-metrics-sidecar.test.js",
+		"font-metrics:build": "pnpm run ensure-dist && node test/read/fixtures/authoring/build-font-metrics.mjs",
 		"test:read:emit": "pnpm run ensure-dist && node scripts/read-emit-roundtrip.mjs",
 		"test:read:emit:edits": "pnpm run ensure-dist && node scripts/read-emit-edits.mjs",
 		"read:census": "pnpm run ensure-dist && node scripts/read-blindness-census.mjs",

@@ -4,55 +4,40 @@
 // `fontScale` has to be ≤ the value PowerPoint itself baked for the same box, so
 // the text never overflows in PowerPoint or LibreOffice. This holds the solver to
 // the PowerPoint-authored oracle (test/read/fixtures/autofit-*.cases.json +
-// autofit-calibration.json) using the *real* fonts.
+// autofit-calibration.json), measured with the *real* fonts or with the advances
+// recorded from them.
 //
-// Proprietary fonts (Aptos/Calibri/Tahoma/Arial) cannot be committed and are not
-// present on CI, so each case is skipped unless `fc-match` resolves the genuine
-// family (no substitution). On a workstation with the fonts installed this runs
-// for real; on CI it degrades to a no-op rather than calibrating to a substitute.
+// Proprietary fonts (Aptos/Calibri/Tahoma/Arial) cannot be committed, so the faces come
+// from `font-oracle.js`: the genuine installed file where the machine has one, and the
+// committed metrics sidecar otherwise. Under `FONT_ORACLES=required` a face that resolves
+// through neither is a failure rather than a skip, which is what CI sets.
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, test, expect } from 'vitest'
 import { solveShrink, solveResize } from '../../src/measure/text-fit.ts'
-import { parseFontMetrics, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
+import { FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
+import { oracleMetrics, resolutionTally } from './font-oracle.js'
 
 const EMU_PER_PT = 12700
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 
-/** Resolve a genuine font file for `family` (+style), or null if substituted/missing. */
-function resolveFontFile(family, bold, italic) {
-	try {
-		const styleBits = [bold ? 'bold' : '', italic ? 'italic' : ''].filter(Boolean).join(' ')
-		const pattern = styleBits ? `${family}:style=${styleBits}` : family
-		const out = execFileSync('fc-match', ['-f', '%{family}\t%{file}', pattern], {
-			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'ignore'],
-		})
-		const [fam, file] = out.split('\t')
-		if (!fam || !file) return null
-		// Reject substitution: the resolved family must contain the requested name.
-		if (!fam.toLowerCase().includes(family.toLowerCase())) return null
-		return file.trim()
-	} catch {
-		return null
+/**
+ * Register every face a case's runs name, and report whether all of them resolved.
+ *
+ * @param {import('../../src/measure/font-metrics.ts').FontMetricsRegistry} registry
+ * @param {{ paragraphs: Array<{ runs: Array<{ font: string, bold?: boolean, italic?: boolean }> }> }} c
+ */
+async function registerCaseFaces(registry, c) {
+	for (const para of c.paragraphs) {
+		for (const run of para.runs) {
+			const face = { family: run.font, bold: !!run.bold, italic: !!run.italic }
+			const metrics = await oracleMetrics(face)
+			if (!metrics) return false
+			registry.set(face.family, metrics, { bold: face.bold, italic: face.italic })
+		}
 	}
-}
-
-// Cache the parsed metrics (or `false` if the genuine font is unavailable) across
-// tests, but ALWAYS register into the current test's fresh registry on a hit.
-const cache = new Map()
-async function metricsFor(registry, family, bold, italic) {
-	const key = `${family} ${bold} ${italic}`
-	if (!cache.has(key)) {
-		const file = resolveFontFile(family, bold, italic)
-		cache.set(key, file ? await parseFontMetrics(new Uint8Array(readFileSync(file))) : false)
-	}
-	const m = cache.get(key)
-	if (!m) return false
-	registry.set(family, m, { bold, italic })
 	return true
 }
 
@@ -94,19 +79,13 @@ describe('autofit calibration oracle: shrink solver is conservative vs PowerPoin
 		// Only cases where PowerPoint actually baked a fontScale are conservativeness targets.
 		if (!pp || pp.fontScale == null) continue
 
-		test(c.id, async () => {
+		test(c.id, async (ctx) => {
 			const registry = new FontMetricsRegistry()
 			const resolve = (run) => registry.get(run.fontFace, !!run.bold, !!run.italic)
 
-			// Register every distinct face this case uses; skip the case if any is unavailable.
-			for (const para of c.paragraphs) {
-				for (const run of para.runs) {
-					const ok = await metricsFor(registry, run.font, !!run.bold, !!run.italic)
-					if (!ok) {
-						expect(true).toBe(true) // recorded as a (skipped) pass — font not installed
-						return
-					}
-				}
+			if (!(await registerCaseFaces(registry, c))) {
+				ctx.skip('a face this case uses resolved neither an installed font nor a sidecar entry')
+				return
 			}
 			ranAny = true
 
@@ -125,10 +104,15 @@ describe('autofit calibration oracle: shrink solver is conservative vs PowerPoin
 		})
 	}
 
-	test('at least one real-font case ran (informational)', () => {
-		if (!ranAny)
-			console.warn('autofit oracle: no genuine fonts resolved — conservativeness assertions skipped (expected on CI).')
-		expect(true).toBe(true)
+	// Accounting, not decoration. This test used to pass unconditionally and only warn, so a
+	// run that resolved nothing and asserted nothing was indistinguishable from a run that
+	// proved every case. It now fails when the suite measured nothing at all, and reports
+	// where the advances came from so a leg that quietly fell back to the sidecar says so.
+	test('the conservativeness assertions actually ran', () => {
+		const { genuine, sidecar, missing } = resolutionTally()
+		console.info(`autofit oracle: ${genuine} face(s) from installed fonts, ${sidecar} from the metrics sidecar.`)
+		expect(missing).toEqual([])
+		expect(ranAny).toBe(true)
 	})
 })
 
@@ -138,18 +122,13 @@ describe('autofit calibration oracle: resize solver is conservative vs PowerPoin
 		const lo = loById.get(c.id)
 		if (!pp || pp.extCyEmu == null) continue
 
-		test(c.id, async () => {
+		test(c.id, async (ctx) => {
 			const registry = new FontMetricsRegistry()
 			const resolve = (run) => registry.get(run.fontFace, !!run.bold, !!run.italic)
 
-			for (const para of c.paragraphs) {
-				for (const run of para.runs) {
-					const ok = await metricsFor(registry, run.font, !!run.bold, !!run.italic)
-					if (!ok) {
-						expect(true).toBe(true) // skipped — font not installed
-						return
-					}
-				}
+			if (!(await registerCaseFaces(registry, c))) {
+				ctx.skip('a face this case uses resolved neither an installed font nor a sidecar entry')
+				return
 			}
 
 			const paragraphs = paragraphsOf(c)

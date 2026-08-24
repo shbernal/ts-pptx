@@ -15,15 +15,16 @@
 //      sidecar honest — a hand-edited oracle stops matching its own deck.
 //   2. `lines` / `lineCount` came from `TextRange.Lines()` over COM at authoring
 //      time (nothing in the package records where a line broke). Checking the model
-//      against them needs the real Malgun Gothic advances, so those cases skip when
-//      the genuine font does not resolve — the same degradation contract as
-//      `autofit-calibration-oracle.test.js`, and expected on CI.
-import { readFileSync, existsSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+//      against them needs Malgun Gothic's advances, which `font-oracle.js` supplies
+//      either from the installed font or from the committed metrics sidecar. A case
+//      still skips when neither can answer, unless `FONT_ORACLES=required` says a
+//      silent skip is itself the failure.
+import { readFileSync } from 'node:fs'
 import { unzipSync } from 'fflate'
 import { describe, test, expect } from 'vitest'
 import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from '../../src/measure/text-fit.ts'
-import { collectUncoveredCodepoints, parseFontMetrics, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
+import { collectUncoveredCodepoints, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
+import { oracleMetrics } from './font-oracle.js'
 import { fixturePath, readOracle } from './corpus.js'
 
 const EMU_PER_PT = 12700
@@ -31,37 +32,7 @@ const DECK = 'autofit-cjk-wrap'
 
 const oracle = await readOracle(DECK)
 
-/**
- * Resolve a genuine font file for `family`, or null when it is missing or would be
- * substituted. Malgun Gothic ships with Windows, so the Windows font directory is
- * checked directly; elsewhere `fc-match` decides, and a substituted family counts
- * as missing.
- *
- * @param {string} family
- * @returns {string | null}
- */
-function resolveFontFile(family) {
-	if (process.platform === 'win32') {
-		const win = process.env.SystemRoot ?? 'C:\\Windows'
-		const file = `${win}\\Fonts\\malgun.ttf`
-		return family === 'Malgun Gothic' && existsSync(file) ? file : null
-	}
-	try {
-		const out = execFileSync('fc-match', ['-f', '%{family}\t%{file}', family], {
-			encoding: 'utf8',
-			stdio: ['ignore', 'pipe', 'ignore'],
-		})
-		const [fam, file] = out.split('\t')
-		if (!fam || !file) return null
-		if (!fam.toLowerCase().includes(family.toLowerCase())) return null
-		return file.trim()
-	} catch {
-		return null
-	}
-}
-
-const fontFile = resolveFontFile(oracle.fontFace)
-const metrics = fontFile ? await parseFontMetrics(new Uint8Array(readFileSync(fontFile))) : null
+const metrics = await oracleMetrics({ family: oracle.fontFace })
 const registry = new FontMetricsRegistry()
 if (metrics) registry.set(oracle.fontFace, metrics)
 const resolve = (run) => registry.get(run.fontFace, !!run.bold, !!run.italic)
@@ -95,9 +66,8 @@ describe('CJK oracle: the sidecar still describes the committed deck', () => {
 
 describe(`CJK oracle: the wrap model reproduces PowerPoint's line breaking`, () => {
 	if (!metrics) {
-		test(`skipped: ${oracle.fontFace} did not resolve (expected on CI)`, () => {
-			console.warn(`CJK oracle: ${oracle.fontFace} not installed — line-breaking assertions skipped.`)
-			expect(true).toBe(true)
+		test(`skipped: ${oracle.fontFace} resolved neither an installed font nor a sidecar entry`, (ctx) => {
+			ctx.skip(`${oracle.fontFace} is not installed and the metrics sidecar does not carry it`)
 		})
 		return
 	}

@@ -409,6 +409,46 @@ the first two need Windows; the extractor runs anywhere.
 Provenance, SHA-256 hashes, and the case-id scheme are in
 `test/read/fixtures/README.md`.
 
+### Where the oracles run
+
+Both oracle suites (`test/read/autofit-calibration-oracle.test.js`,
+`test/read/cjk-line-breaking-oracle.test.js`) need the genuine faces PowerPoint measured
+with. None of the six can be committed, and no hosted runner has Aptos at all, so the
+faces are resolved by `test/read/font-oracle.js` from one of two sources:
+
+- **The installed font**, on a machine that has it. On Windows that resolution goes
+  through the font registry, which is the map GDI itself uses and the only one that spans
+  both font directories: Office installs Aptos per-user under `%LOCALAPPDATA%`. Elsewhere
+  it is `fc-match`, and a substituted family (Carlito standing in for Calibri) counts as
+  missing, because calibrating against a metric-compatible clone would quietly change what
+  the oracle is comparing.
+- **`test/read/fixtures/autofit-font-metrics.json`** otherwise: the raw `hmtx` advance of
+  every code point the committed cases measure, per face, recorded from the genuine fonts
+  by `authoring/build-font-metrics.mjs`. 316 advances across 10 faces, and nothing else.
+  The model charges the same widths it would have charged with the file present, which is
+  what lets the whole oracle run on a runner that has none of the fonts.
+
+The sidecar is derived data, so two gates keep it honest.
+`test/read/font-metrics-sidecar.test.js` re-derives every entry from the installed font
+wherever one resolves and fails on any drift, and `ci.yml`'s `font-oracles` job runs on
+`windows-latest` precisely so that Arial, Calibri, Tahoma and Malgun Gothic are re-read
+from real files on every push. Aptos and Aptos SemiBold have no runner that carries them,
+so their entries are re-verified on a workstation with Microsoft 365 installed.
+
+Two environment knobs, both fail-closed, because the failure this arrangement exists to
+prevent is a suite that resolves nothing and reports green:
+
+| Variable | Effect |
+| --- | --- |
+| `FONT_ORACLES=required` | A face that resolves through neither source fails the suite instead of skipping the case. Set on every CI leg that runs these oracles. |
+| `FONT_ORACLES_GENUINE=A,B,C` | These families must resolve to a real installed file. Declares what a runner image is expected to carry, so an image that drops a font fails the leg instead of falling back to recorded advances. |
+| `FONT_ORACLES_SIDECAR_ONLY=1` | Ignore installed fonts and measure from the sidecar. How a workstation with all six faces exercises the path every Linux runner takes. |
+
+```bash
+pnpm run test:oracles        # probe, then both oracles and the sidecar check
+pnpm run font-metrics:build  # re-record the sidecar (needs all six faces installed)
+```
+
 ### Findings that parameterize the solver
 
 - Single-spacing line pitch ≈ **1.2117 × fontSize**, and **font-independent**

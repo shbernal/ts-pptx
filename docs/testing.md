@@ -933,12 +933,55 @@ of the repo that is Windows-specific by design) is exercised on the platform it
 exists for. The `static`, `test` and `browser` jobs remain Linux-only: they are
 platform-independent, and the validator installer is a bash script.
 
+A second job runs on `windows-latest`, `font-oracles`, but it is there for the
+runner's fonts rather than for its platform (see [Font Oracles](#font-oracles)).
+It does exercise the Windows font-resolution path in `test/read/font-oracle.js`,
+which nothing else does, but it runs three test files and proves nothing about
+the rest of the suite on Windows.
+
 That narrows, but does not remove, the gap: a Windows-only break outside the
 package scripts is still invisible to CI.
 
 That leg does execute, and is green on every CI run to date: including the
 `workflow_call` gate inside `publish.yml`, so the Windows path is exercised on
 every release rather than merely configured.
+
+## Font Oracles
+
+```bash
+pnpm run test:oracles   # the probe, then both oracles and the sidecar check
+```
+
+Two suites compare the measured-fit model against layout desktop PowerPoint baked:
+`test/read/autofit-calibration-oracle.test.js` (shrink and resize solvers) and
+`test/read/cjk-line-breaking-oracle.test.js` (where PowerPoint breaks East Asian
+lines). Both are only comparisons if the model measures with the same advances
+PowerPoint did, which needs six faces that cannot be committed: Aptos, Aptos SemiBold,
+Arial, Calibri, Tahoma and Malgun Gothic.
+
+They used to degrade to nothing on CI. Every case was gated on `fc-match` resolving the
+genuine family, no hosted runner has any of these fonts, and the skip branch asserted
+`expect(true).toBe(true)`, so the suites ran, resolved nothing, asserted nothing and
+reported green. That is the failure mode the current arrangement is built against, and
+it is worth stating plainly: a suite that cannot fail is worse than one that does not
+run, because it also occupies the place where a real check would go.
+
+Two sources answer for a face now, chosen in `test/read/font-oracle.js`: the installed
+font where the machine has one, and `test/read/fixtures/autofit-font-metrics.json`
+otherwise, which records the advance of every code point the committed cases measure.
+`docs/measured-text-fit.md` (["Where the oracles run"](./measured-text-fit.md#where-the-oracles-run))
+carries the detail, including the three environment knobs. What matters here is which
+lane proves what:
+
+| Lane | Source | What it establishes |
+| --- | --- | --- |
+| `test` (ubuntu, both Node legs) | the sidecar, always | The solvers are still conservative against PowerPoint's baked values, on every push, for all 58 asserted cases. `FONT_ORACLES=required` makes a face that resolves through neither source a failure. |
+| `font-oracles` (windows-latest) | installed fonts | The recorded advances still match the fonts they came from, for Arial, Calibri, Tahoma and Malgun Gothic. `FONT_ORACLES_GENUINE` names them, so an image that drops one fails the leg rather than falling back to the sidecar. |
+| A workstation with Microsoft 365 | installed fonts | The same check for Aptos and Aptos SemiBold, which no runner carries. `pnpm run test:oracles` reports which faces it was able to verify. |
+
+Regenerate the sidecar with `pnpm run font-metrics:build` (all six faces must be
+installed; it refuses to write a partial one) and reformat it afterwards, as with every
+other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
 
 ## Browser Lane
 

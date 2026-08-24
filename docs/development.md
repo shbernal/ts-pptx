@@ -128,7 +128,7 @@ pnpm prints if a flag seems to have had no effect.
 
 `ci.yml` runs on every push to `master` and on every pull request, and
 `publish.yml` pulls in that same workflow through `workflow_call` instead of
-keeping its own transcript of it. A release therefore passes the identical seven
+keeping its own transcript of it. A release therefore passes the identical eight
 jobs, which appear in the publish run prefixed `CI gate /`: that path is
 exercised rather than assumed, and it is how v3.0.0 shipped.
 
