@@ -80,13 +80,17 @@ describe('Presentation.importSlides', () => {
 	})
 
 	test('a rejected batch leaves the deck byte-identical — including a refused link', async () => {
-		const target = await openFixture('mixed')
+		// Generated decks share one layout, so sizes match by construction and a
+		// rejection below can only come from the rule under test.
+		const target = await generatedDeck(false)
 		const linked = await generatedDeck(true)
+		const plain = await generatedDeck(false)
 
 		// Page 0 links to page 1, which is not selected: refused up front.
 		const beforeBytes = await target.save()
-		assert(
-			throws(() => target.importSlides([{ source: linked, sourceIndex: 0, outputIndex: 0 }])),
+		assertEqual(
+			catchCode(() => target.importSlides([{ source: linked, sourceIndex: 0, outputIndex: 0 }])),
+			'import/unresolved-slide-link',
 			'a link to an unselected page is refused'
 		)
 		assert(bytesEqual(beforeBytes, await target.save()), 'the refused batch changed no byte of the deck')
