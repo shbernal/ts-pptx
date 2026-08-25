@@ -10,7 +10,7 @@
 
 import { SlideObjectType } from '../../enums.js'
 import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUM_PLACEHOLDER_TEXT, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
-import type { ObjectOptions } from '../../types/index.js'
+import type { ObjectOptions, SlideNumberProps } from '../../types/index.js'
 import type {
 	PresSlideInternal,
 	SlideLayoutInternal,
@@ -113,25 +113,15 @@ function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal): boo
 }
 
 /**
- * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
- * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
- * @return {string} XML string with <p:cSld> as the root
+ * Warn about duplicate Selection Pane identities on this slide.
+ *
+ * Unique `objectName` values are what consumers (e.g. semantic manifests) rely on, so
+ * collisions are flagged loudly. Groups are recursed into: a group's children are
+ * `<p:cNvPr>`-named on this same slide, so a child colliding with a top-level object (or with a
+ * child of another group) is a collision the Selection Pane shows, and checking only the top
+ * level cannot see it.
  */
-export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
-	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
-	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
-	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
-	// must stay unescaped until the last possible moment or that match breaks for any title
-	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
-	// XML metacharacters, so escaping it here is a no-op for that path.
-	// The element stays a template because it wraps the entire slide, built by append below.
-	let strSlideXml: string = slide._name ? '<p:cSld name="' + encodeXmlAttrValue(slide._name) + '">' : '<p:cSld>'
-
-	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
-	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.
-	// Groups are recursed into: a group's children are `<p:cNvPr>`-named on this same slide, so a
-	// child colliding with a top-level object (or with a child of another group) is a collision the
-	// Selection Pane shows — checking only the top level cannot see it.
+function warnDuplicateObjectNames(slide: PresSlideInternal | SlideLayoutInternal): void {
 	const collectObjectNames = (objects: SlideObject[]): string[] =>
 		objects.flatMap((obj) => [
 			...(typeof obj.options?.objectName === 'string' ? [obj.options.objectName] : []),
@@ -144,8 +134,18 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			`duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`
 		)
 	}
+}
 
-	// STEP 1: Add background color/image (ensure only a single `<p:bg>` tag is created, ex: when master-baskground has both `color` and `path`)
+/**
+ * The slide's `<p:bg>`, or `''` when it has none.
+ *
+ * Exactly one of the three forms is emitted: an image background (a rel the media pass resolved),
+ * a colour or gradient, or the white default that only the built-in layout gets. They are
+ * mutually exclusive because a master carrying both a `color` and a `path` must still produce a
+ * single `<p:bg>`.
+ */
+function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal): string {
+	let strSlideXml = ''
 	if (slide._bkgdImgRid) {
 		strSlideXml += el(
 			'p:bg',
@@ -173,12 +173,20 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// NOTE: Default [white] background is needed on slideMaster1.xml to avoid gray background in Keynote (and Finder previews)
 		strSlideXml += el('p:bg', null, raw(el('p:bgRef', { idx: '1001' }, raw(voidEl('a:schemeClr', { val: 'bg1' })))))
 	}
+	return strSlideXml
+}
 
-	// STEP 2: Continue slide by starting spTree node
-	// spTree root — OOXML requires the shape tree to open with the implicit top-level group's
-	// non-visual props (`<p:nvGrpSpPr>`, the reserved `cNvPr id="1"`) and an identity group
-	// transform (off/ext and chOff/chExt all zero) before any child shape. This is the slide's
-	// built-in root group, not a user-authored `addGroup` — hence the zeroed frame.
+/**
+ * The fixed opening of a slide's `<p:spTree>`.
+ *
+ * OOXML requires the shape tree to open with the implicit top-level group's non-visual props
+ * (`<p:nvGrpSpPr>`, the reserved `cNvPr id="1"`) and an identity group transform (off/ext and
+ * chOff/chExt all zero) before any child shape. This is the slide's built-in root group, not a
+ * user-authored `addGroup` — hence the zeroed frame, and hence taking no arguments: every slide,
+ * layout and master opens its tree with exactly these bytes.
+ */
+function spTreeOpenXml(): string {
+	let strSlideXml = ''
 	strSlideXml += '<p:spTree>'
 	strSlideXml += el('p:nvGrpSpPr', null, [
 		raw(voidEl('p:cNvPr', { id: '1', name: '' })),
@@ -197,6 +205,158 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			])
 		)
 	)
+	return strSlideXml
+}
+
+/**
+ * The slide-number placeholder shape.
+ *
+ * Emitted after every authored object, so its `<p:cNvPr>` id can come from the same monotonic
+ * counter the walk has been advancing — the caller allocates it and passes it in.
+ *
+ * @param slide - the slide, layout or master being emitted
+ * @param snProps - the part's slide-number properties; `align` is defaulted here, in place,
+ *   because the same object is read again downstream
+ * @param slideNumberId - the `<p:cNvPr>` id to use, already allocated by the caller
+ */
+function slideNumberPlaceholderXml(
+	slide: PresSlideInternal | SlideLayoutInternal,
+	snProps: SlideNumberProps,
+	slideNumberId: number
+): string {
+	// Set some defaults (done here b/c SlideNumber canbe added to masters or slides and has numerous entry points)
+	if (!snProps.align) snProps.align = 'left'
+
+	let strSlideXml = ''
+	strSlideXml += '<p:sp>'
+	strSlideXml += ' <p:nvSpPr>'
+	strSlideXml +=
+		voidEl('p:cNvPr', { id: slideNumberId, name: 'Slide Number Placeholder 0' }, { openPrefix: '  ' }) +
+		el('p:cNvSpPr', null, raw(voidEl('a:spLocks', { noGrp: '1' })))
+	strSlideXml += el('p:nvPr', null, raw(voidEl('p:ph', { type: 'sldNum', sz: 'quarter', idx: '4294967295' })), {
+		openPrefix: '  ',
+	})
+	strSlideXml += ' </p:nvSpPr>'
+	strSlideXml += ' <p:spPr>'
+	strSlideXml +=
+		el('a:xfrm', null, [
+			raw(
+				voidEl('a:off', {
+					x: getSmartParseNumber(snProps.x, 'X', slide._presLayout),
+					y: getSmartParseNumber(snProps.y, 'Y', slide._presLayout),
+				})
+			),
+			raw(
+				voidEl('a:ext', {
+					cx: snProps.w ? getSmartParseNumber(snProps.w, 'X', slide._presLayout) : '800000',
+					cy: snProps.h ? getSmartParseNumber(snProps.h, 'Y', slide._presLayout) : '300000',
+				})
+			),
+		]) +
+		el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: ' ' }) +
+		el(
+			'a:extLst',
+			null,
+			raw(
+				el(
+					'a:ext',
+					{ uri: '{C572A759-6A51-4108-AA02-DFA0A04FC94B}' },
+					raw(
+						voidEl('ma14:wrappingTextBoxFlag', {
+							val: '0',
+							'xmlns:ma14': 'http://schemas.microsoft.com/office/mac/drawingml/2011/main',
+						})
+					)
+				)
+			),
+			{ openPrefix: ' ' }
+		) +
+		'</p:spPr>'
+	strSlideXml += '<p:txBody>'
+	// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
+	// NOTE: attribute ORDER is byte-significant, and note the margin order is lIns/tIns/rIns/bIns
+	// while the source array is [Top, Right, Bottom, Left] — hence the 3/0/1/2 indexing.
+	const snMargin = snProps.margin
+	const snMarginAt = (arrIdx: number): number | null =>
+		Array.isArray(snMargin)
+			? marginToEmu(snMargin[arrIdx] || 0)
+			: typeof snMargin === 'number'
+				? marginToEmu(snMargin || 0)
+				: null
+	strSlideXml += voidEl('a:bodyPr', {
+		lIns: snMarginAt(3),
+		tIns: snMarginAt(0),
+		rIns: snMarginAt(1),
+		bIns: snMarginAt(2),
+		anchor: snProps.valign ? snProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b') : null,
+	})
+	let defRPr = ''
+	if (snProps.fontFace || snProps.fontSize || snProps.color) {
+		// The typeface is caller-supplied via `slide.slideNumber({ fontFace })`; the element builder
+		// escapes it, so a `"`/`&` in the name cannot close the attribute early.
+		const face = snProps.fontFace
+		defRPr = el('a:defRPr', { sz: clampFontSizeSz(snProps.fontSize || 12) }, [
+			snProps.color ? raw(genXmlColorSelection(snProps.color)) : null,
+			face ? raw(voidEl('a:latin', { typeface: face })) : null,
+			face ? raw(voidEl('a:ea', { typeface: face })) : null,
+			face ? raw(voidEl('a:cs', { typeface: face })) : null,
+		])
+	}
+	strSlideXml += el('a:lstStyle', null, raw(el('a:lvl1pPr', null, raw(defRPr))), { openPrefix: '  ' })
+
+	// `align` is normalized to 'left' above when unset; anything not starting c/r falls back to 'l'.
+	// `align` is defaulted to 'left' on the props object above; read it through a local so the
+	// narrowing survives (the mutation is kept — other readers rely on it).
+	const snAlignRaw = snProps.align ?? 'left'
+	const snAlign = snAlignRaw.startsWith('c') ? 'ctr' : snAlignRaw.startsWith('r') ? 'r' : 'l'
+	strSlideXml += el('a:p', null, [
+		raw(voidEl('a:pPr', { algn: snAlign })),
+		raw(
+			el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
+				// NOTE: `b` is emitted as "0" when unset, unlike the run properties elsewhere which omit it.
+				raw(voidEl('a:rPr', { b: snProps.bold ? 1 : 0, lang: 'en-US' })),
+				// `<a:t>` inside an `a:fld` is the *cached* rendering of the field, so it is only a
+				// slide number where there is a slide number to cache. A master has none
+				// (`_slideNum` is null) and a layout carries the internal 1000+ counter, so this
+				// used to ship `<a:t>null</a:t>` in every master and `<a:t>1004</a:t>` in a layout —
+				// invisible in PowerPoint, which recomputes the field on open, but read straight
+				// out by anything that takes the cache at face value (a text extractor, a search
+				// indexer, this library's own read path). What PowerPoint itself caches on a master
+				// or layout is the placeholder glyph, so emit that.
+				//
+				// The child must stay non-null: `el()` drops a null child entirely, and an `a:fld`
+				// with no `a:t` is a different construct from one with placeholder text.
+				raw(el('a:t', null, hasRealSlideNumber(slide) ? String(slide._slideNum) : SLDNUM_PLACEHOLDER_TEXT)),
+			])
+		),
+		raw(voidEl('a:endParaRPr', { lang: 'en-US' })),
+	])
+	strSlideXml += '</p:txBody></p:sp>'
+	return strSlideXml
+}
+
+/**
+ * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
+ * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
+ * @return {string} XML string with <p:cSld> as the root
+ */
+export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
+	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
+	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
+	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
+	// must stay unescaped until the last possible moment or that match breaks for any title
+	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
+	// XML metacharacters, so escaping it here is a no-op for that path.
+	// The element stays a template because it wraps the entire slide, built by append below.
+	let strSlideXml: string = slide._name ? '<p:cSld name="' + encodeXmlAttrValue(slide._name) + '">' : '<p:cSld>'
+
+	warnDuplicateObjectNames(slide)
+
+	// STEP 1: Add the background, if this part defines one
+	strSlideXml += slideBackgroundXml(slide)
+
+	// STEP 2: Continue slide by starting spTree node
+	strSlideXml += spTreeOpenXml()
 
 	// Every object's <p:cNvPr> id, up front, for the references that cannot wait for the walk below
 	// to reach their target (connector shape bindings, animation spids). `collectSlideShapeIds`
@@ -462,126 +622,14 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		strSlideXml += renderSlideObjectXml(slideItemObj, idx)
 	})
 
-	// STEP 4: Add slide numbers (if any) last
-	if (slide._slideNumberProps) {
-		// Set some defaults (done here b/c SlideNumber canbe added to masters or slides and has numerous entry points)
-		if (!slide._slideNumberProps.align) slide._slideNumberProps.align = 'left'
-
-		// Allocate this placeholder's <p:cNvPr> id from the same monotonic counter as every other
-		// shape on the slide (top-level objects took `idx + 2`; group children advanced `childIdxAlloc`
-		// past that). A hardcoded id here (formerly 25) aliases a shape or group-child id once a slide
-		// holds enough objects — a duplicate `<p:cNvPr>` id PowerPoint repairs — so take the next free
-		// slot instead. `childIdxAlloc` is the next unused index after the walk above; its id is `+ 2`.
-		const slideNumberId = childIdxAlloc++ + 2
-
-		const snProps = slide._slideNumberProps
-		strSlideXml += '<p:sp>'
-		strSlideXml += ' <p:nvSpPr>'
-		strSlideXml +=
-			voidEl('p:cNvPr', { id: slideNumberId, name: 'Slide Number Placeholder 0' }, { openPrefix: '  ' }) +
-			el('p:cNvSpPr', null, raw(voidEl('a:spLocks', { noGrp: '1' })))
-		strSlideXml += el('p:nvPr', null, raw(voidEl('p:ph', { type: 'sldNum', sz: 'quarter', idx: '4294967295' })), {
-			openPrefix: '  ',
-		})
-		strSlideXml += ' </p:nvSpPr>'
-		strSlideXml += ' <p:spPr>'
-		strSlideXml +=
-			el('a:xfrm', null, [
-				raw(
-					voidEl('a:off', {
-						x: getSmartParseNumber(snProps.x, 'X', slide._presLayout),
-						y: getSmartParseNumber(snProps.y, 'Y', slide._presLayout),
-					})
-				),
-				raw(
-					voidEl('a:ext', {
-						cx: snProps.w ? getSmartParseNumber(snProps.w, 'X', slide._presLayout) : '800000',
-						cy: snProps.h ? getSmartParseNumber(snProps.h, 'Y', slide._presLayout) : '300000',
-					})
-				),
-			]) +
-			el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: ' ' }) +
-			el(
-				'a:extLst',
-				null,
-				raw(
-					el(
-						'a:ext',
-						{ uri: '{C572A759-6A51-4108-AA02-DFA0A04FC94B}' },
-						raw(
-							voidEl('ma14:wrappingTextBoxFlag', {
-								val: '0',
-								'xmlns:ma14': 'http://schemas.microsoft.com/office/mac/drawingml/2011/main',
-							})
-						)
-					)
-				),
-				{ openPrefix: ' ' }
-			) +
-			'</p:spPr>'
-		strSlideXml += '<p:txBody>'
-		// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
-		// NOTE: attribute ORDER is byte-significant, and note the margin order is lIns/tIns/rIns/bIns
-		// while the source array is [Top, Right, Bottom, Left] — hence the 3/0/1/2 indexing.
-		const snMargin = snProps.margin
-		const snMarginAt = (arrIdx: number): number | null =>
-			Array.isArray(snMargin)
-				? marginToEmu(snMargin[arrIdx] || 0)
-				: typeof snMargin === 'number'
-					? marginToEmu(snMargin || 0)
-					: null
-		strSlideXml += voidEl('a:bodyPr', {
-			lIns: snMarginAt(3),
-			tIns: snMarginAt(0),
-			rIns: snMarginAt(1),
-			bIns: snMarginAt(2),
-			anchor: snProps.valign
-				? snProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b')
-				: null,
-		})
-		let defRPr = ''
-		if (snProps.fontFace || snProps.fontSize || snProps.color) {
-			// The typeface is caller-supplied via `slide.slideNumber({ fontFace })`; the element builder
-			// escapes it, so a `"`/`&` in the name cannot close the attribute early.
-			const face = snProps.fontFace
-			defRPr = el('a:defRPr', { sz: clampFontSizeSz(snProps.fontSize || 12) }, [
-				snProps.color ? raw(genXmlColorSelection(snProps.color)) : null,
-				face ? raw(voidEl('a:latin', { typeface: face })) : null,
-				face ? raw(voidEl('a:ea', { typeface: face })) : null,
-				face ? raw(voidEl('a:cs', { typeface: face })) : null,
-			])
-		}
-		strSlideXml += el('a:lstStyle', null, raw(el('a:lvl1pPr', null, raw(defRPr))), { openPrefix: '  ' })
-
-		// `align` is normalized to 'left' above when unset; anything not starting c/r falls back to 'l'.
-		// `align` is defaulted to 'left' on the props object above; read it through a local so the
-		// narrowing survives (the mutation is kept — other readers rely on it).
-		const snAlignRaw = snProps.align ?? 'left'
-		const snAlign = snAlignRaw.startsWith('c') ? 'ctr' : snAlignRaw.startsWith('r') ? 'r' : 'l'
-		strSlideXml += el('a:p', null, [
-			raw(voidEl('a:pPr', { algn: snAlign })),
-			raw(
-				el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
-					// NOTE: `b` is emitted as "0" when unset, unlike the run properties elsewhere which omit it.
-					raw(voidEl('a:rPr', { b: snProps.bold ? 1 : 0, lang: 'en-US' })),
-					// `<a:t>` inside an `a:fld` is the *cached* rendering of the field, so it is only a
-					// slide number where there is a slide number to cache. A master has none
-					// (`_slideNum` is null) and a layout carries the internal 1000+ counter, so this
-					// used to ship `<a:t>null</a:t>` in every master and `<a:t>1004</a:t>` in a layout —
-					// invisible in PowerPoint, which recomputes the field on open, but read straight
-					// out by anything that takes the cache at face value (a text extractor, a search
-					// indexer, this library's own read path). What PowerPoint itself caches on a master
-					// or layout is the placeholder glyph, so emit that.
-					//
-					// The child must stay non-null: `el()` drops a null child entirely, and an `a:fld`
-					// with no `a:t` is a different construct from one with placeholder text.
-					raw(el('a:t', null, hasRealSlideNumber(slide) ? String(slide._slideNum) : SLDNUM_PLACEHOLDER_TEXT)),
-				])
-			),
-			raw(voidEl('a:endParaRPr', { lang: 'en-US' })),
-		])
-		strSlideXml += '</p:txBody></p:sp>'
-	}
+	// STEP 4: Add slide numbers (if any) last.
+	// The id comes from the same monotonic counter as every other shape on the slide (top-level
+	// objects took `idx + 2`; group children advanced `childIdxAlloc` past that). A hardcoded id
+	// here (formerly 25) aliases a shape or group-child id once a slide holds enough objects — a
+	// duplicate `<p:cNvPr>` id PowerPoint repairs — so take the next free slot instead. Allocated
+	// here rather than inside the emitter so a part with no slide number does not consume an id.
+	if (slide._slideNumberProps)
+		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, childIdxAlloc++ + 2)
 
 	// STEP 5: Close spTree and finalize slide XML
 	strSlideXml += '</p:spTree>'
