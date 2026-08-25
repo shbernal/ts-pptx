@@ -20,7 +20,7 @@ import type {
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
-import { EMU_PER_INCH, EMU_PER_POINT } from '../../units.js'
+import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
 type AutoPageCell = TableCell & {
 	_lineHeight: number
@@ -43,24 +43,19 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	// FYI: CHAR:2.3, colWidth:7 , fontSize:12 => CPL= 97, (actual chars per line in PPT)=100 [14.3 CPI]
 	// FYI: CHAR:2.3, colWidth:9 , fontSize:16 => CPL= 96, (actual chars per line in PPT)=84  [ 9.3 CPI]
 	const FOCO = 2.3 + (cell.options?.autoPageCharWeight ? cell.options.autoPageCharWeight : 0) // Character Constant
+	// `colWidth` is inches, so the column's width in points is `colWidth * 72`. This used to be
+	// spelled `(colWidth / EMU_PER_POINT) * EMU_PER_INCH`, which is the same 72 with two EMU
+	// constants that cancel -- except that the detour through EMU is not exact in binary floating
+	// point, and `Math.floor` takes the hit. Over the 200,000 widths from 0.001in to 200in the two
+	// forms disagree on 51, always by one point low: 6.625in is exactly 477 points, and the old
+	// form floored 476.9999... to 476.
 	const CPL =
-		Math.floor((colWidth / EMU_PER_POINT) * EMU_PER_INCH) /
-		((cell.options?.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / FOCO) // Chars-Per-Line
+		Math.floor(colWidth * POINTS_PER_INCH) / ((cell.options?.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / FOCO) // Chars-Per-Line
 
 	const parsedLines: TableCell[][] = []
 	let inputCells: TableCell[] = []
 	const inputLines1: TableCell[][] = []
 	const inputLines2: TableCell[][] = []
-	/*
-		if (cell.options && cell.options.autoPageCharWeight) {
-			let CHR1 = 2.3 + (cell.options && cell.options.autoPageCharWeight ? cell.options.autoPageCharWeight : 0) // Character Constant
-			let CPL1 = ((colWidth / EMU_PER_POINT) * EMU_PER_INCH) / ((cell.options && cell.options.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / CHR1) // Chars-Per-Line
-			console.log(`cell.options.autoPageCharWeight: '${cell.options.autoPageCharWeight}' => CPL: ${CPL1}`)
-			let CHR2 = 2.3 + 0
-			let CPL2 = ((colWidth / EMU_PER_POINT) * EMU_PER_INCH) / ((cell.options && cell.options.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / CHR2) // Chars-Per-Line
-			console.log(`cell.options.autoPageCharWeight: '0' => CPL: ${CPL2}`)
-		}
-	*/
 
 	/**
 	 * EX INPUTS: `cell.text`

@@ -48,6 +48,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Auto-paged tables no longer lose a point of column width to floating-point rounding.**
+  The chars-per-line figure `autoPage` wraps on comes from the column's width in points, and
+  the conversion went through EMU: `(colWidth / EMU_PER_POINT) * EMU_PER_INCH` is the same 72
+  as `colWidth * POINTS_PER_INCH`, but not exactly, and the `Math.floor` around it took the
+  hit. Of the 200,000 widths from 0.001in to 200in, 51 came out one point narrow — 6.625in is
+  exactly 477 points and was measured as 476.
+
+  The effect is not cosmetic on those widths: a line that fits is wrapped to a second one, so
+  every row of the table is measured as twice as tall as it is and the table pages onto more
+  slides than it needs. At 6.625in and 15pt a sixteen-row table now fits on one slide where it
+  used to split across two. Only those 51 widths change; every other one is byte-identical, and
+  no showcase deck reaches one.
+
 - **A slide-number field on a master or layout no longer caches a fake page number.**
   `<a:t>` inside an `a:fld` is the field's *cached* rendering, and a master has no slide number
   while a layout carries the library's internal 1000-and-up counter. So every master shipped
