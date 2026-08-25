@@ -395,7 +395,7 @@ export interface ExtractedSlide {
 	 * the chart part XML and its embedded workbook bytes; the chart part's own `.rels`
 	 * (workbook reference) is rebuilt by {@link Presentation.appendSlides}.
 	 */
-	charts: Array<{ rId: number; chartXml: string; embeddingBytes: Uint8Array }>
+	charts: ExtractedChart[]
 	/** Internal slide-to-slide links: the `rId` used in {@link xml} → 1-based source slide number. */
 	slideLinks: Array<{ rId: number; sourceSlideNumber: number }>
 	/**
@@ -432,6 +432,37 @@ interface ExtractedNotes {
 	 * slide, so these start at `rId3`. Notes support external `url` links only.
 	 */
 	hyperlinks: Array<{ rId: number; target: string }>
+}
+
+/**
+ * One chart extracted for {@link Presentation.appendSlides}, keyed by the `rId` the slide
+ * body uses to reference it.
+ *
+ * A classic (2007, `c:chartSpace`) chart is one part plus its embedded workbook. A chartEx
+ * (Office 2016 — waterfall, funnel, treemap, ...) chart is a different part in a different
+ * namespace, reached through a different relationship type, and PowerPoint reports it as
+ * corrupt without its two style sidecars — so {@link chartEx} carries them and its presence
+ * is what tells the two shapes apart.
+ */
+interface ExtractedChart {
+	/** Body `rId` of the slide's rel pointing at the chart part. */
+	rId: number
+	/** The chart part body: `<c:chartSpace>` for a classic chart, `<cx:chartSpace>` for a chartEx one. */
+	chartXml: string
+	/** The chart's embedded `.xlsx` workbook, the data source PowerPoint opens on edit. */
+	embeddingBytes: Uint8Array
+	/**
+	 * Present only for a chartEx chart, and then always with both sidecars. A chartEx part
+	 * *requires* a chart-style and a color-style part or PowerPoint reports the deck as
+	 * corrupt (`0x80070570`) — schema-valid but unopenable — so these are not optional and
+	 * {@link Presentation.appendSlides} injects them alongside the chart part.
+	 */
+	chartEx?: {
+		/** `cs:chartStyle` body for the chart's `style{N}.xml` part. */
+		styleXml: string
+		/** `cs:colorStyle` body for the chart's `colors{N}.xml` part. */
+		colorsXml: string
+	}
 }
 
 /** One embedded audio/video item extracted for {@link Presentation.appendSlides}. */

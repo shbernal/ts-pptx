@@ -305,8 +305,6 @@ export type UnsupportedFeatureErrorCode =
 	| 'shape/line-unsupported'
 	| 'shape/shape-properties-unsupported'
 	| 'shape/no-text-frame'
-	// Shapes the extract/append bridge cannot carry between a generated deck and a read one
-	| 'chart/chartex-not-extractable'
 	// Optional dependencies that were not installed or did not load
 	| 'math/missing-optional-peer'
 	| 'font/opentype-unavailable'

@@ -88,6 +88,11 @@ import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeature
 
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
+// chartEx (Office 2016) charts are reached through a Microsoft rel, not the ECMA `chart` one,
+// and their two mandatory style sidecars through a third pair — see `gen/chart/chartex-style.ts`.
+const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/chartEx'
+const CHART_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartStyle'
+const CHART_COLOR_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartColorStyle'
 const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
 const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
 const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
@@ -98,6 +103,10 @@ const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/med
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+// chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
+const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'
+const CHART_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartstyle+xml'
+const CHART_COLOR_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartcolorstyle+xml'
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 /** Content type of the main part in an editable `.pptx` package. */
@@ -906,7 +915,10 @@ export class Presentation {
 	 *
 	 * Charts and internal slide-to-slide hyperlinks are carried across: chart parts
 	 * (chart XML + `.rels` + embedded workbook) are injected under fresh names, and a
-	 * `slide:N` link is repointed at the Nth appended slide's new partname.
+	 * `slide:N` link is repointed at the Nth appended slide's new partname. A chartEx
+	 * (Office 2016 — waterfall, funnel, treemap, ...) chart carries too, as its own
+	 * `chartEx{N}.xml` part behind the MS chartEx rel, with the style and color-style
+	 * sidecars PowerPoint requires alongside it.
 	 *
 	 * The generator's presentation-level embedded fonts (`pptx.embedFont`) are also
 	 * carried into this deck and merged into its `p:embeddedFontLst`, de-duped by
@@ -1053,18 +1065,41 @@ export class Presentation {
 				}
 			}
 			for (const c of slide.charts) {
-				// Chart part + its embedded workbook, each under a fresh name. The chart
-				// XML references the workbook through the chart part's own rId1, so the
+				// Chart part + its embedded workbook, each under a fresh name. Both chart
+				// flavours reference the workbook through the chart part's own rId1, so the
 				// chart .rels is rebuilt here against the reserved workbook partname.
-				const chartPartName = this.opc.reservePartNameLike('/ppt/charts/chart1.xml')
-				this.opc.addPart(chartPartName, CHART_CONTENT_TYPE, textEncoder.encode(c.chartXml))
+				//
+				// A chartEx chart differs in every other coordinate: the `chartEx{N}.xml` name
+				// family, the MS chartex content type, the MS `chartEx` rel off the slide, and two
+				// mandatory sidecars at rId2/rId3 — without which PowerPoint reports the deck as
+				// corrupt (schema-valid but unopenable). `c.chartEx` carries both sidecar bodies;
+				// the generator built them, so nothing here reaches into the emitters.
+				const isChartEx = c.chartEx !== undefined
+				const chartPartName = this.opc.reservePartNameLike(
+					isChartEx ? '/ppt/charts/chartEx1.xml' : '/ppt/charts/chart1.xml'
+				)
+				this.opc.addPart(
+					chartPartName,
+					isChartEx ? CHARTEX_CONTENT_TYPE : CHART_CONTENT_TYPE,
+					textEncoder.encode(c.chartXml)
+				)
 				const embeddingPartName = this.opc.reservePartNameLike('/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
 				this.opc.contentTypes.ensureDefault('xlsx', XLSX_CONTENT_TYPE)
 				this.opc.addPart(embeddingPartName, XLSX_CONTENT_TYPE, c.embeddingBytes)
-				this.opc
-					.relationshipsFor(chartPartName)
-					.addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
-				rels.addWithId(`rId${c.rId}`, CHART_REL, relativePartName(partName, chartPartName))
+				const chartRels = this.opc.relationshipsFor(chartPartName)
+				chartRels.addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
+				if (c.chartEx) {
+					// rId2 = colors, rId3 = style: the order the write path authors
+					// (`buildChartExRelsXml` in gen/chart/embed-xlsx.ts).
+					const colorsPartName = this.opc.reservePartNameLike('/ppt/charts/colors1.xml')
+					this.opc.addPart(colorsPartName, CHART_COLOR_STYLE_CONTENT_TYPE, textEncoder.encode(c.chartEx.colorsXml))
+					chartRels.addWithId('rId2', CHART_COLOR_STYLE_REL, relativePartName(chartPartName, colorsPartName))
+
+					const stylePartName = this.opc.reservePartNameLike('/ppt/charts/style1.xml')
+					this.opc.addPart(stylePartName, CHART_STYLE_CONTENT_TYPE, textEncoder.encode(c.chartEx.styleXml))
+					chartRels.addWithId('rId3', CHART_STYLE_REL, relativePartName(chartPartName, stylePartName))
+				}
+				rels.addWithId(`rId${c.rId}`, isChartEx ? CHARTEX_REL : CHART_REL, relativePartName(partName, chartPartName))
 			}
 			for (const link of slide.slideLinks) {
 				const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)

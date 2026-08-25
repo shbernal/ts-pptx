@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This release includes a breaking cleanup to the in-memory byte export API, speaker notes on
 both read-model paths that lacked them (authoring onto a loaded deck, and the batch import),
-a chart type that is now refused rather than emitted as a chart with nothing in it, plus
-repository and project-site changes.
+a chart type that is now refused rather than emitted as a chart with nothing in it, the
+Office-2016 chart family carrying across that same append bridge, plus repository and
+project-site changes.
 
 ### Added
 
@@ -86,11 +87,21 @@ repository and project-site changes.
   `regionMap`). A waterfall came out as a 2.6 kB chart part with axes and no plot element at
   all, registered under the classic content type, behind a slide still pointing at it through
   `<mc:AlternateContent><cx:chart>` — a chart-shaped hole PowerPoint opens and shows empty.
-  Carrying one properly needs the chartEx content type, its rel, and the style/colors sidecar
-  parts that `appendSlides` has no slot for, so until that lands `extractSlides` throws
-  `UnsupportedFeatureError` (`chart/chartex-not-extractable`) naming the chart and its slide.
+
+  Both halves of the bridge now know the second shape. `extractSlides` builds a chartEx chart
+  with `makeXmlChartEx` and hands its two mandatory style sidecars along in the descriptor's new
+  `chartEx` slot; `appendSlides` injects it as its own `chartEx{N}.xml` part under the Microsoft
+  chartex content type, wires the slide to it through the MS `chartEx` relationship rather than
+  the ECMA `chart` one, and writes `style{N}.xml` / `colors{N}.xml` at the chart part's rId3 /
+  rId2. The sidecars are not decoration: PowerPoint reports a chartEx part without them as
+  corrupt (`0x80070570`), which the schema validator does not see. The generator builds them, so
+  the read subsystem still imports nothing from the emitters at runtime.
+
   `write()` was never affected: it routes on `isChartExType` and always has. Classic charts
-  through `appendSlides` are unchanged, byte for byte.
+  through `appendSlides` are unchanged, byte for byte. The interim
+  `UnsupportedFeatureError` (`chart/chartex-not-extractable`) that refused these charts is gone
+  from `UnsupportedFeatureErrorCode` — it was added and removed inside this same unreleased
+  cycle, so no released version can throw it.
 
 - **The read reference documented three of `ImportSlideOptions`' seven fields.**
   `importNotes`, `rescale`, `remapLiterals`, and `embedFonts` were absent from

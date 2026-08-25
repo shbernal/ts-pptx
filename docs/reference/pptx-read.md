@@ -2100,7 +2100,10 @@ Each appended slide's `slideLayout` relationship is repointed at the **existing*
 layout part (no new chrome is created); relationship ids inside the slide body are
 preserved and only their targets are rewritten. Text, images, charts (chart XML +
 `.rels` + embedded workbook), embedded audio/video, and internal slide-to-slide
-hyperlinks (`slide:N`, repointed at the Nth appended slide) all carry across. Pass
+hyperlinks (`slide:N`, repointed at the Nth appended slide) all carry across. A
+chartEx chart (waterfall, funnel, treemap, ...) carries as its own `chartEx{N}.xml`
+part behind the Microsoft chartEx relationship, with the `style{N}.xml` and
+`colors{N}.xml` sidecars PowerPoint requires beside it. Pass
 `{ at }` to insert at a specific deck position (zero-based `p:sldIdLst` index, same
 convention as `cloneSlide`/`importSlide`), and `{ onMediaError: 'placeholder' }` to
 substitute a placeholder instead of throwing when an `addImage` source can't be

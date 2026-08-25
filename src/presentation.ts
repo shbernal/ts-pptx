@@ -14,7 +14,7 @@
  */
 
 import { warn } from './diagnostics.js'
-import { InternalError, InvalidOptionError, UnsupportedFeatureError } from './errors.js'
+import { InternalError, InvalidOptionError } from './errors.js'
 import SlideBuilder from './slide.js'
 import { SlideObjectType } from './enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './constants-internal.js'
@@ -60,6 +60,8 @@ import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
 
 import { makeXmlCharts } from './gen/chart/chart-xml.js'
+import { makeXmlChartEx } from './gen/chart/chartex-xml.js'
+import { makeChartExColorsXml, makeChartExStyleXml } from './gen/chart/chartex-style.js'
 import { buildEmbeddedWorksheet } from './gen/chart/embed-xlsx.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
@@ -553,24 +555,21 @@ export default class PresentationCore {
 
 			// Charts: serialize the chart part XML + its embedded workbook bytes. The
 			// chart part's own .rels (workbook reference) is rebuilt on injection.
-			const charts = (slide._relsChart || []).map((rel) => {
-				// chartEx charts are a different part (`makeXmlChartEx`), a different content type, and
-				// need the style/colors sidecars `appendSlides` has no slot for — so this bridge cannot
-				// carry one. It used to build them as classic charts, which produced a `<c:chartSpace>`
-				// with axes and no plot behind a slide that still pointed at it through
-				// `<mc:AlternateContent><cx:chart>`: a silently broken deck. Refuse instead.
-				if (rel.isChartEx) {
-					throw new UnsupportedFeatureError(
-						'chart/chartex-not-extractable',
-						`extractSlides: the "${String(rel.opts._type)}" chart on slide ${slide._slideNum} is a chartEx (Office 2016) chart, which cannot be carried through extractSlides/appendSlides yet. Use a classic chart type, or build the deck with write() instead.`,
-						{ detail: { chartType: rel.opts._type, slideNumber: slide._slideNum } }
-					)
-				}
-				return {
-					rId: rel.rId,
-					chartXml: makeXmlCharts(rel),
-					embeddingBytes: buildEmbeddedWorksheet(rel),
-				}
+			const charts: ExtractedSlide['charts'] = (slide._relsChart || []).map((rel) => {
+				// chartEx charts are a different part (`makeXmlChartEx`) behind a different rel type and
+				// content type, and PowerPoint reports one as corrupt without its style/colors sidecars
+				// (see gen/chart/chartex-style.ts). Both ride in the descriptor's `chartEx` slot, which
+				// is what tells `appendSlides` the two shapes apart: it cannot be inferred from the XML,
+				// and building one as a classic chart is what used to produce a `<c:chartSpace>` with
+				// axes and no plot behind a slide still pointing at it through `<cx:chart>`.
+				const base = { rId: rel.rId, embeddingBytes: buildEmbeddedWorksheet(rel) }
+				return rel.isChartEx
+					? {
+							...base,
+							chartXml: makeXmlChartEx(rel),
+							chartEx: { styleXml: makeChartExStyleXml(), colorsXml: makeChartExColorsXml() },
+						}
+					: { ...base, chartXml: makeXmlCharts(rel) }
 			})
 
 			// Speaker notes. makeXmlNotesSlide calls buildNotesSlideRels itself (and caches

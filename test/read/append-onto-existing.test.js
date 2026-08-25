@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { bytesEqual, PNG_1X1, assert, assertEqual, partBodies } from '../helpers.js'
+import { bytesEqual, PNG_1X1, assert, assertEqual, assertIncludes, partBodies } from '../helpers.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
 import { FIXTURES, fixturePath } from './corpus.js'
 import { resolveSingle } from './opc.js'
@@ -26,6 +26,12 @@ const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
+const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/chartEx'
+const CHART_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartStyle'
+const CHART_COLOR_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartColorStyle'
+const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'
+const CHART_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartstyle+xml'
+const CHART_COLOR_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartcolorstyle+xml'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
 const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
@@ -410,12 +416,87 @@ describe('Presentation.appendSlides', () => {
 		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a mismatched slide size throws')
 	})
 
-	test('refuses a chartEx chart rather than appending it as an empty classic chart', async () => {
+	test('appends a chartEx chart as a chartEx part, with its mandatory style/colors sidecars', async () => {
 		// chartEx (Office 2016: waterfall, funnel, treemap, ...) is a different part in a different
-		// namespace, with required style/colors sidecars this bridge has no slot for. It used to be
-		// serialized by the classic builder, which has no arm for those types: the deck got a
-		// `<c:chartSpace>` with axes and no plot, behind a slide still pointing at it through
-		// `<mc:AlternateContent><cx:chart>`. Refusing is the honest answer until it is carried.
+		// namespace, reached through the MS chartEx rel, and PowerPoint reports it as corrupt without
+		// its two style sidecars. It used to be serialized by the classic builder, which has no arm
+		// for those types: the deck got a `<c:chartSpace>` with axes and no plot, behind a slide
+		// still pointing at it through `<mc:AlternateContent><cx:chart>`. Every assertion below is
+		// one coordinate of that: the part name, the content type, the rel type, the sidecars, and
+		// a plot element that is actually there.
+		const originalBytes = await readFile(fixturePath('theme-colors'))
+		const before = await partBodies(originalBytes)
+		const pres = await Presentation.load(originalBytes)
+
+		const pptx = wideGenerator()
+		pptx.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+			type: ChartType.waterfall,
+			x: 1,
+			y: 1,
+			w: 6,
+			h: 3,
+		})
+
+		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
+		const out = await pres.save()
+		const after = await partBodies(out)
+
+		// Byte-stability: only the three wiring parts plus brand-new parts change.
+		const expectedChanged = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
+		for (const [name, bytes] of before) {
+			assert(after.has(name), `part ${name} survives the append`)
+			if (expectedChanged.has(name)) continue
+			assert(bytesEqual(bytes, after.get(name)), `part ${name} is byte-identical after the chartEx append`)
+		}
+
+		// The chartEx part is its own name family, and both sidecars rode along.
+		const newParts = [...after.keys()].filter((name) => !before.has(name))
+		const chartZipPath = newParts.find((n) => /^ppt\/charts\/chartEx\d+\.xml$/.test(n))
+		assert(chartZipPath, `a chartEx part was added (${newParts.join(', ')})`)
+		assert(!newParts.some((n) => /^ppt\/charts\/chart\d+\.xml$/.test(n)), 'no classic chart part was written')
+		assert(
+			newParts.some((n) => /^ppt\/charts\/style\d+\.xml$/.test(n)),
+			'the chart-style sidecar was added'
+		)
+		assert(
+			newParts.some((n) => /^ppt\/charts\/colors\d+\.xml$/.test(n)),
+			'the color-style sidecar was added'
+		)
+
+		// The plot is really there — the failure this test exists for was a chart part with none.
+		const chartXml = new TextDecoder().decode(after.get(chartZipPath))
+		assertIncludes(chartXml, '<cx:chartSpace', 'the chart part is a cx:chartSpace')
+		assertIncludes(chartXml, 'layoutId="waterfall"', 'the waterfall plot element is present')
+
+		// Three Overrides: PowerPoint resolves all three parts by their MS content types.
+		const ct = new TextDecoder().decode(after.get('[Content_Types].xml'))
+		for (const type of [CHARTEX_CONTENT_TYPE, CHART_STYLE_CONTENT_TYPE, CHART_COLOR_STYLE_CONTENT_TYPE]) {
+			assertIncludes(ct, type, `[Content_Types].xml declares ${type}`)
+		}
+
+		// The slide reaches the chart through the MS chartEx rel, not the ECMA `chart` one, and the
+		// body's `<cx:chart r:id>` is that rel.
+		const reopened = await Presentation.load(out)
+		const chartPart = resolveSingle(reopened.opc, added.partName, CHARTEX_REL)
+		assertEqual(`/${chartZipPath}`, chartPart, "the slide's chartEx rel resolves to the chartEx part")
+		assertEqual(resolveSingle(reopened.opc, added.partName, CHART_REL), null, 'no classic chart rel was written')
+		const body = new TextDecoder().decode(after.get(added.partName.slice(1)))
+		const chartRid = (body.match(/<cx:chart[^>]*r:id="(rId\d+)"/) || [])[1]
+		assertEqual(typeOfRid(reopened.opc, added.partName, chartRid), CHARTEX_REL, 'cx:chart r:id → MS chartEx rel')
+
+		// The chart part's own three rels resolve: workbook, colors, style.
+		const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
+		for (const [rel, label] of [
+			[PACKAGE_REL, 'workbook'],
+			[CHART_COLOR_STYLE_REL, 'color-style'],
+			[CHART_STYLE_REL, 'chart-style'],
+		]) {
+			const target = resolveSingle(reopened.opc, chartPart, rel)
+			assert(target && reopened.opc.part(target), `the chart's ${label} rel resolves (${target})`)
+		}
+	})
+
+	test.skipIf(!validatorInstalled)('the appended deck with a chartEx chart stays schema-valid', async () => {
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
 		const pptx = wideGenerator()
 		pptx.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
@@ -425,7 +506,10 @@ describe('Presentation.appendSlides', () => {
 			w: 6,
 			h: 3,
 		})
-		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a chartEx chart is refused, not mangled')
+		await pres.appendSlides(pptx, { layout: 'Blank' })
+
+		const errors = await validateBuf(Buffer.from(await pres.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 
 	test('appends a slide with a chart, injecting chart + workbook parts and keeping chrome byte-identical', async () => {
