@@ -34,11 +34,20 @@
 	// Naming `plugins` *overwrites* oxlint's base set rather than adding to it, so the
 	// three that are on by default (`unicorn`, `typescript`, `oxc`) have to be repeated
 	// here or they silently switch off — every rule named in `rules` below is in one of
-	// them. `eslint` is listed for symmetry; it is always on. `import` is the one actual
-	// addition, and it earns its place with a single rule: `import/no-duplicates`. The
-	// rest of the plugin was measured before being let in — enabling it with no rules
-	// named reports zero findings across this tree, so nothing else arrives with it.
-	"plugins": ["eslint", "unicorn", "typescript", "oxc", "import"],
+	// them. `eslint` is listed for symmetry; it is always on. The failure mode is silent
+	// and worth stating once: with `["vitest"]` alone,
+	// `typescript/no-floating-promises` stops firing and nothing reports that it has.
+	//
+	// `import` earns its place with a single rule: `import/no-duplicates`. The rest of
+	// the plugin was measured before being let in — enabling it with no rules named
+	// reports zero findings across this tree, so nothing else arrives with it.
+	//
+	// `vitest` is here for one rule, `no-focused-tests`. A committed `.only` narrows the
+	// whole suite to a single test and the gate still passes, which is a green CI that
+	// ran almost nothing. It and `no-disabled-tests` both report zero on this tree, so
+	// the guard was free to install; what the rest of the plugin costs is recorded in
+	// the `test/**` override below.
+	"plugins": ["eslint", "unicorn", "typescript", "oxc", "import", "vitest"],
 	"ignorePatterns": [
 		"coverage/**",
 		"demos/**",
@@ -282,6 +291,31 @@
 				"typescript/restrict-plus-operands": "off",
 				"typescript/restrict-template-expressions": "off",
 				"typescript/unbound-method": "off",
+
+				// The vitest plugin is on for `no-focused-tests` (see `plugins`). The rest of
+				// its correctness set does not fit how this repo writes tests, and the counts
+				// are why (2026-08-25, oxlint 1.79.0).
+				//
+				// `expect-expect` (447) is the whole regression tier. `defineRegressionSuite`
+				// drives a table of `{ name, fn }` cases, and the cases assert through this
+				// repo's own `assert` and `assertIncludes` helpers. The rule sees a test body
+				// containing no `expect` and reports a test with no assertions; it is
+				// describing the helper, not the test.
+				//
+				// `no-conditional-expect` (17), `valid-title` (7), `no-conditional-tests` (2)
+				// and `warn-todo` (1) are the oracle tests, which branch on what a fixture
+				// supports and build titles out of fixture data.
+				"vitest/expect-expect": "off",
+				"vitest/no-conditional-expect": "off",
+				"vitest/valid-title": "off",
+				"vitest/no-conditional-tests": "off",
+				"vitest/warn-todo": "off",
+
+				// Off pending confirmation: both of these look like false positives rather
+				// than findings, and the reasons belong here once they have been checked at
+				// the sites. TEMPORARY — this comment is replaced, not kept.
+				"vitest/no-standalone-expect": "off",
+				"vitest/valid-expect": "off",
 			},
 		},
 		{
