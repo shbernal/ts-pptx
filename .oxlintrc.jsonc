@@ -104,6 +104,17 @@
 		"typescript/prefer-promise-reject-errors": "error",
 		"typescript/restrict-plus-operands": "error",
 
+		// Not part of `recommendedTypeChecked` and not in any oxlint category this config
+		// enables, so it is named here on its own. It reports *uses* of anything carrying a
+		// JSDoc `@deprecated` tag, reaching through `.d.ts` into dependencies — which is the
+		// half worth having: our own deprecations are visible in review, a dependency's are
+		// not, and they are how a major-version break announces itself a release early.
+		// Cost when turned on: zero findings in `src/**`, four across `test/**` and
+		// `scripts/**`, all fixed in the same commit. Left on for `scripts/**` and `test/**`
+		// deliberately — those overrides drop the `no-unsafe-*` family, whose findings are
+		// `any` at an I/O boundary, but a deprecated call is the same defect wherever it is.
+		"typescript/no-deprecated": "error",
+
 		// Gate both compile-time escape hatches from the null-safety work: a bare `!`
 		// and a provably-redundant `as` cast. Pinned together so the `!`/`as` symmetry
 		// is explicit and survives any upstream preset change — the same reason they

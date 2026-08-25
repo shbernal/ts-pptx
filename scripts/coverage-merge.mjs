@@ -144,6 +144,12 @@ async function sourcesFor(distPath) {
 		.filter(Boolean)
 		.map(/** @param {string} source */ (source) => new URL(source, url).href)
 
+	// `parseAstAsync` is Vite's deprecated alias for `parseAsync`, but it is the only
+	// spelling `vitest/node` re-exports (checked at runtime, not just in the .d.ts). The
+	// replacement would mean importing from `vite` directly, which is a transitive
+	// dependency here, not a declared one. Suppressed rather than paid for with a
+	// phantom import; revisit when vitest re-exports the new name.
+	// oxlint-disable-next-line typescript/no-deprecated
 	const entry = { code, url, map, ast: await parseAstAsync(code) }
 	sources.set(distPath, entry)
 	return entry

@@ -71,8 +71,8 @@ describe('math/latexToOmml', () => {
 	})
 
 	test('throws on invalid LaTeX with parse position', () => {
-		expect(() => latexToOmml('\\frac{')).toThrowError(/Invalid LaTeX.*position/s)
-		expect(() => latexToOmml('\\unknowncommand{x}')).toThrowError(/Invalid LaTeX/)
+		expect(() => latexToOmml('\\frac{')).toThrow(/Invalid LaTeX.*position/s)
+		expect(() => latexToOmml('\\unknowncommand{x}')).toThrow(/Invalid LaTeX/)
 	})
 })
 

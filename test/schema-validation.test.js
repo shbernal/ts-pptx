@@ -69,7 +69,7 @@ describe.concurrent('TsPptx schema validation fixtures', () => {
 
 // Sibling suites run in order, so nothing from the concurrent block above is still
 // in flight once this one starts.
-describe.sequential('TsPptx schema validation fixtures (exclusive process globals)', () => {
+describe('TsPptx schema validation fixtures (exclusive process globals)', { concurrent: false }, () => {
 	for (const fixture of exclusiveCases) {
 		test(fixture.name, async () => {
 			await fixture.fn()
