@@ -95,6 +95,13 @@ export const PIECHART_COLORS: string[] = [
 // field and auto-updates the page number. Consumed in `gen/slide/object.ts` (`slideObjectToXml`).
 export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 
+// Cached text of a slide-number field on a part that has no slide number of its own — a master
+// or a layout. Guillemets around a hash, which is verbatim what PowerPoint caches there: every
+// en-US master and layout in `test/read/fixtures/` writes `<a:t>‹#›</a:t>`. (A German-locale
+// deck writes `‹Nr.›`; the cache is recomputed on open, so the en-US spelling is the one to
+// emit rather than a per-locale table.) Consumed in `gen/slide/object.ts`.
+export const SLDNUM_PLACEHOLDER_TEXT = '‹#›'
+
 // The XML prolog every emitted OOXML part begins with. Kept as one constant so a
 // stray edit can't desync one part's declaration from the rest.
 export const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

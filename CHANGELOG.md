@@ -36,6 +36,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A slide-number field on a master or layout no longer caches a fake page number.**
+  `<a:t>` inside an `a:fld` is the field's *cached* rendering, and a master has no slide number
+  while a layout carries the library's internal 1000-and-up counter. So every master shipped
+  `<a:t>null</a:t>` and every layout something like `<a:t>1004</a:t>`. PowerPoint recomputes
+  the field on open, so nothing ever looked wrong there — but anything that reads the cache
+  without recomputing (a text extractor, a search indexer, this library's own read path) saw
+  it. Both now cache the placeholder glyph `‹#›`, which is verbatim what PowerPoint itself
+  writes: every en-US master and layout in the read fixture corpus has exactly that. A real
+  slide still caches its own number.
+
+  This changes emitted bytes for `slideMaster*.xml` and any layout carrying a slide-number
+  placeholder, and for nothing else.
+
 - **Chart colours past the end of the palette now cycle instead of being drawn at random.**
   A chart with more series or data points than `chartColors` has entries used to pick the
   overflow colours with `Math.random()`, so the same deck built twice emitted different

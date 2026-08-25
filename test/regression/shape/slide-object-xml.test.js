@@ -300,12 +300,19 @@ describe('slide number placeholder', () => {
 		expect(xml).toContain(`rIns="${Math.round(0.2 * 914400)}" bIns="${Math.round(0.3 * 914400)}"/>`)
 	})
 
-	test('QUIRK: a master (no _slideNum) emits the literal text "null"', () => {
-		// LATENT BUG, pinned deliberately — this is what slideMaster1.xml actually contains today.
-		// It is why the `<a:t>` child is built with an explicit `String(...)`: the element builder
-		// skips a null child, which would silently change those bytes.
-		const xml = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: null })
-		expect(xml).toContain('<a:t>null</a:t>')
+	test('a part with no slide number of its own caches the placeholder glyph', () => {
+		// A master leaves `_slideNum` null and a layout carries the internal 1000+ counter. Neither
+		// is a page number, so neither belongs in the field's cached `<a:t>` — which is what
+		// PowerPoint reads back if it does not recompute. The child must stay non-null: the element
+		// builder skips a null child, and an `a:fld` with no `a:t` is a different construct.
+		const master = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: null })
+		expect(master).toContain('<a:t>‹#›</a:t>')
+
+		const layout = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 1004 })
+		expect(layout).toContain('<a:t>‹#›</a:t>')
+
+		const slide = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 7 })
+		expect(slide).toContain('<a:t>7</a:t>')
 	})
 
 	test('no margin emits a bare bodyPr', () => {

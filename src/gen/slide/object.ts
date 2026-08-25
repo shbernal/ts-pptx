@@ -9,7 +9,7 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUM_PLACEHOLDER_TEXT, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
 import type { ObjectOptions } from '../../types/index.js'
 import type {
 	PresSlideInternal,
@@ -100,6 +100,17 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
  */
 const normalizeAxisExtent = (off: number, ext: number): { off: number; ext: number; flip: boolean } =>
 	ext < 0 ? { off: off + ext, ext: -ext, flip: true } : { off, ext, flip: false }
+
+/**
+ * Whether this part has a real slide number to cache in a `slidenum` field.
+ *
+ * Only a slide does. A master leaves `_slideNum` null and a layout carries the internal 1000+
+ * counter that keeps layout media keys from colliding with slide media — neither is a page
+ * number, and neither belongs in the field's cached text.
+ */
+function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal): boolean {
+	return slide._slideNum != null && slide._slideNum < 1000
+}
 
 /**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
@@ -543,11 +554,18 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
 					// NOTE: `b` is emitted as "0" when unset, unlike the run properties elsewhere which omit it.
 					raw(voidEl('a:rPr', { b: snProps.bold ? 1 : 0, lang: 'en-US' })),
-					// NOTE: `String(...)` is load-bearing. A slide MASTER has no `_slideNum`, and the
-					// template this replaced stringified that `null` into the literal text "null"
-					// (visible in slideMaster1.xml). `el()` skips a null child entirely, which would
-					// silently drop it — a byte change. Preserved; fixing it is its own commit.
-					raw(el('a:t', null, String(slide._slideNum))),
+					// `<a:t>` inside an `a:fld` is the *cached* rendering of the field, so it is only a
+					// slide number where there is a slide number to cache. A master has none
+					// (`_slideNum` is null) and a layout carries the internal 1000+ counter, so this
+					// used to ship `<a:t>null</a:t>` in every master and `<a:t>1004</a:t>` in a layout —
+					// invisible in PowerPoint, which recomputes the field on open, but read straight
+					// out by anything that takes the cache at face value (a text extractor, a search
+					// indexer, this library's own read path). What PowerPoint itself caches on a master
+					// or layout is the placeholder glyph, so emit that.
+					//
+					// The child must stay non-null: `el()` drops a null child entirely, and an `a:fld`
+					// with no `a:t` is a different construct from one with placeholder text.
+					raw(el('a:t', null, hasRealSlideNumber(slide) ? String(slide._slideNum) : SLDNUM_PLACEHOLDER_TEXT)),
 				])
 			),
 			raw(voidEl('a:endParaRPr', { lang: 'en-US' })),
