@@ -23,6 +23,7 @@ import {
 	solveShrink,
 	solveResize,
 	parseFontMetrics,
+	getHeuristicFontMetrics,
 	SINGLE_LINE_PITCH,
 	MIN_FONT_SCALE_PCT,
 } from '../../../dist/measure.js'
@@ -172,5 +173,48 @@ describe('solvers through dist', () => {
 		const outcome = expectKind(solveResize([para('alpha beta gamma delta')], box(40, 10), resolve), 'resize')
 		expect(outcome.neededInnerHeightPt).toBeGreaterThan(10)
 		expect(solveResize([para('x')], box(40, 10), resolveNone)).toEqual({ kind: 'unmeasurable' })
+	})
+})
+
+describe('getHeuristicFontMetrics through dist: the per-character width buckets', () => {
+	// The unregistered-font fallback is the width model behind every `fit:` on a face with
+	// no registered metrics, so its buckets decide whether a headless render pre-shrinks
+	// enough. `font-heuristic.test.js` proves them from `src/`; this drives the shipped
+	// bundle, where an entry dropped by the emitter would otherwise go unnoticed.
+	const h = getHeuristicFontMetrics()
+	/** Advance of `text` in em, at the 1000pt size that makes an em 1000pt. */
+	const em = (text) => h.advanceWidthPt(text, 1000) / 1000
+
+	test('every bucket is a distinct width, widest to narrowest', () => {
+		// One character per branch, in the order the model ranks them. Asserting the whole
+		// ordering at once is what makes a bucket that silently merges into its neighbour
+		// fail here rather than just shifting a measurement somewhere downstream.
+		expect(em('日')).toBeCloseTo(1.0, 6) // CJK / full-width and beyond
+		expect(em('@')).toBeCloseTo(1.0, 6) // and the two full-width ASCII symbols
+		expect(em('%')).toBeCloseTo(1.0, 6)
+		expect(em('W')).toBeCloseTo(0.98, 6)
+		expect(em('m')).toBeCloseTo(0.9, 6)
+		expect(em('A')).toBeCloseTo(0.72, 6)
+		expect(em('ā')).toBeCloseTo(0.62, 6) // Latin-Extended / accented / misc symbols
+		expect(em('a')).toBeCloseTo(0.58, 6) // lowercase, digits, default punctuation
+		expect(em('é')).toBeCloseTo(0.58, 6) // Latin-1 is below the cut, so it is a default
+		expect(em('f')).toBeCloseTo(0.4, 6)
+		expect(em('i')).toBeCloseTo(0.3, 6)
+		expect(em(' ')).toBeCloseTo(0.3, 6)
+	})
+
+	test("'@' and '%' are charged full width, unlike every other ASCII symbol", () => {
+		// They sit above 'W' in a proportional face, and the bias here is deliberate:
+		// over-estimating width is the direction that cannot overflow the box.
+		expect(em('@')).toBeGreaterThan(em('W'))
+		expect(em('%')).toBeGreaterThan(em('W'))
+		expect(em('&')).toBeLessThan(em('@'))
+	})
+
+	test('the CJK bucket starts above the U+2E7F boundary, not at it', () => {
+		// U+2E80 is the first code point charged a full em; the one below it is not, or
+		// every Latin-Extended and symbol run would measure a third too wide.
+		expect(em('⺀')).toBeCloseTo(1.0, 6)
+		expect(em('⹿')).toBeCloseTo(0.62, 6)
 	})
 })

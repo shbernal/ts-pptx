@@ -831,6 +831,32 @@ describe('applyMeasuredFit: the table cell shrink pass', () => {
 		slide.addText(OVERFLOW, { x: 1, y: 3, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
 		expect(await slide1Xml(pres)).toMatch(/<a:normAutofit fontScale="\d+"/)
 	})
+
+	test('a table with a row but no columns is passed over, not divided by zero', async () => {
+		// `addTable` refuses an empty rows array, so a row that is itself empty is the
+		// narrowest table that reaches the fit pass. Column width is `tableWidth / numCols`,
+		// so the pass has to leave before it computes one.
+		const pres = await pptxWithSilkscreen()
+		const slide = pres.addSlide()
+		slide.addTable([[]], { x: 0.5, y: 0.5, w: 3, rowH: [0.4] })
+		slide.addText(OVERFLOW, { x: 1, y: 3, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
+		// The neighbouring box still bakes, so the empty table was skipped rather than
+		// having taken the whole pass down with it.
+		expect(await slide1Xml(pres)).toMatch(/<a:normAutofit fontScale="\d+"/)
+	})
+
+	test('a cell with no text is passed over while its neighbour still bakes', async () => {
+		const xml = await tableDeck(
+			[
+				[
+					{ text: '', options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } },
+					{ text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } },
+				],
+			],
+			{ w: 6, rowH: [0.4] }
+		)
+		expect(Math.min(...szValues(xml))).toBeLessThan(1800)
+	})
 })
 
 describe('measured fit: code points the registered face has no glyph for', () => {
@@ -864,6 +890,32 @@ describe('measured fit: code points the registered face has no glyph for', () =>
 		const pres = await pptxWithSilkscreen()
 		const m = pres.measureText('Fine print here', { wIn: 4, fontSize: 18, fontFace: 'Silkscreen' })
 		expect(m.uncoveredCodepoints).toEqual([])
+	})
+
+	test('several uncovered code points come back sorted and deduplicated', async () => {
+		// The single-code-point case above cannot tell a sorted list from an arbitrary one,
+		// nor a deduplicated one from a per-occurrence one. Fed descending and repeated,
+		// the list is the documented shape: ascending, each code point once.
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText('日 あ ‑ あ 日', { wIn: 4, fontSize: 18, fontFace: 'Silkscreen' })
+		expect(m.uncoveredCodepoints).toEqual([0x2011, 0x3042, 0x65e5])
+	})
+
+	test('the warning caps the code points it prints, and says how many it dropped', async () => {
+		// The cap is what keeps one run of an unsupported script from filling the console.
+		// Ten uncovered code points, so the message must show eight and count the rest.
+		const many = [0x2011, 0x3042, 0x3044, 0x3046, 0x4e00, 0x4e8c, 0x65e5, 0x6708, 0x706b, 0x6c34]
+		const text = many.map((cp) => String.fromCodePoint(cp)).join('')
+		const seen = await captured(async () => {
+			const pres = await pptxWithSilkscreen()
+			pres.addSlide().addText(text, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
+			await pres.toBytes()
+		})
+		const [d] = seen.filter((x) => x.code === 'measure/uncovered-codepoints')
+		expect(d.message).toMatch(/\+2 more/)
+		expect(d.message.match(/U\+[0-9A-F]{4}/g)).toHaveLength(8)
+		// Printed in the same ascending order the API reports, so the two agree.
+		expect(d.message).toContain('U+2011 U+3042 U+3044 U+3046 U+4E00 U+4E8C U+65E5 U+6708')
 	})
 
 	test('the export pass warns once, naming the face and the code point', async () => {

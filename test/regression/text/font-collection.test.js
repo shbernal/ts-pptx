@@ -308,6 +308,84 @@ describe('a malformed collection is refused, not read into garbage', () => {
 		expect(err.code).toBe('font/collection-face-not-found')
 		expect(err.message).toContain('(unnamed)')
 	})
+
+	test('a member whose directory offset points past the end of the file', () => {
+		// The offset table is well-formed and its entry is read; the directory it names is
+		// not there. Distinct from the two cases above, which corrupt a directory that the
+		// file does at least contain.
+		const bytes = corrupt((dv, raw) => dv.setUint32(12, raw.byteLength - 4))
+		expect(() => listFontFaces(bytes)).toThrow(/Font table directory at \d+ is truncated/)
+	})
+
+	test('a buffer too short to hold even a tag is not a collection', () => {
+		// `isFontCollection` is the first thing a caller reaches, on bytes from anywhere.
+		// Reading four bytes out of three must answer false, not read past the end.
+		expect(isFontCollection(new Uint8Array([0x74, 0x74, 0x63]))).toBe(false)
+		expect(isFontCollection(new Uint8Array(0))).toBe(false)
+	})
+
+	// --- one bad `name` record, the rest of the table still good ---------------------
+	//
+	// The cases above break the whole table. These break a single record, which is the
+	// harder shape: `readNames` must drop that one field and keep the others, because a
+	// face is still measurable — and still selectable by its other names — without it.
+
+	/** Offset of member 0's `name` table inside `TTC`, and its declared length. */
+	function nameTable(bytes) {
+		const dv = new DataView(bytes.buffer)
+		const dirOff = dv.getUint32(12)
+		const numTables = dv.getUint16(dirOff + 4)
+		for (let i = 0; i < numTables; i++) {
+			const rec = dirOff + 12 + i * 16
+			if (String.fromCharCode(...bytes.subarray(rec, rec + 4)) === 'name')
+				return { base: dv.getUint32(rec + 8), length: dv.getUint32(rec + 12) }
+		}
+		throw new Error('member 0 has no name table')
+	}
+
+	/** Offset of the record for `nameID` within member 0's `name` table. */
+	function nameRecord(bytes, nameID) {
+		const { base } = nameTable(bytes)
+		const dv = new DataView(bytes.buffer)
+		const count = dv.getUint16(base + 2)
+		for (let i = 0; i < count; i++) {
+			const rec = base + 6 + i * 12
+			if (dv.getUint16(rec + 6) === nameID) return rec
+		}
+		throw new Error(`member 0 has no name record ${nameID}`)
+	}
+
+	test('a record whose string runs past the end of the file drops that field only', () => {
+		// Silkscreen carries exactly one record per name ID, so pointing the family's
+		// string outside the file is enough to lose it. The face keeps its index and its
+		// other names, and stays selectable by the PostScript name.
+		const FAMILY = 1
+		const bytes = corrupt((dv, raw) => dv.setUint16(nameRecord(raw, FAMILY) + 10, 0xffff))
+		const face = listFontFaces(bytes)[0]
+		expect(face.family).toBeUndefined()
+		expect(face.postScriptName).toBe('Silkscreen-Regular')
+		expect(listFontFaces(TTC)[0].family).toBe('Silkscreen') // the field is there to lose
+	})
+
+	test('a record on an unrecognized platform is still read', async () => {
+		// Platform 2 (ISO) is deprecated and ranks below every platform this reader knows,
+		// but it is the only record for its ID here, so it is what the family name comes
+		// from. Ignoring an unknown platform outright would silently unname the face.
+		const FAMILY = 1
+		const bytes = corrupt((dv, raw) => dv.setUint16(nameRecord(raw, FAMILY), 2))
+		expect(listFontFaces(bytes)[0].family).toBe('Silkscreen')
+		expect((await parseFontMetrics(bytes, { font: 'Silkscreen' })).unitsPerEm).toBe(1000)
+	})
+
+	test('a record count larger than the file stops at the end, not past it', () => {
+		// The declared table length still fits, so the early bail-out does not catch this:
+		// only the per-record bounds check stands between the walk and the end of the file.
+		const bytes = corrupt((dv, raw) => dv.setUint16(nameTable(raw).base + 2, 0xffff))
+		const faces = listFontFaces(bytes)
+		expect(faces).toHaveLength(2)
+		// Member 1's own table is untouched, so it reads exactly as before.
+		expect(faces[1]).toMatchObject({ family: 'Silkscreen', postScriptName: 'Silkscreen-Bold' })
+	})
 })
 
 describe('pptx.registerFontMetrics accepts a collection', () => {
@@ -336,6 +414,23 @@ describe('pptx.registerFontMetrics accepts a collection', () => {
 		const pptx = new TsPptx()
 		await pptx.registerFontMetrics('Anything At All', REG_BYTES)
 		expect(pptx.measureText('W', { wIn: 4, fontSize: 18, fontFace: 'Anything At All' }).measurable).toBe(true)
+	})
+
+	test('a raw ArrayBuffer registers like the Uint8Array view over it', async () => {
+		// The documented third source shape, and the one a browser caller has after
+		// `await response.arrayBuffer()`. Same bytes, so the same advances.
+		const buffer = new ArrayBuffer(TTC.byteLength)
+		new Uint8Array(buffer).set(TTC)
+		expect(buffer).toBeInstanceOf(ArrayBuffer)
+		const fromBuffer = new TsPptx()
+		await fromBuffer.registerFontMetrics('Silkscreen', buffer)
+		const fromView = new TsPptx()
+		await fromView.registerFontMetrics('Silkscreen', TTC)
+		const opts = { wIn: 4, fontSize: 18, fontFace: 'Silkscreen' }
+		expect(fromBuffer.measureText('WWWWWWWWWW', opts).widestLineIn).toBe(
+			fromView.measureText('WWWWWWWWWW', opts).widestLineIn
+		)
+		expect(fromBuffer.measureText('WWWWWWWWWW', opts).measurable).toBe(true)
 	})
 })
 
