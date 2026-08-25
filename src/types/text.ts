@@ -13,6 +13,13 @@ import type { HyperlinkProps, ShadowProps, ShapeFillProps, ShapeLineProps } from
 export interface TextBaseProps {
 	/**
 	 * Horizontal alignment
+	 *
+	 * When a shape's text is an array of runs, set this on **every run** of a paragraph.
+	 * {@link breakLine} is not the only paragraph boundary: two adjacent runs whose `align`
+	 * differs start a new one, so stating it on the opening run alone splits the paragraph in
+	 * two. That is the mirror of {@link bullet}, {@link paraMarginLeft} and {@link paraIndent},
+	 * which are read from the opening run only. Neither mistake changes the run count — the
+	 * only symptom is a differently shaped paragraph, with no error.
 	 * @default 'left'
 	 */
 	align?: HAlign
@@ -48,6 +55,11 @@ export interface TextBaseProps {
 	 * The margins are only a *default* of the bullet state: {@link paraMarginLeft} and
 	 * {@link paraIndent} state `@marL`/`@indent` independently in any of the three, including
 	 * an inherited margin under a drawn bullet.
+	 *
+	 * When a shape's text is an array of runs, state this on the **opening run only**. A run
+	 * that draws a bullet starts a new paragraph by itself, so repeating it — the placement
+	 * that {@link align} requires — turns one three-run paragraph into three one-run
+	 * paragraphs. A paragraph takes its properties from its first run.
 	 * @default false
 	 */
 	bullet?:
@@ -210,6 +222,8 @@ export interface TextBaseProps {
 	 * @example -18 // hang the first line 18pt left of the body text
 	 * @example 18 // indent the first line 18pt, prose style
 	 * @example 'inherit' // keep the list style's indent, even on a bulleted paragraph
+	 * @remarks Read from the **opening run** of a paragraph, like {@link bullet} and unlike
+	 * {@link align}; a value on a continuation run is ignored.
 	 */
 	paraIndent?: number | 'inherit'
 	/**
@@ -225,6 +239,8 @@ export interface TextBaseProps {
 	 * - a value here overrides all of those, in every bullet state
 	 * @example 36 // body text starts 36pt (0.5in) from the frame's text edge
 	 * @example 'inherit' // keep the list style's margin, even on a bulleted paragraph
+	 * @remarks Read from the **opening run** of a paragraph, like {@link bullet} and unlike
+	 * {@link align}; a value on a continuation run is ignored.
 	 */
 	paraMarginLeft?: number | 'inherit'
 	/**
