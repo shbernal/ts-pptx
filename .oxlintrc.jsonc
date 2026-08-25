@@ -42,11 +42,15 @@
 	// the plugin was measured before being let in — enabling it with no rules named
 	// reports zero findings across this tree, so nothing else arrives with it.
 	//
-	// `vitest` is here for one rule, `no-focused-tests`. A committed `.only` narrows the
-	// whole suite to a single test and the gate still passes, which is a green CI that
-	// ran almost nothing. It and `no-disabled-tests` both report zero on this tree, so
-	// the guard was free to install; what the rest of the plugin costs is recorded in
-	// the `test/**` override below.
+	// `vitest` was let in for one rule, `no-focused-tests`. A committed `.only` narrows
+	// the whole suite to a single test and the gate still passes, which is a green CI
+	// that ran almost nothing. It and `no-disabled-tests` both report zero on this tree,
+	// so the guard was free to install.
+	//
+	// Three more of its rules are on since 2026-08-25, each configured rather than taken
+	// bare — the counts that first argued for switching them off were counts of this
+	// repo's own helpers, and every one of them has an option that names the helper. What
+	// the remainder of the plugin costs is recorded in the `test/**` override below.
 	"plugins": ["eslint", "unicorn", "typescript", "oxc", "import", "vitest"],
 	"ignorePatterns": ["coverage/**", "demos/**", "dist/**", "node_modules/**", "src/bld/**", "types/**"],
 	"categories": {
@@ -96,6 +100,12 @@
 		// what covers the same ground. They split by language, which is the point:
 		// `default` fires on TypeScript, while `named` and `namespace` deliberately skip it
 		// and fire on `.mjs`/`.js`, where `tsc` is not the gate that `src/**` gets.
+		//
+		// `named` has one known blind spot, suppressed inline at its single site: it cannot
+		// follow a re-export through a CJS shim (`@playwright/test`, whose entry is
+		// `module.exports = require('playwright/test')`) and calls an exported name missing.
+		// One site is worth the suppression. If a second and third arrive, the rule is not
+		// earning its noise in the JS lane and should come off with that recorded here.
 		//
 		// An import of a package that does not exist at all is *not* caught here; it
 		// surfaces as `no-unsafe-*` on an error-typed value from tsgolint, which is enough.
@@ -203,6 +213,21 @@
 		// wants a diagnostic code or a thrown error instead.
 		"eslint/no-console": "error",
 
+		// --- type-aware rules measured and turned down, so they are not re-measured ---
+		// Both checked 2026-08-25 against oxlint 1.79.0 / oxlint-tsgolint 7.0.2001.
+		//
+		// `typescript/no-unnecessary-condition` reports 163 on `src/**`. It has the same
+		// character as the `pedantic` sweep the header turns down: a house style about how
+		// defensively to write a guard, not a set of latent bugs. Turning it on would mean
+		// deleting 163 checks on the linter's word that the types make them impossible —
+		// in a package whose whole job is parsing files other tools wrote.
+		//
+		// `no-unnecessary-boolean-literal-compare`, `no-unnecessary-template-expression`,
+		// `no-misused-spread`, `no-array-delete` and `promise-function-async` each report
+		// zero or one. Not turned on, because at those counts they are neither a gate nor
+		// a cost and naming them only adds a line to keep true; recorded so the next
+		// sweep can skip them rather than re-run them.
+
 		// --- rules intentionally relaxed for this codebase ---
 		// Several async methods exist only to satisfy a uniform Promise-returning
 		// contract (runtime adapters, zip/opc save, excel worksheet) even when a given
@@ -309,41 +334,61 @@
 				"typescript/restrict-template-expressions": "off",
 				"typescript/unbound-method": "off",
 
-				// The vitest plugin is on for `no-focused-tests` (see `plugins`). The rest of
-				// its correctness set does not fit how this repo writes tests, and the counts
-				// are why (2026-08-25, oxlint 1.79.0).
+				// Three vitest rules that were first measured bare, judged by their counts, and
+				// switched off. Re-measured on 2026-08-25 with their options set, which is what
+				// the counts were really asking for: every one of them was describing a helper
+				// this repo wrote, and every one of them takes an option that names it. All
+				// three report zero configured this way, so what was silence is now a live gate.
+				// Counts below are bare-then-configured (oxlint 1.79.0).
 				//
-				// `expect-expect` (447) is the whole regression tier. `defineRegressionSuite`
-				// drives a table of `{ name, fn }` cases, and the cases assert through this
-				// repo's own `assert` and `assertIncludes` helpers. The rule sees a test body
-				// containing no `expect` and reports a test with no assertions; it is
-				// describing the helper, not the test.
+				// `expect-expect` (447 -> 0). The whole regression tier asserts through
+				// `assert`/`assertIncludes` rather than `expect`, so the rule saw a test body
+				// with no `expect` in it and called the test assertion-free. It was describing
+				// the helper. The list is what actually asserts here, and each entry is a
+				// category rather than a one-off site:
+				//   `expect*`   — `expect` plus `expectKind`, which wraps it.
+				//   `assert*`   — the `assert`/`assertEqual`/`assertXmlOrder`… family in
+				//                 `test/helpers.js`. `throws` is deliberately *not* listed: it
+				//                 returns a boolean instead of throwing, so it is only ever an
+				//                 argument to `assert` and listing it would sanction a bare
+				//                 `throws(…)` statement that asserts nothing.
+				//   `near`      — the tolerance comparison in the import-shape/import-slide
+				//                 suites; a local arrow, but it wraps `assert`.
+				//   `ctx.skip`  — a test that skips itself has nothing left to assert. That is
+				//                 a shape, not an omission.
+				//   `fixture.fn`— the same driver indirection `no-standalone-expect` needs
+				//                 below: the assertions are in the case object, one call away.
 				//
-				// `no-conditional-expect` (17), `valid-title` (7), `no-conditional-tests` (2)
-				// and `warn-todo` (1) are the oracle tests, which branch on what a fixture
-				// supports and build titles out of fixture data.
-				"vitest/expect-expect": "off",
+				// `no-standalone-expect` (6 -> 0) could not see through `defineRegressionSuite`
+				// — the expects sit in a case object's `fn` and the `it()` wrapping them is
+				// created by the driver a file away. `additionalTestBlockFunctions` is the
+				// supported way to tell it about a driver. Checked against a planted
+				// `expect()` at module scope, which still reports.
+				//
+				// `valid-expect` (5 -> 0) rejects `expect(value, message)` unless the message
+				// is a string or template *literal*; all five sites build the message from
+				// fixture data. Not oxlint's own opinion: it is a faithful port of
+				// eslint-plugin-vitest, whose source carries the comment "2nd argument should
+				// be string, not a variable in current implementation" next to the same check
+				// (and `oxc#18851` -> `oxc#18975` is where the literal case was allowed).
+				// `maxArgs: 2` is that plugin's own documented escape hatch. It keeps
+				// everything else the rule does: three arguments, a matcher never called and
+				// an unawaited async assertion all still report, checked by planting each.
+				"vitest/expect-expect": [
+					"error",
+					{ "assertFunctionNames": ["expect*", "assert*", "near", "ctx.skip", "fixture.fn"] },
+				],
+				"vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["defineRegressionSuite"] }],
+				"vitest/valid-expect": ["error", { "maxArgs": 2 }],
+
+				// The four that stay off. These are the oracle tests, which branch on what a
+				// fixture supports and build their titles out of fixture data — a shape no
+				// option reaches, unlike the four above. `no-conditional-expect` (17),
+				// `valid-title` (7), `no-conditional-tests` (2), `warn-todo` (1).
 				"vitest/no-conditional-expect": "off",
 				"vitest/valid-title": "off",
 				"vitest/no-conditional-tests": "off",
 				"vitest/warn-todo": "off",
-
-				// Both of these report only false positives on this tree, and for reasons
-				// that are structural rather than incidental — checked at every site, not
-				// inferred from the counts.
-				//
-				// `no-standalone-expect` (6, all in `chart-input-immutability`) cannot see
-				// through `defineRegressionSuite`: the expects sit in a case object's `fn`,
-				// and the `it()` wrapping them is created by the driver a file away. Any
-				// regression case reaching for `expect` instead of the `assert` helpers
-				// would report the same, so the count tracks a style, not a risk.
-				//
-				// `valid-expect` (5) enforces *Jest's* arity — "Expect takes at most 1
-				// argument" is the giveaway. Vitest's `expect(value, message)` takes a
-				// failure message as its second argument, all five sites use it, and the
-				// message does surface on failure (checked by running one). Raised upstream.
-				"vitest/no-standalone-expect": "off",
-				"vitest/valid-expect": "off",
 			},
 		},
 		{
