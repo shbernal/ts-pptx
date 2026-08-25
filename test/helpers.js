@@ -148,6 +148,17 @@ function defineRegressionSuite(suiteName, cases) {
 			/** @type {any} */
 			let define = fixture.concurrent ? test.concurrent : test
 			if (fixture.fails) define = define.fails
+			// `vitest/no-focused-tests` guards the literal `it.only`, and cannot see this one:
+			// a case committed with `only: true` narrows the suite exactly the way a literal
+			// would, through a property the linter has no way to follow into the driver. Same
+			// failure the lint guard was installed for — a green CI that ran almost nothing —
+			// so the driver closes it itself. Local runs keep the focus; CI refuses it.
+			if (fixture.only && process.env.CI)
+				throw new Error(
+					`defineRegressionSuite(${JSON.stringify(suiteName)}, …): case ${JSON.stringify(fixture.name)} ` +
+						'is marked `only: true`, which would narrow this suite to one case and still pass. ' +
+						'Drop the marker before committing — it is a local-only tool.'
+				)
 			if (fixture.only) define = define.only
 			else if (fixture.skip) define = define.skip
 			else if (fixture.skipIf !== undefined) define = define.skipIf(fixture.skipIf)
