@@ -497,6 +497,22 @@ export function asChartType(name: CHART_NAME): ChartType {
 	return name as ChartType
 }
 
+/** Every {@link ChartType} value, for validating a caller-supplied `type` at the API boundary. */
+const CHART_TYPES: ReadonlySet<string> = new Set<string>(Object.values(ChartType))
+
+/**
+ * Is `name` a chart type this library emits?
+ *
+ * `CHART_NAME` constrains TypeScript callers, but `addChart` is reachable from plain JavaScript
+ * where nothing enforces the union — and the two emitters partition the catalog between them by
+ * `switch`, so an off-catalog string has no arm in either and cannot produce a plot. Checked once
+ * at define time (`gen/define/chart.ts`) so the caller hears about it at the call that was wrong,
+ * rather than getting a chart-shaped hole in the deck.
+ */
+export function isChartType(name: unknown): name is CHART_NAME {
+	return typeof name === 'string' && CHART_TYPES.has(name)
+}
+
 /**
  * The chartEx (`cx:` / Office 2016 chart-extension) chart types. Unlike the classic 2007 catalog
  * these do NOT emit a `<c:chartSpace>` chart part: they emit a separate `chartEx{N}.xml` part in

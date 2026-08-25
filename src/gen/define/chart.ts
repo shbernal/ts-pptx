@@ -5,9 +5,18 @@
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range
  * clamps. The chart *XML* is emitted later by `gen/chart/chart-xml.ts`.
  */
-import { asChartType, type CHART_NAME, ChartType, isChartExType, SchemeColor, SlideObjectType } from '../../enums.js'
+import {
+	asChartType,
+	type CHART_NAME,
+	ChartType,
+	isChartExType,
+	isChartType,
+	SchemeColor,
+	SlideObjectType,
+} from '../../enums.js'
 import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
+import { InvalidOptionError } from '../../errors.js'
 import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
@@ -485,6 +494,19 @@ export function addChartDefinition(
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
+	// The `type` is checked against the catalog here, at the boundary, because neither emitter can:
+	// `makeChartType` and `chartExLayoutId` each own half of `ChartType` and treat the other half as
+	// not theirs, so an off-catalog string matches no arm anywhere and would otherwise reach the deck
+	// as a chart frame with no plot inside it.
+	for (const name of tmpTypes ? tmpTypes.map((sub) => sub.type) : [type as CHART_NAME]) {
+		if (!isChartType(name)) {
+			throw new InvalidOptionError(
+				'chart/unknown-type',
+				`addChart: "${String(name)}" is not a chart type. Valid types are: ${Object.values(ChartType).join(', ')}.`,
+				{ detail: { type: name } }
+			)
+		}
+	}
 	options._type = tmpTypes ?? asChartType(type as CHART_NAME)
 	options.x = typeof options.x !== 'undefined' && options.x != null && !isNaN(Number(options.x)) ? options.x : 1
 	options.y = typeof options.y !== 'undefined' && options.y != null && !isNaN(Number(options.y)) ? options.y : 1

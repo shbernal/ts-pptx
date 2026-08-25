@@ -14,7 +14,7 @@
  */
 
 import { warn } from './diagnostics.js'
-import { InternalError, InvalidOptionError } from './errors.js'
+import { InternalError, InvalidOptionError, UnsupportedFeatureError } from './errors.js'
 import SlideBuilder from './slide.js'
 import { SlideObjectType } from './enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './constants-internal.js'
@@ -553,11 +553,25 @@ export default class PresentationCore {
 
 			// Charts: serialize the chart part XML + its embedded workbook bytes. The
 			// chart part's own .rels (workbook reference) is rebuilt on injection.
-			const charts = (slide._relsChart || []).map((rel) => ({
-				rId: rel.rId,
-				chartXml: makeXmlCharts(rel),
-				embeddingBytes: buildEmbeddedWorksheet(rel),
-			}))
+			const charts = (slide._relsChart || []).map((rel) => {
+				// chartEx charts are a different part (`makeXmlChartEx`), a different content type, and
+				// need the style/colors sidecars `appendSlides` has no slot for — so this bridge cannot
+				// carry one. It used to build them as classic charts, which produced a `<c:chartSpace>`
+				// with axes and no plot behind a slide that still pointed at it through
+				// `<mc:AlternateContent><cx:chart>`: a silently broken deck. Refuse instead.
+				if (rel.isChartEx) {
+					throw new UnsupportedFeatureError(
+						'chart/chartex-not-extractable',
+						`extractSlides: the "${String(rel.opts._type)}" chart on slide ${slide._slideNum} is a chartEx (Office 2016) chart, which cannot be carried through extractSlides/appendSlides yet. Use a classic chart type, or build the deck with write() instead.`,
+						{ detail: { chartType: rel.opts._type, slideNumber: slide._slideNum } }
+					)
+				}
+				return {
+					rId: rel.rId,
+					chartXml: makeXmlCharts(rel),
+					embeddingBytes: buildEmbeddedWorksheet(rel),
+				}
+			})
 
 			// Speaker notes. makeXmlNotesSlide calls buildNotesSlideRels itself (and caches
 			// on the slide), so the rels are read back afterwards rather than rebuilt — the

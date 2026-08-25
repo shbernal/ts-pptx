@@ -410,6 +410,24 @@ describe('Presentation.appendSlides', () => {
 		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a mismatched slide size throws')
 	})
 
+	test('refuses a chartEx chart rather than appending it as an empty classic chart', async () => {
+		// chartEx (Office 2016: waterfall, funnel, treemap, ...) is a different part in a different
+		// namespace, with required style/colors sidecars this bridge has no slot for. It used to be
+		// serialized by the classic builder, which has no arm for those types: the deck got a
+		// `<c:chartSpace>` with axes and no plot, behind a slide still pointing at it through
+		// `<mc:AlternateContent><cx:chart>`. Refusing is the honest answer until it is carried.
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		pptx.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+			type: ChartType.waterfall,
+			x: 1,
+			y: 1,
+			w: 6,
+			h: 3,
+		})
+		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a chartEx chart is refused, not mangled')
+	})
+
 	test('appends a slide with a chart, injecting chart + workbook parts and keeping chrome byte-identical', async () => {
 		const originalBytes = await readFile(fixturePath('theme-colors'))
 		const before = await partBodies(originalBytes)

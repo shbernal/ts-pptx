@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This release includes a breaking cleanup to the in-memory byte export API, speaker notes on
 both read-model paths that lacked them (authoring onto a loaded deck, and the batch import),
-plus repository and project-site changes.
+a chart type that is now refused rather than emitted as a chart with nothing in it, plus
+repository and project-site changes.
 
 ### Added
+
+- **`isChartType` narrows a string to the chart catalog.** The companion to `isChartExType`,
+  which reported only which *half* of the catalog a type belongs to and answered `false` for
+  a string that is in neither. Useful for validating a chart type that arrives as data — from
+  a config file, a spreadsheet column, a CLI flag — before it reaches `addChart`, which now
+  throws on one it does not recognise (see *Changed*).
 
 - **`importSlides` carries speaker notes, per request.** `ImportSlidesRequest` gains
   `importNotes?: boolean`, the batch spelling of the option `importSlide` has had all
@@ -72,6 +79,19 @@ plus repository and project-site changes.
 
 ### Fixed
 
+- **A chartEx chart appended onto a loaded deck arrived empty.** `Presentation.extractSlides()`
+  — the bridge `ts-pptx/read`'s `appendSlides` serializes generated slides through — built every
+  chart with the classic `<c:chartSpace>` builder, which has no arm for the Office-2016 family
+  (`waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`, `pareto`, `boxWhisker`,
+  `regionMap`). A waterfall came out as a 2.6 kB chart part with axes and no plot element at
+  all, registered under the classic content type, behind a slide still pointing at it through
+  `<mc:AlternateContent><cx:chart>` — a chart-shaped hole PowerPoint opens and shows empty.
+  Carrying one properly needs the chartEx content type, its rel, and the style/colors sidecar
+  parts that `appendSlides` has no slot for, so until that lands `extractSlides` throws
+  `UnsupportedFeatureError` (`chart/chartex-not-extractable`) naming the chart and its slide.
+  `write()` was never affected: it routes on `isChartExType` and always has. Classic charts
+  through `appendSlides` are unchanged, byte for byte.
+
 - **The read reference documented three of `ImportSlideOptions`' seven fields.**
   `importNotes`, `rescale`, `remapLiterals`, and `embedFonts` were absent from
   `docs/reference/pptx-read.md` — `importNotes` appeared nowhere in `docs/` at all — so the
@@ -86,6 +106,19 @@ plus repository and project-site changes.
   what notes do there rather than saying only that they are dropped.
 
 ### Changed
+
+- **A chart type outside the catalog is refused at `addChart` instead of emitting a chart with
+  no plot.** `addChart(data, { type })` took the type on trust: the `CHART_NAME` union
+  constrains TypeScript callers, but nothing enforced it for JavaScript ones, and the two chart
+  emitters partition `ChartType` between them and each treats the other's members as not its
+  own — so an off-catalog string matched no arm anywhere and fell through to an empty-string
+  default. `addChart(data, { type: 'nonsence' })` was *accepted*, and the typo arrived in the
+  deck as a chart frame with axes and nothing inside it. Both the single-type form and every
+  `ChartMulti` entry of a combo are now checked against the catalog, throwing
+  `InvalidOptionError` (`chart/unknown-type`) naming the valid types. The two emitters no longer
+  have a silent default at all: reaching one with a type the other owns throws `InternalError`
+  (`chart/type-not-routed`), which no public input can now produce. Every catalog type builds
+  exactly the bytes it did before.
 
 - **`toBytes()` replaces `stream()`.** The old method did not stream: it assembled the
   complete archive, then copied fflate's `Uint8Array` into a Node `Buffer`. It therefore

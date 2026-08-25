@@ -408,9 +408,31 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				break
 			}
 
-			default:
-				strSlideXml += ''
+			// The four `SlideObjectType` members that are not slide shapes, spelled out so adding a
+			// member to the enum fails to compile here rather than silently emitting nothing.
+			case SlideObjectType.notes:
+				// Speaker notes live in `_slideObjects` but belong to the notes part, which
+				// `gen/slide/notes.ts` builds from the same entry. Emitting nothing here is
+				// load-bearing, not a gap.
 				break
+			case SlideObjectType.tablecell:
+				// Rendered by its owning table, through `renderTableObject` above.
+				break
+			case SlideObjectType.hyperlink:
+				// A relationship type, not a shape — it reaches the shape tree only as the `a:hlinkClick`
+				// carried by whatever shape owns the link.
+				break
+			case SlideObjectType.online:
+				// Unused anywhere in `src/`; online video is `SlideObjectType.media` with `mtype: 'online'`.
+				break
+			default: {
+				// Compile-time only: with every member routed above, this arm's type is `never`, so a new
+				// `SlideObjectType` fails to typecheck here until it is either rendered or listed as one
+				// of the non-shape members. Nothing is emitted, which is what the old bare default did.
+				const unrouted: never = slideItemObj._type
+				void unrouted
+				break
+			}
 		}
 		return strSlideXml
 	}

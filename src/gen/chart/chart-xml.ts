@@ -42,7 +42,7 @@ import { makeBubblePlot } from './plot-bubble.js'
 import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
-import { InvalidOptionError } from '../../errors.js'
+import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /**
  * Whether a chart-area/plot-area `fill` says anything the fill dispatch can act on.
@@ -582,6 +582,15 @@ function makeChartType(
 		case ChartType.pie:
 			return makePiePlot(chartType, data, opts, valFmtCode)
 		default:
-			return ''
+			// The unmatched members are exactly the chartEx catalog (`CHARTEX_TYPES` in `enums.ts`),
+			// which `chartExLayoutId` in `./chartex-xml` owns; callers pick between the two builders
+			// with `isChartExType`, so arriving here means the chart was routed to the wrong emitter.
+			// Returning `''` here used to hide that: it emitted a `<c:plotArea>` with axes and no plot
+			// at all, i.e. a chart-shaped hole PowerPoint opens and shows empty.
+			throw new InternalError(
+				'chart/type-not-routed',
+				`makeChartType: "${String(chartType)}" is a chartEx chart type and has no <c:...Chart> plot; it must be built by makeXmlChartEx`,
+				{ detail: { chartType } }
+			)
 	}
 }

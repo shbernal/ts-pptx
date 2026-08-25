@@ -163,6 +163,7 @@ export type InvalidOptionErrorCode =
 	| 'geometry/arc-angle-non-finite'
 	// Charts
 	| 'chart/missing-type'
+	| 'chart/unknown-type'
 	| 'chart/secondary-axis-unused'
 	| 'chart/axis-count-mismatch'
 	// Shapes and connectors
@@ -304,6 +305,8 @@ export type UnsupportedFeatureErrorCode =
 	| 'shape/line-unsupported'
 	| 'shape/shape-properties-unsupported'
 	| 'shape/no-text-frame'
+	// Shapes the extract/append bridge cannot carry between a generated deck and a read one
+	| 'chart/chartex-not-extractable'
 	// Optional dependencies that were not installed or did not load
 	| 'math/missing-optional-peer'
 	| 'font/opentype-unavailable'
@@ -375,6 +378,10 @@ export type InternalErrorCode =
 	// open — and one the read model reports as two slides. Caught at the insert.
 	| 'slide/part-already-in-deck'
 	| 'import/part-went-missing'
+	// A chart emitter was handed a `ChartType` the *other* emitter owns. The classic and
+	// chartEx builders partition `ChartType` between them and the caller picks by
+	// `isChartExType`, so reaching either one off-catalog is a routing bug, not bad input.
+	| 'chart/type-not-routed'
 	| 'animation/timing-scaffold-failed'
 	// A DOM node the read model was handed is detached. Reachable in principle through the
 	// documented `part.dom` / `element_` escape hatch, but never from the library's own paths.

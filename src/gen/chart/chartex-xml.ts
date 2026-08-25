@@ -18,6 +18,7 @@
  */
 
 import { ChartType } from '../../enums.js'
+import { InternalError } from '../../errors.js'
 import { DEF_FONT_COLOR, XML_DECL } from '../../constants-internal.js'
 import type { ChartExBinning, ChartExGeography, ChartExStatistics } from '../../types/chart.js'
 import type { SlideRelChart } from '../../types/internal.js'
@@ -52,7 +53,15 @@ function chartExLayoutId(type: ChartType): string {
 		case ChartType.regionMap:
 			return 'regionMap'
 		default:
-			return ''
+			// The unmatched members are the classic 2007 catalog — owned by `makeChartType` in
+			// `./chart-xml` — plus `pareto`, which is multi-series and is diverted to `makeParetoSeries`
+			// before any single layoutId is asked for. Both are unreachable through `isChartExType`
+			// routing; `''` here used to emit `<cx:series layoutId="">`, which PowerPoint cannot render.
+			throw new InternalError(
+				'chart/type-not-routed',
+				`chartExLayoutId: "${String(type)}" has no <cx:series> layoutId — classic chart types belong to makeXmlCharts, and pareto is built by makeParetoSeries`,
+				{ detail: { chartType: type } }
+			)
 	}
 }
 

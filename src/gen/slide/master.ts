@@ -133,7 +133,9 @@ function masterAlignAttr(align: MasterTextStyleLevel['align']): string {
 			return 'ctr'
 		case 'justify':
 			return 'just'
-		default:
+		case undefined:
+			// The only unmatched member: no `align` on the level. `''` omits `@algn` entirely so the
+			// level inherits from the theme, which is NOT the same as pinning it to `l`.
 			return ''
 	}
 }
