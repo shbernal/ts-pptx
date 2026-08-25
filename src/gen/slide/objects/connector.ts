@@ -11,6 +11,7 @@ import { warn } from '../../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
 import { cNvPrOpen, genXmlShapeLine } from './shared.js'
+import type { ObjectOptions } from '../../../types/index.js'
 
 /**
  * Render a `connector` slide object to its `<p:cxnSp>` XML (start/end shape bindings via shapeIds).
@@ -23,16 +24,18 @@ export function renderConnectorObject(
 	cx: number,
 	cy: number,
 	locationAttrs: XmlAttrs,
-	shapeIds: Map<SlideObject, number>
+	shapeIds: Map<SlideObject, number>,
+	itemOpts: ObjectOptions
 ): string {
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	let strSlideXml = ''
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
 	// A connector is emitted as <p:cxnSp> (a connector shape) rather than <p:sp>, so
 	// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
 	// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
 	strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
-	strSlideXml += cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'
+	strSlideXml += cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'
 	{
 		// Shape binding: resolve each bound target's objectName to its cNvPr id and emit
 		// <a:stCxn>/<a:endCxn> in schema order. Resolution goes through `shapeIds`, so a shape
@@ -52,7 +55,7 @@ export function renderConnectorObject(
 			}
 			return `<${tag} id="${id}" idx="${binding.idx}"/>`
 		}
-		const cxnSpPr = cxnTag(slideItemObj.options._startCxn, 'a:stCxn') + cxnTag(slideItemObj.options._endCxn, 'a:endCxn')
+		const cxnSpPr = cxnTag(itemOpts._startCxn, 'a:stCxn') + cxnTag(itemOpts._endCxn, 'a:endCxn')
 		strSlideXml += cxnSpPr ? `<p:cNvCxnSpPr>${cxnSpPr}</p:cNvCxnSpPr>` : '<p:cNvCxnSpPr/>'
 	}
 	strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
@@ -60,11 +63,11 @@ export function renderConnectorObject(
 	{
 		// Bent/curved connectors carry adjustable jogs as `<a:gd name="adjN" fmla="val …"/>`
 		// (1000ths-of-a-percent). With none, the empty `<a:avLst/>` leaves the preset default (50%).
-		const adj = slideItemObj.options._connectorAdj || []
+		const adj = itemOpts._connectorAdj || []
 		const avLst = adj.map((val, i) => voidEl('a:gd', { name: `adj${i + 1}`, fmla: `val ${val}` })).join('')
 		strSlideXml += el('a:prstGeom', { prst: slideItemObj.shape }, raw(el('a:avLst', null, raw(avLst))))
 	}
-	strSlideXml += genXmlShapeLine(slideItemObj.options.line || {})
+	strSlideXml += genXmlShapeLine(itemOpts.line || {})
 	strSlideXml += '</p:spPr></p:cxnSp>'
 	return strSlideXml
 }

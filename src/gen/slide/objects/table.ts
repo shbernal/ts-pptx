@@ -105,8 +105,9 @@ export function renderTableObject(
 	placeholderObj: SlideObject | null,
 	itemOpts: ObjectOptions
 ): string {
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	let strXml: string
 	let arrTabRows: TableCell[][] = []
 	let objTabOpts: ObjectOptions = {}
@@ -116,7 +117,7 @@ export function renderTableObject(
 	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
 	arrTabRows = (slideItemObj.arrTabRows ?? []).map((row) => [...row])
-	objTabOpts = slideItemObj.options
+	objTabOpts = itemOpts
 	intColCnt = 0
 
 	// Calc number of columns
@@ -135,9 +136,7 @@ export function renderTableObject(
 	// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
 	// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
 	strXml =
-		'<p:graphicFrame><p:nvGraphicFramePr>' +
-		cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') +
-		'/>'
+		'<p:graphicFrame><p:nvGraphicFramePr>' + cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'
 	strXml +=
 		el(
 			'p:cNvGraphicFramePr',
@@ -146,8 +145,8 @@ export function renderTableObject(
 				genXmlObjectLock(
 					'a:graphicFrameLocks',
 					GRAPHIC_FRAME_LOCK_ATTRS,
-					{ noGrp: true, ...slideItemObj.options.objectLock },
-					slideItemObj.options.objectName
+					{ noGrp: true, ...itemOpts.objectLock },
+					itemOpts.objectName
 				)
 			)
 		) +

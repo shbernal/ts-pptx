@@ -39,11 +39,13 @@ export function renderImageObject(
 	placeholderObj: SlideObject | null,
 	locationAttrs: XmlAttrs,
 	sizing: ObjectOptions['sizing'],
-	rounding: ObjectOptions['rounding']
+	rounding: ObjectOptions['rounding'],
+	itemOpts: ObjectOptions
 ): string {
 	let strSlideXml = ''
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	// The media bytes this picture points at. Not available synchronously in `addImage()`, but
 	// populated by now — which is why every question that needs the image itself (its natural
 	// size, whether it is a vector) is answered here rather than at definition time.
@@ -53,8 +55,8 @@ export function renderImageObject(
 		typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
 	// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
 	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
-	if (slideItemObj.options._szAuto) {
-		const szAuto = slideItemObj.options._szAuto
+	if (itemOpts._szAuto) {
+		const szAuto = itemOpts._szAuto
 		const natural = naturalSize()
 		if (natural) {
 			if (szAuto.w && szAuto.h) {
@@ -71,7 +73,7 @@ export function renderImageObject(
 			imgHeight = cy
 		}
 	}
-	const imgOpts = slideItemObj.options
+	const imgOpts = itemOpts
 	const imgLink = slideItemObj.hyperlink
 	strSlideXml += '<p:pic>'
 	strSlideXml += '  <p:nvPicPr>'
@@ -166,16 +168,16 @@ export function renderImageObject(
 	} else {
 		strSlideXml += el('a:blip', { 'r:embed': `rId${slideItemObj.imageRid}` }, blipEffects(''))
 	}
-	if (slideItemObj.options.crop) {
+	if (itemOpts.crop) {
 		// Explicit OOXML srcRect (percentage edge insets), emitted verbatim. Crops the source
 		// directly, so it wins over the inch-based `sizing` crop and works for SVG/unmeasurable
 		// formats; the picture's normal w/h box stays the display extent.
 		if (sizing?.type)
 			warn(
 				'image/crop-and-sizing-conflict',
-				`addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`
+				`addImage 'crop' and 'sizing' are mutually exclusive for image "${itemOpts.objectName}"; 'sizing' was ignored.`
 			)
-		strSlideXml += genXmlImageCrop(slideItemObj.options.crop, slideItemObj.options.objectName)
+		strSlideXml += genXmlImageCrop(itemOpts.crop, itemOpts.objectName)
 	} else if (sizing?.type) {
 		const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : cx
 		const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : cy
@@ -194,7 +196,7 @@ export function renderImageObject(
 			} else {
 				warn(
 					'image/unmeasurable-natural-size',
-					`sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
+					`sizing '${sizing.type}' could not measure natural dimensions for image "${itemOpts.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
 				)
 			}
 		}
@@ -223,25 +225,19 @@ export function renderImageObject(
 	)
 	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
 	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
-	if (slideItemObj.options.points) {
-		strSlideXml += ' ' + genXmlCustGeom(slideItemObj.options, imgWidth, imgHeight, slide._presLayout)
+	if (itemOpts.points) {
+		strSlideXml += ' ' + genXmlCustGeom(itemOpts, imgWidth, imgHeight, slide._presLayout)
 	} else {
 		strSlideXml +=
-			' ' +
-			genXmlPresetGeom(
-				slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'),
-				slideItemObj.options,
-				imgWidth,
-				imgHeight
-			)
+			' ' + genXmlPresetGeom(itemOpts.shape ?? (rounding ? 'ellipse' : 'rect'), itemOpts, imgWidth, imgHeight)
 	}
 
 	// BORDER: `<a:ln>` outline (must precede `<a:effectLst>` per CT_ShapeProperties order)
-	if (slideItemObj.options.line) strSlideXml += genXmlShapeLine(slideItemObj.options.line)
+	if (itemOpts.line) strSlideXml += genXmlShapeLine(itemOpts.line)
 
 	// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-	if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-		strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
+	if (itemOpts.shadow && itemOpts.shadow.type !== 'none') {
+		strSlideXml += createShadowEffectLst(itemOpts.shadow, DEF_TEXT_SHADOW)
 	}
 	strSlideXml += '</p:spPr>'
 	strSlideXml += '</p:pic>'

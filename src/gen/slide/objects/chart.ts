@@ -40,13 +40,14 @@ export function renderChartObject(
 	y: number,
 	cx: number,
 	cy: number,
-	placeholderObj: SlideObject | null
+	placeholderObj: SlideObject | null,
+	itemOpts: ObjectOptions
 ): string {
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
-	const opts = slideItemObj.options
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	// A chart's options are really `ChartOptsInternal`; `_type` is not on the broad `ObjectOptions`.
-	const chartType = (opts as { _type?: ChartType })._type
+	const chartType = (itemOpts as { _type?: ChartType })._type
 	const isChartEx = isChartExType(chartType)
 
 	const graphicDataUri = isChartEx ? OOXML_NS.cx : OOXML_NS.c
@@ -60,7 +61,7 @@ export function renderChartObject(
 				'p:nvGraphicFramePr',
 				null,
 				[
-					raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '', '   ') + '/>'),
+					raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
 					raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
 					raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
 				],
@@ -88,7 +89,7 @@ export function renderChartObject(
 		{ [`xmlns:${feature?.prefix ?? 'cx1'}`]: feature?.uri, Requires: feature?.prefix ?? 'cx1' },
 		raw(graphicFrame)
 	)
-	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(idx, opts, x, y, cx, cy)))
+	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(idx, itemOpts, x, y, cx, cy)))
 	return el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [raw(choice), raw(fallback)])
 }
 
@@ -98,11 +99,18 @@ export function renderChartObject(
  * position carrying a short explanatory note — enough that the slide reads sensibly rather than
  * showing a void where the chart would be.
  */
-function renderChartExFallback(idx: number, opts: ObjectOptions, x: number, y: number, cx: number, cy: number): string {
+function renderChartExFallback(
+	idx: number,
+	itemOpts: ObjectOptions,
+	x: number,
+	y: number,
+	cx: number,
+	cy: number
+): string {
 	return el('p:sp', null, [
 		raw(
 			el('p:nvSpPr', null, [
-				raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') + '/>'),
+				raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'),
 				raw(voidEl('p:cNvSpPr')),
 				raw(voidEl('p:nvPr')),
 			])

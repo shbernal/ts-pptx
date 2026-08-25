@@ -10,6 +10,7 @@ import type { SlideObject } from '../../../types/internal.js'
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { cNvPrOpen, P14_NS } from './shared.js'
+import type { ObjectOptions } from '../../../types/index.js'
 
 /**
  * Render a `media` (audio/video/online) slide object to its `<p:pic>` XML.
@@ -21,11 +22,12 @@ export function renderMediaObject(
 	y: number,
 	cx: number,
 	cy: number,
-	locationAttrs: XmlAttrs
+	locationAttrs: XmlAttrs,
+	itemOpts: ObjectOptions
 ): string {
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
-	const opts = slideItemObj.options
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	const mediaRid = slideItemObj.mediaRid ?? 0
 
 	// The online (external-link) and embedded forms differ in exactly two tokens, so they share
@@ -48,7 +50,7 @@ export function renderMediaObject(
 					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
 					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
 					raw(
-						cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') +
+						cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') +
 							'>' +
 							voidEl('a:hlinkClick', { 'r:id': '', action: 'ppaction://media' }) +
 							'</p:cNvPr>'
@@ -61,8 +63,8 @@ export function renderMediaObject(
 								genXmlObjectLock(
 									'a:picLocks',
 									PICTURE_LOCK_ATTRS,
-									{ noChangeAspect: true, ...opts.objectLock },
-									opts.objectName
+									{ noChangeAspect: true, ...itemOpts.objectLock },
+									itemOpts.objectName
 								)
 							),
 							{ openPrefix: ' ' }

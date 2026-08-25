@@ -313,17 +313,26 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			rot: slideItemObj.options.rotate ? convertRotationDegrees(slideItemObj.options.rotate) : null,
 		}
 
-		// B: Add OBJECT to the current Slide
+		// B: Add OBJECT to the current Slide.
+		// Each renderer below is called from here and nowhere else, so the options they need are
+		// passed as `itemOpts` — already normalized, in step A above. Six of them used to take the
+		// whole `slideItemObj` and re-run `options = options || {}` as their first statement, on an
+		// argument their only caller had already fixed; that assignment existed to re-narrow the
+		// type, and threading the narrowed value in does the same job without a mutation in the
+		// middle of an emit pass. If one of them ever gains a second call site, normalizing is that
+		// caller's job — a contract stated once at the boundary beats a defensive copy of it in
+		// every callee. (`renderOleObject`, `renderZoomObject` and `renderModel3dObject` read no
+		// options at all, which is why they take none.)
 		switch (slideItemObj._type) {
 			case SlideObjectType.table:
 				strSlideXml += renderTableObject(slideItemObj, idx, x, y, cx, cy, placeholderObj, itemOpts)
 				break
 			case SlideObjectType.text:
 			case SlideObjectType.placeholder:
-				strSlideXml += renderTextObject(slideItemObj, idx, slide, x, y, cx, cy, placeholderObj, locationAttrs)
+				strSlideXml += renderTextObject(slideItemObj, idx, slide, x, y, cx, cy, placeholderObj, locationAttrs, itemOpts)
 				break
 			case SlideObjectType.connector:
-				strSlideXml += renderConnectorObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, shapeIds)
+				strSlideXml += renderConnectorObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, shapeIds, itemOpts)
 				break
 			case SlideObjectType.image:
 				strSlideXml += renderImageObject(
@@ -339,14 +348,15 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 					placeholderObj,
 					locationAttrs,
 					sizing,
-					rounding
+					rounding,
+					itemOpts
 				)
 				break
 			case SlideObjectType.media:
-				strSlideXml += renderMediaObject(slideItemObj, idx, x, y, cx, cy, locationAttrs)
+				strSlideXml += renderMediaObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, itemOpts)
 				break
 			case SlideObjectType.chart:
-				strSlideXml += renderChartObject(slideItemObj, idx, x, y, cx, cy, placeholderObj)
+				strSlideXml += renderChartObject(slideItemObj, idx, x, y, cx, cy, placeholderObj, itemOpts)
 				break
 			case SlideObjectType.oleObject:
 				strSlideXml += renderOleObject(slideItemObj, idx, x, y, cx, cy)

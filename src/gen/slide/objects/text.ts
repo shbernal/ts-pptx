@@ -18,6 +18,7 @@ import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
+import type { ObjectOptions } from '../../../types/index.js'
 
 /**
  * Render a `text` / `placeholder` slide object to its `<p:sp>` XML.
@@ -31,29 +32,31 @@ export function renderTextObject(
 	cx: number,
 	cy: number,
 	placeholderObj: SlideObject | null,
-	locationAttrs: XmlAttrs
+	locationAttrs: XmlAttrs,
+	itemOpts: ObjectOptions
 ): string {
 	let strSlideXml = ''
-	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
-	slideItemObj.options = slideItemObj.options || {}
+	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
+	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
+	// one call site, and a contract stated there beats a defensive re-assignment here.
 	// Lines can have zero cy, but text should not
-	if (!slideItemObj.options.line && cy === 0) cy = EMU_PER_INCH * 0.3
+	if (!itemOpts.line && cy === 0) cy = EMU_PER_INCH * 0.3
 
 	// Margin/Padding/Inset for textboxes
-	if (!slideItemObj.options._bodyProp) slideItemObj.options._bodyProp = {}
-	if (slideItemObj.options.margin && Array.isArray(slideItemObj.options.margin)) {
+	if (!itemOpts._bodyProp) itemOpts._bodyProp = {}
+	if (itemOpts.margin && Array.isArray(itemOpts.margin)) {
 		// Margin arrays are documented as [Top, Right, Bottom, Left] (CSS order) and table cells /
 		// slide numbers already map them that way. Keep textboxes consistent: index 0=Top, 3=Left.
 		// Margins are inches (see `marginToEmu`), matching cell margins and the PowerPoint dialog.
-		slideItemObj.options._bodyProp.tIns = marginToEmu(slideItemObj.options.margin[0] || 0)
-		slideItemObj.options._bodyProp.rIns = marginToEmu(slideItemObj.options.margin[1] || 0)
-		slideItemObj.options._bodyProp.bIns = marginToEmu(slideItemObj.options.margin[2] || 0)
-		slideItemObj.options._bodyProp.lIns = marginToEmu(slideItemObj.options.margin[3] || 0)
-	} else if (typeof slideItemObj.options.margin === 'number') {
-		slideItemObj.options._bodyProp.lIns = marginToEmu(slideItemObj.options.margin)
-		slideItemObj.options._bodyProp.rIns = marginToEmu(slideItemObj.options.margin)
-		slideItemObj.options._bodyProp.bIns = marginToEmu(slideItemObj.options.margin)
-		slideItemObj.options._bodyProp.tIns = marginToEmu(slideItemObj.options.margin)
+		itemOpts._bodyProp.tIns = marginToEmu(itemOpts.margin[0] || 0)
+		itemOpts._bodyProp.rIns = marginToEmu(itemOpts.margin[1] || 0)
+		itemOpts._bodyProp.bIns = marginToEmu(itemOpts.margin[2] || 0)
+		itemOpts._bodyProp.lIns = marginToEmu(itemOpts.margin[3] || 0)
+	} else if (typeof itemOpts.margin === 'number') {
+		itemOpts._bodyProp.lIns = marginToEmu(itemOpts.margin)
+		itemOpts._bodyProp.rIns = marginToEmu(itemOpts.margin)
+		itemOpts._bodyProp.bIns = marginToEmu(itemOpts.margin)
+		itemOpts._bodyProp.tIns = marginToEmu(itemOpts.margin)
 	}
 
 	// A: Start SHAPE =======================================================
@@ -67,7 +70,7 @@ export function renderTextObject(
 	strSlideXml += '<p:sp>'
 
 	// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
-	const txtOpts = slideItemObj.options
+	const txtOpts = itemOpts
 	strSlideXml +=
 		'<p:nvSpPr>' +
 		cNvPrOpen(idx + 2, txtOpts.objectName, txtOpts.altText || '') +
@@ -88,8 +91,7 @@ export function renderTextObject(
 		null,
 		raw(
 			genXmlPlaceholder(
-				slideItemObj._type === SlideObjectType.placeholder ||
-					(placeholderObj == null && slideItemObj.options?._placeholderType)
+				slideItemObj._type === SlideObjectType.placeholder || (placeholderObj == null && itemOpts?._placeholderType)
 					? slideItemObj
 					: placeholderObj
 			)
@@ -99,9 +101,9 @@ export function renderTextObject(
 	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
 
 	if (slideItemObj.shape === 'custGeom') {
-		strSlideXml += genXmlCustGeom(slideItemObj.options, cx, cy, slide._presLayout)
+		strSlideXml += genXmlCustGeom(itemOpts, cx, cy, slide._presLayout)
 	} else {
-		strSlideXml += genXmlPresetGeom(slideItemObj.shape ?? '', slideItemObj.options, cx, cy)
+		strSlideXml += genXmlPresetGeom(slideItemObj.shape ?? '', itemOpts, cx, cy)
 	}
 
 	// Option: FILL
@@ -110,14 +112,14 @@ export function renderTextObject(
 	// is also why omission cannot mean *inherit* on this path: `fill: { type: 'inherit' }` is
 	// the spelling that emits no fill child and lets `p:style/a:fillRef` or the placeholder
 	// paint the interior.
-	strSlideXml += slideItemObj.options.fill ? genXmlColorSelection(slideItemObj.options.fill) : '<a:noFill/>'
+	strSlideXml += itemOpts.fill ? genXmlColorSelection(itemOpts.fill) : '<a:noFill/>'
 
 	// shape Type: LINE: line color
-	if (slideItemObj.options.line) strSlideXml += genXmlShapeLine(slideItemObj.options.line)
+	if (itemOpts.line) strSlideXml += genXmlShapeLine(itemOpts.line)
 
 	// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
-	if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-		strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
+	if (itemOpts.shadow && itemOpts.shadow.type !== 'none') {
+		strSlideXml += createShadowEffectLst(itemOpts.shadow, DEF_TEXT_SHADOW)
 	}
 
 	// B: Close shape Properties
