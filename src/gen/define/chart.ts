@@ -21,7 +21,7 @@ import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '..
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -392,9 +392,9 @@ function normalizeComboSubchartOptions(
 		fixed.lineDataSymbolSize = symbolSize
 	}
 	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
-	// already been through `valToPts` and converting it twice would emit a hairline.
+	// already been through `ptsToEmuLenient` and converting it twice would emit a hairline.
 	if (sub.lineDataSymbolLineSize != null && !isNaN(sub.lineDataSymbolLineSize))
-		fixed.lineDataSymbolLineSize = valToPts(sub.lineDataSymbolLineSize)
+		fixed.lineDataSymbolLineSize = ptsToEmuLenient(sub.lineDataSymbolLineSize)
 
 	const result: ChartOptsInternal = { ...sub }
 	for (const key of SUBCHART_VALIDATED_KEYS) {
@@ -558,8 +558,8 @@ export function addChartDefinition(
 	}
 	options.lineDataSymbolLineSize =
 		options.lineDataSymbolLineSize && !isNaN(options.lineDataSymbolLineSize)
-			? valToPts(options.lineDataSymbolLineSize)
-			: valToPts(0.75)
+			? ptsToEmuLenient(options.lineDataSymbolLineSize)
+			: ptsToEmuLenient(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	const chartLayout = options.layout
 	if (chartLayout) {

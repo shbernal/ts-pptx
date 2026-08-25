@@ -14,7 +14,7 @@ import type { TableCell3DProps } from '../../types/index.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { BEVEL_PRESETS, LIGHT_RIGS, LIGHT_RIG_DIRECTIONS, PRESET_MATERIALS } from '../../ooxml/st-enums.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /**
@@ -40,7 +40,7 @@ function bevelSizeEmu(points: number | undefined, field: string): number | null 
 		)
 		return null
 	}
-	return valToPts(points)
+	return ptsToEmuLenient(points)
 }
 
 /**

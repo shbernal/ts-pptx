@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A non-finite size or angle is now refused rather than serialized.** `fontSize`,
+  `charSpacing`, `lineSpacing`, `paraSpaceBefore`/`After`, `rotate`, a chart's
+  `catAxisLabelRotate`/`valAxisLabelRotate`/`titleRotate`, and a `custGeom` connection-site or
+  adjust-handle angle all threw `Infinity` straight through their converter and into the
+  attribute — `sz="Infinity"`, `rot="Infinity"` — which is not a legal value and made
+  PowerPoint offer to repair the package. Each now throws an `InvalidOptionError` with code
+  `coord/non-finite` at the point of conversion. A *finite* out-of-range value is unaffected:
+  it still clamps into the schema range and warns, as before.
+
+  Migration: if you were computing one of these from data that can produce `Infinity` or
+  `NaN` (a division by a zero row count is the usual one), guard it at the call site. A `NaN`
+  is unchanged on the size options — every caller reads them for truthiness, so a `NaN` has
+  always meant "absent" there.
+
+- **A rotation past a full turn now reduces correctly.** `convertRotationDegrees` subtracted a
+  single turn, so `rotate: 800` became 440 degrees rather than 80, and `rotate: 370` became 10
+  while `rotate: -400` was not reduced at all. It is now `% 360`, sign-preserving: a rotation
+  already within a turn — including a negative one — is byte-for-byte unchanged, since both
+  `-45` and `315` are valid `ST_Angle` and the read side reports back what was authored.
+
+  The same function was also being used for angles that are *not* modular: a `custGeom`
+  connection site, a polar adjust handle's `minAng`/`maxAng`, an `angleRange` guide, and the
+  chart label rotations. Those now go through a non-wrapping converter, so an adjust handle
+  declared with `maxAng: 540` keeps its full travel instead of silently collapsing to 180.
+
 ### Fixed
 
 - **Chart colours past the end of the palette now cycle instead of being drawn at random.**

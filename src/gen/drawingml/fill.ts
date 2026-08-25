@@ -30,6 +30,9 @@ function normalizeGradientAngle(angle: number | undefined): number {
 	const degrees = angle ?? 0
 	if (typeof degrees !== 'number' || !Number.isFinite(degrees))
 		throw new InvalidOptionError('gradient/angle-non-finite', 'Gradient angle must be a finite number.')
+	// Into 0..360 rather than -360..360, which is where `convertRotationDegrees` leaves it:
+	// `a:lin/@ang` is ST_PositiveFixedAngle (0..21600000), so a negative gradient angle is a
+	// value PowerPoint reports as needing repair, not merely an unusual spelling.
 	return convertRotationDegrees(((degrees % 360) + 360) % 360)
 }
 

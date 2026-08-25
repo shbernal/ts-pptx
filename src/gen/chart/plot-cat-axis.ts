@@ -21,7 +21,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
@@ -146,14 +146,14 @@ export function makeCatAxisPlot(
 			if (effectiveLineSize === 0) {
 				strXml += '<a:ln><a:noFill/></a:ln>'
 			} else {
-				strXml += `<a:ln w="${valToPts(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(seriesColor)}`
+				strXml += `<a:ln w="${ptsToEmuLenient(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(seriesColor)}`
 				strXml +=
 					voidEl('a:prstDash', { val: opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid' }) +
 					voidEl('a:round') +
 					'</a:ln>'
 			}
 		} else if (opts.dataBorder) {
-			strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
+			strXml += `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
 		}
 
 		strXml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)

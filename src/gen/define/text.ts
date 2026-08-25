@@ -14,7 +14,7 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
@@ -128,7 +128,7 @@ export function addTextDefinition(
 				if (typeof itemOpts.columnSpacing !== 'number' || isNaN(itemOpts.columnSpacing) || itemOpts.columnSpacing < 0) {
 					warn('text/invalid-column-spacing', 'text `columnSpacing` must be a number >= 0 (ignoring value)')
 				} else {
-					itemOpts._bodyProp.spcCol = valToPts(itemOpts.columnSpacing)
+					itemOpts._bodyProp.spcCol = ptsToEmuLenient(itemOpts.columnSpacing)
 				}
 			}
 

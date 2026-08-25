@@ -7,8 +7,96 @@
  */
 
 import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { warnOnce } from '../../diagnostics.js'
+import type { DiagnosticCode } from '../../codes.js'
+
+/**
+ * One clamped text measure: how to convert the caller's points, what range the schema type
+ * allows in the converted unit, and how to say so if the value falls outside it.
+ */
+interface ClampSpec {
+	/** Diagnostic code raised when the value is clamped. */
+	code: DiagnosticCode
+	/** Option name as the caller spells it, opening the warning. */
+	label: string
+	/** The valid range in points, as the warning states it. */
+	range: string
+	/** Points to the attribute's own unit. */
+	convert: (points: number) => number
+	/** Converted units per point — divides the clamped value back into points for the warning. */
+	perPoint: number
+	min: number
+	max: number
+}
+
+/**
+ * Clamp a points value into its schema range and warn once if it did not already fit.
+ *
+ * The five measures below differ only in the fields of {@link ClampSpec}; the arithmetic and
+ * the shape of the warning are the same for all of them. `warnOnce` keys its dedupe set on the
+ * code plus the message, so the wording is part of the contract, not decoration.
+ */
+function clampWithWarn(points: number, spec: ClampSpec): number {
+	const raw = spec.convert(points)
+	const clamped = Math.min(spec.max, Math.max(spec.min, raw))
+	if (clamped !== raw)
+		warnOnce(
+			spec.code,
+			`${spec.label} ${points} is outside the valid range ${spec.range}; using ${clamped / spec.perPoint}.`
+		)
+	return clamped
+}
+
+const FONT_SIZE: ClampSpec = {
+	code: 'font/size-out-of-range',
+	label: 'fontSize',
+	range: '1-4000pt',
+	convert: ptToHundredths,
+	perPoint: HUNDREDTHS_PER_POINT,
+	min: 100,
+	max: 400000,
+}
+
+const CHAR_SPACING: ClampSpec = {
+	code: 'text/char-spacing-out-of-range',
+	label: 'charSpacing',
+	range: '-4000..4000pt',
+	convert: ptToHundredths,
+	perPoint: HUNDREDTHS_PER_POINT,
+	min: -400000,
+	max: 400000,
+}
+
+const PARA_MARGIN: ClampSpec = {
+	code: 'text/paragraph-margin-out-of-range',
+	label: 'paraMarginLeft',
+	range: '0-4032pt',
+	convert: ptsToEmuLenient,
+	perPoint: EMU_PER_POINT,
+	min: 0,
+	max: 51206400,
+}
+
+const PARA_INDENT: ClampSpec = {
+	code: 'text/paragraph-indent-out-of-range',
+	label: 'paraIndent',
+	range: '-4032..4032pt',
+	convert: ptsToEmuLenient,
+	perPoint: EMU_PER_POINT,
+	min: -51206400,
+	max: 51206400,
+}
+
+const LINE_SPACING: ClampSpec = {
+	code: 'text/line-spacing-out-of-range',
+	label: 'lineSpacing',
+	range: '0-1584pt',
+	convert: ptToHundredths,
+	perPoint: HUNDREDTHS_PER_POINT,
+	min: 0,
+	max: 158400,
+}
 
 /**
  * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
@@ -16,26 +104,12 @@ import { warnOnce } from '../../diagnostics.js'
  * PowerPoint report the package as needing repair (e.g. `sz` > 400000 or < 100).
  */
 export function clampFontSizeSz(fontSizePts: number): number {
-	const raw = ptToHundredths(fontSizePts)
-	const clamped = Math.min(400000, Math.max(100, raw))
-	if (clamped !== raw)
-		warnOnce(
-			'font/size-out-of-range',
-			`fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
-		)
-	return clamped
+	return clampWithWarn(fontSizePts, FONT_SIZE)
 }
 
 /** Clamp character spacing (points) into ST_TextPoint (-4000..4000pt); returns hundredths for the `spc` attribute. */
 export function clampCharSpacingSpc(charSpacingPts: number): number {
-	const raw = ptToHundredths(charSpacingPts)
-	const clamped = Math.min(400000, Math.max(-400000, raw))
-	if (clamped !== raw)
-		warnOnce(
-			'text/char-spacing-out-of-range',
-			`charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
-		)
-	return clamped
+	return clampWithWarn(charSpacingPts, CHAR_SPACING)
 }
 
 /**
@@ -44,14 +118,7 @@ export function clampCharSpacingSpc(charSpacingPts: number): number {
  * it is a value PowerPoint reports as needing repair.
  */
 export function clampParaMarginEmu(marginPts: number): number {
-	const raw = valToPts(marginPts)
-	const clamped = Math.min(51206400, Math.max(0, raw))
-	if (clamped !== raw)
-		warnOnce(
-			'text/paragraph-margin-out-of-range',
-			`paraMarginLeft ${marginPts} is outside the valid range 0-4032pt; using ${clamped / EMU_PER_POINT}.`
-		)
-	return clamped
+	return clampWithWarn(marginPts, PARA_MARGIN)
 }
 
 /**
@@ -60,24 +127,10 @@ export function clampParaMarginEmu(marginPts: number): number {
  * indent every bulleted paragraph uses.
  */
 export function clampParaIndentEmu(indentPts: number): number {
-	const raw = valToPts(indentPts)
-	const clamped = Math.min(51206400, Math.max(-51206400, raw))
-	if (clamped !== raw)
-		warnOnce(
-			'text/paragraph-indent-out-of-range',
-			`paraIndent ${indentPts} is outside the valid range -4032..4032pt; using ${clamped / EMU_PER_POINT}.`
-		)
-	return clamped
+	return clampWithWarn(indentPts, PARA_INDENT)
 }
 
 /** Clamp line spacing (points) into ST_TextSpacingPoint (0..1584pt); returns hundredths for `<a:spcPts val>`. */
 export function clampLineSpacingPts(lineSpacingPts: number): number {
-	const raw = ptToHundredths(lineSpacingPts)
-	const clamped = Math.min(158400, Math.max(0, raw))
-	if (clamped !== raw)
-		warnOnce(
-			'text/line-spacing-out-of-range',
-			`lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
-		)
-	return clamped
+	return clampWithWarn(lineSpacingPts, LINE_SPACING)
 }

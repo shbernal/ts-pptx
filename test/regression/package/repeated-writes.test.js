@@ -90,7 +90,7 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 			})
 			const xml = await buildOnce(pres)
 			assert(xml.indexOf('<a:effectLst>') !== -1, 'expected <a:effectLst> in single-write output')
-			// blurRad=valToPts(6)=76200; dist=valToPts(2)=25400; dir=Math.round(270*60000)=16200000;
+			// blurRad=ptsToEmuLenient(6)=76200; dist=ptsToEmuLenient(2)=25400; dir=Math.round(270*60000)=16200000;
 			// transparency 85 -> opacity 0.15 -> alpha=Math.round(0.15*100000)=15000
 			assert(xml.indexOf('blurRad="76200"') !== -1, 'expected blurRad="76200"; got: ' + xml)
 			assert(xml.indexOf('dist="25400"') !== -1, 'expected dist="25400"; got: ' + xml)

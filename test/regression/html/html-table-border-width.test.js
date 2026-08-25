@@ -5,7 +5,7 @@ import { htmlBorderToProps } from '../../../src/gen/table/html-dom.ts'
 // Acceptance: HTML-table conversion must preserve FRACTIONAL CSS border widths.
 // A hairline border such as `0.5px` previously went through `Math.round(...)` and
 // collapsed to `0pt`, so the border silently vanished even though the table
-// serializer (`valToPts`) emits fractional points fine.
+// serializer (`ptsToEmuLenient`) emits fractional points fine.
 // A computed width of exactly `0` must instead yield `{ type: 'none' }` (no zero-width line).
 
 describe('HTML table fractional border width', () => {

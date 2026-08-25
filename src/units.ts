@@ -42,6 +42,7 @@ export const HUNDREDTHS_PER_POINT = 100
  * for `sz`, `spc`, and `<a:spcPts val>`. See {@link HUNDREDTHS_PER_POINT}.
  */
 export function ptToHundredths(pt: number): number {
+	assertFiniteNumber(pt, 'points')
 	return Math.round(pt * HUNDREDTHS_PER_POINT)
 }
 

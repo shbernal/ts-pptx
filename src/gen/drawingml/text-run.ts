@@ -14,7 +14,7 @@ import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection } from './fill.js'
-import { inch2Emu, lineWidthToEmu, valToPts } from '../../units-internal.js'
+import { inch2Emu, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -114,7 +114,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 	let strXmlParaSpc = ''
 	let strXmlTabStops = ''
 	const tag = isDefault ? 'a:lvl1pPr' : 'a:pPr'
-	let bulletMarL = valToPts(DEF_BULLET_MARGIN)
+	let bulletMarL = ptsToEmuLenient(DEF_BULLET_MARGIN)
 	// The paragraph's own margins (`a:pPr/@marL` and `@indent`, in EMU). Each `bullet` arm below
 	// records the default it has always written and `paraMarginLeft`/`paraIndent` override it;
 	// `null` means the attribute is not written at all, which is what leaves the margin to the
@@ -184,7 +184,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		if (typeof opts.bullet === 'object') {
 			const bulletImage = opts.bullet.image
 			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
-			if (opts.bullet?.indent) bulletMarL = valToPts(opts.bullet.indent)
+			if (opts.bullet?.indent) bulletMarL = ptsToEmuLenient(opts.bullet.indent)
 			// Every bullet form hangs the first line by the same margin, whichever glyph it draws.
 			defaultMarL = opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 			defaultIndent = -bulletMarL

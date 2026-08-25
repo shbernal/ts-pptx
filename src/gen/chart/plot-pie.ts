@@ -15,7 +15,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
@@ -88,10 +88,12 @@ export function makePiePlot(
 		if (ptStyle?.border) {
 			strXml += createChartBorderLine(ptStyle.border)
 		} else if (opts.dataBorder) {
-			strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="flat">${genXmlColorSelection({
-				color: opts.dataBorder.color ?? '363636',
-				transparency: opts.dataBorder.transparency,
-			})}<a:prstDash val="solid"/><a:round/></a:ln>`
+			strXml += `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="flat">${genXmlColorSelection(
+				{
+					color: opts.dataBorder.color ?? '363636',
+					transparency: opts.dataBorder.transparency,
+				}
+			)}<a:prstDash val="solid"/><a:round/></a:ln>`
 		}
 		strXml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)
 		strXml += '  </c:spPr>'

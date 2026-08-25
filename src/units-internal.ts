@@ -134,13 +134,20 @@ export function resolveTableColWidthsEmu(
 }
 
 /**
- * Convert `pt` into points (using `ONEPT`)
- * @param {number|string} pt
- * @returns {number} value in points (`ONEPT`)
+ * Convert points to EMU, leniently: anything that does not read as a finite number — a `NaN`,
+ * an `Infinity`, a non-numeric string, `null` — becomes `0` rather than throwing.
+ *
+ * That is the whole difference from {@link pointsToEmu} in `units.ts`, which throws on the same
+ * input. Emitters use this one for the many optional size/width/offset options where a missing
+ * or malformed value should collapse the feature (a zero-width line, no shadow offset) rather
+ * than take the whole deck down.
+ *
+ * @param pt - points, as a number or a numeric string
+ * @returns the value in EMU, or `0` if it does not read as a finite number
  */
-export function valToPts(pt: number | string): number {
-	const points = Number(pt) || 0
-	return isNaN(points) ? 0 : Math.round(points * EMU_PER_POINT)
+export function ptsToEmuLenient(pt: number | string): number {
+	const points = Number(pt)
+	return Number.isFinite(points) ? Math.round(points * EMU_PER_POINT) : 0
 }
 
 /**
@@ -168,7 +175,7 @@ export function opacityToAlpha(opacity: number): number {
  * repair, so clamp into range and warn.
  */
 export function lineWidthToEmu(widthPts: number | string): number {
-	const raw = valToPts(widthPts)
+	const raw = ptsToEmuLenient(widthPts)
 	const clamped = Math.min(20116800, Math.max(0, raw))
 	if (clamped !== raw)
 		warn(
@@ -179,13 +186,50 @@ export function lineWidthToEmu(widthPts: number | string): number {
 }
 
 /**
- * Convert degrees (0..360) to PowerPoint `rot` value
- * @param {number} d degrees
- * @returns {number} calculated `rot` value
+ * Convert degrees to a DrawingML angle (60000ths of a degree), **without** wrapping.
+ *
+ * Most angles in the format are not modular: a connection site at 400 degrees, a polar adjust
+ * handle whose range runs to 540, an arc that sweeps 400 degrees — each means something a
+ * reduction into 0..360 would destroy. Use this for those, and {@link convertRotationDegrees}
+ * for the ones that genuinely are a rotation.
+ *
+ * Non-finite input throws rather than reaching the attribute: `Math.round(Infinity * 60000)` is
+ * `Infinity`, which serializes as `ang="Infinity"` and makes PowerPoint offer to repair the file.
+ *
+ * @param d - degrees
+ * @param what - what is being converted, for the error message
+ * @param code - diagnostic code to throw under, where a caller has a more specific one
+ */
+export function convertAngleUnits(d: number, what: string, code: AngleErrorCode = 'coord/non-finite'): number {
+	assertFiniteDegrees(d, what, code)
+	return Math.round(d * ANGLE_UNITS_PER_DEGREE)
+}
+
+/** The codes {@link convertAngleUnits} may throw under, each declared in `codes.ts`. */
+type AngleErrorCode = 'coord/non-finite' | 'geometry/arc-angle-non-finite'
+
+function assertFiniteDegrees(d: number, what: string, code: AngleErrorCode): void {
+	if (typeof d !== 'number' || !Number.isFinite(d))
+		throw new InvalidOptionError(code, `${what} must be a finite number of degrees; received ${String(d)}.`)
+}
+
+/**
+ * Convert a shape or gradient rotation (degrees) to a DrawingML angle (60000ths of a degree).
+ *
+ * A rotation *is* modular — 800 degrees and 80 degrees point the same way — so the value is
+ * reduced with `% 360`. The reduction keeps the sign: `-45` stays `-45` rather than becoming
+ * `315`, because both are valid `ST_Angle`, PowerPoint writes negative rotations itself, and
+ * the read side reports back what was authored. Only an input outside -360..360 moves.
+ *
+ * @param d - degrees
+ * @returns the `rot` value in 60000ths of a degree
  */
 export function convertRotationDegrees(d: number): number {
-	d = d || 0
-	return Math.round((d > 360 ? d - 360 : d) * ANGLE_UNITS_PER_DEGREE)
+	const degrees = d || 0
+	// Guard before reducing, so `Infinity` is reported as itself rather than as the `NaN` that
+	// `Infinity % 360` would hand on.
+	assertFiniteDegrees(degrees, 'rotation', 'coord/non-finite')
+	return Math.round((degrees % 360) * ANGLE_UNITS_PER_DEGREE)
 }
 
 /**
@@ -197,10 +241,5 @@ export function convertRotationDegrees(d: number): number {
  * @returns {number} ST_AdjAngle value (60000ths of a degree)
  */
 export function convertArcAngle(d: number, attr: 'stAng' | 'swAng'): number {
-	if (typeof d !== 'number' || !Number.isFinite(d))
-		throw new InvalidOptionError(
-			'geometry/arc-angle-non-finite',
-			`Arc ${attr} must be a finite number of degrees; received ${String(d)}.`
-		)
-	return Math.round(d * ANGLE_UNITS_PER_DEGREE)
+	return convertAngleUnits(d, `Arc ${attr}`, 'geometry/arc-angle-non-finite')
 }

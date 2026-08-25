@@ -29,7 +29,7 @@ defineRegressionSuite('Table cell margin units', [
 				s.addTable([[{ text: 'b', options: { margin: [2, 1, 2, 1] } }]], { x: 1, y: 1, w: 4, colW: [4] })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			// Old points path would have emitted valToPts(2)=25400 / valToPts(1)=12700.
+			// Old points path would have emitted ptsToEmuLenient(2)=25400 / ptsToEmuLenient(1)=12700.
 			assert(
 				xml.includes('marL="914400" marR="914400" marT="1828800" marB="1828800"'),
 				'expected [2,1,2,1]in cell margin to emit inch-based EMU (not the legacy points values); got: ' + xml

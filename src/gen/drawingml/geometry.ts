@@ -8,7 +8,7 @@
 
 import { VALID_SHAPE_PRESETS } from '../../enums.js'
 import type { Coord, GeometryPoint, ObjectOptions, PresLayout, ShapeAdjustHandleXY } from '../../types/index.js'
-import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
+import { convertAngleUnits, convertArcAngle, getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { warn } from '../../diagnostics.js'
@@ -102,7 +102,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	} else if (options.angleRange) {
 		for (let i = 0; i < 2; i++) {
 			const angle = options.angleRange[i] ?? 0
-			emitGuide(`adj${i + 1}`, convertRotationDegrees(angle))
+			emitGuide(`adj${i + 1}`, convertAngleUnits(angle, `angleRange[${i}]`))
 		}
 
 		if (options.arcThicknessRatio) {
@@ -293,7 +293,7 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 				return
 			}
 			const pos = voidEl('a:pos', { x: adjCoord(c.x, 'X'), y: adjCoord(c.y, 'Y') })
-			cxnEls.push(el('a:cxn', { ang: convertRotationDegrees(c.ang) }, raw(pos)))
+			cxnEls.push(el('a:cxn', { ang: convertAngleUnits(c.ang, 'connectionSite ang') }, raw(pos)))
 		})
 		if (cxnEls.length) cxnLst = el('a:cxnLst', null, cxnEls.map(raw))
 	}
@@ -315,8 +315,8 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 						minR: adjCoord(h.minR, 'X'),
 						maxR: adjCoord(h.maxR, 'X'),
 						gdRefAng: h.gdRefAng,
-						minAng: h.minAng == null ? undefined : convertRotationDegrees(h.minAng),
-						maxAng: h.maxAng == null ? undefined : convertRotationDegrees(h.maxAng),
+						minAng: h.minAng == null ? undefined : convertAngleUnits(h.minAng, 'adjustHandle minAng'),
+						maxAng: h.maxAng == null ? undefined : convertAngleUnits(h.maxAng, 'adjustHandle maxAng'),
 					},
 					pos
 				)

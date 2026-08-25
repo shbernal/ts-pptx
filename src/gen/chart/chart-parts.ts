@@ -24,7 +24,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { convertRotationDegrees, valToPts } from '../../units-internal.js'
+import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -85,7 +85,9 @@ export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: num
 		opts.titleAlign === 'left' || opts.titleAlign === 'right'
 			? `<a:pPr algn="${opts.titleAlign.slice(0, 1)}">`
 			: '<a:pPr>'
-	const rotate = opts.titleRotate ? `<a:bodyPr rot="${convertRotationDegrees(opts.titleRotate)}"/>` : '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
+	const rotate = opts.titleRotate
+		? `<a:bodyPr rot="${convertAngleUnits(opts.titleRotate, 'titleRotate')}"/>`
+		: '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
 	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
 	const titleBold = opts.titleBold ? 1 : 0
 	const titleItalic = opts.titleItalic ? 1 : 0
@@ -157,7 +159,7 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 	const line = el(
 		'a:ln',
 		{
-			w: valToPts(glOpts.size || DEF_CHART_GRIDLINE.size || 1),
+			w: ptsToEmuLenient(glOpts.size || DEF_CHART_GRIDLINE.size || 1),
 			cap: createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap),
 		},
 		[
@@ -251,7 +253,7 @@ export function makeChartErrorBarsXml(
 
 		if (eb.color || eb.size != null) {
 			strXml += '<c:spPr><a:ln'
-			strXml += eb.size != null ? ` w="${valToPts(eb.size)}"` : ''
+			strXml += eb.size != null ? ` w="${ptsToEmuLenient(eb.size)}"` : ''
 			strXml += '>'
 			strXml += eb.color ? genXmlColorSelection(eb.color) : ''
 			strXml += '</a:ln></c:spPr>'
@@ -289,7 +291,10 @@ export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string
 	if (opt.style === 'none') return ''
 	const line = el(
 		'a:ln',
-		{ w: valToPts(opt.size || DEF_CHART_GRIDLINE.size || 1), cap: createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap) },
+		{
+			w: ptsToEmuLenient(opt.size || DEF_CHART_GRIDLINE.size || 1),
+			cap: createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap),
+		},
 		[
 			raw(el('a:solidFill', null, raw(createColorElement(opt.color || DEF_GRIDLINE_COLOR)))),
 			raw(voidEl('a:prstDash', { val: opt.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
@@ -315,7 +320,7 @@ export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string
 export function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	if (!opts.showLeaderLines) return ''
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
-	const w = valToPts(opts.leaderLineSize ?? 0.75)
+	const w = ptsToEmuLenient(opts.leaderLineSize ?? 0.75)
 	const color = opts.leaderLineColor || '808080'
 	return (
 		'<c:leaderLines><c:spPr>' +
@@ -365,7 +370,7 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
 export function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return '<a:ln><a:noFill/></a:ln>'
 	const dash = border.type === 'dash' ? 'dash' : 'solid'
-	return `<a:ln w="${valToPts(resolveBorderWidth(border, 1))}" cap="flat">${genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })}<a:prstDash val="${dash}"/><a:round/></a:ln>`
+	return `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(border, 1))}" cap="flat">${genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })}<a:prstDash val="${dash}"/><a:round/></a:ln>`
 }
 
 /**

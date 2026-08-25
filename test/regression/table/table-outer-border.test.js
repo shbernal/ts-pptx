@@ -110,7 +110,7 @@ defineRegressionSuite('Table outerBorder', [
 				assertEqual(edges(tc), 'solid,solid,solid,solid', `cell ${idx} keeps all four rules`)
 			}
 			// The top-left cell's top and left take the 2pt red perimeter; its right and bottom
-			// keep the 0.5pt grey grid. Widths are in EMU-ish points (`valToPts`), colours in hex.
+			// keep the 0.5pt grey grid. Widths are in EMU-ish points (`ptsToEmuLenient`), colours in hex.
 			const first = tcs[0]
 			const perimeter = [...first.matchAll(/<a:(ln[LRTB])[^>]*>[\s\S]*?<a:srgbClr val="([^"]*)"/g)].map(
 				(m) => `${m[1]}=${m[2]}`

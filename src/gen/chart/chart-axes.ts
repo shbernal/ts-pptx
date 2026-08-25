@@ -27,7 +27,7 @@ import {
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { convertRotationDegrees, valToPts } from '../../units-internal.js'
+import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
@@ -123,14 +123,14 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	}
 	strXml += axisLineSpPr(
 		2,
-		opts.catAxisLineSize ? valToPts(opts.catAxisLineSize) : EMU_PER_POINT,
+		opts.catAxisLineSize ? ptsToEmuLenient(opts.catAxisLineSize) : EMU_PER_POINT,
 		opts.catAxisLineShow,
 		opts.catAxisLineColor,
 		opts.catAxisLineStyle || 'solid'
 	)
 	strXml += '  <c:txPr>'
 	if (opts.catAxisLabelRotate) {
-		strXml += `<a:bodyPr rot="${convertRotationDegrees(opts.catAxisLabelRotate)}"/>`
+		strXml += `<a:bodyPr rot="${convertAngleUnits(opts.catAxisLabelRotate, 'catAxisLabelRotate')}"/>`
 	} else {
 		// NOTE: don't specify "`rot=0" - that way the object will be auto behavior
 		strXml += '<a:bodyPr/>'
@@ -237,13 +237,13 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	}
 	strXml += axisLineSpPr(
 		1,
-		opts.valAxisLineSize ? valToPts(opts.valAxisLineSize) : EMU_PER_POINT,
+		opts.valAxisLineSize ? ptsToEmuLenient(opts.valAxisLineSize) : EMU_PER_POINT,
 		opts.valAxisLineShow,
 		opts.valAxisLineColor,
 		opts.valAxisLineStyle || 'solid'
 	)
 	strXml += ' <c:txPr>'
-	strXml += `  <a:bodyPr${opts.valAxisLabelRotate ? ' rot="' + convertRotationDegrees(opts.valAxisLabelRotate).toString() + '"' : ''}/>` // don't specify rot 0 so we get the auto behavior
+	strXml += `  <a:bodyPr${opts.valAxisLabelRotate ? ' rot="' + convertAngleUnits(opts.valAxisLabelRotate, 'valAxisLabelRotate').toString() + '"' : ''}/>` // don't specify rot 0 so we get the auto behavior
 	strXml += '  <a:lstStyle/>'
 	strXml += '  <a:p>'
 	strXml += '    <a:pPr>'

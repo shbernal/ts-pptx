@@ -31,7 +31,7 @@ import { warn } from '../../diagnostics.js'
 import { encodeXmlEntities } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
-import { valToPts } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, genXmlTitle } from './chart-parts.js'
@@ -307,7 +307,7 @@ function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
 
 	// OPTION: Border
 	strXml += plotArea.border
-		? `<a:ln w="${valToPts(resolveBorderWidth(plotArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: plotArea.border.color ?? '363636', transparency: plotArea.border.transparency })}</a:ln>`
+		? `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(plotArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: plotArea.border.color ?? '363636', transparency: plotArea.border.transparency })}</a:ln>`
 		: '<a:ln><a:noFill/></a:ln>'
 
 	// Close shapeProp/plotArea before Legend
@@ -455,7 +455,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	strXml += '<c:spPr>'
 	strXml += isStatedFill(chartArea.fill) ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
 	strXml += chartArea.border
-		? `<a:ln w="${valToPts(resolveBorderWidth(chartArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: chartArea.border.color ?? '363636', transparency: chartArea.border.transparency })}</a:ln>`
+		? `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(chartArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: chartArea.border.color ?? '363636', transparency: chartArea.border.transparency })}</a:ln>`
 		: '<a:ln><a:noFill/></a:ln>'
 	strXml += '  <a:effectLst/>'
 	strXml += '</c:spPr>'

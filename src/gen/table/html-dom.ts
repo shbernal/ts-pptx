@@ -160,7 +160,7 @@ function rgbToHex(r: number, g: number, b: number): string {
  * pptx `BorderProps`.
  *
  * Preserves *fractional* widths: a hairline CSS border such as `0.5px` must not be rounded to
- * `0pt` and silently vanish — the table serializer (`valToPts`) emits fractional points just
+ * `0pt` and silently vanish — the table serializer (`ptsToEmuLenient`) emits fractional points just
  * fine, so there is no reason to integer-round here. A
  * computed width of `0` (or a non-finite value) yields `{ type: 'none' }` so we never emit a
  * zero-width line.
