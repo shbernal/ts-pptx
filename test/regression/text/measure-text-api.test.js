@@ -237,7 +237,11 @@ describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
 
 	test('file-backed Aptos: covers A and ordinary hyphen, lacks U+2011 non-breaking hyphen', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true) // skip when fontconfig can't resolve Aptos
+		// skip when fontconfig can't resolve Aptos
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const fm = await parseFontMetrics(new Uint8Array(readFileSync(path)))
 		expect(fm.hasCodepoint(0x41)).toBe(true) // 'A' — present
 		expect(fm.hasCodepoint(0x2d)).toBe(true) // '-' ordinary hyphen-minus — present (contrast control)

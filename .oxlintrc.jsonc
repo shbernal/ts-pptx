@@ -115,6 +115,30 @@
 		// `any` at an I/O boundary, but a deprecated call is the same defect wherever it is.
 		"typescript/no-deprecated": "error",
 
+		// Also outside `recommendedTypeChecked` and outside every enabled category. It
+		// catches a `void` expression used where a *value* is read — the type means "there
+		// is nothing here to look at", so reading one is either a mistake or a claim the
+		// code does not honour. Both options are on, and both were measured (2026-08-25,
+		// oxlint 1.79.0 / oxlint-tsgolint 7.0.2001) rather than assumed:
+		//
+		// `ignoreArrowShorthand` is the whole difference between a usable rule and an
+		// unusable one here. Bare, the rule reports 36 findings; with it, 14. All 22 it
+		// removes — and every one of the 13 that fell in `src/**` and `scripts/**` — are
+		// `forEach((x) => fn(x))` and `new Promise((resolve) => ... resolve(v))`, where the
+		// shorthand carries no ambiguity to resolve. Bracing them would be churn spelling
+		// out what the reader already knows.
+		//
+		// `ignoreVoidOperator` sanctions `void expr` as a deliberate discard, which is a
+		// spelling this tree already uses (`return void value.forEach(rename)` in
+		// `test/read/script-roundtrip.test.js`). Without it the rule would be reporting the
+		// marker whose entire job is to say the discard was on purpose. It also redirects
+		// the autofix to that form instead of splitting the statement.
+		//
+		// Cost with both on: 13 findings, all one idiom — `if (!path) return expect(true)
+		// .toBe(true)` as a fixture-missing skip guard — all fixed in the same commit. Left
+		// on for `test/**` and `scripts/**` for the reason the block above gives.
+		"typescript/no-confusing-void-expression": ["error", { "ignoreArrowShorthand": true, "ignoreVoidOperator": true }],
+
 		// Gate both compile-time escape hatches from the null-safety work: a bare `!`
 		// and a provably-redundant `as` cast. Pinned together so the `!`/`as` symmetry
 		// is explicit and survives any upstream preset change — the same reason they

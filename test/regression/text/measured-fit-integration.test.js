@@ -74,7 +74,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('registered metrics for a DIFFERENT named face → heuristic shrink (P3: approximate, no throw)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		// The deck has opted into measured fit (some face registered), so an unregistered
 		// *named* face now falls back to the conservative average-advance heuristic and
@@ -89,7 +92,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('unnamed (theme-default) face stays unmeasurable → bare flag (heuristic does not guess the face)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -102,7 +108,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('registered metrics + overflow → baked fontScale < 100%', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -119,7 +128,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('wrap:false single line too wide → horizontal fontScale baked (dn-autofit-shrink-horizontal)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -140,7 +152,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('registered metrics + text that fits → bare flag (no needless shrink)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -152,7 +167,10 @@ describe("measured fit: fit:'shrink' integration", () => {
 
 	test('bytes source works (registerFontMetrics accepts Uint8Array)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
@@ -174,7 +192,10 @@ describe("measured fit: fit:'resize' integration", () => {
 
 	test('registered metrics + overflow → box grows past the authored height', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -188,7 +209,10 @@ describe("measured fit: fit:'resize' integration", () => {
 
 	test('registered metrics + short text → box shrinks to fit (spAutoFit semantics)', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
@@ -203,7 +227,10 @@ describe("measured fit: fit:'resize' integration", () => {
 
 	test('centered anchor splits the height delta across off.y', async () => {
 		const path = aptosPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()

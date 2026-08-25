@@ -52,7 +52,10 @@ describe('measured fit: TableCellProps.fit', () => {
 
 	test('registered metrics + overflow in a fixed-height row → baked size < authored', async () => {
 		const path = usableFontPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
@@ -72,7 +75,10 @@ describe('measured fit: TableCellProps.fit', () => {
 
 	test('auto-height row (no rowH / table h) → no shrink (the row grows instead)', async () => {
 		const path = usableFontPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
@@ -88,7 +94,10 @@ describe('measured fit: TableCellProps.fit', () => {
 
 	test('table-level fit:shrink cascades to a cell with no explicit fit', async () => {
 		const path = usableFontPath()
-		if (!path) return expect(true).toBe(true)
+		if (!path) {
+			expect(true).toBe(true)
+			return
+		}
 		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
