@@ -48,6 +48,7 @@ import {
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
+import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
 export interface AddTextBoxOptions {
@@ -728,13 +729,11 @@ export class Slide implements ShapeHost {
 	}
 
 	#cSld(): Element | null {
-		const root = this.part.dom.documentElement
-		return root ? firstChild(root, 'p:cSld') : null
+		return cSldOf(this.part.dom.documentElement)
 	}
 
 	#spTree(): Element | null {
-		const cSld = this.#cSld()
-		return cSld ? firstChild(cSld, 'p:spTree') : null
+		return spTreeOf(this.part.dom.documentElement)
 	}
 }
 

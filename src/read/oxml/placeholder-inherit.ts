@@ -21,6 +21,7 @@
 import { attr, descendantsByTag, firstChild, firstChildElement, OOXML_NS, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
 import { resolveColor, type ResolvedColor, type ThemeContext } from './theme.js'
+import { nvPrOf } from './slide-dom.js'
 
 /** The master `p:txStyles` style element name for a placeholder category. */
 const TX_STYLE_NAME: Record<'title' | 'body' | 'other', string> = {
@@ -49,8 +50,7 @@ export type RunProps = Record<(typeof RUN_PROP_NAMES)[number], string | null>
 
 /** The `p:ph` element of a shape (`p:sp/p:nvSpPr/p:nvPr/p:ph`), or `null`. */
 export function placeholderOf(sp: Element): Element | null {
-	const nvSpPr = firstChild(sp, 'p:nvSpPr')
-	const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+	const nvPr = nvPrOf(sp)
 	return nvPr ? firstChild(nvPr, 'p:ph') : null
 }
 

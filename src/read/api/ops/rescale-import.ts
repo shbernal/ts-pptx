@@ -7,12 +7,12 @@
  * through here, so it lives as long as the deck does rather than as long as one call.
  */
 
-import { firstChild } from '../../oxml/dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.js'
 import { resolveSingleRel } from './part-index.js'
 import type { ImportSlideOptions, SlideSize } from '../presentation-types.js'
 import type { Presentation } from '../presentation.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
+import { spTreeOf } from '../../oxml/slide-dom.js'
 
 /**
  * Rescale an imported slide's geometry onto this deck's canvas (the `rescale`
@@ -57,9 +57,7 @@ function rescalePartGeometry(
 	if (rescaledParts.has(partName)) return
 	rescaledParts.add(partName)
 	const part = dest.opc.part(partName)
-	const root = part?.dom.documentElement
-	const cSld = root && firstChild(root, 'p:cSld')
-	const spTree = cSld && firstChild(cSld, 'p:spTree')
+	const spTree = spTreeOf(part?.dom.documentElement)
 	if (!part || !spTree) return
 	rescaleSpTree(spTree, transform)
 	part.markDirty()

@@ -2,23 +2,13 @@
  * A connector / line (`p:cxnSp`).
  */
 
-import { attr, firstChild, intValue, type Element } from '../../oxml/dom.js'
+import { attr, firstChild, intValue } from '../../oxml/dom.js'
 import { Shape } from './base.js'
-import { getOrAddSpPrXfrm } from './oxml.js'
 import type { ConnectionSite } from './types.js'
 
 /** A connector / line (`p:cxnSp`). */
 export class Connector extends Shape {
 	readonly shapeType = 'connector' as const
-
-	protected xfrm(): Element | null {
-		const spPr = firstChild(this.element, 'p:spPr')
-		return spPr ? firstChild(spPr, 'a:xfrm') : null
-	}
-
-	protected getOrAddXfrm(): Element {
-		return getOrAddSpPrXfrm(this.element)
-	}
 
 	/**
 	 * The connector's **start**-point shape binding (`p:nvCxnSpPr/p:cNvCxnSpPr/a:stCxn`),

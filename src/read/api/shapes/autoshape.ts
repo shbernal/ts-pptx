@@ -2,26 +2,17 @@
  * An auto shape, text box, or placeholder (`p:sp`) — the only shape kind that holds text.
  */
 
-import { attr, firstChild, getElements, type Element } from '../../oxml/dom.js'
+import { attr, firstChild, getElements } from '../../oxml/dom.js'
 import { resolveStyleFontRef, type PlaceholderRef } from '../theme-context.js'
 import { TextFrame } from '../text.js'
 import { Shape } from './base.js'
 import { readGeometryPath } from './geometry.js'
-import { getOrAddSpPrXfrm } from './oxml.js'
 import type { CustomGeometry } from './types.js'
+import { nvPrOf } from '../../oxml/slide-dom.js'
 
 /** An auto shape, text box, or placeholder (`p:sp`). The only kind that holds text. */
 export class AutoShape extends Shape {
 	readonly shapeType = 'autoShape' as const
-
-	protected xfrm(): Element | null {
-		const spPr = firstChild(this.element, 'p:spPr')
-		return spPr ? firstChild(spPr, 'a:xfrm') : null
-	}
-
-	protected getOrAddXfrm(): Element {
-		return getOrAddSpPrXfrm(this.element)
-	}
 
 	override get hasTextFrame(): boolean {
 		return firstChild(this.element, 'p:txBody') !== null
@@ -45,8 +36,7 @@ export class AutoShape extends Shape {
 	 * PowerPoint does. Use {@link Slide.placeholder} to find a placeholder by type.
 	 */
 	override get placeholder(): PlaceholderRef | null {
-		const nvSpPr = firstChild(this.element, 'p:nvSpPr')
-		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		const nvPr = nvPrOf(this.element)
 		const ph = nvPr && firstChild(nvPr, 'p:ph')
 		return ph ? { type: attr(ph, 'type'), idx: attr(ph, 'idx') ?? '0' } : null
 	}

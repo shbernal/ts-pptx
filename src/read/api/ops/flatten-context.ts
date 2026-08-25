@@ -15,10 +15,11 @@ import { firstChild, type Element } from '../../oxml/dom.js'
 import type { OpcPackage } from '../../opc/package.js'
 import type { FlattenContext } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
+import { cSldOf } from '../../oxml/slide-dom.js'
 
 /** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */
 function backgroundOf(root: Element): Element | null {
-	const cSld = firstChild(root, 'p:cSld')
+	const cSld = cSldOf(root)
 	return cSld ? firstChild(cSld, 'p:bg') : null
 }
 

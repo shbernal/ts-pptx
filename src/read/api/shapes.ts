@@ -66,12 +66,12 @@ export type {
 export class GroupShape extends Shape {
 	readonly shapeType = 'group' as const
 
-	protected xfrm(): Element | null {
+	protected override xfrm(): Element | null {
 		const grpSpPr = firstChild(this.element, 'p:grpSpPr')
 		return grpSpPr ? firstChild(grpSpPr, 'a:xfrm') : null
 	}
 
-	protected getOrAddXfrm(): Element {
+	protected override getOrAddXfrm(): Element {
 		return getOrAddChild(this.#getOrAddGrpSpPr(), 'a:xfrm', GRPSPPR_AFTER_XFRM)
 	}
 

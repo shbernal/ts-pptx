@@ -8,10 +8,40 @@
 import type { Part } from '../opc/part.js'
 import { ELEMENT_NODE, OOXML_NS, attr, firstChild, firstChildElement, type Element } from './dom.js'
 
+/**
+ * The `p:cSld` of a slide/layout/master/notes part root.
+ *
+ * Takes a nullable root and returns a nullable element so a caller can chain from
+ * `part?.dom.documentElement` without a guard of its own — which is what a dozen callers were
+ * writing by hand, each in a slightly different spelling (`root && …`, `root ? … : null`).
+ */
+export function cSldOf(root: Element | null | undefined): Element | null {
+	return root ? firstChild(root, 'p:cSld') : null
+}
+
+/** The `p:spTree` of a slide/layout/master/notes part root, through its `p:cSld`. */
+export function spTreeOf(root: Element | null | undefined): Element | null {
+	const cSld = cSldOf(root)
+	return cSld ? firstChild(cSld, 'p:spTree') : null
+}
+
+/**
+ * The `p:nvPr` of a shape, whichever `*nvPr` wrapper its kind uses.
+ *
+ * The wrapper's name varies by shape kind — `p:nvSpPr` on a `p:sp`, `p:nvPicPr` on a `p:pic`,
+ * `p:nvGraphicFramePr`, `p:nvCxnSpPr`, `p:nvGrpSpPr` — but it is always the shape's first child
+ * element, and `p:nvPr` is always inside it. Taking the first child element rather than naming
+ * the wrapper is what lets one helper serve every kind; the callers that named `p:nvSpPr`
+ * silently returned null on a picture.
+ */
+export function nvPrOf(shape: Element): Element | null {
+	const nv = firstChildElement(shape)
+	return nv ? firstChild(nv, 'p:nvPr') : null
+}
+
 /** The `p:cSld@name` of a slide/layout/master part (`''` when absent). */
 export function cSldName(part: Part | undefined): string {
-	const root = part?.dom.documentElement
-	const cSld = root && firstChild(root, 'p:cSld')
+	const cSld = cSldOf(part?.dom.documentElement)
 	return (cSld && attr(cSld, 'name')) ?? ''
 }
 
@@ -22,16 +52,13 @@ function isSpTreeProperty(el: Element): boolean {
 
 /** Whether a `p:spTree` child is a placeholder shape (its `*nvPr` carries a `p:ph`). */
 function isPlaceholderShape(shape: Element): boolean {
-	const nv = firstChildElement(shape)
-	const nvPr = nv && firstChild(nv, 'p:nvPr')
+	const nvPr = nvPrOf(shape)
 	return !!(nvPr && firstChild(nvPr, 'p:ph'))
 }
 
 /** The decorative shapes on a layout/master `p:spTree`: every shape child except placeholders. */
 export function carriedDecorations(root: Element | null): Element[] {
-	if (!root) return []
-	const cSld = firstChild(root, 'p:cSld')
-	const spTree = cSld && firstChild(cSld, 'p:spTree')
+	const spTree = spTreeOf(root)
 	if (!spTree) return []
 	const out: Element[] = []
 	for (let node = spTree.firstChild; node; node = node.nextSibling) {

@@ -46,6 +46,7 @@ import type { ShapeHost } from './host.js'
 import {
 	childElements,
 	emuFrom,
+	getOrAddSpPrXfrm,
 	nonVisualCNvPr,
 	LN_FILL_AFTER,
 	SHAPE_AFTER_SPPR,
@@ -88,11 +89,22 @@ export abstract class Shape {
 	/** Which concrete shape kind this is. */
 	abstract readonly shapeType: ShapeType
 
-	/** The transform element (`a:xfrm` or `p:xfrm`) carrying this shape's geometry, or `null` if inherited. */
-	protected abstract xfrm(): Element | null
+	/**
+	 * The transform element carrying this shape's geometry, or `null` if inherited.
+	 *
+	 * Defaults to `p:spPr/a:xfrm`, which is where three of the four shape kinds keep it
+	 * (`p:sp`, `p:pic`, `p:cxnSp`). {@link GraphicFrame} overrides it: a `p:graphicFrame`
+	 * has no `p:spPr` and carries a `p:xfrm` of its own directly.
+	 */
+	protected xfrm(): Element | null {
+		const spPr = firstChild(this.element, 'p:spPr')
+		return spPr ? firstChild(spPr, 'a:xfrm') : null
+	}
 
 	/** The transform element, creating it (and its container) in document order if absent. */
-	protected abstract getOrAddXfrm(): Element
+	protected getOrAddXfrm(): Element {
+		return getOrAddSpPrXfrm(this.element)
+	}
 
 	/**
 	 * Mark the owning host's part dirty so `save()` reserializes it. Public

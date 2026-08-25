@@ -93,6 +93,7 @@ import {
 	SPPR_SCENE3D_AFTER,
 	SPPR_SP3D_AFTER,
 } from '../../../ooxml/sequence.js'
+import { cSldOf, nvPrOf } from '../../oxml/slide-dom.js'
 
 /**
  * A {@link ThemeContext} plus the one thing only the flatten pass needs to write from.
@@ -250,7 +251,7 @@ function reverseClrMap(clrMap: Map<string, string>): Map<string, string> {
 function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void {
 	const inherited = ctx.inheritedBackground
 	if (!inherited) return
-	const cSld = firstChild(slideRoot, 'p:cSld')
+	const cSld = cSldOf(slideRoot)
 	if (!cSld || firstChild(cSld, 'p:bg')) return // no cSld, or the slide already owns a background
 	const doc = ownerDocumentOf(slideRoot)
 	const bg = doc.importNode(inherited, true)
@@ -453,8 +454,7 @@ function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): v
  */
 function demotePlaceholders(shapeRoot: Element): void {
 	for (const sp of descendantsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const nvSpPr = firstChild(sp, 'p:nvSpPr')
-		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		const nvPr = nvPrOf(sp)
 		if (nvPr) removeChildrenByQName(nvPr, ['p:ph'])
 	}
 }

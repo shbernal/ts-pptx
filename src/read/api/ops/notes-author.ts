@@ -35,6 +35,7 @@ import { InternalError, PackageReadError } from '../../../errors.js'
 import { ensureNotesMasterForAuthoring } from './notes-master.js'
 import type { Slide } from '../slide.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
+import { nvPrOf, spTreeOf } from '../../oxml/slide-dom.js'
 
 const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 const textEncoder = new TextEncoder()
@@ -97,12 +98,10 @@ function replaceNotesParagraphs(txBody: Element, text: string): void {
  * @return {Element | null} the body placeholder's text body
  */
 function notesBodyTxBody(root: Element | null): Element | null {
-	const cSld = root && firstChild(root, 'p:cSld')
-	const spTree = cSld && firstChild(cSld, 'p:spTree')
+	const spTree = spTreeOf(root)
 	if (!spTree) return null
 	for (const sp of getElements(spTree, 'p:sp')) {
-		const nvSpPr = firstChild(sp, 'p:nvSpPr')
-		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		const nvPr = nvPrOf(sp)
 		const ph = nvPr && firstChild(nvPr, 'p:ph')
 		if (ph && attr(ph, 'type') === 'body') return firstChild(sp, 'p:txBody')
 	}

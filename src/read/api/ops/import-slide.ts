@@ -23,13 +23,13 @@
  * the other `ops/` modules.
  */
 
-import { firstChild, ownerDocumentOf, type Element } from '../../oxml/dom.js'
+import { ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { Part } from '../../opc/part.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { PackageReadError, InvalidOptionError } from '../../../errors.js'
 import { flattenSlide, remapLiteralColors, restyleSlide } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
-import { carriedDecorations, firstShapeChild } from '../../oxml/slide-dom.js'
+import { carriedDecorations, firstShapeChild, spTreeOf } from '../../oxml/slide-dom.js'
 import { copySourceTableStyles } from './table-styles.js'
 import { copyPart, newOwnedScope, type ImportContext, type OwnedScope } from './part-copy.js'
 import { isSharedByPageCopies } from './page-owned.js'
@@ -219,8 +219,7 @@ function carryMasterGraphics(
 	const sourceOpc = ctx.source
 	const layoutPartName = resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
 	const masterPartName = layoutPartName ? resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
-	const cSld = firstChild(slideRoot, 'p:cSld')
-	const spTree = cSld && firstChild(cSld, 'p:spTree')
+	const spTree = spTreeOf(slideRoot)
 	if (!spTree) return
 
 	const doc = ownerDocumentOf(slideRoot)

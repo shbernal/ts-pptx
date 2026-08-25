@@ -38,6 +38,7 @@ import { backgroundElementOf, readSlideBackground, type SlideBackground } from '
 import { buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from './shapes.js'
 import { TextFrame } from './text.js'
 import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
+import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
 
 /** The 12 theme colour-scheme slots (`a:clrScheme` children), in schema order. */
 export type ThemeColorSlot =
@@ -440,13 +441,11 @@ export class SlideMaster implements ShapeHost {
 	}
 
 	#cSld(): Element | null {
-		const root = this.part.dom.documentElement
-		return root ? firstChild(root, 'p:cSld') : null
+		return cSldOf(this.part.dom.documentElement)
 	}
 
 	#spTree(): Element | null {
-		const cSld = this.#cSld()
-		return cSld ? firstChild(cSld, 'p:spTree') : null
+		return spTreeOf(this.part.dom.documentElement)
 	}
 }
 
@@ -573,12 +572,10 @@ export class SlideLayout implements ShapeHost {
 	}
 
 	#cSld(): Element | null {
-		const root = this.part.dom.documentElement
-		return root ? firstChild(root, 'p:cSld') : null
+		return cSldOf(this.part.dom.documentElement)
 	}
 
 	#spTree(): Element | null {
-		const cSld = this.#cSld()
-		return cSld ? firstChild(cSld, 'p:spTree') : null
+		return spTreeOf(this.part.dom.documentElement)
 	}
 }

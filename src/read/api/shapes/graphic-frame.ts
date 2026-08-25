@@ -23,12 +23,12 @@ const A_CHARTEX_URI = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 export class GraphicFrame extends Shape {
 	readonly shapeType = 'graphicFrame' as const
 
-	protected xfrm(): Element | null {
+	protected override xfrm(): Element | null {
 		// graphicFrame carries its own `p:xfrm` directly, not inside `p:spPr`.
 		return firstChild(this.element, 'p:xfrm')
 	}
 
-	protected getOrAddXfrm(): Element {
+	protected override getOrAddXfrm(): Element {
 		// p:xfrm sits between p:nvGraphicFramePr and a:graphic.
 		return getOrAddChild(this.element, 'p:xfrm', ['a:graphic', 'p:extLst'])
 	}

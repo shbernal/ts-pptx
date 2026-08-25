@@ -30,6 +30,7 @@ import type { ThemeContext } from '../oxml/theme.js'
 import { resolveNotesColorContext } from './theme-context.js'
 import { spPrXfrmEmu } from './shapes/oxml.js'
 import { TextFrame } from './text.js'
+import { nvPrOf, spTreeOf } from '../oxml/slide-dom.js'
 
 /**
  * One placeholder shape (`p:sp`) of a notes slide. A notes slide holds a fixed set:
@@ -49,8 +50,7 @@ export class NotesPlaceholder {
 	) {}
 
 	#ph(): Element | null {
-		const nvSpPr = firstChild(this.sp, 'p:nvSpPr')
-		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		const nvPr = nvPrOf(this.sp)
 		return nvPr ? firstChild(nvPr, 'p:ph') : null
 	}
 
@@ -207,8 +207,6 @@ export class NotesSlide {
 	}
 
 	#spTree(): Element | null {
-		const root = this.part.dom.documentElement
-		const cSld = root && firstChild(root, 'p:cSld')
-		return cSld ? firstChild(cSld, 'p:spTree') : null
+		return spTreeOf(this.part.dom.documentElement)
 	}
 }

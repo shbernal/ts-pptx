@@ -25,6 +25,7 @@ import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readPatternFill } from './pattern-fill.js'
+import { cSldOf } from '../oxml/slide-dom.js'
 
 /** Where a slide's effective background comes from in the slide → layout → master chain. */
 export type BackgroundSource = 'slide' | 'layout' | 'master'
@@ -77,7 +78,7 @@ export type SlideBackground =
 
 /** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */
 export function backgroundElementOf(root: Element | null): Element | null {
-	const cSld = root && firstChild(root, 'p:cSld')
+	const cSld = cSldOf(root)
 	return cSld ? firstChild(cSld, 'p:bg') : null
 }
 

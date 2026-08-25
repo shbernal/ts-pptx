@@ -23,7 +23,7 @@ import { fitSrcRectPercents, getImageSizeFromBytes } from '../../../media/image-
 import { warn } from '../../../diagnostics.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { Shape } from './base.js'
-import { childElements, getOrAddSpPrXfrm } from './oxml.js'
+import { childElements } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
@@ -81,15 +81,6 @@ function recolorColorOf(color: Element | null): RecolorColor | null {
 /** A picture (`p:pic`). */
 export class Picture extends Shape {
 	readonly shapeType = 'picture' as const
-
-	protected xfrm(): Element | null {
-		const spPr = firstChild(this.element, 'p:spPr')
-		return spPr ? firstChild(spPr, 'a:xfrm') : null
-	}
-
-	protected getOrAddXfrm(): Element {
-		return getOrAddSpPrXfrm(this.element)
-	}
 
 	// A picture's image is its sibling `p:blipFill`, not a fill of `p:spPr`, so a
 	// solid `spPr` fill would not clobber the image. v1 still omits fill setters
