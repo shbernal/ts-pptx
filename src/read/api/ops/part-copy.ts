@@ -38,19 +38,49 @@ export interface ImportContext {
 	/** Source partname → the partname allocated for it in `dest`. */
 	readonly registry: Map<string, string>
 	/**
-	 * The batch-selection plan when copying for {@link Presentation.importSlides}:
-	 * source slide partname → the destination partname pre-allocated for it. When
-	 * present, `slide → slide` relationships resolve only within this set — an
-	 * imported page may link to another *selected* page (rewritten to its fresh
-	 * partname) but must not drag an unselected source page across as a dependency.
+	 * The pages this call is materializing, and where each is headed: source slide
+	 * partname → the destination partname pre-allocated for it. A page named here
+	 * gets its own part even when the registry already holds a copy of it, which is
+	 * what lets one source page be imported more than once.
+	 *
+	 * Both import entry points set it — {@link Presentation.importSlides} for the
+	 * whole batch, {@link copySlidePart} for the single page of one
+	 * {@link Presentation.importSlide}. For the batch it carries a second meaning:
+	 * `slide → slide` relationships resolve only within the set, so an imported page
+	 * may link to another *selected* page (rewritten to its fresh partname) but must
+	 * not drag an unselected source page across as a dependency.
 	 */
 	readonly selection?: SelectionPlan
 }
 
-/** Which pages of one source package a batch import selected, and where each is headed. */
+/** Which pages of one source package an import is materializing, and where each is headed. */
 export interface SelectionPlan {
 	/** Source slide partname → the destination partname reserved for it. */
 	readonly destinations: ReadonlyMap<string, string>
+}
+
+/**
+ * Copy one slide page across as a part of its own, deduping everything under it
+ * but never the page itself. This is the `theme: 'copy'` arm of
+ * {@link Presentation.importSlide}.
+ *
+ * The page is the one part an import is *not* allowed to share. `copyPart`'s
+ * registry idempotence is right for a theme, master, layout or image, where a
+ * second copy is waste; applied to the slide it made a repeated import of the
+ * same source page return the first copy's partname, and the caller then wired a
+ * second `p:sldId` to a part that already had one — a package PowerPoint refuses
+ * to open (0x80070570), with nothing in the read model to show for it. So the
+ * page goes into the selection plan `copyPart` already honours for a batch, which
+ * re-materializes exactly the named pages and leaves the dedup of their
+ * dependencies alone.
+ *
+ * @param ctx             the open import out of the source package
+ * @param sourcePartName  partname of the source slide to bring across
+ * @return                partname of the new slide part in `ctx.dest`
+ */
+export function copySlidePart(ctx: ImportContext, sourcePartName: string): string {
+	const destinations = new Map([[sourcePartName, ctx.dest.opc.reservePartNameLike(sourcePartName)]])
+	return copyPart({ ...ctx, selection: { destinations } }, sourcePartName)
 }
 
 /**

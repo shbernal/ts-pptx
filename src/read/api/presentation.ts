@@ -62,7 +62,7 @@ import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
 import { carryTableStyles } from './ops/table-styles.js'
 import { promoteMasters } from './ops/master-registry.js'
-import { checkSelectionCopyable, copyPart, type ImportContext } from './ops/part-copy.js'
+import { checkSelectionCopyable, copyPart, copySlidePart, type ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
@@ -446,7 +446,10 @@ export class Presentation {
 	 * Only the layout(s) actually used by imported slides are copied; the imported
 	 * master's `p:sldLayoutIdLst` is pruned to exactly those, mirroring how
 	 * PowerPoint's "Reuse Slides" brings a slide across. Parts shared by repeated
-	 * imports from the same source deck are copied once and reused.
+	 * imports from the same source deck are copied once and reused — every part
+	 * except the page itself. Importing the same source slide twice yields two
+	 * independent copies over one shared layout/master/theme, which is what lets a
+	 * deck show one page twice (verbatim, then edited).
 	 *
 	 * With `{ theme: 'preserve' }` the slide's source theme is instead *flattened*
 	 * into the slide XML and the slide is bound to this deck's existing
@@ -499,7 +502,7 @@ export class Presentation {
 							options.carryMasterGraphics === true,
 							options.remapLiterals === true
 						)
-					: copyPart(importCtx, sourceSlide.partName)
+					: copySlidePart(importCtx, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart)
 			throw new InternalError('import/part-went-missing', `Imported slide part went missing: ${newPartName}`)
@@ -1187,6 +1190,24 @@ export class Presentation {
 	#insertSlidePart(newPart: Part, at?: number): Slide {
 		const presPart = this.presentationPart
 		const presRels = this.opc.relationshipsFor(presPart.partName)
+
+		// A slide part belongs to `p:sldIdLst` exactly once. Two `p:sldId` entries
+		// naming one part is a package PowerPoint refuses to open (0x80070570) and
+		// the read model cannot see: `slides` counts the list, so the deck reports
+		// the slide it does not have and the failure surfaces only when someone
+		// opens the file. Every caller here hands over a part it just materialized,
+		// so this cannot fire on caller input — only on the import machinery
+		// handing back a part it should have copied (issue #18). Refusing at the
+		// call is the difference between a thrown error and a bad deliverable.
+		for (const rel of presRels) {
+			if (rel.type !== SLIDE_REL || rel.targetMode === 'External') continue
+			if (presRels.resolveTarget(rel.id) !== newPart.partName) continue
+			throw new InternalError(
+				'slide/part-already-in-deck',
+				`Slide part ${newPart.partName} is already in this deck's slide list; a second p:sldId entry for it would make the package unopenable`
+			)
+		}
+
 		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPart.partName)).id
 
 		const root = presPart.dom.documentElement

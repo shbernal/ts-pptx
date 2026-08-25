@@ -207,6 +207,76 @@ describe('Presentation.importSlide', () => {
 		)
 	})
 
+	// Issue #18. Deduping a source part is right for a theme, master, layout or
+	// image; it is wrong for the page itself, which is the thing being duplicated
+	// on purpose. The registry outlives the call, so the second import used to
+	// return the first copy's partname and the deck ended up with two p:sldId
+	// entries naming one part — a package PowerPoint refuses to open (0x80070570)
+	// while `slides.length` cheerfully reported the extra slide.
+	test('importing one source slide twice gives it two parts, still sharing one master', async () => {
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
+		const beforeCount = target.slides.length
+
+		const first = target.importSlide(source, 0)
+		const second = target.importSlide(source, 0)
+		assert(first.partName !== second.partName, 'the two imports got distinct slide parts')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, beforeCount + 2, 'both copies are in the deck')
+		assertNoDanglingRels(reopened.opc)
+
+		const partNames = reopened.slides.map((s) => s.partName)
+		assertEqual(new Set(partNames).size, partNames.length, 'every p:sldId names a part of its own')
+		const ids = reopened.slides.map((s) => s.slideId)
+		assertEqual(new Set(ids).size, ids.length, 'slide ids are unique')
+
+		// The page duplicates; everything under it still dedupes.
+		const a = reopened.slides[reopened.slides.length - 2]
+		const b = reopened.slides[reopened.slides.length - 1]
+		const ga = assertGraphResolves(reopened.opc, a.partName)
+		const gb = assertGraphResolves(reopened.opc, b.partName)
+		assertEqual(ga.layout, gb.layout, 'both copies share the one copied layout')
+		assertEqual(ga.master, gb.master, 'and the one copied master')
+		assertEqual(ga.theme, gb.theme, 'and the one copied theme')
+		assertEqual(
+			registeredMasters(reopened.opc).filter((m) => m === ga.master).length,
+			1,
+			'the shared master is registered in p:sldMasterIdLst exactly once'
+		)
+
+		// Both copies carry the source page's content, not one empty shell.
+		const sourceShapeCount = source.slides[0].shapes.length
+		assertEqual(a.shapes.length, sourceShapeCount, 'the first copy has the source shapes')
+		assertEqual(b.shapes.length, sourceShapeCount, 'and so does the second')
+	})
+
+	test('a page an importSlides batch already brought across still duplicates on a later import', async () => {
+		// Both entry points read one per-source copy registry, so the batch's
+		// record of the page must not make the single import reuse its part.
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
+		const beforeCount = target.slides.length
+
+		target.importSlides([{ source, sourceIndex: 0, outputIndex: beforeCount }])
+		target.importSlide(source, 0)
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, beforeCount + 2, 'both copies are in the deck')
+		const partNames = reopened.slides.map((s) => s.partName)
+		assertEqual(new Set(partNames).size, partNames.length, 'every p:sldId names a part of its own')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a deck holding one source slide twice stays schema-valid', async () => {
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
+		target.importSlide(source, 0)
+		target.importSlide(source, 0)
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
 	test('registers each copied master in p:sldMasterIdLst (so master graphics render)', async () => {
 		const target = await openFixture('mixed')
 		const source = await openFixture('mixed')

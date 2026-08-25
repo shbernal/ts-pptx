@@ -437,6 +437,33 @@ and project-site changes.
 
 ### Fixed
 
+- **`importSlide` twice from one loaded source wrote a package PowerPoint refuses to
+  open** (issue #18). Copying a part out of a source deck is idempotent per source
+  package, which is right for a theme, master, layout or image — a second copy is
+  waste. It was also being applied to the slide part, which is the one thing an
+  import duplicates on purpose. So the second `importSlide(source, i)` with the same
+  loaded `source` returned the first copy's partname, and the deck ended up with two
+  `p:sldId` entries and two relationships naming a single slide part: `0x80070570`,
+  "the file or directory is corrupted and unreadable", with the whole package
+  rejected rather than just the duplicate. Nothing in the API said so first —
+  `slides.length` counted the entry that had no part behind it — so the failure
+  surfaced only when someone opened the deliverable. Only `theme: 'copy'`, the
+  default, was affected; `preserve` and `restyle` always allocated a fresh part. A
+  page an `importSlides` batch had already brought across hit the same registry, so
+  batch-then-import failed the same way.
+
+  The page now goes through the selection plan `copyPart` already honoured for a
+  batch: it is materialized fresh on every call while everything under it (layout,
+  master, theme, media) stays shared. Importing one source page twice yields two
+  independent copies over one master, which is what makes a before/after pair of the
+  same page possible without loading the source deck twice.
+
+  Wiring a slide part into `p:sldIdLst` a second time now throws
+  `InternalError('slide/part-already-in-deck')` rather than writing the deck. No
+  caller can reach it with valid input — the guard exists because this class of
+  defect is invisible until the file is opened, and a thrown error at the call site
+  is worth more than a clean run and a corrupt deliverable.
+
 - **Measured fit put Chinese and Japanese text on one line too many.** The wrap
   simulator broke lines only at whitespace, so a CJK run tokenized as a single
   unbreakable word: it fitted beside nothing, moved to the next line whole, and left

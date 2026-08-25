@@ -1716,6 +1716,11 @@ master's `p:sldLayoutIdLst` is pruned to exactly those: mirroring PowerPoint's
 "Reuse Slides". Parts shared by repeated imports from the same source deck are
 copied once and reused. Untouched parts of the target stay byte-identical.
 
+The slide part itself is the one exception to that sharing: importing the same
+source page twice gives you two independent copies, which is what makes a
+before/after pair of one page possible. Only what sits underneath the page (its
+layout, master, theme, media) is shared between them.
+
 Source and target slide sizes must match (`importSlide` throws otherwise; v1 does
 no geometry rescaling). Source notes are dropped, and fonts embedded via
 `presentation.xml` are not carried across.
