@@ -27,6 +27,7 @@ import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } 
 import { el, voidEl } from '../oxml/el.js'
 import {
 	chartColorLineFill,
+	chartDataLabels,
 	createChartTextFonts,
 	createSerLinesElement,
 	makeChartErrorBarsXml,
@@ -34,6 +35,7 @@ import {
 	makeSeriesDataPointsXml,
 	numCachePt,
 	paletteColor,
+	resolveChartPalette,
 } from './chart-parts.js'
 
 /**
@@ -122,7 +124,7 @@ export function makeCatAxisPlot(
 		// Fill and Border
 		// `chartColors` is always populated by addChartDefinition() (defaulting to BARCHART_COLORS); the
 		// fallback here only satisfies the optional type and keeps `seriesColor` a non-null string.
-		const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+		const chartColors = resolveChartPalette(opts)
 		const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
 		const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, colorIndex)
 
@@ -287,30 +289,7 @@ export function makeCatAxisPlot(
 	})
 
 	// 3: "Data Labels"
-	{
-		strXml += '  <c:dLbls>'
-		strXml +=
-			'    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
-		strXml += '    <c:txPr>'
-		strXml += '      <a:bodyPr/>'
-		strXml += '      <a:lstStyle/>'
-		strXml += '      <a:p><a:pPr>'
-		strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
-		strXml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
-		strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
-		strXml += '        </a:defRPr>'
-		strXml += '      </a:pPr></a:p>'
-		strXml += '    </c:txPr>'
-		if (opts.dataLabelPosition) strXml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'
-		strXml += '    <c:showLegendKey val="0"/>'
-		strXml += '    <c:showVal val="' + (opts.showValue ? '1' : '0') + '"/>'
-		strXml += '    <c:showCatName val="0"/>'
-		strXml += '    <c:showSerName val="' + (opts.showSerName ? '1' : '0') + '"/>'
-		strXml += '    <c:showPercent val="0"/>'
-		strXml += '    <c:showBubbleSize val="0"/>'
-		strXml += `    <c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
-		strXml += '  </c:dLbls>'
-	}
+	strXml += chartDataLabels(opts, true)
 
 	// 4: Add more chart options (gapWidth, line Marker, etc.)
 	if (chartType === ChartType.bar) {

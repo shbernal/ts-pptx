@@ -8,7 +8,7 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { encodeXmlEntities } from '../utils.js'
 import { createColorElement } from '../drawingml/color.js'
@@ -19,7 +19,13 @@ import { ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
-import { createChartBorderLine, createChartTextFonts, createLeaderLinesElement, paletteColor } from './chart-parts.js'
+import {
+	createChartBorderLine,
+	createChartTextFonts,
+	createLeaderLinesElement,
+	paletteColor,
+	resolveChartPalette,
+} from './chart-parts.js'
 
 /**
  * Plot a single-series pie / doughnut chart into `<c:pieChart>` / `<c:doughnutChart>`.
@@ -77,7 +83,7 @@ export function makePiePlot(
 
 	// 2: "Data Point" block for every data row
 	firstLabelGroup(optsChartData).forEach((_label, idx) => {
-		const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+		const chartColors = resolveChartPalette(opts)
 		const ptStyle = optsChartData.pointStyles?.[idx]
 		strXml += '<c:dPt>'
 		strXml += ` <c:idx val="${idx}"/>`

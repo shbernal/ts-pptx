@@ -7,7 +7,7 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
@@ -17,7 +17,7 @@ import { ptsToEmuLenient } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
-import { createChartTextFonts, numCachePt, paletteColor } from './chart-parts.js'
+import { createChartTextFonts, numCachePt, numRefBlock, paletteColor, resolveChartPalette } from './chart-parts.js'
 
 /**
  * Plot a bubble / bubble3d chart into `<c:bubbleChart>` (X/Y plus per-point size).
@@ -70,7 +70,7 @@ export function makeBubblePlot(
 			{
 				strXml += '<c:spPr>'
 
-				const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+				const chartColors = resolveChartPalette(opts)
 				const tmpSerColor = paletteColor(chartColors, colorIndex)
 
 				if (tmpSerColor === 'transparent') {
@@ -104,35 +104,19 @@ export function makeBubblePlot(
 
 			// D: '<c:xVal>'/'<c:yVal>' "Values": Scatter Chart has 2: `xVal` and `yVal`
 			{
-				// X-Axis is always the same
-				strXml += '<c:xVal>'
-				strXml += '  <c:numRef>'
-				strXml += `    <c:f>Sheet1!$A$2:$A$${dataValues(data[0]).length + 1}</c:f>`
-				strXml += '    <c:numCache>'
-				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
-				strXml += `      <c:ptCount val="${dataValues(data[0]).length}"/>`
-				dataValues(data[0]).forEach((value, idx) => {
-					strXml += numCachePt(idx, value)
-				})
-				strXml += '    </c:numCache>'
-				strXml += '  </c:numRef>'
-				strXml += '</c:xVal>'
-
-				// Y-Axis vals are this object's `values`
-				strXml += '<c:yVal>'
-				strXml += '  <c:numRef>'
-				strXml += `<c:f>${sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, dataValues(data[0]).length + 1)}</c:f>`
+				// X-Axis is always the same; the Y series is cached against its length, so a
+				// caller who supplied fewer Y values than X leaves gaps rather than a short cache.
+				const xValues = dataValues(data[0])
+				const yValues = dataValues(obj)
+				strXml += numRefBlock('c:xVal', `Sheet1!$A$2:$A$${xValues.length + 1}`, valFmtCode, xValues)
+				strXml += numRefBlock(
+					'c:yVal',
+					sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, xValues.length + 1),
+					valFmtCode,
+					xValues.map((_value, idx) => yValues[idx]),
+					'' // bubble's yVal has never indented its `<c:f>`; see numRefBlock
+				)
 				idxColLtr++
-				strXml += '    <c:numCache>'
-				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
-				// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
-				strXml += `      <c:ptCount val="${dataValues(data[0]).length}"/>`
-				dataValues(data[0]).forEach((_value, idx) => {
-					strXml += numCachePt(idx, dataValues(obj)[idx])
-				})
-				strXml += '    </c:numCache>'
-				strXml += '  </c:numRef>'
-				strXml += '</c:yVal>'
 			}
 
 			// E: '<c:bubbleSize>'

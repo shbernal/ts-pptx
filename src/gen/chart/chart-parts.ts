@@ -32,11 +32,49 @@ import { el, raw, voidEl } from '../oxml/el.js'
 export const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
 /**
+ * A validated, lowercased axis time unit, or `undefined` when the value is not one.
+ *
+ * A garbage time unit does not degrade the chart -- it corrupts it, and PowerPoint renders
+ * nothing at all -- so an unrecognized value warns and is dropped rather than emitted.
+ *
+ * This replaces two copies of a loop that wrote `opts[opt] = undefined` back onto the options
+ * bag from inside an XML builder. Nothing downstream was corrupted (`ChartOptsInternal` is a
+ * copy `gen/define/chart.ts` already made, guarded by
+ * `test/regression/chart/chart-input-immutability.test.js`), but it meant calling the same axis
+ * builder twice gave a different answer the second time, and it put validation somewhere nobody
+ * would look for it.
+ *
+ * @param value - the caller's time unit, or `undefined`
+ * @param optionName - the option as the caller spells it, for the warning
+ */
+export function validTimeUnit(value: string | undefined, optionName: string): string | undefined {
+	if (!value) return undefined
+	if (typeof value !== 'string' || !VALID_CHART_TIME_UNITS.includes(value.toLowerCase())) {
+		warn('chart/invalid-axis-time-unit', `"${optionName}" must be one of: 'days','months','years' !`)
+		return undefined
+	}
+	return value.toLowerCase()
+}
+
+/**
  * The palette colour for series/point `idx`, cycling back to the start once the palette runs out.
  *
  * Every palette lookup in this directory goes through here so that a deck with more series or
  * data points than the palette has entries still emits the same bytes on every build.
  */
+/**
+ * The palette a chart's series and data points draw from: the caller's `chartColors` when it has
+ * entries, otherwise the built-in default.
+ *
+ * `addChartDefinition` already defaults `chartColors`, so the fallback here is belt-and-braces —
+ * it also covers an explicitly empty array, which would otherwise leave every lookup with
+ * nothing to return. Six plot builders wrote this out; going through one function is what makes
+ * "empty means default" a single decision rather than six.
+ */
+export function resolveChartPalette(opts: ChartOptsInternal): string[] {
+	return opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+}
+
 export function paletteColor(palette: readonly string[], idx: number, fallback = '000000'): string {
 	if (palette.length === 0) return fallback
 	return palette[idx % palette.length] ?? fallback
@@ -170,6 +208,46 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 	)
 
 	return el('c:majorGridlines', null, raw(el('c:spPr', null, raw(line), { openPrefix: ' ', closePrefix: ' ' })))
+}
+
+/**
+ * The plot-level `<c:dLbls>` block: number format, run properties, and the six `show*` flags.
+ *
+ * Shared by the category-axis and scatter plots, which carried a 20-line copy each. The two
+ * differed in exactly one thing that reaches the bytes -- whether `<c:showLeaderLines>` is
+ * emitted -- so that is the parameter. (They also differed in `? 1 : 0` versus `? '1' : '0'`
+ * for the bold/italic flags, which is the same byte either way.)
+ *
+ * `<c:showLeaderLines>` is last in CT_DLbls' group and optional, which is why omitting it is a
+ * legal shape and not a schema gap: leader lines connect a moved label back to its point, and a
+ * scatter plot has no `<c:dLblPos>` layout that moves one.
+ *
+ * @param opts - the chart's normalized options
+ * @param leaderLines - emit the trailing `<c:showLeaderLines>` (category-axis plots only)
+ */
+export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
+	let xml = '  <c:dLbls>'
+	xml += '    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
+	xml += '    <c:txPr>'
+	xml += '      <a:bodyPr/>'
+	xml += '      <a:lstStyle/>'
+	xml += '      <a:p><a:pPr>'
+	xml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
+	xml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
+	xml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
+	xml += '        </a:defRPr>'
+	xml += '      </a:pPr></a:p>'
+	xml += '    </c:txPr>'
+	if (opts.dataLabelPosition) xml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'
+	xml += '    <c:showLegendKey val="0"/>'
+	xml += '    <c:showVal val="' + (opts.showValue ? '1' : '0') + '"/>'
+	xml += '    <c:showCatName val="0"/>'
+	xml += '    <c:showSerName val="' + (opts.showSerName ? '1' : '0') + '"/>'
+	xml += '    <c:showPercent val="0"/>'
+	xml += '    <c:showBubbleSize val="0"/>'
+	if (leaderLines) xml += `    <c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
+	xml += '  </c:dLbls>'
+	return xml
 }
 
 /**
@@ -439,5 +517,46 @@ export function makeSeriesDataPointsXml(
 		xml += '</c:spPr>'
 		xml += '</c:dPt>'
 	})
+	return xml
+}
+
+/**
+ * A `<c:xVal>`/`<c:yVal>` numeric-reference block: the `<c:f>` formula plus the `<c:numCache>`
+ * that mirrors the cells it points at.
+ *
+ * Scatter and bubble each carried their own copy of this twice over, four near-identical
+ * twelve-line blocks. `values` is the exact point list to cache, so the caller decides what a
+ * gap is: the Y series is emitted against the X series' length (a caller may supply fewer Y
+ * values than X — a timeline with only the first few months filled in), and the shorter array's
+ * tail arrives here as `undefined`, which {@link numCachePt} skips.
+ *
+ * @param tag - the wrapping element, `c:xVal` or `c:yVal`
+ * @param ref - the `<c:f>` formula, from {@link sheetRangeRef} or written inline
+ * @param formatCode - the cached `<c:formatCode>`
+ * @param values - the points to cache, in order; `null`/`undefined` entries are gaps
+ * @param refIndent - leading whitespace before `<c:f>`. Bubble's `c:yVal` has none where every
+ *   other block has four spaces. That is inert inter-element whitespace, but it is *emitted*
+ *   whitespace, and this extraction is behaviour-preserving — normalizing it would be a byte
+ *   change wearing a cleanup's clothes, which the byte-identity gate exists to refuse.
+ */
+export function numRefBlock(
+	tag: 'c:xVal' | 'c:yVal',
+	ref: string,
+	formatCode: string,
+	values: Array<number | null | undefined>,
+	refIndent = '    '
+): string {
+	let xml = `<${tag}>`
+	xml += '  <c:numRef>'
+	xml += `${refIndent}<c:f>${ref}</c:f>`
+	xml += '    <c:numCache>'
+	xml += '      <c:formatCode>' + formatCode + '</c:formatCode>'
+	xml += `      <c:ptCount val="${values.length}"/>`
+	values.forEach((value, idx) => {
+		xml += numCachePt(idx, value)
+	})
+	xml += '    </c:numCache>'
+	xml += '  </c:numRef>'
+	xml += `</${tag}>`
 	return xml
 }

@@ -10,12 +10,12 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-internal.js'
+import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el } from '../oxml/el.js'
-import { numCachePt, paletteColor } from './chart-parts.js'
+import { numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
@@ -71,7 +71,7 @@ export function makeSurfacePlot(
 	valFmtCode: string
 ): string {
 	const tag = isSurface3D(opts) ? 'surface3DChart' : 'surfaceChart'
-	const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+	const chartColors = resolveChartPalette(opts)
 	let strXml = `<c:${tag}>`
 	strXml += `<c:wireframe val="${opts.surfaceWireframe ? 1 : 0}"/>`
 	data.forEach((obj, idx) => {

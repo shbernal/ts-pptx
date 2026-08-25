@@ -22,11 +22,13 @@ import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } 
 import { el, voidEl } from '../oxml/el.js'
 import {
 	chartColorLineFill,
+	chartDataLabels,
 	createChartTextFonts,
 	makeChartErrorBarsXml,
 	makeSeriesDataPointsXml,
-	numCachePt,
+	numRefBlock,
 	paletteColor,
+	resolveChartPalette,
 } from './chart-parts.js'
 
 /**
@@ -61,7 +63,7 @@ export function makeScatterPlot(
 		.filter((_obj, idx) => idx > 0)
 		.forEach((obj, idx) => {
 			colorIndex++
-			const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+			const chartColors = resolveChartPalette(opts)
 			strXml += '<c:ser>'
 			strXml += `  <c:idx val="${idx}"/>`
 			strXml += `  <c:order val="${idx}"/>`
@@ -288,34 +290,17 @@ export function makeScatterPlot(
 
 			// 3: "Values": Scatter Chart has 2: `xVal` and `yVal`
 			{
-				// X-Axis is always the same
-				strXml += '<c:xVal>'
-				strXml += '  <c:numRef>'
-				strXml += `    <c:f>Sheet1!$A$2:$A$${dataValues(data[0]).length + 1}</c:f>`
-				strXml += '    <c:numCache>'
-				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
-				strXml += `      <c:ptCount val="${dataValues(data[0]).length}"/>`
-				dataValues(data[0]).forEach((value, idx) => {
-					strXml += numCachePt(idx, value)
-				})
-				strXml += '    </c:numCache>'
-				strXml += '  </c:numRef>'
-				strXml += '</c:xVal>'
-
-				// Y-Axis vals are this object's `values`
-				strXml += '<c:yVal>'
-				strXml += '  <c:numRef>'
-				strXml += `    <c:f>${sheetRangeRef(idx + 2, 2, idx + 2, dataValues(data[0]).length + 1)}</c:f>`
-				strXml += '    <c:numCache>'
-				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
-				// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
-				strXml += `      <c:ptCount val="${dataValues(data[0]).length}"/>`
-				dataValues(data[0]).forEach((_value, idx) => {
-					strXml += numCachePt(idx, dataValues(obj)[idx])
-				})
-				strXml += '    </c:numCache>'
-				strXml += '  </c:numRef>'
-				strXml += '</c:yVal>'
+				// X-Axis is always the same; the Y series is cached against its length, so a
+				// caller who supplied fewer Y values than X leaves gaps rather than a short cache.
+				const xValues = dataValues(data[0])
+				const yValues = dataValues(obj)
+				strXml += numRefBlock('c:xVal', `Sheet1!$A$2:$A$${xValues.length + 1}`, valFmtCode, xValues)
+				strXml += numRefBlock(
+					'c:yVal',
+					sheetRangeRef(idx + 2, 2, idx + 2, xValues.length + 1),
+					valFmtCode,
+					xValues.map((_value, i) => yValues[i])
+				)
 			}
 
 			// Option: `smooth`
@@ -326,29 +311,7 @@ export function makeScatterPlot(
 		})
 
 	// 3: Data Labels
-	{
-		strXml += '  <c:dLbls>'
-		strXml +=
-			'    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
-		strXml += '    <c:txPr>'
-		strXml += '      <a:bodyPr/>'
-		strXml += '      <a:lstStyle/>'
-		strXml += '      <a:p><a:pPr>'
-		strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
-		strXml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
-		strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
-		strXml += '        </a:defRPr>'
-		strXml += '      </a:pPr></a:p>'
-		strXml += '    </c:txPr>'
-		if (opts.dataLabelPosition) strXml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'
-		strXml += '    <c:showLegendKey val="0"/>'
-		strXml += '    <c:showVal val="' + (opts.showValue ? '1' : '0') + '"/>'
-		strXml += '    <c:showCatName val="0"/>'
-		strXml += '    <c:showSerName val="' + (opts.showSerName ? '1' : '0') + '"/>'
-		strXml += '    <c:showPercent val="0"/>'
-		strXml += '    <c:showBubbleSize val="0"/>'
-		strXml += '  </c:dLbls>'
-	}
+	strXml += chartDataLabels(opts, false)
 
 	// 4: Add axis Id (NOTE: order matters! - category comes first)
 	strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`

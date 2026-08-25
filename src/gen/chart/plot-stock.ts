@@ -15,13 +15,12 @@ import {
 	AXIS_ID_CATEGORY_SECONDARY,
 	AXIS_ID_VALUE_PRIMARY,
 	AXIS_ID_VALUE_SECONDARY,
-	BARCHART_COLORS,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el } from '../oxml/el.js'
-import { numCachePt, paletteColor } from './chart-parts.js'
+import { numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
@@ -132,7 +131,7 @@ export function makeStockPlot(
 	valFmtCode: string
 ): string {
 	const spec = STOCK_STYLE_SPEC[(opts.stockStyle as StockStyle) || 'hlc']
-	const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+	const chartColors = resolveChartPalette(opts)
 	const volumeSeries = spec.volume ? data[0] : null
 	const stockSeries = spec.volume ? data.slice(1) : data
 	let strXml = ''

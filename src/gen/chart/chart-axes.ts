@@ -25,7 +25,6 @@ import {
 	DEF_FONT_SIZE,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
-import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
@@ -35,7 +34,7 @@ import {
 	createGridLineElement,
 	DEF_GRIDLINE_COLOR,
 	genXmlTitle,
-	VALID_CHART_TIME_UNITS,
+	validTimeUnit,
 } from './chart-parts.js'
 
 /**
@@ -162,19 +161,13 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	// Allow major and minor units to be set for double value axis charts
 	if (opts.catLabelFormatCode || usesValueAxisForCategories) {
 		if (opts.catLabelFormatCode) {
-			;(['catAxisBaseTimeUnit', 'catAxisMajorTimeUnit', 'catAxisMinorTimeUnit'] as const).forEach((opt) => {
-				// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
-				const optVal = opts[opt]
-				if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
-					warn('chart/invalid-axis-time-unit', `"${opt}" must be one of: 'days','months','years' !`)
-					opts[opt] = undefined
-				}
-			})
-			if (opts.catAxisBaseTimeUnit) strXml += '<c:baseTimeUnit val="' + opts.catAxisBaseTimeUnit.toLowerCase() + '"/>'
-			if (opts.catAxisMajorTimeUnit)
-				strXml += voidEl('c:majorTimeUnit', { val: opts.catAxisMajorTimeUnit.toLowerCase() })
-			if (opts.catAxisMinorTimeUnit)
-				strXml += voidEl('c:minorTimeUnit', { val: opts.catAxisMinorTimeUnit.toLowerCase() })
+			// All three resolved before any is emitted, so the warnings still arrive in option order.
+			const baseTimeUnit = validTimeUnit(opts.catAxisBaseTimeUnit, 'catAxisBaseTimeUnit')
+			const majorTimeUnit = validTimeUnit(opts.catAxisMajorTimeUnit, 'catAxisMajorTimeUnit')
+			const minorTimeUnit = validTimeUnit(opts.catAxisMinorTimeUnit, 'catAxisMinorTimeUnit')
+			if (baseTimeUnit) strXml += '<c:baseTimeUnit val="' + baseTimeUnit + '"/>'
+			if (majorTimeUnit) strXml += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
+			if (minorTimeUnit) strXml += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
 		}
 		if (opts.catAxisMajorUnit) strXml += `<c:majorUnit val="${opts.catAxisMajorUnit}"/>`
 		if (opts.catAxisMinorUnit) strXml += `<c:minorUnit val="${opts.catAxisMinorUnit}"/>`
@@ -338,23 +331,17 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 
 	// PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	if (opts.serLabelFormatCode) {
-		;(['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'] as const).forEach((opt) => {
-			// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
-			const optVal = opts[opt]
-			if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
-				warn('chart/invalid-axis-time-unit', `"${opt}" must be one of: 'days','months','years' !`)
-				opts[opt] = undefined
-			}
-		})
+		// All three resolved before any is emitted, so the warnings still arrive in option order.
+		const baseTimeUnit = validTimeUnit(opts.serAxisBaseTimeUnit, 'serAxisBaseTimeUnit')
+		const majorTimeUnit = validTimeUnit(opts.serAxisMajorTimeUnit, 'serAxisMajorTimeUnit')
+		const minorTimeUnit = validTimeUnit(opts.serAxisMinorTimeUnit, 'serAxisMinorTimeUnit')
 		// `baseTimeUnit` keeps its template string on purpose: it emits TWO spaces before
 		// `val`, and voidEl() joins attributes with exactly one. Normalizing the spacing
 		// would be a byte change, so the quirk stays visible here rather than being
 		// silently "fixed" by the builder.
-		if (opts.serAxisBaseTimeUnit) strXml += ` <c:baseTimeUnit  val="${opts.serAxisBaseTimeUnit.toLowerCase()}"/>`
-		if (opts.serAxisMajorTimeUnit)
-			strXml += voidEl('c:majorTimeUnit', { val: opts.serAxisMajorTimeUnit.toLowerCase() }, { openPrefix: ' ' })
-		if (opts.serAxisMinorTimeUnit)
-			strXml += voidEl('c:minorTimeUnit', { val: opts.serAxisMinorTimeUnit.toLowerCase() }, { openPrefix: ' ' })
+		if (baseTimeUnit) strXml += ` <c:baseTimeUnit  val="${baseTimeUnit}"/>`
+		if (majorTimeUnit) strXml += voidEl('c:majorTimeUnit', { val: majorTimeUnit }, { openPrefix: ' ' })
+		if (minorTimeUnit) strXml += voidEl('c:minorTimeUnit', { val: minorTimeUnit }, { openPrefix: ' ' })
 		if (opts.serAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.serAxisMajorUnit}"/>`
 		if (opts.serAxisMinorUnit) strXml += ` <c:minorUnit val="${opts.serAxisMinorUnit}"/>`
 	}
