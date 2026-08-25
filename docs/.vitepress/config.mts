@@ -24,8 +24,7 @@ function pageTitle(page: string): string {
 	}
 
 	return page
-		.split('/')
-		.at(-1)!
+		.slice(page.lastIndexOf('/') + 1)
 		.replaceAll('-', ' ')
 		.replace(/\b\w/g, (char) => char.toUpperCase())
 }

@@ -48,23 +48,7 @@
 	// the guard was free to install; what the rest of the plugin costs is recorded in
 	// the `test/**` override below.
 	"plugins": ["eslint", "unicorn", "typescript", "oxc", "import", "vitest"],
-	"ignorePatterns": [
-		"coverage/**",
-		"demos/**",
-		"dist/**",
-		"node_modules/**",
-		"src/bld/**",
-		"types/**",
-		// `tools/**` and `docs/**` are new entries, and they encode something the previous
-		// config expressed by omission rather than by an ignore: its blocks were all
-		// `files`-scoped, so a file matching no block was linted with *zero* rules, and
-		// nothing there matched. oxlint inverts that — top-level `rules` apply to every
-		// file that is not ignored — so keeping these trees at the enforcement level they
-		// have always had means naming them. Starting to lint them is a decision worth
-		// making on its own, not a side effect of changing linters.
-		"tools/**",
-		"docs/**",
-	],
+	"ignorePatterns": ["coverage/**", "demos/**", "dist/**", "node_modules/**", "src/bld/**", "types/**"],
 	"categories": {
 		"correctness": "error",
 	},
