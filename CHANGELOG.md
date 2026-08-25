@@ -7,10 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-This release includes a breaking cleanup to the in-memory byte export API, a new read-model
-authoring method for speaker notes, plus repository and project-site changes.
+This release includes a breaking cleanup to the in-memory byte export API, speaker notes on
+both read-model paths that lacked them (authoring onto a loaded deck, and the batch import),
+plus repository and project-site changes.
 
 ### Added
+
+- **`importSlides` carries speaker notes, per request.** `ImportSlidesRequest` gains
+  `importNotes?: boolean`, the batch spelling of the option `importSlide` has had all
+  along; the default is unchanged, so a request that does not ask still arrives without
+  notes. Closes the half of #17 the previous change left open.
+
+  Per request rather than per batch because a stitch mixes sources: the notes of a
+  library's cover page are worth carrying where a scratch deck's are not. What the flag
+  does *not* decide is the styling — a presentation holds at most one `notesMaster`, so the
+  destination's own is reused when it has one and the first carried master is installed
+  when it has none, exactly as `importSlide({ importNotes: true })`, `appendSlides` and
+  `Slide.addNotes` do. The four paths cannot between them produce a second notes master.
+
+  Two things had to move for the batch's own guarantees to survive the addition:
+
+  - **The up-front dry run now walks the notes graph.** Notes are copied after the pages
+    are, so a batch that could not finish carrying them was the one remaining way back into
+    a half-stitched deck. `checkSelectionCopyable` takes the opted-in pages and walks each
+    one's notes subgraph under exactly the rules `carryNotes` will follow — including
+    skipping the source notes master when the destination has one of its own, since that
+    master is then never read and a check that walked it anyway would reject a batch the
+    copy would have completed. A rejected batch still leaves the deck byte-identical.
+  - **A notes slide is now copied as a part its page owns.** `carryNotes` opens an
+    ownership scope (`page-owned.ts`), so a page named twice — reachable in one call for
+    the first time here, and already reachable through two `importSlide` calls — gets notes
+    of its own each time, and so do the parts those notes own. Sharing one of those between
+    two pages is a package PowerPoint refuses to open (`0x80070570`); media stays shared,
+    as everywhere else.
 
 - **`Slide.addNotes(text)` on the read model** — the write counterpart to the
   `notesText` / `notesTextFrame` / `notesSlide` getters, and the only way to annotate a
@@ -52,7 +81,9 @@ authoring method for speaker notes, plus repository and project-site changes.
   covering the notes-master policy, and the neighbouring claim that "deliberate re-branding
   (a `restyle` mode) is not yet implemented" — untrue since `restyle` shipped, and
   contradicted by the section above it — is corrected. No behaviour change: the option has
-  worked in all three `theme` modes since it shipped.
+  worked in all three `theme` modes since it shipped. `ImportSlidesRequest` was likewise
+  absent from the interface block entirely, and the batch section is now explicit about
+  what notes do there rather than saying only that they are dropped.
 
 ### Changed
 

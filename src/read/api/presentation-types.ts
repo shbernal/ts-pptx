@@ -517,10 +517,27 @@ export interface AppendSlidesOptions {
 export interface ImportSlidesRequest {
 	/** Already-loaded source presentation whose immutable package bytes own the page. */
 	source: Presentation
-	/** Zero-based source slide index. A source page may appear in one request only. */
+	/**
+	 * Zero-based source slide index. Naming one source page in several requests is
+	 * how a batch asks for several independent copies of it.
+	 */
 	sourceIndex: number
 	/** Zero-based position in the complete destination slide list after this batch. */
 	outputIndex: number
+	/**
+	 * Carry this page's speaker notes (`notesSlideN.xml`) across, as
+	 * `importSlide`'s {@link ImportSlideOptions.importNotes} does. Default false:
+	 * the slide copy drops the `notesSlide` relationship, so the imported page
+	 * arrives without notes.
+	 *
+	 * Per request rather than per batch because a stitch mixes sources — the
+	 * notes of a library's cover page are worth carrying where a scratch deck's
+	 * are not. The deck-wide half of the policy is not per request: a
+	 * presentation holds at most one `notesMaster`, so the destination's own is
+	 * reused when it has one and the first carried master is installed when it
+	 * has none, exactly as `importSlide` and `appendSlides` do.
+	 */
+	importNotes?: boolean
 }
 
 /** Options for {@link Presentation.fromTemplate}. */

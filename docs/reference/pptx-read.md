@@ -364,8 +364,9 @@ class Presentation {
 	 * deck byte-identical. A `slide → slide` link on a selected page must target
 	 * another selected page (or one already imported from that source) and is
 	 * rewritten to the fresh partnames. Pages come across under `'copy'` theme
-	 * semantics; notes, embedded fonts and `rescale` are not carried. See
-	 * "Importing several slides as one batch".
+	 * semantics; a request may carry its page's speaker notes with
+	 * `importNotes: true`, but embedded fonts and `rescale` have no batch spelling.
+	 * See "Importing several slides as one batch".
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[]
 
@@ -428,6 +429,13 @@ interface ImportSlideOptions {
 	importNotes?: boolean // carry the source slide's notesSlide part; default false (notes dropped)
 	embedFonts?: boolean // carry the source deck's embedded fonts; default false
 	rescale?: boolean | 'fit' | 'stretch' // rescale geometry when slide sizes differ; default false (throw)
+}
+
+interface ImportSlidesRequest {
+	source: Presentation // an already-loaded source deck
+	sourceIndex: number // zero-based source slide index; name one page N times for N copies
+	outputIndex: number // zero-based position in the FINAL destination slide list
+	importNotes?: boolean // carry this page's notesSlide part; default false (notes dropped)
 }
 
 interface ImportShapeOptions {
@@ -1789,9 +1797,10 @@ the media at the leaves. The asymmetry in the default is deliberate: a wrongly
 shared part is a deck nobody can open, a wrongly copied one is some duplicated
 bytes. So a relationship type nobody has classified is copied.
 
-Source and target slide sizes must match (`importSlide` throws otherwise; v1 does
-no geometry rescaling). Source notes are dropped, and fonts embedded via
-`presentation.xml` are not carried across.
+Source and target slide sizes must match unless you pass `rescale`. Source
+notes are dropped unless you ask for them with
+[`importNotes`](#speaker-notes-importnotes), and fonts embedded via
+`presentation.xml` are carried only with `embedFonts`.
 
 #### Slide position: `at`
 
@@ -1864,10 +1873,44 @@ duplicated together are copied in lockstep, so a duplicated pair becomes two
 self-contained pairs, and a link into a page requested only once always lands on
 that single copy.
 
+##### Speaker notes in a batch
+
+Notes are opt-in per **request**, not per batch, because a stitch mixes sources:
+the notes of a library's cover page are worth carrying where a scratch deck's are
+not.
+
+```js
+target.importSlides([
+  { source: library, sourceIndex: 2, outputIndex: 0, importNotes: true },
+  { source: scratch, sourceIndex: 7, outputIndex: 1 }, // arrives without notes
+])
+```
+
+What travels, and what it binds to, is exactly
+[`importSlide`'s `importNotes`](#speaker-notes-importnotes): the `notesSlide` part
+is copied and rewired to the new page, and the deck's **single** `notesMaster`
+decides the styling. The destination's own wins when it has one, and the first
+carried master is installed when it has none. That is one deck-wide rule, so it is
+not a per-request choice; the three paths (`addNotes`, `importSlide`,
+`importSlides`) cannot between them produce a second notes master.
+
+Two batch-specific consequences:
+
+- **The dry run covers the notes graph.** Notes are copied after the pages are, so
+  a batch that could not finish carrying them would otherwise be the one way back
+  into a half-stitched deck. The up-front check walks each opted-in page's notes
+  subgraph under the same rules, and a batch it rejects still leaves the deck
+  byte-identical. Because the check mirrors the copy rather than exceeding it, a
+  source whose notes master is unreadable is refused only when that master would
+  actually be copied, i.e. when the destination has none of its own.
+- **A page named twice gets notes twice.** The notes slide is a part its page
+  *owns*, as is anything hanging off it, so each copy takes its own (see
+  [Owned vs shared parts](#owned-vs-shared-parts)).
+
 Pages come across under `'copy'` theme semantics (their own layout → master →
-theme subgraph, shared parts deduped via the copy registry). Notes are dropped
-and embedded fonts are not carried, and there is no batch `rescale`, so the
-sizes really must match. Reach for `importSlide` when you need any of those.
+theme subgraph, shared parts deduped via the copy registry). Embedded fonts are
+not carried and there is no batch `rescale`, so the sizes really must match. Reach
+for `importSlide` when you need either of those.
 
 #### Themes: `copy` (default) vs `preserve`
 
@@ -1956,9 +1999,10 @@ A presentation may hold **at most one** `notesMaster` (`p:notesMasterIdLst` is
 That is the same rule `appendSlides` follows for generator-authored notes, so
 mixing the two paths onto one deck cannot produce a second notes master.
 
-`importSlides` (the batch form) has no notes spelling and always drops them; use
-`importSlide` when notes must travel. To give an imported slide notes of your own
-rather than the source's, see [`addNotes`](#writing-notes-from-the-read-model).
+`importSlides` (the batch form) spells the same option per request: see
+[Speaker notes in a batch](#speaker-notes-in-a-batch). To give an imported slide
+notes of your own rather than the source's, see
+[`addNotes`](#writing-notes-from-the-read-model).
 
 ### Composing a slide from shapes of several decks (Phase 4)
 

@@ -580,11 +580,20 @@ export class Presentation {
 	 * lockstep and link to their round-mates, and a link into a page requested only
 	 * once always lands on that single copy.
 	 *
+	 * Speaker notes travel per request: `{ importNotes: true }` carries that page's
+	 * `notesSlide` part across, wired to the new page and bound to a single
+	 * `notesMaster` under the same 0..1 rule {@link importSlide} and
+	 * {@link appendSlides} follow — the destination's own master wins when it has
+	 * one. Notes are part of the up-front dry run too, so a batch that would fail
+	 * carrying them is refused with the deck still byte-identical. A page named in
+	 * several requests gets its own copy of its notes each time, as of everything
+	 * else that page owns.
+	 *
 	 * Scope: pages come across under `'copy'` theme semantics (their own layout →
-	 * master → theme subgraph, shared parts deduped via the copy registry). Notes
-	 * are dropped (as in plain {@link importSlide}) and embedded fonts are not
-	 * carried; sizes must match, since there is no batch spelling for `rescale`
-	 * either. Use {@link importSlide} when you need any of those.
+	 * master → theme subgraph, shared parts deduped via the copy registry).
+	 * Embedded fonts are not carried, and sizes must match, since there is no batch
+	 * spelling for `embedFonts` or `rescale`. Use {@link importSlide} when you need
+	 * either of those.
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[] {
 		// 1. Validate everything up front: indexes exist, selections and output
@@ -625,8 +634,10 @@ export class Presentation {
 		const finalSlideCount = this.slides.length + resolved.length
 		// Which pages each source is being asked for. A page may appear in several
 		// requests: the set is what the dry run walks, and the per-request output
-		// parts are allocated in step 2.
+		// parts are allocated in step 2. `notesPages` is the subset whose notes are
+		// coming too, which the dry run has to walk past the dropped notes rel.
 		const selectedPages = new Map<OpcPackage, Set<string>>()
+		const notesPages = new Map<OpcPackage, Set<string>>()
 		for (const request of resolved) {
 			let pages = selectedPages.get(request.source.opc)
 			if (!pages) {
@@ -634,6 +645,13 @@ export class Presentation {
 				selectedPages.set(request.source.opc, pages)
 			}
 			pages.add(request.sourceSlide.partName)
+			if (!request.importNotes) continue
+			let withNotes = notesPages.get(request.source.opc)
+			if (!withNotes) {
+				withNotes = new Set()
+				notesPages.set(request.source.opc, withNotes)
+			}
+			withNotes.add(request.sourceSlide.partName)
 		}
 
 		const target = this.slideSize
@@ -667,8 +685,18 @@ export class Presentation {
 		//     no selected page links outside the selection. Once this passes the
 		//     copy below has no reachable throw, which is what lets a rejected
 		//     batch leave this deck byte-identical instead of half-stitched.
+		//     `copyMaster` is read once, before anything moves: a destination that
+		//     already has a notesMaster keeps it, so no source master is copied at
+		//     all, and one that has none takes the first carried master — after which
+		//     the rest bind to it. Walking every source's master when the deck has
+		//     none is deliberately the strict side of that: it can only reject a
+		//     source deck whose own notes master is already broken.
+		const copyMaster = this.opc.relationshipsFor(this.presentationPart.partName).byType(NOTES_MASTER_REL).length === 0
 		for (const [sourceOpc, pages] of selectedPages) {
-			checkSelectionCopyable(sourceOpc, this.#importContext(sourceOpc).registry, pages)
+			checkSelectionCopyable(sourceOpc, this.#importContext(sourceOpc).registry, pages, {
+				pages: notesPages.get(sourceOpc) ?? new Set(),
+				copyMaster,
+			})
 		}
 
 		// 2. Materialize each request's output page now, so the copy traversals can
@@ -715,6 +743,22 @@ export class Presentation {
 					if (round < reserved.length) void copyPart(ctx, sourcePartName)
 				}
 			}
+		}
+
+		// 3b. Carry the notes of the pages that asked for them, in request order, so
+		//     the deck's single notesMaster comes from the first such page — the same
+		//     order the dry run assumed. The copy above dropped every notesSlide rel,
+		//     so this is the only thing that re-adds one, and a page named twice gets
+		//     a notes part per copy.
+		for (const request of planned) {
+			if (!request.importNotes) continue
+			carryNotes(
+				this,
+				request.source,
+				this.#importContext(request.source.opc),
+				request.sourceSlide.partName,
+				request.destPart.partName
+			)
 		}
 
 		// 4. Wire into p:sldIdLst at each requested final position. Ascending order

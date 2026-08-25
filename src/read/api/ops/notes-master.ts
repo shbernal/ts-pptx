@@ -11,7 +11,8 @@
 
 import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { copyPart, type ImportContext } from './part-copy.js'
+import { copyPart, newOwnedScope, type ImportContext } from './part-copy.js'
+import { isSharedByPageCopies } from './page-owned.js'
 import type { Presentation } from '../presentation.js'
 import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
@@ -35,7 +36,8 @@ const textEncoder = new TextEncoder()
  * - its `notesMaster` rel is resolved through {@link ensureNotesMaster}, which
  *   reuses this deck's notesMaster when it has one and copies the source's only
  *   when it has none (a deck may have at most one notesMaster);
- * - any other internal target (media, etc.) is copied via {@link copyPart}.
+ * - any other internal target (media, etc.) is copied via {@link copyPart}, under an
+ *   ownership scope so a second copy of the page gets notes parts of its own.
  *
  * No-op when the source slide has no notes. Content-type registration for the
  * copied parts is handled by `addPart`/{@link copyPart}.
@@ -59,6 +61,15 @@ export function carryNotes(
 	dest.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.bytes)
 	dest.opc.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
 
+	// A notes slide is a part its page *owns* (see `page-owned.ts`), and so is
+	// whatever it owns in turn. Two copies of one source page — `importSlide`
+	// called twice, or one `importSlides` batch naming the page twice — each get
+	// notes of their own here; without a scope the second copy would share the
+	// first's OLE embedding or chart through the registry, which is a package
+	// PowerPoint refuses to open. Media stays shared, as everywhere else.
+	const owned = newOwnedScope()
+	owned.set(sourceNotesPartName, newNotesPartName)
+
 	// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
 	// the notesSlide body's r:id references stay valid; only the targets are rewritten.
 	const notesSourceRels = source.opc.relationshipsFor(sourceNotesPartName)
@@ -78,7 +89,11 @@ export function carryNotes(
 			notesTargetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
-		const newTarget = copyPart(ctx, notesSourceRels.resolveTarget(rel.id))
+		const newTarget = copyPart(
+			ctx,
+			notesSourceRels.resolveTarget(rel.id),
+			isSharedByPageCopies(rel.type) ? undefined : owned
+		)
 		notesTargetRels.addWithId(rel.id, rel.type, relativePartName(newNotesPartName, newTarget))
 	}
 }

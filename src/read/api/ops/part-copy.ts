@@ -13,12 +13,19 @@ import type { OpcPackage } from '../../opc/package.js'
 import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
-import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
+import {
+	NOTES_MASTER_REL,
+	NOTES_SLIDE_REL,
+	SLIDE_LAYOUT_REL,
+	SLIDE_MASTER_REL,
+	SLIDE_REL,
+} from '../../../ooxml/rel-types.js'
 import { isSharedByPageCopies } from './page-owned.js'
 import { InvalidOptionError, PackageReadError } from '../../../errors.js'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 
 /**
  * One import in progress: where parts are going, where they are coming from, and
@@ -214,6 +221,24 @@ export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: Own
 }
 
 /**
+ * Which of a batch's selected pages are also carrying their speaker notes across,
+ * and whether the notes subgraph will pull a `notesMaster` with it. Handed to
+ * {@link checkSelectionCopyable} so the dry run walks what `carryNotes` will walk.
+ */
+export interface NotesSelection {
+	/** Source partnames of the selected pages whose request asked for `importNotes`. */
+	readonly pages: ReadonlySet<string>
+	/**
+	 * Whether a source `notesMaster` would be copied. False once the destination
+	 * has one of its own, since `p:notesMasterIdLst` is `0..1` and `carryNotes`
+	 * then binds to the destination's master instead of copying the source's.
+	 */
+	readonly copyMaster: boolean
+}
+
+const NO_NOTES: NotesSelection = { pages: new Set(), copyMaster: false }
+
+/**
  * Dry-run {@link copyPart} over one source's batch selection, reading only the
  * *source* package: walk the graph the copy will walk, under the same
  * relationship-skipping rules, and throw what the copy would throw — a source
@@ -228,16 +253,19 @@ export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: Own
  *
  * Keep this in step with `copyPart`: the two must skip the same relationships
  * and stop at the same registry hits, or the guarantee is only as good as the
- * drift between them.
+ * drift between them. With `notes` the same obligation extends to `carryNotes`,
+ * which runs after the copy and is the batch's other way to reach a source part.
  *
  * @param source     the package the pages are coming from
  * @param registry   the copy registry for that source (parts already in `dest`)
  * @param selected   source partnames of the pages this batch selected
+ * @param notes      the pages of `selected` whose notes travel too; none by default
  */
 export function checkSelectionCopyable(
 	source: OpcPackage,
 	registry: ReadonlyMap<string, string>,
-	selected: ReadonlySet<string>
+	selected: ReadonlySet<string>,
+	notes: NotesSelection = NO_NOTES
 ): void {
 	const visited = new Set<string>()
 
@@ -254,13 +282,29 @@ export function checkSelectionCopyable(
 			throw new PackageReadError('package/part-missing', `importSlides: source package has no part ${partName}`)
 
 		const isMaster = part.contentType === SLIDE_MASTER_CONTENT_TYPE
+		const isNotesSlide = part.contentType === NOTES_SLIDE_CONTENT_TYPE
 		// The copy re-parses a master/layout to rebuild its layout id list; force
 		// the same parse here so unparseable XML fails before anything moves.
 		if (isMaster || part.contentType === SLIDE_LAYOUT_CONTENT_TYPE) void part.dom
 
 		const rels = source.relationshipsFor(partName)
 		for (const rel of rels) {
-			if (rel.type === NOTES_SLIDE_REL) continue
+			// `copyPart` always drops the notes rel; `carryNotes` picks it up
+			// afterwards for the pages that asked, so those subgraphs are walked here
+			// and no other.
+			if (rel.type === NOTES_SLIDE_REL) {
+				if (notes.pages.has(partName)) walk(rels.resolveTarget(rel.id))
+				continue
+			}
+			if (isNotesSlide) {
+				// The notes' back-rel to the page it annotates is repointed at the new
+				// slide, not copied — walking it would re-enter the page graph.
+				if (rel.type === SLIDE_REL) continue
+				// A deck already holding a notesMaster keeps it; the source's is then
+				// never read, so a dry run that walked it would reject a batch the copy
+				// would have accepted.
+				if (rel.type === NOTES_MASTER_REL && !notes.copyMaster) continue
+			}
 			if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
 			if (rel.targetMode === 'External') continue
 			const targetPartName = rels.resolveTarget(rel.id)

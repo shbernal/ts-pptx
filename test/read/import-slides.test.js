@@ -10,6 +10,8 @@
 //   - one request is one output page, so naming a source page twice returns two
 //     independent pages over one shared subgraph, and a jump link out of either
 //     copy still lands inside the batch;
+//   - `{ importNotes: true }` carries a page's notes across per request, under the
+//     one-notesMaster rule, and the dry run covers that graph too;
 //   - results survive a save → reopen round-trip with no dangling relationships.
 
 import { describe, test } from 'vitest'
@@ -24,6 +26,50 @@ const validatorInstalled = await validatorAvailable()
 
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
+const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
+const TAGS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags'
+const TAGS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tags+xml'
+
+/** Every `notesMaster` a deck registers in presentation.xml, resolved to partnames. */
+function notesMasters(pres) {
+	const rels = pres.opc.relationshipsFor(pres.presentationPart.partName)
+	return rels.byType(NOTES_MASTER_REL).map((rel) => rels.resolveTarget(rel.id))
+}
+
+/** The notesMaster part a notes slide binds to, or null when it names none. */
+function notesMasterOf(pres, notesPartName) {
+	const rels = pres.opc.relationshipsFor(notesPartName)
+	const rel = rels.byType(NOTES_MASTER_REL)[0]
+	return rel ? rels.resolveTarget(rel.id) : null
+}
+
+/** The `tags` targets of one part, resolved -- the owned part the notes copies must not share. */
+function tagTargets(opc, partName) {
+	const rels = opc.relationshipsFor(partName)
+	return rels.byType(TAGS_REL).map((rel) => rels.resolveTarget(rel.id))
+}
+
+/**
+ * `notes-slide-image`, with one part hung off its notes slide that page copies
+ * must not share -- a `tags` part, which `page-owned.js` classes as owned. The
+ * fixture's own notes reference only their master and their page, so without this
+ * there is nothing under the notes for a second copy to collide on.
+ */
+async function sourceWithOwnedNotesPart() {
+	const source = await openFixture('notes-slide-image')
+	const notesPartName = source.slides[0].notesSlide.partName
+	source.opc.addPart(
+		'/ppt/tags/tag1.xml',
+		TAGS_CONTENT_TYPE,
+		new TextEncoder().encode(
+			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+				'<p:tagLst xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">' +
+				'<p:tag name="OWNED" val="1"/></p:tagLst>'
+		)
+	)
+	source.opc.relationshipsFor(notesPartName).add(TAGS_REL, '../tags/tag1.xml')
+	return source
+}
 
 /** The internal SLIDE_REL targets of one slide part, resolved via its own rels. */
 function slideLinkTargets(opc, partName) {
@@ -346,6 +392,137 @@ describe('Presentation.importSlides', () => {
 			JSON.stringify([linkTarget.partName]),
 			'the jump link points at the page the first batch brought across'
 		)
+	})
+
+	test('speaker notes travel per request, and only where asked', async () => {
+		// The default is `importSlide`'s: the page copy drops the notesSlide rel and
+		// the imported page arrives without notes. One request opting in must not
+		// carry the other's, which is the point of the flag being per request.
+		const target = await openFixture('textbox') // 2 slides, no notesMaster of its own
+		const before = target.slides.length
+		const withNotes = await openFixture('notes-slide-image')
+		const withoutNotes = await openFixture('notes-slide-image')
+
+		target.importSlides([
+			{ source: withNotes, sourceIndex: 0, outputIndex: before, importNotes: true },
+			{ source: withoutNotes, sourceIndex: 0, outputIndex: before + 1 },
+		])
+
+		const reopened = await Presentation.load(await target.save())
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(
+			reopened.slides[before].notesText,
+			'Speaker notes so PowerPoint emits the notes slide.',
+			'the opted-in page kept the source notes'
+		)
+		assertEqual(reopened.slides[before + 1].notesText, null, 'the request that did not ask still gets no notes')
+		assertEqual(notesMasters(reopened).length, 1, 'carrying notes into a deck with none installs exactly one master')
+	})
+
+	test('a destination that has a notes master keeps it, and the source master is not copied', async () => {
+		// p:notesMasterIdLst is 0..1, so the destination's notes styling wins -- the
+		// same rule importSlide({ importNotes: true }) and appendSlides follow, which
+		// is what lets the three be mixed on one deck.
+		const target = await openFixture('read-stress') // already carries a notesMaster
+		const [ownMaster] = notesMasters(target)
+		assert(ownMaster !== undefined, 'the fixture registers a notesMaster to defend')
+		const masterParts = (pres) => [...pres.opc.parts.keys()].filter((name) => name.includes('/notesMasters/')).length
+		const mastersBefore = masterParts(target)
+		const source = await openFixture('notes-slide-image')
+		const at = target.slides.length
+
+		target.importSlides([{ source, sourceIndex: 0, outputIndex: at, importNotes: true }])
+
+		const reopened = await Presentation.load(await target.save())
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(JSON.stringify(notesMasters(reopened)), JSON.stringify([ownMaster]), 'the deck kept its own master')
+		assertEqual(masterParts(reopened), mastersBefore, 'and no second notesMaster part came across')
+		assertEqual(
+			notesMasterOf(reopened, reopened.slides[at].notesSlide.partName),
+			ownMaster,
+			'the carried notes bind to the destination master'
+		)
+	})
+
+	test('a page named twice with notes gets notes -- and the parts under them -- of its own', async () => {
+		// A notes slide is a part its page owns, so two copies of one page may not
+		// resolve to one notes part, and neither may the parts those notes own.
+		const target = await openFixture('textbox')
+		const before = target.slides.length
+		const source = await sourceWithOwnedNotesPart()
+
+		target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: before, importNotes: true },
+			{ source, sourceIndex: 0, outputIndex: before + 1, importNotes: true },
+		])
+
+		const reopened = await Presentation.load(await target.save())
+		assertNoDanglingRels(reopened.opc)
+		const first = reopened.slides[before]
+		const second = reopened.slides[before + 1]
+		assert(first.notesSlide !== null && second.notesSlide !== null, 'both copies came across with notes')
+		assert(first.notesSlide.partName !== second.notesSlide.partName, 'each copy has a notes part of its own')
+		assertEqual(first.notesText, second.notesText, 'and both say what the source page said')
+		const firstTags = tagTargets(reopened.opc, first.notesSlide.partName)
+		const secondTags = tagTargets(reopened.opc, second.notesSlide.partName)
+		assertEqual(firstTags.length, 1, 'the owned part under the notes came across')
+		assertEqual(secondTags.length, 1, 'for the second copy too')
+		assert(firstTags[0] !== secondTags[0], 'and the second copy took its own rather than sharing the first')
+	})
+
+	test('a batch that could not carry the notes is refused with the deck byte-identical', async () => {
+		// The dry run is what makes a rejected batch a no-op, and carryNotes runs after
+		// the copy -- so the notes graph has to be part of the dry run or the guarantee
+		// stops at the notes rel. Snapping the source's notesMaster is the cheapest way
+		// to reach that: the destination has none, so it would be copied.
+		const target = await openFixture('textbox')
+		const broken = await openFixture('notes-slide-image')
+		broken.opc.removePart(notesMasterOf(broken, broken.slides[0].notesSlide.partName))
+
+		const beforeBytes = await target.save()
+		assertEqual(
+			catchCode(() => target.importSlides([{ source: broken, sourceIndex: 0, outputIndex: 0, importNotes: true }])),
+			'package/part-missing',
+			'a part only the notes copy would have reached is missing from the source'
+		)
+		assert(bytesEqual(beforeBytes, await target.save()), 'the refused batch changed no byte')
+
+		// Without the opt-in the notes graph is not the batch's business at all, so the
+		// very same damaged source imports cleanly.
+		target.importSlides([{ source: broken, sourceIndex: 0, outputIndex: 0 }])
+		assertEqual(target.slides.length, 3, 'the same source imports fine when its notes are not asked for')
+		assertEqual(target.slides[0].notesText, null, 'and the page arrives without notes, as ever')
+	})
+
+	test('a destination master spares the source master the dry run would otherwise reject', async () => {
+		// The mirror of the case above: with a notesMaster of its own the deck never
+		// reads the source's, so a dry run that walked it regardless would reject a
+		// batch the copy would have completed.
+		const target = await openFixture('read-stress') // has a notesMaster
+		const broken = await openFixture('notes-slide-image')
+		broken.opc.removePart(notesMasterOf(broken, broken.slides[0].notesSlide.partName))
+		const at = target.slides.length
+
+		target.importSlides([{ source: broken, sourceIndex: 0, outputIndex: at, importNotes: true }])
+
+		const reopened = await Presentation.load(await target.save())
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(
+			reopened.slides[at].notesText,
+			'Speaker notes so PowerPoint emits the notes slide.',
+			'the notes bound to the destination master'
+		)
+	})
+
+	test.skipIf(!validatorInstalled)('a batch that carried notes stays schema-valid', async () => {
+		const target = await openFixture('textbox')
+		const source = await openFixture('notes-slide-image')
+		target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: 0, importNotes: true },
+			{ source, sourceIndex: 0, outputIndex: 1, importNotes: true },
+		])
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 
 	test.skipIf(!validatorInstalled)('a batch-imported deck stays schema-valid', async () => {
