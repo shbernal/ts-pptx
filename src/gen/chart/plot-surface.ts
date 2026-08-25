@@ -15,7 +15,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el } from '../oxml/el.js'
-import { numCachePt } from './chart-parts.js'
+import { numCachePt, paletteColor } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
@@ -75,7 +75,7 @@ export function makeSurfacePlot(
 	let strXml = `<c:${tag}>`
 	strXml += `<c:wireframe val="${opts.surfaceWireframe ? 1 : 0}"/>`
 	data.forEach((obj, idx) => {
-		strXml += makeSurfaceSer(obj, valFmtCode, chartColors[idx % chartColors.length] ?? '4472C4')
+		strXml += makeSurfaceSer(obj, valFmtCode, paletteColor(chartColors, idx, '4472C4'))
 	})
 	// Surface, value and series axes (category X, value Y/height, series Z).
 	strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/><c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`

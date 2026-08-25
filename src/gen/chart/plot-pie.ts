@@ -19,7 +19,7 @@ import { valToPts } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
-import { createChartBorderLine, createChartTextFonts, createLeaderLinesElement } from './chart-parts.js'
+import { createChartBorderLine, createChartTextFonts, createLeaderLinesElement, paletteColor } from './chart-parts.js'
 
 /**
  * Plot a single-series pie / doughnut chart into `<c:pieChart>` / `<c:doughnutChart>`.
@@ -83,10 +83,7 @@ export function makePiePlot(
 		strXml += ` <c:idx val="${idx}"/>`
 		strXml += ' <c:bubble3D val="0"/>'
 		strXml += ' <c:spPr>'
-		strXml += `<a:solidFill>${createColorElement(
-			ptStyle?.fill ||
-				(chartColors[idx + 1 > chartColors.length ? Math.floor(Math.random() * chartColors.length) : idx] ?? '000000')
-		)}</a:solidFill>`
+		strXml += `<a:solidFill>${createColorElement(ptStyle?.fill || paletteColor(chartColors, idx))}</a:solidFill>`
 		// Per-point border override takes precedence over chart-level `dataBorder`
 		if (ptStyle?.border) {
 			strXml += createChartBorderLine(ptStyle.border)

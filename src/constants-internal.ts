@@ -64,15 +64,11 @@ export const AXIS_ID_CATEGORY_SECONDARY = '2094734555'
 export const AXIS_ID_SERIES_PRIMARY = '2094734556'
 
 export const LETTERS: string[] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+// The default series palettes hold their distinct entries once. Every consumer reaches them
+// through `paletteColor()` (`gen/chart/chart-parts.ts`), which wraps back to the start, so a
+// chart with more series or points than the palette has entries repeats it rather than
+// running off the end.
 export const BARCHART_COLORS: string[] = [
-	'C0504D',
-	'4F81BD',
-	'9BBB59',
-	'8064A2',
-	'4BACC6',
-	'F79646',
-	'628FC6',
-	'C86360',
 	'C0504D',
 	'4F81BD',
 	'9BBB59',
@@ -83,15 +79,6 @@ export const BARCHART_COLORS: string[] = [
 	'C86360',
 ]
 export const PIECHART_COLORS: string[] = [
-	'5DA5DA',
-	'FAA43A',
-	'60BD68',
-	'F17CB0',
-	'B2912F',
-	'B276B2',
-	'DECF3F',
-	'F15854',
-	'A7A7A7',
 	'5DA5DA',
 	'FAA43A',
 	'60BD68',

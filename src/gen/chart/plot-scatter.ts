@@ -26,6 +26,7 @@ import {
 	makeChartErrorBarsXml,
 	makeSeriesDataPointsXml,
 	numCachePt,
+	paletteColor,
 } from './chart-parts.js'
 
 /**
@@ -77,7 +78,7 @@ export function makeScatterPlot(
 			// 'c:spPr': Fill, Border, Line, LineStyle (dash, etc.), Shadow
 			strXml += '  <c:spPr>'
 			{
-				const tmpSerColor = chartColors[colorIndex % chartColors.length] ?? '000000'
+				const tmpSerColor = paletteColor(chartColors, colorIndex)
 
 				if (tmpSerColor === 'transparent') {
 					strXml += '<a:noFill/>'
@@ -118,11 +119,10 @@ export function makeScatterPlot(
 				}
 				strXml += '<c:spPr>'
 				{
-					const markerColor =
-						chartColors[idx + 1 > chartColors.length ? Math.floor(Math.random() * chartColors.length) : idx] ?? '000000'
+					const markerColor = paletteColor(chartColors, idx)
 					strXml += markerColor === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(markerColor)
 				}
-				strXml += `<a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${chartColorLineFill(opts.lineDataSymbolLineColor || (chartColors[colorIndex % chartColors.length] ?? '000000'))}<a:prstDash val="solid"/><a:round/></a:ln>`
+				strXml += `<a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${chartColorLineFill(opts.lineDataSymbolLineColor || paletteColor(chartColors, colorIndex))}<a:prstDash val="solid"/><a:round/></a:ln>`
 				strXml += '<a:effectLst/>'
 				strXml += '</c:spPr>'
 				strXml += '</c:marker>'

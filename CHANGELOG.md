@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Chart colours past the end of the palette now cycle instead of being drawn at random.**
+  A chart with more series or data points than `chartColors` has entries used to pick the
+  overflow colours with `Math.random()`, so the same deck built twice emitted different
+  bytes and a 17-slice pie was recoloured on every build. All palette lookups now wrap back
+  to the start of the palette, which is what the majority of them already did.
+
+  Visible if you author more series or points than your palette covers: those now take the
+  palette's own colours in order rather than an arbitrary one. The two built-in palettes
+  each held their entries twice over, which only postponed the moment the broken wraparound
+  was reached; they now hold each colour once, and a chart past their end repeats them in
+  order. Output is unchanged for any chart that stayed within the palette.
+
 ## [3.3.0] - 2026-08-25
 
 This release includes a breaking cleanup to the in-memory byte export API, speaker notes on

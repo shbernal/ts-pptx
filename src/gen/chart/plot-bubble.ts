@@ -17,7 +17,7 @@ import { valToPts } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, voidEl } from '../oxml/el.js'
-import { createChartTextFonts, numCachePt } from './chart-parts.js'
+import { createChartTextFonts, numCachePt, paletteColor } from './chart-parts.js'
 
 /**
  * Plot a bubble / bubble3d chart into `<c:bubbleChart>` (X/Y plus per-point size).
@@ -71,7 +71,7 @@ export function makeBubblePlot(
 				strXml += '<c:spPr>'
 
 				const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
-				const tmpSerColor = chartColors[colorIndex % chartColors.length] ?? '000000'
+				const tmpSerColor = paletteColor(chartColors, colorIndex)
 
 				if (tmpSerColor === 'transparent') {
 					strXml += '<a:noFill/>'

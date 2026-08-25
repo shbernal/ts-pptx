@@ -21,7 +21,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el } from '../oxml/el.js'
-import { numCachePt } from './chart-parts.js'
+import { numCachePt, paletteColor } from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
@@ -159,7 +159,7 @@ export function makeStockPlot(
 	stockSeries.forEach((obj, idx) => {
 		// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
 		const isClose = !spec.upDownBars && idx === stockSeries.length - 1
-		const markColor = isClose ? (chartColors[obj._dataIndex % chartColors.length] ?? 'ED7D31') : null
+		const markColor = isClose ? paletteColor(chartColors, obj._dataIndex, 'ED7D31') : null
 		strXml += makeStockLineSer(obj, opts, valFmtCode, markColor)
 	})
 	strXml += STOCK_DLBLS

@@ -33,6 +33,7 @@ import {
 	makeCustomDLblXml,
 	makeSeriesDataPointsXml,
 	numCachePt,
+	paletteColor,
 } from './chart-parts.js'
 
 /**
@@ -123,7 +124,7 @@ export function makeCatAxisPlot(
 		// fallback here only satisfies the optional type and keeps `seriesColor` a non-null string.
 		const chartColors = opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
 		const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
-		const seriesColor = seriesOverride?.color ?? chartColors[colorIndex % chartColors.length] ?? '000000'
+		const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, colorIndex)
 
 		strXml += '  <c:spPr>'
 		if (seriesColor === 'transparent') {
@@ -168,10 +169,7 @@ export function makeCatAxisPlot(
 			if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
 			strXml += '  <c:spPr>'
 			{
-				const markerColor =
-					chartColors[
-						obj._dataIndex + 1 > chartColors.length ? Math.floor(Math.random() * chartColors.length) : obj._dataIndex
-					] ?? '000000'
+				const markerColor = paletteColor(chartColors, obj._dataIndex)
 				strXml += markerColor === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(markerColor)
 			}
 			strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)}<a:prstDash val="solid"/><a:round/></a:ln>`

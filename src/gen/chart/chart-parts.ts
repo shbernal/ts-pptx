@@ -31,6 +31,17 @@ import { el, raw, voidEl } from '../oxml/el.js'
 
 export const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
+/**
+ * The palette colour for series/point `idx`, cycling back to the start once the palette runs out.
+ *
+ * Every palette lookup in this directory goes through here so that a deck with more series or
+ * data points than the palette has entries still emits the same bytes on every build.
+ */
+export function paletteColor(palette: readonly string[], idx: number, fallback = '000000'): string {
+	if (palette.length === 0) return fallback
+	return palette[idx % palette.length] ?? fallback
+}
+
 // DEF_CHART_GRIDLINE.color is optional on the type but always present on the constant.
 export const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
 
