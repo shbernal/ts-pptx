@@ -311,9 +311,20 @@
 				"vitest/no-conditional-tests": "off",
 				"vitest/warn-todo": "off",
 
-				// Off pending confirmation: both of these look like false positives rather
-				// than findings, and the reasons belong here once they have been checked at
-				// the sites. TEMPORARY — this comment is replaced, not kept.
+				// Both of these report only false positives on this tree, and for reasons
+				// that are structural rather than incidental — checked at every site, not
+				// inferred from the counts.
+				//
+				// `no-standalone-expect` (6, all in `chart-input-immutability`) cannot see
+				// through `defineRegressionSuite`: the expects sit in a case object's `fn`,
+				// and the `it()` wrapping them is created by the driver a file away. Any
+				// regression case reaching for `expect` instead of the `assert` helpers
+				// would report the same, so the count tracks a style, not a risk.
+				//
+				// `valid-expect` (5) enforces *Jest's* arity — "Expect takes at most 1
+				// argument" is the giveaway. Vitest's `expect(value, message)` takes a
+				// failure message as its second argument, all five sites use it, and the
+				// message does surface on failure (checked by running one). Raised upstream.
 				"vitest/no-standalone-expect": "off",
 				"vitest/valid-expect": "off",
 			},
