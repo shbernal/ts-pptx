@@ -1,26 +1,22 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
-import { IMG_SVG_PLACEHOLDER } from '../constants-internal.js'
 import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
+import { fetchFontBytes, fetchMediaBase64, isRemote, placeholderSvgPreview } from './fetch-media.js'
 
 export function createNodeRuntime(): RuntimeAdapter {
 	return {
 		writeFileOutputType: 'nodebuffer',
 		loadMedia,
-		createSvgPngPreview,
+		createSvgPngPreview: placeholderSvgPreview,
 		writeFile,
 		loadFontData,
 	}
 }
 
 async function loadFontData(source: string): Promise<Uint8Array> {
-	if (source.startsWith('http')) {
-		const response = await fetch(source)
-		if (!response.ok) throw new MediaError('font/fetch-failed', `Unable to load font (fetch): ${source}`)
-		return new Uint8Array(await response.arrayBuffer())
-	}
+	if (isRemote(source)) return await fetchFontBytes(source)
 	try {
 		return new Uint8Array(await fs.readFile(source))
 	} catch (ex) {
@@ -31,11 +27,7 @@ async function loadFontData(source: string): Promise<Uint8Array> {
 }
 
 async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string> {
-	if (rel.path.startsWith('http')) {
-		const response = await fetch(rel.path)
-		if (!response.ok) throw new MediaError('media/fetch-failed', `Unable to load image (fetch): ${rel.path}`)
-		return Buffer.from(await response.arrayBuffer()).toString('base64')
-	}
+	if (isRemote(rel.path)) return await fetchMediaBase64(rel.path)
 
 	try {
 		return Buffer.from(await fs.readFile(rel.path)).toString('base64')
@@ -44,11 +36,6 @@ async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string>
 			cause: ex,
 		})
 	}
-}
-
-async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
-	rel.data = IMG_SVG_PLACEHOLDER
-	return 'done'
 }
 
 async function writeFile(fileName: string, data: string | ArrayBuffer | Blob | Uint8Array): Promise<string> {

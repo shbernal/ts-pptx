@@ -28,13 +28,21 @@ import { buildDeckInHarness, openHarness } from './helpers.mjs'
  */
 
 /**
- * Every function in `src/runtime/browser.ts`, by the name it keeps in the bundle.
+ * Every function backing a `RuntimeAdapter` member in the browser, by the name it keeps in the
+ * bundle.
  *
  * `writeFile` is why the harness has a `download` scenario at all: the demo drives that
  * path too, but through a Vite bundle, where this file is not loaded as a file and no
  * per-URL coverage entry exists for it.
+ *
+ * `fetchFontBytes` is the adapter's `loadFontData`, and it is deliberately not in
+ * `src/runtime/browser.ts`: `fetch` behaves the same in every runtime, so all three adapters
+ * share one implementation (`src/runtime/fetch-media.ts`). The bundler therefore hoists it into
+ * a common chunk rather than `dist/browser.js`, which is why this list is checked against every
+ * dist entry and not just that one. The `MIN_EXECUTED_PCT` floor below stays scoped to
+ * `dist/browser.js` — it is a claim about that file, and shared code is not part of it.
  */
-const ADAPTER_FUNCTIONS = ['createBrowserRuntime', 'loadFontData', 'loadMedia', 'createSvgPngPreview', 'writeFile']
+const ADAPTER_FUNCTIONS = ['createBrowserRuntime', 'fetchFontBytes', 'loadMedia', 'createSvgPngPreview', 'writeFile']
 
 /**
  * Floor for the executed share of `dist/browser.js`. Measured 92.74 when this landed;
@@ -102,8 +110,12 @@ test('every RuntimeAdapter function runs, and dist/browser.js stays above its co
 	const entry = entries.find((script) => script.url.endsWith('/dist/browser.js'))
 	expect(entry, `no coverage entry for dist/browser.js; got:\n  ${entries.map((e) => e.url).join('\n  ')}`).toBeTruthy()
 
+	// Across every dist entry, not just `dist/browser.js` — one adapter member is a shared
+	// implementation the bundler puts in a common chunk. See ADAPTER_FUNCTIONS.
 	const ran = new Set(
-		entry.functions.filter((fn) => fn.ranges.some((range) => range.count > 0)).map((fn) => fn.functionName)
+		entries.flatMap((script) =>
+			script.functions.filter((fn) => fn.ranges.some((range) => range.count > 0)).map((fn) => fn.functionName)
+		)
 	)
 	expect(ADAPTER_FUNCTIONS.filter((name) => !ran.has(name))).toEqual([])
 

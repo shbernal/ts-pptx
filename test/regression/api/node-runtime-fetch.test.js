@@ -87,3 +87,25 @@ describe('node runtime: image loading over http', () => {
 		await expect(pptx.toBytes()).rejects.toThrow(/Failed to load media .*missing\.png/)
 	})
 })
+
+describe('node runtime: what counts as remote', () => {
+	// The branch used to be `source.startsWith('http')`, which is a prefix test on the whole
+	// string rather than a scheme test. A relative directory whose name happens to begin with
+	// "http" was routed to fetch, and then reported as a network failure for a file sitting on
+	// disk. Both cases below fail either way — there is no such file — but only one of them
+	// should touch `fetch`, and which one is the whole point.
+	test('a relative path beginning with "http" is read from disk, not fetched', async () => {
+		const calls = stubFetch({ ok: true, body: PNG_1x1 })
+		const pptx = new TsPptx()
+		pptx.addSlide().addImage({ path: 'httpdata/x.png', x: 1, y: 1, w: 1, h: 1 })
+		await expect(pptx.toBytes()).rejects.toThrow(/Failed to load media .*httpdata/)
+		expect(calls).toEqual([])
+	})
+
+	test('a scheme in any case is fetched', async () => {
+		const calls = stubFetch({ ok: true, body: FONT_BYTES })
+		const pptx = new TsPptx()
+		await pptx.registerFontMetrics('SilkUpper', 'HTTPS://example.com/Silkscreen-Regular.ttf')
+		expect(calls).toEqual(['HTTPS://example.com/Silkscreen-Regular.ttf'])
+	})
+})

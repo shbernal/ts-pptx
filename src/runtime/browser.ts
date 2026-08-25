@@ -2,6 +2,7 @@ import { IMG_SVG_PLACEHOLDER } from '../constants-internal.js'
 import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
+import { fetchFontBytes } from './fetch-media.js'
 
 export function createBrowserRuntime(): RuntimeAdapter {
 	return {
@@ -9,16 +10,15 @@ export function createBrowserRuntime(): RuntimeAdapter {
 		loadMedia,
 		createSvgPngPreview,
 		writeFile,
-		loadFontData,
+		loadFontData: fetchFontBytes,
 	}
 }
 
-async function loadFontData(source: string): Promise<Uint8Array> {
-	const response = await fetch(source)
-	if (!response.ok) throw new MediaError('font/fetch-failed', `Unable to load font (fetch): ${source}`)
-	return new Uint8Array(await response.arrayBuffer())
-}
-
+/**
+ * Returns a `data:` URI, not raw base64 — see {@link RuntimeAdapter.loadMedia}. The `FileReader`
+ * is what makes this adapter's own implementation worth keeping: it decodes the blob off the main
+ * thread, where the shared `fetchMediaBase64` would encode the whole payload synchronously.
+ */
 async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string> {
 	const response = await fetch(rel.path)
 	if (!response.ok) throw new MediaError('media/fetch-failed', `Unable to load image (fetch): ${rel.path}`)
@@ -61,6 +61,10 @@ async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
 			canvas.height = image.height
 			ctx.drawImage(image, 0, 0)
 			try {
+				// `rel.type` is `image/png`, not the SVG's type: `createSvgPngPreview` is only
+				// called on a rel flagged `isSvgPng`, and both sites that create one
+				// (`gen/define/image.ts`, `gen/define/text.ts`) set the *fallback's* type, since
+				// that is the part this writes. The SVG keeps its own rel beside it.
 				rel.data = canvas.toDataURL(rel.type)
 				resolve('done')
 			} catch (ex) {
