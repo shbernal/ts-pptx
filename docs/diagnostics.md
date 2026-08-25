@@ -95,9 +95,26 @@ and warn locally) without the library having to model any of it.
 ## Repeated conditions
 
 Some conditions would otherwise flood a log: the same out-of-range `fontSize` on every cell of a
-large table, say. Those are emitted once per distinct code **and** message for the life of the
-process, so a repeat of the *same* offending value is reported once while a *different* value
-reports on its own.
+large table, say. Those are emitted once per distinct code **and** message, so a repeat of the
+*same* offending value is reported once while a *different* value reports on its own.
+
+"Once" is process-global, the same scope the handler has. The consequence is not the same one,
+though, and it is worth knowing if you build more than one deck per process: the second deck is
+silent about anything the first already reported. That reads as "no problems found" rather than
+as "already mentioned". Clear the record between builds:
+
+```ts
+import { resetDiagnosticState } from '@shbernal/ts-pptx'
+
+resetDiagnosticState()
+```
+
+It also bounds the memory. Most of these messages interpolate the offending value, so a service
+building decks from user input accumulates one entry per distinct bad value with nothing to
+release them.
+
+The handler is not affected: the two are reset independently, because a host usually installs
+its handler once and wants it to outlive any single build.
 
 ## Adding one
 

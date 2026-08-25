@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`resetDiagnosticState()` clears the once-per-process warning record.** Conditions that
+  would flood a log are emitted once per distinct code and message, and that record was
+  process-global with no way to clear it. So a service building a second deck got no warning
+  for anything the first deck already tripped, which reads as "no problems found" rather than
+  as "already mentioned"; and since most of those messages interpolate the offending value,
+  the record grew by one entry per distinct bad value with nothing to release them. Call it
+  between builds. It does not touch the handler — `setDiagnosticHandler` owns that, and the
+  two reset independently because a host usually installs its handler once. See
+  `docs/diagnostics.md`.
+
 ### Changed
 
 - **A non-finite size or angle is now refused rather than serialized.** `fontSize`,

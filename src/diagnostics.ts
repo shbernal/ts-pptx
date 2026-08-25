@@ -83,7 +83,15 @@ export function warn(code: DiagnosticCode, message: string, detail?: Readonly<Re
 const seen = new Set<string>()
 
 /**
- * Emit a library diagnostic at most once per distinct code+message for the life of the process.
+ * Emit a library diagnostic at most once per distinct code+message.
+ *
+ * "Once" is **process-global**, the same scope {@link setDiagnosticHandler} has and for the
+ * same reason: the emitting code is a tree of free functions in `gen/**` with no presentation
+ * in scope. The consequence is different, though, and worth stating on its own — a process that
+ * builds several decks does not get a second report of a condition an earlier deck already
+ * tripped, so the second deck's diagnostics are incomplete rather than merely unattributed.
+ * {@link resetDiagnosticState} is how a host that cares gets each build a clean slate.
+ *
  * @param code - the stable condition identifier ({@link DiagnosticCode})
  * @param message - explanation (see {@link warn})
  * @param detail - optional structured context
@@ -93,4 +101,23 @@ export function warnOnce(code: DiagnosticCode, message: string, detail?: Readonl
 	if (seen.has(key)) return
 	seen.add(key)
 	warn(code, message, detail)
+}
+
+/**
+ * Clear the {@link warnOnce} dedupe set, so a condition already reported reports again.
+ *
+ * Call it between builds in a host that builds more than one deck per process and wants each
+ * build's diagnostics complete. Without it, deck two is silent about anything deck one already
+ * warned for, which reads as "no problems found" rather than as "already mentioned".
+ *
+ * It also bounds the set. Most `warnOnce` messages interpolate the offending value, so a server
+ * building decks from user input accumulates one entry per distinct bad value with no way to
+ * release them.
+ *
+ * This does not touch the handler — {@link setDiagnosticHandler} owns that, and the two are
+ * reset independently on purpose: a host usually installs its handler once and wants it to
+ * survive.
+ */
+export function resetDiagnosticState(): void {
+	seen.clear()
 }

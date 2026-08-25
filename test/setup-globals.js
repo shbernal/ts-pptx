@@ -17,6 +17,15 @@
 // `null` restores the console default (see `setDiagnosticHandler`'s contract), which is
 // the state a freshly imported module would have been in.
 //
+// `resetDiagnosticState()` restores the *other* library global with the same lifetime: the
+// `warnOnce` dedupe set. It is the subtler of the two, because leaking it makes a test go
+// green rather than red — a `warnOnce` condition another file already tripped is silent
+// here, so an assertion that the warning fires fails, while an assertion that it does not
+// passes for the wrong reason. Confirmed live before this landed: two files each asserting
+// `margin/legacy-points` fires, run in one worker (`VITEST_MAX_WORKERS=1`), and whichever
+// went second failed. It had never bitten only because the pool is usually wide enough to
+// put two such files in different workers, which is luck, not isolation.
+//
 // This does NOT reset `globalThis.fetch`, which test/regression/api/node-runtime-fetch.test.js
 // swaps: that file installs and restores it in its own hooks, and a blanket reset here
 // would have to capture the real `fetch` at import time and could just as easily clobber a
@@ -24,8 +33,9 @@
 // *library* owns.
 
 import { afterEach } from 'vitest'
-import { setDiagnosticHandler } from '../dist/node.js'
+import { resetDiagnosticState, setDiagnosticHandler } from '../dist/node.js'
 
 afterEach(() => {
 	setDiagnosticHandler(null)
+	resetDiagnosticState()
 })
