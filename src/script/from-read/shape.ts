@@ -787,6 +787,29 @@ function groupCall(shape: GroupShape, notes: NoteScope, assets: AssetResolver): 
  * `addGroup` excludes. The tagged form is a single-key object, not a `{ type, args }` pair.
  */
 function asGroupChild(call: CallIr): IrValue | null {
+	const shared = commonShapeVariant(call)
+	if (shared) return shared
+	const [first, second] = call.args
+	switch (call.method) {
+		case 'addGroup':
+			return { group: compact({ children: first, options: second }) ?? {} }
+		default:
+			// Charts, tables, connectors and media have no GroupChildProps variant.
+			return null
+	}
+}
+
+/**
+ * The three key-tagged variants both union-shaped call sites emit identically: a text box, an
+ * auto shape, and an image. `null` when `call.method` is not one of them, which is the signal
+ * for the caller to try its own extra arms.
+ *
+ * Shared rather than duplicated because this is exactly where a fourth common variant would be
+ * added to one site and forgotten in the other. What is deliberately *not* shared is either
+ * caller's `default`: a group child silently declines a chart, while a layout object reports it
+ * as a fidelity loss, and that difference is the point of having two functions.
+ */
+function commonShapeVariant(call: CallIr): IrValue | null {
 	const [first, second] = call.args
 	switch (call.method) {
 		case 'addText':
@@ -795,10 +818,7 @@ function asGroupChild(call: CallIr): IrValue | null {
 			return { shape: compact({ type: first, options: second }) ?? {} }
 		case 'addImage':
 			return { image: first ?? {} }
-		case 'addGroup':
-			return { group: compact({ children: first, options: second }) ?? {} }
 		default:
-			// Charts, tables, connectors and media have no GroupChildProps variant.
 			return null
 	}
 }
@@ -842,14 +862,11 @@ export function masterObject(shape: AnyShape, notes: NoteScope, assets: AssetRes
 	const call = shapeCall(shape, notes, assets)
 	if (!call) return null
 
+	const shared = commonShapeVariant(call)
+	if (shared) return shared
+
 	const [first, second] = call.args
 	switch (call.method) {
-		case 'addText':
-			return { text: compact({ text: first, options: second }) ?? {} }
-		case 'addShape':
-			return { shape: compact({ type: first, options: second }) ?? {} }
-		case 'addImage':
-			return { image: first ?? {} }
 		case 'addChart': {
 			// `addChart(data, options)` carries the chart type inside its options, while a master
 			// object names it separately. Lifted back out rather than moved: `addChildDefinition`

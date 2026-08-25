@@ -303,6 +303,34 @@ function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
  * re-bind to the destination styles.
  */
 function resolvePlaceholderRunColors(slideRoot: Element, ctx: FlattenContext): void {
+	bakePlaceholderRunProperty(slideRoot, ctx, placeholderInheritedColor, (run, color, pPr, slideLst, level) => {
+		if (slideDefinesColor(run, pPr, slideLst, level)) return
+		writeRunColor(run, color)
+	})
+}
+
+/**
+ * The traversal both run-property passes share: every placeholder shape's text body, every
+ * paragraph in it, every `a:r` and `a:fld` in that paragraph.
+ *
+ * `resolve` is asked once per *list level* per shape and memoized, because walking the
+ * layout/master style chain is the expensive half and every paragraph at the same level gets
+ * the same answer. `write` then runs per run, and owns the decision to skip a run the slide
+ * already fixes — the two passes ask that question differently (one colour check versus three
+ * independent property checks), so it stays on their side of the boundary rather than becoming
+ * a predicate parameter only one caller could use.
+ *
+ * @param slideRoot - the slide part's root element
+ * @param ctx - the flatten context, carrying the source layout/master roots
+ * @param resolve - the inherited value for a placeholder type/idx at a list level, or `null`
+ * @param write - apply a resolved value to one run
+ */
+function bakePlaceholderRunProperty<T>(
+	slideRoot: Element,
+	ctx: FlattenContext,
+	resolve: (type: string | null, idx: string, level: number, ctx: FlattenContext) => T | null,
+	write: (run: Element, value: T, pPr: Element | null, slideLst: Element | null, level: number) => void
+): void {
 	if (!ctx.layoutRoot && !ctx.masterRoot) return
 	for (const sp of descendantsByTag(slideRoot, OOXML_NS.p, 'sp')) {
 		const ph = placeholderOf(sp)
@@ -312,22 +340,19 @@ function resolvePlaceholderRunColors(slideRoot: Element, ctx: FlattenContext): v
 		const type = attr(ph, 'type')
 		const idx = attr(ph, 'idx') ?? '0'
 		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const byLevel = new Map<number, ResolvedColor | null>()
+		const byLevel = new Map<number, T | null>()
 		for (const p of getElements(txBody, 'a:p')) {
 			const pPr = firstChild(p, 'a:pPr')
 			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
 			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
 			if (runs.length === 0) continue
-			let color = byLevel.get(level)
-			if (color === undefined) {
-				color = placeholderInheritedColor(type, idx, level, ctx)
-				byLevel.set(level, color)
+			let value = byLevel.get(level)
+			if (value === undefined) {
+				value = resolve(type, idx, level, ctx)
+				byLevel.set(level, value)
 			}
-			if (!color) continue
-			for (const run of runs) {
-				if (slideDefinesColor(run, pPr, slideLst, level)) continue
-				writeRunColor(run, color)
-			}
+			if (!value) continue
+			for (const run of runs) write(run, value, pPr, slideLst, level)
 		}
 	}
 }
@@ -469,30 +494,7 @@ function demotePlaceholders(shapeRoot: Element): void {
  * is left to re-bind to the destination theme, as the colour pass does for the `fontRef`.
  */
 function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of descendantsByTag(slideRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const type = attr(ph, 'type')
-		const idx = attr(ph, 'idx') ?? '0'
-		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const byLevel = new Map<number, RunProps | null>()
-		for (const p of getElements(txBody, 'a:p')) {
-			const pPr = firstChild(p, 'a:pPr')
-			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
-			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
-			if (runs.length === 0) continue
-			let props = byLevel.get(level)
-			if (props === undefined) {
-				props = placeholderInheritedRunProps(type, idx, level, ctx)
-				byLevel.set(level, props)
-			}
-			if (!props) continue
-			for (const run of runs) writeRunProps(run, props, pPr, slideLst, level)
-		}
-	}
+	bakePlaceholderRunProperty(slideRoot, ctx, placeholderInheritedRunProps, writeRunProps)
 }
 
 /** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */
