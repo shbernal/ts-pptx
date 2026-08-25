@@ -110,4 +110,9 @@ function writeEntries(entries, testInfo) {
 	fs.writeFileSync(file, JSON.stringify(record) + '\n')
 }
 
+// `@playwright/test` is a CJS shim — its entry is `module.exports = require('playwright/test')`
+// — and `import/named` cannot follow a re-export through that, so it reports `expect` as
+// missing from a module that does export it. False positive, confirmed against the resolved
+// module. `--report-unused-disable-directives` removes this line if the shim ever goes.
+// oxlint-disable-next-line import/named
 export { expect } from '@playwright/test'

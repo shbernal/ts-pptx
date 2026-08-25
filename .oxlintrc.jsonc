@@ -82,6 +82,39 @@
 		// (which this tree compiles with), so the two-statement form buys nothing.
 		"import/no-duplicates": ["error", { "preferInline": true }],
 
+		// A cycle under `src/` is a runtime crash for a consumer, not a tidiness problem:
+		// the second module in the cycle reads the first's bindings in their temporal dead
+		// zone and throws at import time, in the consumer's app, with a message that names
+		// neither file usefully. For a published library that is the worst place to find
+		// out.
+		"import/no-cycle": "error",
+		"import/no-self-import": "error",
+
+		// The other half of the guard: the specifier resolves but the *name* is not there.
+		// oxlint has no `no-unresolved` — the rule simply does not exist in the plugin, so
+		// asking for it fails the config rather than reporting zero — and these three are
+		// what covers the same ground. They split by language, which is the point:
+		// `default` fires on TypeScript, while `named` and `namespace` deliberately skip it
+		// and fire on `.mjs`/`.js`, where `tsc` is not the gate that `src/**` gets.
+		//
+		// An import of a package that does not exist at all is *not* caught here; it
+		// surfaces as `no-unsafe-*` on an error-typed value from tsgolint, which is enough.
+		"import/named": "error",
+		"import/default": "error",
+		"import/namespace": "error",
+
+		// All five report zero on this tree (2026-08-25), so they cost nothing to install
+		// and only ever fire on something new. Every one was checked against a planted
+		// violation rather than trusted at zero, because an import rule that resolves
+		// nothing reports zero in exactly the same way and the two are indistinguishable
+		// from the output. `import/export` is absent for precisely that reason: it is the
+		// one in this family that did *not* fire on a planted duplicate export.
+		//
+		// The `promise` and `node` plugins are absent from `plugins` above for a reason
+		// worth recording, so nobody spends the round trip finding it out again: neither
+		// has a single rule in the `correctness` category, so at this config's baseline
+		// turning either on adds no rule at all. Probed directly, not inferred.
+
 		// --- type-aware, and the reason `options.typeAware` is on below ---
 		// These are where `recommendedTypeChecked` was doing work that no syntax-only
 		// linter can replicate. They need tsgolint (the Go typechecker oxlint shells
