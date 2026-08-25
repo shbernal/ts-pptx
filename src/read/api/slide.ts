@@ -33,6 +33,7 @@ import {
 	type ShapeHost,
 } from './shapes.js'
 import { NotesSlide } from './notes.js'
+import { authorNotes } from './ops/notes-author.js'
 import { readModernSlideComments, readSlideComments, type Comment, type ModernComment } from './comments.js'
 import { readTagsForPart, type Tag } from './tags.js'
 import { SlideLayout, type SlideMaster, type Theme } from './chrome.js'
@@ -659,6 +660,35 @@ export class Slide implements ShapeHost {
 		})
 		this.#appendShape(spTree, pic)
 		return new Picture(pic, this)
+	}
+
+	/**
+	 * Give this slide the speaker notes `text`, and return the resulting
+	 * {@link NotesSlide}. A `
+` starts a new paragraph, matching the write-side
+	 * `addNotes`; the runs carry no formatting of their own, so style them
+	 * afterwards through {@link notesTextFrame}.
+	 *
+	 * The counterpart to the read side's `notesText`/`notesTextFrame`/`notesSlide`
+	 * getters, and the way to annotate a slide that has **no notes part at all** —
+	 * the state an `importSlide` without `{ importNotes: true }` leaves behind, and
+	 * the one a `notesTextFrame` edit cannot reach because there is no frame to
+	 * hand back. Calling it on a slide that already has notes replaces the body
+	 * text and leaves the rest of the part (its geometry, its other two
+	 * placeholders) alone.
+	 *
+	 * Creating the part pulls in what a notes slide must bind to: a `notesMaster`,
+	 * of which a presentation may hold at most one. This deck's own is reused when
+	 * it has one; otherwise one is installed, bound to a clone of this deck's theme
+	 * so it resolves against the destination palette. That is the same
+	 * single-master rule `importSlide({ importNotes: true })` and `appendSlides`
+	 * follow, so mixing the three cannot produce a second notes master.
+	 */
+	addNotes(text: string): NotesSlide {
+		const partName = authorNotes(this, text)
+		const part = this.presentation.opc.part(partName)
+		if (!part) throw new InternalError('import/part-went-missing', `Authored notes part went missing: ${partName}`)
+		return new NotesSlide(this.presentation.opc, part)
 	}
 
 	/**

@@ -7,8 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-This release includes a breaking cleanup to the in-memory byte export API, plus repository
-and project-site changes.
+This release includes a breaking cleanup to the in-memory byte export API, a new read-model
+authoring method for speaker notes, plus repository and project-site changes.
+
+### Added
+
+- **`Slide.addNotes(text)` on the read model** — the write counterpart to the
+  `notesText` / `notesTextFrame` / `notesSlide` getters, and the only way to annotate a
+  slide with **no notes part at all**. That state is reachable in normal use — it is what
+  `importSlide` without `{ importNotes: true }` leaves behind — and it was a dead end: the
+  notes accessors are getters, and the settable `notesTextFrame` is `null` precisely when
+  there is no part, so a consumer that imported a page could not give it notes of its own
+  through any API. Reported as #17.
+
+  A `
+` starts a new paragraph, matching the write-side `addNotes`; runs carry no
+  formatting of their own, so per-run colour/size/hyperlinks are set afterwards through
+  `notesTextFrame`. Called on a slide that already has notes it replaces the body text and
+  leaves the rest of the part — geometry, the `sldImg`/`sldNum` placeholders — alone.
+
+  Creating the part means creating what a notes slide must bind to, and a presentation may
+  hold at most one notes master. The deck's own is reused when it has one; otherwise one is
+  installed, bound to a **clone of the deck's own theme** rather than to the slide master's
+  theme part, so no two masters claim one part and the notes resolve against the
+  destination palette. That is the same single-master rule `importSlide({ importNotes:
+  true })` and `appendSlides` already follow, so mixing the three cannot produce a second
+  notes master.
+
+  The part it builds is the generator's, not a second design: `makeXmlNotesSlide` was split
+  so its fixed three-placeholder frame (`makeXmlNotesSlideSkeleton`) is shared with the read
+  side instead of copied into it, and `test/read/add-notes.test.js` asserts the two paths
+  emit the same notes body — modulo empty-element spelling, which the read model's
+  serializer normalizes. This is the first `src/read/` → `src/gen/` import; it buys the
+  anti-drift guarantee that `src/ooxml/` exists to give the constants both halves share.
+
+### Fixed
+
+- **The read reference documented three of `ImportSlideOptions`' seven fields.**
+  `importNotes`, `rescale`, `remapLiterals`, and `embedFonts` were absent from
+  `docs/reference/pptx-read.md` — `importNotes` appeared nowhere in `docs/` at all — so the
+  documented way to carry a slide's speaker notes across an import was invisible to anyone
+  reading the docs rather than the `.d.ts`, and #17 was filed as a missing feature on that
+  basis. The interface block now matches the interface, `importNotes` has a prose section
+  covering the notes-master policy, and the neighbouring claim that "deliberate re-branding
+  (a `restyle` mode) is not yet implemented" — untrue since `restyle` shipped, and
+  contradicted by the section above it — is corrected. No behaviour change: the option has
+  worked in all three `theme` modes since it shipped.
 
 ### Changed
 

@@ -423,7 +423,11 @@ interface AppendSlidesOptions {
 interface ImportSlideOptions {
 	theme?: 'copy' | 'preserve' | 'restyle' // default 'copy'
 	carryMasterGraphics?: boolean // preserve/restyle only; default false
+	remapLiterals?: boolean // restyle only: source-theme literals back to scheme colours; default false
 	at?: number // insert position in p:sldIdLst (deck order); 0 = first; default append
+	importNotes?: boolean // carry the source slide's notesSlide part; default false (notes dropped)
+	embedFonts?: boolean // carry the source deck's embedded fonts; default false
+	rescale?: boolean | 'fit' | 'stretch' // rescale geometry when slide sizes differ; default false (throw)
 }
 
 interface ImportShapeOptions {
@@ -512,6 +516,7 @@ class Slide {
 	readonly tags: Tag[] // this slide's programmatic tags (p:custDataLst/p:tags); [] when none. See "Tags"
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
+	addNotes(text: string): NotesSlide // authors (or replaces) the speaker notes; creates the notes part when absent
 	readonly element_: Element // escape hatch: the p:sld root — see "Editing anything else"
 	markDirty(): void // call after mutating element_, or save() writes the original bytes
 }
@@ -1642,6 +1647,46 @@ On save, the new media part is appended, the slide's `.rels` is rewritten with
 the added relationship, and `[Content_Types].xml` is regenerated only if the
 image's type was not already registered: every other part stays byte-identical.
 
+#### Writing notes from the read model
+
+`slide.addNotes(text)` is the write counterpart to the
+[`notesText` / `notesTextFrame` / `notesSlide`](#speaker-notes) getters, and the
+only way to annotate a slide that has **no notes part at all**. That is the state an
+`importSlide` without `{ importNotes: true }` leaves behind, and the one a
+`notesTextFrame` edit cannot reach, because with no part there is no frame to hand
+back:
+
+```js
+const imported = deck.importSlide(source, 0) // notes dropped
+imported.notesSlide // → null
+imported.addNotes('what changed on this copy, and why') // → NotesSlide
+imported.notesText // → 'what changed on this copy, and why'
+```
+
+A `
+` starts a new paragraph, matching the write-side `addNotes`. The runs carry
+no formatting of their own, so style them afterwards through `notesTextFrame`
+(`paragraphs[].runs[]`), which is where per-run colour, size, and hyperlinks live.
+Called on a slide that **already** has notes it replaces the body text and leaves
+the rest of the part alone: its geometry and its `sldImg`/`sldNum` placeholders.
+
+Creating the part pulls in what a notes slide must bind to. It gets a `notesSlide`
+relationship from the slide and, on the notes part itself, the two the write path
+reserves: `notesMaster` as `rId1` and a `slide` back-reference as `rId2`, pointed
+at the annotated slide. The notes master follows the same single-master rule as
+[`importNotes`](#speaker-notes-importnotes), since a presentation may hold at most
+one:
+
+- the deck already has one → it is reused, so its notes styling wins;
+- the deck has none → one is installed and registered, bound to a **clone of this
+  deck's own theme** (rather than the slide master's theme part itself, so no two
+  masters claim one part). The generator's notes master is the same part the write
+  path emits, shared rather than re-derived.
+
+All three paths (`addNotes`, `importSlide({ importNotes: true })`, and
+`appendSlides`) obey that rule, so mixing them on one deck cannot produce a second
+notes master.
+
 ### Replacing a picture's image (Phase 4)
 
 `Picture.setImage` swaps the bytes behind an existing picture: the primitive a
@@ -1868,8 +1913,8 @@ const imported = target.importSlide(source, 0, { theme: 'preserve' })
 Because the colours are frozen to literals, `preserve` does not re-colour to the
 destination brand: its thesis is "same pixels, one theme". The `fontRef` and
 typeface are deliberately left to re-bind to the destination theme (a font
-normalization bonus on attach). Deliberate re-branding (a `restyle` mode) is not
-yet implemented.
+normalization bonus on attach). Deliberate re-branding is `theme: 'restyle'`,
+above.
 
 Decorative graphics on the source `slideMaster`/`slideLayout` shape trees (logos,
 accent shapes, drawn footers: everything there *except* placeholders) belong to
@@ -1881,6 +1926,39 @@ way), for cover/divider slides whose branding must survive the rebind:
 ```js
 const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true })
 ```
+
+#### Speaker notes: `importNotes`
+
+A slide's notes live in a **separate part** (`notesSlideN.xml`), reached by a
+`notesSlide` relationship, so they are not carried by the slide copy itself. By
+default the rel is dropped and the imported slide has no notes at all, the same
+under all three `theme` modes. Pass `importNotes: true` to bring the part across:
+
+```js
+const imported = target.importSlide(source, 0, { importNotes: true })
+imported.notesText // the source slide's notes
+```
+
+The copied notes part is rewired, not merely duplicated: its `slide`
+back-relationship is repointed at the **new** slide (the source slide is not
+dragged across), and its media and hyperlink rels are copied like any other.
+
+A presentation may hold **at most one** `notesMaster` (`p:notesMasterIdLst` is
+`0..1`), which decides what happens to notes *styling*:
+
+- the destination already has a notes master → the imported notes bind to it, and
+  the source's master and theme are **not** copied. The destination's notes styling
+  wins.
+- the destination has none (common, since a deck authored without speaker notes
+  carries no notes-master part at all) → the source's notes master and its theme are
+  copied and registered in `presentation.xml`.
+
+That is the same rule `appendSlides` follows for generator-authored notes, so
+mixing the two paths onto one deck cannot produce a second notes master.
+
+`importSlides` (the batch form) has no notes spelling and always drops them; use
+`importSlide` when notes must travel. To give an imported slide notes of your own
+rather than the source's, see [`addNotes`](#writing-notes-from-the-read-model).
 
 ### Composing a slide from shapes of several decks (Phase 4)
 

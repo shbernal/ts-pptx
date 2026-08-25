@@ -15,6 +15,8 @@ import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
+import { makeXmlNotesMaster } from '../../../gen/slide/notes.js'
+import { resolveSlideThemeParts } from '../theme-context.js'
 
 const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
 const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
@@ -165,6 +167,57 @@ export function ensureNotesMasterFromXml(dest: Presentation, master: { xml: stri
 	const themePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
 	dest.opc.addPart(themePartName, THEME_CONTENT_TYPE, textEncoder.encode(master.themeXml))
 	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, themePartName))
+
+	return registerNotesMaster(dest, masterPartName)
+}
+
+/**
+ * Resolve the notesMaster a *newly authored* notes slide should bind to
+ * ({@link Slide.addNotes} on a loaded deck). Same single-notesMaster rule as
+ * {@link ensureNotesMaster} and {@link ensureNotesMasterFromXml}: this deck's own
+ * wins when it has one. The third way a notesMaster arrives, and the only one with
+ * no source deck and no generator instance behind it, so it has to build both parts
+ * itself.
+ *
+ * The *theme* is where it differs from the append path. `ensureNotesMasterFromXml`
+ * installs the generator's `theme2.xml` because a generator deck's notes were
+ * authored against it; there is no such theme here, so the deck's **own** theme
+ * (reached through the annotated slide's layout → master → theme chain) is cloned
+ * into a fresh part instead. That is both the closer match to "the destination's
+ * notes styling wins" and the safer package: the notesMaster gets a theme part of
+ * its own rather than a second relationship onto the slide master's, which is the
+ * arrangement PowerPoint writes (`theme1.xml` for the master, `theme2.xml` for the
+ * notes master).
+ *
+ * Throws when the deck has no theme to clone — a package that malformed cannot be
+ * given a valid notesMaster, and silently emitting one without a resolvable theme
+ * is what PowerPoint reports as a repair prompt rather than a bad edit.
+ * @param {Presentation} dest - the deck being authored onto
+ * @param {string} slidePartName - the slide whose notes are being authored, used to find the theme
+ * @return {string} the destination notesMaster partname
+ */
+export function ensureNotesMasterForAuthoring(dest: Presentation, slidePartName: string): string {
+	const presPart = dest.presentationPart
+	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const existing = presRels.byType(NOTES_MASTER_REL)[0]
+	if (existing) return presRels.resolveTarget(existing.id)
+
+	const themePartName = resolveSlideThemeParts(dest.opc, slidePartName).themePartName
+	const themePart = themePartName ? dest.opc.part(themePartName) : undefined
+	if (!themePart)
+		throw new PackageReadError(
+			'package/part-missing',
+			`addNotes: no theme reachable from ${slidePartName} to bind a new notes master to`
+		)
+
+	const masterPartName = dest.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
+	dest.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, textEncoder.encode(makeXmlNotesMaster()))
+
+	// A notesMaster's .rels must resolve a theme; clone the deck's rather than share
+	// the slide master's part. Reserved alongside any theme this deck already owns.
+	const notesThemePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
+	dest.opc.addPart(notesThemePartName, themePart.contentType, themePart.bytes)
+	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, notesThemePartName))
 
 	return registerNotesMaster(dest, masterPartName)
 }

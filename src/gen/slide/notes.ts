@@ -377,7 +377,24 @@ export function makeXmlNotesMaster(): string {
 export function makeXmlNotesSlide(slide: PresSlideInternal): string {
 	// Allocate notes hyperlink rels first so run serialization can reference the correct rId
 	buildNotesSlideRels(slide)
+	return makeXmlNotesSlideSkeleton(genXmlNotesParagraphs(slide), slide._slideNum)
+}
 
+/**
+ * The notes slide's fixed frame, with the only two slide-dependent strings passed in.
+ *
+ * A notes slide is the same three placeholders every time — the thumbnail (`sldImg`),
+ * the notes body, and the slide-number field — so everything except the body's
+ * paragraphs and the cached slide number is a constant. It is a parameter of its own
+ * because the read model authors notes onto a *loaded* deck (`Slide.addNotes`), where
+ * there is no `PresSlideInternal` to serialize but the part must come out identical:
+ * a second private copy of this frame is exactly the drift `src/ooxml/` exists to
+ * prevent (see docs/architecture.md).
+ * @param {string} bodyParagraphsXml - `a:p` children of the body placeholder's `p:txBody`
+ * @param {number} slideNum - cached value of the slide-number `a:fld`
+ * @return {string} XML
+ */
+export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: number): string {
 	const slideImgPh = el('p:sp', null, [
 		raw(
 			el('p:nvSpPr', null, [
@@ -398,7 +415,7 @@ export function makeXmlNotesSlide(slide: PresSlideInternal): string {
 			])
 		),
 		raw(voidEl('p:spPr')),
-		raw(el('p:txBody', null, [raw(voidEl('a:bodyPr')), raw(voidEl('a:lstStyle')), raw(genXmlNotesParagraphs(slide))])),
+		raw(el('p:txBody', null, [raw(voidEl('a:bodyPr')), raw(voidEl('a:lstStyle')), raw(bodyParagraphsXml)])),
 	])
 
 	const slideNumPh = el('p:sp', null, [
@@ -419,7 +436,7 @@ export function makeXmlNotesSlide(slide: PresSlideInternal): string {
 						raw(
 							el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
 								raw(voidEl('a:rPr', { lang: 'en-US' })),
-								raw(el('a:t', null, slide._slideNum)),
+								raw(el('a:t', null, slideNum)),
 							])
 						),
 						raw(voidEl('a:endParaRPr', { lang: 'en-US' })),
