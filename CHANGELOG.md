@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.3.0] - 2026-08-25
 
 This release includes a breaking cleanup to the in-memory byte export API, speaker notes on
 both read-model paths that lacked them (authoring onto a loaded deck, and the batch import),
@@ -3049,6 +3049,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.3.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.3.0
 [3.2.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.2.0
 [3.1.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.1.0
 [3.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.0.0
