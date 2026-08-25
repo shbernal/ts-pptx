@@ -139,6 +139,30 @@
 		// on for `test/**` and `scripts/**` for the reason the block above gives.
 		"typescript/no-confusing-void-expression": ["error", { "ignoreArrowShorthand": true, "ignoreVoidOperator": true }],
 
+		// A third rule outside `recommendedTypeChecked` and outside every enabled
+		// category: this one is `pedantic`, so it exists here only by name. Measured at
+		// all four of its options (2026-08-25, oxlint 1.79.0 / oxlint-tsgolint 7.0.2001,
+		// over `src/**`, `test/**` and `scripts/**`) so the choice does not get re-opened:
+		// `in-try-catch` and `never` report 13 apiece, `always` reports 108, and the
+		// option taken reports zero.
+		//
+		// That `in-try-catch` and `never` agree is the result worth keeping: `src/**` has
+		// no `return` inside a `try` at all, so all 13 are a *redundant* `return await`
+		// outside one — `writePackage`, `zip.generate`, the `FileReader`/`Image` promise
+		// wrappers, `Presentation.write`. Not one is a missing await dropping a rejection
+		// past a local `catch`, which is the only defect this rule is worth having for.
+		// The awaits those two options would delete are not dead weight either: outside a
+		// `try` the cost is one microtask, and V8 keeps the awaiting frame in the async
+		// stack trace where `return promise` elides it. For a library whose failure mode
+		// is "which part of assemble threw", that frame earns its tick.
+		//
+		// Hence `error-handling-correctness-only`. It reports nothing today, holds no
+		// opinion on the 13, and fires only when a future `return somePromise` inside a
+		// `try`/`catch`/`finally` would route the rejection past the handler standing
+		// right there. Same bargain as `no-misused-promises` above: a type-aware rule kept
+		// because it catches a bug, not because it has a house style.
+		"typescript/return-await": ["error", "error-handling-correctness-only"],
+
 		// Gate both compile-time escape hatches from the null-safety work: a bare `!`
 		// and a provably-redundant `as` cast. Pinned together so the `!`/`as` symmetry
 		// is explicit and survives any upstream preset change — the same reason they
