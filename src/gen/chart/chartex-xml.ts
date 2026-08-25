@@ -33,7 +33,8 @@ const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationship
 
 /**
  * Map a chartEx {@link ChartType} to its `<cx:series layoutId>` token (the CT_SeriesLayout value
- * PowerPoint keys the chart geometry on). Returns `''` for a non-chartEx type.
+ * PowerPoint keys the chart geometry on). Throws on anything it does not own — see the `default`
+ * arm for which members those are and why reaching it is a routing bug.
  */
 function chartExLayoutId(type: ChartType): string {
 	switch (type) {
@@ -59,7 +60,7 @@ function chartExLayoutId(type: ChartType): string {
 			// routing; `''` here used to emit `<cx:series layoutId="">`, which PowerPoint cannot render.
 			throw new InternalError(
 				'chart/type-not-routed',
-				`chartExLayoutId: "${String(type)}" has no <cx:series> layoutId — classic chart types belong to makeXmlCharts, and pareto is built by makeParetoSeries`,
+				`chartExLayoutId: "${String(type)}" has no <cx:series> layoutId — classic chart types belong to makeXmlCharts, pareto is built by makeParetoSeries, and a newly added chartEx type needs an arm here`,
 				{ detail: { chartType: type } }
 			)
 	}

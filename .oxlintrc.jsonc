@@ -214,7 +214,7 @@
 		"eslint/no-console": "error",
 
 		// --- type-aware rules measured and turned down, so they are not re-measured ---
-		// Both checked 2026-08-25 against oxlint 1.79.0 / oxlint-tsgolint 7.0.2001.
+		// All checked 2026-08-25 against oxlint 1.79.0 / oxlint-tsgolint 7.0.2001.
 		//
 		// `typescript/no-unnecessary-condition` reports 163 on `src/**`. It has the same
 		// character as the `pedantic` sweep the header turns down: a house style about how
@@ -227,6 +227,62 @@
 		// zero or one. Not turned on, because at those counts they are neither a gate nor
 		// a cost and naming them only adds a line to keep true; recorded so the next
 		// sweep can skip them rather than re-run them.
+		//
+		// `typescript/switch-exhaustiveness-check` reports 13 on `src/**` and is off. Its
+		// history is worth keeping, because both the rule's own documentation and the
+		// obvious reading of its options mislead here.
+		//
+		// The 13 are three populations and only one was ever a defect:
+		//
+		// - **Four switches over a closed enum with a silent `default`.** These were the
+		//   argument for the rule, and they were fixed rather than guarded.
+		//   `gen/slide/master.ts` and `gen/slide/object.ts` now spell out every member and
+		//   close with `const unrouted: never = …`, so the *compiler* rejects an unrouted
+		//   member on every build — a stronger gate than a linter, and the one to reach
+		//   for first.
+		//   `gen/chart/chart-xml.ts` and `gen/chart/chartex-xml.ts` partition `ChartType`
+		//   between them, so neither can be exhaustive and neither can use `never`; they
+		//   throw `InternalError('chart/type-not-routed')`, and the catalog sweep in
+		//   `test/regression/chart/chart-option-validation.test.js` builds every
+		//   `ChartType` member through `addChart`, so an unrouted member fails a test
+		//   instead of shipping a chart-shaped hole. Probed both ways with a temporary
+		//   enum member: each dispatcher's throw is what fails. Those two sites still
+		//   *report*, because the rule counts a switch non-exhaustive however loud its
+		//   default is.
+		// - **Seven switches over an open string.** Six are on `Element.localName`, which
+		//   `@xmldom/xmldom` types `string | null` (lib.dom's is `string`, so checking
+		//   there will mislead); `src/units.ts` is the same shape off a regex `match[2]`.
+		//   The rule reports only `null`/`undefined` as unmatched; `string` is not a
+		//   closed union, so "exhaustive" is not a property these have, and a `default`
+		//   returning null is the correct defensive shape for element names a real
+		//   `.pptx` may carry. Three of the six have no `default` at all, deliberately.
+		// - **Four in `script/from-read/**` whose `default` calls
+		//   `notes.note(…, 'dropped', 'unsupported', …)`.** The default *is* the feature:
+		//   a declared lossy conversion announcing what it could not carry. Widening one
+		//   is a claim the conversion is no longer lossy — a different change.
+		//
+		// So turning it on means an override switching it off for `src/read/**`,
+		// `src/script/from-read/**` and `src/units.ts`, plus two inline suppressions — a
+		// standing exemption over two whole directories, bought to restate guards the
+		// compiler and the test suite already hold. What that would still have covered, a
+		// *new* closed-union switch outside those paths, is left to the `never` arm being
+		// the house idiom for one. `considerDefaultExhaustiveForUnions: true` takes the
+		// tree to zero on its own, by treating any default as exhaustive — every site here
+		// has one, so it would guard nothing that exists.
+		//
+		// Not a branch: `defaultCaseCommentPattern` cannot annotate these. It is not a
+		// no-op — it was broken, reported as `oxc#24338` and fixed by `tsgolint#1070`, and
+		// the fix is in the `oxlint-tsgolint` 7.0.2001 pinned here — but what it does is
+		// not what it looks like. Upstream the matching comment is a *substitute* for an
+		// omitted `default`, read after the last case, and it only sets `defaultCase`;
+		// suppressing a union also needs `considerDefaultExhaustiveForUnions`. A marker on
+		// a live `default:` arm does nothing, in any of the four placements probed — and a
+		// live `default:` is the shape at every site the rule was bought for. Worse, the
+		// mechanism would mislead here: deleting a `default: return ''` and leaving a
+		// marker satisfies the rule while the same silent empty string moves to a
+		// `return ''` after the switch. The rule's oxlint docs advertise exactly that
+		// shape (`default: // @skip-exhaustive-check`), describing a mechanism neither
+		// linter implements; raised as `oxc#26087`.
 
 		// --- rules intentionally relaxed for this codebase ---
 		// Several async methods exist only to satisfy a uniform Promise-returning

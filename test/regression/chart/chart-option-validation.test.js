@@ -110,10 +110,21 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
-		name: 'every catalog type is accepted, so the guard cannot drift from the enum',
+		name: 'every catalog type is accepted and reaches an emitter that can build it',
 		fn: async () => {
-			// Guards against the guard: a `ChartType` member the validator does not know would be
-			// refused at the boundary even though both emitters can build it.
+			// Two guarantees, both about drift between the `ChartType` enum and the code around it.
+			//
+			// Against the boundary guard: a `ChartType` member `isChartType` does not know would be
+			// refused by `addChart` even though both emitters can build it.
+			//
+			// Against emitter routing: `makeChartType` and `chartExLayoutId` partition the catalog
+			// between them by `switch`, so neither is exhaustive over `ChartType` and neither can be
+			// made compiler-enforced with a `never` arm. Each throws `chart/type-not-routed` on a
+			// member it has no case for, so building the whole catalog here is what catches an added
+			// member nobody routed — verified by adding a temporary enum member, which fails this
+			// test from `makeChartType`, and from `chartExLayoutId` once it is added to CHARTEX_TYPES.
+			// This is the only gate on that; `typescript/switch-exhaustiveness-check` is off, for the
+			// reasons recorded in `.oxlintrc.jsonc`.
 			for (const type of Object.values(ChartType)) {
 				const { zip } = await build((p) => {
 					p.addSlide().addChart(SERIES, { ...BASE, type })

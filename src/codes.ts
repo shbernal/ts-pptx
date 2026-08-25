@@ -376,9 +376,10 @@ export type InternalErrorCode =
 	// open — and one the read model reports as two slides. Caught at the insert.
 	| 'slide/part-already-in-deck'
 	| 'import/part-went-missing'
-	// A chart emitter was handed a `ChartType` the *other* emitter owns. The classic and
-	// chartEx builders partition `ChartType` between them and the caller picks by
-	// `isChartExType`, so reaching either one off-catalog is a routing bug, not bad input.
+	// A chart emitter was handed a `ChartType` it has no arm for — one the *other* emitter
+	// owns, or a newly added member nobody routed. The classic and chartEx builders partition
+	// `ChartType` between them and the caller picks by `isChartExType`, so reaching either one
+	// off-catalog is a routing bug, not bad input.
 	| 'chart/type-not-routed'
 	| 'animation/timing-scaffold-failed'
 	// A DOM node the read model was handed is detached. Reachable in principle through the
