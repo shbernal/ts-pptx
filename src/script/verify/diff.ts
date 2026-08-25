@@ -34,8 +34,13 @@
  * lost".
  */
 import { LAYOUT_NOTE_PREFIX, type FidelityNote } from '../fidelity.js'
-import { collectObjectNames } from './canonical.js'
-import type { CanonicalCall, CanonicalChrome, CanonicalDeck, CanonicalSlide } from './canonical.js'
+import {
+	collectObjectNames,
+	type CanonicalCall,
+	type CanonicalChrome,
+	type CanonicalDeck,
+	type CanonicalSlide,
+} from './canonical.js'
 import type { IrValue } from '../ir.js'
 
 /**

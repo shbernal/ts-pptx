@@ -24,12 +24,11 @@
 // titles/labels), native math (OMML/LaTeX), bullets, groups, transitions/animations,
 // theme & fonts, notes/comments, and value-clamp/metadata edge cases.
 
-import { ChartType, SchemeColor, ShapeType } from '../dist/node.js'
+import TsPptx, { ChartType, SchemeColor, ShapeType } from '../dist/node.js'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
-import TsPptx from '../dist/node.js'
 import { latexToOmml } from '../dist/math.js'
 import { build, assert, assertEqual, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'

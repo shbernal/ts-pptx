@@ -23,8 +23,13 @@ import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, test, expect } from 'vitest'
 import TsPptx from '../../../dist/node.js'
-import { parseFontMetrics, listFontFaces, isFontCollection } from '../../../dist/measure.js'
-import { InvalidOptionError, MediaError } from '../../../dist/measure.js'
+import {
+	parseFontMetrics,
+	listFontFaces,
+	isFontCollection,
+	InvalidOptionError,
+	MediaError,
+} from '../../../dist/measure.js'
 
 const fixture = (name) => fileURLToPath(new URL(`../../read/fixtures/fonts/${name}`, import.meta.url))
 const REG_BYTES = new Uint8Array(readFileSync(fixture('Silkscreen-Regular.ttf')))

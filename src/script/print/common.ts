@@ -8,10 +8,8 @@
  * printed two slightly different ways would mean the round-trip oracle certifies one tier and
  * only resembles a check on the other, and the drift would be invisible in review.
  */
-import type { AssetRef, DeckIr, IrValue, SlideIr } from '../ir.js'
-import { asIrValue } from '../ir.js'
-import type { FidelityNote } from '../fidelity.js'
-import { type NoteCollector, scopeNotes } from '../fidelity.js'
+import { asIrValue, type AssetRef, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
+import { scopeNotes, type FidelityNote, type NoteCollector } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import { InvalidOptionError } from '../../errors.js'
 

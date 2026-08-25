@@ -6,10 +6,17 @@
  * lib.dom `Document`/`Element`; all of `src/read/` must import DOM types from
  * here, never from lib.dom and never from `@xmldom/xmldom` directly.
  */
-import { DOMParser, MIME_TYPE, XMLSerializer, onErrorStopParsing } from '@xmldom/xmldom'
+import {
+	DOMParser,
+	MIME_TYPE,
+	XMLSerializer,
+	onErrorStopParsing,
+	type Document,
+	type Element,
+	type Node,
+} from '@xmldom/xmldom'
 
 export type { Document, Element, Node } from '@xmldom/xmldom'
-import type { Document, Element, Node } from '@xmldom/xmldom'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */

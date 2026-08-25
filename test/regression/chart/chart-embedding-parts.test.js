@@ -1,6 +1,5 @@
-import { ChartType } from '../../../dist/node.js'
+import TsPptx, { ChartType } from '../../../dist/node.js'
 import JSZip from 'jszip'
-import TsPptx from '../../../dist/node.js'
 import { defineRegressionSuite, build, listEntries, assert } from '../../helpers.js'
 
 // 1x1 PNG (red pixel) for image-only deck case

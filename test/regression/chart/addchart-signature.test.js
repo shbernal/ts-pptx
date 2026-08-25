@@ -1,6 +1,5 @@
-import { ChartType } from '../../../dist/node.js'
+import TsPptx, { ChartType } from '../../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
-import TsPptx from '../../../dist/node.js'
 
 const DATA = [{ name: 'Sales', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }]
 

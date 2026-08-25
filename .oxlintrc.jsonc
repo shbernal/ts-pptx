@@ -31,6 +31,14 @@
 // the site with its reason; and `unicorn/no-new-array` is off for the reason below.
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	// Naming `plugins` *overwrites* oxlint's base set rather than adding to it, so the
+	// three that are on by default (`unicorn`, `typescript`, `oxc`) have to be repeated
+	// here or they silently switch off — every rule named in `rules` below is in one of
+	// them. `eslint` is listed for symmetry; it is always on. `import` is the one actual
+	// addition, and it earns its place with a single rule: `import/no-duplicates`. The
+	// rest of the plugin was measured before being let in — enabling it with no rules
+	// named reports zero findings across this tree, so nothing else arrives with it.
+	"plugins": ["eslint", "unicorn", "typescript", "oxc", "import"],
 	"ignorePatterns": [
 		"coverage/**",
 		"demos/**",
@@ -72,6 +80,14 @@
 		"typescript/no-require-imports": "error",
 		"typescript/no-unnecessary-type-constraint": "error",
 		"typescript/no-unsafe-function-type": "error",
+
+		// Two imports of one module are two places to keep in sync when the specifier
+		// moves, and they hide from a reader how much of a module a file actually
+		// depends on. `preferInline` extends that to TypeScript: a value import and a
+		// separate `import type` of the same module collapse to one statement with an
+		// inline `type` qualifier. That spelling is safe under `verbatimModuleSyntax`
+		// (which this tree compiles with), so the two-statement form buys nothing.
+		"import/no-duplicates": ["error", { "preferInline": true }],
 
 		// --- type-aware, and the reason `options.typeAware` is on below ---
 		// These are where `recommendedTypeChecked` was doing work that no syntax-only

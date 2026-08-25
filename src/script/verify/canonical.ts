@@ -18,8 +18,7 @@
  * the output. A rule that only made sense in one direction would be an exclusion dressed up
  * as a normalisation.
  */
-import type { AssetIr, DeckIr, IrValue, SlideIr } from '../ir.js'
-import { asIrValue, isAssetRef } from '../ir.js'
+import { asIrValue, isAssetRef, type AssetIr, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
 
 /** One write-API call, with the source shape name lifted out as an address rather than data. */
 export interface CanonicalCall {

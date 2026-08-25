@@ -6,8 +6,11 @@ import TsPptx, {
 	PackageReadError,
 	InternalError,
 } from '../../../dist/node.js'
-import { readZip } from '../../../dist/zip.js'
-import { PackageReadError as PackageReadErrorFromZip, TsPptxError as TsPptxErrorFromZip } from '../../../dist/zip.js'
+import {
+	readZip,
+	PackageReadError as PackageReadErrorFromZip,
+	TsPptxError as TsPptxErrorFromZip,
+} from '../../../dist/zip.js'
 import { TsPptxError as TsPptxErrorFromRead } from '../../../dist/read.js'
 
 // The error taxonomy: every failure the library raises is a `TsPptxError` carrying a stable

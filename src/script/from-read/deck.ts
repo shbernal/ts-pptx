@@ -14,13 +14,11 @@
  */
 import type { Presentation } from '../../read/api/presentation.js'
 import type { Slide } from '../../read/api/slide.js'
-import type { AnyShape } from '../../read/api/shapes.js'
-import { isGraphicFrame, isGroupShape } from '../../read/api/shapes.js'
+import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
 import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
-import type { AssetResolver } from './shape.js'
+import { shapeCall, type AssetResolver } from './shape.js'
 import { chromeToIr } from './chrome.js'
-import { shapeCall } from './shape.js'
 import { transitionToIr } from './transition.js'
 import { compact } from './values.js'
 

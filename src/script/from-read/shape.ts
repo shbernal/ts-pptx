@@ -21,16 +21,20 @@
  * by the code that transcribes one on a slide. Sharing it is the point — a second mapper would
  * be a second set of decisions about the same OOXML, drifting from this one silently.
  */
-import type {
-	AnyShape,
-	AutoShape,
-	Connector,
-	CustomGeometry,
-	GraphicFrame,
-	GroupShape,
-	Picture,
+import {
+	isAutoShape,
+	isConnector,
+	isGraphicFrame,
+	isGroupShape,
+	isPicture,
+	type AnyShape,
+	type AutoShape,
+	type Connector,
+	type CustomGeometry,
+	type GraphicFrame,
+	type GroupShape,
+	type Picture,
 } from '../../read/api/shapes.js'
-import { isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type AssetRef, type CallIr, type IrValue } from '../ir.js'
 import { alphaToTransparency, compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'

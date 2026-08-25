@@ -1,6 +1,5 @@
-import { ShapeType } from '../../../dist/node.js'
+import TsPptx, { ShapeType } from '../../../dist/node.js'
 import JSZip from 'jszip'
-import TsPptx from '../../../dist/node.js'
 import { defineRegressionSuite, assert } from '../../helpers.js'
 
 async function buildOnce(pres) {

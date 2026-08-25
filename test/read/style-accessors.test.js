@@ -12,11 +12,9 @@
 //   desktop PowerPoint fixtures for the style-accessor constructs that would be
 //   circular if tested only through this library's writer.
 
-import { ShapeType } from '../../dist/node.js'
-
+import TsPptx, { ShapeType } from '../../dist/node.js'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
-import TsPptx from '../../dist/node.js'
 import { Presentation, AutoShape, GroupShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { openFixture } from './corpus.js'

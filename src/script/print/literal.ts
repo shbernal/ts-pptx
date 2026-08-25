@@ -18,8 +18,7 @@
  *   several depends only on its rendered width, never on where it came from, so the same
  *   deck prints byte-identical text every time.
  */
-import type { AssetRef, IrValue } from '../ir.js'
-import { isAssetRef } from '../ir.js'
+import { isAssetRef, type AssetRef, type IrValue } from '../ir.js'
 import { InvalidOptionError } from '../../errors.js'
 
 /** Matches `.oxfmtrc.jsonc`: `printWidth: 120`. */
