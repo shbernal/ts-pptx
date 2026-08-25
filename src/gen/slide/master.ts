@@ -15,6 +15,7 @@ import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
+import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
@@ -357,9 +358,7 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 		el(
 			'p:sldMaster',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 			},
 			[
 				raw(slideObjectToXml(slide)),

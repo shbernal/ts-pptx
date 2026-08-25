@@ -34,9 +34,9 @@ import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL } from '../../../ooxml/rel
 import { InternalError, PackageReadError } from '../../../errors.js'
 import { ensureNotesMasterForAuthoring } from './notes-master.js'
 import type { Slide } from '../slide.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
-const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const textEncoder = new TextEncoder()
 
 /**
@@ -82,7 +82,7 @@ function replaceNotesParagraphs(txBody: Element, text: string): void {
 	removeChildrenByQName(txBody, ['a:p'])
 	// Parsed inside a namespace-declaring wrapper, then imported: the same move
 	// `animation.ts` makes to bring authored XML into a loaded part's document.
-	const wrapper = parseXml(`<w xmlns:a="${A_NS}">${notesParagraphsXml(text)}</w>`).documentElement
+	const wrapper = parseXml(`<w xmlns:a="${OOXML_NS.a}">${notesParagraphsXml(text)}</w>`).documentElement
 	if (!wrapper)
 		throw new InternalError('oxml/node-has-no-document', 'Authored notes paragraphs did not parse to a root')
 	for (const paragraph of Array.from(wrapper.childNodes)) txBody.appendChild(doc.importNode(paragraph, true))

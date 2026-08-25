@@ -10,6 +10,7 @@ import type { ThemeColorScheme } from '../../types/index.js'
 import type { PresentationPropsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type RawXml } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /**
  * Theme `<a:clrScheme>` slots in OOXML document order, with their default Office color child.
@@ -226,7 +227,7 @@ export function makeXmlTheme(pres: PresentationPropsInternal): string {
 
 	return (
 		XML_DECL +
-		el('a:theme', { 'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main', name: 'Office Theme' }, [
+		el('a:theme', { 'xmlns:a': OOXML_NS.a, name: 'Office Theme' }, [
 			raw(themeElements),
 			raw(voidEl('a:objectDefaults')),
 			raw(voidEl('a:extraClrSchemeLst')),

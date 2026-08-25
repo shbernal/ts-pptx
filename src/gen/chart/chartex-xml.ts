@@ -26,10 +26,7 @@ import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts } from './chart-parts.js'
 import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
-
-const CX_NS = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
-const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /**
  * Map a chartEx {@link ChartType} to its `<cx:series layoutId>` token (the CT_SeriesLayout value
@@ -360,7 +357,7 @@ export function makeXmlChartEx(rel: SlideRelChart): string {
 
 	return (
 		XML_DECL +
-		el('cx:chartSpace', { 'xmlns:cx': CX_NS, 'xmlns:a': A_NS, 'xmlns:r': R_NS }, [
+		el('cx:chartSpace', { 'xmlns:cx': OOXML_NS.cx, 'xmlns:a': OOXML_NS.a, 'xmlns:r': OOXML_NS.r }, [
 			raw(makeChartExData(rel)),
 			raw(chart),
 		])

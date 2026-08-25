@@ -11,6 +11,7 @@ import type { ResolvedCommentAuthor, SlideComment } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 /** Result of resolving every slide's comments into a deck-wide author registry + per-comment numbering. */
 interface ResolvedComments {
@@ -84,9 +85,7 @@ export function makeXmlCommentAuthors(authors: ResolvedCommentAuthor[]): string 
 		el(
 			'p:cmAuthorLst',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 			},
 			raw(cmAuthors)
 		)
@@ -120,9 +119,7 @@ export function makeXmlComments(
 		el(
 			'p:cmLst',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 			},
 			raw(cms)
 		)

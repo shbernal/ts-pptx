@@ -18,6 +18,7 @@ import {
 
 export type { Document, Element, Node } from '@xmldom/xmldom'
 import { InternalError, InvalidOptionError } from '../../errors.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
 export const ELEMENT_NODE = 1
@@ -36,24 +37,12 @@ export function serializeXml(doc: Document): string {
 	return new XMLSerializer().serializeToString(doc)
 }
 
-/** Canonical OOXML prefix → namespace URI registry. */
-export const OOXML_NS = Object.freeze({
-	a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
-	c: 'http://schemas.openxmlformats.org/drawingml/2006/chart',
-	cp: 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
-	ct: 'http://schemas.openxmlformats.org/package/2006/content-types',
-	cx: 'http://schemas.microsoft.com/office/drawing/2014/chartex',
-	dc: 'http://purl.org/dc/elements/1.1/',
-	dcterms: 'http://purl.org/dc/terms/',
-	dgm: 'http://schemas.openxmlformats.org/drawingml/2006/diagram',
-	ep: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
-	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
-	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
-	p14: 'http://schemas.microsoft.com/office/powerpoint/2010/main',
-	p188: 'http://schemas.microsoft.com/office/powerpoint/2018/8/main',
-	pr: 'http://schemas.openxmlformats.org/package/2006/relationships',
-	r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-})
+// The registry itself lives in `ooxml/namespaces.ts`, which has no runtime imports, so the
+// write side can reach it without pulling `@xmldom/xmldom` into the write-only bundle. Re-exported
+// here so every existing `from '.../oxml/dom.js'` import keeps working. `qn` stays in this module:
+// it raises a diagnostic, and giving the import-free registry a dependency on `errors.ts` would
+// cost exactly what moving the table there bought.
+export { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** Build a prefixed qname string, e.g. `qn('p', 'sld')` → `"p:sld"`. */
 export function qn(prefix: string, local: string): string {

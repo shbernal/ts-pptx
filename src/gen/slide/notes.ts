@@ -14,6 +14,7 @@ import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 /**
  * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
@@ -360,9 +361,7 @@ export function makeXmlNotesMaster(): string {
 		el(
 			'p:notesMaster',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 			},
 			[raw(cSld), raw(clrMap), raw(notesStyle)]
 		)
@@ -498,9 +497,7 @@ export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: n
 		el(
 			'p:notes',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 			},
 			[raw(cSld), raw(el('p:clrMapOvr', null, raw(voidEl('a:masterClrMapping'))))]
 		)

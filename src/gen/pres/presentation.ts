@@ -10,10 +10,7 @@ import type { PresentationPropsInternal, SectionInternalProps } from '../../type
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-
-const DML = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-const PML = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 function defaultTextStyleLevel(idy: number): string {
 	return el(
@@ -84,11 +81,11 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 	// single-space separators, so this opening tag stays a raw template rather
 	// than being forced through the builder.
 	const openTag =
-		`<p:presentation xmlns:a="${DML}" xmlns:r="${REL}" ` +
+		`<p:presentation xmlns:a="${OOXML_NS.a}" xmlns:r="${OOXML_NS.r}" ` +
 		// When fonts are embedded we carry WHOLE faces, so `embedTrueTypeFonts="1"` (so
 		// PowerPoint honors the embed) and `saveSubsetFonts="0"` (we did not subset).
 		// With no embedded fonts, keep the historical inert `saveSubsetFonts="1"`.
-		`xmlns:p="${PML}" ${pres.rtlMode ? 'rtl="1"' : ''} ${(pres.embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes)) ? 'embedTrueTypeFonts="1" saveSubsetFonts="0"' : 'saveSubsetFonts="1"'} autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
+		`xmlns:p="${OOXML_NS.p}" ${pres.rtlMode ? 'rtl="1"' : ''} ${(pres.embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes)) ? 'embedTrueTypeFonts="1" saveSubsetFonts="0"' : 'saveSubsetFonts="1"'} autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
 
 	// SPEC (ECMA-376 Part 1 §19.2.1.26): sldMasterIdLst, then notesMasterIdLst
 	// BEFORE sldIdLst — emitting notesMasterIdLst after sldIdLst (or after
@@ -148,7 +145,7 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
  * @return {string} XML
  */
 export function makeXmlPresProps(): string {
-	return XML_DECL + CRLF + voidEl('p:presentationPr', { 'xmlns:a': DML, 'xmlns:r': REL, 'xmlns:p': PML })
+	return XML_DECL + CRLF + voidEl('p:presentationPr', { ...PML_ROOT_NS })
 }
 
 /**
@@ -159,7 +156,7 @@ export function makeXmlViewProps(): string {
 	return (
 		XML_DECL +
 		CRLF +
-		el('p:viewPr', { 'xmlns:a': DML, 'xmlns:r': REL, 'xmlns:p': PML }, [
+		el('p:viewPr', { ...PML_ROOT_NS }, [
 			raw(
 				el('p:normalViewPr', { horzBarState: 'maximized' }, [
 					raw(voidEl('p:restoredLeft', { sz: 15611 })),

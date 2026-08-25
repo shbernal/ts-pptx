@@ -22,6 +22,7 @@
 import { TableStyle } from '../../enums.js'
 import { CRLF, XML_DECL } from '../../constants-internal.js'
 import { voidEl } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /**
  * Create `ppt/tableStyles.xml`
@@ -33,7 +34,7 @@ export function makeXmlTableStyles(): string {
 		XML_DECL +
 		CRLF +
 		voidEl('a:tblStyleLst', {
-			'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+			'xmlns:a': OOXML_NS.a,
 			def: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
 		})
 	)

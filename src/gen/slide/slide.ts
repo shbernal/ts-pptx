@@ -12,6 +12,7 @@ import { slideTransitionToXml } from '../anim/transition.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { InternalError } from '../../errors.js'
+import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
@@ -25,9 +26,7 @@ export function makeXmlSlide(slide: PresSlideInternal): string {
 		el(
 			'p:sld',
 			{
-				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				...PML_ROOT_NS,
 				show: slide?.hidden ? '0' : null,
 			},
 			[

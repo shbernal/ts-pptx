@@ -12,11 +12,8 @@ import type { SlideObject } from '../../../types/internal.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { cNvPrOpen, MC_NS } from './shared.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
-const DML_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-const CHART_NS = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
-/** graphicData URI + child namespace for chartEx charts (referenced via `<mc:AlternateContent>`). */
-const CHARTEX_NS = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 /**
  * chartEx feature-version namespace declared on `<mc:Choice Requires>`. Each 2016 chart wave
  * introduced a feature level a consumer must "understand" to render the chart; a consumer that
@@ -52,10 +49,10 @@ export function renderChartObject(
 	const chartType = (opts as { _type?: ChartType })._type
 	const isChartEx = isChartExType(chartType)
 
-	const graphicDataUri = isChartEx ? CHARTEX_NS : CHART_NS
+	const graphicDataUri = isChartEx ? OOXML_NS.cx : OOXML_NS.c
 	const chartChild = isChartEx
-		? voidEl('cx:chart', { 'xmlns:cx': CHARTEX_NS, 'r:id': `rId${slideItemObj.chartRid}` }, { openPrefix: '   ' })
-		: voidEl('c:chart', { 'r:id': `rId${slideItemObj.chartRid}`, 'xmlns:c': CHART_NS }, { openPrefix: '   ' })
+		? voidEl('cx:chart', { 'xmlns:cx': OOXML_NS.cx, 'r:id': `rId${slideItemObj.chartRid}` }, { openPrefix: '   ' })
+		: voidEl('c:chart', { 'r:id': `rId${slideItemObj.chartRid}`, 'xmlns:c': OOXML_NS.c }, { openPrefix: '   ' })
 
 	const graphicFrame = el('p:graphicFrame', null, [
 		raw(
@@ -74,7 +71,7 @@ export function renderChartObject(
 		raw(
 			el(
 				'a:graphic',
-				{ 'xmlns:a': DML_NS },
+				{ 'xmlns:a': OOXML_NS.a },
 				raw(el('a:graphicData', { uri: graphicDataUri }, raw(chartChild), { openPrefix: '  ', closePrefix: '  ' })),
 				{ openPrefix: ' ', closePrefix: ' ' }
 			)

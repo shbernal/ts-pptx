@@ -18,14 +18,10 @@
  * corresponding function should be deleted, not kept in sync.
  */
 
-/** DrawingML main namespace — hosts `a:videoFile` / `a:audioFile` under `p:nvPr`. */
-const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** Office MathML namespace — the equation body itself, wrapped by `a14:m` in a text run. */
 const MATH_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-
-/** PresentationML main namespace — `p:grpSpPr`, `p:txStyles`, `p:spTree`. */
-const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 
 /** Shape-tree children that carry drawing content, as opposed to the tree's own properties. */
 const SHAPE_ELEMENTS = new Set(['sp', 'pic', 'graphicFrame', 'grpSp', 'cxnSp'])
@@ -90,7 +86,7 @@ function children(element: ElementLike | null): ElementLike[] {
  * without this check a video converts to a static image that looks deliberate.
  */
 export function isAudioVideo(element: unknown): boolean {
-	return has(element, A_NS, 'videoFile') || has(element, A_NS, 'audioFile')
+	return has(element, OOXML_NS.a, 'videoFile') || has(element, OOXML_NS.a, 'audioFile')
 }
 
 /**
@@ -119,8 +115,8 @@ export function hasEquation(element: unknown): boolean {
  * would otherwise answer for its first child.
  */
 export function isTextBox(element: unknown): boolean {
-	const nvSpPr = child(element as ElementLike | null, P_NS, 'nvSpPr')
-	return child(nvSpPr, P_NS, 'cNvSpPr')?.getAttribute('txBox') === '1'
+	const nvSpPr = child(element as ElementLike | null, OOXML_NS.p, 'nvSpPr')
+	return child(nvSpPr, OOXML_NS.p, 'cNvSpPr')?.getAttribute('txBox') === '1'
 }
 
 /**
@@ -136,13 +132,13 @@ export function isTextBox(element: unknown): boolean {
  * `true` rather than unknown.
  */
 export function hasIdentityChildSpace(element: unknown): boolean {
-	const xfrm = child(child(element as ElementLike | null, P_NS, 'grpSpPr'), A_NS, 'xfrm')
+	const xfrm = child(child(element as ElementLike | null, OOXML_NS.p, 'grpSpPr'), OOXML_NS.a, 'xfrm')
 	if (!xfrm) return true
 
-	const off = child(xfrm, A_NS, 'off')
-	const ext = child(xfrm, A_NS, 'ext')
-	const chOff = child(xfrm, A_NS, 'chOff')
-	const chExt = child(xfrm, A_NS, 'chExt')
+	const off = child(xfrm, OOXML_NS.a, 'off')
+	const ext = child(xfrm, OOXML_NS.a, 'ext')
+	const chOff = child(xfrm, OOXML_NS.a, 'chOff')
+	const chExt = child(xfrm, OOXML_NS.a, 'chExt')
 	if (!off || !ext || !chOff || !chExt) return true
 
 	return (
@@ -162,7 +158,7 @@ export function hasIdentityChildSpace(element: unknown): boolean {
  * scheme is repainted with Office's, and this is the only way to notice.
  */
 export function hasFormatScheme(element: unknown): boolean {
-	return has(element, A_NS, 'fmtScheme')
+	return has(element, OOXML_NS.a, 'fmtScheme')
 }
 
 /**
@@ -173,7 +169,7 @@ export function hasFormatScheme(element: unknown): boolean {
  * converter and comes back as PowerPoint's built-in default.
  */
 export function hasTextStyles(element: unknown): boolean {
-	const txStyles = child(element as ElementLike | null, P_NS, 'txStyles')
+	const txStyles = child(element as ElementLike | null, OOXML_NS.p, 'txStyles')
 	return children(txStyles).some((group) => children(group).length > 0)
 }
 
@@ -193,7 +189,7 @@ export function hasTextStyles(element: unknown): boolean {
  * cannot survive being flattened into loose objects.
  */
 export function isPlaceholderShape(element: unknown): boolean {
-	return has(element, P_NS, 'ph')
+	return has(element, OOXML_NS.p, 'ph')
 }
 
 /**
@@ -208,8 +204,9 @@ export function isPlaceholderShape(element: unknown): boolean {
  * rather than an unconditional note.
  */
 export function hasDecorativeShapes(element: unknown): boolean {
-	const spTree = child(child(element as ElementLike | null, P_NS, 'cSld'), P_NS, 'spTree')
+	const spTree = child(child(element as ElementLike | null, OOXML_NS.p, 'cSld'), OOXML_NS.p, 'spTree')
 	return children(spTree).some(
-		(shape) => shape.namespaceURI === P_NS && SHAPE_ELEMENTS.has(shape.localName ?? '') && !isPlaceholderShape(shape)
+		(shape) =>
+			shape.namespaceURI === OOXML_NS.p && SHAPE_ELEMENTS.has(shape.localName ?? '') && !isPlaceholderShape(shape)
 	)
 }
