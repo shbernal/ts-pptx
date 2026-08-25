@@ -1684,12 +1684,16 @@ clone.shapes.find((s) => s.hasTextFrame).textFrame.paragraphs[0].runs[0].text = 
 The clone gets its own slide part (a verbatim byte copy of the source) and its
 own `.rels`, so it shares the source's layout, theme, and images by reference
 while staying independent for edits. A presentation→slide relationship and a
-`p:sldId` (with a fresh slide id) are wired up; only `presentation.xml`, its
-`.rels`, and `[Content_Types].xml` change, plus the two new slide parts.
+`p:sldId` (with a fresh slide id) are wired up; `presentation.xml`, its `.rels`,
+and `[Content_Types].xml` change, plus the parts the clone adds.
 
-Relationships are copied as-is. If the source slide owns a one-to-one part such
-as a notes slide, the copy would reference the same part; clone slides without
-per-slide notes, or detach them afterward via the low-level API.
+What the source page **owns** is copied rather than shared: its notes slide, its
+charts, its SmartArt diagrams, its OLE embeddings, and the subtree under each of
+them (a chart's embedded workbook and user-shapes drawing come along; the image
+inside that drawing stays shared). This is not tidiness. PowerPoint refuses to
+open a package where two slides resolve to one chart or one diagram, and the
+schema validator accepts such a file, so the rule is only visible against the
+application. See [Owned vs shared parts](#owned-vs-shared-parts) for the list.
 
 Pass `{ at }` to place the duplicate at a specific deck position instead of
 appending: `presentation.cloneSlide(0, { at: 0 })` makes the copy the new first
@@ -1716,10 +1720,29 @@ master's `p:sldLayoutIdLst` is pruned to exactly those: mirroring PowerPoint's
 "Reuse Slides". Parts shared by repeated imports from the same source deck are
 copied once and reused. Untouched parts of the target stay byte-identical.
 
-The slide part itself is the one exception to that sharing: importing the same
-source page twice gives you two independent copies, which is what makes a
-before/after pair of one page possible. Only what sits underneath the page (its
-layout, master, theme, media) is shared between them.
+The page and the parts it owns are the exception to that sharing: importing the
+same source page twice gives you two independent copies, which is what makes a
+before/after pair of one page possible. Only the deck-wide assets underneath the
+page (its layout, master, theme, media) are shared between them.
+
+##### Owned vs shared parts
+
+Two copies of one page (from `cloneSlide`, from importing the same page twice, or
+from naming it twice in one `importSlides` batch) share this much. The same split
+applies one level down, to a shape carried across by `importShape`:
+
+| Shared | Owned, so copied per page |
+| --- | --- |
+| slideLayout, slideMaster, theme, themeOverride | chart and chartEx, with the embedded workbook and `chartUserShapes` drawing under them |
+| notesMaster, handoutMaster, presProps, viewProps, tableStyles | the five SmartArt diagram parts (data, layout, quickStyle, colors, drawing) |
+| images, audio, video, media, embedded 3D models, fonts | OLE embeddings, tags, comments |
+| the comment-author list | the notes slide, and its relationship back to the page |
+| another page a jump link points at | anything else not named as shared |
+
+Ownership is transitive: a part a page owns owns its own subtree in turn, down to
+the media at the leaves. The asymmetry in the default is deliberate: a wrongly
+shared part is a deck nobody can open, a wrongly copied one is some duplicated
+bytes. So a relationship type nobody has classified is copied.
 
 Source and target slide sizes must match (`importSlide` throws otherwise; v1 does
 no geometry rescaling). Source notes are dropped, and fonts embedded via
@@ -1763,12 +1786,11 @@ other pages of the same batch; positions must be unique and inside that list.
 The returned array is parallel to `requests`: `result[0]` is the cover above
 even though it was inserted after the closer.
 
-Every request is validated before any byte moves: source pages exist, no page
-is selected twice, output positions are unique and within the final slide list,
-slide sizes match, and a read-only dry run of the copy proves every part it
-would reach is present. A rejected batch therefore leaves the target
-byte-identical whichever rule rejected it, where a loop of `importSlide` could
-leave a half-stitched deck behind.
+Every request is validated before any byte moves: source pages exist, output
+positions are unique and within the final slide list, slide sizes match, and a
+read-only dry run of the copy proves every part it would reach is present. A
+rejected batch therefore leaves the target byte-identical whichever rule rejected
+it, where a loop of `importSlide` could leave a half-stitched deck behind.
 
 The batch also decides what a `slide → slide` link means. A jump link on a
 selected page must target another **selected** page (or one an earlier import
@@ -1776,6 +1798,26 @@ from that source already brought across) and is rewritten to the fresh partname:
 importing page 3 of 10 does not drag pages 1–2 across as dependencies, and never
 strands the link. A link to an unselected page throws `import/unresolved-slide-link`:
 the same rule `appendSlides` enforces for generator decks.
+
+One request is one output page, so naming the same source page in several
+requests is how you ask for several independent copies of it. This is the same
+exception to import sharing `importSlide` makes, batched:
+
+```js
+const [before, after] = target.importSlides([
+  { source: library, sourceIndex: 4, outputIndex: 0 },
+  { source: library, sourceIndex: 4, outputIndex: 1 },
+])
+```
+
+Each copy is its own slide part with its own slide id, and takes its own copy of
+the parts that page owns (its chart, its SmartArt, its OLE embeddings); the
+layout, master, theme and media underneath them are still copied once and shared,
+as [Owned vs shared parts](#owned-vs-shared-parts) sets out. Where a duplicated
+page is also a jump-link *target*, the link resolves to one of its copies: pages
+duplicated together are copied in lockstep, so a duplicated pair becomes two
+self-contained pairs, and a link into a page requested only once always lands on
+that single copy.
 
 Pages come across under `'copy'` theme semantics (their own layout → master →
 theme subgraph, shared parts deduped via the copy registry). Notes are dropped

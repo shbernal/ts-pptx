@@ -62,7 +62,7 @@ import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
 import { carryTableStyles } from './ops/table-styles.js'
 import { promoteMasters } from './ops/master-registry.js'
-import { checkSelectionCopyable, copyPart, copySlidePart, type ImportContext } from './ops/part-copy.js'
+import { checkSelectionCopyable, copyPart, copySlidePart, newOwnedScope, type ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
@@ -73,6 +73,7 @@ import { sourceFlattenContext } from './ops/flatten-context.js'
 import { importSlidePreserve, importSlideRestyle } from './ops/import-slide.js'
 import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
+import { duplicateOwnedTargets } from './ops/page-owned.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { rescaleImportedGeometry } from './ops/rescale-import.js'
 import {
@@ -358,12 +359,17 @@ export class Presentation {
 	 * Duplicate the slide at `index` and insert the copy at `options.at` (deck
 	 * order; `0` = first), defaulting to appending at the end when `at` is omitted
 	 * or out of range. Returns the new slide. The new slide part copies the source
-	 * bytes verbatim and shares the source's relationship targets (layout, images,
-	 * …) by copying its `.rels`; a new presentation→slide relationship and a
-	 * `p:sldId` entry are wired up. Marks the presentation part dirty.
+	 * bytes verbatim and shares the source's deck-wide relationship targets
+	 * (layout, images, media) by copying its `.rels`; a new presentation→slide
+	 * relationship and a `p:sldId` entry are wired up. Marks the presentation part
+	 * dirty.
 	 *
-	 * Note: relationships are copied as-is, so a source slide that owns a
-	 * one-to-one part (e.g. a notes slide) would end up shared with the clone.
+	 * What the source page *owns* is copied rather than shared: its notes slide,
+	 * charts, SmartArt diagrams and OLE embeddings, each with the subtree under it
+	 * (a chart's embedded workbook comes along; the image inside its user-shapes
+	 * drawing stays shared). PowerPoint refuses to open a deck where two slides
+	 * resolve to one chart or diagram, so this is not tidiness — see
+	 * `page-owned.ts` for the rule and the evidence behind it.
 	 */
 	cloneSlide(index: number, options: { at?: number } = {}): Slide {
 		const source = this.slides[index]
@@ -376,10 +382,18 @@ export class Presentation {
 		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 
 		// 2. Copy the slide's relationships (targets resolve identically — same dir).
-		const sourceRels = opc.part(relsPartNameFor(sourcePart.partName))
-		if (sourceRels) opc.addPart(relsPartNameFor(newPartName), sourceRels.contentType, sourceRels.bytes)
+		//    Through the live relationship set, not the `.rels` part bytes: a page
+		//    this session imported or edited holds its rels in memory until the deck
+		//    is saved, and copying the bytes gave such a clone no relationships at
+		//    all — a slide whose `r:id`s resolved to nothing.
+		const sourceRels = opc.relationshipsFor(sourcePart.partName)
+		const cloneRels = opc.relationshipsFor(newPartName)
+		for (const rel of sourceRels) cloneRels.addWithId(rel.id, rel.type, rel.target, rel.targetMode)
 
-		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
+		// 3. Take copies of the parts the page owned, leaving the shared ones shared.
+		duplicateOwnedTargets(opc, sourcePart.partName, newPartName)
+
+		// 4. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
 		return this.#insertSlidePart(newPart, options.at)
 	}
 
@@ -543,11 +557,11 @@ export class Presentation {
 	 * order the output positions were given in.
 	 *
 	 * Everything is checked before a single byte of this deck moves: every request
-	 * names an existing source page, source pages and final output positions are
-	 * unique, each source has this deck's slide size, and a read-only dry run of
-	 * the copy proves every part it would reach is present. A batch therefore
-	 * either applies in full or leaves this deck byte-identical, where a per-page
-	 * loop of {@link importSlide} can leave a half-stitched deck behind.
+	 * names an existing source page, final output positions are unique, each source
+	 * has this deck's slide size, and a read-only dry run of the copy proves every
+	 * part it would reach is present. A batch therefore either applies in full or
+	 * leaves this deck byte-identical, where a per-page loop of
+	 * {@link importSlide} can leave a half-stitched deck behind.
 	 *
 	 * The batch also decides what a `slide → slide` link means: an internal link
 	 * on a selected page must target another **selected** page (or one this deck
@@ -556,6 +570,15 @@ export class Presentation {
 	 * across as dependencies, and never strands the link. This mirrors
 	 * `appendSlides`' `import/unresolved-slide-link`, which the write side already
 	 * enforces for generator decks.
+	 *
+	 * One request is one output page, so naming the same source page in several
+	 * requests is how you ask for several independent copies of it — the page part
+	 * is the one thing an import never shares, exactly as in {@link importSlide}.
+	 * Everything under it (layout, master, theme, media) is still copied once and
+	 * shared. Where such a page is the target of a `slide → slide` link, the link
+	 * resolves to one of its copies: pages duplicated together are copied in
+	 * lockstep and link to their round-mates, and a link into a page requested only
+	 * once always lands on that single copy.
 	 *
 	 * Scope: pages come across under `'copy'` theme semantics (their own layout →
 	 * master → theme subgraph, shared parts deduped via the copy registry). Notes
@@ -600,18 +623,15 @@ export class Presentation {
 		}
 
 		const finalSlideCount = this.slides.length + resolved.length
+		// Which pages each source is being asked for. A page may appear in several
+		// requests: the set is what the dry run walks, and the per-request output
+		// parts are allocated in step 2.
 		const selectedPages = new Map<OpcPackage, Set<string>>()
 		for (const request of resolved) {
 			let pages = selectedPages.get(request.source.opc)
 			if (!pages) {
 				pages = new Set()
 				selectedPages.set(request.source.opc, pages)
-			}
-			if (pages.has(request.sourceSlide.partName)) {
-				throw new InvalidOptionError(
-					'import/slide-selected-twice',
-					`importSlides: source slide ${request.sourceIndex} (${request.sourceSlide.partName}) is selected more than once`
-				)
 			}
 			pages.add(request.sourceSlide.partName)
 		}
@@ -651,9 +671,12 @@ export class Presentation {
 			checkSelectionCopyable(sourceOpc, this.#importContext(sourceOpc).registry, pages)
 		}
 
-		// 2. Materialize each selected page's part now, so the copy traversals can
+		// 2. Materialize each request's output page now, so the copy traversals can
 		//    wire slide→slide relationships to their pre-allocated destinations.
-		const destinationsBySource = new Map<OpcPackage, Map<string, string>>()
+		//    One request is one output page, so a source page asked for twice gets
+		//    two reservations, in request order.
+		//    The reservation list is typed non-empty, so round 0 needs no fallback.
+		const destinationsBySource = new Map<OpcPackage, Map<string, [string, ...string[]]>>()
 		const planned = resolved.map((request) => {
 			let destinations = destinationsBySource.get(request.source.opc)
 			if (!destinations) {
@@ -663,15 +686,35 @@ export class Presentation {
 			const sourcePart = request.sourceSlide.part
 			const newPartName = this.opc.reservePartNameLike(request.sourceSlide.partName)
 			const destPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
-			destinations.set(request.sourceSlide.partName, newPartName)
+			const reserved = destinations.get(request.sourceSlide.partName)
+			if (reserved) reserved.push(newPartName)
+			else destinations.set(request.sourceSlide.partName, [newPartName])
 			return { ...request, destPart }
 		})
 
 		// 3. Copy each selected page and its dependency subgraph (theme/master/
 		//    layout/media/…), with links constrained to the selection.
+		//
+		//    `copyPart`'s plan holds one destination per source page, so a page
+		//    requested N times is copied in N rounds: round K materializes every
+		//    page that has a Kth reservation, and names each other page's *first*
+		//    copy so a jump link out of the round still lands on a page of this
+		//    batch. A page duplicated alongside another therefore links to its
+		//    round-mate, and a link into a single-copy page resolves to that one
+		//    copy from every round. Rounds after the first re-materialize only the
+		//    pages they name: everything else is a registry hit `copyPart` returns
+		//    unchanged.
 		for (const [sourceOpc, destinations] of destinationsBySource) {
-			const ctx: ImportContext = { ...this.#importContext(sourceOpc), selection: { destinations } }
-			for (const sourcePartName of destinations.keys()) void copyPart(ctx, sourcePartName)
+			const base = this.#importContext(sourceOpc)
+			const rounds = Math.max(...[...destinations.values()].map((reserved) => reserved.length))
+			for (let round = 0; round < rounds; round++) {
+				const plan = new Map<string, string>()
+				for (const [sourcePartName, reserved] of destinations) plan.set(sourcePartName, reserved[round] ?? reserved[0])
+				const ctx: ImportContext = { ...base, selection: { destinations: plan } }
+				for (const [sourcePartName, reserved] of destinations) {
+					if (round < reserved.length) void copyPart(ctx, sourcePartName)
+				}
+			}
 		}
 
 		// 4. Wire into p:sldIdLst at each requested final position. Ascending order
@@ -1109,7 +1152,10 @@ export class Presentation {
 			const imported = targetDoc.importNode(shapeEl, true)
 
 			// Drag media/charts/embeddings across and rewrite refs to fresh host rels.
-			rewriteCarriedRels(imported, importCtx, sourceRels, target.partName, targetRels, relIdMap)
+			// A scope per shape: media are shared through `relIdMap`, but the chart or
+			// diagram under this frame is its own — importing one chart shape twice must
+			// not point both frames at one chart part (see `page-owned.ts`).
+			rewriteCarriedRels(imported, importCtx, sourceRels, target.partName, targetRels, relIdMap, newOwnedScope())
 
 			// preserve: bake the source theme onto the subtree. The flatten passes match
 			// descendants (not the root), so wrap the shape in a throwaway container.

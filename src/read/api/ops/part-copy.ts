@@ -14,6 +14,7 @@ import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
 import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
+import { isSharedByPageCopies } from './page-owned.js'
 import { InvalidOptionError, PackageReadError } from '../../../errors.js'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
@@ -49,8 +50,31 @@ export interface ImportContext {
 	 * `slide → slide` relationships resolve only within the set, so an imported page
 	 * may link to another *selected* page (rewritten to its fresh partname) but must
 	 * not drag an unselected source page across as a dependency.
+	 *
+	 * One destination per source page is deliberate: a page is a link target as well
+	 * as an output, and a map to *many* destinations would make every jump link
+	 * ambiguous. A batch asked for the same page N times therefore runs the
+	 * traversal N times, each round naming that page's Nth reserved partname and the
+	 * other pages' first — see `importSlides` step 3.
 	 */
 	readonly selection?: SelectionPlan
+}
+
+/**
+ * The parts one page copy has taken for itself: source partname → the copy made
+ * for *this* page, never entered in the copy registry. A page owns a chart, a
+ * SmartArt diagram, an OLE embedding and their subtrees; sharing one of those
+ * with a second copy of the page writes a deck PowerPoint refuses to open, which
+ * is what {@link isSharedByPageCopies} draws the line for.
+ *
+ * One scope per page copy, opened by {@link copyPart} when it reaches a page of
+ * the selection plan and by {@link importSlideRebind} for the page it rebinds.
+ */
+export type OwnedScope = Map<string, string>
+
+/** Open an ownership scope for one page copy. */
+export function newOwnedScope(): OwnedScope {
+	return new Map()
 }
 
 /** Which pages of one source package an import is materializing, and where each is headed. */
@@ -100,30 +124,53 @@ export function copySlidePart(ctx: ImportContext, sourcePartName: string): strin
  * copy by {@link checkSelectionCopyable}, which also proves every part this
  * traversal will reach exists — so once copying starts there is nothing left to
  * throw, and a rejected batch never leaves a half-copied deck behind.
+ *
+ * Idempotence stops at the page's own parts. Reaching a page opens an
+ * {@link OwnedScope}, and everything under it that {@link isSharedByPageCopies}
+ * does not clear for sharing — a chart, a diagram, an OLE embedding, each with
+ * its own subtree — is copied into that scope instead of the registry, so the
+ * next copy of the page gets parts of its own. Pass `owned` to open the scope
+ * from outside, as the rebinding import paths do for the page they build
+ * themselves.
  */
-export function copyPart(ctx: ImportContext, sourcePartName: string): string {
-	const existing = ctx.registry.get(sourcePartName)
-	const selectedDest = ctx.selection?.destinations.get(sourcePartName)
-	// Registry hit without a selection plan: plain idempotence. With a plan, a
-	// hit on the *selected* destination means this batch already walked the page
-	// (register-before-recurse makes mutually-linked selected pages terminate);
-	// a hit on any OTHER partname is either a shared non-slide dependency from
-	// an earlier traversal or a page a previous import brought across — both are
-	// reused rather than duplicated. Only a selected page whose registered
-	// partname differs (imported by a previous call) is re-materialized fresh:
-	// each batch request owns exactly one output page.
-	if (existing && (selectedDest === undefined || existing === selectedDest)) return existing
+export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: OwnedScope): string {
+	// Inside a page's ownership scope the registry is not consulted at all: the
+	// point of the scope is that this page copy gets parts of its own, and the
+	// scope's own map is what keeps a part two of its relationships reach from
+	// being copied twice within the one copy.
+	if (owned) {
+		const alreadyOwned = owned.get(sourcePartName)
+		if (alreadyOwned !== undefined) return alreadyOwned
+	} else {
+		const existing = ctx.registry.get(sourcePartName)
+		const selectedDest = ctx.selection?.destinations.get(sourcePartName)
+		// Registry hit without a selection plan: plain idempotence. With a plan, a
+		// hit on the *selected* destination means this batch already walked the page
+		// (register-before-recurse makes mutually-linked selected pages terminate);
+		// a hit on any OTHER partname is either a shared non-slide dependency from
+		// an earlier traversal or a page a previous import brought across — both are
+		// reused rather than duplicated. Only a selected page whose registered
+		// partname differs (imported by a previous call) is re-materialized fresh:
+		// each batch request owns exactly one output page.
+		if (existing && (selectedDest === undefined || existing === selectedDest)) return existing
+	}
 
 	const sourcePart = ctx.source.part(sourcePartName)
 	if (!sourcePart)
 		throw new PackageReadError('package/part-missing', `importSlide: source package has no part ${sourcePartName}`)
 
-	const newPartName =
-		ctx.selection?.destinations.get(sourcePartName) ?? ctx.dest.opc.reservePartNameLike(sourcePartName)
+	const newPartName = owned
+		? ctx.dest.opc.reservePartNameLike(sourcePartName)
+		: (ctx.selection?.destinations.get(sourcePartName) ?? ctx.dest.opc.reservePartNameLike(sourcePartName))
 	// A selected page's part was already materialized by the batch allocator.
 	if (!ctx.dest.opc.part(newPartName)) ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 	// Record before recursing so the master↔layout cycle terminates.
-	ctx.registry.set(sourcePartName, newPartName)
+	if (owned) owned.set(sourcePartName, newPartName)
+	else ctx.registry.set(sourcePartName, newPartName)
+
+	// A page opens an ownership scope for everything under it; parts inside one
+	// stay inside it. See `page-owned.ts` for what that scope covers and why.
+	const scope = owned ?? (ctx.selection?.destinations.has(sourcePartName) ? newOwnedScope() : undefined)
 
 	const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
 	const sourceRels = ctx.source.relationshipsFor(sourcePartName)
@@ -141,7 +188,11 @@ export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 		// before this traversal starts, so the recursion below cannot reach an
 		// unselected page: by here every target is selected, already copied, or
 		// not a slide at all.
-		const newTargetPartName = copyPart(ctx, sourceRels.resolveTarget(rel.id))
+		const newTargetPartName = copyPart(
+			ctx,
+			sourceRels.resolveTarget(rel.id),
+			isSharedByPageCopies(rel.type) ? undefined : scope
+		)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
 	}
 

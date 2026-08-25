@@ -18,7 +18,8 @@ import type { Relationships } from '../../opc/relationships.js'
 import { InvalidOptionError } from '../../../errors.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { collectElements } from '../../oxml/slide-dom.js'
-import { copyPart, type ImportContext } from './part-copy.js'
+import { copyPart, type ImportContext, type OwnedScope } from './part-copy.js'
+import { isSharedByPageCopies } from './page-owned.js'
 
 /**
  * Rewrite every relationship reference inside a carried subtree to a fresh destination-local id.
@@ -28,6 +29,7 @@ import { copyPart, type ImportContext } from './part-copy.js'
  * @param {string} destPartName - partname of the destination part the subtree is being placed in
  * @param {Relationships} destRels - relationships of that destination part
  * @param {Map<string, string>} relIdMap - per-call cache (source part + source id → new id) deduping references shared within one import
+ * @param {OwnedScope} [owned] - ownership scope of the thing being carried, so the chart or diagram under a carried shape is copied for it rather than shared with an earlier copy
  */
 export function rewriteCarriedRels(
 	node: Element,
@@ -35,7 +37,8 @@ export function rewriteCarriedRels(
 	sourceRels: Relationships,
 	destPartName: string,
 	destRels: Relationships,
-	relIdMap: Map<string, string>
+	relIdMap: Map<string, string>,
+	owned?: OwnedScope
 ): void {
 	const elements: Element[] = []
 	collectElements(node, elements)
@@ -49,7 +52,7 @@ export function rewriteCarriedRels(
 			refs.push({ local: a.localName ?? a.name, id: a.value })
 		}
 		for (const { local, id } of refs) {
-			setAttr(el, `r:${local}`, carryRel(ctx, sourceRels, id, destPartName, destRels, relIdMap))
+			setAttr(el, `r:${local}`, carryRel(ctx, sourceRels, id, destPartName, destRels, relIdMap, owned))
 		}
 	}
 }
@@ -62,6 +65,7 @@ export function rewriteCarriedRels(
  * @param {string} destPartName - partname of the destination part
  * @param {Relationships} destRels - relationships of that destination part
  * @param {Map<string, string>} relIdMap - per-call dedupe cache
+ * @param {OwnedScope} [owned] - ownership scope of the carried content, for the parts it owns
  * @return {string} the new relationship id on the destination part
  */
 function carryRel(
@@ -70,21 +74,32 @@ function carryRel(
 	id: string,
 	destPartName: string,
 	destRels: Relationships,
-	relIdMap: Map<string, string>
+	relIdMap: Map<string, string>,
+	owned?: OwnedScope
 ): string {
-	const key = `${sourceRels.sourcePartName}|${id}`
-	const cached = relIdMap.get(key)
-	if (cached) return cached
 	const rel = sourceRels.get(id)
 	if (!rel)
 		throw new InvalidOptionError(
 			'relationship/not-found',
 			`Relationships of ${sourceRels.sourcePartName}: no relationship with id ${id}`
 		)
+	// The dedupe cache is for what may be shared. A part the carried content owns —
+	// the chart under a copied frame, the diagram under a copied SmartArt — is copied
+	// into its scope instead, so carrying the same shape twice does not hand two
+	// frames one chart part, which is a deck PowerPoint refuses to open.
+	const ownsIt = owned !== undefined && rel.targetMode !== 'External' && !isSharedByPageCopies(rel.type)
+	const key = `${sourceRels.sourcePartName}|${id}`
+	if (!ownsIt) {
+		const cached = relIdMap.get(key)
+		if (cached) return cached
+	}
 	const newId =
 		rel.targetMode === 'External'
 			? destRels.add(rel.type, rel.target, 'External').id
-			: destRels.add(rel.type, relativePartName(destPartName, copyPart(ctx, sourceRels.resolveTarget(id)))).id
-	relIdMap.set(key, newId)
+			: destRels.add(
+					rel.type,
+					relativePartName(destPartName, copyPart(ctx, sourceRels.resolveTarget(id), ownsIt ? owned : undefined))
+				).id
+	if (!ownsIt) relIdMap.set(key, newId)
 	return newId
 }

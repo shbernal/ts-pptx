@@ -31,7 +31,8 @@ import { flattenSlide, remapLiteralColors, restyleSlide } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
 import { carriedDecorations, firstShapeChild } from '../../oxml/slide-dom.js'
 import { copySourceTableStyles } from './table-styles.js'
-import { copyPart, type ImportContext } from './part-copy.js'
+import { copyPart, newOwnedScope, type ImportContext, type OwnedScope } from './part-copy.js'
+import { isSharedByPageCopies } from './page-owned.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
 import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
@@ -160,6 +161,10 @@ export function importSlideRebind(
 	// destination layout, and copy every other internal target (media/charts).
 	const sourceRels = source.opc.relationshipsFor(sourceSlide.partName)
 	const targetRels = dest.opc.relationshipsFor(newPartName)
+	// This page is built here rather than by `copyPart`, so its ownership scope is
+	// opened here too: the chart or diagram under a page rebound twice must not be
+	// the same part twice (see `page-owned.ts`).
+	const owned = newOwnedScope()
 	for (const rel of sourceRels) {
 		if (rel.type === NOTES_SLIDE_REL) continue
 		if (rel.type === SLIDE_LAYOUT_REL) {
@@ -170,7 +175,11 @@ export function importSlideRebind(
 			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
-		const newTarget = copyPart(ctx, sourceRels.resolveTarget(rel.id))
+		const newTarget = copyPart(
+			ctx,
+			sourceRels.resolveTarget(rel.id),
+			isSharedByPageCopies(rel.type) ? undefined : owned
+		)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
 	}
 
@@ -178,7 +187,7 @@ export function importSlideRebind(
 	// slide behind its own content. Done after the slide's own rels are in place (so carried
 	// media get fresh, non-colliding ids) but before the caller's flatten/restyle pass acts
 	// on the carried shapes.
-	if (carryGraphics) carryMasterGraphics(dest, ctx, slideRoot, newPartName, sourceSlide.partName)
+	if (carryGraphics) carryMasterGraphics(dest, ctx, slideRoot, newPartName, sourceSlide.partName, owned)
 
 	return { newPartName, slideRoot, newPart }
 }
@@ -197,13 +206,15 @@ export function importSlideRebind(
  * @param {Element} slideRoot - root element of the new slide part (mutated in place)
  * @param {string} newPartName - partname of the new slide part
  * @param {string} slidePartName - partname of the source slide, for resolving its layout/master
+ * @param {OwnedScope} owned - the page's ownership scope, so a decoration's own parts land in it
  */
 function carryMasterGraphics(
 	dest: Presentation,
 	ctx: ImportContext,
 	slideRoot: Element,
 	newPartName: string,
-	slidePartName: string
+	slidePartName: string,
+	owned: OwnedScope
 ): void {
 	const sourceOpc = ctx.source
 	const layoutPartName = resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
@@ -225,7 +236,7 @@ function carryMasterGraphics(
 		const sourceRels = sourceOpc.relationshipsFor(partName)
 		for (const deco of decorations) {
 			const imported = doc.importNode(deco, true)
-			rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap)
+			rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap, owned)
 			spTree.insertBefore(imported, anchor)
 		}
 	}

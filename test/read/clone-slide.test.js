@@ -65,6 +65,28 @@ describe('Presentation.cloneSlide', () => {
 		assert(added.includes('ppt/slides/_rels/slide3.xml.rels'), 'new slide rels added')
 	})
 
+	test('a slide imported this session clones with its relationships', async () => {
+		// The clone used to copy the source's `.rels` *part bytes*, and a page brought
+		// in by `importSlide` holds its relationships in memory until the deck is
+		// saved: there was no such part yet, so the clone came out with no
+		// relationships at all — its `r:id`s resolved to nothing and the chart on it
+		// had no chart part behind it.
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
+		const imported = target.importSlide(source, 7) // the fixture's chart page
+		const clone = target.cloneSlide(imported.index)
+
+		const reopened = await Presentation.load(await target.save())
+		const rels = reopened.opc.relationshipsFor(clone.partName)
+		const types = [...rels].map((rel) => rel.type.split('/').pop()).sort()
+		assertEqual(JSON.stringify(types), JSON.stringify(['chart', 'slideLayout']), 'the clone kept both relationships')
+		const chartRel = [...rels].find((rel) => rel.type.endsWith('/chart'))
+		assert(
+			reopened.opc.part(rels.resolveTarget(chartRel.id)) !== undefined,
+			'and the chart relationship resolves to a part that is in the package'
+		)
+	})
+
 	test('rejects an out-of-range index', async () => {
 		const presentation = await openFixture('textbox')
 		assert(

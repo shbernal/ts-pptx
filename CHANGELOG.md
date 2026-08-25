@@ -362,17 +362,21 @@ and project-site changes.
   specific position in the *final* slide list, and needs the whole stitch to succeed or
   fail as one. `importSlide` in a loop can leave a half-stitched deck when request three
   of five fails on a size mismatch; `importSlides` validates everything up front — pages
-  exist, no page is selected twice, output positions are unique and within the final list,
-  sizes match, and a read-only dry run of the copy proves every part it would reach is
-  present — so a rejected batch leaves the target byte-identical whichever rule rejected
-  it. The returned array is parallel to `requests`. It also gives the
+  exist, output positions are unique and within the final list, sizes match, and a
+  read-only dry run of the copy proves every part it would reach is present — so a
+  rejected batch leaves the target byte-identical whichever rule rejected it. The returned
+  array is parallel to `requests`. It also gives the
   batch's `slide → slide` links a rule: a jump link on a selected page must target another
   selected page (or one an earlier import from that source already brought across) and is
   rewritten to the fresh partnames, so importing page 3 of 10 neither drags pages 1–2
   across as dependencies nor strands the link — `appendSlides`' `import/unresolved-slide-link`,
-  enforced natively. Pages come across under `'copy'` theme semantics; notes, embedded
-  fonts and `rescale` have no batch spelling yet, so reach for `importSlide` when you
-  need one of those.
+  enforced natively. One request is one output page, so naming the same source page in
+  several requests asks for that many independent copies of it — the page part is the one
+  thing an import never shares, and a duplicated page's jump links stay inside the batch
+  (pages duplicated together are copied in lockstep, so a duplicated linked pair becomes
+  two self-contained pairs). Pages come across under `'copy'` theme semantics; notes,
+  embedded fonts and `rescale` have no batch spelling yet, so reach for `importSlide` when
+  you need one of those.
 
 - **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
   assembles the deck and returns the presentation, having written nothing. The preview needs
@@ -436,6 +440,42 @@ and project-site changes.
   run `docs:api`. Skipped by prefix, both states agree.
 
 ### Fixed
+
+- **Two copies of one page shared the parts that page owned, and PowerPoint refused the
+  deck.** A page copy shares the deck-wide graph underneath it — layout, master, theme,
+  images — and that sharing was applied to everything below the page, including the parts
+  PowerPoint treats as belonging to exactly one slide. Duplicating a page with a chart or a
+  SmartArt diagram therefore wrote a package with two slides resolving to one chart part or
+  one diagram set, and PowerPoint would not open the file at all: `0x80070570`, the whole
+  deck rejected rather than the duplicate page. The schema validator accepts such a package
+  — nothing in ECMA-376 says a chart part has one referrer — so CI was green the whole
+  time. Every way of duplicating a page was affected: `cloneSlide`, `importSlide` of one
+  source page twice, and (once it allowed the same page twice) an `importSlides` batch — as
+  was `importShape`, one level down, where carrying the same chart or SmartArt frame onto
+  two slides pointed both frames at one part.
+
+  A page copy (or a carried shape) now takes its own copy of what it owns: charts and
+  chartEx, the five SmartArt parts, OLE embeddings, tags, comments, the notes slide. Ownership is transitive
+  — a chart's embedded workbook and `chartUserShapes` drawing come with it, measured
+  against desktop PowerPoint, which refuses a shared workbook exactly as it refuses a
+  shared chart — while media blobs, fonts and deck furniture stay shared, which is what
+  PowerPoint itself does. The classification lives in `src/read/api/ops/page-owned.ts` as a
+  list of what may be *shared*, so a relationship type nobody has classified is copied: a
+  wrongly shared part is a deck nobody can open, a wrongly copied one is some duplicated
+  bytes.
+
+  Two behaviours change beyond the corruption. A cloned page now gets its own notes slide,
+  wired back to the clone, where before the clone and the source shared one notes part (the
+  caveat the `cloneSlide` docs used to carry). And `importSlide`/`importSlides` no longer
+  dedupe a chart or diagram across repeated imports of the same page, so such a deck grows
+  by one chart subtree per copy.
+
+- **`cloneSlide` lost every relationship of a page imported in the same session.** The
+  clone copied the source's `.rels` *part bytes*, and a page brought in by `importSlide`
+  holds its relationships in memory until the deck is saved: there was no such part yet, so
+  the clone came out with none at all — a slide whose `r:id`s resolved to nothing, its
+  chart with no chart part behind it and its layout unbound. The clone now copies the live
+  relationship set, which is the same thing for a page loaded from disk.
 
 - **`importSlide` twice from one loaded source wrote a package PowerPoint refuses to
   open** (issue #18). Copying a part out of a source deck is idempotent per source

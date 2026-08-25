@@ -7,6 +7,9 @@
 //   - a `slide → slide` link on an imported page resolves to another *selected*
 //     page's fresh partname (never back into the source package), and a link to
 //     an unselected page is refused rather than dragging that page across;
+//   - one request is one output page, so naming a source page twice returns two
+//     independent pages over one shared subgraph, and a jump link out of either
+//     copy still lands inside the batch;
 //   - results survive a save → reopen round-trip with no dangling relationships.
 
 import { describe, test } from 'vitest'
@@ -31,6 +34,17 @@ function slideLinkTargets(opc, partName) {
 		out.push(rels.resolveTarget(rel.id))
 	}
 	return out
+}
+
+/** Every internal relationship target of one part, sorted, for comparing two pages' dependencies. */
+function depTargets(opc, partName) {
+	const rels = opc.relationshipsFor(partName)
+	const out = []
+	for (const rel of rels) {
+		if (rel.targetMode === 'External') continue
+		out.push(rels.resolveTarget(rel.id))
+	}
+	return out.sort()
 }
 
 /** Catch a synchronous throw and return its stable `code`, or null when nothing threw. */
@@ -180,20 +194,96 @@ describe('Presentation.importSlides', () => {
 		assert(bytesEqual(beforeBytes, await target.save()), 'and the deck is untouched')
 	})
 
-	test('selecting one source page twice is rejected', () => {
-		return openFixture('mixed').then(async (target) => {
-			const source = await openFixture('image')
+	test('one source page requested twice yields two independent pages', async () => {
+		// One request is one output page. The page part is the one thing an import
+		// never shares, so the two copies must be distinct parts with distinct slide
+		// ids -- while everything under them (layout, master, theme, media) is copied
+		// once, exactly as a pair of `importSlide` calls would.
+		const target = await openFixture('mixed')
+		const before = target.slides.length
+		const source = await openFixture('mixed')
+
+		const [first, second] = target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: 0 },
+			{ source, sourceIndex: 0, outputIndex: before + 1 },
+		])
+		assert(first.partName !== second.partName, 'the two requests got parts of their own')
+		assert(first.slideId !== second.slideId, 'and slide ids of their own')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, before + 2, 'both copies joined the deck')
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(reopened.slides[0].partName, first.partName, 'the first copy landed at outputIndex 0')
+		assertEqual(reopened.slides[before + 1].partName, second.partName, 'the second at the end')
+
+		// Same bytes, same dependencies: the duplicate is a second page, not a
+		// second copy of the subgraph underneath it.
+		assert(
+			bytesEqual(reopened.opc.part(first.partName).bytes, reopened.opc.part(second.partName).bytes),
+			'the two pages are byte-identical copies of the one source page'
+		)
+		assertEqual(
+			JSON.stringify(depTargets(reopened.opc, first.partName)),
+			JSON.stringify(depTargets(reopened.opc, second.partName)),
+			'and they share every part they depend on'
+		)
+	})
+
+	test('a page duplicated beside a linked page keeps each copy linked within the batch', async () => {
+		// Page 0 links to page 1. Asking for page 0 twice and page 1 once must leave
+		// both copies of page 0 pointing at the single imported page 1 -- never back
+		// into the source package, and without a third page appearing.
+		const target = await generatedDeck(false)
+		const source = await generatedDeck(true)
+		const before = target.slides.length
+
+		const [linkOwner, linkTarget, secondOwner] = target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: before },
+			{ source, sourceIndex: 1, outputIndex: before + 1 },
+			{ source, sourceIndex: 0, outputIndex: before + 2 },
+		])
+		assert(linkOwner.partName !== secondOwner.partName, 'the repeated page got two parts')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, before + 3, 'the batch added exactly its three pages')
+		assertNoDanglingRels(reopened.opc)
+		for (const owner of [linkOwner, secondOwner]) {
 			assertEqual(
-				catchCode(() =>
-					target.importSlides([
-						{ source, sourceIndex: 0, outputIndex: 0 },
-						{ source, sourceIndex: 0, outputIndex: 1 },
-					])
-				),
-				'import/slide-selected-twice',
-				'a source page may appear in one request only'
+				JSON.stringify(slideLinkTargets(reopened.opc, owner.partName)),
+				JSON.stringify([linkTarget.partName]),
+				'each copy of the linking page resolves to the imported link target'
 			)
-		})
+		}
+	})
+
+	test('two pages duplicated together link to their own round-mate', async () => {
+		// Both pages of a linked pair, each asked for twice: the copies are made in
+		// rounds, so the batch produces two self-contained pairs rather than three
+		// pages pointing at one.
+		const target = await generatedDeck(false)
+		const source = await generatedDeck(true)
+		const before = target.slides.length
+
+		const [ownerA, targetA, ownerB, targetB] = target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: before },
+			{ source, sourceIndex: 1, outputIndex: before + 1 },
+			{ source, sourceIndex: 0, outputIndex: before + 2 },
+			{ source, sourceIndex: 1, outputIndex: before + 3 },
+		])
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, before + 4, 'four pages joined the deck')
+		assertNoDanglingRels(reopened.opc)
+		assertEqual(
+			JSON.stringify(slideLinkTargets(reopened.opc, ownerA.partName)),
+			JSON.stringify([targetA.partName]),
+			'the first pair links inside itself'
+		)
+		assertEqual(
+			JSON.stringify(slideLinkTargets(reopened.opc, ownerB.partName)),
+			JSON.stringify([targetB.partName]),
+			'and the second pair inside itself'
+		)
 	})
 
 	test('an out-of-range or negative outputIndex is rejected', () => {
@@ -264,6 +354,7 @@ describe('Presentation.importSlides', () => {
 		target.importSlides([
 			{ source, sourceIndex: 0, outputIndex: 3 },
 			{ source, sourceIndex: 1, outputIndex: 9 },
+			{ source, sourceIndex: 0, outputIndex: 0 }, // the same page a second time
 		])
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

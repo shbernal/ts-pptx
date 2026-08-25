@@ -246,7 +246,6 @@ export type InvalidOptionErrorCode =
 	| 'import/unresolved-slide-link'
 	| 'import/destination-missing-master'
 	| 'import/destination-missing-layout'
-	| 'import/slide-selected-twice'
 	| 'import/output-index-conflict'
 	| 'import/output-index-out-of-range'
 	// Replacing or adding picture content
