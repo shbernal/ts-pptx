@@ -16,10 +16,19 @@ import { warn } from '../diagnostics.js'
 import type { PresSlideInternal } from '../types/internal.js'
 
 /**
- * Basic UUID Generator Adapted
+ * Fill the `x`/`y` placeholders of a hex pattern with random nibbles.
+ *
+ * **Not replaceable by `crypto.randomUUID()`**, which exists on Node 24 and in every
+ * browser. This takes a *format string*, and half its callers pass a partial one:
+ * `gen/chart/plot-scatter.ts` asks for a bare tail (`-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+ * to splice onto a padded point index, and its other two calls want a GUID shape with
+ * no version nibble. Only `gen/define/zoom.ts` and `presentation.ts`, which pass a
+ * v4-shaped pattern, could switch, and switching only those would leave two generators
+ * where there is now one. The analysis is recorded here so it does not get re-derived:
+ * the swap is low value and non-zero risk, and it is not on the roadmap.
  * @link https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript#answer-2117523
- * @param {string} uuidFormat - UUID format
- * @returns {string} UUID
+ * @param {string} uuidFormat - the pattern; `x` becomes a random nibble, `y` one of 8/9/a/b
+ * @returns {string} the filled pattern
  */
 export function getUuid(uuidFormat: string): string {
 	return uuidFormat.replace(/[xy]/g, function (c) {
