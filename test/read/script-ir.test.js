@@ -814,16 +814,79 @@ describe('deck IR — picture fills', () => {
 	})
 })
 
+/** The per-shape notes a graphic frame with no write-API emitter raises, one per payload. */
+const UNWRITABLE_FRAME_NOTES = ['chartEx.all', 'diagram.all', 'graphicFrame.unknown']
+
 describe('deck IR — slide sourcing', () => {
 	test.for(fixtureNames)('%s authors every slide unless something on it has no write-API expression', async (name) => {
 		const ir = await irFor(name)
 		for (const slide of ir.slides) {
 			if (slide.source === 'authored') continue
-			assertEqual(slide.calls.length, 0, `${name}: a carried slide must emit no calls`)
+			const notes = ir.fidelity.filter((note) => note.slideNumber === slide.number)
 			assert(
-				ir.fidelity.some((note) => note.slideNumber === slide.number && note.construct === 'slide.carried'),
+				notes.some((note) => note.construct === 'slide.carried'),
 				`${name}: slide ${slide.number} is carried without a note saying why`
 			)
+			// The calls are *not* asserted empty. `DeckIr.calls` is populated for a carried slide
+			// on purpose, so the standalone tier — which has no source package to copy from — can
+			// still transcribe everything else on it; `mixed.pptx` slide 2 is a title placeholder
+			// beside the SmartArt frame. What must hold is that something names the construct
+			// that forced the copy, since `slide.carried` deliberately does not.
+			assert(
+				notes.some((note) => UNWRITABLE_FRAME_NOTES.includes(note.construct)),
+				`${name}: slide ${slide.number} is carried with no per-shape note naming the unwritable frame`
+			)
 		}
+	})
+
+	test('a slide holding SmartArt is carried, not transcribed with a hole where the diagram was', async () => {
+		// The deck-level walk tested extended charts and nothing else, so this slide came out
+		// `authored` and the printer transcribed it — dropping the diagram, which is the whole
+		// message of the slide, while the emitted script claimed to describe it.
+		const ir = await irFor('mixed')
+		const slide = ir.slides.find((candidate) => candidate.number === 2)
+		assertEqual(slide.source, 'carried', 'the SmartArt slide is copied from the source package')
+		assert(
+			ir.fidelity.some((note) => note.slideNumber === 2 && note.construct === 'diagram.all'),
+			'and the per-shape note says the diagram is what forced it'
+		)
+		assert(slide.calls.length > 0, 'while the rest of the slide is still mapped, for the tier that cannot copy')
+	})
+
+	test('a frame the reader does not decode at all is carried too', async () => {
+		// The third member of the set, and the one with no reader: `model3d.pptx` holds an
+		// `am3d:model3d` frame, which raises `graphicFrame.unknown`. Same consequence for the
+		// printer as SmartArt, so the same decision — enumerating only extended charts is what
+		// let both slip.
+		const ir = await irFor('model3d')
+		assertEqual(ir.slides[0].source, 'carried', 'the 3-D model slide is copied rather than transcribed')
+		assert(
+			ir.fidelity.some((note) => note.slideNumber === 1 && note.construct === 'graphicFrame.unknown'),
+			'and the per-shape note names the undecoded frame'
+		)
+	})
+
+	test('a diagram nested inside a group carries the slide, which a flat walk would miss', async () => {
+		// `hasUnwritableContent` recurses for exactly this. Built by wrapping the SmartArt frame
+		// of `mixed.pptx` slide 2 in a group, since no fixture ships one that way.
+		const zip = await JSZip.loadAsync(await readFixture('mixed.pptx'))
+		const slideXml = await zip.file('ppt/slides/slide2.xml').async('string')
+		const frame = /<p:graphicFrame>[\s\S]*?<\/p:graphicFrame>/.exec(slideXml)
+		assert(frame, 'slide 2 holds the graphic frame to wrap')
+		const box = '<a:off x="0" y="0"/><a:ext cx="9144000" cy="6858000"/>'
+		zip.file(
+			'ppt/slides/slide2.xml',
+			slideXml.replace(
+				frame[0],
+				'<p:grpSp>' +
+					'<p:nvGrpSpPr><p:cNvPr id="99" name="Wrapper 99"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
+					`<p:grpSpPr><a:xfrm>${box}<a:chOff x="0" y="0"/><a:chExt cx="9144000" cy="6858000"/></a:xfrm></p:grpSpPr>` +
+					frame[0] +
+					'</p:grpSp>'
+			)
+		)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+		const slide = ir.slides.find((candidate) => candidate.number === 2)
+		assertEqual(slide.source, 'carried', 'a diagram one level down still forces the copy')
 	})
 })

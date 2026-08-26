@@ -682,6 +682,24 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 	}
 }
 
+/**
+ * Why a graphic frame cannot be authored from a script, or `null` when it can.
+ *
+ * The single enumeration of the payloads with no write-API emitter, and the reason it is a
+ * function rather than a condition spelled at each site: `graphicFrameCall` needs it to pick
+ * a fidelity note, and `hasUnwritableContent` in `from-read/deck.ts` needs it to decide
+ * whether the printer must copy the slide instead of transcribing it. Those were two
+ * hand-maintained lists, they disagreed — the deck-level one named extended charts only — and
+ * a SmartArt slide was therefore transcribed with a hole where the graphic had been. The two
+ * consequences are the same for every member, so the membership has to be too.
+ */
+export function unwritableFramePayload(shape: GraphicFrame): 'chartEx' | 'diagram' | 'unknown' | null {
+	if (shape.table || shape.chart) return null
+	if (shape.hasChartEx) return 'chartEx'
+	if (shape.hasDiagram) return 'diagram'
+	return 'unknown'
+}
+
 /** A `GraphicFrame` hosts a table or a chart; both have their own mapper. */
 function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetResolver): CallIr | null {
 	const table = shape.table
@@ -690,37 +708,38 @@ function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetRe
 	const chart = shape.chart
 	if (chart) return chartCall(shape, chart, notes)
 
-	if (shape.hasChartEx) {
-		// Reached only if the deck-level walk did not already mark the slide `carried`.
-		notes.note(
-			'chartEx.all',
-			'dropped',
-			'unwritable',
-			'an extended chart (waterfall, funnel, box-and-whisker, …) has a full reader but no write-API counterpart'
-		)
-		return null
+	// Everything below emits no call. Reached even when the deck-level walk already marked the
+	// slide `carried`, because the standalone tier has no source package to copy from and needs
+	// the per-shape note to say what it lost.
+	switch (unwritableFramePayload(shape)) {
+		case 'chartEx':
+			notes.note(
+				'chartEx.all',
+				'dropped',
+				'unwritable',
+				'an extended chart (waterfall, funnel, box-and-whisker, …) has a full reader but no write-API counterpart'
+			)
+			return null
+		case 'diagram':
+			// Read but unwritable, so it takes the `chartEx.all` shape rather than the
+			// `graphicFrame.unknown` one below: the loss is the *write* side's, and saying
+			// "not decoded" of a construct whose text the read model now returns would be false.
+			notes.note(
+				'diagram.all',
+				'dropped',
+				'unwritable',
+				'a SmartArt diagram has a full reader and its text can be edited in place through it (DiagramPoint.text), but no write API authors one from a script, so a converted script cannot describe this frame'
+			)
+			return null
+		default:
+			notes.note(
+				'graphicFrame.unknown',
+				'dropped',
+				'unread',
+				'this graphic frame hosts none of a table, a chart or a SmartArt diagram (an OLE object or an ink annotation), which the read model does not decode'
+			)
+			return null
 	}
-
-	if (shape.hasDiagram) {
-		// Read but unwritable, so it takes the `chartEx.all` shape rather than the
-		// `graphicFrame.unknown` one below: the loss is the *write* side's, and saying
-		// "not decoded" of a construct whose text the read model now returns would be false.
-		notes.note(
-			'diagram.all',
-			'dropped',
-			'unwritable',
-			'a SmartArt diagram has a read surface (GraphicFrame.diagram) but no write-API counterpart'
-		)
-		return null
-	}
-
-	notes.note(
-		'graphicFrame.unknown',
-		'dropped',
-		'unread',
-		'this graphic frame hosts none of a table, a chart or a SmartArt diagram (an OLE object or an ink annotation), which the read model does not decode'
-	)
-	return null
 }
 
 /**

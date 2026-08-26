@@ -141,6 +141,31 @@ describe('script printer — the emitted script runs', () => {
 		assertEqual(connectorsOf(output).join(' | '), connectorsOf(source).join(' | '), 'connector geometry')
 	})
 
+	test('a slide the write API cannot author is copied, and the diagram survives it', async () => {
+		// End to end over the carried path: `mixed.pptx` slide 2 holds SmartArt, which the deck
+		// walk now marks unwritable, so the script must `importSlide` it rather than transcribe
+		// it. Before that, the slide came out authored and its diagram simply vanished.
+		const { printed, output } = await runPrinted('mixed.pptx')
+		assert(printed.code.includes('const source = await Presentation.load('), 'the source handle is opened')
+		assert(printed.code.includes('deck.importSlide(source, 1)'), 'and slide 2 is copied rather than rebuilt')
+		assertEqual(output.slides.length, 11, 'slide count')
+
+		const frame = output.slides[1].shapes.find(isGraphicFrame)
+		assert(frame?.hasDiagram, 'the copied slide still holds its SmartArt frame')
+		const source = await Presentation.load(await readFixture('mixed.pptx'))
+		assertEqual(
+			frame.diagram.text,
+			source.slides[1].shapes.find(isGraphicFrame).diagram.text,
+			'with every node string intact'
+		)
+
+		// A carried slide brings its own layout across, which is what the note declares.
+		assert(
+			printed.notes.some((note) => note.construct === 'slide.carriedChrome'),
+			'and the extra layout gallery entry that import costs is declared'
+		)
+	})
+
 	test('a deck whose layout names repeat still binds, by gallery position', async () => {
 		// `appendSlides` throws on an ambiguous layout name rather than picking one, and a
 		// multi-master deck routinely carries two layouts called "Title and Text".

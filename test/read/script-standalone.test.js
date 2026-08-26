@@ -293,6 +293,26 @@ describe('standalone printer — cases the fixture corpus does not contain', () 
 			'the template-anchored tier still copies the slide'
 		)
 	})
+
+	test('a SmartArt slide is transcribed here and copied by the other tier', async () => {
+		// The same split, on the construct that used to fall between the two: the deck-level
+		// walk did not mark a SmartArt slide `carried`, so *neither* tier kept the diagram —
+		// this one because it structurally cannot, the other because it was never told to copy.
+		const ir = await irFor('mixed')
+		const printed = printStandaloneScript(ir)
+		assert(
+			printed.notes.some((note) => note.slideNumber === 2 && note.construct === 'diagram.all'),
+			'the standalone tier declares the diagram lost, which is the truth for it'
+		)
+		assert(
+			!printed.notes.some((note) => note.construct === 'slide.carried'),
+			'and does not claim a slide was copied, since it copies nothing'
+		)
+		assert(
+			printScript(ir).notes.some((note) => note.slideNumber === 2 && note.construct === 'slide.carried'),
+			'while the template-anchored tier now copies that slide rather than transcribing it'
+		)
+	})
 })
 
 describe('standalone printer — the fidelity contract', () => {

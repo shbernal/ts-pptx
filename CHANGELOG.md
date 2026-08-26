@@ -45,6 +45,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unlabelled transition point), a `pres` point that draws nothing, and a drawn shape with no
   text body. Measured over five layout families and 90 authored points.
 
+### Fixed
+
+- **A slide holding SmartArt is no longer emitted as a script with a hole in it.**
+  `ts-pptx/script` decides per slide whether the emitted script can describe it or whether the
+  printer must copy the source slide verbatim, and that test named extended charts and nothing
+  else. But three graphic-frame payloads produce no call, not one: an extended chart, a
+  SmartArt diagram, and a frame the reader does not decode at all (an OLE object, ink, a 3-D
+  model). So a chartEx slide round-tripped correctly by being copied while a SmartArt slide
+  was transcribed and silently lost its diagram, with only a per-shape fidelity note recording
+  the loss. Both sites now share one predicate, so they cannot drift apart again.
+
+  The copy is not free, and now says so: `importSlide` brings the copied slide's own layout,
+  master and theme across and cannot recognise that the deck was templated from that same
+  file, so the output carries a duplicate layout-gallery entry per carried slide. That is
+  declared by a new `slide.carriedChrome` fidelity note. Layout handles are also resolved up
+  front rather than where first used, since an `importSlide` between two `appendSlides` calls
+  moves the gallery underneath them, and a duplicated layout *name* made the later call throw
+  `layout/ambiguous-name`.
+
+  Migration: a deck whose SmartArt, OLE or ink slides previously came out `authored` now comes
+  out `carried`. The emitted script imports those slides from the template instead of
+  rebuilding them, which needs the source deck present (it already did for the template
+  itself). The standalone tier is unchanged: it has no source package to copy from, so it
+  still transcribes such a slide and still reports the per-shape note.
+
 ## [3.4.0] - 2026-08-26
 
 This release makes SmartArt readable through the read model, and names what a frame the

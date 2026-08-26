@@ -6,18 +6,19 @@
  * round-trip check can compare two runs directly.
  *
  * The one judgement made at this level rather than per-shape is {@link SlideSource}. A
- * slide holding a construct the write API cannot express *at all* — an extended chart is
- * the clear case, with a complete reader and no emitter — cannot be honestly transcribed,
- * because the output would silently differ from the source. Such a slide is marked
- * `carried` so the printer copies it instead. That decision has to be made here, before
- * any shape is mapped, since it is a property of the slide as a whole.
+ * slide holding a construct the write API cannot express *at all* — a graphic frame with a
+ * complete reader and no emitter, which today means an extended chart, a SmartArt diagram,
+ * an OLE object or ink — cannot be honestly transcribed, because the output would silently
+ * differ from the source. Such a slide is marked `carried` so the printer copies it instead.
+ * That decision has to be made here, before any shape is mapped, since it is a property of
+ * the slide as a whole.
  */
 import type { Presentation } from '../../read/api/presentation.js'
 import type { Slide } from '../../read/api/slide.js'
 import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
 import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
-import { shapeCall, type AssetResolver } from './shape.js'
+import { shapeCall, unwritableFramePayload, type AssetResolver } from './shape.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
 import { compact } from './values.js'
@@ -195,13 +196,13 @@ function slideToIr(
 			'slide.carried',
 			'flattened',
 			'unwritable',
-			'this slide holds an extended chart (waterfall, funnel, box-and-whisker, …), which has a full reader but no write-API emitter; a printer that can copy the source slide does so instead of transcribing it, so it renders correctly but the emitted script does not describe its contents'
+			'this slide holds a graphic frame the write API cannot author (an extended chart, a SmartArt diagram, an OLE object or ink); a printer that can copy the source slide does so instead of transcribing it, so it renders correctly but the emitted script does not describe its contents. The per-shape note beside this one says which construct forced the copy'
 		)
 	}
 
 	// Mapped even for a carried slide: a printer with no source package to copy from prints
 	// these and loses only the unwritable construct, rather than the whole slide. Each shape
-	// records its own note, so the extended chart's loss is declared either way.
+	// records its own note, so that loss is declared either way.
 	const calls: CallIr[] = []
 	for (const shape of slide.shapes) {
 		const call = shapeCall(shape, notes, assets)
@@ -223,12 +224,17 @@ function slideToIr(
 /**
  * `true` when the slide holds something with no write-API expression at all, forcing a
  * carried slide. Descends into groups, since a group can host a graphic frame.
+ *
+ * Membership comes from {@link unwritableFramePayload}, which `graphicFrameCall` also uses to
+ * pick its note — one enumeration, so the two cannot drift apart again. This test named
+ * extended charts alone until then, which is why a slide holding SmartArt (or an OLE object,
+ * or ink) was transcribed as `authored` and rendered with a hole where the graphic had been.
  */
 function hasUnwritableContent(slide: Slide): boolean {
 	const check = (shapes: AnyShape[]): boolean =>
 		shapes.some((shape) => {
 			if (isGroupShape(shape)) return check(shape.shapes)
-			return isGraphicFrame(shape) && shape.hasChartEx
+			return isGraphicFrame(shape) && unwritableFramePayload(shape) !== null
 		})
 	return check(slide.shapes)
 }
