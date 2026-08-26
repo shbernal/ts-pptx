@@ -15,7 +15,7 @@
 import { SlideObjectType } from '../../enums.js'
 import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -138,8 +138,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	// elsewhere in the deck: PowerPoint gives every OLE object its own embedding part, and sharing
 	// one would make editing either object rewrite the other's source.
 	const objectRid = getNewRelId(target)
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const mediaKey = mediaSlideKey(target)
 	target._relsMedia.push({
 		path: strPath || `preencoded.${extn}`,
 		type: format.contentType,
@@ -147,7 +146,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 		data: strData,
 		rId: objectRid,
 		oleRelType: format.relType,
-		Target: `../embeddings/oleObject-${mediaSlideKey}-${target._relsMedia.length + 1}.${extn}`,
+		Target: `../embeddings/oleObject-${mediaKey}-${target._relsMedia.length + 1}.${extn}`,
 	})
 
 	// STEP 4: Register the preview picture (gray placeholder when the caller supplied no cover).

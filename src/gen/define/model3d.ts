@@ -22,7 +22,7 @@
 import { SlideObjectType } from '../../enums.js'
 import type { Model3dProps, Model3dPoint, Model3dCameraProps } from '../../types/model3d.js'
 import type { PresSlideInternal, SlideObject, Model3dInternal } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -123,8 +123,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	// part, which is wanted here (a model is read-only geometry, unlike an OLE payload, which is
 	// exempted there because double-clicking one would rewrite the other's source).
 	const modelRid = getNewRelId(target)
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const mediaKey = mediaSlideKey(target)
 	target._relsMedia.push({
 		path: strPath || 'preencoded.glb',
 		type: GLB_CONTENT_TYPE,
@@ -132,7 +131,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 		data: strData,
 		rId: modelRid,
 		model3dRelType: MODEL3D_REL_TYPE,
-		Target: `../media/model3d-${mediaSlideKey}-${target._relsMedia.length + 1}.glb`,
+		Target: `../media/model3d-${mediaKey}-${target._relsMedia.length + 1}.glb`,
 	})
 
 	// STEP 4: Register the preview picture. Unlike OLE's silent placeholder, say so out loud — a

@@ -5,7 +5,7 @@
  * no single part:
  *   - XML text               encodeXmlEntities
  *   - Identifiers & naming    getUuid, validateObjectName, getDuplicateObjectNames
- *   - Slide relationships     getNewRelId, isHyperlinkRel
+ *   - Slide relationships     getNewRelId, isHyperlinkRel, mediaSlideKey
  *
  * DrawingML fragment builders moved to `gen/drawingml/{color,effect,fill,line}.ts`;
  * unit conversion to `units-internal.ts` (over the public primitives in `units.ts`);
@@ -178,4 +178,19 @@ export function getNewRelId(target: PresSlideInternal): number {
  */
 export function isHyperlinkRel(rel: { type: string }): boolean {
 	return rel.type.toLowerCase().includes('hyperlink')
+}
+
+/**
+ * The slide-scoped segment of a media part's name.
+ *
+ * Media targets are namespaced by the slide that registered them so that slide
+ * master (`sm`) and slide layout (`sl-N`) media never collide with regular slide
+ * media names in large decks. A layout is identified by the `_slideNum >= 1000`
+ * convention the layout builder stamps on it; a master has no `_slideNum` at all.
+ * @param {PresSlideInternal} target - the slide, layout or master registering the media
+ * @returns {string} the key to splice into the media part name
+ */
+export function mediaSlideKey(target: PresSlideInternal): string {
+	if (target._slideNum == null) return 'sm'
+	return target._slideNum >= 1000 ? `sl-${target._slideNum}` : `${target._slideNum}`
 }

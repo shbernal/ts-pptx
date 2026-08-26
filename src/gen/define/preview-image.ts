@@ -7,7 +7,7 @@
  * rId. Shared here so the two definers agree on extension sniffing, content type, and de-dup.
  */
 import type { PresSlideInternal } from '../../types/internal.js'
-import { getNewRelId } from '../utils.js'
+import { getNewRelId, mediaSlideKey } from '../utils.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
 /** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown when the caller supplies no cover image. */
@@ -28,8 +28,7 @@ export function registerPreviewImage(target: PresSlideInternal, cover?: { path?:
 	const extn = imageExtensionForSource(strImagePath, strImageData)
 
 	const rId = getNewRelId(target)
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const mediaKey = mediaSlideKey(target)
 	const type = imageContentType(extn)
 	const dupe = target._relsMedia.find((item) => {
 		if (item.isDuplicate || !item.Target || item.type !== type) return false
@@ -42,7 +41,7 @@ export function registerPreviewImage(target: PresSlideInternal, cover?: { path?:
 		data: strImageData || '',
 		rId,
 		isDuplicate: !!dupe?.Target,
-		Target: dupe?.Target ? dupe.Target : `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${extn}`,
+		Target: dupe?.Target ? dupe.Target : `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${extn}`,
 	})
 	return rId
 }

@@ -11,7 +11,7 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.j
 import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
@@ -257,8 +257,7 @@ function createBulletImageRels(
 		const strImgExtn = imageExtensionForSource(img.path || '', img.data || '')
 
 		const relId = bullet._rId || getNewRelId(target)
-		const mediaSlideKey =
-			target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+		const mediaKey = mediaSlideKey(target)
 
 		if (strImgExtn === 'svg') {
 			// SVG bullets consume *TWO* rels, mirroring addImage(): a PNG preview (referenced by the
@@ -270,7 +269,7 @@ function createBulletImageRels(
 				extn: 'png',
 				data: img.data || '',
 				rId: relId,
-				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.png`,
+				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
 				isSvgPng: true,
 			})
 			target._relsMedia.push({
@@ -279,7 +278,7 @@ function createBulletImageRels(
 				extn: 'svg',
 				data: img.data || '',
 				rId: relId + 1,
-				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.svg`,
+				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.svg`,
 			})
 			bullet._rId = relId
 			bullet._rIdSvg = relId + 1
@@ -290,7 +289,7 @@ function createBulletImageRels(
 				extn: strImgExtn,
 				data: img.data || '',
 				rId: relId,
-				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 			})
 			bullet._rId = relId
 		}

@@ -10,7 +10,7 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
@@ -61,8 +61,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 	}
 
 	const imageRelId = getNewRelId(target)
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const mediaKey = mediaSlideKey(target)
 	const imgContentType = imageContentType(strImgExtn)
 	const dupeItem = target._relsMedia.find((item) => {
 		if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
@@ -78,7 +77,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 		isDuplicate: !!dupeItem?.Target,
 		Target: dupeItem?.Target
 			? dupeItem.Target
-			: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+			: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 	})
 	fill.type = 'image'
 	fill._imgRid = imageRelId
@@ -244,10 +243,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	newObject.options = objectOptions
 
 	// STEP 5: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
-	// Use a namespaced key for media targets so slide master (sm) and slide layouts (sl-N, _slideNum >= 1000)
-	// never collide with regular slide media names in large decks.
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const mediaKey = mediaSlideKey(target)
 	if (strImgExtn === 'svg') {
 		// SVG files consume *TWO* rId's: (a png version and the svg image)
 		// <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
@@ -258,7 +254,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			extn: 'png',
 			data: strImageData || '',
 			rId: imageRelId,
-			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.png`,
+			Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
 			isSvgPng: true,
 			svgSize: {
 				w: getSmartParseNumber(objectOptions.w, 'X', target._presLayout),
@@ -272,7 +268,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			extn: strImgExtn,
 			data: strImageData || '',
 			rId: imageRelId + 1,
-			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+			Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 		})
 		newObject.imageRid = imageRelId + 1
 	} else {
@@ -295,7 +291,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			isDuplicate: !!dupeItem?.Target,
 			Target: dupeItem?.Target
 				? dupeItem.Target
-				: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+				: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 		})
 		newObject.imageRid = imageRelId
 	}
