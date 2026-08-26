@@ -513,6 +513,56 @@ defineRegressionSuite('PPTX inspection primitives', [
 		},
 	},
 	{
+		// A `p:graphicFrame` used to be skipped outright, so a deck whose slides are
+		// SmartArt or tables inspected as `elements: []`, `wordCount: 0` — indistinguishable
+		// from a blank slide, and in flat disagreement with `Slide.text` on the read model,
+		// which has always flattened table cells and diagram nodes.
+		name: 'inspect reports graphic frames as boxes with the text they put on the slide',
+		fn: async () => {
+			const smartArt = await inspectPptx(join(FIXTURES, 'smartart-families.pptx'))
+			for (const slide of smartArt.slides) {
+				assertEqual(slide.elements.length, 1, `slide ${slide.index + 1} reports its SmartArt frame`)
+				const [frame] = slide.elements
+				assertEqual(frame.kind, 'graphicFrame', 'a SmartArt frame is a graphicFrame element')
+				assertEqual(frame.graphicKind, 'diagram', 'graphicKind names the hosted construct')
+				assert(frame.box.w > 0 && frame.box.h > 0, 'the frame carries its own p:xfrm box')
+				assert(slide.wordCount > 0, 'node text is counted rather than reported as an empty slide')
+				// The structure is a box here, not a flattened tree: text but no runs.
+				assertEqual(frame.textRuns.length, 0, 'no per-run projection inside a structure')
+				assertEqual(frame.paragraphs.length, 0, 'no paragraph projection inside a structure')
+			}
+
+			// Table cells reach the flat text the same way; a chart's labels deliberately
+			// do not (matching `Slide.text`), but the chart is still a box on the slide.
+			const table = (await inspectPptx(join(FIXTURES, 'table.pptx'))).slides[0]
+			const tableFrame = table.elements.find((el) => el.graphicKind === 'table')
+			assert(tableFrame, 'the table deck reports a table frame')
+			assert(tableFrame.text.includes('cell'), 'cell text reaches the flat text')
+
+			const chartSlide = (await inspectPptx(join(FIXTURES, 'bar-chart-data-labels.pptx'))).slides[0]
+			const chartFrame = chartSlide.elements.find((el) => el.graphicKind === 'chart')
+			assert(chartFrame, 'the chart deck reports a chart frame')
+			assertEqual(chartFrame.text, '', 'chart labels are not slide body text')
+
+			// A frame this library does not decode is still a box, not a hole in the slide.
+			const model3d = (await inspectPptx(join(FIXTURES, 'model3d.pptx'))).slides[0]
+			assertEqual(model3d.elements[0].graphicKind, 'other', 'an unmodelled payload reports `other`')
+
+			// A graphic frame consumes a zIndex like any other element: it is one position in
+			// the depth-first walk of the shape tree, so paint order stays document order.
+			const mixed = (await inspectPptx(join(FIXTURES, 'mixed.pptx'))).slides[6]
+			const zIndices = mixed.elements.map((el) => el.zIndex)
+			assertEqual(new Set(zIndices).size, zIndices.length, 'zIndex stays unique within the slide')
+			assert(
+				zIndices.every((z, i) => i === 0 || z > zIndices[i - 1]),
+				'elements come back in ascending paint order'
+			)
+			const mixedTable = mixed.elements.find((el) => el.graphicKind === 'table')
+			assert(mixedTable, 'mixed slide 7 reports its table frame')
+			assertEqual(mixedTable.zIndex, Math.max(...zIndices), 'the table is last in the shape tree, so it paints on top')
+		},
+	},
+	{
 		name: 'readPptxBinaryPart returns embedded media bytes; text and binary agree',
 		fn: async () => {
 			const { buf } = await build((p) => {

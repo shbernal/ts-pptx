@@ -52,6 +52,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unlabelled transition point), a `pres` point that draws nothing, and a drawn shape with no
   text body. Measured over five layout families and 90 authored points.
 
+### Changed
+
+- **`inspectPptx` reports graphic frames.** A `p:graphicFrame` (table, chart, SmartArt, or a
+  payload this library does not model) was skipped outright and consumed no `zIndex`, so a
+  deck whose slides are SmartArt or tables inspected as `elements: []` with `wordCount: 0`,
+  indistinguishable from a deck of blank slides. It also put the two read surfaces in flat
+  disagreement: `Slide.text` on the deep model has always flattened table cells and SmartArt
+  node text.
+
+  A frame now comes back as one element with `kind: 'graphicFrame'`, its own box, a `zIndex`
+  in the shape-tree walk, and a new `graphicKind` field (`'table' | 'chart' | 'chartEx' |
+  'diagram' | 'other'`). Its `text` is what a reader sees on the slide, so it counts toward
+  the slide's `text` and `wordCount`; a chart contributes none, matching `Slide.text`, which
+  treats data labels as chart data rather than slide body text. The *structure* is still not
+  flattened: `textRuns` and `paragraphs` stay empty, and cells, series, and nodes are reached
+  through `ts-pptx/read`.
+
+  **Migration.** `PptxSlideElementKind` gains `'graphicFrame'`, so an exhaustive `switch` over
+  it must handle the new member; `PptxSlideElement` gains `graphicKind`, `null` on every other
+  kind. A consumer that counted elements, summed `wordCount`, or read `zIndex` values sees
+  different numbers on decks containing graphic frames. Filter on `kind !== 'graphicFrame'` to
+  get the old element set back (the old `zIndex` numbering is not recoverable, and was itself
+  a walk with holes in it).
+
 ### Fixed
 
 - **A slide holding SmartArt is no longer emitted as a script with a hole in it.**

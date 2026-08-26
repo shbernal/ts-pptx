@@ -25,9 +25,10 @@ import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/ts-pptx/i
 - `slides[]`: slides in **presentation order** (`p:sldIdLst`), the order
   PowerPoint shows them, which stops matching part order once a deck is reordered.
 - `slides[].elements[]`: normalized objects with `id`, `name`, `kind`,
-  `zIndex`, `box`, `rotation`, `flipH`, `flipV`, `parentZIndex`, `childZIndices`,
-  `text`, `textRuns`, `paragraphs`, `fontSizes`, `colors`, `fill`, `line`,
-  `shapeType`, `textWrap`, `autofit`, `autofitFontScale`, and `bodyInsets`.
+  `graphicKind`, `zIndex`, `box`, `rotation`, `flipH`, `flipV`, `parentZIndex`,
+  `childZIndices`, `text`, `textRuns`, `paragraphs`, `fontSizes`, `colors`,
+  `fill`, `line`, `shapeType`, `textWrap`, `autofit`, `autofitFontScale`, and
+  `bodyInsets`.
 
 ## Its relationship to `ts-pptx/read`
 
@@ -41,14 +42,27 @@ Reach for `read` instead when you need to **change** anything, or to reach what
 this surface flattens away: table cells, chart series, speaker notes, comments,
 animations, or the layout/master a placeholder inherits from.
 
-Two things this surface deliberately does not report, both because it describes
-what a slide *states* rather than what PowerPoint would *render*:
+One thing this surface deliberately does not report, because it describes what a
+slide *states* rather than what PowerPoint would *render*: **a shape with no
+transform of its own** is omitted, not resolved. A placeholder that inherits its
+box from the layout has no box here; `Shape.resolvedFrame` on the read model is
+where inheritance is resolved.
 
-- **A shape with no transform of its own** is omitted, not resolved. A placeholder
-  that inherits its box from the layout has no box here; `Shape.resolvedFrame` on
-  the read model is where inheritance is resolved.
-- **`p:graphicFrame`** (tables, charts, SmartArt) is skipped entirely. It is a
-  structure rather than a box with text, and it does not consume a `zIndex`.
+A **`p:graphicFrame`** (a table, a chart, or a SmartArt graphic) is reported as
+one element, `kind: 'graphicFrame'`, with its box, its `zIndex`, and a
+`graphicKind` of `'table'` / `'chart'` / `'chartEx'` / `'diagram'` / `'other'`
+(`'other'` being a payload this library does not model, such as an OLE object or a
+3D scene). Its **structure** is what this surface does not flatten: `textRuns` and
+`paragraphs` are empty, and there are no cells, series, or nodes. Its `text` is the
+text a reader sees on the slide (table cells in row order, SmartArt node text), so
+it counts toward the slide's `text` and `wordCount`; a chart contributes none,
+matching `Slide.text` on the read model, which treats data labels and axis titles
+as chart data rather than slide body text.
+
+Until 3.5.0 a graphic frame was skipped outright and consumed no `zIndex`, which
+meant a deck of SmartArt or table slides inspected as `elements: []` and
+`wordCount: 0`, reading exactly like a deck of blank slides and disagreeing with
+`Slide.text`, which has always flattened cells and nodes.
 
 `loadPptxPackage()` returns an `OpcPackage`, so a tool that starts here can hand
 the result straight to `Presentation.fromPackage()` without re-reading the bytes.

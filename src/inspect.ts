@@ -17,14 +17,16 @@
  * - **Only geometry a shape carries itself.** A placeholder that inherits its box
  *   from the layout is omitted rather than resolved (`absoluteFrame`, not
  *   `resolvedFrame`) — the snapshot reports what the slide states.
- * - **No `p:graphicFrame`.** Tables, charts, and SmartArt are structures, not
- *   boxes with text, and flattening them here would report a shape whose content
- *   this surface cannot describe.
+ * - **A `p:graphicFrame` is a box, not its contents.** A table, chart or SmartArt
+ *   graphic is reported as one element with its box, its kind, and the text a
+ *   reader sees on the slide, but its structure is not flattened: no per-run
+ *   formatting, no cells, no series. Walk `ts-pptx/read` for what is inside one.
  */
 import { warn } from './diagnostics.js'
 import { OpcPackage } from './read/opc/package.js'
 import { Presentation } from './read/api/presentation.js'
 import type { AnyShape } from './read/api/shapes.js'
+import type { GraphicFrame } from './read/api/shapes/graphic-frame.js'
 import type { Run, TextFrame } from './read/api/text.js'
 import { ELEMENT_NODE, OOXML_NS, attr, firstChild, intValue, type Element } from './read/oxml/dom.js'
 import { STANDARD_LAYOUTS, emuToInches } from './units.js'
@@ -81,9 +83,21 @@ export interface PptxParagraph {
 /**
  * What an element is. `'group'` is a `p:grpSp` container: it has its own identity,
  * box, and fill, but no text of its own — its content is the elements that name it
- * in {@link PptxSlideElement.parentZIndex}.
+ * in {@link PptxSlideElement.parentZIndex}. `'graphicFrame'` is a `p:graphicFrame`
+ * hosting a table, a chart or a SmartArt graphic; {@link PptxSlideElement.graphicKind}
+ * says which, and it keeps that kind even when it carries text (a `'text'` element is
+ * always a `p:sp`).
  */
-export type PptxSlideElementKind = 'text' | 'image' | 'shape' | 'group'
+export type PptxSlideElementKind = 'text' | 'image' | 'shape' | 'group' | 'graphicFrame'
+
+/**
+ * What a `'graphicFrame'` element hosts, read from its `a:graphicData/@uri`:
+ * a table (`a:tbl`), a classic chart (`c:chart`), a 2016-family chart
+ * (`cx:chartSpace`: waterfall/funnel/treemap/…), or a SmartArt diagram. `'other'`
+ * is a frame whose URI matches none of those — an OLE object, an ink part, a 3D
+ * model — reported as a box so it is not silently missing from the slide.
+ */
+export type PptxGraphicKind = 'table' | 'chart' | 'chartEx' | 'diagram' | 'other'
 
 /**
  * Vertical-autofit mode of a text frame, read from the `a:bodyPr` child element:
@@ -113,6 +127,11 @@ export interface PptxSlideElement {
 	name: string
 	kind: PptxSlideElementKind
 	/**
+	 * What a `'graphicFrame'` element hosts, or `null` for every other kind. See
+	 * {@link PptxGraphicKind}.
+	 */
+	graphicKind: PptxGraphicKind | null
+	/**
 	 * Paint order on the slide, `0`-based: the element's position in a depth-first
 	 * walk of `p:spTree` in document order. A group is immediately followed by its
 	 * own children, which is also the order PowerPoint paints them, so a higher
@@ -140,6 +159,14 @@ export interface PptxSlideElement {
 	parentZIndex: number | null
 	/** {@link zIndex} of each direct child, in document order. Empty unless {@link kind} is `'group'`. */
 	childZIndices: number[]
+	/**
+	 * The element's text, whitespace-collapsed to one line. For a `'graphicFrame'`
+	 * this is the text the structure puts on the slide (table cells in row order,
+	 * SmartArt node text), which is what {@link PptxSlideInspection.text} and
+	 * `wordCount` then count; a chart contributes nothing, matching `Slide.text` on
+	 * the read model. That text has no {@link textRuns} or {@link paragraphs} here —
+	 * per-run formatting inside a structure is what this surface does not flatten.
+	 */
 	text: string
 	textWrap: string | null
 	autofit: PptxAutofitMode | null
@@ -342,10 +369,6 @@ interface HarvestedShape {
 function harvest(shapes: AnyShape[], parentZIndex: number | null, out: HarvestedShape[]): number[] {
 	const zIndices: number[] = []
 	for (const shape of shapes) {
-		// A `p:graphicFrame` hosts a table, chart, or SmartArt — a structure, not a box
-		// with text. It is outside this surface entirely, so it does not consume a zIndex
-		// either; use `ts-pptx/read` for what is inside one.
-		if (shape.shapeType === 'graphicFrame') continue
 		const entry: HarvestedShape = { shape, parentZIndex, childZIndices: [] }
 		const zIndex = out.push(entry) - 1
 		zIndices.push(zIndex)
@@ -377,20 +400,29 @@ function toElement(entry: HarvestedShape, zIndex: number, slidePath: string): Pp
 	const textFrame = shape.textFrame
 	const paragraphs = textFrame ? textFrame.paragraphs.map((p) => ({ runs: p.runs.map(toRun) })) : []
 	const textRuns = paragraphs.flatMap((paragraph) => paragraph.runs)
+	// A graphic frame has no text body of its own; its text comes from the structure
+	// it hosts, and arrives as a plain string with no runs behind it.
+	const runText = textRuns.map((run) => run.text).join('')
+	const raw = shape.shapeType === 'graphicFrame' ? graphicFrameText(shape) : runText
 	// Deliberately not `TextFrame.text`: this is one whitespace-collapsed line for
 	// matching and word-counting, not the frame's text with its line structure.
-	const text = textRuns
-		.map((run) => run.text)
-		.join('')
-		.replace(/\s+/g, ' ')
-		.trim()
+	const text = raw.replace(/\s+/g, ' ').trim()
 	const kind: PptxSlideElementKind =
-		shape.shapeType === 'group' ? 'group' : text ? 'text' : shape.shapeType === 'picture' ? 'image' : 'shape'
+		shape.shapeType === 'group'
+			? 'group'
+			: shape.shapeType === 'graphicFrame'
+				? 'graphicFrame'
+				: text
+					? 'text'
+					: shape.shapeType === 'picture'
+						? 'image'
+						: 'shape'
 
 	return {
 		id: shape.id ?? zIndex + 1,
 		name: shape.name || `${kind} ${zIndex + 1}`,
 		kind,
+		graphicKind: shape.shapeType === 'graphicFrame' ? graphicKindOf(shape) : null,
 		zIndex,
 		box: {
 			x: emuToInches(frame.left),
@@ -416,6 +448,38 @@ function toElement(entry: HarvestedShape, zIndex: number, slidePath: string): Pp
 		line: shape.lineColor,
 		shapeType: shape.presetGeometry,
 	}
+}
+
+/**
+ * What a graphic frame hosts, from the same `a:graphicData/@uri` the read model's
+ * `has*` predicates compare against. A frame that answers none of them is `'other'`
+ * rather than dropped: a box the deck's author placed is on the slide whether or not
+ * this library models its payload, and an overlap or coverage check that skipped it
+ * would report a gap where a 3D model or an OLE object sits.
+ */
+function graphicKindOf(frame: GraphicFrame): PptxGraphicKind {
+	if (frame.hasTable) return 'table'
+	if (frame.hasChart) return 'chart'
+	if (frame.hasChartEx) return 'chartEx'
+	if (frame.hasDiagram) return 'diagram'
+	return 'other'
+}
+
+/**
+ * The text a graphic frame puts on the slide: table cells in row order, or SmartArt
+ * node text. Charts contribute nothing, matching `Slide.text` on the read model — a
+ * chart's strings are data labels and axis titles that PowerPoint itself does not
+ * treat as slide body text.
+ *
+ * Separators are single spaces rather than the read model's `	`/`
+`, because the
+ * caller collapses whitespace anyway; the point here is only that cells do not run
+ * together into one word.
+ */
+function graphicFrameText(frame: GraphicFrame): string {
+	const table = frame.table
+	if (table) return table.rows.map((row) => row.cells.map((cell) => cell.text).join(' ')).join(' ')
+	return frame.diagram?.text ?? ''
 }
 
 /** Project one read-model {@link Run} onto the flat run shape. */
