@@ -20,16 +20,51 @@
  * labels its arrows). {@link Diagram.text} applies exactly that filter; {@link Diagram.points}
  * applies none, so a consumer that needs the raw graph gets it.
  *
- * Authoring SmartArt is out of scope: there is no write-side counterpart, and PowerPoint
- * regenerates the drawing from the data model, so a deck read here and saved back keeps its
- * diagram by preserving the parts rather than by re-authoring them.
+ * **The structure is in the connections, and {@link Diagram.nodes} is the view of it.** A
+ * `parOf` edge names the parent in `@srcId`, the child in `@destId` and the child's sibling
+ * position in `@srcOrd`; `points` order is document order and says nothing about depth. Three
+ * decisions that tree makes, each of which could defensibly have gone the other way:
+ *
+ * - **`asst` points are in it.** An assistant is user content, and an org chart merely draws
+ *   it off the main branch rather than under it. {@link DiagramPoint.type} carries the
+ *   distinction, so folding it silently in with `node` would hide something a consumer can
+ *   act on while omitting it would lose authored text.
+ * - **Transition points are not.** A `parTrans`/`sibTrans` labels an *edge*, not a node, and
+ *   reaches its edge through {@link DiagramConnection.parentTransitionId} /
+ *   `siblingTransitionId`. Hanging one off `children` would make the tree disagree with what
+ *   PowerPoint's own text pane shows.
+ * - **A cycle in `parOf` throws.** It is a corrupt model rather than a shape the format can
+ *   express, and the walk would not terminate; see `diagram/parent-edge-cycle`.
+ *
+ * **A point's text is stored twice.** The data model is what PowerPoint reads, but a deck
+ * also carries a *drawing* part (`dsp:drawing`) holding a copy of every drawn string, and
+ * every renderer without a SmartArt layout engine — LibreOffice, Google Slides, thumbnailers
+ * — paints that copy and nothing else. {@link DiagramPoint.drawnShape} is the link between
+ * the two, and {@link DiagramPoint.text}'s setter is what keeps them in step.
+ *
+ * Authoring a SmartArt graphic from nothing is out of scope: the layout part is a
+ * constraint-solver program PowerPoint executes, and the presentation tree it generates is
+ * not derivable from the user's content. Editing the text of one that already exists is
+ * supported — see {@link DiagramPoint.text}.
  */
+import { warn } from '../../diagnostics.js'
+import { PackageReadError } from '../../errors.js'
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
-import { attr, boolValue, firstChild, firstChildElement, getElements, intValue, type Element } from '../oxml/dom.js'
+import {
+	OOXML_NS,
+	attr,
+	boolValue,
+	descendantsByTag,
+	firstChild,
+	firstChildElement,
+	getElements,
+	intValue,
+	type Element,
+} from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
-import { TextFrame } from './text.js'
+import { setParagraphText, TextFrame } from './text.js'
 
 /**
  * `ST_PtType` — what a `dgm:pt` is.
@@ -86,6 +121,128 @@ export interface DiagramConnection {
 	presentationId: string | null
 }
 
+/**
+ * Where a point's text is drawn in the fallback drawing part — the second copy of every
+ * string a diagram carries, and the only one a renderer without a SmartArt layout engine
+ * paints. See {@link DiagramPoint.drawnShape} for how a point reaches it.
+ */
+export interface DiagramDrawnShape {
+	/** The drawing part (`/ppt/diagrams/drawing{N}.xml`) the shape lives in. */
+	readonly part: Part
+	/** The `pres` point this shape draws (`dsp:sp/@modelId`) — never the authored point's own id. */
+	readonly modelId: string
+	/** Which paragraph of {@link textFrame} carries this point's text (the `presOf` edge's `@destOrd`). */
+	readonly paragraphIndex: number
+	/**
+	 * The shape's `dsp:txBody`, bound to the **drawing** part rather than the data part, so
+	 * an edit made through it marks the part that actually changed.
+	 *
+	 * One shape commonly draws several points — three of them in `mixed.pptx` — so writing
+	 * `textFrame.text` here would delete the siblings' text. Replace paragraph
+	 * {@link paragraphIndex} instead, which is what {@link DiagramPoint.text}'s setter does.
+	 */
+	readonly textFrame: TextFrame
+	/** Escape hatch: the underlying `dsp:sp`. After mutating it call `part.markDirty()`. */
+	readonly element_: Element
+}
+
+/** One `presOf` edge out of a point, as the index keeps it. */
+interface PresentationArm {
+	readonly destId: string
+	/** `@destOrd` — the paragraph index this point occupies inside the drawn shape. */
+	readonly destinationOrder: number
+	/** `@srcOrd` — which of the point's several presentations this is. */
+	readonly sourceOrder: number
+}
+
+/**
+ * The node → drawn-shape index of one diagram: the `presOf` edges of the data model and the
+ * `dsp:sp` elements of the drawing part, both keyed for lookup.
+ *
+ * Built once per {@link Diagram}, and only when a point is actually asked what draws it — the
+ * drawing part is a second XML DOM and a consumer reading node text should not pay to parse
+ * it. The consequence of that memo: a consumer who *adds* or *removes* shapes in the drawing
+ * part through the escape hatches must re-reach the diagram to see them here.
+ */
+class DrawingIndex {
+	/** `presOf` arms out of each source point, in `@srcOrd` order. */
+	readonly #arms = new Map<string, PresentationArm[]>()
+	/** Each `dsp:sp` by the `pres` modelId it draws. */
+	readonly #shapes = new Map<string, Element>()
+
+	constructor(
+		root: Element | null,
+		private readonly drawingPart: Part | null,
+		private readonly themeContext?: ThemeContext
+	) {
+		const cxnLst = root && firstChild(root, 'dgm:cxnLst')
+		for (const cxn of cxnLst ? getElements(cxnLst, 'dgm:cxn') : []) {
+			if (attr(cxn, 'type') !== 'presOf') continue
+			const srcId = attr(cxn, 'srcId')
+			const destId = attr(cxn, 'destId')
+			if (!srcId || !destId) continue
+			const arm: PresentationArm = {
+				destId,
+				destinationOrder: intValue(attr(cxn, 'destOrd')) ?? 0,
+				sourceOrder: intValue(attr(cxn, 'srcOrd')) ?? 0,
+			}
+			const list = this.#arms.get(srcId)
+			if (list) list.push(arm)
+			else this.#arms.set(srcId, [arm])
+		}
+		for (const list of this.#arms.values()) list.sort((a, b) => a.sourceOrder - b.sourceOrder)
+
+		// `dsp:spTree` nests, so this is a descendant scan rather than a child one. Matched on
+		// the `dsp` namespace rather than on local name alone: `sp` and `txBody` are among the
+		// most-reused local names in DrawingML, and unlike `dataModelExt` (which `drawingPart`
+		// still matches loosely, because nothing else can appear in that extension) they carry
+		// no uri to disambiguate them.
+		const drawingRoot = drawingPart?.dom.documentElement ?? null
+		for (const sp of drawingRoot ? descendantsByTag(drawingRoot, OOXML_NS.dsp, 'sp') : []) {
+			const modelId = attr(sp, 'modelId')
+			if (modelId !== null && !this.#shapes.has(modelId)) this.#shapes.set(modelId, sp)
+		}
+	}
+
+	/**
+	 * Resolve one authored point to the `pres` point that presents it and to the drawn
+	 * paragraph carrying its text.
+	 *
+	 * A point commonly has **several** `presOf` arms — an org-chart node's box and the
+	 * connector beneath it are two presentations of one node — so the arm is chosen by what it
+	 * reaches rather than by its `@srcOrd`: the first, in `@srcOrd` order, whose `pres` point
+	 * draws a `dsp:sp` that has a `dsp:txBody`. That selector produced a unique hit for all 90
+	 * authored points measured across five layout families, and it degrades to "no arm" rather
+	 * than to "the wrong arm" on a layout that was not.
+	 */
+	resolve(modelId: string | null): { presentationId: string | null; drawnShape: DiagramDrawnShape | null } {
+		const arms = (modelId === null ? undefined : this.#arms.get(modelId)) ?? []
+		const first = arms[0]
+		if (!first) return { presentationId: null, drawnShape: null }
+		for (const arm of arms) {
+			const sp = this.#shapes.get(arm.destId)
+			const txBody = sp && firstChild(sp, 'dsp:txBody')
+			if (!sp || !txBody || !this.drawingPart) continue
+			// A `@destOrd` past the end of the body is a drawing cache that disagrees with the
+			// data model — no paragraph to point at, so the same "nothing is drawn" answer.
+			const paragraph = getElements(txBody, 'a:p')[arm.destinationOrder]
+			return {
+				presentationId: arm.destId,
+				drawnShape: paragraph
+					? {
+							part: this.drawingPart,
+							modelId: arm.destId,
+							paragraphIndex: arm.destinationOrder,
+							textFrame: new TextFrame(txBody, this.drawingPart, this.themeContext),
+							element_: sp,
+						}
+					: null,
+			}
+		}
+		return { presentationId: first.destId, drawnShape: null }
+	}
+}
+
 /** One point (`dgm:pt`) of a diagram's data model. */
 export class DiagramPoint {
 	constructor(
@@ -93,7 +250,9 @@ export class DiagramPoint {
 		/** The diagram data part, so a text edit marks the right part dirty. */
 		private readonly part: Part,
 		private readonly themeContext?: ThemeContext,
-		private readonly relationships?: Relationships
+		private readonly relationships?: Relationships,
+		/** The owning diagram's drawing index, built on first use; absent when reached without one. */
+		private readonly drawing?: () => DrawingIndex
 	) {}
 
 	/** This point's id (`@modelId`), which connections reference. */
@@ -135,15 +294,102 @@ export class DiagramPoint {
 	 * This point's text body (`dgm:t`) as a {@link TextFrame}, or `null` when the point
 	 * carries none. It is an `a:CT_TextBody` like any other, so `paragraphs`, `runs` and the
 	 * `resolved*` getters all apply.
+	 *
+	 * **Writing through this edits the data model only**, and leaves the drawing cache
+	 * holding the old string — which is what PowerPoint-less renderers draw. It is the escape
+	 * hatch for run-level formatting, so it does exactly what it is told and nothing more;
+	 * {@link text}'s setter is the path that mirrors.
 	 */
 	get textFrame(): TextFrame | null {
 		const t = firstChild(this.pt, 'dgm:t')
 		return t ? new TextFrame(t, this.part, this.themeContext, undefined, this.relationships) : null
 	}
 
+	/**
+	 * The generated `pres` point that presents this one (`dgm:cxn[@type="presOf"]/@destId`),
+	 * or `null` when nothing presents it — the normal state of an unlabelled transition point.
+	 *
+	 * Where a point has several `presOf` arms the one named here is the arm that draws text;
+	 * see {@link drawnShape}, which resolves both.
+	 */
+	get presentationId(): string | null {
+		return this.drawing?.().resolve(this.modelId).presentationId ?? null
+	}
+
+	/**
+	 * The paragraph of the fallback drawing part (`dsp:drawing`) that carries this point's
+	 * text, or `null` when nothing draws it.
+	 *
+	 * The mapping runs through the `pres` point rather than directly: a `dsp:sp/@modelId` is
+	 * always a `pres` point's id, so a lookup keyed on the authored point's own id finds
+	 * nothing at all. It is many-to-one in both directions — one shape draws several points
+	 * (`@destOrd` says which paragraph is whose, and it can contradict document order), and
+	 * one point has several presentations, of which at most one holds text.
+	 *
+	 * `null` is a defined outcome, not a failure, and covers four real cases: the package
+	 * carries no drawing part; the point has no `presOf` edge (every unlabelled
+	 * `parTrans`/`sibTrans`); the `pres` point draws no `dsp:sp`; and the shape it draws has
+	 * no `dsp:txBody` (a connector, or a picture node's filled rectangle).
+	 */
+	get drawnShape(): DiagramDrawnShape | null {
+		return this.drawing?.().resolve(this.modelId).drawnShape ?? null
+	}
+
 	/** This point's text, paragraphs joined by `\n`; `''` when it carries none. */
 	get text(): string {
 		return this.textFrame?.text ?? ''
+	}
+
+	/**
+	 * Replace this point's text, in the data model **and** in the drawing cache.
+	 *
+	 * A diagram stores every string twice. `dgm:t` is what PowerPoint reads, and it recomputes
+	 * the drawing from the data model on open; the `dsp:drawing` part is what every other
+	 * renderer paints, and none of them recompute anything. Writing only the first is an edit
+	 * that is invisible in LibreOffice, Google Slides, thumbnailers and web previews until
+	 * someone opens the deck in PowerPoint and saves it.
+	 *
+	 * The data-model write always happens. The mirror is best-effort: when the point resolves
+	 * to no drawn paragraph (see {@link drawnShape} for the four ways that occurs) the cache
+	 * keeps the old string and a `diagram/drawing-cache-not-updated` diagnostic says so.
+	 * Throwing instead would make the common case unusable in order to report the rare one,
+	 * and returning a status would be a shape no other text setter here has.
+	 *
+	 * Two things it deliberately does not do. It does **not** recompute geometry: the drawn
+	 * shape keeps its cached position and size, so a much longer string overflows its box in
+	 * those same renderers until PowerPoint re-lays the diagram out. And it does not *create*
+	 * a place to draw text — a transition point whose layout has no label slot has no
+	 * `dsp:sp`, and PowerPoint strips text put on one, so the honest outcome is the
+	 * diagnostic. Like every other `text` setter here it collapses the point to one run,
+	 * keeping the first run's `a:rPr`; use {@link textFrame} for run-level work.
+	 */
+	set text(value: string) {
+		const frame = this.textFrame
+		if (!frame) {
+			// No `dgm:t` at all. Synthesizing one is the case measurement says not to take: a
+			// transition point whose layout has no label slot is stored exactly like this, and
+			// PowerPoint strips text put on one at the next save. So the point is left alone.
+			warn(
+				'diagram/point-has-no-text-body',
+				`SmartArt point ${this.#label()} (type ${this.type}) has no dgm:t, so it is not a point text can be written to; nothing was changed`
+			)
+			return
+		}
+		frame.text = value
+
+		const drawn = this.drawnShape
+		const paragraph = drawn?.textFrame.paragraphs[drawn.paragraphIndex]
+		if (!drawn || !paragraph) {
+			warn(
+				'diagram/drawing-cache-not-updated',
+				`SmartArt point ${this.#label()} resolves to no drawn paragraph, so ${this.part.partName} now holds the new text but the drawing cache still holds the old one; PowerPoint redraws it on open, other renderers do not`
+			)
+			return
+		}
+		setParagraphText(paragraph.element_, value)
+		// The drawing is a different `Part` from the data model, and only a marked part is
+		// reserialized — missing this one is silent, not loud.
+		drawn.part.markDirty()
 	}
 
 	/** Escape hatch: the underlying `dgm:pt` element. After mutating it call {@link Diagram.markDirty}. */
@@ -154,10 +400,47 @@ export class DiagramPoint {
 	#prSet(): Element | null {
 		return firstChild(this.pt, 'dgm:prSet')
 	}
+
+	/** How a diagnostic names this point: its `@modelId`, which is all a corrupt point may have. */
+	#label(): string {
+		return this.modelId ?? '(no modelId)'
+	}
 }
+
+/**
+ * One user-authored point in its place in the diagram's tree — a `node` or an `asst`, never a
+ * generated `pres` point or a transition label. See {@link Diagram.nodes}.
+ */
+export class DiagramNode {
+	/** Child nodes, ordered by their `parOf` edge's `@srcOrd`. Empty for a leaf. */
+	readonly children: DiagramNode[] = []
+
+	constructor(
+		/** The point itself: its text, its type, and its link to what is drawn for it. */
+		readonly point: DiagramPoint,
+		/** The parent node, or `null` for a root. */
+		readonly parent: DiagramNode | null,
+		/** Depth below the root, `0` for a root. */
+		readonly level: number
+	) {}
+}
+
+/** A `parOf` edge, reduced to what building the tree needs. */
+interface ParentEdge {
+	readonly parentId: string
+	readonly childId: string
+	readonly order: number
+}
+
+/** Sort key for a root with no `parOf` edge at all, so it lands after the ordered ones. */
+const MAX_ORDER = Number.MAX_SAFE_INTEGER
 
 /** A SmartArt graphic frame's diagram, backed by its `dgm:dataModel` part. */
 export class Diagram {
+	#relationships: Relationships | undefined
+	#docPrSetCache: Element | null | undefined
+	#drawing: DrawingIndex | undefined
+
 	constructor(
 		/** The diagram's data part (`/ppt/diagrams/data{N}.xml`), whose root is `dgm:dataModel`. */
 		readonly part: Part,
@@ -177,14 +460,99 @@ export class Diagram {
 	/**
 	 * Every point (`dgm:ptLst/dgm:pt`) in document order, unfiltered — generated `pres`
 	 * points and the `doc` root included. Filter on {@link DiagramPoint.type} for the user's
-	 * nodes; {@link text} is the shortcut for the common case.
+	 * nodes; {@link text} is the shortcut for the common case, {@link nodes} the structured one.
+	 *
+	 * A fresh {@link DiagramPoint} is built per access, so `points[0] !== points[0]`. They
+	 * proxy the same DOM elements, so an edit through one is visible through any other —
+	 * only object identity differs, which matters if a consumer keys a `Map` on a point.
 	 */
 	get points(): DiagramPoint[] {
 		const root = this.#root()
 		const ptLst = root && firstChild(root, 'dgm:ptLst')
 		if (!ptLst) return []
-		const relationships = this.opc.relationshipsFor(this.part.partName)
-		return getElements(ptLst, 'dgm:pt').map((pt) => new DiagramPoint(pt, this.part, this.themeContext, relationships))
+		const relationships = (this.#relationships ??= this.opc.relationshipsFor(this.part.partName))
+		const drawing = (): DrawingIndex => this.#drawingIndex()
+		return getElements(ptLst, 'dgm:pt').map(
+			(pt) => new DiagramPoint(pt, this.part, this.themeContext, relationships, drawing)
+		)
+	}
+
+	/**
+	 * The authored tree — every `node` and `asst` point in its place, roots in `@srcOrd`
+	 * order — as a view over {@link points} and {@link connections} rather than a replacement
+	 * for either.
+	 *
+	 * A root is a content point whose `parOf` parent is not itself content, which in a
+	 * PowerPoint-authored model means the `doc` point. Transition points are not members; see
+	 * this module's header for that decision and the two beside it.
+	 *
+	 * @throws PackageReadError `diagram/parent-edge-cycle` when the `parOf` edges make a
+	 * point its own ancestor, which is a corrupt model rather than a diagram shape.
+	 */
+	get nodes(): DiagramNode[] {
+		const content = new Map<string, DiagramPoint>()
+		for (const point of this.points) {
+			const modelId = point.modelId
+			if (modelId !== null && (point.type === 'node' || point.type === 'asst')) content.set(modelId, point)
+		}
+
+		const childrenOf = new Map<string, ParentEdge[]>()
+		const edgeTo = new Map<string, ParentEdge>()
+		for (const connection of this.connections) {
+			const { sourceId, destinationId } = connection
+			if (connection.type !== 'parOf' || sourceId === null || destinationId === null) continue
+			if (!content.has(destinationId)) continue
+			const edge: ParentEdge = { parentId: sourceId, childId: destinationId, order: connection.sourceOrder ?? 0 }
+			const list = childrenOf.get(sourceId)
+			if (list) list.push(edge)
+			else childrenOf.set(sourceId, [edge])
+			edgeTo.set(destinationId, edge)
+		}
+		for (const list of childrenOf.values()) list.sort((a, b) => a.order - b.order)
+
+		// `content` is in document order and `sort` is stable, so a point with no `parOf` edge
+		// at all — a hand-built model, not something PowerPoint writes — keeps its place at the
+		// end rather than being dropped.
+		const roots = [...content].filter(([modelId]) => {
+			const parentId = edgeTo.get(modelId)?.parentId
+			return parentId === undefined || !content.has(parentId)
+		})
+		roots.sort(([a], [b]) => (edgeTo.get(a)?.order ?? MAX_ORDER) - (edgeTo.get(b)?.order ?? MAX_ORDER))
+
+		const placed = new Set<string>()
+		const build = (point: DiagramPoint, parent: DiagramNode | null, level: number, path: Set<string>): DiagramNode => {
+			const modelId = point.modelId
+			if (modelId !== null && path.has(modelId)) throw this.#cycleError(modelId)
+			const node = new DiagramNode(point, parent, level)
+			if (modelId === null) return node
+			placed.add(modelId)
+			path.add(modelId)
+			for (const edge of childrenOf.get(modelId) ?? []) {
+				const child = content.get(edge.childId)
+				if (child) node.children.push(build(child, node, level + 1, path))
+			}
+			path.delete(modelId)
+			return node
+		}
+		const tree = roots.map(([, point]) => build(point, null, 0, new Set()))
+
+		// A cycle that no root reaches would otherwise drop its members from the tree in
+		// silence, since the walk never enters it. Every content point has at most one recorded
+		// parent, so following parents from an unplaced point must repeat: unreachable and
+		// cyclic are the same condition, and it gets the same answer as the reachable form.
+		if (placed.size !== content.size) {
+			const orphan = [...content.keys()].find((modelId) => !placed.has(modelId))
+			throw this.#cycleError(orphan ?? '(unidentified)')
+		}
+		return tree
+	}
+
+	/**
+	 * The point with this `@modelId`, or `null` — the lookup every connection getter implies,
+	 * since a `DiagramConnection` names its ends by id and nothing else resolves them.
+	 */
+	point(modelId: string): DiagramPoint | null {
+		return this.points.find((candidate) => candidate.modelId === modelId) ?? null
 	}
 
 	/** Every edge (`dgm:cxnLst/dgm:cxn`) in document order. */
@@ -294,13 +662,37 @@ export class Diagram {
 		return this.part.dom.documentElement
 	}
 
-	#docPrSetAttr(name: string): string | null {
+	#cycleError(modelId: string): PackageReadError {
+		return new PackageReadError(
+			'diagram/parent-edge-cycle',
+			`Diagram ${this.part.partName} has a parOf cycle reaching point ${modelId}, so its points do not form a tree`
+		)
+	}
+
+	/**
+	 * The `doc` point's `dgm:prSet`, which carries all three preset ids — resolved once
+	 * rather than once per getter, since each lookup is a scan of the whole `ptLst`.
+	 * `undefined` means "not looked up yet"; `null` means "looked up, not there".
+	 */
+	#docPrSet(): Element | null {
+		if (this.#docPrSetCache !== undefined) return this.#docPrSetCache
 		const root = this.#root()
 		const ptLst = root && firstChild(root, 'dgm:ptLst')
-		if (!ptLst) return null
-		const doc = getElements(ptLst, 'dgm:pt').find((pt) => attr(pt, 'type') === 'doc')
-		const prSet = doc && firstChild(doc, 'dgm:prSet')
+		const doc = ptLst && getElements(ptLst, 'dgm:pt').find((pt) => attr(pt, 'type') === 'doc')
+		return (this.#docPrSetCache = (doc && firstChild(doc, 'dgm:prSet')) || null)
+	}
+
+	#docPrSetAttr(name: string): string | null {
+		const prSet = this.#docPrSet()
 		return prSet ? attr(prSet, name) : null
+	}
+
+	/**
+	 * The drawing index, built on first use and kept — see {@link DrawingIndex} for what that
+	 * memo costs a consumer who mutates the drawing part's shape tree by hand.
+	 */
+	#drawingIndex(): DrawingIndex {
+		return (this.#drawing ??= new DrawingIndex(this.#root(), this.drawingPart, this.themeContext))
 	}
 
 	#relPart(qname: string): Part | null {

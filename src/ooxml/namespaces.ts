@@ -26,6 +26,7 @@ export const OOXML_NS = Object.freeze({
 	dc: 'http://purl.org/dc/elements/1.1/',
 	dcterms: 'http://purl.org/dc/terms/',
 	dgm: 'http://schemas.openxmlformats.org/drawingml/2006/diagram',
+	dsp: 'http://schemas.microsoft.com/office/drawing/2008/diagram',
 	ep: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
 	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',

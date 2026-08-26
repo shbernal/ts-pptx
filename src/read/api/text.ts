@@ -951,12 +951,9 @@ export function setTextBodyText(txBody: Element, value: string): void {
 	const doc = txBody.ownerDocument
 	if (!doc) throw new InternalError('oxml/node-has-no-document', 'Cannot set text: text body has no owner document')
 
+	// Collapse to a single paragraph, dropping any extras, then let the paragraph-level
+	// setter do the rest — the run rule is the same one, stated once.
 	const paragraphs = getElements(txBody, 'a:p')
-	// Capture the first run's character formatting before we discard runs.
-	const firstRun = paragraphs[0] && firstChild(paragraphs[0], 'a:r')
-	const rPrTemplate = firstRun && firstChild(firstRun, 'a:rPr')
-
-	// Collapse to a single paragraph, dropping any extras.
 	for (let i = paragraphs.length - 1; i >= 1; i--) {
 		const extra = paragraphs[i]
 		if (extra) txBody.removeChild(extra)
@@ -966,6 +963,24 @@ export function setTextBodyText(txBody: Element, value: string): void {
 		p = createElement(doc, 'a:p')
 		txBody.appendChild(p)
 	}
+	setParagraphText(p, value)
+}
+
+/**
+ * Replace **one paragraph's** content with a single run, preserving the `a:rPr` of that
+ * paragraph's first existing run and leaving its `a:pPr` (level, alignment, bullet) alone.
+ * Sibling paragraphs are untouched, which is the whole difference from
+ * {@link setTextBodyText} and the reason this exists: a SmartArt drawing cache packs several
+ * nodes' text into one `dsp:txBody`, so collapsing the body there would delete the other
+ * nodes' strings. Does **not** mark any part dirty — the caller owns the `Part`.
+ */
+export function setParagraphText(p: Element, value: string): void {
+	const doc = p.ownerDocument
+	if (!doc) throw new InternalError('oxml/node-has-no-document', 'Cannot set text: paragraph has no owner document')
+
+	// Capture the first run's character formatting before we discard runs.
+	const firstRun = firstChild(p, 'a:r')
+	const rPrTemplate = firstRun && firstChild(firstRun, 'a:rPr')
 
 	// Remove every run-level child (runs, breaks, fields); keep a:pPr / a:endParaRPr.
 	for (const child of childElements(p)) {

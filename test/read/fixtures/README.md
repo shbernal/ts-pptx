@@ -334,6 +334,11 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `authoring/probe-smartart-mapping.mjs` re-measures the mapping over this deck and
   `mixed.pptx` and exits non-zero if any authored string fails to resolve.
 
+  It is the fixture behind `Diagram.nodes`, `DiagramPoint.drawnShape` and
+  `DiagramPoint.text` in `test/read/diagram.test.js`; the mapping those rest on is
+  documented for consumers in `docs/reference/pptx-read.md`, and the findings below are the
+  measurement it came from.
+
   **Findings.** Measured over all four families here plus `mixed.pptx`'s `hList1` — 90
   authored points, no exceptions:
 
@@ -1118,6 +1123,7 @@ appears.
 | `textbox.deleted-shape.pptx`      | `Shape.delete`                                                                  | The "replaceText" shape is gone; the rest of the slide is intact.           |
 | `textbox.cloned-slide.pptx`       | `Presentation.cloneSlide` (+ edit on the clone)                                 | A duplicate of slide 1 is appended last, reading "CLONED COPY".             |
 | `table.edited-cells.pptx`         | `TableCell.text`                                                                | The first table's top-left cells read "Edited A1" / "Edited B1".            |
+| `smartart-families.retexted-smartart.pptx` | `DiagramPoint.text` (data model + `dsp:drawing` cache)                 | Every node on all four slides reads "edit-N" and each diagram still draws whole. |
 | `empty.imported-image-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme + media) | A slide carrying the image fixture's picture is appended to the blank deck. |
 | `empty.imported-table-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme)         | A slide carrying a table is appended to the blank deck.                     |
 
@@ -1130,6 +1136,7 @@ Record the surface used and the result here.
 - [ ] `textbox.deleted-shape.pptx` — not yet performed
 - [ ] `textbox.cloned-slide.pptx` — not yet performed
 - [ ] `table.edited-cells.pptx` — not yet performed
+- [x] `smartart-families.retexted-smartart.pptx` — Windows desktop PowerPoint, 2026-08-26 (opened clean via COM, no repair prompt; all four slides exported to PNG and each diagram draws with the new node text)
 - [ ] `empty.imported-image-slide.pptx` — not yet performed
 - [ ] `empty.imported-table-slide.pptx` — not yet performed
 

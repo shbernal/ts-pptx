@@ -167,6 +167,41 @@ const cases = [
 		},
 	},
 	{
+		out: 'smartart-families.retexted-smartart.pptx',
+		// Verify: every node on all four slides reads "edit-N", and each diagram still draws
+		// whole — org chart with its assistant off the branch, process arrows and their labels,
+		// cycle, picture list. No repair prompt.
+		//
+		// The point of the case is the *second* copy of the text: `DiagramPoint.text` writes
+		// `ppt/diagrams/data{N}.xml` and mirrors into the `ppt/diagrams/drawing{N}.xml` cache.
+		// PowerPoint regenerates that cache on open, so it is the one renderer that cannot tell
+		// you whether the mirror worked — open the file in LibreOffice, or export a slide to
+		// PNG before PowerPoint has re-saved it, to see what everything else draws.
+		//
+		// The replacements are kept about as long as the strings they replace, deliberately.
+		// Geometry is not recomputed, so a much longer string overflows the cached box until
+		// PowerPoint re-lays the diagram out, and that overflow would be the only thing anyone
+		// looking at this deck could see.
+		async build() {
+			const presentation = await open('smartart-families')
+			for (const slide of presentation.slides) {
+				const frame = slide.shapes.find((shape) => isGraphicFrame(shape) && shape.hasDiagram)
+				const diagram = frame && isGraphicFrame(frame) ? frame.diagram : null
+				if (!diagram) continue
+				let n = 0
+				/** @param {import('../dist/read.js').DiagramNode[]} nodes */
+				const walk = (nodes) => {
+					for (const node of nodes) {
+						node.point.text = `edit-${++n}`
+						walk(node.children)
+					}
+				}
+				walk(diagram.nodes)
+			}
+			return presentation.save()
+		},
+	},
+	{
 		out: 'empty.imported-image-slide.pptx',
 		// Verify: a slide carrying the image fixture's picture (with its own
 		// layout/master/theme) is appended to the otherwise-blank deck.

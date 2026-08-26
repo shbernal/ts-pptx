@@ -104,12 +104,13 @@ either a whole subsystem or an import-only surface with no authoring trigger, so
 decoder would need a hand-authored fixture plus an independent oracle rather than a
 write→read round-trip. They stay parked until a real consumer names one:
 
-- **SmartArt presentation** (`diagrams/layout*.xml`, `quickStyle*.xml`,
-  `colors*.xml`, `drawing*.xml`): the four parts that say how a diagram is *drawn*.
-  Its **data model** left this list: `GraphicFrame.diagram` decodes `dgm:dataModel`
-  into points, connections and node text (see [Diagram](#diagram-smartart) below), and the
-  four presentation parts are reachable from it as `Part`s. What stays parked is
-  decoding those presets themselves, which is a layout engine rather than a getter.
+- **SmartArt layout, quick-style and colour presets** (`diagrams/layout*.xml`,
+  `quickStyle*.xml`, `colors*.xml`): three of the four parts that say how a diagram is
+  *drawn*. They are reachable as `Part`s from `GraphicFrame.diagram`, and decoding them
+  is a layout engine rather than a getter. Neither the data model nor the fourth part is
+  on this list any more: `Diagram` decodes `dgm:dataModel` into points, connections, a
+  node tree and node text, and reaches each node's drawn paragraph in `drawing*.xml`
+  well enough to keep it in step with an edit. See [Diagram](#diagram-smartart) below.
 - **OLE objects** (`p:oleObj`, embedded workbooks/docs): embedded foreign
   packages; link metadata is conceivable, the payload is out of scope.
 - **Ink** (`p:contentPart` / `inkml`): digitizer strokes; no renderer, no writer.
@@ -1567,6 +1568,8 @@ class Diagram {
 	readonly partName: string
 	readonly points: DiagramPoint[] // dgm:ptLst/dgm:pt in document order, unfiltered
 	readonly connections: DiagramConnection[] // dgm:cxnLst/dgm:cxn in document order
+	readonly nodes: DiagramNode[] // the authored tree: node/asst points, roots in srcOrd order
+	point(modelId: string): DiagramPoint | null // resolve an id a connection names
 	readonly text: string // authored node text, blocks joined by '\n'
 	readonly layoutTypeId: string | null // doc point's @loTypeId — names the SmartArt kind
 	readonly quickStyleTypeId: string | null // doc point's @qsTypeId
@@ -1579,6 +1582,13 @@ class Diagram {
 	markDirty(): void
 }
 
+class DiagramNode {
+	readonly point: DiagramPoint
+	readonly children: DiagramNode[] // ordered by their parOf edge's @srcOrd
+	readonly parent: DiagramNode | null
+	readonly level: number // 0 for a root
+}
+
 class DiagramPoint {
 	readonly modelId: string | null // the GUID connections reference
 	readonly type: 'node' | 'asst' | 'doc' | 'pres' | 'parTrans' | 'sibTrans' // @type, default 'node'
@@ -1586,8 +1596,18 @@ class DiagramPoint {
 	readonly isPlaceholder: boolean // dgm:prSet/@phldr — an unfilled prompt node
 	readonly placeholderText: string | null // dgm:prSet/@phldrT
 	readonly textFrame: TextFrame | null // dgm:t is an a:CT_TextBody like any other
-	readonly text: string // '' when the point carries no dgm:t
+	text: string // '' when the point carries no dgm:t; the setter mirrors into the cache
+	readonly presentationId: string | null // the pres point that presents this one
+	readonly drawnShape: DiagramDrawnShape | null // where its text is drawn, or null
 	readonly element_: Element
+}
+
+interface DiagramDrawnShape {
+	readonly part: Part // the drawing part, not the data part
+	readonly modelId: string // dsp:sp/@modelId — a pres point's id
+	readonly paragraphIndex: number // which paragraph of textFrame is this point's
+	readonly textFrame: TextFrame // the shape's whole dsp:txBody
+	readonly element_: Element // the dsp:sp
 }
 
 interface DiagramConnection {
@@ -1633,15 +1653,98 @@ in `sourceId`, its child in `destinationId`, and the child's sibling position in
 `sourceOrder`. The `presOf` and `presParOf` edges bind a node to the `pres` point that
 draws it, and are the layout engine's bookkeeping rather than structure.
 
+`Diagram.nodes` is that walk, done once and correctly:
+
+```js
+const render = (node) => `${'  '.repeat(node.level)}${node.point.text}`
+console.log(frame.diagram.nodes.flatMap(function walk(n) {
+	return [render(n), ...n.children.flatMap(walk)]
+}).join('\n'))
+```
+
+Three things it decides, none of which is arbitrary. **`asst` points are in the tree**,
+because an assistant is user content and an org chart merely draws it off the main
+branch; `DiagramPoint.type` carries the distinction rather than the tree hiding it.
+**Transition points are not**, because a `parTrans`/`sibTrans` labels an edge and is
+reached through `DiagramConnection.parentTransitionId` / `siblingTransitionId`; putting
+one in `children` would make the tree disagree with PowerPoint's own text pane. And **a
+`parOf` cycle throws** (`diagram/parent-edge-cycle`) rather than hanging or silently
+dropping the points it swallows: it is a corrupt model, not a diagram shape.
+
+### How a node relates to what is drawn
+
+A diagram stores every string **twice**. The data model is what PowerPoint reads, and it
+recomputes the drawing from it on open. The `dsp:drawing` part beside it holds a copy of
+every drawn string, and every renderer with no SmartArt layout engine (LibreOffice,
+Google Slides, thumbnailers, web previews) paints that copy and nothing else.
+
+`DiagramPoint.drawnShape` is the link between them, and it does not run the way it looks
+like it should:
+
+```
+dgm:pt/@modelId = N                                    the authored point
+  └─ dgm:cxn[@type="presOf"][@srcId=N] → @destId = P    the pres point that presents it
+       └─ dsp:sp/@modelId = P                           the drawn shape
+            └─ paragraph @destOrd of its dsp:txBody     the point's text
+```
+
+Four properties of that mapping, each of which breaks a simpler reading:
+
+- **`dsp:sp/@modelId` is always a `pres` point's id, never the authored point's.** A
+  lookup keyed on the node's own `modelId` finds nothing at all.
+- **One drawn shape carries several points.** `@destOrd` is a genuine paragraph index and
+  it can contradict document order: in `mixed.pptx` one `dsp:sp` draws three nodes, and
+  the node authored first is drawn third. This is why editing through the shape's whole
+  `textFrame` would delete its siblings' text.
+- **One point has several `presOf` edges**, ordered by `@srcOrd`; an org-chart node's box
+  and the connector under it are two presentations of one node. The arm with the text in
+  it is the one that reaches a `dsp:sp` with a `dsp:txBody`, which is what `drawnShape`
+  selects on rather than on the edge's position.
+- **`asst` resolves by the identical path** as `node`. Different preset name, same shape.
+
+`null` is a defined outcome and not a failure: the package carries no drawing part; the
+point has no `presOf` edge (the normal state of every unlabelled transition point); the
+`pres` point draws no shape; or the shape it draws has no text body at all (a connector,
+or a picture node's filled rectangle). Measured over five layout families and 90 authored
+points, every point with text resolved to exactly one drawn paragraph.
+
 `Slide.text` folds a diagram's node text in, alongside table cells, for the same reason
 PowerPoint searches and spell-checks it: it is body text. A slide whose whole message is
 a SmartArt graphic used to flatten to the empty string.
 
-Out of scope, and staying there: **authoring** SmartArt (there is no write-side
-counterpart, so a diagram survives a round trip by part preservation rather than by
-re-authoring), and decoding the layout, quick-style and colour presets, which is a
-layout engine rather than a getter. Those three parts, plus the `dsp:drawing` fallback,
-are reachable as `Part`s so a consumer can copy or inspect their bytes.
+### Editing a diagram's text
+
+`DiagramPoint.text` has a setter, and it writes **both** copies: the `dgm:t` PowerPoint
+reads and the drawing cache everything else paints.
+
+```js
+for (const node of frame.diagram.nodes) node.point.text = node.point.text.toUpperCase()
+await presentation.save(out)
+```
+
+What it does not do, and cannot:
+
+- **Geometry is not recomputed.** The drawn shape keeps its cached position and size, so
+  replacing a short string with a long one overflows the box in every renderer that does
+  not re-run the layout engine, until the deck is opened and saved in PowerPoint.
+  Computing new geometry means implementing that layout engine.
+- **It never creates a place to draw text.** Where a point resolves to no drawn paragraph
+  the data-model edit still applies, because it is correct and it is what PowerPoint
+  reads, and a `diagram/drawing-cache-not-updated` diagnostic says the cache is stale.
+  A point with no `dgm:t` at all is left untouched entirely, under
+  `diagram/point-has-no-text-body`: that is how a layout with no room for a transition
+  label stores one, and PowerPoint strips text put on it at the next save.
+
+`DiagramPoint.textFrame` is the escape hatch for run-level formatting, and it edits the
+**data model only**: the cache keeps the old string. Use it when you need per-run
+control; use `text` when you want the edit to be visible outside PowerPoint.
+
+Out of scope, and staying there: **authoring a diagram from nothing**. The layout part is
+a constraint-solver program PowerPoint executes, and the presentation tree it generates is
+not derivable from the user's content; a diagram this library did not create survives a
+round trip by part preservation. Decoding the layout, quick-style and colour presets is
+out of scope for the same reason. Those three parts, plus the `dsp:drawing` fallback, are
+reachable as `Part`s so a consumer can copy or inspect their bytes.
 
 ## Editing (typed API, Phase 3)
 

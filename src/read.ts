@@ -132,9 +132,11 @@ export {
 export { ChartEx, ChartExSeries, ChartExAxis, type ChartExLegend, type ChartExDataLabels } from './read/api/chartex.js'
 export {
 	Diagram,
+	DiagramNode,
 	DiagramPoint,
 	type DiagramConnection,
 	type DiagramConnectionType,
+	type DiagramDrawnShape,
 	type DiagramPointType,
 } from './read/api/diagram.js'
 

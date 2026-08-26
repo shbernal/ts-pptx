@@ -133,6 +133,9 @@ export type DiagnosticCode =
 	| 'section/duplicate-title'
 	| 'slide/section-not-found'
 	| 'layout/invalid-definition'
+	// SmartArt
+	| 'diagram/drawing-cache-not-updated'
+	| 'diagram/point-has-no-text-body'
 	// Reading and measuring
 	| 'inspect/group-transform-missing'
 	| 'inspect/group-transform-degenerate'
@@ -340,6 +343,10 @@ export type PackageReadErrorCode =
 	| 'slide/no-shape-tree'
 	| 'shape/no-non-visual-properties'
 	| 'table/cell-has-no-text-body'
+	// A SmartArt data model whose `parOf` edges make a point its own ancestor. The edges are
+	// the diagram's tree; a cycle in them is not a shape the format can express, so walking
+	// it would not terminate.
+	| 'diagram/parent-edge-cycle'
 
 /**
  * Conditions carried by `MediaError`: an image, font, or audio/video payload could not be fetched,

@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`DiagramPoint.text` has a setter, and it keeps the drawing cache honest.** A SmartArt
+  diagram stores every string twice: as authored nodes in `ppt/diagrams/data{N}.xml`, which
+  is what PowerPoint reads, and as a copy of every drawn string in
+  `ppt/diagrams/drawing{N}.xml`, which is what every renderer without a SmartArt layout
+  engine paints. Editing a node through `textFrame` wrote only the first, so the change was
+  invisible in LibreOffice, Google Slides, thumbnailers and web previews until someone opened
+  the deck in PowerPoint and saved it. The new setter writes both, replacing the one paragraph
+  of the drawn shape that belongs to that node and leaving its siblings byte-identical (one
+  shape commonly draws three nodes at once). Geometry is **not** recomputed, which is inherent
+  rather than a defect: the drawn shape keeps its cached size, so a much longer string
+  overflows its box in those renderers until PowerPoint re-lays the diagram out.
+
+  `textFrame` still edits the data model alone and now says so; it is the escape hatch for
+  run-level formatting. See `docs/reference/pptx-read.md`.
+
+- **`Diagram.nodes` gives the data model its tree, and `Diagram.point()` resolves an id.**
+  `connections` hands back the raw `parOf` edges, so every consumer that wanted "the top-level
+  nodes, in order" wrote the same index-and-walk, and a hierarchy read as a flat list with no
+  indication of depth. A `DiagramNode` carries its `point`, its `children` (in `@srcOrd`
+  order), its `parent` and its `level`. Assistant (`asst`) points are in the tree and keep
+  their own type; transition points are not, because they label an edge rather than a node and
+  are reached through `DiagramConnection.parentTransitionId` / `siblingTransitionId`. A
+  `parOf` cycle raises `diagram/parent-edge-cycle` rather than hanging or silently dropping
+  the points it swallows.
+
+- **`DiagramPoint.drawnShape` and `DiagramPoint.presentationId` link a node to what is drawn
+  for it.** `drawnShape` resolves the `dsp:sp` of the fallback drawing part that carries the
+  point's text, plus the paragraph index inside it, as a `TextFrame` bound to the *drawing*
+  part. The mapping is not the obvious one and is many-to-one in both directions: a
+  `dsp:sp/@modelId` is always a generated `pres` point's id rather than the authored point's,
+  one shape draws several points at paragraph indices that can contradict document order, and
+  one point has several presentations of which at most one holds text. `null` is a defined
+  outcome, covering a package with no drawing part, a point with no `presOf` edge (every
+  unlabelled transition point), a `pres` point that draws nothing, and a drawn shape with no
+  text body. Measured over five layout families and 90 authored points.
+
 ## [3.4.0] - 2026-08-26
 
 This release makes SmartArt readable through the read model, and names what a frame the
