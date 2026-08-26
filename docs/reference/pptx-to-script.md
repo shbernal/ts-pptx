@@ -96,7 +96,9 @@ share one generator, because `appendSlides` binds one layout per call.
 Binding is by layout **name** where that is unambiguous, since a name survives
 being re-pointed at a different template; a deck whose layouts repeat a name
 falls back to gallery position, because `appendSlides` throws on an ambiguous
-name rather than choosing.
+name rather than choosing. A carried slide used to force that fallback on every
+batch in the script; it no longer does (see
+[what actually gets lost](#what-actually-gets-lost) below).
 
 ### Standalone output
 
@@ -304,7 +306,6 @@ Both tiers, in corpus order:
 | `line.width` | 7/46 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
 | `slide.animation` | 7/46 | unread | build animation has no structural reader |
 | `slide.carried` | 3/46 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
-| `slide.carriedChrome` | 3/46 | unsupported | template-anchored only: the cost of that copy, one duplicate layout-gallery entry per carried slide |
 | `media.audioVideo` | 2/46 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
 | `text.equation` | 2/46 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
@@ -326,6 +327,20 @@ note beside `slide.carried` says which construct forced the copy.
 The standalone tier has no source package to copy from, so it transcribes such a
 slide and genuinely loses the frame. That is why the per-shape notes stay: they
 are what that tier reports, and `slide.carried` is suppressed there.
+
+**The copy no longer costs a duplicate layout.** It used to: `importSlide`
+brought the copied slide's whole `slideLayout` chain across under fresh partnames
+and could not tell that the template it was importing *into* was the same file, so
+the output gained one layout-gallery entry per carried slide. Nothing bound to it
+and the deck rendered identically, but it was visible in PowerPoint's layout
+picker, and it duplicated a layout *name*, which made `appendSlides({ layout })`
+ambiguous and demoted every batch in the script from a name to a gallery position.
+`importSlide` now binds to chrome the destination already holds (see
+[the read reference](./pptx-read.md#importing-a-slide-from-another-deck-phase-4)),
+and since this tier's template is the source file itself, the whole chain is
+already there. The `slide.carriedChrome` note and the positional fallback it
+forced are both gone; a repeated layout name in a multi-master deck still falls
+back to a position, which is the case the fallback was for.
 
 **`diagram.all` and `graphicFrame.unknown` are different losses, and used to be
 one note.** A SmartArt frame has a full reader, and its text can now be edited in
@@ -482,8 +497,8 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 4 to 13 notes, not fifty (across the corpus: 705
-notes against the template-anchored tier's 411).
+on. Per deck the tier adds 2 to 13 notes, not fifty (across the corpus: 732
+notes against the template-anchored tier's 432).
 
 ### The read path is the binding constraint
 

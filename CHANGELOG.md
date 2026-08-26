@@ -78,6 +78,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unchanged, since reuse only happens where the bytes were the same. A consumer asserting on
   part counts after such an import sees the smaller numbers.
 
+- **A converted script's carried slide no longer costs a layout, and batches bind by name
+  again.** `ts-pptx/script`'s template-anchored tier copies a slide the write API cannot
+  author (`slide.carried`) with `importSlide`, out of the very file it templated the deck
+  from. That import used to duplicate the slide's layout and master, so the printer recorded
+  a `slide.carriedChrome` fidelity note and, because the duplicate repeated a layout *name*,
+  demoted every `appendSlides` binding in the emitted script from the name to a gallery
+  position. With `importSlide` reusing chrome the destination already holds, neither is true:
+  the note is retired (with its entry in the verifier's note-to-difference map) and layout
+  names stay unambiguous, so bindings print as `{ layout: 'Titelfolie' }`. A multi-master deck
+  that genuinely repeats a layout name still falls back to a position, which is the case the
+  fallback was always for.
+
 - **`inspectPptx` reports graphic frames.** A `p:graphicFrame` (table, chart, SmartArt, or a
   payload this library does not model) was skipped outright and consumed no `zIndex`, so a
   deck whose slides are SmartArt or tables inspected as `elements: []` with `wordCount: 0`,

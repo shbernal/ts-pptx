@@ -265,13 +265,6 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.animation': [],
 	'slide.background': ['background', 'color', 'transparency', 'image'],
 	'slide.carried': ['*'],
-	// Deck-scoped and deliberately unscoped by title, unlike `master.default` beside it. The
-	// entry a carried slide adds is titled after the *layout* it brought across plus a
-	// collision suffix the write path assigns (`Titre et contenu (2)`), so there is no title
-	// the converter can name in advance. The breadth is bounded by the note's own condition:
-	// it is recorded only by the template-anchored printer, and only when the deck holds a
-	// slide it copies rather than transcribes.
-	'slide.carriedChrome': ['master'],
 	'slide.layout': ['layoutName'],
 	'slide.name': [],
 	// A transition the write vocabulary cannot name is dropped whole, so the difference lands

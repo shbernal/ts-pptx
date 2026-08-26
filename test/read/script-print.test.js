@@ -159,11 +159,22 @@ describe('script printer — the emitted script runs', () => {
 			'with every node string intact'
 		)
 
-		// A carried slide brings its own layout across, which is what the note declares.
-		assert(
-			printed.notes.some((note) => note.construct === 'slide.carriedChrome'),
-			'and the extra layout gallery entry that import costs is declared'
+		// The import binds to the template's own chrome, so the gallery does not grow: this
+		// script's template *is* the source file, and `importSlide` recognises the parts it
+		// already holds (`read/api/ops/part-reuse.ts`). It used to gain one duplicate layout
+		// entry per carried slide, which the retired `slide.carriedChrome` note declared.
+		assertEqual(
+			output.layouts().length,
+			source.layouts().length,
+			'the output layout gallery matches the template, with no duplicate carried entry'
 		)
+		assert(
+			!printed.notes.some((note) => note.construct === 'slide.carriedChrome'),
+			'and nothing is declared about a duplicate that no longer happens'
+		)
+		// Layout names stay unambiguous, so the batch bindings stay by name rather than
+		// falling back to a gallery position.
+		assert(!printed.code.includes('deck.layouts()['), 'batches bind by layout name')
 	})
 
 	test('a deck whose layout names repeat still binds, by gallery position', async () => {

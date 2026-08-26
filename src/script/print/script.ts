@@ -130,21 +130,6 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 	const needsSource = ir.slides.some((slide) => slide.source === 'carried')
 	const needsFallbackLayout = ir.slides.some((slide) => slide.source === 'authored' && slide.layout === null)
 
-	// Recorded before the note list is snapshotted below, and before the statement that causes
-	// it is printed. `importSlide` brings the copied slide's whole `slideLayout → slideMaster →
-	// theme` subgraph with it, and cannot tell that the template it is importing *into* is the
-	// same file: the parts already there carry the same partnames, so they are copied under
-	// fresh ones rather than reused. The output therefore gains one layout-gallery entry per
-	// carried slide, which is the price of copying the slide instead of transcribing it.
-	if (needsSource) {
-		scopeNotes(collector, null).note(
-			'slide.carriedChrome',
-			'approximated',
-			'unsupported',
-			"a slide copied verbatim from the source deck brings its own layout, master and theme across, and importSlide cannot recognise that this deck was templated from that same file — so the output's layout gallery carries a duplicate entry for each carried slide's layout. Nothing binds to it and the deck renders identically, but it is visible in PowerPoint's layout picker"
-		)
-	}
-
 	// Built last: the tier's own notes are only known once the slides have been walked.
 	const notes = [...ir.fidelity.filter((note) => !isTemplateCarried(note.construct)), ...collector.notes]
 
@@ -238,11 +223,6 @@ function printSlides(ir: DeckIr, collector: NoteCollector, printAsset: AssetPrin
 	let generatorIndex = 0
 	// Two non-contiguous batches can share one layout, so its `const` must be emitted once.
 	const declaredLayouts = new Set<number>()
-	// A carried slide imports its layout, which duplicates that layout's *name* in the deck —
-	// and `appendSlides` throws on an ambiguous name rather than picking one. So the presence
-	// of any carried slide demotes every binding in the script from name to gallery position,
-	// not merely the bindings that follow it: the import can land before or after.
-	const byPosition = ir.slides.some((slide) => slide.source === 'carried')
 
 	const flush = (): void => {
 		if (batch.length === 0) return
@@ -251,7 +231,7 @@ function printSlides(ir: DeckIr, collector: NoteCollector, printAsset: AssetPrin
 		const name = `gen${++generatorIndex}`
 		lines.push('', `const ${name} = generator()`)
 		for (const slide of batch) lines.push(...printAuthoredSlide(slide, name, collector, printAsset))
-		lines.push('', printAppend(name, first, collector, declaredLayouts, declarations, byPosition))
+		lines.push('', printAppend(name, first, collector, declaredLayouts, declarations))
 		batch = []
 	}
 
@@ -282,21 +262,25 @@ function printSlides(ir: DeckIr, collector: NoteCollector, printAsset: AssetPrin
  *
  * Binding by name is preferred because it survives being re-pointed at a different
  * template and because it is legible. But `appendSlides` *throws* on an ambiguous name
- * rather than picking one, so the positional form is what resolves the two cases where the
- * name does not identify one layout: a multi-master deck that repeats layout names, and a
- * deck with a carried slide, whose `importSlide` brings a second layout of that name in.
+ * rather than picking one, so the positional form resolves the case where the name does not
+ * identify one layout: a multi-master deck that repeats layout names.
+ *
+ * A carried slide used to demote every binding in the script to a position too, because its
+ * `importSlide` copied the source layout in under a second name-alike entry. `importSlide`
+ * now binds to the chrome the template already holds (`read/api/ops/part-reuse.ts`), and
+ * this deck's template *is* the source file, so the gallery no longer grows and the names
+ * stay unambiguous.
  */
 function printAppend(
 	generatorName: string,
 	first: SlideIr,
 	collector: NoteCollector,
 	declared: Set<number>,
-	declarations: string[],
-	byPosition: boolean
+	declarations: string[]
 ): string {
 	const layout = first.layout
 	if (!layout) return `await deck.appendSlides(${generatorName}, { layout: fallbackLayout })`
-	if (layout.nameIsUnique && !byPosition) {
+	if (layout.nameIsUnique) {
 		return `await deck.appendSlides(${generatorName}, { layout: ${printString(layout.name)} })`
 	}
 
@@ -304,9 +288,7 @@ function printAppend(
 		'slide.layout',
 		'approximated',
 		'unsupported',
-		layout.nameIsUnique
-			? `this deck holds a slide copied from the source, and that copy brings a second layout named ${JSON.stringify(layout.name)} with it, so this slide binds to gallery position ${layout.index} instead; re-pointing the script at a different template will not track the name`
-			: `more than one layout in the source deck is named ${JSON.stringify(layout.name)}, so this slide binds to gallery position ${layout.index} instead; re-pointing the script at a different template will not track the name`
+		`more than one layout in the source deck is named ${JSON.stringify(layout.name)}, so this slide binds to gallery position ${layout.index} instead; re-pointing the script at a different template will not track the name`
 	)
 	const identifier = `layout${layout.index}`
 	if (!declared.has(layout.index)) {
