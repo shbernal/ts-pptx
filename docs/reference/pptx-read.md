@@ -267,7 +267,13 @@ function relsPartNameFor(sourcePartName: string): string
 
 A navigable, typed view over the live DOM. Every proxy reads from its DOM
 element on each access (no caching) and wraps the very nodes the setters mutate
-in place. Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch)
+in place. A proxy is therefore a *view*, built per access and never cached:
+`slide.shapes[0] !== slide.shapes[0]`, and the same holds for `paragraphs`,
+`runs`, `table.rows`, `row.cells`, `diagram.points` and every other collection
+here. Two such proxies wrap the same DOM node, so an edit through one is visible
+through the other; only object identity differs, which matters when a consumer
+keys a `Map` or a `Set` on a proxy (key on `partName`, the shape `id`, or the
+point `modelId` instead). Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch)
 and is `null` when a shape inherits its position from a placeholder. Properties
 documented below as *settable* write back to the DOM and mark the owning slide
 part dirty (see [Editing](#editing-typed-api-phase-3)).

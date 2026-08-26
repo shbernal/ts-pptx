@@ -253,6 +253,60 @@ describe('mixed.pptx — connectors, groups, graphic frames', () => {
 	})
 })
 
+describe('proxy identity', () => {
+	// House convention, and the reason it is pinned once here rather than restated on
+	// every getter: a read proxy is a view built per access, never a cached object. Two
+	// reads of the same collection are equal by content and by underlying DOM node, and
+	// never by reference, so a consumer that keys a Map or a Set on a proxy gets a fresh
+	// key every lap. `Diagram.points` was documented as if this were its own quirk; it is
+	// the shape of the whole model.
+	test('every collection getter hands back fresh proxies over the same DOM nodes', async () => {
+		const presentation = await openFixture('mixed')
+
+		/** @param {string} label @param {() => object} read */
+		const freshEachTime = (label, read) => {
+			const first = read()
+			const second = read()
+			assert(first !== second, `${label} builds a fresh proxy per access`)
+			// Guard the guard: two `undefined`s would compare equal and prove nothing.
+			assert(first.element_, `${label} exposes its DOM node`)
+			assertEqual(first.element_, second.element_, `${label} proxies wrap the same DOM node`)
+		}
+
+		freshEachTime('Presentation.slides[]', () => presentation.slides[1])
+		freshEachTime('Slide.shapes[]', () => presentation.slides[1].shapes[0])
+
+		const textSlide = presentation.slides[0]
+		const titled = textSlide.shapes.find((shape) => shape.hasTextFrame)
+		assert(titled, 'mixed slide1 has a text-bearing shape')
+		freshEachTime('AutoShape.textFrame', () => textSlide.shapes.find((shape) => shape.hasTextFrame).textFrame)
+		freshEachTime('TextFrame.paragraphs[]', () => titled.textFrame.paragraphs[0])
+		freshEachTime('Paragraph.runs[]', () => titled.textFrame.paragraphs[0].runs[0])
+
+		const tableFrame = presentation.slides[6].shapes.find((shape) => shape.hasTable)
+		assert(tableFrame, 'mixed slide7 has a table frame')
+		freshEachTime('GraphicFrame.table', () => tableFrame.table)
+		freshEachTime('Table.rows[]', () => tableFrame.table.rows[0])
+		freshEachTime('TableRow.cells[]', () => tableFrame.table.rows[0].cells[0])
+
+		const diagramFrame = presentation.slides[1].shapes.find((shape) => shape.hasDiagram)
+		assert(diagramFrame, 'mixed slide2 has a SmartArt frame')
+		freshEachTime('GraphicFrame.diagram', () => diagramFrame.diagram)
+		freshEachTime('Diagram.points[]', () => diagramFrame.diagram.points[0])
+	})
+
+	test('an edit through one proxy is visible through another over the same node', async () => {
+		const slide = (await openFixture('textbox')).slides[0]
+		const name = slide.shapes.find((shape) => shape.hasTextFrame).name
+		slide.shapes.find((shape) => shape.name === name).textFrame.paragraphs[0].runs[0].text = 'CHANGED'
+		assertEqual(
+			slide.shapes.find((shape) => shape.name === name).textFrame.paragraphs[0].runs[0].text,
+			'CHANGED',
+			'a second proxy reads the mutated DOM'
+		)
+	})
+})
+
 describe('Slide.text', () => {
 	test('flattens a text box slide, joining paragraphs with newlines', async () => {
 		const slide = (await openFixture('textbox')).slides[0]

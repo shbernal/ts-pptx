@@ -462,9 +462,9 @@ export class Diagram {
 	 * points and the `doc` root included. Filter on {@link DiagramPoint.type} for the user's
 	 * nodes; {@link text} is the shortcut for the common case, {@link nodes} the structured one.
 	 *
-	 * A fresh {@link DiagramPoint} is built per access, so `points[0] !== points[0]`. They
-	 * proxy the same DOM elements, so an edit through one is visible through any other —
-	 * only object identity differs, which matters if a consumer keys a `Map` on a point.
+	 * Built per access like every other read proxy (`docs/reference/pptx-read.md`, "Object
+	 * model"), so `points[0] !== points[0]` while both wrap the same `dgm:pt`. Key a `Map`
+	 * on {@link DiagramPoint.modelId}, not on the point.
 	 */
 	get points(): DiagramPoint[] {
 		const root = this.#root()
