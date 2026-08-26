@@ -263,7 +263,7 @@ describe('proxy identity', () => {
 	test('every collection getter hands back fresh proxies over the same DOM nodes', async () => {
 		const presentation = await openFixture('mixed')
 
-		/** @param {string} label @param {() => object} read */
+		/** @param {string} label @param {() => any} read */
 		const freshEachTime = (label, read) => {
 			const first = read()
 			const second = read()
@@ -283,13 +283,13 @@ describe('proxy identity', () => {
 		freshEachTime('TextFrame.paragraphs[]', () => titled.textFrame.paragraphs[0])
 		freshEachTime('Paragraph.runs[]', () => titled.textFrame.paragraphs[0].runs[0])
 
-		const tableFrame = presentation.slides[6].shapes.find((shape) => shape.hasTable)
+		const tableFrame = presentation.slides[6].shapes.filter(isGraphicFrame).find((frame) => frame.hasTable)
 		assert(tableFrame, 'mixed slide7 has a table frame')
 		freshEachTime('GraphicFrame.table', () => tableFrame.table)
 		freshEachTime('Table.rows[]', () => tableFrame.table.rows[0])
 		freshEachTime('TableRow.cells[]', () => tableFrame.table.rows[0].cells[0])
 
-		const diagramFrame = presentation.slides[1].shapes.find((shape) => shape.hasDiagram)
+		const diagramFrame = presentation.slides[1].shapes.filter(isGraphicFrame).find((frame) => frame.hasDiagram)
 		assert(diagramFrame, 'mixed slide2 has a SmartArt frame')
 		freshEachTime('GraphicFrame.diagram', () => diagramFrame.diagram)
 		freshEachTime('Diagram.points[]', () => diagramFrame.diagram.points[0])
