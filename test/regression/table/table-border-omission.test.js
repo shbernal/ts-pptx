@@ -1,4 +1,5 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import { TableStyle } from '../../../dist/node.js'
 
 const SLIDE_XML = 'ppt/slides/slide1.xml'
 
@@ -12,10 +13,11 @@ const SLIDE_XML = 'ppt/slides/slide1.xml'
 // table perimeter ("a sparse side is NOT `{ type: 'none' }`"); the cell path now
 // agrees with it.
 //
-// The separate question of whether a cell with *nothing authored* should keep
-// receiving the forced four-side no-fill default is tracked on #23 as well — the
-// force-fill is deliberate today (it keeps unstyled tables free of grid lines), so
-// this suite pins that behavior rather than changing it.
+// The same distinction one level up settles the other half of #23: a cell with
+// *nothing* authored used to receive a forced four-side no-fill, which is direct
+// formatting and so erased the grid of the very `tableStyle` the caller selected.
+// The default now applies only to a table that named no style, where it is what keeps
+// an unstyled table free of PowerPoint's no-style black hairline grid.
 defineRegressionSuite('Table border tuple null sides [upstream-23]', [
 	{
 		name: 'null tuple sides stay absent while authored sides draw',
@@ -50,6 +52,53 @@ defineRegressionSuite('Table border tuple null sides [upstream-23]', [
 				(xml.match(/<a:noFill\/>/g) ?? []).length >= 4,
 				`expected explicit no-fill sides; got: ${xml.slice(0, 900)}`
 			)
+		},
+	},
+	{
+		name: 'a styled table with no border authored emits no cell edges at all',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addTable([['A', 'B']], {
+					x: 1,
+					y: 1,
+					w: 6,
+					tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+				})
+			})
+			const xml = await readEntry(zip, SLIDE_XML)
+			assert(!/<a:ln[LRTB]/.test(xml), `expected the style to paint the grid; got: ${xml.slice(0, 900)}`)
+		},
+	},
+	{
+		name: 'an unstyled table still takes the four-side no-fill default',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addTable([['A', 'B']], { x: 1, y: 1, w: 6 })
+			})
+			const xml = await readEntry(zip, SLIDE_XML)
+			assert(
+				(xml.match(/<a:ln[LRTB]/g) ?? []).length === 8,
+				`expected four edges on each of the two cells; got: ${xml.slice(0, 900)}`
+			)
+		},
+	},
+	{
+		name: 'a styled table with an outerBorder draws the perimeter and leaves the interior to the style',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addTable([['A', 'B']], {
+					x: 1,
+					y: 1,
+					w: 6,
+					tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+					outerBorder: { type: 'solid', color: '1A2B3C', width: 1 },
+				})
+			})
+			const xml = await readEntry(zip, SLIDE_XML)
+			// Two cells side by side: each is on the top, bottom and one vertical edge, and the
+			// two interior verticals stay absent rather than being spelled out as no-fill.
+			assert((xml.match(/<a:ln[LRTB]/g) ?? []).length === 6, `expected six perimeter edges; got: ${xml.slice(0, 900)}`)
+			assert(!/<a:noFill\/>/.test(xml), `no edge should be an explicit no-fill; got: ${xml.slice(0, 900)}`)
 		},
 	},
 ])

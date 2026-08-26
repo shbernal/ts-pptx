@@ -80,11 +80,11 @@ function applyOuterBorder(
 	const onEdge = [at.rIdx === 0, at.cIdx === at.lastCol, at.rIdx === at.lastRow, at.cIdx === 0]
 	const applies = ([0, 1, 2, 3] as const).filter((idx) => onEdge[idx] && outer[idx])
 	if (applies.length === 0) return base
-	// A cell with no borders of its own has the other three sides spelled out as `{type:'none'}`
-	// — what the definition step puts on an unstyled cell, so this matches rather than invents.
-	const merged: (BorderProps | undefined)[] = base
-		? [...base]
-		: [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
+	// A missing base is a cell the definition step left with no border tuple at all, which is
+	// a styled table nobody authored a border on. Its other three sides stay holes so the
+	// chosen table style keeps painting them: inventing `{type:'none'}` here would erase the
+	// style's interior grid the moment an `outerBorder` was added (#23).
+	const merged: (BorderProps | undefined)[] = base ? [...base] : [undefined, undefined, undefined, undefined]
 	for (const idx of applies) {
 		const side = outer[idx]
 		if (side) merged[idx] = side

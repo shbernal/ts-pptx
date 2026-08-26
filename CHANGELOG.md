@@ -117,8 +117,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `{ type: 'none' }` still emits `<a:noFill/>`, so both states stay reachable.
 
   Migration: a tuple that relied on `null` to erase an edge should say `{ type: 'none' }`.
-  A cell with no border authored at all is unaffected — it still receives the four-side
-  no-fill default that keeps an unstyled table free of grid lines.
+
+- **A table with a `tableStyle` keeps that style's grid.** Every cell with no border authored
+  used to receive four explicit `<a:lnX><a:noFill/></a:lnX>` edges. That is direct formatting,
+  so it beat the built-in style the caller had just selected, and a `MEDIUM_STYLE_2_ACCENT_1`
+  table came out with the style's fills and banding but none of its rules — with no way to ask
+  for them, since the only spelling for "leave this edge alone" was the one being overwritten.
+  The default is now applied only to a table that named no style, which is where it earns its
+  keep: PowerPoint's no-style look is a black hairline grid, and suppressing that is what the
+  force-fill was for. A styled table emits no `<a:tcPr>` edges unless you author some, and
+  `border: { type: 'none' }` still erases the grid explicitly. `outerBorder` composes as it
+  always did: on a styled table it now draws the perimeter and leaves the interior rules to
+  the style, rather than blanking them.
+
+  Migration: a styled table that relied on the force-fill for a gridless look should author
+  `border: { type: 'none' }`. Unstyled tables are byte-identical.
 
 ### Fixed
 

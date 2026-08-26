@@ -218,9 +218,11 @@ that edge keeps inheriting from the built-in table style, the theme banding and 
 chain. `{ type: 'none' }` is the other state: an explicit "no line" that overrides the
 inheritance. So `[rule, null, rule, null]` draws horizontal rules and leaves the style's
 vertical ones alone, while `[rule, { type: 'none' }, rule, { type: 'none' }]` draws the same
-two and erases the other two. A cell with no `border` authored at all is the third case: it
-still receives the four-side no-fill default, which is what keeps an unstyled table free of
-grid lines.
+two and erases the other two. A cell with no `border` authored at all is the third case, and
+it depends on `tableStyle`: a table that named a style leaves every edge absent so the style
+paints its own grid, while a table with no style takes the four-side no-fill default, which is
+what keeps it free of PowerPoint's no-style black hairline grid. To erase a styled table's
+grid, say so: `border: { type: 'none' }`.
 
 ### `outerBorder` is the perimeter
 

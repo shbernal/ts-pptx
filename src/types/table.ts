@@ -196,7 +196,9 @@ export interface TableCellProps extends TextBaseProps {
 	 * - an array is read in **TRBL** order (`[top, right, bottom, left]`)
 	 *
 	 * Overrides the table-level {@link TableProps.border} default entirely — the two do not
-	 * merge per side. For the two corner-to-corner rules see {@link diagonal}; for the
+	 * merge per side. A `null` entry is a hole: that edge is left out of `a:tcPr` and keeps
+	 * inheriting from the table style, while `{ type: 'none' }` writes an explicit no-line
+	 * that overrides it. For the two corner-to-corner rules see {@link diagonal}; for the
 	 * table's outside edge see {@link TableProps.outerBorder}.
 	 */
 	border?: BorderProps | [BorderProps | null, BorderProps | null, BorderProps | null, BorderProps | null]
@@ -361,6 +363,12 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * `border: [{type:'solid'}, {type:'none'}, {type:'solid'}, {type:'none'}]` gives *every*
 	 * cell a top and bottom rule — a full set of horizontal grid lines, not a rule at the
 	 * top and bottom of the table. A cell's own `options.border` overrides this entirely.
+	 *
+	 * A `null` entry is a hole — that edge inherits from the table style — where
+	 * `{ type: 'none' }` writes an explicit no-line that overrides it. Authoring nothing at
+	 * all depends on {@link tableStyle}: a styled table leaves every edge absent so the style
+	 * paints its grid, and a table with no style takes four no-fill sides, which is what keeps
+	 * it clear of PowerPoint's no-style black hairline grid.
 	 *
 	 * For the perimeter, use {@link outerBorder}, which applies only to the cells on the
 	 * table's outside edge. The two compose: `border` draws the interior grid and

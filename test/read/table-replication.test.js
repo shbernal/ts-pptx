@@ -318,13 +318,15 @@ describe("table replication — a cell's own fill versus the style's banding", (
 		assertEqual(call.args[0][0][0].options.fill.type, 'none', 'the IR carries the suppression')
 		assert(call.args[0][0][1].options?.fill === undefined, 'while the inheriting cell is still left to the style')
 
-		// The cell's own no-fill follows the four edge lines, which carry `a:noFill` of their
-		// own — so the assertion is on position, not on the element being present somewhere.
+		// The cell's own fill is the last child of `a:tcPr`, and any edge line carrying its own
+		// `a:noFill` closes with `</a:lnX>` — so the assertion is on position, not on the element
+		// being present somewhere. A styled table authoring no border emits no edges at all,
+		// which is why the anchor is the closing tag rather than the last edge.
 		const xml = await replay(call)
 		const tcPrs = xml.match(/<a:tcPr[^>]*>[\s\S]*?<\/a:tcPr>/g)
 		assertEqual(tcPrs.length, 2, 'two cells')
-		assert(/<\/a:lnB><a:noFill\/>/.test(tcPrs[0]), `the suppressed cell replays its own a:noFill; got: ${tcPrs[0]}`)
-		assert(!/<\/a:lnB><a:noFill\/>/.test(tcPrs[1]), `the inheriting cell carries none; got: ${tcPrs[1]}`)
+		assert(/<a:noFill\/>\s*<\/a:tcPr>/.test(tcPrs[0]), `the suppressed cell replays its own a:noFill; got: ${tcPrs[0]}`)
+		assert(!/<a:noFill\/>\s*<\/a:tcPr>/.test(tcPrs[1]), `the inheriting cell carries none; got: ${tcPrs[1]}`)
 	})
 
 	test('a scheme-coloured cell keeps its token rather than the colour it resolves to', async () => {

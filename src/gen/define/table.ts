@@ -158,15 +158,18 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				// C: Set cell borders
 				// A side nobody asked for is written as an explicit `{type:'none'}`. That is direct
 				// formatting, so it beats any border a built-in table style would draw — which is
-				// what keeps an unstyled table free of grid lines. Whatever the caller *did* author,
-				// on the cell or on the table, is untouched.
+				// what keeps an unstyled table free of grid lines, PowerPoint's own no-style look
+				// being a black hairline grid. Whatever the caller *did* author, on the cell or on
+				// the table, is untouched.
+				//
+				// A table that names a `tableStyle` asked for that style's grid, so the default is
+				// skipped there and the edges stay absent: direct formatting beats the style, and
+				// filling in four no-fills erased the very thing the caller selected the style for
+				// (#23). Author `border: { type: 'none' }` to erase a styled table's grid anyway.
 				const authoredBorder = newCellOptions.border || opt.border
-				newCellOptions.border = authoredBorder || [
-					{ type: 'none' },
-					{ type: 'none' },
-					{ type: 'none' },
-					{ type: 'none' },
-				]
+				newCellOptions.border =
+					authoredBorder ||
+					(opt.tableStyle ? undefined : [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }])
 				let cellBorder = newCellOptions.border
 
 				// CASE 1: border interface is: BorderOptions | [BorderOptions, BorderOptions, BorderOptions, BorderOptions]
@@ -179,24 +182,27 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				// `normalizeOuterBorder` documents for the perimeter ("a sparse side is NOT
 				// `{ type: 'none' }`"). Converting a hole into an explicit `<a:noFill/>` overrides
 				// that inheritance and there was no spelling left for "draw this edge, leave that one".
-				// See #23 for whether an entirely-unauthored border should also stop being filled.
-				const cellBorderTuple = newCellOptions.border as BorderTuple
+				// The whole tuple is absent when a styled table authored no border at all, which is
+				// the same distinction one level up: nothing to complete, nothing to emit.
+				const cellBorderTuple = newCellOptions.border as BorderTuple | undefined
 
 				// set complete BorderOptions for the sides that were authored
-				const arrSides = [0, 1, 2, 3] as const
-				arrSides.forEach((idx) => {
-					const side = cellBorderTuple[idx]
-					if (!side) return
-					// `withBorderDefaults` spreads first and overrides only the defaulted keys.
-					// Rebuilding the side from a fixed key list dropped `cap` — public on
-					// `BorderProps` and already read by `genTableCellBorderXml`, so every table
-					// border emitted cap="flat" whatever the caller asked for (and `dashType`
-					// would go the same way). The spread also gives each side its own object,
-					// which the single-BorderProps form (one object shared across all four)
-					// relies on.
-					cellBorderTuple[idx] = withBorderDefaults(side)
-				})
-				newCellOptions.border = cellBorderTuple
+				if (cellBorderTuple) {
+					const arrSides = [0, 1, 2, 3] as const
+					arrSides.forEach((idx) => {
+						const side = cellBorderTuple[idx]
+						if (!side) return
+						// `withBorderDefaults` spreads first and overrides only the defaulted keys.
+						// Rebuilding the side from a fixed key list dropped `cap` — public on
+						// `BorderProps` and already read by `genTableCellBorderXml`, so every table
+						// border emitted cap="flat" whatever the caller asked for (and `dashType`
+						// would go the same way). The spread also gives each side its own object,
+						// which the single-BorderProps form (one object shared across all four)
+						// relies on.
+						cellBorderTuple[idx] = withBorderDefaults(side)
+					})
+					newCellOptions.border = cellBorderTuple
+				}
 
 				// LAST:
 				newRow.push(newCell)
