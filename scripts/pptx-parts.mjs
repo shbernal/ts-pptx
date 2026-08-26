@@ -36,6 +36,11 @@ export const NORMALIZERS = [
 	[/(<p14:section[^>]*\bid=")\{[^}]*\}"/g, '$1{NORMALIZED-SECTION}"'],
 	// chartN.xml uniqueId — random GUID per run
 	[/(<c16:uniqueId[^>]*\bval=")\{[^}]*\}"/g, '$1{NORMALIZED-UNIQUEID}"'],
+	// chartN.xml scatter data-label fields — a random GUID per field, per run. Scoped to the two
+	// field types `gen/chart/plot-scatter.ts` mints one for: every other `a:fld` in the tree carries
+	// a FIXED id (`SLDNUMFLDID`, and the notes master's date and slide-number fields), and a change
+	// to one of those has to stay visible as a real diff.
+	[/(<a:fld id=")\{[^}]*\}(" type="[XY]VALUE">)/g, '$1{NORMALIZED-SCATTERFLD}$2'],
 ]
 
 /**

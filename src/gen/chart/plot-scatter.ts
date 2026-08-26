@@ -139,6 +139,14 @@ export function makeScatterPlot(
 			}
 
 			// Option: scatter data point labels
+			//
+			// Two GUIDs are minted below, and both are deliberately per-build. `chartUuid` tails
+			// each point's `c16:uniqueId`, and each custom label's `a:fld` carries its own: a field
+			// id has to be unique, which is a property a derived id would have to reproduce without
+			// an oracle for how far that uniqueness has to reach. So the ids stay random and the
+			// *comparison* gives, exactly as it already does for `c16:uniqueId` — both patterns are
+			// erased by `NORMALIZERS` in `scripts/pptx-parts.mjs` before the byte-identity gate
+			// diffs a part. Do not "fix" the nondeterminism here; it is not the palette case.
 			if (opts.showLabel) {
 				const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
 				if (
