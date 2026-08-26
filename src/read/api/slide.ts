@@ -13,6 +13,7 @@ import {
 	firstChild,
 	insertInOrder,
 	intValue,
+	ownerDocumentOf,
 	removeAttr,
 	setAttr,
 	type Document,
@@ -747,54 +748,73 @@ function requirePositive(value: number, name: string): void {
 	if (value <= 0) throw new InvalidOptionError('coord/not-positive', `${name} must be positive, got ${value}`)
 }
 
-interface TextBoxSpec {
-	id: number
-	name: string
-	text: string
+/** The box a built shape sits in, in EMU. */
+interface BoxSpec {
 	left: number
 	top: number
 	width: number
 	height: number
 }
 
-/** Build a minimal, schema-valid text-box `p:sp` element (not yet attached). */
-function buildTextBox(doc: Document, spec: TextBoxSpec): Element {
-	const make = (qname: string): Element => createElement(doc, qname)
-	const append = (parent: Element, qname: string): Element => {
-		const child = make(qname)
-		parent.appendChild(child)
-		return child
-	}
+/**
+ * Create `qname` in the parent's document and append it.
+ *
+ * The builders below are uniformly parent-then-child, so this is the only shape
+ * of element creation they need; `ownerDocumentOf` is what lets it take the
+ * parent alone rather than threading a `Document` through every call.
+ */
+function appendEl(parent: Element, qname: string): Element {
+	const child = createElement(ownerDocumentOf(parent), qname)
+	parent.appendChild(child)
+	return child
+}
 
-	const sp = make('p:sp')
-
-	const nvSpPr = append(sp, 'p:nvSpPr')
-	const cNvPr = append(nvSpPr, 'p:cNvPr')
-	setAttr(cNvPr, 'id', String(spec.id))
-	setAttr(cNvPr, 'name', spec.name)
-	const cNvSpPr = append(nvSpPr, 'p:cNvSpPr')
-	setAttr(cNvSpPr, 'txBox', '1')
-	append(nvSpPr, 'p:nvPr')
-
-	const spPr = append(sp, 'p:spPr')
-	const xfrm = append(spPr, 'a:xfrm')
-	const off = append(xfrm, 'a:off')
+/**
+ * Append the `p:spPr` a built `p:sp` and `p:pic` share: the spec's box as an
+ * `a:xfrm`, then a rect `prstGeom` with the empty `a:avLst` the schema requires.
+ */
+function appendSpPr(parent: Element, spec: BoxSpec): Element {
+	const spPr = appendEl(parent, 'p:spPr')
+	const xfrm = appendEl(spPr, 'a:xfrm')
+	const off = appendEl(xfrm, 'a:off')
 	setAttr(off, 'x', String(spec.left))
 	setAttr(off, 'y', String(spec.top))
-	const ext = append(xfrm, 'a:ext')
+	const ext = appendEl(xfrm, 'a:ext')
 	setAttr(ext, 'cx', String(spec.width))
 	setAttr(ext, 'cy', String(spec.height))
-	const prstGeom = append(spPr, 'a:prstGeom')
+	const prstGeom = appendEl(spPr, 'a:prstGeom')
 	setAttr(prstGeom, 'prst', 'rect')
-	append(prstGeom, 'a:avLst')
+	appendEl(prstGeom, 'a:avLst')
+	return spPr
+}
 
-	const txBody = append(sp, 'p:txBody')
-	append(txBody, 'a:bodyPr')
-	append(txBody, 'a:lstStyle')
-	const p = append(txBody, 'a:p')
+interface TextBoxSpec extends BoxSpec {
+	id: number
+	name: string
+	text: string
+}
+
+/** Build a minimal, schema-valid text-box `p:sp` element (not yet attached). */
+function buildTextBox(doc: Document, spec: TextBoxSpec): Element {
+	const sp = createElement(doc, 'p:sp')
+
+	const nvSpPr = appendEl(sp, 'p:nvSpPr')
+	const cNvPr = appendEl(nvSpPr, 'p:cNvPr')
+	setAttr(cNvPr, 'id', String(spec.id))
+	setAttr(cNvPr, 'name', spec.name)
+	const cNvSpPr = appendEl(nvSpPr, 'p:cNvSpPr')
+	setAttr(cNvSpPr, 'txBox', '1')
+	appendEl(nvSpPr, 'p:nvPr')
+
+	appendSpPr(sp, spec)
+
+	const txBody = appendEl(sp, 'p:txBody')
+	appendEl(txBody, 'a:bodyPr')
+	appendEl(txBody, 'a:lstStyle')
+	const p = appendEl(txBody, 'a:p')
 	if (spec.text !== '') {
-		const r = append(p, 'a:r')
-		const t = append(r, 'a:t')
+		const r = appendEl(p, 'a:r')
+		const t = appendEl(r, 'a:t')
 		t.textContent = spec.text
 		if (spec.text !== spec.text.trim()) setAttr(t, 'xml:space', 'preserve')
 	}
@@ -802,53 +822,32 @@ function buildTextBox(doc: Document, spec: TextBoxSpec): Element {
 	return sp
 }
 
-interface PictureSpec {
+interface PictureSpec extends BoxSpec {
 	id: number
 	name: string
 	relId: string
-	left: number
-	top: number
-	width: number
-	height: number
 }
 
 /** Build a minimal, schema-valid `p:pic` element (not yet attached). */
 function buildPicture(doc: Document, spec: PictureSpec): Element {
-	const make = (qname: string): Element => createElement(doc, qname)
-	const append = (parent: Element, qname: string): Element => {
-		const child = make(qname)
-		parent.appendChild(child)
-		return child
-	}
+	const pic = createElement(doc, 'p:pic')
 
-	const pic = make('p:pic')
-
-	const nvPicPr = append(pic, 'p:nvPicPr')
-	const cNvPr = append(nvPicPr, 'p:cNvPr')
+	const nvPicPr = appendEl(pic, 'p:nvPicPr')
+	const cNvPr = appendEl(nvPicPr, 'p:cNvPr')
 	setAttr(cNvPr, 'id', String(spec.id))
 	setAttr(cNvPr, 'name', spec.name)
-	const cNvPicPr = append(nvPicPr, 'p:cNvPicPr')
-	const picLocks = append(cNvPicPr, 'a:picLocks')
+	const cNvPicPr = appendEl(nvPicPr, 'p:cNvPicPr')
+	const picLocks = appendEl(cNvPicPr, 'a:picLocks')
 	setAttr(picLocks, 'noChangeAspect', '1')
-	append(nvPicPr, 'p:nvPr')
+	appendEl(nvPicPr, 'p:nvPr')
 
-	const blipFill = append(pic, 'p:blipFill')
-	const blip = append(blipFill, 'a:blip')
+	const blipFill = appendEl(pic, 'p:blipFill')
+	const blip = appendEl(blipFill, 'a:blip')
 	setAttr(blip, 'r:embed', spec.relId)
-	const stretch = append(blipFill, 'a:stretch')
-	append(stretch, 'a:fillRect')
+	const stretch = appendEl(blipFill, 'a:stretch')
+	appendEl(stretch, 'a:fillRect')
 
-	const spPr = append(pic, 'p:spPr')
-	const xfrm = append(spPr, 'a:xfrm')
-	const off = append(xfrm, 'a:off')
-	setAttr(off, 'x', String(spec.left))
-	setAttr(off, 'y', String(spec.top))
-	const ext = append(xfrm, 'a:ext')
-	setAttr(ext, 'cx', String(spec.width))
-	setAttr(ext, 'cy', String(spec.height))
-	const prstGeom = append(spPr, 'a:prstGeom')
-	setAttr(prstGeom, 'prst', 'rect')
-	append(prstGeom, 'a:avLst')
+	appendSpPr(pic, spec)
 
 	return pic
 }
