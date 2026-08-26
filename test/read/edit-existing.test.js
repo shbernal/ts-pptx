@@ -85,6 +85,24 @@ describe('whole-text-frame text swap', () => {
 		assertEqual(reopened.slides[0].placeholder('ctrTitle').text, 'Replaced Title', 'placeholder title reloads')
 	})
 
+	test('Paragraph.text replaces one paragraph and leaves its siblings alone', async () => {
+		const presentation = await openFixture('textbox')
+		const frame = presentation.slides[0].shapeByName('replaceText').textFrame
+		const before = frame.paragraphs.map((paragraph) => paragraph.text)
+		assert(before.length > 1, 'fixture has several paragraphs to distinguish the two setters')
+		frame.paragraphs[0].text = 'ONE PARAGRAPH ONLY'
+
+		const reopened = await Presentation.load(await presentation.save())
+		const reframe = reopened.slides[0].shapeByName('replaceText').textFrame
+		assertEqual(reframe.paragraphs.length, before.length, 'sibling paragraphs survive')
+		assertEqual(reframe.paragraphs[0].text, 'ONE PARAGRAPH ONLY', 'the edited paragraph reloads')
+		assertEqual(reframe.paragraphs[1].text, before[1], 'the next paragraph is untouched')
+		// The paragraph's first run was italic, 20pt — that formatting carries over.
+		assertEqual(reframe.paragraphs[0].runs.length, 1, 'collapsed to a single run')
+		assertEqual(reframe.paragraphs[0].runs[0].italic, true, 'first run italic preserved')
+		assertEqual(reframe.paragraphs[0].runs[0].fontSizePt, 20, 'first run size preserved')
+	})
+
 	test('Shape.text throws on a shape with no text frame', async () => {
 		const picture = (await openFixture('image')).slides[0].shapeByName('Grafik 5')
 		assert(picture, 'fixture has the picture')

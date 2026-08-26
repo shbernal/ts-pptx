@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Paragraph.text` is settable.** `Run.text`, `TextFrame.text`, `Shape.text` and
+  `TableCell.text` could all be assigned; the paragraph in between could not, so replacing
+  one bullet of a list meant either collapsing the whole frame or rewriting runs by hand.
+  Setting it replaces that paragraph with a single run, keeping the first run's `a:rPr` and
+  the paragraph's own `a:pPr` (level, alignment, bullet), and leaves sibling paragraphs
+  untouched — the same rule the SmartArt drawing-cache mirror already ran on internally.
+
 - **`DiagramPoint.text` has a setter, and it keeps the drawing cache honest.** A SmartArt
   diagram stores every string twice: as authored nodes in `ppt/diagrams/data{N}.xml`, which
   is what PowerPoint reads, and as a copy of every drawn string in

@@ -1215,7 +1215,7 @@ the colour transform (`transparency:25` → `a:alpha 75000` → `alpha 0.75`).
 ```ts
 class TextFrame {
 	readonly paragraphs: Paragraph[]
-	readonly text: string // paragraph texts joined by '\n'
+	text: string // paragraph texts joined by '\n' — settable (collapses the body)
 	readonly autofit: AutofitMode | null // 'none'|'normAutofit'|'spAutoFit'; null when no a:bodyPr
 	readonly autofitFontScale: number | null // a:normAutofit/@fontScale ÷ 1000 (percent)
 	readonly autofitLineSpaceReduction: number | null // @lnSpcReduction ÷ 1000 (percent)
@@ -1224,7 +1224,7 @@ class TextFrame {
 class Paragraph {
 	readonly runs: Run[] // a:r elements only
 	readonly level: number // a:pPr/@lvl, 0 if unset
-	readonly text: string // runs + fields, with a:br as '\n'
+	text: string // runs + fields, with a:br as '\n' — settable (this paragraph only)
 	readonly lineSpacing: LineSpacing | null // a:pPr/a:lnSpc
 }
 
@@ -1812,8 +1812,18 @@ slide.shapeByName('Title').text = 'New title' // keeps the first run's font/size
 slide.placeholder('subTitle', '1').text = 'New subtitle'
 ```
 
-Setting `text` on a shape with no text frame (e.g. a picture) throws. For
-multiple runs or per-run formatting, edit `textFrame.paragraphs[].runs[]`
+Setting `text` on a shape with no text frame (e.g. a picture) throws.
+
+`paragraph.text` is the same swap one level down: it replaces **that** paragraph
+with a single run (keeping its own first run's `a:rPr`, and its `a:pPr` level,
+alignment and bullet) and leaves its sibling paragraphs alone. That is the whole
+difference from `textFrame.text`, which collapses the body to one paragraph.
+
+```js
+frame.paragraphs[1].text = 'Second bullet, rewritten' // bullets 1 and 3 survive
+```
+
+For multiple runs or per-run formatting, edit `textFrame.paragraphs[].runs[]`
 directly instead: that path preserves every run's own formatting, so it is the
 right tool when you want to change one run and leave its siblings untouched.
 

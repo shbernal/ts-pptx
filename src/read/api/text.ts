@@ -760,6 +760,17 @@ export class Paragraph {
 		return out
 	}
 
+	/**
+	 * Replace **this paragraph's** content with a single run, preserving the character
+	 * formatting (`a:rPr`) of its first existing run and leaving its `a:pPr` (level,
+	 * alignment, bullet) alone. Sibling paragraphs are untouched — the difference from
+	 * {@link TextFrame.text}, which collapses the whole body to one paragraph.
+	 */
+	set text(value: string) {
+		setParagraphText(this.element, value)
+		this.part.markDirty()
+	}
+
 	/** Escape hatch: the underlying `a:p` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.element
