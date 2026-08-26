@@ -1,0 +1,107 @@
+---
+# TEMPORARY — a spike, not a lane.
+#
+# `test:lo` is manual today, in the `test:com` tier. Unlike the COM smoke it *could* run on
+# ubuntu-latest, because LibreOffice and poppler are both apt-installable there. Three things
+# were unknown and are the whole reason this file exists:
+#
+#   1. install time for libreoffice-impress + poppler-utils on a hosted runner
+#   2. whether soffice converts headlessly there at all, on a cold profile
+#   3. whether font substitution (no Microsoft fonts on the image) makes text extraction
+#      flaky, and whether poppler's pdftotext agrees with the xpdf build the cases were
+#      measured against — they differ on details like the codepoint a bullet extracts as
+#
+# Everything is timed and nothing is allowed to stop the run, because a spike that dies at
+# step 2 answers none of the later questions. Delete this file once the answer is recorded.
+name: LO spike (temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spike:
+    name: LibreOffice on ubuntu-latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Question 1. `libreoffice-impress` rather than the `libreoffice` metapackage: Impress
+      # plus the PDF export filter is all the oracle touches, and the metapackage drags in
+      # Writer, Calc, Base and Java.
+      - name: Install LibreOffice and poppler (timed)
+        run: |
+          start=$(date +%s)
+          sudo apt-get update -qq
+          mid=$(date +%s)
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-impress poppler-utils
+          end=$(date +%s)
+          echo "apt-get update:  $((mid - start))s"
+          echo "apt-get install: $((end - mid))s"
+          echo "total:           $((end - start))s"
+          echo "disk added:"
+          df -h / | tail -1
+
+      - name: What actually got installed
+        run: |
+          echo "--- soffice ---"
+          which soffice libreoffice || true
+          soffice --version || true
+          echo "--- pdftotext (build matters: xpdf and poppler differ) ---"
+          which pdftotext
+          pdftotext -v 2>&1 | head -3 || true
+          echo "--- question 3: are any of the deck's fonts actually present? ---"
+          fc-list | wc -l
+          for family in Arial Calibri "Liberation Sans" "DejaVu Sans"; do
+            printf '%-16s %s\n' "$family" "$(fc-list "$family" family 2>/dev/null | head -1 || echo MISSING)"
+          done
+          echo "--- what Arial resolves to after substitution ---"
+          fc-match Arial
+
+      # Question 2, and the real answer to question 3: run the oracle itself. `--keep` so the
+      # extractions survive for the next step, which is where a poppler-vs-xpdf disagreement
+      # would show up as a specific case going red rather than as a guess.
+      - name: Run the oracle (timed, never fatal)
+        id: oracle
+        continue-on-error: true
+        run: |
+          start=$(date +%s)
+          node scripts/libreoffice-render-smoke.mjs --keep 2>&1 | tee /tmp/oracle.log
+          status=${PIPESTATUS[0]}
+          echo "oracle wall clock: $(($(date +%s) - start))s"
+          echo "oracle exit: $status"
+          exit "$status"
+
+      # Whatever the verdict, dump what LibreOffice actually painted. If a case failed, this
+      # is the evidence for why; if every case passed, it is the confirmation that the runner
+      # painted real text rather than passing on empty extractions.
+      - name: What was painted
+        if: always()
+        run: |
+          kept=$(sed -n 's/^Kept: //p' /tmp/oracle.log | tail -1)
+          echo "kept dir: ${kept:-<none>}"
+          [ -n "$kept" ] || exit 0
+          for f in "$kept"/*.txt; do
+            echo "===== $(basename "$f") ($(wc -c < "$f") bytes) ====="
+            head -c 700 "$f"
+            echo
+          done
