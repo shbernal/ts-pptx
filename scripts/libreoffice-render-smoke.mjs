@@ -53,8 +53,16 @@
  *
  * Requirements: LibreOffice and `pdftotext` (xpdf-tools or poppler-utils). Both are looked
  * up on PATH, then at the usual per-platform locations, and both can be pointed at
- * explicitly with `TSPPTX_SOFFICE` / `TSPPTX_PDFTOTEXT`. Missing either is a clean SKIP,
- * never a failure: this is a machine-dependent check in the same tier as `test:com`.
+ * explicitly with `TSPPTX_SOFFICE` / `TSPPTX_PDFTOTEXT`. Missing either is a clean SKIP on a
+ * workstation, where not every machine has LibreOffice — but a failure under
+ * `TSPPTX_RENDER_ORACLE=required`, which is how the CI lane runs it, because a lane that
+ * installs the tools and then skips would be green without checking anything.
+ *
+ * It does run in CI, on `ubuntu-latest`, unlike the COM smoke it sits beside. Measured on a
+ * hosted runner: `libreoffice-impress` plus `poppler-utils` install in ~41s from apt with no
+ * caching, and the whole check then runs in ~2s. Neither the missing Microsoft fonts (Arial
+ * resolves to Liberation Sans there) nor poppler's disagreements with xpdf disturb it — see
+ * the note on `PAIRS` for why the assertions are differential rather than absolute.
  */
 import os from 'node:os'
 import fs from 'node:fs/promises'
@@ -77,8 +85,9 @@ Options:
   -h, --help      show this message
 
 Environment:
-  TSPPTX_SOFFICE    path to soffice (skips the search)
-  TSPPTX_PDFTOTEXT  path to pdftotext (skips the search)`
+  TSPPTX_SOFFICE         path to soffice (skips the search)
+  TSPPTX_PDFTOTEXT       path to pdftotext (skips the search)
+  TSPPTX_RENDER_ORACLE   set to "required" to fail, not SKIP, when a tool is missing`
 
 const { values } = parseCliOrExit(process.argv.slice(2), {
 	usage: USAGE,
@@ -571,14 +580,30 @@ function verify(testCase, text) {
 
 // --- orchestrate ------------------------------------------------------------
 async function main() {
+	// On a workstation a missing tool is a SKIP: this is a machine-dependent check and not
+	// everyone has LibreOffice. In CI that would be the worst possible outcome — a lane that
+	// installs the tools, fails to find them, and reports green while proving nothing. The
+	// `required` mode makes their absence the failure instead, the same bargain
+	// `FONT_ORACLES: required` strikes for the measurement oracles.
+	const required = process.env.TSPPTX_RENDER_ORACLE === 'required'
+	/** @param {string} message */
+	const missing = (message) => {
+		if (!required) {
+			console.log('SKIP: ' + message)
+			return
+		}
+		console.error('TSPPTX_RENDER_ORACLE=required, but ' + message)
+		process.exitCode = 1
+	}
+
 	const soffice = await findSoffice()
 	if (!soffice) {
-		console.log('SKIP: LibreOffice not found. Set TSPPTX_SOFFICE to its soffice binary to run this check.')
+		missing('LibreOffice not found. Set TSPPTX_SOFFICE to its soffice binary to run this check.')
 		return
 	}
 	const pdftotext = await findPdfToText()
 	if (!pdftotext) {
-		console.log('SKIP: pdftotext not found (xpdf-tools or poppler-utils). Set TSPPTX_PDFTOTEXT to run this check.')
+		missing('pdftotext not found (xpdf-tools or poppler-utils). Set TSPPTX_PDFTOTEXT to run this check.')
 		return
 	}
 	console.log('LibreOffice: ' + soffice)

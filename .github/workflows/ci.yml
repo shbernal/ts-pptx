@@ -206,6 +206,67 @@ jobs:
       - name: Font oracles
         run: pnpm run test:oracles
 
+  # The render oracle.
+  #
+  # Everything else in CI is a byte assertion. That leaves markup which is byte-correct and
+  # which PowerPoint renders correctly *because PowerPoint recomputes it* — SmartArt's
+  # `dsp:drawing` cache is the canonical case — plus the constructs the byte-identity corpus
+  # never emits at all, whose only evidence is "the right bytes are in the part". LibreOffice
+  # answers both, because it has no SmartArt engine and is not us: it paints the cache and
+  # nothing else, and it either acts on the markup we emit or it does not. See
+  # scripts/libreoffice-render-smoke.mjs.
+  #
+  # This is the one machine-dependent oracle that CAN run here — the COM smoke beside it
+  # needs a real PowerPoint. Measured on this runner before wiring it in: apt installs
+  # `libreoffice-impress` plus `poppler-utils` in ~41s uncached, and the check itself then
+  # takes ~2s, so the whole leg is under two minutes and needs no cache to earn its place.
+  #
+  # `libreoffice-impress`, not the `libreoffice` metapackage: Impress plus the PDF export
+  # filter is the entire surface used, and the metapackage adds Writer, Calc, Base and Java.
+  #
+  # `TSPPTX_RENDER_ORACLE: required` is the load-bearing line, for the same reason
+  # `FONT_ORACLES: required` is in the test job. Missing tools are a deliberate SKIP on a
+  # workstation, so without this a runner image that stopped shipping one of them would give
+  # a green leg that checked nothing at all.
+  #
+  # No Microsoft fonts here — Arial resolves to Liberation Sans — and poppler's pdftotext
+  # disagrees with the xpdf build used on a workstation about details like the codepoint a
+  # bullet glyph extracts as. Neither disturbs the assertions, which are differential by
+  # construction; that property is what makes this leg portable, so keep it.
+  render-oracle:
+    name: Render oracle (LibreOffice)
+    runs-on: ubuntu-latest
+
+    env:
+      TSPPTX_RENDER_ORACLE: required
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install LibreOffice and poppler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-impress poppler-utils
+
+      - name: Render oracle
+        run: pnpm run test:lo
+
   # The browser lane. The `test` job above proves the emission core against
   # `dist/node.js`; nothing proved `dist/browser.js`, whose adapter is the only
   # runtime-divergent surface in the package and which no headless Node suite can
