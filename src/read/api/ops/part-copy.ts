@@ -19,11 +19,13 @@ import {
 	NOTES_SLIDE_REL,
 	SLIDE_LAYOUT_CONTENT_TYPE,
 	SLIDE_LAYOUT_REL,
+	SLIDE_CONTENT_TYPE,
 	SLIDE_MASTER_CONTENT_TYPE,
 	SLIDE_MASTER_REL,
 	SLIDE_REL,
 } from '../../../ooxml/rel-types.js'
 import { isSharedByPageCopies } from './page-owned.js'
+import { destinationAlreadyHolds } from './part-reuse.js'
 import { InvalidOptionError, PackageReadError } from '../../../errors.js'
 
 /**
@@ -139,7 +141,12 @@ export function copySlidePart(ctx: ImportContext, sourcePartName: string): strin
  * from outside, as the rebinding import paths do for the page they build
  * themselves.
  */
-export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: OwnedScope): string {
+export function copyPart(
+	ctx: ImportContext,
+	sourcePartName: string,
+	owned?: OwnedScope,
+	allowReuse: boolean = false
+): string {
 	// Inside a page's ownership scope the registry is not consulted at all: the
 	// point of the scope is that this page copy gets parts of its own, and the
 	// scope's own map is what keeps a part two of its relationships reach from
@@ -161,6 +168,19 @@ export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: Own
 		if (existing && (selectedDest === undefined || existing === selectedDest)) return existing
 	}
 
+	// The destination may already hold this exact part: a deck opened with
+	// `fromTemplate` from the *same file* carries the source's own layouts, master and
+	// theme, under their own partnames and byte-identical. Binding to what is there
+	// beats copying it in again under a fresh name, which is what grew a duplicate
+	// layout-gallery entry per imported slide. Never inside a page's ownership scope,
+	// and never for a page the caller is materializing: those must be parts of their own.
+	if (allowReuse && !owned && !ctx.selection?.destinations.has(sourcePartName)) {
+		if (destinationAlreadyHolds(ctx.dest, ctx.source, sourcePartName)) {
+			ctx.registry.set(sourcePartName, sourcePartName)
+			return sourcePartName
+		}
+	}
+
 	const sourcePart = ctx.source.part(sourcePartName)
 	if (!sourcePart)
 		throw new PackageReadError('package/part-missing', `importSlide: source package has no part ${sourcePartName}`)
@@ -179,6 +199,7 @@ export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: Own
 	const scope = owned ?? (ctx.selection?.destinations.has(sourcePartName) ? newOwnedScope() : undefined)
 
 	const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
+	const isPage = sourcePart.contentType === SLIDE_CONTENT_TYPE
 	const sourceRels = ctx.source.relationshipsFor(sourcePartName)
 	const targetRels = ctx.dest.opc.relationshipsFor(newPartName)
 	for (const rel of sourceRels) {
@@ -197,7 +218,13 @@ export function copyPart(ctx: ImportContext, sourcePartName: string, owned?: Own
 		const newTargetPartName = copyPart(
 			ctx,
 			sourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : scope
+			isSharedByPageCopies(rel.type) ? undefined : scope,
+			// Reuse decides at the page boundary and never below it. A part reached from
+			// the page can be answered with the destination's own identical copy; a part
+			// reached from something this import *copied* is copied too, so a copied
+			// subgraph stays self-contained rather than half-linking into deck chrome
+			// that merely happens to match.
+			isPage
 		)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
 	}

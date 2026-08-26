@@ -1999,6 +1999,35 @@ same source page twice gives you two independent copies, which is what makes a
 before/after pair of one page possible. Only the deck-wide assets underneath the
 page (its layout, master, theme, media) are shared between them.
 
+A part the **target already holds** is not copied at all: the page binds to it.
+This is the deck templated from its own source, and it is the common case behind
+`fromTemplate`, since that keeps a package's chrome byte-identical and strips only
+its slides:
+
+```js
+const deck = await Presentation.fromTemplate(bytes) // chrome kept, slides stripped
+const source = await Presentation.load(bytes) // the same file, unstripped
+deck.importSlide(source, 3) // binds to the template's own layout
+```
+
+Without it, each imported slide brought a second copy of a layout and master the
+deck already had, one duplicate entry in PowerPoint's layout picker per slide, and
+a later `appendSlides({ layout: <name> })` that threw `layout/ambiguous-name`
+because two layouts then answered to the name.
+
+The test for "already holds it" is strict, because the alternative to a copy is a
+page bound to somebody else's chrome: same partname, same content type, same bytes
+as they would be written (so a target part you edited disqualifies itself), same
+relationships, and the same test applied to everything those relationships reach.
+A master must also be registered in `p:sldMasterIdLst` and a layout must sit in a
+registered master's gallery, since an identical part that is an orphan in the
+target is not something to bind a slide to. Anything short of that copies, which
+is always correct and merely duplicates bytes.
+
+The decision is made at the page boundary and never below it: a part reached from
+a part this import *copied* is copied too, so copied chrome stays self-contained
+rather than half-linking into target parts that merely happen to match.
+
 ##### Owned vs shared parts
 
 Two copies of one page (from `cloneSlide`, from importing the same page twice, or

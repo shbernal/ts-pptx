@@ -166,9 +166,12 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('dedups a shared master across imports and accumulates its used layouts', async () => {
-		// mixed slide 1 uses layout1, slide 2 uses layout2 — both on the same master.
-		const target = await openFixture('mixed')
-		const source = await openFixture('mixed')
+		// multi-theme slide 1 uses layout7, slide 2 uses layout18 — both on the same master.
+		// Two *different* decks: importing out of a deck the destination already holds
+		// byte-for-byte binds to the chrome that is there rather than copying any
+		// (`ops/part-reuse.ts`), which is the opposite of what this test is about.
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const beforeCount = target.slides.length
 
 		target.importSlide(source, 0)
@@ -278,8 +281,9 @@ describe('Presentation.importSlide', () => {
 	})
 
 	test('registers each copied master in p:sldMasterIdLst (so master graphics render)', async () => {
-		const target = await openFixture('mixed')
-		const source = await openFixture('mixed')
+		// Cross-deck, so there is a master to copy at all; see the dedup test above.
+		const target = await openFixture('empty')
+		const source = await openFixture('multi-theme')
 		const before = registeredMasters(target.opc).length
 
 		target.importSlide(source, 0)
@@ -350,6 +354,81 @@ describe('Presentation.importSlide', () => {
 		target.importSlide(source, 0)
 		target.importSlide(source, 1)
 		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// Importing back out of the file the destination was templated from. `fromTemplate`
+// keeps a package's chrome byte-identical and strips only its slides, so every part
+// `copyPart` would bring across is already there under its own partname — and used to be
+// copied anyway, growing the layout gallery by one entry per imported slide.
+describe('Presentation.importSlide from the deck this one was templated from', () => {
+	/** A destination templated from `name`, and a second, unstripped handle on the same file. */
+	async function selfTemplate(name) {
+		const bytes = await readFile(fixturePath(name))
+		return { dest: await Presentation.fromTemplate(bytes), source: await Presentation.load(bytes), bytes }
+	}
+
+	test('binds to the chrome the template already holds instead of copying it in again', async () => {
+		const { dest, source } = await selfTemplate('multi-theme')
+		const galleryBefore = dest.layouts().map((l) => l.partName)
+		const sourceLayout = source.slides[0].layout.partName
+
+		const imported = dest.importSlide(source, 0)
+		assertEqual(imported.layout.partName, sourceLayout, 'the imported slide binds to the template layout itself')
+
+		const reopened = await Presentation.load(await dest.save())
+		assertEqual(
+			reopened
+				.layouts()
+				.map((l) => l.partName)
+				.join('|'),
+			galleryBefore.join('|'),
+			'the layout gallery is unchanged: no duplicate entry per imported slide'
+		)
+		assertEqual(registeredMasters(reopened.opc).length, 1, 'and no second master is registered')
+		assertGraphResolves(reopened.opc, reopened.slides[0].partName)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('only the slide part is added; the template chrome stays byte-identical', async () => {
+		const { dest, source, bytes } = await selfTemplate('multi-theme')
+		const before = await partBodies(bytes)
+		dest.importSlide(source, 0)
+		const after = await partBodies(await dest.save())
+
+		assertUnchangedExcept(before, after, [
+			'ppt/presentation.xml',
+			'ppt/_rels/presentation.xml.rels',
+			'[Content_Types].xml',
+			// The template's own slides were stripped; their parts are gone, not changed.
+			...[...before.keys()].filter((n) => /^ppt\/(slides|notesSlides)\//.test(n)),
+		])
+		const added = [...after.keys()].filter((name) => !before.has(name))
+		assert(
+			!added.some((n) => /ppt\/(slideLayouts|slideMasters|theme)\//.test(n)),
+			`no chrome part was copied in: ${JSON.stringify(added)}`
+		)
+	})
+
+	test('a second import of the same page reuses the chrome again and still gets its own part', async () => {
+		const { dest, source } = await selfTemplate('multi-theme')
+		const galleryBefore = dest.layouts().length
+		const first = dest.importSlide(source, 0)
+		const second = dest.importSlide(source, 0)
+		assert(first.partName !== second.partName, 'each import gets a page of its own')
+
+		const reopened = await Presentation.load(await dest.save())
+		assertEqual(reopened.slides.length, 2, 'both copies are in the deck')
+		assertEqual(reopened.layouts().length, galleryBefore, 'the gallery still has not grown')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a self-templated import stays schema-valid', async () => {
+		const { dest, source } = await selfTemplate('multi-theme')
+		dest.importSlide(source, 0)
+		dest.importSlide(source, 1)
+		const errors = await validateBuf(Buffer.from(await dest.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })

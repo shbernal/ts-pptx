@@ -82,6 +82,7 @@ import {
 	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
 	OFFICE_DOCUMENT_REL,
+	SLIDE_CONTENT_TYPE,
 	SLIDE_LAYOUT_REL,
 	SLIDE_REL,
 } from '../../ooxml/rel-types.js'
@@ -102,7 +103,6 @@ const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 // referenced by the slide body's <p14:media r:embed>.
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
-const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 // chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
 const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'

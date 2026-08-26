@@ -178,7 +178,10 @@ export function importSlideRebind(
 		const newTarget = copyPart(
 			ctx,
 			sourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : owned
+			isSharedByPageCopies(rel.type) ? undefined : owned,
+			// These are the page's own relationships, so a target the destination already
+			// holds byte-for-byte is bound to rather than copied (see `part-reuse.ts`).
+			true
 		)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
 	}

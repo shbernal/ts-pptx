@@ -210,11 +210,14 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		assert(/<a:schemeClr/.test(xml), 'restyle left scheme colours symbolic (carried shapes were not flattened)')
 	})
 
+	// Across two *different* decks, so the copy has something to copy: importing from a
+	// deck the destination already holds byte-for-byte binds to what is there instead
+	// (`ops/part-reuse.ts`), which would make a same-file import prove nothing here.
 	test('the default (no option) still copies the source theme subgraph', async () => {
-		const target = await openFixture('mixed')
-		const source = await openFixture('mixed')
+		const target = await openFixture('empty')
+		const source = await openFixture('theme-colors')
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
-		target.importSlide(source, THEMED_SLIDE_INDEX) // default: copy
+		target.importSlide(source, 0) // default: copy
 		const after = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 		assert(after > themesBefore, 'the default copy mode brings a source theme across')
 	})

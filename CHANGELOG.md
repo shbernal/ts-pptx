@@ -54,6 +54,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`importSlide` binds to chrome the destination already holds instead of copying it in
+  again.** `copyPart` walked the source slide's `slideLayout -> slideMaster -> theme`
+  subgraph and copied every part of it under a fresh partname, with no notion of what the
+  destination arrived with. For the deck templated from its own source (`fromTemplate` keeps
+  a package's chrome byte-identical and strips only its slides, which is exactly what
+  `ts-pptx/script`'s template-anchored tier emits) every one of those parts was already there
+  under its own partname, so each imported slide grew the deck a duplicate layout and master:
+  one extra entry in PowerPoint's layout picker per slide, and a later
+  `appendSlides({ layout: <name> })` that threw `layout/ambiguous-name` because two layouts
+  answered to the name.
+
+  A part is now reused when the destination holds it at the same partname with the same
+  content type, the same bytes as they would be written, the same relationships, and the same
+  test passing recursively; a master must also be registered in `p:sldMasterIdLst` and a
+  layout must sit in a registered master's gallery. The decision is made at the page boundary
+  and never below it, so a part reached from something this import copied is copied too and
+  copied chrome stays self-contained. Anything short of identical still copies.
+
+  **Migration.** Importing between two decks that share byte-identical chrome (the same file
+  opened twice, or two decks made from one template) now adds fewer parts: no new layout,
+  master or theme, and the imported page resolves to the destination's own. Rendering is
+  unchanged, since reuse only happens where the bytes were the same. A consumer asserting on
+  part counts after such an import sees the smaller numbers.
+
 - **`inspectPptx` reports graphic frames.** A `p:graphicFrame` (table, chart, SmartArt, or a
   payload this library does not model) was skipped outright and consumed no `zIndex`, so a
   deck whose slides are SmartArt or tables inspected as `elements: []` with `wordCount: 0`,

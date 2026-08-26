@@ -57,6 +57,9 @@ export const IMAGE_REL = OFFICE_REL + 'image'
 /** Root of the ECMA-376 content types. Private: callers want one of the constants below. */
 const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
 
+/** `ppt/slides/slideN.xml`. */
+export const SLIDE_CONTENT_TYPE = OD_CONTENT + 'presentationml.slide+xml'
+
 /** `ppt/slideMasters/slideMasterN.xml`. */
 export const SLIDE_MASTER_CONTENT_TYPE = OD_CONTENT + 'presentationml.slideMaster+xml'
 /** `ppt/slideLayouts/slideLayoutN.xml`. */
