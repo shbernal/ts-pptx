@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.4.0] - 2026-08-26
+
+This release makes SmartArt readable through the read model, and names what a frame the
+reader still cannot decode actually holds. It refuses two option values that used to reach
+the emitted XML as nonsense — a non-finite size or angle, a stringly-typed
+`legendFontSize` — and gives three others the meaning their absence already carried: an
+empty `chartColors`, a `null` side in a border tuple, and a table that named a built-in
+style only to have the writer's own grid painted over it. It also takes `Math.random()` out of
+the chart palette, so a chart with more series than colours emits the same bytes on every
+build.
 
 ### Added
 
@@ -3236,6 +3245,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.4.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.4.0
 [3.3.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.3.0
 [3.2.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.2.0
 [3.1.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.1.0
