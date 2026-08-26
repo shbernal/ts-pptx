@@ -13,6 +13,11 @@
  * as well as between them (the category axis closes `</a:defRPr>` at three spaces, the value
  * axis at six), so parameterising it would take about as many indent arguments as it has
  * lines and would hide the quirks rather than share the structure.
+ *
+ * The other way out -- regularising the whitespace so one builder *could* serve all three --
+ * is a byte change, which AGENTS.md is explicit about: a whitespace-only diff is a STOP, not
+ * a known divergence. Revisit this only if the emitted whitespace in these parts is ever
+ * regularised deliberately, as its own decision.
  */
 
 import { asChartType, ChartType } from '../../enums.js'
