@@ -148,18 +148,17 @@ function createChartMediaRels(
 	slide._relsChart.forEach((rel) => chartPromises.push(createExcelWorksheet(rel, zip)))
 	slide._relsMedia.forEach((rel) => {
 		if (rel.type !== 'online' && rel.type !== 'hyperlink') {
-			// A: Loop vars
-			let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
+			// A: fflate needs decoded bytes (no base64 convenience), so decode the payload
+			// here. `decodeBase64ToBytes` takes raw base64 and a `data:` URI alike, which is
+			// every shape `rel.data` comes in: a loaded rel has been through `toMediaDataUri`,
+			// and a caller-supplied `addImage({ data })` may be either. A prefix-correcting
+			// block used to sit here and is gone -- it only ever prepended a label the decoder
+			// then stripped, so it could not change a single byte of any payload.
+			const data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
 
-			// B: Users will undoubtedly pass various string formats, so correct prefixes as needed
-			if (!data.includes(',') && !data.includes(';')) data = 'image/png;base64,' + data
-			else if (!data.includes(',')) data = 'image/png;base64,' + data
-			else if (!data.includes(';')) data = 'image/png;' + data
-
-			// C: Add media. fflate needs decoded bytes (no base64 convenience), so
-			// decode the payload here. Already-compressed formats (JPEG/PNG/video/…)
-			// gain ~nothing from DEFLATE, so STORE them to avoid wasted compression
-			// CPU on large decks; other parts inherit global compression.
+			// B: Already-compressed formats (JPEG/PNG/video/…) gain ~nothing from DEFLATE, so
+			// STORE them to avoid wasted compression CPU on large decks; other parts inherit
+			// global compression.
 			const bytes = decodeBase64ToBytes(data)
 			if (!bytes) return
 			const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()

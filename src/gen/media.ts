@@ -5,6 +5,7 @@
 import { IMG_BROKEN } from '../constants-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
+import { toMediaDataUri } from '../media/base64.js'
 import { warn } from '../diagnostics.js'
 import { MediaError } from '../errors.js'
 
@@ -51,7 +52,7 @@ export function encodeSlideMediaRels(
 			imageProms.push(
 				(async () => {
 					try {
-						rel.data = await runtime.loadMedia(rel)
+						rel.data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
 						const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
 						dupes.forEach((dupe) => (dupe.data = rel.data))
 						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)

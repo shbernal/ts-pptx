@@ -31,6 +31,27 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 /**
+ * Present a freshly loaded media payload as a `data:` URI.
+ *
+ * A {@link RuntimeAdapter.loadMedia} implementation returns whichever encoding its host
+ * makes cheap — the browser adapter a full URI, because `FileReader.readAsDataURL` is what
+ * decodes a blob without blocking; Node and the neutral adapter raw base64, because neither
+ * has a `FileReader`. This is where the two become one, so nothing downstream of the load
+ * has to ask which it got.
+ *
+ * The mime label is documentary: {@link decodeBase64ToBytes} ignores it, and the one consumer
+ * that needs a real URI (`image.src`, in the browser adapter's SVG preview) is handed the
+ * adapter's own. It is taken from the rel anyway rather than hard-coded, so an already-correct
+ * label is not overwritten with a wrong one.
+ * @param {string} payload - what the adapter returned: raw base64, or an already-formed URI
+ * @param {string} contentType - the rel's content type, e.g. `image/png`
+ * @returns {string} a `data:` URI
+ */
+export function toMediaDataUri(payload: string, contentType: string): string {
+	return payload.startsWith('data:') ? payload : `data:${contentType};base64,${payload}`
+}
+
+/**
  * Decode a base64 image payload (raw base64 or a `data:` URI) to bytes.
  * - tolerant of the `data:[mime];base64,` prefix and of whitespace in the payload
  * @param {string} b64 - base64 string or data URI

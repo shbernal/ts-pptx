@@ -9,10 +9,10 @@ export type RuntimeAdapter = {
 	 * **Two encodings are accepted, deliberately.** Either raw base64 (`iVBORw0…`) or a full
 	 * data URI (`data:image/png;base64,iVBORw0…`). The browser adapter returns the second
 	 * because `FileReader.readAsDataURL` is what decodes a blob without blocking; Node and the
-	 * neutral adapter return the first because neither has a `FileReader`. Package assembly
-	 * normalizes both at one place — `package/assemble.ts`, the prefix-correcting block right
-	 * before the payload is decoded to bytes — so an adapter may return whichever its host makes
-	 * cheap. Do not add a third form: that block recognizes exactly these two.
+	 * neutral adapter return the first because neither has a `FileReader`. So an adapter may
+	 * return whichever its host makes cheap: `gen/media.ts` puts the result through
+	 * {@link toMediaDataUri} on the way into `rel.data`, and everything past that point sees one
+	 * form. Do not add a third: that helper recognizes exactly these two.
 	 */
 	loadMedia: (rel: SlideRelMedia & { path: string }) => Promise<string>
 	createSvgPngPreview: (rel: SlideRelMedia) => Promise<string>
