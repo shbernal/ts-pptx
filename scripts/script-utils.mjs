@@ -122,20 +122,52 @@ const localBinPackages = {
 }
 
 /**
+ * Absolute path to an installed package's own `package.json`, or `null` when it is not
+ * installed.
+ *
+ * `require.resolve(pkg + '/package.json')` is the direct form and works for most
+ * packages, but it goes through the `exports` map, so a package that does not list
+ * `./package.json` there — `publint` is one — throws `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+ * The manifest is still sitting on disk; only the subpath lookup is closed. So fall back
+ * to resolving the package's main entry, which `exports` does expose, and walking up to
+ * the manifest that names it.
+ * @param {string} pkg
+ * @returns {string | null}
+ */
+function resolvePackageManifest(pkg) {
+	try {
+		return requireFromRoot.resolve(pkg + '/package.json')
+	} catch {
+		// Fall through to the entry-point walk below.
+	}
+	let dir
+	try {
+		dir = path.dirname(requireFromRoot.resolve(pkg))
+	} catch {
+		return null
+	}
+	for (let next = dir; ; next = path.dirname(next)) {
+		const candidate = path.join(next, 'package.json')
+		try {
+			if (JSON.parse(fs.readFileSync(candidate, 'utf8')).name === pkg) return candidate
+		} catch {
+			// No manifest here, or an unreadable one: keep climbing.
+		}
+		if (next === path.dirname(next)) return null
+	}
+}
+
+/**
  * Absolute path to a local devDependency's JS entry, or `null` when the bin is not one
  * this module owns or the package is not installed.
  * @param {string} name
  * @returns {string | null}
  */
-function resolveLocalBin(name) {
+export function resolveLocalBin(name) {
 	const pkg = localBinPackages[name]
 	if (!pkg) return null
-	let manifestPath
-	try {
-		manifestPath = requireFromRoot.resolve(pkg + '/package.json')
-	} catch {
-		return null
-	}
+	const manifestPath = resolvePackageManifest(pkg)
+	if (!manifestPath) return null
 	const { bin } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 	const entry = typeof bin === 'string' ? bin : bin?.[name]
 	if (!entry) return null

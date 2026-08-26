@@ -4,8 +4,9 @@
 // when the value is missing — `--dir --verbose` silently set the directory to
 // `"--verbose"`. That is the case worth pinning: it must be an error, not a value.
 
+import fs from 'node:fs'
 import { describe, expect, test, vi } from 'vitest'
-import { CliExit, parseCli, runCli } from '../../scripts/script-utils.mjs'
+import { CliExit, parseCli, resolveLocalBin, runCli } from '../../scripts/script-utils.mjs'
 
 const OPTIONS = { dir: { type: 'string' }, verbose: { type: 'boolean', default: false } }
 const parse = (argv) => parseCli(argv, { options: OPTIONS, usage: 'usage: thing [--dir <path>]' })
@@ -87,5 +88,25 @@ describe('runCli', () => {
 		).toBe(1)
 		expect(console.error).toHaveBeenCalledWith(expect.stringContaining('boom'))
 		restore()
+	})
+})
+
+// `run()` sends these two bins to the current node binary precisely so Windows never has
+// to exec a `.bin/*.CMD` shim, which `spawn` refuses without a shell and which is only on
+// PATH when a package manager put it there. The lookup used to go through
+// `require.resolve(pkg + '/package.json')`, so any package that leaves `./package.json`
+// out of its `exports` map resolved to `null` and silently fell back to that shim —
+// `publint` does, and `package:lint` died with "'publint.cmd' is not recognized" whenever
+// it ran outside `pnpm run`. Assert the entry exists rather than just that it is non-null:
+// a path pointing at nothing fails the same way, one spawn later.
+describe('resolveLocalBin', () => {
+	test.each(['publint', 'attw'])('%s resolves to a real JS entry, not a .cmd shim', (name) => {
+		const entry = resolveLocalBin(name)
+		expect(entry).toBeTruthy()
+		expect(fs.existsSync(/** @type {string} */ (entry))).toBe(true)
+	})
+
+	test('a bin this module does not own is left to the shell', () => {
+		expect(resolveLocalBin('pnpm')).toBeNull()
 	})
 })
