@@ -59,6 +59,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pass it explicitly. Every other chart type is unaffected: its default already was that
   palette.
 
+- **A chart's `legendFontSize` is no longer coerced from a string.** It was the one font-size
+  option whose emitter wrapped the value in `Number()`, so `legendFontSize: '12'` from untyped
+  JS worked there while the same string threw at `catAxisLabelFontSize`, `dataLabelFontSize`
+  and the eight other spellings of the same option. The coercion is gone; a non-number now
+  throws `InvalidOptionError` with code `coord/non-finite` wherever it is passed.
+
+  Migration: pass a number, which is what the type has always said.
+
 ### Fixed
 
 - **Auto-paged tables no longer lose a point of column width to floating-point rounding.**

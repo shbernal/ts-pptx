@@ -364,9 +364,10 @@ function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
 			strXml += '  <a:lstStyle/>'
 			strXml += '  <a:p>'
 			strXml += '    <a:pPr>'
-			strXml += rel.opts.legendFontSize
-				? `<a:defRPr sz="${ptToHundredths(Number(rel.opts.legendFontSize))}">`
-				: '<a:defRPr>'
+			// No `Number()` here, and none at the ten sibling font-size options either: the
+			// option is typed `number`, and a caller from untyped JS who passes a string now
+			// gets `coord/non-finite` from the converter rather than a silent coercion.
+			strXml += rel.opts.legendFontSize ? `<a:defRPr sz="${ptToHundredths(rel.opts.legendFontSize)}">` : '<a:defRPr>'
 			if (rel.opts.legendColor) strXml += genXmlColorSelection(rel.opts.legendColor)
 			if (rel.opts.legendFontFace) strXml += createChartTextFonts(rel.opts.legendFontFace)
 			strXml += '      </a:defRPr>'

@@ -134,6 +134,38 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		name: 'legendFontSize reaches the legend txPr in hundredths',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, showLegend: true, legendFontSize: 14 })
+			})
+			assertIncludes(await chartXml(zip), '<a:defRPr sz="1400">', 'the legend font size is emitted in hundredths')
+		},
+	},
+	{
+		// It used to be the one font-size option whose emitter wrapped the value in `Number()`,
+		// so a string worked here while the same string threw at every other spelling of the
+		// same option. Pinned from untyped JS, which is the only place it can now arrive.
+		name: 'a string legendFontSize is refused rather than coerced',
+		fn: async () => {
+			let thrown = null
+			try {
+				await build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.bar,
+						showLegend: true,
+						legendFontSize: /** @type {never} */ ('14'),
+					})
+				})
+			} catch (err) {
+				thrown = err
+			}
+			assert(thrown instanceof InvalidOptionError, `a non-number font size throws InvalidOptionError (got ${thrown})`)
+			assertEqual(thrown.code, 'coord/non-finite', 'the converter refuses it with its own code')
+		},
+	},
+	{
 		name: 'non-positive gridLine size is dropped so defaults apply',
 		fn: async () => {
 			// A negative size with a real style takes the `size <= 0` branch (the
