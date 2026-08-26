@@ -5,7 +5,18 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { AlignH, SHAPE_NAME, TextAnchor } from '../enums.js'
-import type { Color, DataOrPathProps, HAlign, HexColor, Margin, PositionProps, TextVertType, VAlign } from './core.js'
+import type {
+	Color,
+	DataOrPathProps,
+	GeometryPoint,
+	HAlign,
+	HexColor,
+	Margin,
+	PositionProps,
+	TextVertType,
+	VAlign,
+} from './core.js'
+import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
 import type { HyperlinkProps, ShadowProps, ShapeFillProps, ShapeLineProps } from './style.js'
 
@@ -350,6 +361,18 @@ export interface TextFitShrinkProps {
 }
 
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
+	/**
+	 * Preset-geometry start/end angles for text frames (`shape` + these build `<a:prstGeom>`
+	 * adjustment guides through the shared emitter — `genXmlPresetGeom` reads them whether
+	 * the object is a shape or a styled text frame).
+	 */
+	angleRange?: [number, number]
+	/** Preset-geometry block-arc thickness for text frames. */
+	arcThicknessRatio?: number
+	/** Custom geometry points when a text frame uses a custom geometry shape. */
+	points?: GeometryPoint[]
+	/** Preset-geometry adjustment guides for text frames. */
+	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
 		align?: AlignH
