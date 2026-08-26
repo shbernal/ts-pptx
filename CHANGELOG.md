@@ -104,6 +104,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Migration: pass a number, which is what the type has always said.
 
+- **A `null` side in a cell's border tuple is now omitted rather than erased.** A four-side
+  TRBL tuple replaced every falsy side with `{ type: 'none' }`, so `border: [solid, null,
+  solid, null]` emitted four `<a:lnX>` elements — two drawn, two carrying an explicit
+  `<a:noFill/>`. On `<a:tcPr>` those are not the same state: an absent edge inherits from the
+  table style, theme banding and the master chain, while a present `<a:noFill/>` overrides
+  that inheritance. So a hole in the tuple meant the opposite of the omission it reads as, and
+  there was no spelling left for "draw the edges I name, leave the rest to the style".
+  A `null` side now leaves its element absent, which is the distinction `normalizeOuterBorder`
+  already documents for the perimeter ("a sparse side is *not* `{ type: 'none' }`"), and the
+  tuple type accepts `null` so the sparse form is authorable from TypeScript. An explicit
+  `{ type: 'none' }` still emits `<a:noFill/>`, so both states stay reachable.
+
+  Migration: a tuple that relied on `null` to erase an edge should say `{ type: 'none' }`.
+  A cell with no border authored at all is unaffected — it still receives the four-side
+  no-fill default that keeps an unstyled table free of grid lines.
+
 ### Fixed
 
 - **Auto-paged tables no longer lose a point of column width to floating-point rounding.**
@@ -143,6 +159,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each held their entries twice over, which only postponed the moment the broken wraparound
   was reached; they now hold each colour once, and a chart past their end repeats them in
   order. Output is unchanged for any chart that stayed within the palette.
+
+- **A zero-valued geometry shortcut now emits its adjustment guide.** `genXmlPresetGeom` gated
+  `rectRadius`, `angleRange` and `arcThicknessRatio` on truthiness, so a deliberate zero was
+  read as an unset option. `addShape('roundRect', { rectRadius: 0 })` emitted no `<a:gd>` at
+  all and PowerPoint fell back to the preset's own ~16.7% rounding, which is the one radius a
+  caller asking for zero does not want; `arcThicknessRatio: 0` lost `adj3` while
+  `angleRange: [0, 0]` kept `adj1`/`adj2`, an array being truthy whatever it holds. Each gate
+  now asks whether the option was supplied. Radius 0 is a sharp corner, `[0, 0]` a closed arc
+  and thickness 0 a zero-thickness band, and each builds the guide at `val 0`; every non-zero
+  input is byte-identical.
+
+- **`TextPropsOptions` declares the geometry keys the text-frame emitter already reads.**
+  A styled text frame carries preset geometry through the same `genXmlPresetGeom` a shape
+  does, and it honoured `angleRange`, `arcThicknessRatio`, `points` and `shapeAdjust` at
+  runtime while the declarations named only `shape` and `rectRadius`. So `addText` with an
+  arc's angles built exactly the right `<a:gd>` guides and TypeScript rejected the identical
+  object literal with TS2353 — and any consumer whose option map is derived exhaustively from
+  the published types could not compile against the writer's real surface. The four keys now
+  reuse the vocabulary `ShapeProps` already carries. Declaration-only: no emitted bytes move.
 
 ## [3.3.0] - 2026-08-25
 

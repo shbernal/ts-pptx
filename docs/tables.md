@@ -213,6 +213,15 @@ An array is read in **TRBL** order (`[top, right, bottom, left]`); a single `Bor
 broadcast to all four sides. A cell's own `options.border` overrides the table default
 entirely: the two do not merge per side.
 
+A `null` entry is a **hole**, not a rule. The element is left out of `<a:tcPr>` altogether, so
+that edge keeps inheriting from the built-in table style, the theme banding and the master
+chain. `{ type: 'none' }` is the other state: an explicit "no line" that overrides the
+inheritance. So `[rule, null, rule, null]` draws horizontal rules and leaves the style's
+vertical ones alone, while `[rule, { type: 'none' }, rule, { type: 'none' }]` draws the same
+two and erases the other two. A cell with no `border` authored at all is the third case: it
+still receives the four-side no-fill default, which is what keeps an unstyled table free of
+grid lines.
+
 ### `outerBorder` is the perimeter
 
 For the table's outside edge (the top of the first row, the bottom of the last, the left of
