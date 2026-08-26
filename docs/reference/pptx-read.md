@@ -104,8 +104,12 @@ either a whole subsystem or an import-only surface with no authoring trigger, so
 decoder would need a hand-authored fixture plus an independent oracle rather than a
 write→read round-trip. They stay parked until a real consumer names one:
 
-- **SmartArt** (`dgm:*` / `diagrams/`): a four-part graph (data / layout /
-  quickStyle / colors) plus fallback drawing; a subsystem, not a getter.
+- **SmartArt presentation** (`diagrams/layout*.xml`, `quickStyle*.xml`,
+  `colors*.xml`, `drawing*.xml`): the four parts that say how a diagram is *drawn*.
+  Its **data model** left this list: `GraphicFrame.diagram` decodes `dgm:dataModel`
+  into points, connections and node text (see [Diagram](#diagram-smartart) below), and the
+  four presentation parts are reachable from it as `Part`s. What stays parked is
+  decoding those presets themselves, which is a layout engine rather than a getter.
 - **OLE objects** (`p:oleObj`, embedded workbooks/docs): embedded foreign
   packages; link metadata is conceivable, the payload is out of scope.
 - **Ink** (`p:contentPart` / `inkml`): digitizer strokes; no renderer, no writer.
@@ -985,9 +989,12 @@ class GraphicFrame extends Shape {
 	readonly hasTable: boolean
 	readonly hasChart: boolean // classic c:chart
 	readonly hasChartEx: boolean // cx: chartEx (waterfall/treemap/…) — see ChartEx below
+	readonly hasDiagram: boolean // dgm: SmartArt — see Diagram below
+	readonly graphicDataUri: string | null // a:graphicData/@uri verbatim — what an undecoded frame holds
 	readonly table: Table | null // non-null when hasTable
 	readonly chart: Chart | null // non-null when hasChart (resolves the chart part)
 	readonly chartEx: ChartEx | null // non-null when hasChartEx (resolves the cx:chartSpace part)
+	readonly diagram: Diagram | null // non-null when hasDiagram (resolves the dgm:dataModel part)
 	// Fill and line setters throw: a graphicFrame has no p:spPr; its hosted
 	// table/chart carries its own fill model.
 }
@@ -1540,6 +1547,101 @@ Faithful-mapping decisions worth not re-litigating:
 > `buildShapes` now unwraps `mc:AlternateContent` (preferring the `mc:Choice` shape,
 > else `mc:Fallback`). This also surfaces zoom frames and inline-math shapes that
 > were likewise hidden.
+
+### `Diagram`: SmartArt
+
+A SmartArt graphic is a `p:graphicFrame` whose `a:graphicData/@uri` is the DrawingML
+diagram namespace. The frame holds no content of its own: its payload is a
+`dgm:relIds` naming four parts under `/ppt/diagrams/` by relationship id. The **data**
+part is the one with content in it, and it is what `Diagram` decodes.
+
+```ts
+class GraphicFrame extends Shape {
+	readonly hasDiagram: boolean // a:graphicData/@uri is the dgm namespace
+	readonly diagram: Diagram | null // non-null when hasDiagram and the data part resolves
+	readonly graphicDataUri: string | null // the raw uri, for a frame none of the predicates claim
+}
+
+class Diagram {
+	readonly part: Part // /ppt/diagrams/data{N}.xml, root dgm:dataModel
+	readonly partName: string
+	readonly points: DiagramPoint[] // dgm:ptLst/dgm:pt in document order, unfiltered
+	readonly connections: DiagramConnection[] // dgm:cxnLst/dgm:cxn in document order
+	readonly text: string // authored node text, blocks joined by '\n'
+	readonly layoutTypeId: string | null // doc point's @loTypeId — names the SmartArt kind
+	readonly quickStyleTypeId: string | null // doc point's @qsTypeId
+	readonly colorsTypeId: string | null // doc point's @csTypeId
+	readonly layoutPart: Part | null // r:lo
+	readonly quickStylePart: Part | null // r:qs
+	readonly colorsPart: Part | null // r:cs
+	readonly drawingPart: Part | null // the dsp:drawing fallback, named by an MS extension
+	readonly element_: Element | null // escape hatch; call markDirty() after mutating
+	markDirty(): void
+}
+
+class DiagramPoint {
+	readonly modelId: string | null // the GUID connections reference
+	readonly type: 'node' | 'asst' | 'doc' | 'pres' | 'parTrans' | 'sibTrans' // @type, default 'node'
+	readonly connectionId: string | null // @cxnId — the edge a transition point labels
+	readonly isPlaceholder: boolean // dgm:prSet/@phldr — an unfilled prompt node
+	readonly placeholderText: string | null // dgm:prSet/@phldrT
+	readonly textFrame: TextFrame | null // dgm:t is an a:CT_TextBody like any other
+	readonly text: string // '' when the point carries no dgm:t
+	readonly element_: Element
+}
+
+interface DiagramConnection {
+	modelId: string | null
+	type: 'parOf' | 'presOf' | 'presParOf' | 'unknownRelationship' // @type, default 'parOf'
+	sourceId: string | null // @srcId — the parent, for a parOf edge
+	destinationId: string | null // @destId — the child, for a parOf edge
+	sourceOrder: number | null // @srcOrd — the child's index among its siblings
+	destinationOrder: number | null // @destOrd
+	parentTransitionId: string | null // @parTransId, null when the schema default 0
+	siblingTransitionId: string | null // @sibTransId, null when the schema default 0
+	presentationId: string | null // @presId, set on generated edges only
+}
+```
+
+Node text reads through the ordinary run model, because `dgm:pt/dgm:t` really is an
+`a:CT_TextBody`:
+
+```js
+const frame = slide.shapes.find((shape) => shape.hasDiagram)
+console.log(frame.diagram.text) // every authored node, one per line
+for (const point of frame.diagram.points) {
+	if (point.type !== 'node') continue
+	for (const run of point.textFrame.paragraphs[0].runs) console.log(run.text, run.bold, run.resolvedFontFace)
+}
+```
+
+Two things to know before walking the point list yourself:
+
+- **Most points are not content.** A saved data model interleaves the user's nodes
+  with the `doc` root, a `parTrans`/`sibTrans` pair per edge, and one or more `pres`
+  points the layout engine generated to position each node. In an eleven-node
+  `hList1` that is 46 points, of which 11 are nodes. `Diagram.text` applies the
+  filter (everything except `pres`, `doc`, and points flagged `phldr`); `points`
+  deliberately applies none, so a consumer replicating the graph sees all of it.
+- **Transition points can carry text.** Arrow processes and org charts let a user
+  type onto an edge, so `parTrans`/`sibTrans` text is authored content and
+  `Diagram.text` includes it. This is why the filter is stated as "not generated"
+  rather than "nodes only".
+
+The tree is in `connections`, not in the point order: a `parOf` edge names its parent
+in `sourceId`, its child in `destinationId`, and the child's sibling position in
+`sourceOrder`. The `presOf` and `presParOf` edges bind a node to the `pres` point that
+draws it, and are the layout engine's bookkeeping rather than structure.
+
+`Slide.text` folds a diagram's node text in, alongside table cells, for the same reason
+PowerPoint searches and spell-checks it: it is body text. A slide whose whole message is
+a SmartArt graphic used to flatten to the empty string.
+
+Out of scope, and staying there: **authoring** SmartArt (there is no write-side
+counterpart, so a diagram survives a round trip by part preservation rather than by
+re-authoring), and decoding the layout, quick-style and colour presets, which is a
+layout engine rather than a getter. Those three parts, plus the `dsp:drawing` fallback,
+are reachable as `Part`s so a consumer can copy or inspect their bytes.
 
 ## Editing (typed API, Phase 3)
 

@@ -195,6 +195,7 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// by kind. The note exists so a reader of the emitted script learns the deck gained them.
 	'deck.docPropsDefault': [],
 	'deck.slideSize': ['widthEmu', 'heightEmu'],
+	'diagram.all': ['*'],
 	'fill.gradient.path': ['gradient', 'fill'],
 	// Recorded only when an image-filled surface cannot carry its *bytes* — a linked blip, an
 	// SVG the write path refuses, a part missing from the package. The fill option is then

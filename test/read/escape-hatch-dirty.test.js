@@ -380,3 +380,48 @@ describe('shared-chrome and notes element_ / markDirty()', () => {
 		)
 	})
 })
+
+describe('diagram element_ / markDirty()', () => {
+	/** The `mixed` fixture's SmartArt diagram (slide 2). */
+	const diagramOf = (presentation) => firstFramed(presentation, (shape) => shape.diagram)
+
+	/** The diagram data part a `changed` list is expected to hold exactly one of. */
+	function assertOnlyDataPart(changed) {
+		assertEqual(changed.join(), 'ppt/diagrams/data1.xml', 'only the diagram data part is reserialized')
+	}
+
+	test('a diagram edit through element_ is dropped without markDirty()', async () => {
+		const { changed } = await saveAfter('mixed', (presentation) => {
+			diagramOf(presentation).element_.setAttribute('xmlns:tspptx', 'urn:test')
+		})
+		assertEqual(changed.length, 0, 'no part should be reserialized without markDirty()')
+	})
+
+	test('Diagram.markDirty() reserializes the data part, not the slide', async () => {
+		const { changed } = await saveAfter('mixed', (presentation) => {
+			const diagram = diagramOf(presentation)
+			diagram.element_.setAttribute('xmlns:tspptx', 'urn:test')
+			diagram.markDirty()
+		})
+		assertOnlyDataPart(changed)
+	})
+
+	test('DiagramPoint.element_ reaches the data part through Diagram.markDirty()', async () => {
+		// A point has no markDirty() of its own: it is one rung inside the part its
+		// Diagram owns, so the obligation belongs to the Diagram. The edit sets a real
+		// attribute rather than a marker one, so the read side proves it landed.
+		const { saved, changed } = await saveAfter('mixed', (presentation) => {
+			const diagram = diagramOf(presentation)
+			const point = diagram.points.find((candidate) => candidate.type === 'node')
+			assertEqual(point.placeholderText, null, 'a filled node names no prompt string before the edit')
+			const prSet = point.element_.getElementsByTagName('dgm:prSet')[0]
+			prSet.setAttribute('phldrT', '[Hatched]')
+			diagram.markDirty()
+		})
+		assertOnlyDataPart(changed)
+		const reopened = await Presentation.load(saved)
+		const point = diagramOf(reopened).points.find((candidate) => candidate.type === 'node')
+		assertEqual(point.placeholderText, '[Hatched]', 'the marked edit reaches the output')
+		assertEqual(point.isPlaceholder, false, 'a prompt string alone does not make the node a placeholder')
+	})
+})

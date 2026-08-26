@@ -341,9 +341,14 @@ export class Slide implements ShapeHost {
 	 * All text on the slide, flattened in document order — the read-model
 	 * counterpart to {@link TextFrame.text} one level up. Every text-bearing shape
 	 * contributes its text, recursing into groups ({@link GroupShape}) and reading
-	 * table cells ({@link GraphicFrame.table}); text-free shapes (pictures,
-	 * connectors, empty boxes) contribute nothing. Blocks are joined by `\n`; within
-	 * a table, cells in a row are joined by `\t` and rows by `\n`.
+	 * table cells ({@link GraphicFrame.table}) and SmartArt node text
+	 * ({@link GraphicFrame.diagram}); text-free shapes (pictures, connectors, empty
+	 * boxes) contribute nothing. Blocks are joined by `\n`; within a table, cells in
+	 * a row are joined by `\t` and rows by `\n`.
+	 *
+	 * A diagram contributes for the same reason a table does: its nodes are body text
+	 * PowerPoint itself searches and spell-checks, so a slide whose whole message is a
+	 * SmartArt graphic would otherwise flatten to the empty string.
 	 *
 	 * This is deliberately scoped to the slide's own shape tree. It does **not**
 	 * include speaker notes (read those via {@link notesText}) or chart data labels
@@ -359,11 +364,16 @@ export class Slide implements ShapeHost {
 					walk(shape.shapes)
 				} else if (shape instanceof GraphicFrame) {
 					const table = shape.table
-					if (!table) continue
-					for (const row of table.rows) {
-						const cells = row.cells.map((cell) => cell.text)
-						if (cells.some((cell) => cell.length > 0)) blocks.push(cells.join('\t'))
+					if (table) {
+						for (const row of table.rows) {
+							const cells = row.cells.map((cell) => cell.text)
+							if (cells.some((cell) => cell.length > 0)) blocks.push(cells.join('\t'))
+						}
+						continue
 					}
+					const diagram = shape.diagram
+					const diagramText = diagram ? diagram.text : ''
+					if (diagramText.length > 0) blocks.push(diagramText)
 				} else {
 					const text = shape.text
 					if (text.length > 0) blocks.push(text)

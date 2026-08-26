@@ -701,11 +701,24 @@ function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetRe
 		return null
 	}
 
+	if (shape.hasDiagram) {
+		// Read but unwritable, so it takes the `chartEx.all` shape rather than the
+		// `graphicFrame.unknown` one below: the loss is the *write* side's, and saying
+		// "not decoded" of a construct whose text the read model now returns would be false.
+		notes.note(
+			'diagram.all',
+			'dropped',
+			'unwritable',
+			'a SmartArt diagram has a read surface (GraphicFrame.diagram) but no write-API counterpart'
+		)
+		return null
+	}
+
 	notes.note(
 		'graphicFrame.unknown',
 		'dropped',
 		'unread',
-		'this graphic frame hosts neither a table nor a chart (SmartArt or an OLE object), which the read model does not decode'
+		'this graphic frame hosts none of a table, a chart or a SmartArt diagram (an OLE object or an ink annotation), which the read model does not decode'
 	)
 	return null
 }

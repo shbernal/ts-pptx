@@ -323,7 +323,13 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   other fixtures miss: connectors (`p:cxnSp`), nested groups (`p:grpSp`),
   plus tables, a chart (`c:chart`), and SmartArt/diagram (`dgm:`) graphic
   frames. The Phase 2 read-model coverage deck for shape enumeration and
-  group traversal.
+  group traversal. Slide 2 is also the SmartArt oracle for `Diagram`
+  (`test/read/diagram.test.js`): a PowerPoint-authored `hList1` whose data model
+  holds 46 points, of which 11 are nodes carrying run-split text, the rest being
+  the `doc` root, a `parTrans`/`sibTrans` pair per edge, and 12 generated `pres`
+  points. Genuine Office output matters here more than usual, since nothing in
+  the library writes SmartArt: a write→read round trip could only prove the
+  reader agrees with a fixture its own author invented.
 - `group-transform.pptx` — a locally authored two-slide deck with seven
   PowerPoint group-shape transform cases: a rotated group, horizontally and
   vertically flipped groups, a combined rotated plus horizontal/vertical flipped

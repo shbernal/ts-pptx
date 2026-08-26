@@ -216,6 +216,9 @@ describe('mixed.pptx — connectors, groups, graphic frames', () => {
 		const smartArt = frameOn(1) // slide2: dgm diagram
 		assert(smartArt, 'slide2 has a graphic frame')
 		assert(!smartArt.hasTable && !smartArt.hasChart, 'SmartArt frame is neither table nor chart')
+		assert(smartArt.hasDiagram, 'SmartArt frame reports a diagram host')
+		// The three kinds partition: no frame answers `true` to two predicates.
+		assert(!table.hasDiagram && !chart.hasDiagram, 'the table and chart frames report no diagram')
 	})
 
 	// The exported type guards must agree with the `shapeType` discriminant they

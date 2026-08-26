@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **SmartArt is readable: `GraphicFrame.hasDiagram` and `GraphicFrame.diagram`.** A
+  `p:graphicFrame` whose `a:graphicData/@uri` is the DrawingML diagram namespace answered
+  `false` to all three host predicates and `null` to all three accessors, so its content was
+  unreachable through the read model, and a consumer could not distinguish "this frame holds
+  text I cannot get at" from "this frame holds a chart with no labels". `Diagram` decodes the
+  `dgm:dataModel` part: `points` (every `dgm:pt` in document order, typed
+  `node`/`asst`/`doc`/`pres`/`parTrans`/`sibTrans`), `connections` (the `dgm:cxn` edges that
+  give the points their tree), and `text` (the authored node text, generated `pres` points,
+  the `doc` root and unfilled placeholders excluded). A point's `textFrame` is an ordinary
+  `TextFrame` over its `dgm:t`, so runs, formatting and the `resolved*` getters all apply.
+  The layout, quick-style, colours and fallback drawing parts resolve as `Part`s, and the
+  `doc` point's `layoutTypeId` names the SmartArt kind. Authoring SmartArt remains out of
+  scope. See `docs/reference/pptx-read.md`.
+
+- **`GraphicFrame.graphicDataUri` reports what an undecoded frame holds.** Every `has*`
+  predicate is a comparison against this URI, so a frame that matches none of them is one the
+  read model does not decode (an OLE object, an ink annotation). Reading it lets a consumer
+  say which construct it could not reach instead of inferring loss from four `false`s. The
+  class comment had described this accessor since the frame reader was written; it had never
+  actually been public.
+
 - **`resetDiagnosticState()` clears the once-per-process warning record.** Conditions that
   would flood a log are emitted once per distinct code and message, and that record was
   process-global with no way to clear it. So a service building a second deck got no warning
@@ -20,6 +41,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/diagnostics.md`.
 
 ### Changed
+
+- **`Slide.text` now includes SmartArt node text.** A slide whose whole message is a diagram
+  flattened to the empty string, or to its title alone. Diagram nodes are body text that
+  PowerPoint itself searches and spell-checks, so they contribute a block each, in shape-tree
+  order, exactly as table cells already did. Chart data labels and speaker notes are still
+  excluded, unchanged.
+
+  Migration: if you were summing `Slide.text` lengths to detect empty slides, or diffing that
+  string across versions, a deck containing SmartArt will now report more text. Read
+  `GraphicFrame.diagram` directly if you need the diagram separated back out.
+
+- **A converted script now distinguishes `diagram.all` from `graphicFrame.unknown`.** SmartArt
+  used to be reported under the latter, whose stated cause is `unread`. With a reader in front
+  of it, the loss is the write leg's: `pptxToScript` emits `diagram.all` (`unwritable`,
+  `dropped`), the same shape as `chartEx.all`. `graphicFrame.unknown` keeps its meaning and now
+  names only genuinely undecoded frames.
 
 - **A non-finite size or angle is now refused rather than serialized.** `fontSize`,
   `charSpacing`, `lineSpacing`, `paraSpaceBefore`/`After`, `rotate`, a chart's

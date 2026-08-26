@@ -1,14 +1,18 @@
 /**
- * A graphic frame (`p:graphicFrame`) — the host element for a table, a chart, or a chartEx chart.
+ * A graphic frame (`p:graphicFrame`) — the host element for a table, a chart, a chartEx
+ * chart, or a SmartArt diagram.
  *
- * Which one it holds is told by the `a:graphicData/@uri`, so the accessors below each check that
- * URI before wrapping the payload; `graphicDataUri` is there for the frames this library does not
- * model (SmartArt, OLE, ink), which read as a frame with no table and no chart.
+ * Which one it holds is told by the `a:graphicData/@uri`, so the accessors below each check
+ * that URI before wrapping the payload. {@link GraphicFrame.graphicDataUri} reports it raw,
+ * which is the only signal for the frames this library still does not model (OLE, ink):
+ * without it a consumer cannot tell "this frame holds content I cannot reach" from "this
+ * frame holds a chart with nothing in it", since every predicate answers `false` for both.
  */
 
 import { attr, firstChild, getOrAddChild, type Element } from '../../oxml/dom.js'
 import { Chart } from '../chart.js'
 import { ChartEx } from '../chartex.js'
+import { Diagram } from '../diagram.js'
 import { Table } from '../table.js'
 import { Shape } from './base.js'
 import type { ShapeProperties } from './oxml.js'
@@ -18,8 +22,10 @@ const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
 // chartEx (Office-2016 chart family) graphicData URI + `cx:chart` reference child namespace.
 const A_CHARTEX_URI = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
+// SmartArt: the DrawingML diagram namespace, whose payload is a `dgm:relIds` reference.
+const A_DIAGRAM_URI = 'http://schemas.openxmlformats.org/drawingml/2006/diagram'
 
-/** A graphic frame (`p:graphicFrame`) — host for tables and charts. */
+/** A graphic frame (`p:graphicFrame`) — host for tables, charts and SmartArt diagrams. */
 export class GraphicFrame extends Shape {
 	readonly shapeType = 'graphicFrame' as const
 
@@ -57,6 +63,24 @@ export class GraphicFrame extends Shape {
 		return this.#graphicDataUri() === A_CHARTEX_URI
 	}
 
+	/** Whether this frame hosts a SmartArt diagram (`a:graphicData/@uri` is the diagram URI). */
+	get hasDiagram(): boolean {
+		return this.#graphicDataUri() === A_DIAGRAM_URI
+	}
+
+	/**
+	 * The `a:graphicData/@uri` verbatim — the namespace naming what this frame hosts, or
+	 * `null` when the frame carries no `a:graphicData`.
+	 *
+	 * Every `has*` predicate is a comparison against this, so a frame whose URI matches none
+	 * of them is one the read model does not decode (an OLE object, an ink `p:contentPart`).
+	 * Reading the URI is what lets a consumer say *which* construct it could not reach
+	 * instead of inferring loss from four `false`s.
+	 */
+	get graphicDataUri(): string | null {
+		return this.#graphicDataUri()
+	}
+
 	/** The hosted table, or `null` when this frame is not a table. */
 	get table(): Table | null {
 		if (!this.hasTable) return null
@@ -92,6 +116,23 @@ export class GraphicFrame extends Shape {
 		const partName = this.host.relationships.resolveTarget(relId)
 		const part = this.host.opc.part(partName)
 		return part ? new ChartEx(part) : null
+	}
+
+	/**
+	 * The hosted SmartArt diagram, or `null` when this frame is not a diagram or its data
+	 * part is missing. The payload child is `dgm:relIds`, which names four parts by
+	 * relationship id; the `@r:dm` one is the data model this resolves.
+	 */
+	get diagram(): Diagram | null {
+		if (!this.hasDiagram) return null
+		const graphicData = this.#graphicData()
+		const relIds = graphicData && firstChild(graphicData, 'dgm:relIds')
+		if (!relIds) return null
+		const relId = attr(relIds, 'r:dm')
+		if (!relId) return null
+		const partName = this.host.relationships.resolveTarget(relId)
+		const part = this.host.opc.part(partName)
+		return part ? new Diagram(part, relIds, this.host.opc, this.host.relationships, this.host.themeContext()) : null
 	}
 
 	#graphicData(): Element | null {
