@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.5.0] - 2026-08-26
+
+This release makes a text edit land where the text is actually read. `Paragraph.text` and
+`DiagramPoint.text` are settable, and the SmartArt setter writes the fallback drawing cache
+that every renderer without a layout engine paints from, not just the data model PowerPoint
+reads. The diagram data model gains its tree (`Diagram.nodes`, `Diagram.point()`) and a link
+from a node to the shape drawn for it. `importSlide` stops copying chrome the destination
+already holds, which takes a duplicate layout and master off every import between decks
+templated from one file, and with it off the carried slides `ts-pptx/script` emits. And two
+read surfaces stop losing graphic frames: `inspectPptx` reports them instead of skipping
+them, and a SmartArt slide is copied rather than transcribed into a script with a hole in it.
 
 ### Added
 
@@ -81,14 +91,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A converted script's carried slide no longer costs a layout, and batches bind by name
   again.** `ts-pptx/script`'s template-anchored tier copies a slide the write API cannot
   author (`slide.carried`) with `importSlide`, out of the very file it templated the deck
-  from. That import used to duplicate the slide's layout and master, so the printer recorded
-  a `slide.carriedChrome` fidelity note and, because the duplicate repeated a layout *name*,
-  demoted every `appendSlides` binding in the emitted script from the name to a gallery
-  position. With `importSlide` reusing chrome the destination already holds, neither is true:
-  the note is retired (with its entry in the verifier's note-to-difference map) and layout
-  names stay unambiguous, so bindings print as `{ layout: 'Titelfolie' }`. A multi-master deck
-  that genuinely repeats a layout name still falls back to a position, which is the case the
-  fallback was always for.
+  from. That import used to duplicate the slide's layout and master, and because the duplicate
+  repeated a layout *name*, it demoted every `appendSlides` binding in the emitted script from
+  the name to a gallery position. With `importSlide` reusing chrome the destination already
+  holds, layout names stay unambiguous and bindings print as `{ layout: 'Titelfolie' }`. A
+  multi-master deck that genuinely repeats a layout name still falls back to a position, which
+  is the case the fallback was always for.
 
 - **`inspectPptx` reports graphic frames.** A `p:graphicFrame` (table, chart, SmartArt, or a
   payload this library does not model) was skipped outright and consumed no `zIndex`, so a
@@ -123,13 +131,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was transcribed and silently lost its diagram, with only a per-shape fidelity note recording
   the loss. Both sites now share one predicate, so they cannot drift apart again.
 
-  The copy is not free, and now says so: `importSlide` brings the copied slide's own layout,
-  master and theme across and cannot recognise that the deck was templated from that same
-  file, so the output carries a duplicate layout-gallery entry per carried slide. That is
-  declared by a new `slide.carriedChrome` fidelity note. Layout handles are also resolved up
-  front rather than where first used, since an `importSlide` between two `appendSlides` calls
-  moves the gallery underneath them, and a duplicated layout *name* made the later call throw
-  `layout/ambiguous-name`.
+  The copy costs nothing in the layout gallery, because `importSlide` now binds to chrome the
+  destination already holds (see above) and the template-anchored tier copies out of the very
+  file it templated the deck from. Layout handles are still resolved up front rather than
+  where first used, since an `importSlide` between two `appendSlides` calls moves the gallery
+  underneath them.
 
   Migration: a deck whose SmartArt, OLE or ink slides previously came out `authored` now comes
   out `carried`. The emitted script imports those slides from the template instead of
@@ -3377,6 +3383,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.5.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.5.0
 [3.4.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.4.0
 [3.3.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.3.0
 [3.2.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.2.0
