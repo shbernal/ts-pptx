@@ -14,7 +14,8 @@ import {
 	SchemeColor,
 	SlideObjectType,
 } from '../../enums.js'
-import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../constants-internal.js'
+import { DEF_CHART_BORDER } from '../../constants-internal.js'
+import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
 import { InvalidOptionError } from '../../errors.js'
 import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
@@ -217,11 +218,11 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	options.holeSize = clampChartPct(options.holeSize, 10, 90, 'holeSize')
 	options.firstSliceAng = clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng')
 
-	options.chartColors = Array.isArray(options.chartColors)
-		? options.chartColors
-		: options._type === ChartType.pie || options._type === ChartType.doughnut
-			? PIECHART_COLORS
-			: BARCHART_COLORS
+	// An empty array is not a palette, so it means what saying nothing means: the built-in
+	// default for this chart type. It used to survive this pass (`Array.isArray([])` is true)
+	// and meet the plot builders' fallback instead, which was the *bar* palette on every type —
+	// so `{ chartColors: [] }` on a pie was neither the caller's colours nor the pie default.
+	options.chartColors = options.chartColors?.length ? options.chartColors : defaultChartPalette(options._type)
 	options.chartColorsOpacity =
 		options.chartColorsOpacity && !isNaN(options.chartColorsOpacity) ? options.chartColorsOpacity : undefined
 	options.plotArea = options.plotArea || {}

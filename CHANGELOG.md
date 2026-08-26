@@ -46,6 +46,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chart label rotations. Those now go through a non-wrapping converter, so an adjust handle
   declared with `maxAng: 540` keeps its full travel instead of silently collapsing to 180.
 
+- **An empty `chartColors` now means the same as omitting it.** `chartColors: []` used to give
+  every chart the *bar* palette, including a pie or doughnut, whose default when the option is
+  omitted is `PIECHART_COLORS`. Nothing chose that: normalization defaulted a *missing*
+  `chartColors` per chart type, `Array.isArray([])` is true, so an explicit empty array walked
+  through that pass untouched and met a later fallback that did not know the chart type. An
+  empty array names no colours, which is what omitting the option means, so both now resolve to
+  the built-in palette for the chart's own type. A combo subchart's palette resolves the same
+  way for the first time — its options never went through that normalization pass at all.
+
+  Migration: if you passed `chartColors: []` to a pie or doughnut and wanted the bar palette,
+  pass it explicitly. Every other chart type is unaffected: its default already was that
+  palette.
+
 ### Fixed
 
 - **Auto-paged tables no longer lose a point of column width to floating-point rounding.**

@@ -16,6 +16,7 @@ import {
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SHAPE_SHADOW,
+	PIECHART_COLORS,
 } from '../../constants-internal.js'
 import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
@@ -63,16 +64,30 @@ export function validTimeUnit(value: string | undefined, optionName: string): st
  * data points than the palette has entries still emits the same bytes on every build.
  */
 /**
- * The palette a chart's series and data points draw from: the caller's `chartColors` when it has
- * entries, otherwise the built-in default.
+ * The built-in series palette for a chart type.
  *
- * `addChartDefinition` already defaults `chartColors`, so the fallback here is belt-and-braces —
- * it also covers an explicitly empty array, which would otherwise leave every lookup with
- * nothing to return. Six plot builders wrote this out; going through one function is what makes
- * "empty means default" a single decision rather than six.
+ * Pie and doughnut colour their *data points* rather than their series, so they take the wider,
+ * flatter `PIECHART_COLORS`; everything else takes `BARCHART_COLORS`. A combo chart's `_type` is
+ * an array, which is neither, and lands on the bar palette its subcharts already use.
+ * @param {ChartOptsInternal['_type']} type - the normalized chart type
+ * @returns {string[]} the palette that applies when the caller named none
+ */
+export function defaultChartPalette(type: ChartOptsInternal['_type']): string[] {
+	return type === ChartType.pie || type === ChartType.doughnut ? PIECHART_COLORS : BARCHART_COLORS
+}
+
+/**
+ * The palette a chart's series and data points draw from: the caller's `chartColors` when it has
+ * entries, otherwise {@link defaultChartPalette} for this chart's type.
+ *
+ * `addChartDefinition` resolves `chartColors` the same way, so for a plain chart this agrees with
+ * what normalization already put there. It is not redundant: a combo subchart's options are not
+ * put through that pass (`SUBCHART_VALIDATED_KEYS` does not list `chartColors`), so this is the
+ * only place a subchart's palette is decided. Six plot builders wrote the lookup out; going
+ * through one function is what makes "no colours named" a single decision rather than six.
  */
 export function resolveChartPalette(opts: ChartOptsInternal): string[] {
-	return opts.chartColors?.length ? opts.chartColors : BARCHART_COLORS
+	return opts.chartColors?.length ? opts.chartColors : defaultChartPalette(opts._type)
 }
 
 export function paletteColor(palette: readonly string[], idx: number, fallback = '000000'): string {

@@ -141,15 +141,14 @@ defineRegressionSuite('Shared chart fragments', [
 		},
 	},
 	{
-		// Every plot builder resolves the palette the same way, through one function, including
-		// the case `addChartDefinition`'s own default does not cover: an explicitly empty array,
-		// which stays empty there (`Array.isArray([])` is true) and only gets a fallback here.
+		// Every plot builder resolves the palette the same way, through one function, and so
+		// does `addChartDefinition`: an empty array names no colours, which is what omitting
+		// the option means, so both land on the built-in default for the chart's own type.
 		//
-		// That fallback is the *bar* palette on every chart type, which is not the same thing as
-		// omitting `chartColors`: a pie or doughnut defaults to `PIECHART_COLORS` instead. Pinned
-		// as it is rather than as it arguably should be -- this is long-standing behaviour and
-		// changing it is a decision, not a refactor. See FOLLOW-UPS.
-		name: 'an empty chartColors falls back to a palette rather than emitting nothing',
+		// The pie case is the one that used to differ. `Array.isArray([])` is true, so an
+		// explicit `[]` survived normalization untouched and met the plot builders' fallback
+		// instead, which was the *bar* palette on every type.
+		name: 'an empty chartColors means the same as omitting it',
 		fn: async () => {
 			const rows = Array.from({ length: 3 }, (_unused, idx) => ({
 				name: `S${idx}`,
@@ -162,11 +161,14 @@ defineRegressionSuite('Shared chart fragments', [
 				assertEqual(await chartFor(type, rows, { chartColors: [] }), xml, `${type}: empty is the same as omitted`)
 			}
 
-			// The exception, stated rather than smoothed over.
+			// The type whose default is not the bar palette, so it is the one that can tell an
+			// empty array apart from an omitted one.
 			const pie = await chartFor(ChartType.pie, rows)
 			assertIncludes(pie, '<a:srgbClr val="5DA5DA"/>', 'omitting chartColors gives a pie the pie palette')
 			const emptyPie = await chartFor(ChartType.pie, rows, { chartColors: [] })
-			assertIncludes(emptyPie, '<a:srgbClr val="C0504D"/>', 'an explicitly empty one gives it the bar palette')
+			assertIncludes(emptyPie, '<a:srgbClr val="5DA5DA"/>', 'and so does an explicitly empty one')
+			assertNotIncludes(emptyPie, '<a:srgbClr val="C0504D"/>', 'not the bar palette it used to fall back to')
+			assertEqual(emptyPie, pie, 'empty is byte-identical to omitted on a pie')
 		},
 	},
 ])

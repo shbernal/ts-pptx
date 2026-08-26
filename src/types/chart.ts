@@ -217,6 +217,14 @@ export interface ChartPropsBase {
 	 * Axis position
 	 */
 	axisPos?: 'b' | 'l' | 'r' | 't'
+	/**
+	 * Series colours, cycled: series (or, on a pie/doughnut, data point) `n` takes
+	 * `chartColors[n % chartColors.length]`, so a shorter list repeats rather than running out.
+	 *
+	 * Omitting it, or passing an empty array, both mean the same thing — the built-in default
+	 * palette for the chart type. Two spellings of "I named no colours"; there is no third state
+	 * that suppresses the fills.
+	 */
 	chartColors?: HexColor[]
 	/**
 	 * opacity (0 - 100)
