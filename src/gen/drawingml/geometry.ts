@@ -102,7 +102,12 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 		avLst += voidEl('a:gd', { name, fmla: `val ${fmlaVal}` })
 		emittedAdjNames.add(name)
 	}
-	if (options.rectRadius) {
+	// Zero is a deliberate value for every shortcut here — radius 0 is a sharp corner,
+	// `[0, 0]` is a closed arc, thickness ratio 0 is a zero-thickness band — so each gate
+	// asks whether the option was supplied (`!== undefined`), not whether it is truthy.
+	// A truthy check silently dropped rectRadius: 0's guide entirely (PowerPoint then fell
+	// back to the preset default rounding) and arcThicknessRatio: 0's adj3. (#24)
+	if (options.rectRadius !== undefined) {
 		const adjVal = Math.round((options.rectRadius * EMU_PER_INCH * PERCENT_SCALE) / Math.min(cx, cy))
 		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
 			emitGuide('adj1', adjVal)
@@ -110,13 +115,13 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 		} else {
 			emitGuide('adj', adjVal)
 		}
-	} else if (options.angleRange) {
+	} else if (options.angleRange !== undefined) {
 		for (let i = 0; i < 2; i++) {
 			const angle = options.angleRange[i] ?? 0
 			emitGuide(`adj${i + 1}`, convertAngleUnits(angle, `angleRange[${i}]`))
 		}
 
-		if (options.arcThicknessRatio) {
+		if (options.arcThicknessRatio !== undefined) {
 			emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
 		}
 	}
