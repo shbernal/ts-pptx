@@ -5,12 +5,13 @@
  * presets PowerPoint can't parse), applies line defaults, registers hyperlink + image-fill rels,
  * and pushes a `text`-type shape object.
  */
-import { type SHAPE_NAME, ShapeType, SlideObjectType, VALID_SHAPE_PRESETS } from '../../enums.js'
+import { type SHAPE_NAME, ShapeType, SlideObjectType } from '../../enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
+import { assertKnownPreset } from '../drawingml/geometry.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
@@ -57,16 +58,10 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 			'Missing/Invalid shape parameter! Example: `addShape(ShapeType.line, {x:1, y:1, w:1, h:1});`'
 		)
 
-	// Reject presets PowerPoint can't parse. An invalid `prst` value (a typo or an
-	// unmapped friendly name) corrupts the package and triggers the repair dialog,
-	// so fail loudly here rather than emit degenerate OOXML. Use `ShapeType.*`
-	// for the canonical names.
-	if (!VALID_SHAPE_PRESETS.has(resolvedShapeName)) {
-		throw new InvalidOptionError(
-			'shape/unknown-preset',
-			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
-		)
-	}
+	// Reject presets PowerPoint can't parse (a typo, or an unmapped friendly name)
+	// here at the API boundary as well as at serialization time, so the message
+	// names the call the caller actually made.
+	assertKnownPreset(resolvedShapeName)
 
 	// 1: ShapeLineProps defaults
 	// A stroke can carry a non-solid paint (a `gradient`) just like a fill, so infer the

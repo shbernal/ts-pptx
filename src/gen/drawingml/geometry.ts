@@ -70,16 +70,27 @@ const GEOM_GUIDE_OPS = new Set([
 // Sourced from ECMA-376 Annex D electronic addenda (presetShapeDefinitions.xml).
 const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
 
+/**
+ * Reject a preset PowerPoint can't parse.
+ *
+ * An unknown `prst` value corrupts the package: PowerPoint shows the "needs
+ * repair" dialog and drops the shape. So this is the safety net for every
+ * `prstGeom` emitter — `addShape`, and the `shape` option on `addText`/`addImage`
+ * — and it is also called during `addShape` normalization, so the caller sees
+ * their own typo at the API boundary rather than at serialization time.
+ * @param {string} shapeName - the resolved preset geometry name
+ * @throws {InvalidOptionError} `shape/unknown-preset` when the name is not a preset
+ */
+export function assertKnownPreset(shapeName: string): void {
+	if (VALID_SHAPE_PRESETS.has(shapeName)) return
+	throw new InvalidOptionError(
+		'shape/unknown-preset',
+		`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+	)
+}
+
 export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
-	// Safety net for every prstGeom emitter (addShape, addText/addImage `shape`):
-	// an unknown preset becomes an invalid `prst` value that makes PowerPoint show
-	// the "needs repair" dialog and drop the shape. Fail loudly instead.
-	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
-		throw new InvalidOptionError(
-			'shape/unknown-preset',
-			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
-		)
-	}
+	assertKnownPreset(shapeName)
 	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
 	// never emits a duplicate `<a:gd>` for a handle a friendly shortcut already set.
 	let avLst = ''
