@@ -331,8 +331,10 @@ export function renderTableObject(
 				let spanPrXml = ''
 				// Outside the `origin` guard below: a covered cell on the table's edge carries that
 				// edge's rule whether or not its origin was resolvable.
+				// A null tuple side means "this edge is omitted" (inherits) — normalize it to a
+				// hole here, which `applyOuterBorder` already treats as "leave the edge alone".
 				const originBorder = applyOuterBorder(
-					Array.isArray(originOpts.border) ? originOpts.border : null,
+					Array.isArray(originOpts.border) ? originOpts.border.map((side) => side ?? undefined) : null,
 					outerBorder,
 					at
 				)
@@ -441,7 +443,13 @@ export function renderTableObject(
 			// Child order is the CT_TableCellProperties sequence: the four edges, the two diagonals,
 			// `cell3D`, then the fill. Unlike the edges, the diagonals are NOT copied onto a merged
 			// region's covered cells (see `genTableCellBorderXml`).
-			const cellBorder = applyOuterBorder(Array.isArray(cellOpts.border) ? cellOpts.border : null, outerBorder, at)
+			// A null tuple side is *omitted* (inherits) — normalize it to a hole, which
+			// `applyOuterBorder` already treats as "leave the edge alone".
+			const cellBorder = applyOuterBorder(
+				Array.isArray(cellOpts.border) ? cellOpts.border.map((side) => side ?? undefined) : null,
+				outerBorder,
+				at
+			)
 			const cellDiagonal = cellOpts.diagonal
 			const cellBorderXml = cellBorder || cellDiagonal ? genTableCellBorderXml(cellBorder ?? [], cellDiagonal) : ''
 			rowCells.push(

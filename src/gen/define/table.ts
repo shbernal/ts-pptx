@@ -32,7 +32,8 @@ import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
 
-type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
+/** A per-cell TRBL border tuple; a null side is *omitted* (inherits), not erased. */
+type BorderTuple = [BorderProps | null, BorderProps | null, BorderProps | null, BorderProps | null]
 type OuterBorderTuple = [BorderProps?, BorderProps?, BorderProps?, BorderProps?]
 
 /**
@@ -173,17 +174,19 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 					cellBorder = normalizeBorderTuple(cellBorder)
 					newCellOptions.border = cellBorder
 				}
-				// Handle: [null, null, {type:'solid'}, null]
+				// Handle: [null, null, {type:'solid'}, null]. A null side is *omitted*, not erased:
+				// it keeps inheriting from the built-in style/theme, exactly the distinction
+				// `normalizeOuterBorder` documents for the perimeter ("a sparse side is NOT
+				// `{ type: 'none' }`"). Converting a hole into an explicit `<a:noFill/>` overrides
+				// that inheritance and there was no spelling left for "draw this edge, leave that one".
+				// See #23 for whether an entirely-unauthored border should also stop being filled.
 				const cellBorderTuple = newCellOptions.border as BorderTuple
-				if (!cellBorderTuple[0]) cellBorderTuple[0] = { type: 'none' }
-				if (!cellBorderTuple[1]) cellBorderTuple[1] = { type: 'none' }
-				if (!cellBorderTuple[2]) cellBorderTuple[2] = { type: 'none' }
-				if (!cellBorderTuple[3]) cellBorderTuple[3] = { type: 'none' }
 
-				// set complete BorderOptions for all sides
+				// set complete BorderOptions for the sides that were authored
 				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach((idx) => {
 					const side = cellBorderTuple[idx]
+					if (!side) return
 					// `withBorderDefaults` spreads first and overrides only the defaulted keys.
 					// Rebuilding the side from a fixed key list dropped `cap` — public on
 					// `BorderProps` and already read by `genTableCellBorderXml`, so every table

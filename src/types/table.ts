@@ -199,7 +199,7 @@ export interface TableCellProps extends TextBaseProps {
 	 * merge per side. For the two corner-to-corner rules see {@link diagonal}; for the
 	 * table's outside edge see {@link TableProps.outerBorder}.
 	 */
-	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
+	border?: BorderProps | [BorderProps | null, BorderProps | null, BorderProps | null, BorderProps | null]
 	/**
 	 * The cell's corner-to-corner rules — PowerPoint's "Diagonal Down/Up Border".
 	 *
@@ -368,7 +368,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * @example border: { type:'solid', color:'D9D9D9', width:0.5 } // full grid
 	 * @example border: [{type:'solid'}, {type:'none'}, {type:'solid'}, {type:'none'}] // horizontal rules only
 	 */
-	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
+	border?: BorderProps | [BorderProps | null, BorderProps | null, BorderProps | null, BorderProps | null]
 	/**
 	 * Border for the table's outer perimeter only — the top edge of the first row, the
 	 * bottom edge of the last row, the left edge of the first column and the right edge of
