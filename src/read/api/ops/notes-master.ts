@@ -25,6 +25,7 @@ import {
 import { PackageReadError } from '../../../errors.js'
 import { makeXmlNotesMaster } from '../../../gen/slide/notes.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
+import { presentationRels } from './deck-target.js'
 
 const textEncoder = new TextEncoder()
 
@@ -111,8 +112,7 @@ export function carryNotes(
  * registered in `presentation.xml`. Returns the destination notesMaster partname.
  */
 function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMasterPartName: string): string {
-	const presPart = dest.presentationPart
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	const existing = presRels.byType(NOTES_MASTER_REL)[0]
 	if (existing) return presRels.resolveTarget(existing.id)
 
@@ -132,7 +132,7 @@ function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMa
  */
 function registerNotesMaster(dest: Presentation, notesMasterPartName: string): string {
 	const presPart = dest.presentationPart
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id
 
 	const root = presPart.dom.documentElement
@@ -173,8 +173,7 @@ function registerNotesMaster(dest: Presentation, notesMasterPartName: string): s
  * theme its `.rels` requires (the normal write path emits that as `theme2.xml`).
  */
 export function ensureNotesMasterFromXml(dest: Presentation, master: { xml: string; themeXml: string }): string {
-	const presPart = dest.presentationPart
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	const existing = presRels.byType(NOTES_MASTER_REL)[0]
 	if (existing) return presRels.resolveTarget(existing.id)
 
@@ -216,8 +215,7 @@ export function ensureNotesMasterFromXml(dest: Presentation, master: { xml: stri
  * @return {string} the destination notesMaster partname
  */
 export function ensureNotesMasterForAuthoring(dest: Presentation, slidePartName: string): string {
-	const presPart = dest.presentationPart
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	const existing = presRels.byType(NOTES_MASTER_REL)[0]
 	if (existing) return presRels.resolveTarget(existing.id)
 

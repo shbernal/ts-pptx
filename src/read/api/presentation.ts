@@ -86,6 +86,7 @@ import {
 	SLIDE_REL,
 } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
+import { presentationRels } from './ops/deck-target.js'
 
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -432,7 +433,7 @@ export class Presentation {
 
 		// Unwire from presentation.xml: remove the matching p:sldId and the rel.
 		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const presRels = presentationRels(this)
 		const root = presPart.dom.documentElement
 		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
 		if (sldIdLst) {
@@ -1314,7 +1315,7 @@ export class Presentation {
 	 */
 	#insertSlidePart(newPart: Part, at?: number): Slide {
 		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const presRels = presentationRels(this)
 
 		// A slide part belongs to `p:sldIdLst` exactly once. Two `p:sldId` entries
 		// naming one part is a package PowerPoint refuses to open (0x80070570) and

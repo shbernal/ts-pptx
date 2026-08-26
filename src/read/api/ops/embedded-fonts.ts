@@ -30,6 +30,7 @@ import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import { PackageReadError } from '../../../errors.js'
+import { presentationRels } from './deck-target.js'
 
 /**
  * `p:embeddedFontLst`'s document-order successors in `CT_Presentation` (index 7,
@@ -171,7 +172,7 @@ function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedF
 			'package/part-has-no-root',
 			'presentation.xml has no document element to carry embedded fonts into'
 		)
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 
 	const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
 	const targetByTypeface = new Map<string, Element>()

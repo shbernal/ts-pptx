@@ -22,7 +22,7 @@ import {
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
-import type { DeckTarget } from './deck-target.js'
+import { presentationRels, type DeckTarget } from './deck-target.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
 
@@ -39,7 +39,7 @@ const MIN_SLIDE_MASTER_ID = 2147483648
  */
 export function registerMaster(dest: DeckTarget, masterPartName: string): void {
 	const presPart = dest.presentationPart
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
 		if (presRels.resolveTarget(rel.id) === masterPartName) return
 	}
@@ -88,7 +88,7 @@ export function promoteMasters(dest: DeckTarget, masterPartNames: string[]): voi
 	const root = presPart.dom.documentElement
 	const lst = root && firstChild(root, 'p:sldMasterIdLst')
 	if (!lst) return
-	const rels = dest.opc.relationshipsFor(presPart.partName)
+	const rels = presentationRels(dest)
 	const promote = new Set(masterPartNames)
 	const entries = getElements(lst, 'p:sldMasterId')
 	// Entries whose relationship resolves to a promoted master, kept in their
@@ -127,7 +127,7 @@ function nextMasterLayoutId(dest: DeckTarget): number {
 		}
 	}
 	// Every master's layout-id list shares the same id space; scan them all.
-	const presRels = dest.opc.relationshipsFor(presPart.partName)
+	const presRels = presentationRels(dest)
 	for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
 		const masterPart = dest.opc.part(presRels.resolveTarget(rel.id))
 		const masterRoot = masterPart?.dom.documentElement
