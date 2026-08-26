@@ -14,6 +14,7 @@ import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { externalHyperlinkRel } from '../opc/rels.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 /**
@@ -514,14 +515,7 @@ export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: n
 export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: number): string {
 	// Flat: the hyperlink rels run together on one line, after the indented rId1/rId2 pair.
 	const hlinkRels = buildNotesSlideRels(slide)
-		.map((rel) =>
-			voidEl('Relationship', {
-				Id: `rId${rel.rId}`,
-				Type: OFFICE_REL + 'hyperlink',
-				Target: rel.Target,
-				TargetMode: 'External',
-			})
-		)
+		.map((rel) => externalHyperlinkRel(rel.rId, rel.Target))
 		.join('')
 
 	return (

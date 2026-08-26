@@ -38,6 +38,7 @@ import { renderTextObject } from './objects/text.js'
 import { renderZoomObject } from './objects/zoom.js'
 import { collectSlideShapeIds } from './shape-ids.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { externalHyperlinkRel } from '../opc/rels.js'
 
 /** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
@@ -672,14 +673,7 @@ export function slideObjectRelationsToXml(
 					voidEl('Relationship', { Id: `rId${rel.rId}`, Type: OFFICE_REL + 'slide', Target: `slide${rel.Target}.xml` })
 				)
 			} else {
-				rels.push(
-					voidEl('Relationship', {
-						Id: `rId${rel.rId}`,
-						Type: OFFICE_REL + 'hyperlink',
-						Target: rel.Target,
-						TargetMode: 'External',
-					})
-				)
+				rels.push(externalHyperlinkRel(rel.rId, rel.Target))
 			}
 		}
 		// NOTE: there is no `else` here on purpose. `_rels` only ever holds hyperlinks —
