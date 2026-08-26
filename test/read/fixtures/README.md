@@ -49,6 +49,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
 | `tags.pptx`            | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
@@ -141,6 +142,7 @@ cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-sty
 618758569d7f63c3075513078e2bf70caf36ab05efd4ece41f14225b8489b3fb  table-cell-image-fill.pptx
 85692cee1389f1c9ee79e253ef4d8636e136bf6c501cddb99d1171c33edc5a08  table-cell-horzoverflow.pptx
 9fb63bf437c6be154c7e791538fa7a71f1ef3bbd1ce959a33f610d3e65e259c1  table-styles.pptx
+5da5cfe0594970bc5029f1bbb1778d1b2a11894b0e178bdd476626d3acc20c25  smartart-families.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -317,6 +319,58 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     and `TextFrame.WordWrap` is read-only on a cell over COM. See
     `authoring/probe-table-cell-wrap.ps1`, which reproduces both results and renders the
     clip-vs-overflow difference.
+- `smartart-families.pptx` — four SmartArt diagrams, one per layout family, each node
+  carrying a distinct greppable string (`org-*`, `proc-*`, `cycle-*`, `pic-*`). It exists for
+  the **drawing cache**: a diagram stores its text twice, as authored nodes in
+  `ppt/diagrams/data{N}.xml` and as a copy of every drawn string in
+  `ppt/diagrams/drawing{N}.xml`. PowerPoint recomputes the cache on open and ignores what is
+  there; every other renderer draws the cache and nothing else. Anything that re-texts a
+  diagram therefore has to update both, and this deck is the evidence for how a node reaches
+  its drawn paragraph.
+
+  Slide 1 `orgChart1` (multi-level plus an `asst` node), slide 2 `process1` (arrows with
+  labels), slide 3 `cycle2`, slide 4 `pList1` (picture nodes, deliberately imageless).
+  Authored 2026-08-26 (`authoring/author-smartart-families.ps1`);
+  `authoring/probe-smartart-mapping.mjs` re-measures the mapping over this deck and
+  `mixed.pptx` and exits non-zero if any authored string fails to resolve.
+
+  **Findings.** Measured over all four families here plus `mixed.pptx`'s `hList1` — 90
+  authored points, no exceptions:
+
+  - The mapping is `dgm:cxn[@type="presOf"][@srcId=<node>]` → `@destId` names a `pres` point,
+    `dsp:sp/@modelId` matches it, and `@destOrd` is the **paragraph index** inside that
+    shape's `dsp:txBody`. `dsp:sp/@modelId` is always a `pres` point's id, never a node's, so
+    a mapping keyed on the node's own id finds nothing.
+  - **It is many-to-one in both directions.** One `dsp:sp` presents several nodes (in
+    `mixed.pptx` one shape carries three, and `destOrd` orders them *against* document
+    order); and one node has several `presOf` connections, ordered by `@srcOrd`. In every
+    case measured `srcOrd=0` is the presentation with the text in it and the others draw no
+    `dsp:sp` at all — an org-chart node's `rootText`/`rootConnector` pair being the type
+    case. Selecting the arm that resolves to a `dsp:sp` *with* a `dsp:txBody` is the robust
+    form of the same rule.
+  - **`asst` follows the identical path to `node`** — a different `presName` (`rootText3`),
+    same shape of connection.
+  - Two defined outcomes carry no text and must be skipped rather than treated as violations:
+    a point with **no `presOf` at all** (an unlabelled transition), and a `presOf` reaching a
+    `dsp:sp` with **no `dsp:txBody`** (a connector, or `pList1`'s filled `pictRect`). The
+    `pictRect` is not even a `presOf` target — it is bound to its node through `presAssocID`
+    only, so the mapping never reaches it.
+  - **Transition labels are not COM-authorable.** `SmartArt.Nodes` reaches nodes and
+    assistants only; text set on a node never lands on a `parTrans`/`sibTrans` point. Slide 2
+    is authored the same way `table-cell-horzoverflow.pptx` is — PowerPoint authors the
+    diagram, the labels are injected into the data part, PowerPoint reopens and re-saves — so
+    the committed bytes are its own serialization and the round-trip is the proof the labels
+    are real. All 8 transition points of slide 2 were injected and **3 survived**: PowerPoint
+    strips text from a transition its layout has no place for. Under `process1` that means
+    every `parTrans`, plus the trailing `sibTrans` after the last node, which labels no arrow.
+    A surviving label gets its own `dsp:sp` (`presName="sibTrans"`) and resolves by exactly
+    the same rule as a node.
+  - Which layouts label their transitions was probed across 16 of them by the same
+    inject-and-reopen route (`authoring/probe-smartart-transition-labels.ps1`): `process1`, `process5`, `bProcess3`, `cycle2` and `cycle7` keep
+    `sibTrans` text, `radial1` keeps `parTrans` text, and `hProcess3`, `hProcess6`,
+    `chevron1`, `arrow1`, `arrow4`, `cycle1`, `cycle3`, `hierarchy6`, `orgChart1` and
+    `hProcess11` drop it. `cycle2` is in the fixture with its transitions left empty, so the
+    deck also carries the drawn-but-empty case.
 - `hidden.pptx` — `textbox.pptx` with `show="0"` on slide 2; exercises the
   `Slide.hidden` getter (hidden slide vs. shown-by-default absent attribute).
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the
@@ -1014,6 +1068,7 @@ fixtures opened clean with no repair prompt:
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 - [x] `model3d.pptx` — Windows desktop PowerPoint, 2026-08-06 (authored + reopened clean via COM, no repair prompt)
+- [x] `smartart-families.pptx` — Windows desktop PowerPoint, 2026-08-26 (authored, labels injected, reopened + re-saved clean via COM, no repair prompt)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
 - [x] `slide-transition.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `slide-animation-basic.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
