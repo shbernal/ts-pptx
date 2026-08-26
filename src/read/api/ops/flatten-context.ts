@@ -15,13 +15,7 @@ import { firstChild, type Element } from '../../oxml/dom.js'
 import type { OpcPackage } from '../../opc/package.js'
 import type { FlattenContext } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
-import { cSldOf } from '../../oxml/slide-dom.js'
-
-/** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */
-function backgroundOf(root: Element): Element | null {
-	const cSld = cSldOf(root)
-	return cSld ? firstChild(cSld, 'p:bg') : null
-}
+import { backgroundElementOf } from '../slide-background.js'
 
 /**
  * The background the slide effectively inherits from its source subgraph: the layout's
@@ -34,10 +28,10 @@ function effectiveBackground(
 	layoutPartName: string | null,
 	masterPartName: string | null
 ): Element | null {
-	if (slideRoot && backgroundOf(slideRoot)) return null
+	if (slideRoot && backgroundElementOf(slideRoot)) return null
 	const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
 	const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
-	return (layoutRoot && backgroundOf(layoutRoot)) ?? (masterRoot && backgroundOf(masterRoot)) ?? null
+	return (layoutRoot && backgroundElementOf(layoutRoot)) ?? (masterRoot && backgroundElementOf(masterRoot)) ?? null
 }
 
 /**
