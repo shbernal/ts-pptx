@@ -14,13 +14,17 @@ import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, newOwnedScope, type ImportContext } from './part-copy.js'
 import { isSharedByPageCopies } from './page-owned.js'
 import type { Presentation } from '../presentation.js'
-import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../../../ooxml/rel-types.js'
+import {
+	NOTES_MASTER_CONTENT_TYPE,
+	NOTES_MASTER_REL,
+	NOTES_SLIDE_REL,
+	SLIDE_REL,
+	THEME_CONTENT_TYPE,
+	THEME_REL,
+} from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
 import { makeXmlNotesMaster } from '../../../gen/slide/notes.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
-
-const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
-const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
 
 const textEncoder = new TextEncoder()
 

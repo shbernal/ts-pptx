@@ -10,11 +10,13 @@
 
 import { relsPartNameFor } from '../../opc/partnames.js'
 import type { Presentation } from '../presentation.js'
+import {
+	NOTES_MASTER_CONTENT_TYPE,
+	SLIDE_LAYOUT_CONTENT_TYPE,
+	SLIDE_MASTER_CONTENT_TYPE,
+	THEME_CONTENT_TYPE,
+} from '../../../ooxml/rel-types.js'
 
-const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
-const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
-const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
-const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
 const PRESENTATION_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 

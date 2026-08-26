@@ -79,6 +79,7 @@ import { rescaleImportedGeometry } from './ops/rescale-import.js'
 import {
 	IMAGE_REL,
 	NOTES_MASTER_REL,
+	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
 	OFFICE_DOCUMENT_REL,
 	SLIDE_LAYOUT_REL,
@@ -101,7 +102,6 @@ const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
-const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 // chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
 const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'

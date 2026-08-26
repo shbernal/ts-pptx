@@ -15,17 +15,16 @@ import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
 import {
 	NOTES_MASTER_REL,
+	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
+	SLIDE_LAYOUT_CONTENT_TYPE,
 	SLIDE_LAYOUT_REL,
+	SLIDE_MASTER_CONTENT_TYPE,
 	SLIDE_MASTER_REL,
 	SLIDE_REL,
 } from '../../../ooxml/rel-types.js'
 import { isSharedByPageCopies } from './page-owned.js'
 import { InvalidOptionError, PackageReadError } from '../../../errors.js'
-
-const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
-const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
-const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 
 /**
  * One import in progress: where parts are going, where they are coming from, and

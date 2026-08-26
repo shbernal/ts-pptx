@@ -1,5 +1,5 @@
 /**
- * OPC relationship type URIs, and the two schema-URI bases they are built from.
+ * OPC relationship type URIs and part content types, and the schema-URI bases they are built from.
  *
  * These are long, near-identical strings that differ in one path segment, which makes a typo
  * both easy to write and invisible on review — a wrong URI does not throw, it silently matches
@@ -16,6 +16,11 @@
  * (`chart`, `hyperlink`, `tags`, the two comments parts, `oleObject`, the MS media rels, …) stays
  * declared next to the code that reads or emits it — hoisting those would trade a definition you
  * can see for one you have to go and find, and buy nothing.
+ *
+ * The same reasoning covers **part content types**, which are the same kind of fact and fail the
+ * same silent way. The write side is the exception at the bottom of this file: `[Content_Types].xml`
+ * spells its entries out locally so each one stays greppable by its suffix next to the part it
+ * declares.
  */
 
 /** Root of every ECMA-376 schema URI. Private: callers want one of the prefixes below. */
@@ -46,3 +51,19 @@ export const THEME_REL = OFFICE_REL + 'theme'
 export const OFFICE_DOCUMENT_REL = OFFICE_REL + 'officeDocument'
 /** Any part → an image in `ppt/media/`. */
 export const IMAGE_REL = OFFICE_REL + 'image'
+
+// --- Part content types ----------------------------------------------------
+
+/** Root of the ECMA-376 content types. Private: callers want one of the constants below. */
+const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
+
+/** `ppt/slideMasters/slideMasterN.xml`. */
+export const SLIDE_MASTER_CONTENT_TYPE = OD_CONTENT + 'presentationml.slideMaster+xml'
+/** `ppt/slideLayouts/slideLayoutN.xml`. */
+export const SLIDE_LAYOUT_CONTENT_TYPE = OD_CONTENT + 'presentationml.slideLayout+xml'
+/** `ppt/notesSlides/notesSlideN.xml`. */
+export const NOTES_SLIDE_CONTENT_TYPE = OD_CONTENT + 'presentationml.notesSlide+xml'
+/** `ppt/notesMasters/notesMasterN.xml`. */
+export const NOTES_MASTER_CONTENT_TYPE = OD_CONTENT + 'presentationml.notesMaster+xml'
+/** `ppt/theme/themeN.xml`. Not `presentationml.`: a theme is a DrawingML part. */
+export const THEME_CONTENT_TYPE = OD_CONTENT + 'theme+xml'

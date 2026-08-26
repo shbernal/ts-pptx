@@ -30,14 +30,13 @@ import { el, raw, voidEl } from '../../../gen/oxml/el.js'
 import { makeXmlNotesSlideSkeleton } from '../../../gen/slide/notes.js'
 import { attr, firstChild, getElements, parseXml, removeChildrenByQName, type Element } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
+import { NOTES_MASTER_REL, NOTES_SLIDE_CONTENT_TYPE, NOTES_SLIDE_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
 import { InternalError, PackageReadError } from '../../../errors.js'
 import { ensureNotesMasterForAuthoring } from './notes-master.js'
 import type { Slide } from '../slide.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { nvPrOf, spTreeOf } from '../../oxml/slide-dom.js'
 
-const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
 const textEncoder = new TextEncoder()
 
 /**
