@@ -32,7 +32,23 @@
  * the ten sibling nodes it did not touch are still painted intact, which is what separates
  * "the mirror wrote the right string" from "the mirror wrote *a* string".
  *
- *   node scripts/libreoffice-render-smoke.mjs           # run the SmartArt cases
+ * **The second family: zero-baseline constructs.** SmartArt is not the only thing this
+ * oracle can see. `byte-identity` only covers what the showcase decks emit, so a construct
+ * the corpus never reaches has no evidence behind it beyond "the right bytes are in the
+ * part" — true of `numCol`/`spcCol`, `a:prstTxWarp`, `a:buBlip`, `a:buClr`, `rtl="1"` and
+ * `altLang`. Rendering answers a question the bytes cannot: whether an independent
+ * implementation *acts* on the markup we emit. `PAIRS` below carries the three of those six
+ * that a text-extraction oracle can actually observe; the header on `PAIRS` records what was
+ * measured for the other three and why they are not here, so the probe is not run twice.
+ *
+ * Each pair renders the construct and an otherwise identical control, and asserts that the
+ * two extractions DIFFER while both still paint their canary strings. Differential, never
+ * absolute: the canary is the sensitivity check (a blank render fails instead of passing),
+ * and comparing two decks from the same run keeps the check independent of which pdftotext
+ * build resolved — xpdf and poppler disagree on details like the codepoint a bullet glyph
+ * extracts as, but they agree on whether two renders came out the same.
+ *
+ *   node scripts/libreoffice-render-smoke.mjs           # run every case
  *   node scripts/libreoffice-render-smoke.mjs --keep    # ...and keep the decks, PDFs and text
  *
  * Requirements: LibreOffice and `pdftotext` (xpdf-tools or poppler-utils). Both are looked
@@ -140,6 +156,136 @@ const CASES = [
 		},
 		expect: [ANCHOR],
 		reject: [STALE],
+	},
+]
+
+// --- the zero-baseline construct pairs --------------------------------------
+/** Painted by every pair's control box. A pair whose canary is missing rendered nothing. */
+const CANARY = 'ZZCANARYZZ'
+
+/**
+ * Body geometry for the pair decks, so `on` and `off` differ only in the construct.
+ *
+ * A factory and not a shared literal, which is load-bearing rather than style: `addText`
+ * writes its own state (`_bodyProp`, `objectName`) onto the options object it is handed, so
+ * two calls given shallow copies of one literal end up aliasing a single `_bodyProp`. That
+ * is read at emit time, so `columns` set on one shape reaches every shape sharing it — which
+ * is exactly how the first draft of the `numCol` control came out with `numCol="2"` in it.
+ * @param {Record<string, unknown>} [extra]
+ * @returns {Record<string, unknown>}
+ */
+const pairBody = (extra = {}) => ({ x: 0.6, y: 1.6, w: 8.5, h: 4.0, fontSize: 18, fontFace: 'Arial', ...extra })
+
+/** A long enough single paragraph that a two-column body wraps visibly narrower. */
+const FLOW =
+	'Alpha node one. Beta node two. Gamma node three. Delta node four. ' +
+	'Epsilon node five. Zeta node six. Eta node seven. Theta node eight.'
+
+/** The four bulleted lines the bullet pairs paint. */
+const BULLET_LINES = ['Alpha node one', 'Beta node two', 'Gamma node three', 'Delta node four']
+
+/**
+ * An 8x8 PNG, inline so the check needs no fixture on disk. Content is irrelevant — what
+ * matters is that a picture bullet resolves to a rel and paints instead of a glyph.
+ */
+const BULLET_PNG =
+	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAKUlEQVR4nGP8z8DwnwEPYMInOTiAsRs2MDIyMjIyMDAwMDAwMDAwMAAAlgQFAaBqvNsAAAAASUVORK5CYII='
+
+/**
+ * One construct, rendered against its own control.
+ * @typedef {object} Pair
+ * @property {string} label
+ * @property {string} claim what a pass proves, printed with the result
+ * @property {boolean} layout extract with `-layout` (physical layout) instead of reading order
+ * @property {(slide: any) => void} on builds the body WITH the construct
+ * @property {(slide: any) => void} off builds the same body WITHOUT it
+ * @property {string[]} canaries strings both sides must paint
+ * @property {(on: string, off: string) => string[]} verify extra assertions, one message per failure
+ */
+
+/**
+ * The three zero-baseline constructs a text-extraction oracle can observe.
+ *
+ * The other three were probed the same way — construct deck against control deck, with the
+ * emitted parts checked to confirm each construct was actually in the `on` deck and absent
+ * from the `off` one — and are deliberately NOT here:
+ *
+ *   - `rtl="1"`  LibreOffice paints a Latin paragraph byte-for-byte identically with the
+ *                flag set and unset (same rasterised page hash), so there is nothing to
+ *                assert. With Hebrew text the page hash does change, but the extraction is
+ *                identical either way because neither pdftotext build could map the Hebrew
+ *                glyphs back to codepoints at all — evidence a *pixel* channel could use and
+ *                this one cannot.
+ *   - `altLang`  a language tag with no visual semantics. Correctly invisible to any
+ *                renderer; not a gap in this oracle.
+ *   - `a:buClr`  the one genuine near miss. Extraction is identical (a bullet's colour does
+ *                not change its glyph) but the rasterised page differs, so it is reachable —
+ *                only by adding a rasteriser channel. Not taken: it buys the weakest claim of
+ *                the six ("something changed"), and it would put a second tool in the path
+ *                whose name differs between the two builds (`pdftopng` on xpdf,
+ *                `pdftoppm -png` on poppler) for the sake of one construct.
+ *
+ * @type {Pair[]}
+ */
+const PAIRS = [
+	{
+		label: 'buBlip',
+		claim: '<a:buBlip> reaches the renderer — a picture bullet paints something a character bullet does not',
+		layout: false,
+		on: (slide) =>
+			slide.addText(
+				BULLET_LINES.map((text) => ({ text, options: { bullet: { image: { data: BULLET_PNG } } } })),
+				pairBody()
+			),
+		off: (slide) =>
+			slide.addText(
+				BULLET_LINES.map((text) => ({ text, options: { bullet: true } })),
+				pairBody()
+			),
+		// Both sides must still paint every line: that is what stops "the deck rendered blank"
+		// from reading as "the bullets differ".
+		canaries: [CANARY, ...BULLET_LINES],
+		verify: (on, off) =>
+			on === off ? ['a picture bullet extracted identically to a character bullet — buBlip was dropped'] : [],
+	},
+	{
+		label: 'prstTxWarp',
+		claim: '<a:prstTxWarp> reaches the renderer — warped text is painted as rotated glyphs, not as a line of text',
+		layout: false,
+		on: (slide) => slide.addText(FLOW, pairBody({ h: 2.5, textWarp: 'textArchUp' })),
+		off: (slide) => slide.addText(FLOW, pairBody({ h: 2.5 })),
+		// Only the canary, on purpose. The warped box is expected NOT to extract, so asserting
+		// its text on both sides would fail the case it exists to prove.
+		canaries: [CANARY],
+		verify: (on, off) =>
+			on === off ? ['warped text extracted identically to unwarped text — prstTxWarp was dropped'] : [],
+	},
+	{
+		label: 'numCol',
+		claim: 'numCol/spcCol reach the renderer — a two-column body wraps at a visibly narrower measure',
+		// The whole signal is horizontal: in reading order both bodies extract the same words in
+		// the same order, and only `-layout` preserves where the lines actually broke.
+		layout: true,
+		on: (slide) => slide.addText(FLOW, pairBody({ columns: 2, columnSpacing: 0.4 })),
+		off: (slide) => slide.addText(FLOW, pairBody()),
+		canaries: [CANARY],
+		verify: (on, off) => {
+			/** @param {string} text */
+			const widest = (text) =>
+				Math.max(0, ...text.split('\n').map((/** @type {string} */ line) => line.trimEnd().length))
+			const onWidest = widest(on)
+			const offWidest = widest(off)
+			// A ratio, not a pinned column count: the two pdftotext builds lay out `-layout`
+			// slightly differently, but a two-column measure is far narrower in both. Measured
+			// here: 34 against 66 characters, a ratio of 0.52.
+			if (!(onWidest < offWidest * 0.75)) {
+				return [
+					`two-column body wrapped at ${onWidest} chars against ${offWidest} for one column; ` +
+						'expected well under 75% of it, so numCol looks dropped',
+				]
+			}
+			return []
+		},
 	},
 ]
 
@@ -308,19 +454,25 @@ async function convertToPdf(soffice, decks, outDir, profileDir) {
  *
  * Normalizing matters: a node whose text wraps in its box comes back split across lines, so
  * `Be able to use Pivot Tables` is only contiguous once runs of whitespace collapse.
+ * Pass `layout` to keep the physical layout instead, for a case whose signal is *where* the
+ * lines broke. That output is left unnormalized apart from trailing blank lines — collapsing
+ * whitespace there would destroy the only thing it was extracted for.
  * @param {string} pdftotext
  * @param {string} pdf
  * @param {number} page
+ * @param {boolean} [layout]
  * @returns {Promise<{text: string, failures: string[]}>}
  */
-async function paintedText(pdftotext, pdf, page) {
-	const txt = pdf.replace(/\.pdf$/, '.txt')
-	const result = await runTool(pdftotext, ['-f', String(page), '-l', String(page), pdf, txt], CONVERT_TIMEOUT_MS)
+async function paintedText(pdftotext, pdf, page, layout = false) {
+	const txt = pdf.replace(/\.pdf$/, layout ? '.layout.txt' : '.txt')
+	const args = [...(layout ? ['-layout'] : []), '-f', String(page), '-l', String(page), pdf, txt]
+	const result = await runTool(pdftotext, args, CONVERT_TIMEOUT_MS)
 	if (result.code !== 0) {
 		return { text: '', failures: [`pdftotext exited ${result.code}: ${(result.err || result.out).trim()}`] }
 	}
 	try {
 		const raw = await fs.readFile(txt, 'utf8')
+		if (layout) return { text: raw.replace(/\f/g, '').replace(/\s+$/, ''), failures: [] }
 		return { text: raw.replace(/\s+/g, ' ').trim(), failures: [] }
 	} catch (e) {
 		return { text: '', failures: [`pdftotext wrote no text for ${path.basename(pdf)}: ${e}`] }
@@ -348,6 +500,55 @@ async function buildDeck(testCase, fixture, outDir) {
 	const file = path.join(outDir, `${testCase.label}.pptx`)
 	await fs.writeFile(file, Buffer.from(await presentation.save()))
 	return file
+}
+
+/**
+ * Write one side of a construct pair and return its path.
+ *
+ * Built from scratch rather than edited out of a fixture: these constructs are about what the
+ * *emitter* writes, so the deck has to come through the public authoring API the same way a
+ * caller's would. The canary box is laid down first and identically on both sides, which is
+ * what makes "these two renders differ" a statement about the construct alone.
+ * @param {Pair} pair
+ * @param {'on' | 'off'} side
+ * @param {string} outDir
+ * @returns {Promise<string>}
+ */
+async function buildPairDeck(pair, side, outDir) {
+	const { TsPptx } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
+	const pptx = new TsPptx()
+	const slide = pptx.addSlide()
+	slide.addText(CANARY, { x: 0.6, y: 0.4, w: 8.5, h: 0.6, fontSize: 18, fontFace: 'Arial' })
+	pair[side](slide)
+	const file = path.join(outDir, `pair-${pair.label}-${side}.pptx`)
+	await pptx.writeFile({ fileName: file })
+	return file
+}
+
+/**
+ * @param {Pair} pair
+ * @param {string} onText
+ * @param {string} offText
+ * @returns {string[]} one message per failure
+ */
+function verifyPair(pair, onText, offText) {
+	/** @type {string[]} */
+	const failures = []
+	/** @type {[string, string][]} */
+	const sides = [
+		['on', onText],
+		['off', offText],
+	]
+	for (const [side, text] of sides) {
+		for (const needle of pair.canaries) {
+			if (!text.includes(needle)) failures.push(`[${pair.label}] the ${side} deck did not paint "${needle}"`)
+		}
+	}
+	// Only meaningful once both sides are known to have rendered; a blank page trivially
+	// "differs" from a populated one, and reporting that as a pass is the failure mode this
+	// whole check exists to avoid.
+	if (!failures.length) failures.push(...pair.verify(onText, offText).map((m) => `[${pair.label}] ${m}`))
+	return failures
 }
 
 // --- verifying --------------------------------------------------------------
@@ -393,9 +594,25 @@ async function main() {
 		/** @type {{testCase: Case, deck: string}[]} */
 		const built = []
 		for (const testCase of CASES) built.push({ testCase, deck: await buildDeck(testCase, fixture, workDir) })
-		console.log(`Built ${built.length} decks from ${path.relative(ROOT, FIXTURE)}; rendering...`)
 
-		const decks = built.map((entry) => entry.deck)
+		/** @type {{pair: Pair, on: string, off: string}[]} */
+		const builtPairs = []
+		for (const pair of PAIRS) {
+			builtPairs.push({
+				pair,
+				on: await buildPairDeck(pair, 'on', workDir),
+				off: await buildPairDeck(pair, 'off', workDir),
+			})
+		}
+
+		console.log(
+			`Built ${built.length} decks from ${path.relative(ROOT, FIXTURE)} and ` +
+				`${builtPairs.length * 2} construct decks; rendering...`
+		)
+
+		// One invocation for everything. Starting LibreOffice is most of the wall clock here,
+		// so a second cold start per family would roughly double the run for no extra coverage.
+		const decks = [...built.map((entry) => entry.deck), ...builtPairs.flatMap((entry) => [entry.on, entry.off])]
 		failures.push(...(await convertToPdf(soffice, decks, workDir, profileDir)))
 
 		if (!failures.length) {
@@ -407,6 +624,17 @@ async function main() {
 				const caseFailures = verify(testCase, painted.text)
 				failures.push(...caseFailures)
 				console.log(`[${testCase.label}] ${caseFailures.length ? 'FAIL' : 'ok'} — ${testCase.claim}`)
+			}
+
+			for (const { pair, on, off } of builtPairs) {
+				const onPainted = await paintedText(pdftotext, on.replace(/\.pptx$/, '.pdf'), 1, pair.layout)
+				const offPainted = await paintedText(pdftotext, off.replace(/\.pptx$/, '.pdf'), 1, pair.layout)
+				const extractionFailures = [...onPainted.failures, ...offPainted.failures]
+				failures.push(...extractionFailures)
+				if (extractionFailures.length) continue
+				const pairFailures = verifyPair(pair, onPainted.text, offPainted.text)
+				failures.push(...pairFailures)
+				console.log(`[${pair.label}] ${pairFailures.length ? 'FAIL' : 'ok'} — ${pair.claim}`)
 			}
 		}
 	} finally {
