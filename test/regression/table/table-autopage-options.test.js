@@ -429,13 +429,22 @@ defineRegressionSuite('Table autoPage option surface', [
 				String(files.length),
 				'the traced page count should match the slides actually emitted'
 			)
-			// The cell-wrapping trace ([1/4]..[4/4] inside `parseTextToLines`) never appears:
-			// its only call site passes `verbose: false` outright. Asserted so those arms are
-			// demonstrably unreachable rather than merely untested — if the flag is ever
-			// wired through, this is the line that says so.
+			// The cell-wrapping trace ([0/4]..[4/4] inside `parseTextToLines`) is part of the
+			// same flag: its call site passes `tableProps.verbose` down. Every stage is
+			// asserted, because the four that dump the intermediate line arrays spent a long
+			// time unreachable behind a hard-coded `false` and nothing said so.
+			for (const stage of ['[0/4]', '[1/4]', '[2/4]', '[3/4]', '[4/4]']) {
+				assert(
+					lines.some((l) => l.startsWith(stage)),
+					`expected the ${stage} cell-wrapping trace under \`verbose\``
+				)
+			}
+			// The wrap threshold every step-4 decision is made against. It is not recoverable
+			// from the emitted lines, which is why it is dumped and why it is checked here.
 			assert(
-				!lines.some((l) => l.startsWith('[1/4]') || l.startsWith('[4/4]')),
-				'the cell-wrapping trace is not wired to `verbose`; expected no [n/4] lines'
+				/^\[0\/4\] colWidth=[\d.]+in fontSize=[\d.]+ FOCO=[\d.]+ CPL=[\d.]+$/.test(lineMatching(lines, /^\[0\/4\]/)),
+				'expected the wrapping trace to open with the column width and the CPL it derived; got: ' +
+					lineMatching(lines, /^\[0\/4\]/)
 			)
 		},
 	},

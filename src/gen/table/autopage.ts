@@ -35,6 +35,8 @@ type AutoPageCell = TableCell & {
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
  * @param {TableCell} cell - table cell
  * @param {number} colWidth - table column width (inches)
+ * @param {boolean} [verbose] - dump the four wrapping stages; carries `addTable({ verbose })`
+ *   down, which is the only stage of the pager that flag did not reach
  * @return {TableRow[]} - cell's text objects grouped into lines
  */
 function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean): TableCell[][] {
@@ -51,6 +53,14 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	// form floored 476.9999... to 476.
 	const CPL =
 		Math.floor(colWidth * POINTS_PER_INCH) / ((cell.options?.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / FOCO) // Chars-Per-Line
+
+	// The number the four dumps below exist to explain: every wrap decision in step 4 is
+	// `strCurrLine.length + word.length > CPL`, so a wrap that looks wrong is almost always
+	// a CPL that is wrong, and CPL is not recoverable from the lines themselves.
+	if (verbose)
+		console.log(
+			`[0/4] colWidth=${colWidth}in fontSize=${cell.options?.fontSize ?? DEF_FONT_SIZE} FOCO=${FOCO} CPL=${CPL}`
+		)
 
 	const parsedLines: TableCell[][] = []
 	let inputCells: TableCell[] = []
@@ -486,7 +496,7 @@ export function getSlidesForTableRows(
 			}
 
 			// E-4: Create lines based upon available column width
-			newCell._lines = parseTextToLines(cell, totalColW, false)
+			newCell._lines = parseTextToLines(cell, totalColW, tableProps.verbose)
 
 			// E-5: Add cell to array
 			rowCellLines.push(newCell)
