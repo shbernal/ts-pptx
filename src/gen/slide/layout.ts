@@ -6,6 +6,8 @@
 
 import { XML_DECL } from '../../constants-internal.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { slideObjectToXml } from './object.js'
 
 /**
@@ -14,8 +16,14 @@ import { slideObjectToXml } from './object.js'
  * @return {string} XML
  */
 export function makeXmlLayout(layout: SlideLayoutInternal): string {
-	return `${XML_DECL}
-		<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" preserve="1">
-		${slideObjectToXml(layout)}
-		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`
+	return (
+		XML_DECL +
+		el(
+			'p:sldLayout',
+			{ ...PML_ROOT_NS, preserve: '1' },
+			[raw(slideObjectToXml(layout)), raw(el('p:clrMapOvr', null, raw(voidEl('a:masterClrMapping'))))],
+			// The root and both children sit on their own two-tab line; the closing tag does not.
+			{ openPrefix: '\n\t\t', childPrefix: '\n\t\t' }
+		)
+	)
 }
