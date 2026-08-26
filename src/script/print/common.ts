@@ -235,3 +235,28 @@ function wrap(text: string, width: number, continuation: string): string[] {
 	if (current) lines.push(current)
 	return lines
 }
+
+/**
+ * Close out a printed script: the accumulated lines as one module source, plus the
+ * asset side-car the caller has to write beside it.
+ *
+ * Both tiers end this way, and the `assetMode` test is the whole reason it is worth
+ * naming. In `'inline'` mode the bytes are already in {@link PrintedScript.code} as
+ * `data:` literals, so the map must come back **empty** — a tier that returned them
+ * anyway would have its caller write every image to disk as well, and the script would
+ * ignore the files it was handed.
+ * @param {string[]} lines - the script's lines, in order
+ * @param {DeckIr} ir - the IR being printed, for its assets
+ * @param {AssetMode} assetMode - how image bytes reach the script
+ * @param {FidelityNote[]} notes - the losses that apply to this output
+ * @returns {PrintedScript} the finished script
+ */
+export function printedScript(lines: string[], ir: DeckIr, assetMode: AssetMode, notes: FidelityNote[]): PrintedScript {
+	return {
+		code: lines.join('\n'),
+		assets: new Map(
+			assetMode === 'file' ? ir.assets.map((asset): [string, Uint8Array] => [asset.name, asset.bytes]) : []
+		),
+		notes,
+	}
+}

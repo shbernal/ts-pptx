@@ -35,6 +35,7 @@ import {
 	header,
 	printAssetBindings,
 	printSlide,
+	printedScript,
 	type AssetMode,
 	type PrintedScript,
 } from './common.js'
@@ -142,13 +143,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 	if (masters.length > 0) lines.push('', ...masters)
 	lines.push(...body, '', `await pptx.writeFile({ fileName: here(${printString(outputPath)}) })`, '')
 
-	return {
-		code: lines.join('\n'),
-		assets: new Map(
-			assetMode === 'file' ? ir.assets.map((asset): [string, Uint8Array] => [asset.name, asset.bytes]) : []
-		),
-		notes,
-	}
+	return printedScript(lines, ir, assetMode, notes)
 }
 
 /**

@@ -38,6 +38,7 @@ import {
 	header,
 	printAssetBindings,
 	printSlide,
+	printedScript,
 	type AssetMode,
 	type PrintedScript,
 } from './common.js'
@@ -200,13 +201,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 		''
 	)
 
-	return {
-		code: lines.join('\n'),
-		assets: new Map(
-			assetMode === 'file' ? ir.assets.map((asset): [string, Uint8Array] => [asset.name, asset.bytes]) : []
-		),
-		notes,
-	}
+	return printedScript(lines, ir, assetMode, notes)
 }
 
 /**
