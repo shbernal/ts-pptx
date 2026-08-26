@@ -1745,6 +1745,14 @@ What it does not do, and cannot:
 **data model only**: the cache keeps the old string. Use it when you need per-run
 control; use `text` when you want the edit to be visible outside PowerPoint.
 
+Both halves of that are checked in a real renderer, not only in the emitted bytes.
+PowerPoint rebuilds the cache from the data model as it opens a deck, so it renders a
+mirrored edit and an unmirrored one identically and cannot be the oracle here.
+`pnpm run test:lo` renders instead through LibreOffice, which has no SmartArt layout
+engine and therefore paints the cache and nothing else: it paints the new string after a
+`text` edit, and keeps painting the old one after a `textFrame` edit. See
+[testing.md](../testing.md#a-second-render-oracle-for-what-powerpoint-recomputes).
+
 Out of scope, and staying there: **authoring a diagram from nothing**. The layout part is
 a constraint-solver program PowerPoint executes, and the presentation tree it generates is
 not derivable from the user's content; a diagram this library did not create survives a

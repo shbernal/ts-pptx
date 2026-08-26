@@ -1279,3 +1279,62 @@ them to ([tables.md → Table styles](tables.md#table-styles) for the custom-tab
 case) and put any reusable *method* note (how the render evidence was obtained) here in
 this section. An issue that merely records the negative result is filed and forgotten;
 a paragraph in the feature's own doc is read at exactly the moment it matters.
+
+### A second render oracle, for what PowerPoint recomputes
+
+The section above says the object model is not a render oracle, and answers it by
+exporting pixels from PowerPoint. That answer runs out in one specific place: when
+PowerPoint *regenerates* the thing under test on open. Then PowerPoint's own pixels are
+not evidence either, because they are painted from what PowerPoint recomputed rather
+than from what the package holds.
+
+SmartArt is the case. A deck stores every drawn string twice: as authored nodes in
+`ppt/diagrams/data1.xml`, which PowerPoint reads, and as a copy of every drawn string in
+`ppt/diagrams/drawing1.xml`, the fallback drawing cache that every renderer without a
+SmartArt layout engine paints. `DiagramPoint.text` writes both. PowerPoint rebuilds the
+cache from the data model as it opens the file, so a deck whose cache was never written
+and a deck whose cache was written correctly render identically in PowerPoint, and
+`pnpm run test:com` cannot tell them apart. The only evidence left is the bytes of the
+part, which is real but is evidence about a part, not about a pixel.
+
+`pnpm run test:lo` closes that gap. LibreOffice has no SmartArt layout engine, so it
+paints the cache and nothing else, which makes it the one renderer available here that
+disagrees with PowerPoint in exactly the direction needed. The script converts each deck
+with `soffice --convert-to pdf` and reads the painted strings back with `pdftotext`.
+
+Four things about it are deliberate:
+
+- **PDF, not PNG.** PDF export runs through LibreOffice's drawing layer, the same code
+  path as the screen render, so a string in the PDF is a string that was painted, and it
+  comes back as text rather than as something to OCR. PNG export is not an option anyway:
+  LibreOffice writes the **first slide only** and ignores a `PageRange` filter option, so
+  a multi-slide fixture is unreachable that way.
+- **The `stale` case is load-bearing.** It edits the data model alone, through the
+  `textFrame` escape hatch, and asserts LibreOffice keeps painting the *old* string. That
+  is the sensitivity check: a run that stopped rendering, or stopped extracting text,
+  fails there instead of passing empty. Confirm it can still fail by pointing the
+  `mirrored` case at `textFrame` and watching both go red.
+- **Untouched neighbours are asserted too.** Every case checks that the ten sibling nodes
+  it did not edit are still painted intact. Without that, a mirror that wrote the right
+  string into the *wrong* point would pass on its own sentinel.
+- **A missing tool is a SKIP, never a failure.** This is a machine-dependent check in the
+  same tier as `test:com`. `TSPPTX_SOFFICE` and `TSPPTX_PDFTOTEXT` point it at either
+  binary, and a variable that is set but names nothing is an error rather than a silent
+  fallback to whatever the search finds next.
+
+Neither tool needs admin on Windows. LibreOffice installs as an administrative extract
+into `%LOCALAPPDATA%\Programs\LibreOffice` (the `powerpoint-fixture-authoring` skill
+has the recipe), and `pdftotext` already ships inside Git for Windows. LibreOffice was
+already used here as an independent *measurement* oracle, reading its recomputed
+`spAutoFit` sizes back over UNO in
+`test/read/fixtures/authoring/measure-lo.py`; this is the same second opinion applied to
+what gets drawn.
+
+The scope is wider than SmartArt. Any construct whose evidence today is "the right bytes
+are in the part" is a candidate, which is most of the byte-identity gate's known blind
+spots. Adding one is a new entry in the `CASES` table in
+`scripts/libreoffice-render-smoke.mjs`, with its own sensitivity check, because a case
+that cannot be made to fail proves nothing.
+
+One limit worth stating plainly: LibreOffice's fidelity is its own. This is an oracle for
+whether content is drawn and what it says, never for whether a slide looks right.

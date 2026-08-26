@@ -48,6 +48,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `gen-inspect-snapshot.mjs` | Generator | The inspect-surface snapshot | manual; asserted by a regression test |
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
+| `libreoffice-render-smoke.mjs` | Gate | Renders decks in LibreOffice, the one renderer here with no SmartArt layout engine, and reads the painted text back | manual, needs LibreOffice + `pdftotext` (`test:lo`) |
 | `ooxml-version-probe.mjs` | Diagnostic | Validator error counts across Office versions | manual (`schema:versions`) |
 | `pack-utils.mjs` | Library | `pnpm pack` helpers for the two package gates | — |
 | `package-lint.mjs` | Gate | `publint` + `attw` on the packed tarball | `verify:full`, `check:package` |

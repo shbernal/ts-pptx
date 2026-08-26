@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A second render oracle: `pnpm run test:lo`.** PowerPoint cannot be an oracle for
+  markup PowerPoint recomputes, and SmartArt is the case that proves it. A deck stores
+  every drawn string twice, in the `dgm:dataModel` PowerPoint reads and in the
+  `dsp:drawing` cache every renderer without a layout engine paints, and PowerPoint
+  rebuilds the cache from the data model on open. So a deck whose cache was never
+  written and one whose cache was written correctly render identically in PowerPoint,
+  `test:com` cannot separate them, and the drawing-cache mirror shipped in 3.5.0 was
+  proven only by the bytes of `ppt/diagrams/drawing1.xml` — real evidence, but evidence
+  about a part rather than about a pixel. The new gate renders through LibreOffice,
+  which has no SmartArt layout engine and therefore paints the cache and nothing else,
+  via `soffice --convert-to pdf` plus `pdftotext`. Three cases, each with its own
+  sensitivity check: `mirrored` proves `DiagramPoint.text` reaches the renderer, `stale`
+  edits the data model alone and proves the renderer keeps painting the *old* string,
+  and every case asserts the ten sibling nodes it did not touch are still painted, so a
+  mirror that writes the right string into the wrong point fails on its own sentinel.
+  Text is read through PDF rather than PNG because LibreOffice's PNG export writes the
+  first slide only and ignores a `PageRange` filter option. SKIPs cleanly when either
+  tool is missing (`TSPPTX_SOFFICE` / `TSPPTX_PDFTOTEXT` override the search, and a
+  set-but-wrong path errors rather than silently falling back). Not in CI, same tier as
+  `test:com`.
+
 ## [3.5.0] - 2026-08-26
 
 This release makes a text edit land where the text is actually read. `Paragraph.text` and

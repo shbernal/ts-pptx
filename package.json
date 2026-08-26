@@ -112,6 +112,7 @@
 		"test:browser": "pnpm run docs:build && playwright test",
 		"demos:build": "pnpm run ensure-dist && pnpm --dir demos/showcases run build",
 		"test:com": "pnpm run ensure-dist && node scripts/powerpoint-com-smoke.mjs",
+		"test:lo": "pnpm run ensure-dist && node scripts/libreoffice-render-smoke.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
 		"typecheck:test": "tsc -p tsconfig.test.json --noEmit",
