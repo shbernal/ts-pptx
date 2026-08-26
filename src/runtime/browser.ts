@@ -61,10 +61,13 @@ async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
 			canvas.height = image.height
 			ctx.drawImage(image, 0, 0)
 			try {
-				// `rel.type` is `image/png`, not the SVG's type: `createSvgPngPreview` is only
-				// called on a rel flagged `isSvgPng`, and both sites that create one
-				// (`gen/define/image.ts`, `gen/define/text.ts`) set the *fallback's* type, since
-				// that is the part this writes. The SVG keeps its own rel beside it.
+				// `rel.type` is `image/png`, not the SVG's type, so this is a valid canvas output
+				// type and not an `image/svg+xml` that silently falls back to PNG.
+				// `createSvgPngPreview` is only called on a rel flagged `isSvgPng` — all three
+				// call sites in `gen/media.ts` filter on it — and the only two places that
+				// create such a rel (`gen/define/image.ts`, `gen/define/text.ts`) set the
+				// *fallback's* type, since that is the part this writes. The SVG keeps its own
+				// rel beside it.
 				rel.data = canvas.toDataURL(rel.type)
 				resolve('done')
 			} catch (ex) {
