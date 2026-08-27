@@ -24,13 +24,12 @@
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import type { Relationships } from '../opc/relationships.js'
-import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { firstChild, getElements, type Element } from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
 import { resolveNotesColorContext } from './theme-context.js'
-import { spPrXfrmEmu } from './shapes/oxml.js'
 import { TextFrame } from './text.js'
-import { nvPrOf, spTreeOf } from '../oxml/slide-dom.js'
+import { spTreeOf } from '../oxml/slide-dom.js'
+import { Placeholder } from './chrome.js'
 
 /**
  * One placeholder shape (`p:sp`) of a notes slide. A notes slide holds a fixed set:
@@ -38,78 +37,23 @@ import { nvPrOf, spTreeOf } from '../oxml/slide-dom.js'
  * slide number (`type="sldNum"`). Geometry getters read the placeholder's *own*
  * `a:xfrm` and are `null` when it inherits geometry from the notesMaster (the case
  * on an authored deck, whose `sldImg`/`sldNum` carry an empty `p:spPr`).
+ *
+ * A notes placeholder IS a {@link Placeholder} — identity, geometry and the escape hatch are
+ * the same twelve members read off the same `p:sp`, down to `p:ph` being found the same way —
+ * so it extends one rather than repeating it. Two things are its own: the flattened
+ * {@link text} convenience, and a {@link textFrame} that threads the notesMaster inheritance
+ * context onto the body frame.
  */
-export class NotesPlaceholder {
-	constructor(
-		private readonly sp: Element,
-		private readonly part: Part,
-		/** The notes theme context (notesMaster → `theme2.xml`), threaded to {@link textFrame}. */
-		private readonly themeContext: ThemeContext,
-		/** The notes part's relationships, threaded to {@link textFrame} for hyperlink resolution. */
-		private readonly relationships: Relationships
-	) {}
-
-	#ph(): Element | null {
-		const nvPr = nvPrOf(this.sp)
-		return nvPr ? firstChild(nvPr, 'p:ph') : null
-	}
-
-	#cNvPr(): Element | null {
-		const nvSpPr = firstChild(this.sp, 'p:nvSpPr')
-		return nvSpPr ? firstChild(nvSpPr, 'p:cNvPr') : null
-	}
-
-	/** Placeholder type (`p:ph/@type`: `sldImg` | `body` | `sldNum`), or `null` when absent. */
-	get type(): string | null {
-		const ph = this.#ph()
-		return ph ? attr(ph, 'type') : null
-	}
-
-	/** Placeholder index (`p:ph/@idx`), or `null` when unset. */
-	get idx(): string | null {
-		const ph = this.#ph()
-		return ph ? attr(ph, 'idx') : null
-	}
-
-	/** Shape name (`p:cNvPr/@name`), or `''` when unnamed. */
-	get name(): string {
-		const cNvPr = this.#cNvPr()
-		return (cNvPr && attr(cNvPr, 'name')) ?? ''
-	}
-
-	/** Drawing id (`p:cNvPr/@id`), or `null` when absent. */
-	get id(): number | null {
-		const cNvPr = this.#cNvPr()
-		return cNvPr ? intValue(attr(cNvPr, 'id')) : null
-	}
-
-	/** Left edge in EMU (`a:off/@x`), or `null` when geometry is inherited (no own `a:xfrm`). */
-	get left(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:off', 'x')
-	}
-
-	/** Top edge in EMU (`a:off/@y`), or `null` when geometry is inherited. */
-	get top(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:off', 'y')
-	}
-
-	/** Width in EMU (`a:ext/@cx`), or `null` when geometry is inherited. */
-	get width(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:ext', 'cx')
-	}
-
-	/** Height in EMU (`a:ext/@cy`), or `null` when geometry is inherited. */
-	get height(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:ext', 'cy')
-	}
-
+export class NotesPlaceholder extends Placeholder {
 	/**
 	 * The placeholder's text as a navigable {@link TextFrame} (`p:txBody`), or `null`
 	 * when it carries no text body (the `sldImg` thumbnail). The body placeholder's
 	 * runs round-trip a slide's authored notes; the `sldNum` placeholder's frame
 	 * holds the slide-number `a:fld`, whose value surfaces through `TextFrame.text`.
+	 *
+	 * Overrides {@link Placeholder.textFrame} for the inheritance context alone — see below.
 	 */
-	get textFrame(): TextFrame | null {
+	override get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.sp, 'p:txBody')
 		if (!txBody) return null
 		// The notes *body* placeholder's runs inherit their effective size/face/bold
@@ -124,16 +68,6 @@ export class NotesPlaceholder {
 	/** The placeholder's flattened text (paragraphs joined by `\n`), or `''` when it has no text body. */
 	get text(): string {
 		return this.textFrame?.text ?? ''
-	}
-
-	/** Escape hatch: the underlying `p:sp` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
-	get element_(): Element {
-		return this.sp
-	}
-
-	/** Mark the owning notes-slide part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
-	markDirty(): void {
-		this.part.markDirty()
 	}
 }
 

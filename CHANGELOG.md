@@ -112,6 +112,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged. `offsetPt` won over `distPt` because the read API is meant to read well,
   not to mirror OOXML attribute spelling.
 
+- **`NotesPlaceholder` now extends `Placeholder`** (`ts-pptx/read`). It was a copy of it:
+  the same twelve identity, geometry and escape-hatch members, read off the same `p:sp`,
+  down to `p:ph` being located the same way — plus a flattened `text` convenience and a
+  `textFrame` that threads the notesMaster inheritance context onto the body frame. Those
+  two are now the only things it declares. Nothing about any member's behaviour changed;
+  what changed is that `notesPlaceholder instanceof Placeholder` is `true` where it was
+  `false`. That is a widening, and the answer a caller writing one type guard over "any
+  placeholder in the deck" would want, but it is worth knowing if you were relying on the
+  `instanceof` to tell a notes placeholder apart from a layout one — use
+  `instanceof NotesPlaceholder` for that, which still reports only notes placeholders.
+
 ## [3.5.0] - 2026-08-26
 
 This release makes a text edit land where the text is actually read. `Paragraph.text` and

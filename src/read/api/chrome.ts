@@ -236,12 +236,14 @@ function placeholderShapes(spTree: Element | null): Element[] {
  */
 export class Placeholder {
 	constructor(
-		private readonly sp: Element,
-		private readonly part: Part,
-		/** The owning master/layout theme context, threaded to {@link textFrame}. */
-		private readonly themeContext: ThemeContext,
+		/** The placeholder's `p:sp`. `protected` so {@link NotesPlaceholder} can read it. */
+		protected readonly sp: Element,
+		/** The part the `p:sp` lives in — a master, a layout, or a notes slide. */
+		protected readonly part: Part,
+		/** The owning part's theme context, threaded to {@link textFrame}. */
+		protected readonly themeContext: ThemeContext,
 		/** The owning part's relationships, threaded to {@link textFrame} for hyperlink resolution. */
-		private readonly relationships: Relationships
+		protected readonly relationships: Relationships
 	) {}
 
 	#cNvPr(): Element | null {
@@ -308,7 +310,7 @@ export class Placeholder {
 		return this.sp
 	}
 
-	/** Mark the owning master/layout part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
 	markDirty(): void {
 		this.part.markDirty()
 	}

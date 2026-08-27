@@ -25,6 +25,7 @@
 // `notesText`/`notesTextFrame` are now thin delegates over the body placeholder.
 
 import { describe, test } from 'vitest'
+import { NotesPlaceholder, Placeholder } from '../../dist/read.js'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
 
@@ -146,6 +147,29 @@ describe('Slide.notesTextFrame — write→read fidelity', () => {
 		assertEqual(notes.slideImage.type, 'sldImg', 'slideImage is the thumbnail placeholder')
 		assert(notes.body, 'body resolves the notes body placeholder')
 		assertEqual(notes.body.text, 'a note', 'the body placeholder round-trips the note text')
+	})
+
+	test('a notes placeholder IS a Placeholder', async () => {
+		// `NotesPlaceholder` extends `Placeholder` rather than repeating its twelve identity,
+		// geometry and escape-hatch members. That makes `instanceof Placeholder` true for a
+		// notes placeholder where it used to be false — a widening, and the answer a caller
+		// writing one type guard over "any placeholder in the deck" would want. Pinned because
+		// it is the observable half of the refactor: nothing else about the class changed.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addNotes('a note')
+		})
+		const notes = firstSlide(presentation).notesSlide
+		assert(notes, 'the notes slide reads back')
+		for (const ph of notes.placeholders) {
+			assert(ph instanceof Placeholder, `${ph.type} should satisfy instanceof Placeholder`)
+			assert(ph instanceof NotesPlaceholder, `${ph.type} is still a NotesPlaceholder`)
+		}
+		// And the inherited members answer for the notes part, not the master/layout one they
+		// were written for: `element_` is the notes `p:sp`, `name` its `p:cNvPr/@name`.
+		const body = notes.body
+		assert(body, 'the body placeholder resolves')
+		assertEqual(body.element_.localName, 'sp', 'element_ is the underlying p:sp')
+		assert(typeof body.name === 'string', 'name reads through from the base class')
 	})
 
 	test('the slide-number placeholder carries the slide number field (T2.1)', async () => {
