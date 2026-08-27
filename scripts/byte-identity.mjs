@@ -55,24 +55,36 @@ if (mode !== 'baseline' && mode !== 'check') {
 }
 
 /**
- * Build every showcase deck with each nondeterministic source pinned.
+ * Build every corpus deck with each nondeterministic source pinned.
  *
- * The decks are the gate's corpus because they are the only Node-runnable code that
- * drives the emitters end to end. The showcase modules resolve their assets from their
- * own URL, so — unlike the demo runner this replaced — no `process.chdir` is needed, and
- * they import `@shbernal/ts-pptx` through the workspace link, which resolves to the
- * `dist/` the build above just wrote.
+ * The corpus has two halves, and they are different kinds of thing:
+ *
+ * - **Showcase decks** (`demos/showcases/`) are presentation decks that happen to drive the
+ *   emitters end to end. They resolve their assets from their own URL, so — unlike the demo
+ *   runner this replaced — no `process.chdir` is needed, and they import `@shbernal/ts-pptx`
+ *   through the workspace link, which resolves to the `dist/` the build above just wrote.
+ * - **Gate decks** (`scripts/gate-decks/`) are fixture matrices shaped like a `.pptx`. They
+ *   exist because the showcases only reach what a plausible deck would reach: three chart
+ *   types out of nine chart emitters, which left most of `src/gen/chart/` with no evidence
+ *   at all. AGENTS.md is explicit that a PASS on an emitter no deck reaches is "unproven,
+ *   not proven unchanged" — so the parts that no showcase would ever want get their own
+ *   corpus rather than being bolted onto a deck that has a different job.
+ *
+ * Both are loaded by dynamic import rather than a static one: they pull in `dist/`, which
+ * the build above writes moments earlier and which may not exist when this module is first
+ * evaluated.
  *
  * Returns one `{ slug, file }` per deck.
  */
 async function generateDecks() {
-	const SHOWCASES = await loadShowcases()
+	const { GATE_DECKS } = await import('./gate-decks/index.mjs')
+	const corpus = [...(await loadShowcases()), ...GATE_DECKS]
 
 	fs.rmSync(DECKS, { recursive: true, force: true })
 	fs.mkdirSync(DECKS, { recursive: true })
 
 	const decks = []
-	for (const showcase of SHOWCASES) {
+	for (const showcase of corpus) {
 		// `getUuid` (gen-utils) and the chart-colour fallback both draw on Math.random, so
 		// section ids and `c16:uniqueId` vary per run. Reseed per deck rather than once for
 		// the process: with a single stream, editing deck 1 shifts every GUID in deck 2 and
