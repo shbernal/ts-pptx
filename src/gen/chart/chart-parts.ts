@@ -578,6 +578,52 @@ export function strRefBlock(ref: string, name: string, layout: StrRefLayout = 'i
 }
 
 /**
+ * A `<c:cat>` category reference: the `<c:f>` formula plus the `<c:numCache>`/`<c:strCache>` that
+ * mirrors the label cells it points at.
+ *
+ * `kind` picks the cache: `'num'` for numeric categories — dates, which need a `<c:formatCode>` so
+ * PowerPoint renders them as dates rather than serial numbers — and `'str'` for text ones. Stock
+ * and cat-axis each carried both arms of that choice, and surface carried the string one, five
+ * copies of the same `<c:f>` + `<c:ptCount>` + `<c:pt idx>` loop.
+ *
+ * `layout` preserves which whitespace spelling each site emitted, for the reason
+ * {@link StrRefLayout} gives. The `<c:multiLvlStrRef>` arm of a cat-axis is deliberately not
+ * folded in: multi-level categories nest a `<c:lvl>` per label group, which is a different shape
+ * rather than a different spelling.
+ * @param kind - `num` for a numeric (date) category cache, `str` for a text one
+ * @param ref - the `<c:f>` formula
+ * @param labels - the category labels, in order; escaped on the way into `<c:v>`
+ * @param formatCode - the cached `<c:formatCode>`; numeric caches only
+ * @param layout - which whitespace spelling to emit
+ */
+export function catRefBlock(
+	kind: 'num' | 'str',
+	ref: string,
+	labels: string[],
+	formatCode?: string,
+	layout: 'compact' | 'indented' = 'compact'
+): string {
+	const indent = (spaces: string): string => (layout === 'indented' ? spaces : '')
+	// `<c:ptCount>` and the points it counts are ONE child: the indented sites put whitespace
+	// before the count and none before each point, so splitting them would indent every point.
+	const points = labels.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join('')
+	const cache = el(
+		`c:${kind}Cache`,
+		null,
+		[
+			formatCode === undefined ? null : raw(el('c:formatCode', null, formatCode)),
+			raw(voidEl('c:ptCount', { val: labels.length }) + points),
+		],
+		{ childPrefix: indent('      '), closePrefix: indent('    ') }
+	)
+	return el(`c:${kind}Ref`, null, [raw(el('c:f', null, ref)), raw(cache)], {
+		openPrefix: indent('  '),
+		childPrefix: indent('    '),
+		closePrefix: indent('  '),
+	})
+}
+
+/**
  * A `<c:xVal>`/`<c:yVal>` numeric-reference block: the `<c:f>` formula plus the `<c:numCache>`
  * that mirrors the cells it points at.
  *

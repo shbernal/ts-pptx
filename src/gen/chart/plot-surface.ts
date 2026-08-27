@@ -14,8 +14,8 @@ import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
-import { el } from '../oxml/el.js'
-import { numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
+import { el, raw } from '../oxml/el.js'
+import { catRefBlock, numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
@@ -24,11 +24,7 @@ const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== fal
 function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
 	const valCol = obj._dataIndex + dataLabels(obj).length + 1
-	let strXml = '<c:cat><c:strRef>'
-	strXml += `<c:f>Sheet1!$A$2:$A$${cats.length + 1}</c:f>`
-	strXml += `<c:strCache><c:ptCount val="${cats.length}"/>`
-	cats.forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
-	strXml += '</c:strCache></c:strRef></c:cat>'
+	let strXml = el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${cats.length + 1}`, cats)))
 
 	strXml += '<c:val><c:numRef>'
 	strXml += `<c:f>${sheetRangeRef(valCol, 2, valCol, cats.length + 1)}</c:f>`

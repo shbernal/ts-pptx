@@ -37,6 +37,7 @@ import {
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
+	catRefBlock,
 } from './chart-parts.js'
 
 /**
@@ -226,24 +227,13 @@ export function makeCatAxisPlot(
 		// 2: "Categories"
 		{
 			strXml += '<c:cat>'
+			const cats = firstLabelGroup(obj)
+			const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
 			if (opts.catLabelFormatCode) {
 				// Use 'numRef' as catLabelFormatCode implies that we are expecting numbers here
-				strXml += '  <c:numRef>'
-				strXml += `    <c:f>Sheet1!$A$2:$A$${firstLabelGroup(obj).length + 1}</c:f>`
-				strXml += '    <c:numCache>'
-				strXml += '      <c:formatCode>' + (opts.catLabelFormatCode || 'General') + '</c:formatCode>'
-				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
-				firstLabelGroup(obj).forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
-				strXml += '    </c:numCache>'
-				strXml += '  </c:numRef>'
+				strXml += catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General', 'indented')
 			} else if (dataLabels(obj).length === 1) {
-				strXml += '  <c:strRef>'
-				strXml += `    <c:f>Sheet1!$A$2:$A$${firstLabelGroup(obj).length + 1}</c:f>`
-				strXml += '    <c:strCache>'
-				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
-				firstLabelGroup(obj).forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
-				strXml += '    </c:strCache>'
-				strXml += '  </c:strRef>'
+				strXml += catRefBlock('str', catRef, cats, undefined, 'indented')
 			} else {
 				strXml += '  <c:multiLvlStrRef>'
 				strXml += `    <c:f>${sheetRangeRef(1, 2, dataLabels(obj).length, firstLabelGroup(obj).length + 1)}</c:f>`

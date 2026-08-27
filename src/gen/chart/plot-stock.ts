@@ -19,8 +19,8 @@ import {
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
-import { el } from '../oxml/el.js'
-import { numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
+import { el, raw } from '../oxml/el.js'
+import { catRefBlock, numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
@@ -48,25 +48,18 @@ const STOCK_DLBLS =
 function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
 	const valColRow = obj._dataIndex + dataLabels(obj).length + 1
-	let strXml = '<c:cat>'
-	if (opts.catLabelFormatCode) {
-		// Numeric categories (dates): a `numRef` carrying the source format so PPT renders them as dates.
-		strXml += '<c:numRef>'
-		strXml += `<c:f>Sheet1!$A$2:$A$${cats.length + 1}</c:f>`
-		strXml += '<c:numCache>'
-		strXml += `<c:formatCode>${opts.catLabelFormatCode || 'General'}</c:formatCode>`
-		strXml += `<c:ptCount val="${cats.length}"/>`
-		cats.forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
-		strXml += '</c:numCache></c:numRef>'
-	} else {
-		strXml += '<c:strRef>'
-		strXml += `<c:f>Sheet1!$A$2:$A$${cats.length + 1}</c:f>`
-		strXml += '<c:strCache>'
-		strXml += `<c:ptCount val="${cats.length}"/>`
-		cats.forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
-		strXml += '</c:strCache></c:strRef>'
-	}
-	strXml += '</c:cat>'
+	const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
+	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
+	// them as dates rather than serial numbers; text ones take a plain `strRef`.
+	let strXml = el(
+		'c:cat',
+		null,
+		raw(
+			opts.catLabelFormatCode
+				? catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General')
+				: catRefBlock('str', catRef, cats)
+		)
+	)
 
 	strXml += '<c:val><c:numRef>'
 	strXml += `<c:f>${sheetRangeRef(valColRow, 2, valColRow, cats.length + 1)}</c:f>`
