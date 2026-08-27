@@ -39,6 +39,7 @@ import {
 	printAssetBindings,
 	printSlide,
 	printedScript,
+	resolvePrintOptions,
 	type AssetMode,
 	type PrintedScript,
 } from './common.js'
@@ -107,20 +108,10 @@ function isTemplateCarried(construct: string): boolean {
 	return TEMPLATE_CARRIED_CONSTRUCTS.has(construct) || construct.startsWith(LAYOUT_NOTE_PREFIX)
 }
 
-/**
- * Default import specifier for the emitted script — this package's *published* name, which
- * is not its directory name. Getting it wrong produces a script that prints and typechecks
- * and then fails at `import`, so it is pinned by a test rather than left to a literal here.
- */
-const PACKAGE_NAME = '@shbernal/ts-pptx'
-
 /** Turn a deck IR into a runnable, template-anchored TypeScript module. */
 export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): PrintedScript {
 	const templatePath = options.templatePath ?? './template.pptx'
-	const outputPath = options.outputPath ?? './output.pptx'
-	const assetDir = (options.assetDir ?? './assets').replace(/\/$/, '')
-	const assetMode = options.assets ?? 'file'
-	const packageName = options.packageName ?? PACKAGE_NAME
+	const { outputPath, assetDir, assetMode, packageName } = resolvePrintOptions(options)
 
 	const collector = new NoteCollector()
 	const assetNames = assetIdentifiers(ir)

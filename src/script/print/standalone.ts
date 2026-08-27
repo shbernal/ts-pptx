@@ -36,6 +36,7 @@ import {
 	printAssetBindings,
 	printSlide,
 	printedScript,
+	resolvePrintOptions,
 	type AssetMode,
 	type PrintedScript,
 } from './common.js'
@@ -66,15 +67,9 @@ export interface PrintStandaloneScriptOptions {
  */
 const NOT_APPLICABLE = new Set(['slide.carried'])
 
-/** See `printScript` — the published name is not the directory name, and a test pins it. */
-const PACKAGE_NAME = '@shbernal/ts-pptx'
-
 /** Turn a deck IR into a runnable TypeScript module that needs no template. */
 export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScriptOptions = {}): PrintedScript {
-	const outputPath = options.outputPath ?? './output.pptx'
-	const assetDir = (options.assetDir ?? './assets').replace(/\/$/, '')
-	const assetMode = options.assets ?? 'file'
-	const packageName = options.packageName ?? PACKAGE_NAME
+	const { outputPath, assetDir, assetMode, packageName } = resolvePrintOptions(options)
 
 	const collector = new NoteCollector()
 	const assetNames = assetIdentifiers(ir)

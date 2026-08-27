@@ -37,6 +37,48 @@ export interface PrintedScript {
 	notes: FidelityNote[]
 }
 
+/**
+ * Default import specifier for an emitted script — this package's *published* name, which is
+ * not its directory name. Getting it wrong produces a script that prints and typechecks and
+ * then fails at `import`, so it is pinned by a test rather than left to a literal.
+ */
+export const PACKAGE_NAME = '@shbernal/ts-pptx'
+
+/** The print options both tiers share, with their defaults applied. */
+export interface ResolvedPrintOptions {
+	/** Where the emitted script writes its deck, resolved against the script's own location. */
+	outputPath: string
+	/** Where the emitted script reads image assets from, with any trailing slash stripped. */
+	assetDir: string
+	/** Whether image bytes are written beside the script or inlined as `data:` literals. */
+	assetMode: AssetMode
+	/** The import specifier the emitted script uses. */
+	packageName: string
+}
+
+/**
+ * Apply the defaults both printers share.
+ *
+ * `templatePath` is deliberately not here: only the template-anchored tier has one, and that
+ * difference is the whole reason there are two printers.
+ * @param options - the caller's options, any of which may be absent
+ */
+export function resolvePrintOptions(options: {
+	outputPath?: string
+	assetDir?: string
+	assets?: AssetMode
+	packageName?: string
+}): ResolvedPrintOptions {
+	return {
+		outputPath: options.outputPath ?? './output.pptx',
+		// A trailing slash would print `./assets/` and then join another, so it is stripped once
+		// here rather than defended against at each of the places the directory is interpolated.
+		assetDir: (options.assetDir ?? './assets').replace(/\/$/, ''),
+		assetMode: options.assets ?? 'file',
+		packageName: options.packageName ?? PACKAGE_NAME,
+	}
+}
+
 /** Width the header comment's prose wraps at, leaving room for the ` * ` prefix. */
 const COMMENT_WIDTH = 110
 
