@@ -434,8 +434,9 @@ export interface ResolvedColor {
 }
 
 /**
- * Resolve a DrawingML colour *element* (`a:srgbClr`/`a:schemeClr`/`a:sysClr`)
- * against `ctx` into a full {@link ResolvedColor} — base hex, raw transform list,
+ * Resolve a DrawingML colour *element* (every `a:EG_ColorChoice` member except
+ * `a:scrgbClr` — see `read/oxml/theme.ts`) against `ctx` into a full
+ * {@link ResolvedColor} — base hex, raw transform list,
  * and the `effectiveHex`/`alpha` after applying those transforms. `null` when the
  * element cannot be made literal (unmapped token, or a colour model we do not
  * resolve). Shared by the solid-fill and gradient-stop colour reads.

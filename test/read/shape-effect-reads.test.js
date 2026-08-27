@@ -83,15 +83,20 @@ describe('Shape.shadow — outer drop shadow reads', () => {
 		assert(sys, 'a sysClr outerShdw surfaces a shadow')
 		assertEqual(sys.color, '000000', 'the sysClr lastClr snapshot resolves like it does elsewhere')
 		assertEqual(sys.offsetPt, 3, 'and the geometry is decoded alongside it')
-		// `a:prstClr` is the model this library emits itself (`gen/slide/notes.ts`). `resolveColor`
-		// has no preset-name table yet, so the colour still reads `null` — but the element now
-		// reaches the resolver, which is where that gap belongs, rather than being dropped here.
+		// `a:prstClr` is the model this library emits itself (`gen/slide/notes.ts`). It reads as a
+		// colour now that `resolveColor` carries the ECMA-376 preset table (`read/oxml/preset-color.ts`);
+		// this case is what made that gap visible, so it stays here as the shadow-side proof of it.
 		const prst = sp(
 			`<p:spPr><a:effectLst><a:outerShdw blurRad="50800"><a:prstClr val="black"/></a:outerShdw></a:effectLst></p:spPr>`
 		).shadow
 		assert(prst, 'a prstClr outerShdw surfaces a shadow')
 		assertEqual(prst.blurPt, 4, 'with its geometry decoded')
-		assertEqual(prst.color, null, 'the preset name is not resolvable yet — see [prstclr-resolution]')
+		assertEqual(prst.color, '000000', 'the preset name resolves through the table')
+		// The fifth model. The sixth, `a:scrgbClr`, still reports no colour on purpose.
+		const hsl = sp(
+			`<p:spPr><a:effectLst><a:outerShdw><a:hslClr hue="0" sat="100000" lum="50000"/></a:outerShdw></a:effectLst></p:spPr>`
+		).shadow
+		assertEqual(hsl.color, 'FF0000', 'an hslClr shadow resolves too')
 	})
 
 	test('no effectLst / no outerShdw → null', () => {

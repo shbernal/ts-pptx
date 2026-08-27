@@ -749,8 +749,8 @@ export abstract class Shape {
 		// only child and taking the first one is both correct and total — the same thing `glow` above
 		// does. Naming `a:srgbClr` and `a:schemeClr` explicitly dropped the other four models on the
 		// floor: `a:sysClr` resolves everywhere else in the read model, and this library emits
-		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` still has no `a:prstClr` case, so
-		// a preset-colour shadow resolves to a null colour rather than being silently ignored here.
+		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` now answers for five of the six
+		// (`a:scrgbClr` is the exception, and reports no colour rather than a guessed one).
 		this.#applyEffectColor(out, firstChildElement(shdw))
 		const blur = intValue(attr(shdw, 'blurRad'))
 		const dist = intValue(attr(shdw, 'dist'))

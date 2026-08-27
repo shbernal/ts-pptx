@@ -202,7 +202,15 @@ async function deckMixedUnreadableColorScheme() {
 	const slots = ['dk1', 'lt1', 'dk2', 'lt2']
 		.concat([1, 2, 3, 4, 5, 6].map((n) => `accent${n}`))
 		.concat(['hlink', 'folHlink'])
-	const scheme = `<a:clrScheme name="Preset">${slots.map((s) => `<a:${s}><a:prstClr val="black"/></a:${s}>`).join('')}</a:clrScheme>`
+	// `a:scrgbClr` is the one `a:EG_ColorChoice` member this reader deliberately does not
+	// resolve: its channels are percentages of a colour space the schema does not pin down,
+	// so linear-light and sRGB-encoded readings differ by a gamma curve and neither is
+	// derivable. That makes it the honest way to build "a slot with nothing literal behind
+	// it". It used to be `a:prstClr val="black"`, which stopped working as a stand-in the
+	// day the preset table landed and that name started resolving to `000000`.
+	const scheme = `<a:clrScheme name="Preset">${slots
+		.map((s) => `<a:${s}><a:scrgbClr r="0" g="0" b="0"/></a:${s}>`)
+		.join('')}</a:clrScheme>`
 	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
 	const theme = (await zip.file('ppt/theme/theme1.xml').async('string')).replace(
 		/<a:clrScheme[\s\S]*?<\/a:clrScheme>/,
@@ -1144,18 +1152,19 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	})
 
 	test('leaves a scheme colour symbolic when the source theme slot holds no literal RGB', async () => {
-		// `a:prstClr` (like `a:scrgbClr`/`a:hslClr`) is a legal `a:CT_Color` child that
-		// names no 6-hex RGB. The clrMap still routes the token to a slot — the slot just
-		// has nothing literal behind it. Flattening must degrade to leaving the token
-		// symbolic, so the colour re-binds to the destination, rather than emitting a
-		// bogus `a:srgbClr`.
+		// `a:scrgbClr` is a legal `a:CT_Color` child that this reader resolves to no 6-hex
+		// RGB. The clrMap still routes the token to a slot — the slot just has nothing
+		// literal behind it. Flattening must degrade to leaving the token symbolic, so the
+		// colour re-binds to the destination, rather than emitting a bogus `a:srgbClr`.
+		// (`a:prstClr` and `a:hslClr` used to reach this branch too; both resolve now, and
+		// a slot holding one is flattened to the colour it names, which is correct.)
 		const source = await Presentation.load(await deckMixedUnreadableColorScheme())
 		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		const xml = await slideXml(await target.save(), imported.partName)
 
 		assert(/<a:schemeClr val="tx2"/.test(xml), 'the unresolvable tx2 token survives as a scheme colour')
-		assert(!/<a:srgbClr val="black"/.test(xml), 'the preset-colour name was not emitted as if it were a hex')
+		assert(!/<a:scrgbClr/.test(xml), 'the unresolved colour element was not copied onto the slide either')
 		assert(!/<a:srgbClr val="333399"/.test(xml), 'nor was tx2 flattened to the RGB the replaced Fusion scheme held')
 	})
 

@@ -44,9 +44,21 @@ export interface EffectiveColor {
 	alpha?: number
 }
 
-/** DrawingML percentage (`100%` = `100000`) → fraction, or `null` when unparseable. */
-function pct(value: string | null): number | null {
+/**
+ * DrawingML percentage → fraction, or `null` when unparseable.
+ *
+ * `a:ST_Percentage` is a *union* in the Transitional profile: the fixed-point integer form
+ * Office writes (`100%` → `100000`) and a decimal string with a literal `%` (`-?[0-9]+(\.[0-9]+)?%`),
+ * which is the only form the Strict profile has. Both are read here — a reader that took only the
+ * first dropped a schema-legal value silently, and the two are one `endsWith` apart.
+ * @param value - the raw attribute value, or `null` when the attribute is absent
+ */
+export function parsePercent(value: string | null): number | null {
 	if (value === null || value === '') return null
+	if (value.endsWith('%')) {
+		const n = Number(value.slice(0, -1))
+		return Number.isFinite(n) ? n / 100 : null
+	}
 	const n = Number(value)
 	return Number.isFinite(n) ? n / PERCENT_SCALE : null
 }
@@ -114,6 +126,26 @@ function hslToRgb({ h, s, l }: { h: number; s: number; l: number }): { r: number
 }
 
 /**
+ * An `a:hslClr` triple → 6-hex sRGB, or `null` when any of the three is unparseable.
+ *
+ * The colour space is the one `lumMod`/`satMod` already work in — DrawingML's HSL is sRGB-HSL,
+ * which is what the transform family below is verified against — so this shares that conversion
+ * rather than introducing a second one. Units are the schema's: `@hue` is
+ * `a:ST_PositiveFixedAngle`, i.e. 60,000ths of a degree, and `@sat`/`@lum` are `a:ST_Percentage`
+ * (see {@link parsePercent}). Saturation and luminance are clamped to 0–1; hue wraps.
+ * @param hue - raw `@hue`
+ * @param sat - raw `@sat`
+ * @param lum - raw `@lum`
+ */
+export function hslClrToHex(hue: string | null, sat: string | null, lum: string | null): string | null {
+	const h = hue === null || hue === '' ? null : Number(hue)
+	const s = parsePercent(sat)
+	const l = parsePercent(lum)
+	if (h === null || !Number.isFinite(h) || s === null || l === null) return null
+	return toHex(hslToRgb({ h: h / ANGLE_UNITS_PER_DEGREE, s: clamp01(s), l: clamp01(l) }))
+}
+
+/**
  * Apply an ordered list of DrawingML colour transforms to a base sRGB hex,
  * returning the effective sRGB hex (and opacity, when an `alpha*` modifier set
  * it). Pure: no DOM, no theme lookup — the caller has already resolved the base
@@ -132,7 +164,7 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 		switch (name) {
 			case 'lumMod':
 			case 'lumOff': {
-				const f = pct(value)
+				const f = parsePercent(value)
 				if (f === null) break
 				const hsl = rgbToHsl(rgb)
 				hsl.l = clamp01(name === 'lumMod' ? hsl.l * f : hsl.l + f)
@@ -141,7 +173,7 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 			}
 			case 'satMod':
 			case 'satOff': {
-				const f = pct(value)
+				const f = parsePercent(value)
 				if (f === null) break
 				const hsl = rgbToHsl(rgb)
 				hsl.s = clamp01(name === 'satMod' ? hsl.s * f : hsl.s + f)
@@ -153,7 +185,7 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 				const hsl = rgbToHsl(rgb)
 				// hueMod is a percentage scale; hueOff is an angle in 60000ths of a degree.
 				if (name === 'hueMod') {
-					const f = pct(value)
+					const f = parsePercent(value)
 					if (f === null) break
 					hsl.h = (((hsl.h * f) % 360) + 360) % 360
 				} else {
@@ -166,7 +198,7 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 			}
 			case 'shade':
 			case 'tint': {
-				const k = pct(value)
+				const k = parsePercent(value)
 				if (k === null) break
 				const lin = { r: srgbToLinear(rgb.r), g: srgbToLinear(rgb.g), b: srgbToLinear(rgb.b) }
 				const apply = (c: number): number => clamp01(name === 'shade' ? c * k : c * k + (1 - k))
@@ -174,17 +206,17 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 				break
 			}
 			case 'alpha': {
-				const f = pct(value)
+				const f = parsePercent(value)
 				if (f !== null) alpha = clamp01(f)
 				break
 			}
 			case 'alphaMod': {
-				const f = pct(value)
+				const f = parsePercent(value)
 				if (f !== null) alpha = clamp01((alpha ?? 1) * f)
 				break
 			}
 			case 'alphaOff': {
-				const f = pct(value)
+				const f = parsePercent(value)
 				if (f !== null) alpha = clamp01((alpha ?? 1) + f)
 				break
 			}

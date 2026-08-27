@@ -497,8 +497,8 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 2 to 13 notes, not fifty (across the corpus: 732
-notes against the template-anchored tier's 432).
+on. Per deck the tier adds 2 to 13 notes, not fifty (across the corpus: 733
+notes against the template-anchored tier's 433).
 
 ### The read path is the binding constraint
 

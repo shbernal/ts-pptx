@@ -21,6 +21,8 @@
  * Placeholder-inheritance resolution (what a placeholder gets from its layout/master chain) is
  * its own concern and lives in `placeholder-inherit.ts`.
  */
+import { hslClrToHex } from './color-transform.js'
+import { presetColorHex } from './preset-color.js'
 import {
 	OOXML_NS,
 	attr,
@@ -165,11 +167,24 @@ export function isA(el: Element | null, local: string): boolean {
 	return !!el && el.namespaceURI === OOXML_NS.a && el.localName === local
 }
 
-/** The literal RGB of a colour element (`srgbClr`/`sysClr`), or `null` for others. */
+/**
+ * The literal RGB of a *non-scheme* colour element, or `null` for one that needs the theme
+ * (`a:schemeClr`) or that this reader does not resolve.
+ *
+ * Four of `a:EG_ColorChoice`'s six members land here. `a:scrgbClr` is the one deliberately left
+ * out: its channels are percentages of a colour space the schema does not pin down, so whether
+ * `50%` is linear-light or sRGB-encoded decides the answer and neither the schema nor the
+ * transform work in `color-transform.ts` settles it. Guessing would produce a colour that is
+ * wrong by a gamma curve and says nothing about it, which is worse than reporting no colour.
+ * Closing it needs a render oracle — a deck with an `a:scrgbClr` fill authored in PowerPoint
+ * and the painted pixel read back — not a reading of the schema.
+ */
 function colorElementHex(color: Element | null): string | null {
 	if (!color) return null
 	if (isA(color, 'srgbClr')) return attr(color, 'val')
 	if (isA(color, 'sysClr')) return attr(color, 'lastClr') ?? attr(color, 'val')
+	if (isA(color, 'prstClr')) return presetColorHex(attr(color, 'val'))
+	if (isA(color, 'hslClr')) return hslClrToHex(attr(color, 'hue'), attr(color, 'sat'), attr(color, 'lum'))
 	return null
 }
 
@@ -183,6 +198,10 @@ export interface ResolvedColor {
  * Resolve a DrawingML colour element to a literal `{ hex, transforms }`, routing
  * `a:schemeClr` through the context. Returns `null` when the base cannot be made
  * literal (unmapped token, or a colour model we do not flatten).
+ *
+ * Five of `a:EG_ColorChoice`'s six members resolve: `a:srgbClr`, `a:sysClr`, `a:schemeClr`,
+ * `a:prstClr` (through the {@link presetColorHex} table) and `a:hslClr`. `a:scrgbClr` does not —
+ * see {@link colorElementHex} for why that one is a `null` rather than a guess.
  */
 export function resolveColor(color: Element | null, ctx: ColorContext): ResolvedColor | null {
 	if (!color) return null
@@ -191,7 +210,7 @@ export function resolveColor(color: Element | null, ctx: ColorContext): Resolved
 		const hex = attr(color, 'val')
 		return hex ? { hex, transforms } : null
 	}
-	if (isA(color, 'sysClr')) {
+	if (isA(color, 'sysClr') || isA(color, 'prstClr') || isA(color, 'hslClr')) {
 		const hex = colorElementHex(color)
 		return hex ? { hex, transforms } : null
 	}

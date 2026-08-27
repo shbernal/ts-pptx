@@ -145,6 +145,9 @@ export { type ResolvedColor, resolveColorElement } from './read/api/theme-contex
 export type { ColorContext } from './read/oxml/theme.js'
 // DrawingML colour-transform application (base hex + transforms → effective hex).
 export { applyColorTransforms, type ColorTransform, type EffectiveColor } from './read/oxml/color-transform.js'
+// The ECMA-376 preset colour table, so a caller holding a raw preset name — `GradientStop`
+// and `RecolorColor` both report one — can make it literal the same way the reader does.
+export { presetColorHex } from './read/oxml/preset-color.js'
 
 // Error taxonomy — see `entry-errors.ts`. Re-exported from every entry so `instanceof`
 // works whichever subpath a consumer imports.

@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`a:prstClr` and `a:hslClr` resolve, so five of the six DrawingML colour models now
+  report a colour** (`ts-pptx/read`). `resolveColor` handled `a:srgbClr`, `a:sysClr` and
+  `a:schemeClr`; a colour written in any of the other three read as `null` everywhere in
+  the read model — fills, lines, gradients, effects, table styles, slide backgrounds and
+  the `theme: 'preserve'` flatten path alike. `a:prstClr` is the one that mattered, because
+  this library emits it itself (a notes-page frame, a zoom tile's border) and because
+  `Picture`'s duotone stops already surfaced the raw preset name with nothing to turn it
+  into. `src/read/oxml/preset-color.ts` now holds the ECMA-376 §20.1.10.47 table: 190
+  enumerated names, 140 distinct colours, since the abbreviated `dk`/`lt`/`med` prefixes,
+  both spellings of grey, and case are spelling rules rather than separate entries.
+  `a:hslClr` went in beside it through the sRGB-HSL conversion the colour-transform module
+  already carries and already validates against PowerPoint for `lumMod`/`satMod`. The
+  preset resolves to a hex and nothing else: `ResolvedColor` gains no `presetColor` field,
+  because the read model reports the raw reference separately from the resolved one
+  everywhere else, and the write API has no preset-name option for a round trip to reach.
+
+  **`presetColorHex` is exported from `ts-pptx/read`**, so a caller holding a raw preset
+  name — `GradientStop.presetColor`, `RecolorColor.presetColor` — can make it literal the
+  same way the reader does.
+
+  **`a:scrgbClr` is deliberately still unresolved.** Its channels are percentages of a
+  colour space the schema does not pin down, so whether `50%` is linear-light or
+  sRGB-encoded decides the answer and the two differ by a gamma curve. Reporting no colour
+  is honest; reporting a guessed one is not. Settling it needs a render oracle, and until
+  there is one that stays a decision rather than an oversight.
+
+  One related repair on the way past: `a:ST_Percentage` is a *union* in the Transitional
+  profile — the fixed-point integer Office writes and a `%`-suffixed decimal string — and
+  the transform decoder read only the first, dropping a schema-legal `alpha="50%"` without
+  a word. Both spellings are read now.
+
+  It shows up downstream: three run colours in the `table` fixture move from
+  `text.color.default` — the one fidelity note where the converter's output colour is not
+  merely frozen but possibly *wrong*, because nothing resolved what the run inherits and
+  the write path paints it black — to `text.color.inherited`, resolved and baked. The
+  corpus note totals move with them (733 / 433).
+
 - **A second render oracle: `pnpm run test:lo`.** PowerPoint cannot be an oracle for
   markup PowerPoint recomputes, and SmartArt is the case that proves it. A deck stores
   every drawn string twice, in the `dgm:dataModel` PowerPoint reads and in the
@@ -88,9 +125,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shadow's only child and it is required (`a:EG_ColorChoice`, a single-member group), so
   it now takes the first element child — exactly what `Shape.glow` alongside it has always
   done. `a:sysClr` was the live case: it resolves everywhere else in the read model,
-  through its `lastClr` snapshot. `a:prstClr` now reaches the resolver, which has no
-  preset-name table yet and so still reports `null` — the gap moved to where it belongs
-  instead of being silently swallowed by the accessor.
+  through its `lastClr` snapshot. `a:prstClr` reaches the resolver, which now carries the
+  preset table — see the colour-model entry above — so a preset-coloured shadow reports a
+  colour rather than being silently swallowed by the accessor.
 
 - **A chart point cache can no longer size an allocation straight from the file.** Both
   chart readers turned a cached series into a dense array by trusting two numbers the deck
