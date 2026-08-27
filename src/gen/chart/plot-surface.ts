@@ -15,7 +15,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el } from '../oxml/el.js'
-import { numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
+import { numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
@@ -43,12 +43,7 @@ function makeSurfaceSer(obj: OptsChartDataInternal, valFmtCode: string, seriesCo
 	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
 	let strXml = '<c:ser>'
 	strXml += `<c:idx val="${obj._dataIndex}"/><c:order val="${obj._dataIndex}"/>`
-	strXml +=
-		'<c:tx><c:strRef>' +
-		`<c:f>${sheetCellRef(nameCol, 1)}</c:f>` +
-		'<c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
-		el('c:v', null, obj.name ?? '') +
-		'</c:pt></c:strCache></c:strRef></c:tx>'
+	strXml += strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')
 	// A surface series carries 3-D shape props; the surface itself is colored by value band, but the
 	// per-series fill still styles the wireframe / legend key.
 	strXml += `<c:spPr>${genXmlColorSelection(seriesColor)}<a:ln/><a:effectLst/><a:sp3d/></c:spPr>`

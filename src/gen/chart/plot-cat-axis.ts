@@ -36,6 +36,7 @@ import {
 	numCachePt,
 	paletteColor,
 	resolveChartPalette,
+	strRefBlock,
 } from './chart-parts.js'
 
 /**
@@ -113,13 +114,7 @@ export function makeCatAxisPlot(
 		colorIndex++
 		strXml += '<c:ser>'
 		strXml += `  <c:idx val="${obj._dataIndex}"/><c:order val="${obj._dataIndex}"/>`
-		strXml += '  <c:tx>'
-		strXml += '    <c:strRef>'
-		strXml += `      <c:f>${sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1)}</c:f>`
-		strXml +=
-			'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' + el('c:v', null, obj.name ?? '') + '</c:pt></c:strCache>'
-		strXml += '    </c:strRef>'
-		strXml += '  </c:tx>'
+		strXml += strRefBlock(sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1), obj.name ?? '')
 
 		// Fill and Border
 		// `chartColors` is always populated by addChartDefinition() (defaulting to BARCHART_COLORS); the

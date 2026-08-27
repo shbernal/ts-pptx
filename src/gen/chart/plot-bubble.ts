@@ -16,8 +16,15 @@ import { resolveBorderWidth } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
-import { el, voidEl } from '../oxml/el.js'
-import { createChartTextFonts, numCachePt, numRefBlock, paletteColor, resolveChartPalette } from './chart-parts.js'
+import { voidEl } from '../oxml/el.js'
+import {
+	createChartTextFonts,
+	numCachePt,
+	numRefBlock,
+	paletteColor,
+	resolveChartPalette,
+	strRefBlock,
+} from './chart-parts.js'
 
 /**
  * Plot a bubble / bubble3d chart into `<c:bubbleChart>` (X/Y plus per-point size).
@@ -56,15 +63,7 @@ export function makeBubblePlot(
 			strXml += `  <c:order val="${idx}"/>`
 
 			// A: `<c:tx>`
-			strXml += '  <c:tx>'
-			strXml += '    <c:strRef>'
-			strXml += `      <c:f>${sheetCellRef(idxColLtr + 1, 1)}</c:f>`
-			strXml +=
-				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
-				el('c:v', null, obj.name ?? '') +
-				'</c:pt></c:strCache>'
-			strXml += '    </c:strRef>'
-			strXml += '  </c:tx>'
+			strXml += strRefBlock(sheetCellRef(idxColLtr + 1, 1), obj.name ?? '')
 
 			// B: '<c:spPr>': Fill, Border, Line, LineStyle (dash, etc.), Shadow
 			{

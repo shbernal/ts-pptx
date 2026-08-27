@@ -536,6 +536,48 @@ export function makeSeriesDataPointsXml(
 }
 
 /**
+ * The whitespace spelling a {@link strRefBlock} is emitted with.
+ *
+ * The five hand-written copies this replaces produced the same elements three different ways —
+ * `plot-scatter`, `plot-bubble` and `plot-cat-axis` agreed on one indentation, `plot-surface` ran
+ * everything together with none, and `plot-pie` broke the cache across four lines. All three are
+ * inert to PowerPoint, and all three are *emitted* bytes, so this extraction has to preserve which
+ * one each call site produced. That is what this parameter is for, and it is exactly what a
+ * whitespace normalization would erase — which is why that is its own deliberate, re-baselined
+ * piece of work and this is not.
+ */
+export type StrRefLayout = 'indented' | 'compact' | 'expanded'
+
+/**
+ * A `<c:tx>` series-name block: the `<c:f>` formula plus the one-point `<c:strCache>` mirroring
+ * the header cell it points at. The string counterpart of {@link numRefBlock}.
+ *
+ * Built through `el()`/`voidEl()` rather than by concatenation, with the indentation carried on
+ * the `openPrefix`/`childPrefix`/`closePrefix` byte-layout hooks those helpers already have. The
+ * five copies this replaces were all hand-built strings, so routing them here takes fifty-odd
+ * hand-written delimiters out of `src/gen/chart/` rather than moving them into one file.
+ * @param ref - the `<c:f>` formula, from {@link sheetCellRef} or written inline
+ * @param name - the series name to cache; escaped on the way into `<c:v>`
+ * @param layout - which of the three historical whitespace spellings to emit; see {@link StrRefLayout}
+ */
+export function strRefBlock(ref: string, name: string, layout: StrRefLayout = 'indented'): string {
+	const compact = layout === 'compact'
+	const pt = el('c:pt', { idx: 0 }, raw(el('c:v', null, name)))
+	const cacheChildren = [raw(voidEl('c:ptCount', { val: 1 })), raw(pt)]
+	const strCache =
+		layout === 'expanded'
+			? el('c:strCache', null, cacheChildren, { childPrefix: '        ', closePrefix: '      ' })
+			: el('c:strCache', null, cacheChildren)
+	const indent = (spaces: string): string => (compact ? '' : spaces)
+	const strRef = el('c:strRef', null, [raw(el('c:f', null, ref)), raw(strCache)], {
+		openPrefix: indent('    '),
+		childPrefix: indent('      '),
+		closePrefix: indent('    '),
+	})
+	return el('c:tx', null, raw(strRef), { openPrefix: indent('  '), closePrefix: indent('  ') })
+}
+
+/**
  * A `<c:xVal>`/`<c:yVal>` numeric-reference block: the `<c:f>` formula plus the `<c:numCache>`
  * that mirrors the cells it points at.
  *

@@ -25,6 +25,7 @@ import {
 	createLeaderLinesElement,
 	paletteColor,
 	resolveChartPalette,
+	strRefBlock,
 } from './chart-parts.js'
 
 /**
@@ -61,15 +62,7 @@ export function makePiePlot(
 	strXml += '<c:ser>'
 	strXml += '  <c:idx val="0"/>'
 	strXml += '  <c:order val="0"/>'
-	strXml += '  <c:tx>'
-	strXml += '    <c:strRef>'
-	strXml += '      <c:f>Sheet1!$B$1</c:f>'
-	strXml += '      <c:strCache>'
-	strXml += '        <c:ptCount val="1"/>'
-	strXml += '        <c:pt idx="0">' + el('c:v', null, optsChartData.name ?? '') + '</c:pt>'
-	strXml += '      </c:strCache>'
-	strXml += '    </c:strRef>'
-	strXml += '  </c:tx>'
+	strXml += strRefBlock('Sheet1!$B$1', optsChartData.name ?? '', 'expanded')
 	strXml += '  <c:spPr>'
 	strXml += '    <a:solidFill><a:schemeClr val="accent1"/></a:solidFill>'
 	strXml +=

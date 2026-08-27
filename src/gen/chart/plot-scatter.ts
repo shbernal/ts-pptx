@@ -29,6 +29,7 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	strRefBlock,
 } from './chart-parts.js'
 
 /**
@@ -67,15 +68,7 @@ export function makeScatterPlot(
 			strXml += '<c:ser>'
 			strXml += `  <c:idx val="${idx}"/>`
 			strXml += `  <c:order val="${idx}"/>`
-			strXml += '  <c:tx>'
-			strXml += '    <c:strRef>'
-			strXml += `      <c:f>${sheetCellRef(idx + 2, 1)}</c:f>`
-			strXml +=
-				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
-				el('c:v', null, obj.name ?? '') +
-				'</c:pt></c:strCache>'
-			strXml += '    </c:strRef>'
-			strXml += '  </c:tx>'
+			strXml += strRefBlock(sheetCellRef(idx + 2, 1), obj.name ?? '')
 
 			// 'c:spPr': Fill, Border, Line, LineStyle (dash, etc.), Shadow
 			strXml += '  <c:spPr>'
