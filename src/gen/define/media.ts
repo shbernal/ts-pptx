@@ -6,7 +6,7 @@
  * use the external-link variant. The timing / `<p:pic>` XML is emitted later.
  */
 import { SlideObjectType } from '../../enums.js'
-import { IMG_PLAYBTN } from '../../constants-internal.js'
+import { IMG_PLAYBTN } from '../../media/placeholders.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'

@@ -2,7 +2,7 @@
  * ts-pptx: Media Methods
  */
 
-import { IMG_BROKEN } from '../constants-internal.js'
+import { IMG_BROKEN } from '../media/placeholders.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import { toMediaDataUri } from '../media/base64.js'

@@ -1,4 +1,4 @@
-import { IMG_SVG_PLACEHOLDER } from '../constants-internal.js'
+import { IMG_SVG_PLACEHOLDER } from '../media/placeholders.js'
 import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'

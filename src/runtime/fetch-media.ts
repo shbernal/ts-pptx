@@ -10,7 +10,7 @@
  * Nothing here touches a host global beyond `fetch`.
  */
 
-import { IMG_SVG_PLACEHOLDER } from '../constants-internal.js'
+import { IMG_SVG_PLACEHOLDER } from '../media/placeholders.js'
 import { MediaError } from '../errors.js'
 import { bytesToBase64 } from '../media/base64.js'
 import type { SlideRelMedia } from '../types/internal.js'
