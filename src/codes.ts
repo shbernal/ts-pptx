@@ -56,6 +56,8 @@ export type DiagnosticCode =
 	| 'chart/invalid-grid-line-cap'
 	| 'chart/layout-out-of-range'
 	| 'chart/stock-series-count'
+	| 'chart/point-count-mismatch'
+	| 'chart/point-index-out-of-range'
 	// Comments
 	| 'comment/missing-author'
 	| 'comment/missing-text'

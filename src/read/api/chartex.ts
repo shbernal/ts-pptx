@@ -19,6 +19,7 @@
  */
 import type { Part } from '../opc/part.js'
 import { OOXML_NS, attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { readIndexedPoints } from '../oxml/point-cache.js'
 
 /** A chartEx legend (`cx:legend`) — a leaf element carrying position/alignment attributes. */
 export interface ChartExLegend {
@@ -309,22 +310,15 @@ export class ChartExAxis {
 	}
 }
 
-/** Read a `cx:lvl`'s points (`cx:pt[@idx]` text) into an idx-ordered array sized by `@ptCount`. */
+/** Read a `cx:lvl`'s points (`cx:pt[@idx]` text) into an idx-ordered array; `@ptCount` is the declared count. */
 function readLevelPoints(lvl: Element | null): (string | null)[] {
 	if (!lvl) return []
-	const ptCount = intValue(attr(lvl, 'ptCount'))
-	const pts = getElements(lvl, 'cx:pt')
-	let count = ptCount ?? 0
-	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
-		if (idx + 1 > count) count = idx + 1
-	}
-	const points: (string | null)[] = new Array<string | null>(count).fill(null)
-	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
-		points[idx] = pt.textContent ?? null
-	}
-	return points
+	return readIndexedPoints(
+		getElements(lvl, 'cx:pt'),
+		intValue(attr(lvl, 'ptCount')),
+		(pt) => pt.textContent ?? null,
+		'cx:lvl/@ptCount'
+	)
 }
 
 /** Parse an attribute as a boolean (`1`/`true` → true, `0`/`false` → false), or `null` when absent. */

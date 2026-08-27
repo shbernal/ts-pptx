@@ -18,6 +18,7 @@ import {
 	intValue,
 	type Element,
 } from '../oxml/dom.js'
+import { readIndexedPoints } from '../oxml/point-cache.js'
 
 /** A chart axis number format (`c:numFmt`). */
 export interface AxisNumberFormat {
@@ -497,20 +498,14 @@ function findCache(container: Element | null): Element | null {
 	return firstChild(container, 'c:numLit') ?? firstChild(container, 'c:strLit')
 }
 
-/** Read a cache's points (`c:pt[@idx]/c:v`) into an idx-ordered array sized by `c:ptCount`. */
+/** Read a cache's points (`c:pt[@idx]/c:v`) into an idx-ordered array; `c:ptCount` is the declared count. */
 function readPoints(cache: Element | null): (string | null)[] {
 	if (!cache) return []
 	const ptCount = firstChild(cache, 'c:ptCount')
-	let count = ptCount ? (intValue(attr(ptCount, 'val')) ?? 0) : 0
-	const pts = getElements(cache, 'c:pt')
-	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
-		if (idx + 1 > count) count = idx + 1
-	}
-	const points: (string | null)[] = new Array<string | null>(count).fill(null)
-	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
-		points[idx] = firstChild(pt, 'c:v')?.textContent ?? null
-	}
-	return points
+	return readIndexedPoints(
+		getElements(cache, 'c:pt'),
+		ptCount ? intValue(attr(ptCount, 'val')) : null,
+		(pt) => firstChild(pt, 'c:v')?.textContent ?? null,
+		'c:ptCount'
+	)
 }

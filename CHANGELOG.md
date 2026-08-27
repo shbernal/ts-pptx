@@ -85,6 +85,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preset-name table yet and so still reports `null` — the gap moved to where it belongs
   instead of being silently swallowed by the accessor.
 
+- **A chart point cache can no longer size an allocation straight from the file.** Both
+  chart readers turned a cached series into a dense array by trusting two numbers the deck
+  supplies: `c:ptCount/@val` (`cx:lvl/@ptCount` on the 2016 side) and each point's `@idx`.
+  `@ptCount` is `xsd:unsignedInt`, so `4294967295` is schema-valid, and
+  `new Array(4294967295).fill(null)` is not a slow path — V8 answers `FATAL ERROR: invalid
+  table size` and the host process dies with no exception to catch. It was reachable
+  through the public API: `Presentation.load()` on such a deck returned normally and the
+  first `chart.series` access killed the process. A single `<c:pt idx="900000000"/>` did
+  the same on its own. Both readers now share one bounded decode: the array is sized by the
+  points that are really present, and a point indexed past a worksheet's 1,048,576 rows —
+  more than any workbook-backed cache could reference — is dropped. Two new diagnostics,
+  `chart/point-count-mismatch` and `chart/point-index-out-of-range`, report either case
+  rather than trimming silently. One consequence on legitimately sparse data: a cache that
+  declares four points but carries three (the last cell blank) now reads three long instead
+  of four. No value is lost — the dropped slots are the ones that read `null` — and the
+  disagreement is warned about.
+
 ### Changed
 
 - **`Reflection.distPt` is now `Reflection.offsetPt`** (`ts-pptx/read`). Sibling accessors
