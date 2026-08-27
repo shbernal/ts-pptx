@@ -91,4 +91,38 @@ defineRegressionSuite('Image base64 data de-duplication', [
 			assert(countMedia(zip) === 2, `expected 2 media parts for distinct cross-slide images; got ${countMedia(zip)}`)
 		},
 	},
+	{
+		// SVG takes a different route to the same place, and it is worth pinning because the code
+		// reads as though it does not. An SVG placement pushes TWO rels — the PNG rasterization
+		// fallback and the SVG source — and neither push goes through the per-slide de-dup the
+		// raster branch uses, so reading `gen/define/image.ts` alone suggests two placements embed
+		// two copies of each. They do not: the deck-wide collapse keys on extension + bytes once
+		// every rel is loaded, and catches both. Measured at 2 parts (one `.png`, one `.svg`) for
+		// two placements, on one slide and across two, by path and by data.
+		//
+		// The PNG fallback is the one that could legitimately differ — it is rasterized per call
+		// from a per-call `svgSize` — so a second placement at a different size is included here
+		// to record what the Node runtime actually does with it.
+		name: 'an SVG placed twice embeds one svg part and one png fallback',
+		fn: async () => {
+			const svgPath = 'demos/common/images/lock-green.svg'
+			const oneSlide = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({ path: svgPath, x: 1, y: 1, w: 1, h: 1 })
+				s.addImage({ path: svgPath, x: 3, y: 1, w: 3, h: 3 })
+			})
+			assert(
+				countMedia(oneSlide.zip) === 2,
+				`expected the svg + its png fallback, once each; got ${listEntries(oneSlide.zip).filter((p) => p.startsWith('ppt/media/') && !p.endsWith('/'))}`
+			)
+			const twoSlides = await build((p) => {
+				p.addSlide().addImage({ path: svgPath, x: 1, y: 1, w: 1, h: 1 })
+				p.addSlide().addImage({ path: svgPath, x: 1, y: 1, w: 1, h: 1 })
+			})
+			assert(
+				countMedia(twoSlides.zip) === 2,
+				`expected the same two parts shared across slides; got ${listEntries(twoSlides.zip).filter((p) => p.startsWith('ppt/media/') && !p.endsWith('/'))}`
+			)
+		},
+	},
 ])

@@ -2,9 +2,9 @@
  * ts-pptx: Image Definition
  *
  * `addImageDefinition` resolves an `addImage()` source, allocates its drawing rel(s) (SVG needs
- * a second for the PNG fallback), registers the media bytes (deduped) and inherits any
- * placeholder geometry. `registerImageFillMedia` does the same media-rel registration for an
- * image *fill* used by a shape or text box.
+ * a second for the PNG fallback), registers the media bytes through `registerImageMediaRel` and
+ * inherits any placeholder geometry. `registerImageFillMedia` does the same media-rel registration
+ * for an image *fill* used by a shape or text box.
  */
 import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
@@ -13,10 +13,11 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
-import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
+import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
+import { registerImageMediaRel } from './image-rel.js'
 import { InvalidOptionError } from '../../errors.js'
 
 /** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */
@@ -61,24 +62,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 	}
 
 	const imageRelId = getNewRelId(target)
-	const mediaKey = mediaSlideKey(target)
-	const imgContentType = imageContentType(strImgExtn)
-	const dupeItem = target._relsMedia.find((item) => {
-		if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
-		return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
-	})
-
-	target._relsMedia.push({
-		path: strImagePath || 'preencoded.' + strImgExtn,
-		type: imgContentType,
-		extn: strImgExtn,
-		data: strImageData || '',
-		rId: imageRelId,
-		isDuplicate: !!dupeItem?.Target,
-		Target: dupeItem?.Target
-			? dupeItem.Target
-			: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
-	})
+	registerImageMediaRel(target, { path: strImagePath, data: strImageData, extn: strImgExtn }, imageRelId)
 	fill.type = 'image'
 	fill._imgRid = imageRelId
 }
@@ -248,6 +232,13 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		// SVG files consume *TWO* rId's: (a png version and the svg image)
 		// <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
 		// <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.svg"/>
+		//
+		// Neither push goes through `registerImageMediaRel`, and neither needs to. The PNG
+		// fallback is rasterized per call from a per-call `svgSize`, so two uses at different
+		// sizes are genuinely two different images. The SVG source has no such excuse, but the
+		// deck-wide collapse in `package/assemble.ts` already keys on extension + bytes and
+		// merges them: the same SVG placed twice — on one slide or two, by path or by data —
+		// measures as a single `ppt/media/*.svg` part in the emitted package.
 		target._relsMedia.push({
 			path: strImagePath || strImageData + 'png',
 			type: 'image/png',
@@ -272,27 +263,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		})
 		newObject.imageRid = imageRelId + 1
 	} else {
-		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
-		// File-path images are matched by `path`; base64/`data` images have no real path
-		// (all share the `preencoded.<extn>` placeholder), so they are matched by their data
-		// payload instead so identical inline images are embedded once.
-		const imgContentType = imageContentType(strImgExtn)
-		const dupeItem = target._relsMedia.find((item) => {
-			if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
-			return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
-		})
-
-		target._relsMedia.push({
-			path: strImagePath || 'preencoded.' + strImgExtn,
-			type: imgContentType,
-			extn: strImgExtn,
-			data: strImageData || '',
-			rId: imageRelId,
-			isDuplicate: !!dupeItem?.Target,
-			Target: dupeItem?.Target
-				? dupeItem.Target
-				: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
-		})
+		registerImageMediaRel(target, { path: strImagePath, data: strImageData, extn: strImgExtn }, imageRelId)
 		newObject.imageRid = imageRelId
 	}
 
