@@ -317,41 +317,123 @@ export class Placeholder {
 }
 
 /**
- * A deck's slide master (`slideMasterN.xml`) as a modeled object. Exposes the
- * property tiers a bound slide inherits: the {@link colorMap} (token → theme slot),
- * its {@link theme}, its {@link shapes} and the {@link placeholders} subset of them,
- * its own {@link background}, and the {@link layouts} that build on it. Reachable
- * from {@link SlideLayout.master} and `Slide.master`.
+ * The shared body of a slide master and a slide layout — the two template tiers a slide
+ * inherits from.
+ *
+ * Both are an OPC part holding a `p:cSld` with a shape tree and a resolvable theme context, and
+ * both were written out in full, member for member: `partName`, `relationships`, `name`,
+ * `shapes`, `shapeByIdDeep`, `placeholders`, `themeContext` and the two DOM lookups behind them
+ * were character-for-character identical in the two classes. Nothing about that was broken, but
+ * it meant every accessor added to a template tier had to be added twice, and the ones meant to
+ * agree could quietly stop agreeing.
+ *
+ * What genuinely differs stays on the subclasses. `theme` differs because a layout has to walk
+ * to its master first. `background` differs in the tier label it decodes with and in where it
+ * finds the theme part. And the context itself differs, which is why {@link resolveThemeContext}
+ * is abstract: a master resolves its own `p:clrMap` + theme, a layout walks layout → master →
+ * theme. The caching around it is shared, so a subclass supplies the walk and nothing else.
+ *
+ * `Slide` deliberately does not extend this. It is a shape host too, but it is constructed from
+ * a `Presentation` rather than an `OpcPackage`, reaches its relationships through that, and
+ * reports an unnamed slide as `null` where a template tier reports `''` — three differences in
+ * the same handful of members, which is more contortion than the sharing is worth.
  */
-export class SlideMaster implements ShapeHost {
+abstract class TemplatePart implements ShapeHost {
 	#themeContext?: ThemeContext
 
 	constructor(
-		/** The package the master belongs to, for reaching its layouts, theme, and media. */
+		/** The package this part belongs to, for reaching related parts (theme, master, media). */
 		readonly opc: OpcPackage,
-		/** The master's OPC part (`/ppt/slideMasters/slideMasterN.xml`). */
+		/** This tier's OPC part. */
 		readonly part: Part
 	) {}
 
-	/** Partname of the master part. */
+	/** Partname of this part. */
 	get partName(): string {
 		return this.part.partName
 	}
 
-	/** This master part's relationships (its layouts, its theme, image embeds, …). */
+	/** This part's relationships (its theme or master, image embeds, hyperlinks, …). */
 	get relationships(): Relationships {
 		return this.opc.relationshipsFor(this.partName)
 	}
 
-	/** The master's authoring name (`p:cSld/@name`), or `''` when unnamed (the writer's default). */
+	/** The authoring name (`p:cSld/@name`), or `''` when unnamed. */
 	get name(): string {
-		const cSld = this.#cSld()
+		const cSld = this.cSld()
 		return (cSld && attr(cSld, 'name')) ?? ''
 	}
 
+	/**
+	 * Every shape in this tier's `p:cSld/p:spTree`, in document order — the same `AnyShape`
+	 * union `Slide.shapes` returns, so shape-walking code applies unchanged.
+	 *
+	 * {@link placeholders} is the filtered view of the same tree.
+	 */
+	get shapes(): AnyShape[] {
+		const spTree = this.spTree()
+		return spTree ? buildShapes(spTree, this) : []
+	}
+
+	/** The shape anywhere in this tier's tree with the given drawing id, or `undefined`. */
+	shapeByIdDeep(id: number): AnyShape | undefined {
+		return findShapeByIdDeep(this.shapes, id)
+	}
+
+	/** This tier's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
+	get placeholders(): Placeholder[] {
+		const ctx = this.themeContext()
+		const rels = this.relationships
+		return placeholderShapes(this.spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
+	}
+
+	/** This tier's colour/font context, resolved once and cached. Backs each {@link Placeholder}'s text frame. */
+	themeContext(): ThemeContext {
+		return (this.#themeContext ??= this.resolveThemeContext())
+	}
+
+	/** The theme this tier resolves against, or `null` when the chain is incomplete. */
+	abstract get theme(): Theme | null
+
+	/** This tier's *own* background (`p:cSld/p:bg`), decoded, or `null` when it defines none. */
+	abstract get background(): SlideBackground | null
+
+	/** Walk this tier's colour/font chain. Called once; {@link themeContext} caches the result. */
+	protected abstract resolveThemeContext(): ThemeContext
+
+	/** The `p:cSld` of this part, or `null`. */
+	protected cSld(): Element | null {
+		return cSldOf(this.part.dom.documentElement)
+	}
+
+	/** The `p:cSld/p:spTree` of this part, or `null`. */
+	protected spTree(): Element | null {
+		return spTreeOf(this.part.dom.documentElement)
+	}
+
+	/** The part this one's first relationship of `type` points at, or `null`. */
+	protected relTarget(type: string): Part | null {
+		const rels = this.relationships
+		const rel = rels.byType(type)[0]
+		return rel ? (this.opc.part(rels.resolveTarget(rel.id)) ?? null) : null
+	}
+}
+
+/**
+ * A deck's slide master (`slideMasterN.xml`) as a modeled object. Exposes the
+ * property tiers a bound slide inherits: the {@link colorMap} (token → theme slot),
+ * its {@link theme}, its `shapes` and the `placeholders` subset of them, its own
+ * {@link background}, and the {@link layouts} that build on it. Reachable from
+ * {@link SlideLayout.master} and `Slide.master`.
+ *
+ * `shapes` is where a template's non-placeholder furniture lives: the header band, the
+ * rule under the title, the logo. Whether a given slide draws them is
+ * `Slide.showMasterSp` (and, for a layout, {@link SlideLayout.showMasterSp}).
+ */
+export class SlideMaster extends TemplatePart {
 	/** The master's theme (via its `theme` relationship), or `null` when absent. */
-	get theme(): Theme | null {
-		const themePart = this.#relTarget(THEME_REL)
+	override get theme(): Theme | null {
+		const themePart = this.relTarget(THEME_REL)
 		return themePart ? new Theme(themePart) : null
 	}
 
@@ -367,32 +449,6 @@ export class SlideMaster implements ShapeHost {
 		const out = {} as Record<ColorMapToken, string | null>
 		for (const token of COLOR_MAP_TOKENS) out[token] = parsed.get(token) ?? null
 		return out
-	}
-
-	/**
-	 * Every shape in the master's `p:cSld/p:spTree`, in document order — the same
-	 * `AnyShape` union `Slide.shapes` returns, so shape-walking code applies
-	 * unchanged. This is where a template's non-placeholder furniture lives: the
-	 * header band, the rule under the title, the logo. Whether a given slide draws
-	 * them is `Slide.showMasterSp` (and, for a layout, {@link SlideLayout.showMasterSp}).
-	 *
-	 * {@link placeholders} is the filtered view of the same tree.
-	 */
-	get shapes(): AnyShape[] {
-		const spTree = this.#spTree()
-		return spTree ? buildShapes(spTree, this) : []
-	}
-
-	/** The shape anywhere in the master's tree with the given drawing id, or `undefined`. */
-	shapeByIdDeep(id: number): AnyShape | undefined {
-		return findShapeByIdDeep(this.shapes, id)
-	}
-
-	/** The master's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
-	get placeholders(): Placeholder[] {
-		const ctx = this.themeContext()
-		const rels = this.relationships
-		return placeholderShapes(this.#spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
 	}
 
 	/** The layouts built on this master (via `p:sldLayoutIdLst` → its relationships), in list order. */
@@ -415,10 +471,10 @@ export class SlideMaster implements ShapeHost {
 	 * none. Scoped to the master's own element — a slide's *effective* background,
 	 * resolved through the slide → layout → master chain, is `Slide.background`.
 	 */
-	get background(): SlideBackground | null {
+	override get background(): SlideBackground | null {
 		const bg = backgroundElementOf(this.part.dom.documentElement)
 		if (!bg) return null
-		const themePart = this.#relTarget(THEME_REL)
+		const themePart = this.relTarget(THEME_REL)
 		return readSlideBackground(
 			bg,
 			'master',
@@ -428,26 +484,9 @@ export class SlideMaster implements ShapeHost {
 		)
 	}
 
-	/**
-	 * The master's colour/font context (its `p:clrMap` + theme), resolved once and
-	 * cached. Backs each {@link Placeholder}'s text frame.
-	 */
-	themeContext(): ThemeContext {
-		return (this.#themeContext ??= resolveMasterColorContext(this.opc, this.partName))
-	}
-
-	#relTarget(type: string): Part | null {
-		const rels = this.relationships
-		const rel = rels.byType(type)[0]
-		return rel ? (this.opc.part(rels.resolveTarget(rel.id)) ?? null) : null
-	}
-
-	#cSld(): Element | null {
-		return cSldOf(this.part.dom.documentElement)
-	}
-
-	#spTree(): Element | null {
-		return spTreeOf(this.part.dom.documentElement)
+	/** A master's context is its own `p:clrMap` plus its theme — no walk beyond this part. */
+	protected override resolveThemeContext(): ThemeContext {
+		return resolveMasterColorContext(this.opc, this.partName)
 	}
 }
 
@@ -455,35 +494,14 @@ export class SlideMaster implements ShapeHost {
  * A deck's slide layout (`slideLayoutN.xml`) as a modeled object — the gallery entry
  * a slide binds to. Exposes its {@link name}, its {@link type} (import-only; the
  * writer authors none), its {@link master} (and, through it, the {@link theme}), its
- * {@link shapes} and the {@link placeholders} subset of them, and its own
- * {@link background}. Reachable from `Slide.layout` and {@link SlideMaster.layouts}.
+ * `shapes` and the `placeholders` subset of them, and its own {@link background}.
+ * Reachable from `Slide.layout` and {@link SlideMaster.layouts}.
+ *
+ * The write API authors non-placeholder shapes into a layout: every
+ * `defineSlideMaster({ objects })` member that is not a `placeholder` — a `rect`, a
+ * `line`, an `image`, a `chart`, a `text` box — lands in this tier's tree.
  */
-export class SlideLayout implements ShapeHost {
-	#themeContext?: ThemeContext
-
-	constructor(
-		/** The package the layout belongs to, for reaching its master, theme, and media. */
-		readonly opc: OpcPackage,
-		/** The layout's OPC part (`/ppt/slideLayouts/slideLayoutN.xml`). */
-		readonly part: Part
-	) {}
-
-	/** Partname of the layout part. */
-	get partName(): string {
-		return this.part.partName
-	}
-
-	/** This layout part's relationships (its master, image embeds, hyperlinks, …). */
-	get relationships(): Relationships {
-		return this.opc.relationshipsFor(this.partName)
-	}
-
-	/** The layout's authoring name (`p:cSld/@name`, e.g. `Title and Content`), or `''` when unnamed. */
-	get name(): string {
-		const cSld = this.#cSld()
-		return (cSld && attr(cSld, 'name')) ?? ''
-	}
-
+export class SlideLayout extends TemplatePart {
 	/**
 	 * The layout type (`p:sldLayout/@type`, e.g. `title` | `obj` | `blank`), or `null`
 	 * when the layout declares none. Import-only: the writer authors no `@type`, so an
@@ -516,34 +534,8 @@ export class SlideLayout implements ShapeHost {
 	}
 
 	/** The theme this layout resolves against, via its {@link master}, or `null`. */
-	get theme(): Theme | null {
+	override get theme(): Theme | null {
 		return this.master?.theme ?? null
-	}
-
-	/**
-	 * Every shape in the layout's `p:cSld/p:spTree`, in document order — the same
-	 * `AnyShape` union `Slide.shapes` returns, so shape-walking code applies
-	 * unchanged. The write API authors non-placeholder shapes here: every
-	 * `defineSlideMaster({ objects })` member that is not a `placeholder` (a `rect`,
-	 * a `line`, an `image`, a `chart`, a `text` box) lands in this tree.
-	 *
-	 * {@link placeholders} is the filtered view of the same tree.
-	 */
-	get shapes(): AnyShape[] {
-		const spTree = this.#spTree()
-		return spTree ? buildShapes(spTree, this) : []
-	}
-
-	/** The shape anywhere in the layout's tree with the given drawing id, or `undefined`. */
-	shapeByIdDeep(id: number): AnyShape | undefined {
-		return findShapeByIdDeep(this.shapes, id)
-	}
-
-	/** The layout's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
-	get placeholders(): Placeholder[] {
-		const ctx = this.themeContext()
-		const rels = this.relationships
-		return placeholderShapes(this.#spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
 	}
 
 	/**
@@ -552,7 +544,7 @@ export class SlideLayout implements ShapeHost {
 	 * theme-indexed reference (`p:bgRef`). The slide's *effective* background is
 	 * `Slide.background`.
 	 */
-	get background(): SlideBackground | null {
+	override get background(): SlideBackground | null {
 		const bg = backgroundElementOf(this.part.dom.documentElement)
 		if (!bg) return null
 		const themePart = this.master?.theme?.part ?? null
@@ -565,19 +557,8 @@ export class SlideLayout implements ShapeHost {
 		)
 	}
 
-	/**
-	 * The layout's colour/font context (walked layout → master → theme), resolved once
-	 * and cached. Backs each {@link Placeholder}'s text frame.
-	 */
-	themeContext(): ThemeContext {
-		return (this.#themeContext ??= resolveLayoutColorContext(this.opc, this.partName))
-	}
-
-	#cSld(): Element | null {
-		return cSldOf(this.part.dom.documentElement)
-	}
-
-	#spTree(): Element | null {
-		return spTreeOf(this.part.dom.documentElement)
+	/** A layout's context is walked layout → master → theme, which is why it is not the master's. */
+	protected override resolveThemeContext(): ThemeContext {
+		return resolveLayoutColorContext(this.opc, this.partName)
 	}
 }
