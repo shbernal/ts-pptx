@@ -83,6 +83,7 @@ export type DiagnosticCode =
 	| 'table/invalid-horz-overflow'
 	| 'table/invalid-cell3d'
 	| 'table/col-width-count-mismatch'
+	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
 	// Text and bullets
 	| 'text/invalid-columns'

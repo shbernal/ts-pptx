@@ -25,6 +25,7 @@ import type {
 } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
+import { withCheckedSpans } from '../table/spans.js'
 import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
@@ -341,7 +342,12 @@ export function addTableDefinition(
 
 	// STEP 2: Transform `tableRows` into well-formatted TableCell's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
-	const arrRows = normalizeTableRows(srcRows, opt)
+	// Range-check the spans before anything reads them. Both downstream consumers size an array
+	// from a span — the auto-pager's per-column depth array and the emitter's merge grid — and a
+	// caller-supplied `colspan: 4294967295` aborts the process rather than throwing. Doing it here
+	// rather than in each of them is what makes one bad cell warn once, and what keeps the paged
+	// and unpaged paths agreeing on the grid.
+	const arrRows = withCheckedSpans(normalizeTableRows(srcRows, opt))
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU

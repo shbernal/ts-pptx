@@ -15,6 +15,7 @@ import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
+import { withCheckedSpans } from '../../table/spans.js'
 import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
 import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
@@ -116,7 +117,10 @@ export function renderTableObject(
 	let cellOpts: TableCellProps | null = null
 	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
-	arrTabRows = (slideItemObj.arrTabRows ?? []).map((row) => [...row])
+	// Checked again here, not only in `addTableDefinition`: this is where the merge grid allocates
+	// from a span, and an emitter must not size an array from a number it has not seen. Rows that
+	// came through the definer are already correct, so this warns about nothing and copies nothing.
+	arrTabRows = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
 	objTabOpts = itemOpts
 	intColCnt = 0
 

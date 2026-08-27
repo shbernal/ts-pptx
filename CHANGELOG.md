@@ -146,6 +146,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of four. No value is lost — the dropped slots are the ones that read `null` — and the
   disagreement is warned about.
 
+- **A table cell's `colspan`/`rowspan` can no longer size an allocation straight from the
+  caller.** The merge-grid builder trusted them: `new Array(colspan - 1).fill(undefined)`
+  at `colspan: 4294967295` is not a slow path but a process abort with no exception to
+  catch, and a negative or fractional span shifted every column after it while emitting a
+  `gridSpan` PowerPoint cannot make sense of. This is the write-side twin of the chart
+  point-cache fix above, and less serious for the same reason — the caller is the program,
+  not a hostile file — but the project's line is to warn rather than emit a degenerate
+  result. A span that is not a whole number in 1..1000 now falls back to `1` and reports
+  the new `table/span-out-of-range` diagnostic. The ceiling is a sanity bound, not a schema
+  one (`a:tc@gridSpan` is a bare `xsd:int`); it sits an order of magnitude past
+  PowerPoint's own maximum table, whose Insert Table dialog stops at 75 × 75. There were two
+  allocations to guard, not one: the auto-pager sizes a per-column depth array from a column
+  count that is a sum of colspans, so `autoPage: true` hit the same abort without reaching
+  the merge grid at all. Both are fed by `addTableDefinition`, which is where the check runs
+  — once, before anything reads a span, so the paged and unpaged paths agree on the grid and
+  one bad cell warns once rather than several times. Emitted bytes are unchanged (183/183
+  baseline parts): a cell whose spans are fine passes through untouched.
+
 ### Changed
 
 - **`Reflection.distPt` is now `Reflection.offsetPt`** (`ts-pptx/read`). Sibling accessors
