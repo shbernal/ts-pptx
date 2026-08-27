@@ -5,7 +5,9 @@
  */
 import type { PLACEHOLDER_TYPE, SHAPE_NAME } from '../enums.js'
 import type { Margin, PositionProps } from './core.js'
-import type { TextBaseProps } from './text.js'
+import type { ImageProps } from './media.js'
+import type { ShapeProps } from './shape.js'
+import type { TextBaseProps, TextProps, TextPropsOptions } from './text.js'
 
 export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	name: string
@@ -90,3 +92,32 @@ export interface ObjectLockProps {
 	/** Disallow drilling down into the graphical object (e.g. chart data). (tables) */
 	noDrilldown?: boolean
 }
+
+/**
+ * The object descriptors a slide master and a group child both accept.
+ *
+ * Both surfaces take a key-tagged descriptor — one key naming the object kind, its value the
+ * options for that kind — and both accepted the same six. They were written out twice, and the
+ * doc on `GroupChildProps` said as much in as many words: "Uses the same key-tagged descriptor
+ * shape as `SlideMasterObject`". That coupling was real and maintained by hand, which meant a
+ * seventh descriptor added to one was silently missing from the other.
+ *
+ * Each union is now this plus what is genuinely its own — a master adds `chart` and
+ * `placeholder`, a group child adds `group` — so the difference between them is the part you
+ * read, and the shared vocabulary is stated once.
+ */
+export type CommonObjectDescriptor =
+	| { image: ImageProps }
+	| { line: ShapeProps }
+	| { rect: ShapeProps }
+	| { roundRect: ShapeProps }
+	/**
+	 * Any preset shape, addressed by `SHAPE_NAME` (e.g. `ShapeType.ellipse`).
+	 * Generalizes the `line`/`rect`/`roundRect` shortcuts to every preset the
+	 * `addShape()` serializer supports (ellipse, triangle, chevron, …).
+	 *
+	 * A union member's comment cannot carry block tags, so this stands in for `@example`:
+	 * `{ shape: { type: 'ellipse', options: { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } } } }`
+	 */
+	| { shape: { type: SHAPE_NAME; options?: ShapeProps } }
+	| { text: { text: string | number | TextProps[]; options?: TextPropsOptions } }

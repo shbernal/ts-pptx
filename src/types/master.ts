@@ -3,13 +3,11 @@
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, SHAPE_NAME } from '../enums.js'
+import type { CHART_NAME } from '../enums.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Color, HAlign, Margin, PositionProps } from './core.js'
-import type { ImageProps } from './media.js'
-import type { PlaceholderProps } from './object.js'
-import type { ShapeProps } from './shape.js'
-import type { TextBaseProps, TextProps, TextPropsOptions } from './text.js'
+import type { CommonObjectDescriptor, PlaceholderProps } from './object.js'
+import type { TextBaseProps } from './text.js'
 
 export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	/**
@@ -23,22 +21,16 @@ export interface SlideMasterChartProps {
 	options?: ChartOpts
 	opts?: ChartOpts
 }
+/**
+ * One object on a slide master, as a key-tagged descriptor.
+ *
+ * The six descriptors it shares with a group child are {@link CommonObjectDescriptor}; the two
+ * below are the master's own — a chart, which a group cannot hold, and a placeholder, which is
+ * the whole point of a master.
+ */
 export type SlideMasterObject =
+	| CommonObjectDescriptor
 	| { chart: SlideMasterChartProps }
-	| { image: ImageProps }
-	| { line: ShapeProps }
-	| { rect: ShapeProps }
-	| { roundRect: ShapeProps }
-	/**
-	 * Any preset shape, addressed by `SHAPE_NAME` (e.g. `ShapeType.ellipse`).
-	 * Generalizes the `line`/`rect`/`roundRect` shortcuts to every preset the
-	 * `addShape()` serializer supports (ellipse, triangle, chevron, …).
-	 *
-	 * A union member's comment cannot carry block tags, so this stands in for `@example`:
-	 * `{ shape: { type: 'ellipse', options: { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } } } }`
-	 */
-	| { shape: { type: SHAPE_NAME; options?: ShapeProps } }
-	| { text: { text: string | number | TextProps[]; options?: TextPropsOptions } }
 	| {
 			placeholder: {
 				options: PlaceholderProps

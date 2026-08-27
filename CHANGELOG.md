@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path), running under `TSPPTX_RENDER_ORACLE=required` so a runner missing a tool fails
   instead of skipping green.
 
+- **`CommonObjectDescriptor`**, the six key-tagged object descriptors a slide master and a
+  group child both accept — `image`, `line`, `rect`, `roundRect`, `shape` and `text`.
+  `SlideMasterObject` and `GroupChildProps` are now that type plus what is genuinely their
+  own (a master adds `chart` and `placeholder`, a group child adds `group`). Both unions
+  accept exactly what they accepted before, so nothing to migrate; the new name is what
+  you will see in an editor hover, and it is exported so it can be named directly.
+
 ### Fixed
 
 - **`addText` no longer writes its own state onto the options object you hand it.** The

@@ -11,7 +11,7 @@ import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './
 import type { SlideNumberProps } from './master.js'
 import type { ImageBaseProps, ImageProps, MediaProps, OleObjectProps } from './media.js'
 import type { Model3dProps } from './model3d.js'
-import type { ObjectNameProps } from './object.js'
+import type { CommonObjectDescriptor, ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
 import type { ConnectorProps } from './style.js'
 import type { TableCellProps, TableProps, TableRow } from './table.js'
@@ -20,20 +20,14 @@ import type { CommentProps, NotesProps, TextProps, TextPropsOptions } from './te
 /**
  * A child object that can be placed inside a group via `slide.addGroup()`.
  *
- * Uses the same key-tagged descriptor shape as `SlideMasterObject`, but limited to the
- * object types `addGroup` supports. A `group` child nests another group (an identity child
+ * The six descriptors it shares with `SlideMasterObject` are {@link CommonObjectDescriptor};
+ * `group` is the group's own, and the master's `chart` and `placeholder` are deliberately not
+ * here. A `group` child nests another group (an identity child
  * coordinate space is kept at every depth, so descendants keep their slide-absolute
  * coordinates). Charts, media, tables, and placeholders are intentionally excluded (see
  * `addGroup`); passing one logs a warning and skips it.
  */
-export type GroupChildProps =
-	| { image: ImageProps }
-	| { line: ShapeProps }
-	| { rect: ShapeProps }
-	| { roundRect: ShapeProps }
-	| { shape: { type: SHAPE_NAME; options?: ShapeProps } }
-	| { text: { text: string | number | TextProps[]; options?: TextPropsOptions } }
-	| { group: { children: GroupChildProps[]; options?: GroupProps } }
+export type GroupChildProps = CommonObjectDescriptor | { group: { children: GroupChildProps[]; options?: GroupProps } }
 /**
  * Options for `slide.addGroup()`.
  *
