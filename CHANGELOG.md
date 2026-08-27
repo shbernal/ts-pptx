@@ -46,6 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the write path paints it black — to `text.color.inherited`, resolved and baked. The
   corpus note totals move with them (733 / 433).
 
+- **`objectLock` on zooms, and honoured on 3D models** (`addSlideZoom` /
+  `addSectionZoom` / `addSummaryZoom` / `addModel3d`). `SlideZoomProps` had no such field
+  at all, while `Model3dProps` inherited one that the definer never propagated — so a
+  zoom's locks could not be expressed and a model's were silently dropped. Both now land
+  on the `a:graphicFrameLocks` of the `mc:Choice` graphic frame, which is the object
+  PowerPoint 2016+/2019+ actually selects, moves and locks, and take the graphic-frame flag
+  set (`noGrp`, `noDrilldown`, `noSelect`, `noChangeAspect`, `noMove`, `noResize`). A zoom
+  keeps `noChangeAspect` on by default and `objectLock: { noChangeAspect: false }` lifts
+  it, as on an image. The `mc:Fallback` picture in both keeps its own fixed `a:picLocks`
+  set: it is only what a pre-2016 consumer draws, and folding a graphic-frame flag set onto
+  a picture-locks element would warn about every flag the two element types do not share.
+
 - **A second render oracle: `pnpm run test:lo`.** PowerPoint cannot be an oracle for
   markup PowerPoint recomputes, and SmartArt is the case that proves it. A deck stores
   every drawn string twice, in the `dgm:dataModel` PowerPoint reads and in the

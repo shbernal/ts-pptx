@@ -12,6 +12,7 @@
  * edited. Supply `coverImage` for a picture that ships as-authored instead.
  */
 import type { PositionProps } from './core.js'
+import type { ObjectLockProps } from './object.js'
 import type { Slide } from './slide.js'
 
 /** Options shared by all three zoom kinds. */
@@ -30,6 +31,21 @@ export interface ZoomBaseProps extends PositionProps {
 	returnToParent?: boolean
 	/** Zoom transition duration in milliseconds (`zmPr@transitionDur`). Default `1000`. */
 	transitionDur?: number
+	/**
+	 * Object lock flags ({@link ObjectLockProps}), as `objectLock` on every other object type.
+	 *
+	 * A zoom is a `p:graphicFrame`, so these land on its `a:graphicFrameLocks` and the flags that
+	 * apply are the graphic-frame ones (`noGrp`, `noDrilldown`, `noSelect`, `noChangeAspect`,
+	 * `noMove`, `noResize`); a picture-only flag warns and is dropped, as everywhere else. The
+	 * `mc:Fallback` picture keeps its own fixed lock set — it is what pre-2016 consumers draw, and
+	 * folding a graphic-frame flag set onto a `a:picLocks` element would warn about every flag the
+	 * two element types do not share.
+	 *
+	 * `noChangeAspect` is on by default (a zoom tile mirrors its target slide's aspect); pass it
+	 * `false` to lift it.
+	 * @example { noMove: true, noResize: true } // pin the tile in place
+	 */
+	objectLock?: ObjectLockProps
 }
 
 /** Slide Zoom: a tile that zooms to a single target slide. */

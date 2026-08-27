@@ -142,11 +142,14 @@ defineRegressionSuite('Object locks', [
 		},
 	},
 	{
-		// Zoom tiles and 3D models emit a FIXED lock set rather than the caller's — neither
-		// `SlideZoomProps` nor `Model3dProps` has an `objectLock` field. Both used to write the
-		// element by hand, bypassing `genXmlObjectLock`; they now go through it like every other
-		// renderer, which puts the attribute order under the shared `PICTURE_LOCK_ATTRS` table
-		// instead of under two literals.
+		// The `mc:Fallback` picture of a zoom tile and of a 3D model emits a FIXED lock set rather
+		// than the caller's, even though both option types now carry an `objectLock`: `a:picLocks`
+		// and `a:graphicFrameLocks` accept different flags, so folding a graphic-frame set onto
+		// this element would warn about every flag the two do not share. The caller's locks go on
+		// the `mc:Choice` frame instead — the two cases after this one. Both renderers used to
+		// write this element by hand, bypassing `genXmlObjectLock`; they now go through it like
+		// every other renderer, which puts the attribute order under the shared
+		// `PICTURE_LOCK_ATTRS` table instead of under two literals.
 		//
 		// Byte-pinned here because the byte-identity corpus emits neither construct, so the gate
 		// that would normally catch a reordering is silent on exactly these two elements. The
@@ -169,6 +172,64 @@ defineRegressionSuite('Object locks', [
 			// A 3D model adds `noCrop`: it is reframed by its camera, never by cropping the cached
 			// raster. It is last because that is where the table puts it.
 			assert(locks[1] === `<a:picLocks ${PICTURE_SET} noCrop="1"/>`, 'model-3d locks; got: ' + locks[1])
+		},
+	},
+	{
+		// The `mc:Choice` graphic frame is the object PowerPoint 2016+ actually selects, moves and
+		// locks; the fallback picture above is only what a pre-2016 consumer draws. So this is
+		// where a zoom's `objectLock` lands, and the flag set is the graphic-frame one.
+		name: 'zoom objectLock lands on the mc:Choice graphicFrameLocks, over the noChangeAspect default',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addText('target', { x: 1, y: 1, w: 3, h: 1 })
+				p.addSlide().addSlideZoom({ target: 1, x: 1, y: 1, w: 2, h: 1.5, objectLock: { noMove: true } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assert(
+				/<a:graphicFrameLocks noChangeAspect="1" noMove="1"\/>/.test(xml),
+				'expected the default noChangeAspect plus the caller flag; got: ' + xml
+			)
+		},
+	},
+	{
+		name: 'a zoom can lift the noChangeAspect default the same way an image can',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addText('target', { x: 1, y: 1, w: 3, h: 1 })
+				p.addSlide().addSlideZoom({ target: 1, x: 1, y: 1, w: 2, h: 1.5, objectLock: { noChangeAspect: false } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			// No flags left, so `genXmlObjectLock` emits nothing at all -- which for a zoom is
+			// correct: unlike the 3D model below, PowerPoint writes no empty element here.
+			assert(!/<a:graphicFrameLocks/.test(xml), 'noChangeAspect:false leaves no locking element; got: ' + xml)
+		},
+	},
+	{
+		name: 'model-3d objectLock fills the empty graphicFrameLocks PowerPoint writes',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addModel3d({ data: 'model/gltf-binary;base64,AAAA', x: 4, y: 1, w: 2, h: 2 })
+			})
+			const bare = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Unlocked, the element is present and empty -- that is what PowerPoint authors, and
+			// `genXmlObjectLock` returning '' for "no flags" must not delete it.
+			assert(/<a:graphicFrameLocks\/>/.test(bare), 'expected an empty graphicFrameLocks; got: ' + bare)
+
+			const { zip: locked } = await build((p) => {
+				p.addSlide().addModel3d({
+					data: 'model/gltf-binary;base64,AAAA',
+					x: 4,
+					y: 1,
+					w: 2,
+					h: 2,
+					objectLock: { noMove: true, noResize: true },
+				})
+			})
+			const xml = await readEntry(locked, 'ppt/slides/slide1.xml')
+			assert(
+				/<a:graphicFrameLocks noMove="1" noResize="1"\/>/.test(xml),
+				'expected the caller flags in table order; got: ' + xml
+			)
 		},
 	},
 ])

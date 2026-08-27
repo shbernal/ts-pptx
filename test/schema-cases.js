@@ -3714,7 +3714,17 @@ export default [
 				p.addSection({ title: 'Nav' })
 				const nav = p.addSlide({ sectionTitle: 'Nav' })
 				nav.addSlideZoom({ target: a1, x: 0.5, y: 1, w: 3, h: 1.7, returnToParent: true })
-				nav.addSectionZoom({ sectionTitle: 'Beta', x: 4, y: 1, w: 3, h: 1.7, transitionDur: 500 })
+				// `objectLock` lands on the `mc:Choice` frame's `a:graphicFrameLocks`, over the
+				// `noChangeAspect` default; the `mc:Fallback` picture keeps its own fixed `a:picLocks`.
+				nav.addSectionZoom({
+					sectionTitle: 'Beta',
+					x: 4,
+					y: 1,
+					w: 3,
+					h: 1.7,
+					transitionDur: 500,
+					objectLock: { noMove: true, noDrilldown: true },
+				})
 				nav.addSummaryZoom({ x: 0.5, y: 3.2, w: 11, h: 3.8 })
 				// A Slide Zoom targeting by 1-based number, with a caller-supplied cover image.
 				const gray = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
@@ -3809,6 +3819,8 @@ export default [
 					preview: { data: 'image/png;base64,' + gray },
 					objectName: 'Engine',
 					altText: 'A cube',
+					// Fills the otherwise-empty `a:graphicFrameLocks` on the `mc:Choice` frame.
+					objectLock: { noMove: true, noResize: true },
 					x: 0.5,
 					y: 1,
 					w: 4,

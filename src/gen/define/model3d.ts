@@ -158,6 +158,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 			h: opt.h ?? 3,
 			objectName,
 			...(opt.altText ? { altText: opt.altText } : {}),
+			...(opt.objectLock ? { objectLock: opt.objectLock } : {}),
 		},
 		model3d: { modelRid, previewRid, ...camera },
 	}

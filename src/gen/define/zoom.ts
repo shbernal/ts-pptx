@@ -48,7 +48,14 @@ function pushZoomObject(
 		: `${ZOOM_LABEL[variant]} ${nameIdx + 1}`
 	const newObject: SlideObject = {
 		_type: SlideObjectType.zoom,
-		options: { x: opts.x ?? 0, y: opts.y ?? 0, w: opts.w ?? 0, h: opts.h ?? 0, objectName },
+		options: {
+			x: opts.x ?? 0,
+			y: opts.y ?? 0,
+			w: opts.w ?? 0,
+			h: opts.h ?? 0,
+			objectName,
+			...(opts.objectLock ? { objectLock: opts.objectLock } : {}),
+		},
 		zoom: { variant, ...zoom },
 	}
 	target._slideObjects.push(newObject)

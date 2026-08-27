@@ -15,7 +15,7 @@
 import type { Model3dInternal, SlideObject } from '../../../types/internal.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { cNvPrOpen, MC_NS } from './shared.js'
-import { PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
+import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** The `am3d` namespace, doubling as `a:graphicData@uri` and the `mc:Choice Requires` token's URI. */
 const AM3D_NS = 'http://schemas.microsoft.com/office/drawing/2017/model3d'
@@ -116,8 +116,10 @@ function fallbackPic(
 						null,
 						raw(
 							// PowerPoint's model-3d lock set: the zoom/picture set plus `noCrop` — a 3D model is
-							// reframed by its camera, never by cropping the cached raster. Fixed rather than
-							// caller-supplied: `Model3dProps` has no `objectLock`.
+							// reframed by its camera, never by cropping the cached raster. Fixed even though
+							// `Model3dProps` has an `objectLock`, for the reason the zoom emitter spells out:
+							// this is the `mc:Fallback` picture, and `a:picLocks` takes a different flag set
+							// from the `a:graphicFrameLocks` the caller's locks land on.
 							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
 								noGrp: true,
 								noRot: true,
@@ -195,7 +197,19 @@ export function renderModel3dObject(
 		raw(
 			el('p:nvGraphicFramePr', null, [
 				raw(cNvPrOpen(idx + 2, opts.objectName, altText) + '/>'),
-				raw(el('p:cNvGraphicFramePr', null, raw(voidEl('a:graphicFrameLocks')))),
+				raw(
+					el(
+						'p:cNvGraphicFramePr',
+						null,
+						// PowerPoint writes an empty `<a:graphicFrameLocks/>` here — no flags, but the
+						// element present — so that is what an unlocked model emits. `genXmlObjectLock`
+						// returns `''` when nothing is set, hence the fallback.
+						raw(
+							genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, opts.objectLock, opts.objectName) ||
+								voidEl('a:graphicFrameLocks')
+						)
+					)
+				),
 				raw(voidEl('p:nvPr')),
 			])
 		),

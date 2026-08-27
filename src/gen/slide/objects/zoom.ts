@@ -10,7 +10,7 @@
 import type { SlideObject, ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { cNvPrOpen, MC_NS } from './shared.js'
-import { PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
+import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
 const ZOOM_VARIANTS = {
@@ -94,9 +94,13 @@ function zoomFallbackPic(
 					el(
 						'p:cNvPicPr',
 						null,
-						// PowerPoint's zoom-tile lock set. Fixed rather than caller-supplied: `SlideZoomProps`
-						// has no `objectLock`, unlike image/media/OLE/table/shape/group. Routed through
-						// `genXmlObjectLock` anyway, so the attribute order is the table's rather than this
+						// PowerPoint's zoom-tile lock set, and fixed on purpose even though `ZoomBaseProps`
+						// now has an `objectLock`: this is the `mc:Fallback` picture, which only a pre-2016
+						// consumer draws, and `a:picLocks` and `a:graphicFrameLocks` accept different flags
+						// — folding the caller's graphic-frame set onto it would warn about every flag the
+						// two element types do not share. The caller's locks go on the `mc:Choice` frame
+						// below, which is the object PowerPoint actually manipulates. Routed through
+						// `genXmlObjectLock` so the attribute order is the table's rather than this
 						// literal's, and a flag added to the set lands in the right place.
 						raw(
 							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
@@ -174,7 +178,23 @@ export function renderZoomObject(
 		raw(
 			el('p:nvGraphicFramePr', null, [
 				raw(cNvPrOpen(idx + 2, objectName, '') + '/>'),
-				raw(el('p:cNvGraphicFramePr', null, raw(voidEl('a:graphicFrameLocks', { noChangeAspect: '1' })))),
+				raw(
+					el(
+						'p:cNvGraphicFramePr',
+						null,
+						// `noChangeAspect` is PowerPoint's own default for a zoom tile (it mirrors the
+						// target slide's aspect); the caller's flags fold over it, so passing
+						// `noChangeAspect: false` lifts it.
+						raw(
+							genXmlObjectLock(
+								'a:graphicFrameLocks',
+								GRAPHIC_FRAME_LOCK_ATTRS,
+								{ noChangeAspect: true, ...opts.objectLock },
+								objectName
+							)
+						)
+					)
+				),
 				raw(voidEl('p:nvPr')),
 			])
 		),
