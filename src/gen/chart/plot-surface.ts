@@ -14,7 +14,7 @@ import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
-import { el, raw } from '../oxml/el.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { catRefBlock, numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
@@ -24,28 +24,47 @@ const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== fal
 function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
 	const valCol = obj._dataIndex + dataLabels(obj).length + 1
-	let strXml = el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${cats.length + 1}`, cats)))
-
-	strXml += '<c:val><c:numRef>'
-	strXml += `<c:f>${sheetRangeRef(valCol, 2, valCol, cats.length + 1)}</c:f>`
-	strXml += `<c:numCache><c:formatCode>${valFmtCode}</c:formatCode><c:ptCount val="${cats.length}"/>`
-	dataValues(obj).forEach((value, idx) => (strXml += numCachePt(idx, value)))
-	strXml += '</c:numCache></c:numRef></c:val>'
-	return strXml
+	const numCache = el('c:numCache', null, [
+		// `valFmtCode` arrives ALREADY ESCAPED — `chart-xml.ts` runs the option through
+		// `encodeXmlEntities` once and hands the same string to all five plot emitters — so it
+		// goes in as `raw`. Passing it as a text child would escape it a second time and turn a
+		// user's `0"A&B"` from `0&quot;A&amp;B&quot;` into `0&amp;quot;A&amp;amp;B&amp;quot;`.
+		raw(el('c:formatCode', null, raw(valFmtCode))),
+		raw(voidEl('c:ptCount', { val: cats.length })),
+		raw(
+			dataValues(obj)
+				.map((value, idx) => numCachePt(idx, value))
+				.join('')
+		),
+	])
+	const numRef = el('c:numRef', null, [
+		raw(el('c:f', null, sheetRangeRef(valCol, 2, valCol, cats.length + 1))),
+		raw(numCache),
+	])
+	return (
+		el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${cats.length + 1}`, cats))) +
+		el('c:val', null, raw(numRef))
+	)
 }
 
 /** Emit a single surface series: name ref, 3-D shape props, and cat/val refs. */
 function makeSurfaceSer(obj: OptsChartDataInternal, valFmtCode: string, seriesColor: string): string {
 	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
-	let strXml = '<c:ser>'
-	strXml += `<c:idx val="${obj._dataIndex}"/><c:order val="${obj._dataIndex}"/>`
-	strXml += strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')
 	// A surface series carries 3-D shape props; the surface itself is colored by value band, but the
 	// per-series fill still styles the wireframe / legend key.
-	strXml += `<c:spPr>${genXmlColorSelection(seriesColor)}<a:ln/><a:effectLst/><a:sp3d/></c:spPr>`
-	strXml += surfaceCatVal(obj, valFmtCode)
-	strXml += '</c:ser>'
-	return strXml
+	const spPr = el('c:spPr', null, [
+		raw(genXmlColorSelection(seriesColor)),
+		raw(voidEl('a:ln')),
+		raw(voidEl('a:effectLst')),
+		raw(voidEl('a:sp3d')),
+	])
+	return el('c:ser', null, [
+		raw(voidEl('c:idx', { val: obj._dataIndex })),
+		raw(voidEl('c:order', { val: obj._dataIndex })),
+		raw(strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')),
+		raw(spPr),
+		raw(surfaceCatVal(obj, valFmtCode)),
+	])
 }
 
 /**
@@ -63,15 +82,17 @@ export function makeSurfacePlot(
 ): string {
 	const tag = isSurface3D(opts) ? 'surface3DChart' : 'surfaceChart'
 	const chartColors = resolveChartPalette(opts)
-	let strXml = `<c:${tag}>`
-	strXml += `<c:wireframe val="${opts.surfaceWireframe ? 1 : 0}"/>`
-	data.forEach((obj, idx) => {
-		strXml += makeSurfaceSer(obj, valFmtCode, paletteColor(chartColors, idx, '4472C4'))
-	})
-	// Surface, value and series axes (category X, value Y/height, series Z).
-	strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/><c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`
-	strXml += `</c:${tag}>`
-	return strXml
+	const sers = data
+		.map((obj, idx) => makeSurfaceSer(obj, valFmtCode, paletteColor(chartColors, idx, '4472C4')))
+		.join('')
+	return el(`c:${tag}`, null, [
+		raw(voidEl('c:wireframe', { val: opts.surfaceWireframe ? 1 : 0 })),
+		raw(sers),
+		// Surface, value and series axes (category X, value Y/height, series Z).
+		raw(voidEl('c:axId', { val: catAxisId })),
+		raw(voidEl('c:axId', { val: valAxisId })),
+		raw(voidEl('c:axId', { val: AXIS_ID_SERIES_PRIMARY })),
+	])
 }
 
 /**
@@ -81,15 +102,31 @@ export function makeSurfacePlot(
  * `<c:plotArea>` in CT_Chart document order (view3D → floor → sideWall → backWall → plotArea).
  */
 export function makeSurfaceScene(opts: ChartOptsInternal): string {
-	const wall = '<c:thickness val="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln><a:effectLst/><a:sp3d/></c:spPr>'
-	let strXml = '<c:view3D>'
-	if (isSurface3D(opts)) {
-		strXml += `<c:rotX val="${opts.v3DRotX}"/><c:rotY val="${opts.v3DRotY}"/><c:rAngAx val="0"/>`
-	} else {
-		// Contour / top view: look straight down the value axis, flat perspective.
-		strXml += '<c:rotX val="90"/><c:rotY val="0"/><c:rAngAx val="0"/><c:perspective val="0"/>'
-	}
-	strXml += '</c:view3D>'
-	strXml += `<c:floor>${wall}</c:floor><c:sideWall>${wall}</c:sideWall><c:backWall>${wall}</c:backWall>`
-	return strXml
+	const wall =
+		voidEl('c:thickness', { val: 0 }) +
+		el('c:spPr', null, [
+			raw(voidEl('a:noFill')),
+			raw(el('a:ln', null, raw(voidEl('a:noFill')))),
+			raw(voidEl('a:effectLst')),
+			raw(voidEl('a:sp3d')),
+		])
+	const scene = isSurface3D(opts)
+		? [
+				raw(voidEl('c:rotX', { val: opts.v3DRotX })),
+				raw(voidEl('c:rotY', { val: opts.v3DRotY })),
+				raw(voidEl('c:rAngAx', { val: 0 })),
+			]
+		: // Contour / top view: look straight down the value axis, flat perspective.
+			[
+				raw(voidEl('c:rotX', { val: 90 })),
+				raw(voidEl('c:rotY', { val: 0 })),
+				raw(voidEl('c:rAngAx', { val: 0 })),
+				raw(voidEl('c:perspective', { val: 0 })),
+			]
+	return (
+		el('c:view3D', null, scene) +
+		el('c:floor', null, raw(wall)) +
+		el('c:sideWall', null, raw(wall)) +
+		el('c:backWall', null, raw(wall))
+	)
 }
