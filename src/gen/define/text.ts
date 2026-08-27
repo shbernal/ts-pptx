@@ -32,8 +32,46 @@ export function addTextDefinition(
 	opts: TextPropsOptions,
 	isPlaceholder: boolean
 ): void {
-	const textObjects = !text || text.length === 0 ? [{ text: '' }] : text
-	const objectOptions: ObjectOptions = opts || {}
+	// Take ownership of the options before touching them. Everything below writes internal state
+	// (`_bodyProp`, `objectName`, `_placeholderType`, defaulted `color`/`line`) onto whatever object
+	// it is handed, and `gen/drawingml/text-run.ts` writes more of it (`_lineIdx`, paragraph props
+	// inherited from the shape) at emit time. Without `own()` that state lands on the CALLER's
+	// object, so a style literal reused across shapes carries one shape's settings to the next:
+	//
+	//   slide.addText('a', STYLE)                      // STYLE now holds a `_bodyProp`
+	//   slide.addText('b', { ...STYLE, columns: 2 })   // the spread aliases that same `_bodyProp`…
+	//   slide.addText('c', { ...STYLE })               // …so all three shapes emit numCol="2"
+	//
+	// plus a duplicate-`objectName` warning, because the name assigned to the first shape is spread
+	// onto the second.
+	//
+	// Identity WITHIN one call is preserved on purpose, which is why this memoizes instead of
+	// spreading at each use. Sharing between the shape's options and a run's is load-bearing:
+	// `SlideBuilder.addText`'s string shorthand hands the same object to both, so `cleanOpts` runs
+	// over it twice, and the second pass emits bytes the first cannot (see the line-defaults case in
+	// `test/regression/text/text-definition.test.js`). Copying each reference separately would
+	// quietly change that shape's `<a:ln>`. The caller is protected either way — the aliasing is
+	// between two objects this function now owns.
+	//
+	// Nested option objects the caller supplies (`bullet`, `shadow`, `fill`) are deliberately still
+	// shared: `bullet._rId` and the image fill's rel id are registered through those references and
+	// read back at emit time, and auto-paging relies on a cloned text object reaching the same bullet.
+	const owned = new Map<TextPropsOptions, ObjectOptions>()
+	/** Copy a caller-supplied options object once, returning the same copy for the same input. */
+	const own = (source?: TextPropsOptions): ObjectOptions => {
+		if (!source) return {}
+		const already = owned.get(source)
+		if (already) return already
+		const copy: ObjectOptions = { ...source }
+		owned.set(source, copy)
+		return copy
+	}
+
+	const textObjects = (!text || text.length === 0 ? [{ text: '' }] : text).map((item) => ({
+		...item,
+		options: own(item.options),
+	}))
+	const objectOptions: ObjectOptions = own(opts)
 	const newObject: SlideObject = {
 		_type: isPlaceholder ? SlideObjectType.placeholder : SlideObjectType.text,
 		shape: opts.shape || ShapeType.rect,
@@ -102,7 +140,12 @@ export function addTextDefinition(
 				itemOpts.lineSpacingMultiple && !isNaN(itemOpts.lineSpacingMultiple) ? itemOpts.lineSpacingMultiple : undefined
 
 			// D: Transform text options to bodyProperties as thats how we build XML
-			itemOpts._bodyProp = itemOpts._bodyProp || {}
+			// Copy, never adopt: an incoming `_bodyProp` belongs to something else. It arrives here
+			// from a caller reusing a literal that a previous `addText` wrote to, and from the
+			// A.3 branch above, which spreads a LAYOUT placeholder's options onto the slide's.
+			// Adopting it makes the two shapes share one body-property record, so the last writer
+			// of `numCol`/`anchor`/`vert` wins for all of them.
+			itemOpts._bodyProp = { ...itemOpts._bodyProp }
 			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TextAnchor.ctr : undefined // VALS: [t,ctr,b]
 			// `textDirection` is the documented public option; `vert` is a legacy/extended alias kept as an
 			// escape hatch for the full ST_TextVerticalType range (eaVert, mongolianVert, wordArtVertRtl).

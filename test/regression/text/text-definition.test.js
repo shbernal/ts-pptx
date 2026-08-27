@@ -17,9 +17,10 @@ import {
 // mapping `align`/`valign` onto `_bodyProp`, and registering picture-bullet media rels.
 //
 // Everything here goes through the public builder (`addText` / `defineSlideMaster`), because the
-// normalization is only observable in the emitted package: the definer mutates the caller's options
-// object and the emitters read `_bodyProp` off it, so asserting on the options directly would pin
-// the wrong side of the contract.
+// normalization is only observable in the emitted package: the definer copies the caller's options
+// and the emitters read `_bodyProp` off that copy, so asserting on the options handed in would pin
+// the wrong side of the contract. The one case that deliberately does look at the caller's object
+// is the leak case below, where "we did not touch it" IS the contract.
 //
 // The picture-bullet cases are four-way rather than repetitive: `createBulletImageRels` branches on
 // SVG-vs-raster AND on data-vs-path, and each of the four combinations takes a different `path`
@@ -30,7 +31,8 @@ import {
 // `cleanOpts` runs once for the text object and again for every run, and `SlideBuilder.addText`'s
 // string shorthand hands the SAME options object to both. So the shorthand cleans its options
 // TWICE while the array form cleans the shape's options once. That is invisible for most options
-// and decisive for two of them -- see the line-defaults and picture-bullet cases below.
+// and decisive for two of them -- see the line-defaults and picture-bullet cases below. The definer
+// copies before cleaning, but preserves that sharing within a single call, so it still holds.
 //
 // Left deliberately red, all "unreachable by construction" in the sense of docs/testing.md:
 //   - `const objectOptions = opts || {}` (L36). All four callers -- `SlideBuilder.addText`,
@@ -127,6 +129,45 @@ defineRegressionSuite('Text definition', [
 			assertIncludes(shapes[0], '<a:ln w="12700"', 'the twice-cleaned shorthand')
 			assertIncludes(shapes[0], '<a:prstDash val="solid"/>', 'the twice-cleaned shorthand')
 			assertIncludes(shapes[1], '<a:ln></a:ln>', 'the once-cleaned array form')
+		},
+	},
+	{
+		// The definer writes internal state onto the options it is handed -- `_bodyProp`, the assigned
+		// `objectName`, defaulted `color`/`line` -- so it has to copy first, or that state lands on a
+		// caller's object and leaks to every later use of it. Reusing a style literal is the ordinary
+		// way to give shapes a common look, and it used to be enough to corrupt them: the first call
+		// hung a `_bodyProp` on the literal, every `{ ...STYLE }` after it aliased that same record,
+		// and the ONE box asked for two columns silently columnized all three. `objectName` leaked the
+		// same way -- the name assigned to the first box was spread onto the next two, which then
+		// collided in the Selection Pane.
+		//
+		// Asserted three ways because they are three different failures: the bytes (only box two is
+		// columnized), the diagnostics (no name collision), and the literal itself (still exactly what
+		// the caller wrote). The last one is the actual contract; the first two are what breaks
+		// without it.
+		name: 'a reused options literal is left untouched and does not leak between text boxes',
+		fn: async () => {
+			const STYLE = { x: 1, y: 1, w: 4, h: 1, fontSize: 14 }
+			const { zip, warnings } = await buildCapturingLogs((p) => {
+				const s = p.addSlide()
+				s.addText('first', STYLE)
+				s.addText('second', { ...STYLE, y: 2.5, columns: 2 })
+				s.addText('third', { ...STYLE, y: 4 })
+			})
+			const shapes = (await readEntry(zip, 'ppt/slides/slide1.xml')).match(/<p:sp>[\s\S]*?<\/p:sp>/g) || []
+			assertEqual(shapes.length, 3, 'expected all three text boxes')
+			assertNotIncludes(shapes[0], 'numCol', 'the box added before the two-column one')
+			assertIncludes(shapes[1], 'numCol="2"', 'the box that actually asked for two columns')
+			assertNotIncludes(shapes[2], 'numCol', 'the box added after the two-column one')
+			assertNonVisualDrawingProperty(shapes[0], { name: 'Text 0' }, 'the first box')
+			assertNonVisualDrawingProperty(shapes[1], { name: 'Text 1' }, 'the second box')
+			assertNonVisualDrawingProperty(shapes[2], { name: 'Text 2' }, 'the third box')
+			assertEqual(warnings.length, 0, `expected no diagnostics; got ${JSON.stringify(warnings)}`)
+			assertEqual(
+				JSON.stringify(STYLE),
+				JSON.stringify({ x: 1, y: 1, w: 4, h: 1, fontSize: 14 }),
+				'the caller-owned style literal after three addText calls'
+			)
 		},
 	},
 	{

@@ -27,8 +27,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Text is read through PDF rather than PNG because LibreOffice's PNG export writes the
   first slide only and ignores a `PageRange` filter option. SKIPs cleanly when either
   tool is missing (`TSPPTX_SOFFICE` / `TSPPTX_PDFTOTEXT` override the search, and a
-  set-but-wrong path errors rather than silently falling back). Not in CI, same tier as
-  `test:com`.
+  set-but-wrong path errors rather than silently falling back).
+
+  It covers more than SmartArt, and it runs in CI. Three of the constructs the
+  byte-identity corpus never emits — `a:buBlip`, `a:prstTxWarp` and `numCol`/`spcCol` —
+  are now asserted against a second implementation rather than against their own bytes,
+  each as a construct deck diffed with an otherwise identical control deck and each made
+  to fail on purpose before it was kept. `rtl="1"` and `altLang` were probed and dropped
+  as unobservable to any renderer; `a:buClr` changes the raster but not the extracted
+  text. Unlike `test:com` there is a CI leg (`ubuntu-latest`, ~1m6s off the critical
+  path), running under `TSPPTX_RENDER_ORACLE=required` so a runner missing a tool fails
+  instead of skipping green.
+
+### Fixed
+
+- **`addText` no longer writes its own state onto the options object you hand it.** The
+  definer normalized options in place — a `_bodyProp` record, the assigned `objectName`,
+  defaulted `color` and `line` — and the emitters then wrote more of it (`_lineIdx`,
+  paragraph properties inherited from the shape). Reusing a style literal, the ordinary
+  way to give several shapes one look, was enough to corrupt them: the first `addText`
+  hung a `_bodyProp` on the literal, every `{ ...STYLE }` after it aliased that same
+  record, and one box asking for `columns: 2` silently columnized the boxes before and
+  after it. `objectName` leaked by the same route, spreading the first box's assigned
+  name onto its siblings and colliding in the Selection Pane. Options are now copied on
+  the way in, so the object a caller passes comes back exactly as it was written.
+  Emitted bytes are unchanged (183/183 baseline parts): sharing *within* one `addText`
+  call is preserved, because the string shorthand's shape and run genuinely are one
+  object and the second normalization pass over it emits `<a:ln>` defaults the first
+  cannot. Nested option objects (`bullet`, `shadow`, `fill`) are still shared by
+  reference, which is how their relationship ids reach the emitters.
 
 ## [3.5.0] - 2026-08-26
 
