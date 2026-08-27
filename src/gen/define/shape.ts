@@ -38,7 +38,25 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
  * @param {ShapeProps} opts shape options
  */
 export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_NAME, opts: ShapeProps): void {
-	const options = typeof opts === 'object' ? opts : {}
+	// Take ownership of the options before touching them, the same way `addTextDefinition` does.
+	// Everything below writes normalization back onto whatever object it is handed — the `line`
+	// defaults and the assigned `objectName` above all — so without the copy a style literal reused
+	// across shapes carries one shape's settings to the next:
+	//
+	//   slide.addShape('rect', STYLE)            // STYLE now holds `objectName: 'Shape 0'`
+	//   slide.addShape('ellipse', { ...STYLE })  // …spread onto the second, and the third
+	//
+	// which emits three shapes named `Shape 0` and a duplicate-`objectName` warning.
+	//
+	// Nested caller objects (`fill`, `shadow`) stay shared by reference, as in `addTextDefinition`:
+	// the image fill's rel id is registered through that reference and read back at emit time.
+	// `shadow` follows text rather than `copyChartOptions`, which does copy it. `correctShadowOptions`
+	// normalizes in place, so the caller's shadow object comes back with a rounded `angle` and the
+	// derived `_alpha` on it — but those are idempotent normalizations of the caller's own values,
+	// not one shape's identity carried to the next, and `test/regression/shape/shared-shadow.test.js`
+	// pins that `_alpha` precisely because a shadow object shared across shapes has to keep emitting
+	// the same `<a:effectLst>`.
+	const options: ShapeProps = typeof opts === 'object' ? { ...opts } : {}
 	options.line = options.line || { type: 'none' }
 	options.shadow = correctShadowOptions(options.shadow)
 	// Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid

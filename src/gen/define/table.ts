@@ -274,7 +274,22 @@ export function addTableDefinition(
 	getSlide: (slideNumber: number) => PresSlideInternal | undefined
 ): PresSlideInternal[] {
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
-	const opt: TableProps = options && typeof options === 'object' ? options : {}
+	// Take ownership of the options before touching them, the same way `addTextDefinition` does.
+	// Everything below normalizes in place — `objectName`, `fontSize`, `margin`, `color`, the
+	// `autoPage*` family, the resolved `w`/`colW` — and STEP 5 hands this object to every plain
+	// string cell as that cell's options, so the cell emitters write onto it too. Without the copy
+	// all of that lands on the CALLER's object, and a style literal reused across tables carries one
+	// table's settings (and its `objectName`) into the next.
+	//
+	// Identity WITHIN one call is kept on purpose: the string cells in STEP 5 all share this one
+	// object, which is what `gen/slide/objects/table.ts` reads back. Copying per cell would change
+	// the emitted bytes.
+	//
+	// `border` is copied because the array normalization below writes `withBorderDefaults` results
+	// back into its slots; `fill` and the cell-level objects stay shared by reference, since rel ids
+	// are registered through them and read back at emit time.
+	const opt: TableProps = options && typeof options === 'object' ? { ...options } : {}
+	if (Array.isArray(opt.border)) opt.border = [...opt.border] as typeof opt.border
 	opt.objectName = opt.objectName
 		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'table'))
 		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`

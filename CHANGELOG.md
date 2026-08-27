@@ -57,6 +57,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cannot. Nested option objects (`bullet`, `shadow`, `fill`) are still shared by
   reference, which is how their relationship ids reach the emitters.
 
+- **`addShape` and `addTable` no longer write their own state onto the options object
+  you hand them either.** 3.5.0 named `addText` as the entry point that leaked; it was
+  not the only one. `addShape` stamped the assigned `objectName` and the normalized
+  `line` onto the caller's literal, so three shapes built from one spread came out named
+  `Shape 0`, `Shape 0`, `Shape 0` and warned about the collision. `addTable` wrote nine
+  keys back — `objectName`, `fontSize`, `margin`, `color` and the five `autoPage*` ones —
+  and handed the caller's object to every plain string cell as that cell's options, so
+  the cell emitters wrote onto it too. `autoPage` is the one with teeth: the auto-pager
+  clears it once it has shredded the rows, so a literal reused for a second table
+  silently lost its paging. Both now copy on the way in, along with `addTable`'s
+  `border` array, whose slots were normalized in place. Emitted bytes are unchanged
+  (183/183 baseline parts) — the options each definer owns still share identity within a
+  single call, which is what the table's string cells and the text shorthand rely on.
+  Nested caller objects follow `addText`: `fill` stays shared by reference for its rel
+  id, and so does `shadow`, whose in-place normalization is idempotent and is what lets
+  one shadow object give two shapes the same `<a:effectLst>`.
+
 ## [3.5.0] - 2026-08-26
 
 This release makes a text edit land where the text is actually read. `Paragraph.text` and
