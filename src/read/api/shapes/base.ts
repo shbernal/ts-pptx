@@ -677,7 +677,7 @@ export abstract class Shape {
 			if (v !== null) out[target] = v / div
 		}
 		put('blurPt', 'blurRad', 12700)
-		put('distPt', 'dist', 12700)
+		put('offsetPt', 'dist', 12700)
 		put('angleDeg', 'dir', 60000)
 		put('fadeAngleDeg', 'fadeDir', 60000)
 		put('startAlpha', 'stA', 100000)
@@ -744,7 +744,13 @@ export abstract class Shape {
 	/** Decode a shadow element (`a:outerShdw`/`a:innerShdw` share the fields), resolving its colour. */
 	#readShadow(shdw: Element): OuterShadow {
 		const out: OuterShadow = { color: null }
-		this.#applyEffectColor(out, firstChild(shdw, 'a:srgbClr') ?? firstChild(shdw, 'a:schemeClr'))
+		// `a:EG_ColorChoice` is a required, single-member group, so the colour element is the shadow's
+		// only child and taking the first one is both correct and total — the same thing `glow` above
+		// does. Naming `a:srgbClr` and `a:schemeClr` explicitly dropped the other four models on the
+		// floor: `a:sysClr` resolves everywhere else in the read model, and this library emits
+		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` still has no `a:prstClr` case, so
+		// a preset-colour shadow resolves to a null colour rather than being silently ignored here.
+		this.#applyEffectColor(out, firstChildElement(shdw))
 		const blur = intValue(attr(shdw, 'blurRad'))
 		const dist = intValue(attr(shdw, 'dist'))
 		const dir = intValue(attr(shdw, 'dir'))

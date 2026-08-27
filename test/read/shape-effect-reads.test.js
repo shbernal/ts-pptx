@@ -69,6 +69,31 @@ describe('Shape.shadow — outer drop shadow reads', () => {
 		assertEqual(shadow.color, null, 'with empty colour maps the scheme colour does not resolve')
 	})
 
+	test('the colour is read whatever model it uses, not only srgb and scheme', () => {
+		// `a:CT_OuterShadowEffect` is a sequence whose only child is the required, single-member
+		// `a:EG_ColorChoice` group — one of `a:scrgbClr | a:srgbClr | a:hslClr | a:sysClr |
+		// a:schemeClr | a:prstClr`. So "the shadow's first element child" is the colour, always,
+		// which is what `glow` has always done. Naming two of the six explicitly read the other
+		// four as `color: null`, and `a:sysClr` is not hypothetical: `resolveColor` resolves it
+		// everywhere else in the read model, through its `lastClr` snapshot.
+		const sys = sp(
+			`<p:spPr><a:effectLst><a:outerShdw blurRad="50800" dist="38100">` +
+				`<a:sysClr val="windowText" lastClr="000000"/></a:outerShdw></a:effectLst></p:spPr>`
+		).shadow
+		assert(sys, 'a sysClr outerShdw surfaces a shadow')
+		assertEqual(sys.color, '000000', 'the sysClr lastClr snapshot resolves like it does elsewhere')
+		assertEqual(sys.offsetPt, 3, 'and the geometry is decoded alongside it')
+		// `a:prstClr` is the model this library emits itself (`gen/slide/notes.ts`). `resolveColor`
+		// has no preset-name table yet, so the colour still reads `null` — but the element now
+		// reaches the resolver, which is where that gap belongs, rather than being dropped here.
+		const prst = sp(
+			`<p:spPr><a:effectLst><a:outerShdw blurRad="50800"><a:prstClr val="black"/></a:outerShdw></a:effectLst></p:spPr>`
+		).shadow
+		assert(prst, 'a prstClr outerShdw surfaces a shadow')
+		assertEqual(prst.blurPt, 4, 'with its geometry decoded')
+		assertEqual(prst.color, null, 'the preset name is not resolvable yet — see [prstclr-resolution]')
+	})
+
 	test('no effectLst / no outerShdw → null', () => {
 		assertEqual(sp(`<p:spPr/>`).shadow, null, 'no a:effectLst → null')
 		assertEqual(sp(`<p:spPr><a:effectLst/></p:spPr>`).shadow, null, 'an effectLst with no outerShdw → null')
@@ -189,7 +214,7 @@ describe('Shape.reflection / Shape.softEdge — read-only effects', () => {
 		).reflection
 		assert(refl, 'an a:reflection surfaces a reflection')
 		assertEqual(refl.blurPt, 0.5, 'blurRad 6350 EMU → 0.5pt')
-		assertEqual(refl.distPt, 2, 'dist 25400 EMU → 2pt')
+		assertEqual(refl.offsetPt, 2, 'dist 25400 EMU → 2pt')
 		assertEqual(refl.angleDeg, 90, 'dir 5400000 (60000ths) → 90°')
 		assertEqual(refl.fadeAngleDeg, 90, 'fadeDir 5400000 (60000ths) → 90°')
 		assertEqual(refl.startAlpha, 0.5, 'stA 50000 → 0.5')
@@ -202,7 +227,7 @@ describe('Shape.reflection / Shape.softEdge — read-only effects', () => {
 		const refl = sp(`<p:spPr><a:effectLst><a:reflection blurRad="6350"/></a:effectLst></p:spPr>`).reflection
 		assert(refl, 'a bare reflection still surfaces')
 		assertEqual(refl.blurPt, 0.5, 'the one present attribute is decoded')
-		assertEqual(refl.distPt, undefined, 'an absent distance is omitted (undefined), not 0')
+		assertEqual(refl.offsetPt, undefined, 'an absent distance is omitted (undefined), not 0')
 		assertEqual(refl.startAlpha, undefined, 'an absent alpha is omitted')
 	})
 

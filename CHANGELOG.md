@@ -74,6 +74,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   id, and so does `shadow`, whose in-place normalization is idempotent and is what lets
   one shadow object give two shapes the same `<a:effectLst>`.
 
+- **`Shape.shadow` and `Shape.innerShadow` read the shadow colour whatever model it
+  uses.** The decode named `a:srgbClr` and `a:schemeClr` explicitly and dropped the other
+  four DrawingML colour models on the floor, so a shadow coloured with `a:sysClr`,
+  `a:prstClr`, `a:hslClr` or `a:scrgbClr` read as `color: null`. The colour element is the
+  shadow's only child and it is required (`a:EG_ColorChoice`, a single-member group), so
+  it now takes the first element child — exactly what `Shape.glow` alongside it has always
+  done. `a:sysClr` was the live case: it resolves everywhere else in the read model,
+  through its `lastClr` snapshot. `a:prstClr` now reaches the resolver, which has no
+  preset-name table yet and so still reports `null` — the gap moved to where it belongs
+  instead of being silently swallowed by the accessor.
+
+### Changed
+
+- **`Reflection.distPt` is now `Reflection.offsetPt`** (`ts-pptx/read`). Sibling accessors
+  on one class spelled the same `@dist` attribute two ways: `Shape.shadow` and
+  `Shape.innerShadow` reported `offsetPt`, `Shape.reflection` reported `distPt`. The three
+  now agree. Migration is a rename at the call site — `reflection.distPt` →
+  `reflection.offsetPt`; the value, the unit (points) and the omit-when-absent behaviour
+  are unchanged. `offsetPt` won over `distPt` because the read API is meant to read well,
+  not to mirror OOXML attribute spelling.
+
 ## [3.5.0] - 2026-08-26
 
 This release makes a text edit land where the text is actually read. `Paragraph.text` and

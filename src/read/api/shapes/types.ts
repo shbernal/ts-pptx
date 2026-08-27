@@ -134,7 +134,7 @@ export interface Reflection {
 	/** End position along the reflection 0–1 (`@endPos` ÷ 100000). */
 	endPos?: number
 	/** Offset distance in points (`@dist` ÷ 12700). */
-	distPt?: number
+	offsetPt?: number
 	/** Offset direction in degrees (`@dir` ÷ 60000). */
 	angleDeg?: number
 	/** Fade direction in degrees (`@fadeDir` ÷ 60000). */
