@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Bundle-size budget — how big the browser entry has got.
+ * Bundle-size budget — how big each published entry point has got.
  *
  * Nothing measured shipped size before this. That was tolerable while browser support was
  * "works by construction"; it is not tolerable alongside a claim that the browser is a
@@ -44,19 +44,52 @@ const DIST = path.join(ROOT, 'dist')
 const BUDGET = path.join(ROOT, 'scripts', 'bundle-size-budget.json')
 
 /**
- * Entries under budget, by their `dist/` file name.
+ * Entries under budget, by their `dist/` file name — every entry `package.json`'s `exports`
+ * publishes, so nothing a consumer can import is unwatched.
  *
- * The browser entry is the one a consumer pays for over the wire, so it is the one with a
- * number. The Node entries are read off a local disk and the read/inspect entries are
- * opt-in subpaths; adding either is a line here plus a `--freeze`.
+ * The browser entry is the one a consumer pays for over the wire and was for a while the only
+ * one with a number, on the reasoning that the Node entries are read off a local disk and the
+ * rest are opt-in subpaths. What that left out is that *reaching* an entry is what costs: a
+ * dependency landing in a chunk `./read` pulls in is paid for by every consumer of `./read`,
+ * and until it also reached `browser.js` no gate here could see it. Per-entry is the shape that
+ * catches it, and it is available for free — an entry file name carries no content hash, unlike
+ * the chunks (`text-Bc8hqWTD.js`), so a budget keyed on these does not churn on every build.
+ *
+ * Adding an entry is a line here plus a `--freeze`. The closures overlap heavily (the shared
+ * chunks are counted once per entry that reaches them), which is fine: this is a per-entry
+ * question — "what does importing *this* cost" — not a package total. Together they do reach
+ * every `.js` file the build emits, which is the property that makes "unwatched bytes" a thing
+ * that cannot happen rather than a thing nobody has checked lately.
  */
-const ENTRIES = ['browser.js']
+const ENTRIES = [
+	'browser.js',
+	'html.js',
+	'index.js',
+	'inspect.js',
+	'math.js',
+	'measure.js',
+	'node.js',
+	'read.js',
+	'script.js',
+	'zip.js',
+]
 
 /** Room `--freeze` leaves above the measurement, so ordinary work is not a re-freeze. */
 const HEADROOM_PCT = 5
 
 /** Re-freeze is only worth asking for when an entry comes in this far under budget. */
 const SLACK_PCT = 15
+
+/**
+ * ...and this far under in absolute terms, which is what keeps the small entries usable.
+ *
+ * `--freeze` rounds the budget up to a whole kB, and on a 5 kB entry that rounding alone is
+ * larger than {@link SLACK_PCT} of it: `zip.js` froze at 6 kB, measured 5 kB, and was
+ * immediately 16% under — a nag no re-freeze could clear, because the next freeze rounds to the
+ * same 6 kB. A percentage of a tiny number is noise; asking for a re-freeze over 1 kB is asking
+ * for a gate to be switched off.
+ */
+const SLACK_MIN_BYTES = 2048
 
 /**
  * Relative specifiers, static and dynamic. Bare ones are the consumer's to resolve.
@@ -71,6 +104,39 @@ const SLACK_PCT = 15
 export const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.[^"']*)["']/g
 
 /**
+ * One block comment, built from a string rather than written as a regex literal.
+ *
+ * A regex that matches block comments has to spell the closing delimiter, and a star-slash inside
+ * a regex literal is where naive scanners lose the thread: es-module-lexer, which is what Vite
+ * runs over this file when the test suite imports it, took it for the end of a comment and
+ * rejected everything after it as a syntax error — while `node --check` and esbuild both accepted
+ * the very same file. Constructing the pattern here costs one layer of backslashes and takes the
+ * question off the table.
+ */
+const BLOCK_COMMENT = new RegExp('/\\*[\\s\\S]*?\\*/', 'g')
+
+/**
+ * Blank out block comments and whole-line `//` comments, so a specifier that is only *written
+ * about* is not counted as one that is imported.
+ *
+ * `dist/shapes-*.js` carries `{@link import('./notes.js')}` in a doc comment, and the entry
+ * closure walked straight into it and demanded a `dist/notes.js` that no build emits. Doc text
+ * is the only place this happens, which is why block comments are the case worth handling; the
+ * emitted files are machine-written, so a `//` comment is a whole line.
+ *
+ * Deliberately narrow. Stripping *trailing* `//` would also eat the `//` inside any URL string
+ * literal on that line, and a parser that quietly removes code is the failure mode this whole
+ * file guards against — over-counting fails loudly and gets looked at, under-counting passes.
+ * Newlines are preserved so the remaining offsets and line structure are unchanged.
+ * @param {string} text file contents
+ * @returns {string} the same text with comment bodies replaced by spaces
+ */
+export function stripComments(text) {
+	return text
+		.replace(BLOCK_COMMENT, (match) => match.replace(/[^\n]/g, ' '))
+		.replace(/^[ \t]*\/\/[^\n]*/gm, (match) => ' '.repeat(match.length))
+}
+/**
  * Relative specifiers named by one emitted file, in source order.
  *
  * Split out from {@link closureOf} because it is the whole of the parsing risk and
@@ -79,7 +145,9 @@ export const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.[^"']*)["'
  * @returns {string[]} relative specifiers, duplicates included
  */
 export function relativeImportsOf(text) {
-	return [...text.matchAll(RELATIVE_IMPORT)].map(([, specifier]) => specifier).filter((s) => s !== undefined)
+	return [...stripComments(text).matchAll(RELATIVE_IMPORT)]
+		.map(([, specifier]) => specifier)
+		.filter((s) => s !== undefined)
 }
 
 /**
@@ -125,7 +193,7 @@ export function measureEntries() {
 
 // ---------------------------------------------------------------- CLI
 
-const USAGE = `Bundle-size budget — how big the browser entry has got.
+const USAGE = `Bundle-size budget — how big each published entry point has got.
 
   node scripts/bundle-size-ratchet.mjs            check (exit 1 over budget)
   node scripts/bundle-size-ratchet.mjs --freeze   rewrite the budget from dist/
@@ -188,7 +256,9 @@ export function main(argv) {
 		budget: budgetFile[entry] ?? 0,
 	}))
 	const over = checked.filter((row) => row.gzip > row.budget)
-	const under = checked.filter((row) => row.gzip < row.budget * (1 - SLACK_PCT / 100))
+	const under = checked.filter(
+		(row) => row.gzip < row.budget * (1 - SLACK_PCT / 100) && row.budget - row.gzip >= SLACK_MIN_BYTES
+	)
 
 	if (over.length) {
 		console.error('bundle size FAILED — an entry grew past its budget:\n')

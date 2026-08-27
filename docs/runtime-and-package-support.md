@@ -219,8 +219,11 @@ executes on the write path.)
 
 ## Bundle Size
 
-`scripts/bundle-size-ratchet.mjs` freezes a budget for the browser entry and its
-chunks, gzipped, and `pnpm run check:package` enforces it. Read the number as a
+`scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point
+`package.json` publishes and the chunks each one pulls in, gzipped, and
+`pnpm run check:package` enforces it. Per entry rather than for the package as a
+whole, because the question a consumer asks is what importing *one* subpath
+costs; the shared chunks are counted once per entry that reaches them. Read the number as a
 **growth detector, not a download size**: `dist/` is unminified, and every real
 browser consumer runs it through a bundler that minifies before serving, so what
 anyone actually downloads is well under the figure the gate prints. What the gate

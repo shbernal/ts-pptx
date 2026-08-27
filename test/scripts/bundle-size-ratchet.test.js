@@ -36,6 +36,33 @@ describe('relativeImportsOf', () => {
 	test('handles both quote styles and parent-relative paths', () => {
 		expect(relativeImportsOf(`import x from "../shared/y.js"`)).toEqual(['../shared/y.js'])
 	})
+
+	// The over-counting direction, and the one that turned into a hard failure rather than a
+	// wrong number: `dist/shapes-*.js` carries `{@link import('./notes.js')}` in a doc comment,
+	// and the closure walked into it demanding a `dist/notes.js` no build emits. It stayed
+	// invisible while only the browser entry was budgeted, because that entry never reaches
+	// that chunk.
+	test('a specifier that is only written ABOUT, in a comment, is not an import', () => {
+		const text = [
+			`/** See {@link import('./notes.js').NotesPlaceholder} for the shape. */`,
+			`import { real } from './real.js'`,
+			`// import { gone } from './removed.js'`,
+		].join('\n')
+		expect(relativeImportsOf(text)).toEqual(['./real.js'])
+	})
+
+	// Blanking a comment must not join the lines around it, or two statements become one.
+	test('stripping a multi-line comment leaves the statements on either side of it', () => {
+		const text = [`import { a } from './a.js'`, `/* a`, `   multi-line`, `   comment */`, `import './b.js'`].join('\n')
+		expect(relativeImportsOf(text)).toEqual(['./a.js', './b.js'])
+	})
+
+	// Deliberately narrow: a trailing `//` is left alone, because stripping it would also eat
+	// the `//` inside any URL on that line -- and a parser that quietly removes code is exactly
+	// the under-counting failure this file exists for.
+	test('a URL in a string literal is not mistaken for a comment', () => {
+		expect(relativeImportsOf(`const u = 'https://example.com/x'; import './after.js'`)).toEqual(['./after.js'])
+	})
 })
 
 describe('closureOf', () => {

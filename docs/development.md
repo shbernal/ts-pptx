@@ -104,8 +104,8 @@ pnpm run check:static   # lint, lint:chars, format:check, all four typechecks, t
 pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
 
-`bundle-size:check` freezes what the browser entry and its chunks weigh, gzipped,
-against `scripts/bundle-size-budget.json`. It fails only when an entry grows past
+`bundle-size:check` freezes what each published entry point and its chunks weigh,
+gzipped, against `scripts/bundle-size-budget.json`. It fails only when an entry grows past
 its budget, and asks for a re-freeze only when it comes in far enough under to be
 worth banking: bytes move on every commit, and a gate that failed on every
 commit would get switched off. `pnpm run bundle-size:list` shows the per-chunk

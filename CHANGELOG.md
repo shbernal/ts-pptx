@@ -178,6 +178,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The bundle-size budget watches every published entry point, not just the browser
+  one.** `bundle-size:check` always measured an entry's whole transitive closure, shared
+  chunks included — that part was never the gap. The gap was that only `browser.js` had a
+  number, so a dependency landing in a chunk `ts-pptx/read` pulls in cost every consumer of
+  that subpath and tripped nothing until it also reached the browser entry. All ten entries
+  `package.json` publishes are budgeted now, which between them reach every `.js` file the
+  build emits. Keying on entries rather than on chunks is what keeps it stable: an entry
+  file name carries no content hash. Switching the other nine on immediately found two
+  defects in the ratchet itself — a `{@link import('./x.js')}` in a doc comment counted as
+  an import and made the closure demand a file no build emits, and the "you are far enough
+  under to re-freeze" nag could not be satisfied on an entry small enough that `--freeze`'s
+  rounding to a whole kB exceeded the slack threshold.
+
 - **`Reflection.distPt` is now `Reflection.offsetPt`** (`ts-pptx/read`). Sibling accessors
   on one class spelled the same `@dist` attribute two ways: `Shape.shadow` and
   `Shape.innerShadow` reported `offsetPt`, `Shape.reflection` reported `distPt`. The three
