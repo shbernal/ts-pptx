@@ -4,6 +4,11 @@
  * Declarations only — no element access, no theme resolution. They live apart from the classes
  * that produce them so a consumer (or a sibling reader) can name a shape's effect, geometry or
  * recolour result without pulling in the whole shape hierarchy.
+ *
+ * The twelve `12700`s in the doc comments below are deliberate and are not an oversight. When the
+ * read half's inlined conversion factors were replaced with the named constants from
+ * `src/units.ts`, these were left as numerals: `÷ EMU_PER_POINT` tells a reader less than
+ * `÷ 12700` does, and a doc comment is not the thing that drifts when the constant moves.
  */
 
 // Type-only, so it is erased and no runtime import cycle exists: `ConnectionSite` names the
