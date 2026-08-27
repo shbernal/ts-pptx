@@ -141,4 +141,34 @@ defineRegressionSuite('Object locks', [
 			)
 		},
 	},
+	{
+		// Zoom tiles and 3D models emit a FIXED lock set rather than the caller's — neither
+		// `SlideZoomProps` nor `Model3dProps` has an `objectLock` field. Both used to write the
+		// element by hand, bypassing `genXmlObjectLock`; they now go through it like every other
+		// renderer, which puts the attribute order under the shared `PICTURE_LOCK_ATTRS` table
+		// instead of under two literals.
+		//
+		// Byte-pinned here because the byte-identity corpus emits neither construct, so the gate
+		// that would normally catch a reordering is silent on exactly these two elements. The
+		// strings below are what both hand-written literals produced.
+		name: 'zoom and model-3d picLocks are emitted in the shared table order',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addText('target', { x: 1, y: 1, w: 3, h: 1 })
+				const s = p.addSlide()
+				s.addSlideZoom({ target: 1, x: 1, y: 1, w: 2, h: 1.5 })
+				s.addModel3d({ data: 'model/gltf-binary;base64,AAAA', x: 4, y: 1, w: 2, h: 2 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			const locks = xml.match(/<a:picLocks[^>]*\/>/g) || []
+			assert(locks.length === 2, `expected the zoom tile's locks and the model's; got ${JSON.stringify(locks)}`)
+			const PICTURE_SET =
+				'noGrp="1" noRot="1" noChangeAspect="1" noMove="1" noResize="1" noEditPoints="1" ' +
+				'noAdjustHandles="1" noChangeArrowheads="1" noChangeShapeType="1"'
+			assert(locks[0] === `<a:picLocks ${PICTURE_SET}/>`, 'zoom tile locks; got: ' + locks[0])
+			// A 3D model adds `noCrop`: it is reframed by its camera, never by cropping the cached
+			// raster. It is last because that is where the table puts it.
+			assert(locks[1] === `<a:picLocks ${PICTURE_SET} noCrop="1"/>`, 'model-3d locks; got: ' + locks[1])
+		},
+	},
 ])

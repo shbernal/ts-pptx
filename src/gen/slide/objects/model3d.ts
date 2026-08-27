@@ -15,6 +15,7 @@
 import type { Model3dInternal, SlideObject } from '../../../types/internal.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { cNvPrOpen, MC_NS } from './shared.js'
+import { PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** The `am3d` namespace, doubling as `a:graphicData@uri` and the `mc:Choice Requires` token's URI. */
 const AM3D_NS = 'http://schemas.microsoft.com/office/drawing/2017/model3d'
@@ -115,18 +116,19 @@ function fallbackPic(
 						null,
 						raw(
 							// PowerPoint's model-3d lock set: the zoom/picture set plus `noCrop` — a 3D model is
-							// reframed by its camera, never by cropping the cached raster.
-							voidEl('a:picLocks', {
-								noGrp: '1',
-								noRot: '1',
-								noChangeAspect: '1',
-								noMove: '1',
-								noResize: '1',
-								noEditPoints: '1',
-								noAdjustHandles: '1',
-								noChangeArrowheads: '1',
-								noChangeShapeType: '1',
-								noCrop: '1',
+							// reframed by its camera, never by cropping the cached raster. Fixed rather than
+							// caller-supplied: `Model3dProps` has no `objectLock`.
+							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
+								noGrp: true,
+								noRot: true,
+								noChangeAspect: true,
+								noMove: true,
+								noResize: true,
+								noEditPoints: true,
+								noAdjustHandles: true,
+								noChangeArrowheads: true,
+								noChangeShapeType: true,
+								noCrop: true,
 							})
 						)
 					)

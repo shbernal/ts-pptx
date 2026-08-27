@@ -10,6 +10,7 @@
 import type { SlideObject, ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { cNvPrOpen, MC_NS } from './shared.js'
+import { PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
 const ZOOM_VARIANTS = {
@@ -93,17 +94,21 @@ function zoomFallbackPic(
 					el(
 						'p:cNvPicPr',
 						null,
+						// PowerPoint's zoom-tile lock set. Fixed rather than caller-supplied: `SlideZoomProps`
+						// has no `objectLock`, unlike image/media/OLE/table/shape/group. Routed through
+						// `genXmlObjectLock` anyway, so the attribute order is the table's rather than this
+						// literal's, and a flag added to the set lands in the right place.
 						raw(
-							voidEl('a:picLocks', {
-								noGrp: '1',
-								noRot: '1',
-								noChangeAspect: '1',
-								noMove: '1',
-								noResize: '1',
-								noEditPoints: '1',
-								noAdjustHandles: '1',
-								noChangeArrowheads: '1',
-								noChangeShapeType: '1',
+							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
+								noGrp: true,
+								noRot: true,
+								noChangeAspect: true,
+								noMove: true,
+								noResize: true,
+								noEditPoints: true,
+								noAdjustHandles: true,
+								noChangeArrowheads: true,
+								noChangeShapeType: true,
 							})
 						)
 					)
