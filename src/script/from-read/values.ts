@@ -18,6 +18,7 @@
  */
 import type { IrValue } from '../ir.js'
 import type { GraphicFrame } from '../../read.js'
+import { EMU_PER_POINT } from '../../units.js'
 
 /** EMU per inch (ECMA-376 §20.1.2.1). */
 const EMU_PER_INCH = 914400
@@ -43,7 +44,7 @@ export function inches(emuValue: number): number {
 
 /** EMU → points, the unit the write API uses for line widths and font sizes. */
 export function points(emuValue: number): number {
-	return emuValue / 12700
+	return emuValue / EMU_PER_POINT
 }
 
 /**

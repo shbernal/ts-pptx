@@ -39,6 +39,7 @@ import {
 	type StyleFontRef,
 } from './theme-context.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
+import { EMU_PER_POINT } from '../../units.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve an *inherited* run
@@ -739,7 +740,7 @@ export class Paragraph {
 	#emuAttrPt(name: string): number | null {
 		const pPr = firstChild(this.element, 'a:pPr')
 		const emu = pPr ? intValue(attr(pPr, name)) : null
-		return emu === null ? null : emu / 12700
+		return emu === null ? null : emu / EMU_PER_POINT
 	}
 
 	/**
@@ -849,7 +850,7 @@ export class TextFrame {
 		const insetsPt: BodyProperties['insetsPt'] = {}
 		const inset = (qn: string, key: keyof BodyProperties['insetsPt']): void => {
 			const v = intValue(attr(bodyPr, qn))
-			if (v !== null) insetsPt[key] = v / 12700
+			if (v !== null) insetsPt[key] = v / EMU_PER_POINT
 		}
 		inset('lIns', 'left')
 		inset('rIns', 'right')

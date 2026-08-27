@@ -17,6 +17,7 @@ import {
 } from '../../oxml/dom.js'
 import type { CustomGeometryPath, GeometryCommand } from './types.js'
 import { InvalidOptionError } from '../../../errors.js'
+import { ANGLE_UNITS_PER_DEGREE } from '../../../units.js'
 
 /**
  * One `a:pt` coordinate as a raw path-unit integer. A guide-name reference
@@ -67,8 +68,8 @@ export function readGeometryPath(path: Element): CustomGeometryPath {
 					cmd: 'arcTo',
 					wR: intValue(attr(seg, 'wR')) ?? 0,
 					hR: intValue(attr(seg, 'hR')) ?? 0,
-					stAng: (intValue(attr(seg, 'stAng')) ?? 0) / 60000,
-					swAng: (intValue(attr(seg, 'swAng')) ?? 0) / 60000,
+					stAng: (intValue(attr(seg, 'stAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
+					swAng: (intValue(attr(seg, 'swAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
 				})
 				break
 			case 'close':
@@ -112,7 +113,7 @@ export function readBox(
 
 export function rotationDegrees(xfrm: Element): number {
 	const rot = intValue(attr(xfrm, 'rot'))
-	return rot === null ? 0 : rot / 60000
+	return rot === null ? 0 : rot / ANGLE_UNITS_PER_DEGREE
 }
 
 export function transformFlipH(xfrm: Element): boolean {

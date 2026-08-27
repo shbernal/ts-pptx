@@ -50,6 +50,7 @@ import {
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
+import { EMU_PER_POINT } from '../../units.js'
 
 /**
  * One border as {@link TableCell.setBorder} takes it — the write-side mirror of
@@ -611,7 +612,7 @@ export class TableCell {
 		const doc = ownerDocumentOf(tcPr)
 		const ln = createElement(doc, qname)
 		if (border.widthPt !== undefined && border.widthPt !== null) {
-			setAttr(ln, 'w', String(checkFiniteEmu(border.widthPt * 12700, 'widthPt', 'table/invalid-cell-border')))
+			setAttr(ln, 'w', String(checkFiniteEmu(border.widthPt * EMU_PER_POINT, 'widthPt', 'table/invalid-cell-border')))
 		}
 		if (border.noFill) {
 			ln.appendChild(createElement(doc, 'a:noFill'))
@@ -836,7 +837,7 @@ export class TableCell {
 			const scheme = this.#fillSchemeColorOf(ln)
 			const resolved = this.themeColors ? resolveSolidFillColor(ln, this.themeColors) : null
 			return {
-				widthPt: w === null ? null : w / 12700,
+				widthPt: w === null ? null : w / EMU_PER_POINT,
 				dash: dash ? (attr(dash, 'val') ?? null) : null,
 				color: resolved ? resolved.effectiveHex : null,
 				schemeColor: scheme,
@@ -907,7 +908,7 @@ export class TableCell {
 		const rig = firstChild(cell3D, 'a:lightRig')
 		const pts = (value: string | null): number | null => {
 			const emu = intValue(value)
-			return emu === null ? null : emu / 12700
+			return emu === null ? null : emu / EMU_PER_POINT
 		}
 		return {
 			material: attr(cell3D, 'prstMaterial') ?? null,

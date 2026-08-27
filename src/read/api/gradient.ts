@@ -7,6 +7,7 @@
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'
 import { resolveColorElement } from './theme-context.js'
+import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
 
 /** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
 export interface GradientStop {
@@ -64,7 +65,7 @@ export function readGradientStops(container: Element, ctx: ColorContext): Gradie
 		const scheme = firstChild(gs, 'a:schemeClr')
 		const resolved = resolveColorElement(srgb ?? scheme ?? null, ctx)
 		return {
-			position: pos === null ? null : pos / 100000,
+			position: pos === null ? null : pos / PERCENT_SCALE,
 			color: srgb ? attr(srgb, 'val') : null,
 			schemeColor: scheme ? attr(scheme, 'val') : null,
 			effectiveHex: resolved ? resolved.effectiveHex : null,
@@ -86,7 +87,7 @@ export function readGradientFill(container: Element, ctx: ColorContext): Gradien
 	const ang = lin ? intValue(attr(lin, 'ang')) : null
 	return {
 		kind: lin ? 'linear' : path ? 'path' : null,
-		angleDeg: ang === null ? null : ang / 60000,
+		angleDeg: ang === null ? null : ang / ANGLE_UNITS_PER_DEGREE,
 		path: path ? (attr(path, 'path') ?? null) : null,
 		stops: readGradientStops(container, ctx) ?? [],
 	}

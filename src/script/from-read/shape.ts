@@ -44,6 +44,7 @@ import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './d
 import { textFrameOptions, textRuns } from './text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
+import { PERCENT_SCALE } from '../../units.js'
 
 /** Resolves an image/media part name to bytes the deck-level walk has registered. */
 export interface AssetResolver {
@@ -472,7 +473,7 @@ function adjustOptions(shape: AutoShape): Record<string, IrValue | undefined> {
 	for (const name of Object.keys(values).sort()) {
 		const match = /^val\s+(-?\d+)$/.exec((values[name] ?? '').trim())
 		if (!match?.[1]) continue
-		guides.push({ name, value: Number(match[1]) / 100000 })
+		guides.push({ name, value: Number(match[1]) / PERCENT_SCALE })
 	}
 	return guides.length ? { shapeAdjust: guides } : {}
 }

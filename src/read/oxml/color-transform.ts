@@ -28,8 +28,9 @@
  *    current source needs them; add when one does).
  *
  * All DrawingML percentage values are stored in thousandths of a percent
- * (`100%` → `100000`), so a modifier's fraction is `val / 100000`.
+ * (`100%` → `100000`), so a modifier's fraction is `val / PERCENT_SCALE`.
  */
+import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
 
 /** A colour-transform modifier in its read-model form: tag local-name + raw `@val`. */
 export interface ColorTransform {
@@ -47,7 +48,7 @@ export interface EffectiveColor {
 function pct(value: string | null): number | null {
 	if (value === null || value === '') return null
 	const n = Number(value)
-	return Number.isFinite(n) ? n / 100000 : null
+	return Number.isFinite(n) ? n / PERCENT_SCALE : null
 }
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n)
@@ -158,7 +159,7 @@ export function applyColorTransforms(baseHex: string, transforms: ColorTransform
 				} else {
 					const n = value === null ? NaN : Number(value)
 					if (!Number.isFinite(n)) break
-					hsl.h = (((hsl.h + n / 60000) % 360) + 360) % 360
+					hsl.h = (((hsl.h + n / ANGLE_UNITS_PER_DEGREE) % 360) + 360) % 360
 				}
 				rgb = hslToRgb(hsl)
 				break

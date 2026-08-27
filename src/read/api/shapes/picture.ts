@@ -27,6 +27,7 @@ import { childElements } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
+import { PERCENT_SCALE } from '../../../units.js'
 
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
@@ -181,7 +182,7 @@ export class Picture extends Shape {
 		if (!srcRect) return null
 		const edge = (name: string): number => {
 			const v = intValue(attr(srcRect, name))
-			return v === null ? 0 : v / 100000
+			return v === null ? 0 : v / PERCENT_SCALE
 		}
 		return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 	}
@@ -224,11 +225,11 @@ export class Picture extends Shape {
 					return { kind: 'grayscale' }
 				case 'biLevel': {
 					const thresh = intValue(attr(child, 'thresh'))
-					return { kind: 'biLevel', threshold: thresh === null ? null : thresh / 100000 }
+					return { kind: 'biLevel', threshold: thresh === null ? null : thresh / PERCENT_SCALE }
 				}
 				case 'alphaModFix': {
 					const amt = intValue(attr(child, 'amt'))
-					return { kind: 'alphaModFix', amount: amt === null ? 1 : amt / 100000 }
+					return { kind: 'alphaModFix', amount: amt === null ? 1 : amt / PERCENT_SCALE }
 				}
 			}
 		}

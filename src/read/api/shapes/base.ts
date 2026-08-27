@@ -68,6 +68,7 @@ import type {
 	SoftEdge,
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
+import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../../units.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -466,7 +467,7 @@ export abstract class Shape {
 	get lineWidthPt(): number | null {
 		const ln = this.#line()
 		const w = ln ? intValue(attr(ln, 'w')) : null
-		return w === null ? null : w / 12700
+		return w === null ? null : w / EMU_PER_POINT
 	}
 
 	/**
@@ -659,7 +660,7 @@ export abstract class Shape {
 		const out: Glow = { color: null }
 		this.#applyEffectColor(out, firstChildElement(glow))
 		const rad = intValue(attr(glow, 'rad'))
-		if (rad !== null) out.radiusPt = rad / 12700
+		if (rad !== null) out.radiusPt = rad / EMU_PER_POINT
 		return out
 	}
 
@@ -676,14 +677,14 @@ export abstract class Shape {
 			const v = intValue(attr(refl, name))
 			if (v !== null) out[target] = v / div
 		}
-		put('blurPt', 'blurRad', 12700)
-		put('offsetPt', 'dist', 12700)
-		put('angleDeg', 'dir', 60000)
-		put('fadeAngleDeg', 'fadeDir', 60000)
-		put('startAlpha', 'stA', 100000)
-		put('startPos', 'stPos', 100000)
-		put('endAlpha', 'endA', 100000)
-		put('endPos', 'endPos', 100000)
+		put('blurPt', 'blurRad', EMU_PER_POINT)
+		put('offsetPt', 'dist', EMU_PER_POINT)
+		put('angleDeg', 'dir', ANGLE_UNITS_PER_DEGREE)
+		put('fadeAngleDeg', 'fadeDir', ANGLE_UNITS_PER_DEGREE)
+		put('startAlpha', 'stA', PERCENT_SCALE)
+		put('startPos', 'stPos', PERCENT_SCALE)
+		put('endAlpha', 'endA', PERCENT_SCALE)
+		put('endPos', 'endPos', PERCENT_SCALE)
 		return out
 	}
 
@@ -695,7 +696,7 @@ export abstract class Shape {
 		const soft = this.#effect('a:softEdge')
 		if (!soft) return null
 		const rad = intValue(attr(soft, 'rad'))
-		return { radiusPt: rad === null ? 0 : rad / 12700 }
+		return { radiusPt: rad === null ? 0 : rad / EMU_PER_POINT }
 	}
 
 	/**
@@ -754,9 +755,9 @@ export abstract class Shape {
 		const blur = intValue(attr(shdw, 'blurRad'))
 		const dist = intValue(attr(shdw, 'dist'))
 		const dir = intValue(attr(shdw, 'dir'))
-		if (blur !== null) out.blurPt = blur / 12700
-		if (dist !== null) out.offsetPt = dist / 12700
-		if (dir !== null) out.angleDeg = dir / 60000
+		if (blur !== null) out.blurPt = blur / EMU_PER_POINT
+		if (dist !== null) out.offsetPt = dist / EMU_PER_POINT
+		if (dir !== null) out.angleDeg = dir / ANGLE_UNITS_PER_DEGREE
 		return out
 	}
 

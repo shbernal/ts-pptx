@@ -11,6 +11,7 @@
  */
 import { attr, firstChild, intValue, boolValue, type Element } from '../oxml/dom.js'
 import type { Relationships } from '../opc/relationships.js'
+import { PERCENT_SCALE } from '../../units.js'
 
 /** A rectangle expressed as per-edge fractions (`a:srcRect`/`a:fillRect`), `0.1` = 10 %. */
 export interface FillRect {
@@ -76,7 +77,7 @@ export interface PictureFill {
 function readRect(rect: Element): FillRect {
 	const edge = (name: string): number => {
 		const v = intValue(attr(rect, name))
-		return v === null ? 0 : v / 100000
+		return v === null ? 0 : v / PERCENT_SCALE
 	}
 	return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 }
@@ -85,7 +86,7 @@ function readRect(rect: Element): FillRect {
 function readTile(tile: Element): PictureFillTile {
 	const scale = (name: string): number => {
 		const v = intValue(attr(tile, name))
-		return v === null ? 1 : v / 100000
+		return v === null ? 1 : v / PERCENT_SCALE
 	}
 	return {
 		offsetXEmu: intValue(attr(tile, 'tx')) ?? 0,
@@ -134,7 +135,7 @@ export function readPictureFill(container: Element, rels: Relationships | null =
 		fillRect: fillRect ? readRect(fillRect) : null,
 		tile: tile ? readTile(tile) : null,
 		// `a:alphaModFix` omits `amt` to mean fully opaque (the schema default).
-		alpha: alphaMod ? (amt === null ? 1 : amt / 100000) : null,
+		alpha: alphaMod ? (amt === null ? 1 : amt / PERCENT_SCALE) : null,
 		dpi: intValue(attr(blipFill, 'dpi')),
 		rotWithShape: boolValue(attr(blipFill, 'rotWithShape')),
 	}
