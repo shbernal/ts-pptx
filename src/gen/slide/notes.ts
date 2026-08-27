@@ -108,6 +108,72 @@ function genXmlNotesParagraphs(slide: PresSlideInternal): string {
 }
 
 /**
+ * The `p:spTree` wrapper a notes master and a notes slide both open with: the group's own
+ * non-visual properties and an identity `a:xfrm`, followed by that part's placeholders.
+ *
+ * The two parts differ only in which placeholders they carry — the master has six (header, date,
+ * thumbnail, body, footer, slide number), a notes slide has three — so everything around the
+ * `children` argument was written out twice, `chOff`/`chExt` and all.
+ * @param children - the placeholder shapes, already serialized, in document order
+ */
+function notesSpTree(children: string[]): string {
+	return el('p:spTree', null, [
+		raw(
+			el('p:nvGrpSpPr', null, [
+				raw(voidEl('p:cNvPr', { id: 1, name: '' })),
+				raw(voidEl('p:cNvGrpSpPr')),
+				raw(voidEl('p:nvPr')),
+			])
+		),
+		raw(
+			el(
+				'p:grpSpPr',
+				null,
+				raw(
+					el('a:xfrm', null, [
+						raw(voidEl('a:off', { x: 0, y: 0 })),
+						raw(voidEl('a:ext', { cx: 0, cy: 0 })),
+						raw(voidEl('a:chOff', { x: 0, y: 0 })),
+						raw(voidEl('a:chExt', { cx: 0, cy: 0 })),
+					])
+				)
+			)
+		),
+		...children.map((child) => raw(child)),
+	])
+}
+
+/**
+ * PowerPoint's creation-id extension, on the `p:cSld` of both notes parts.
+ *
+ * The value is a fixed literal, and that is the point of naming it: it looks like data — a
+ * per-deck identifier PowerPoint would vary — so left inline in two places, someone eventually
+ * changes one of them. It is deliberately constant, which is what keeps the two notes parts
+ * byte-identical across builds.
+ */
+const NOTES_CREATION_ID = 1024086991
+
+/** The `p:extLst` carrying {@link NOTES_CREATION_ID}, identical on the notes master and notes slide. */
+function notesExtLst(): string {
+	return el(
+		'p:extLst',
+		null,
+		raw(
+			el(
+				'p:ext',
+				{ uri: '{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}' },
+				raw(
+					voidEl('p14:creationId', {
+						'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main',
+						val: NOTES_CREATION_ID,
+					})
+				)
+			)
+		)
+	)
+}
+
+/**
  * Generate XML for Notes Master (notesMaster1.xml)
  * @returns {string} XML
  */
@@ -266,52 +332,9 @@ export function makeXmlNotesMaster(): string {
 		),
 	])
 
-	const spTree = el('p:spTree', null, [
-		raw(
-			el('p:nvGrpSpPr', null, [
-				raw(voidEl('p:cNvPr', { id: 1, name: '' })),
-				raw(voidEl('p:cNvGrpSpPr')),
-				raw(voidEl('p:nvPr')),
-			])
-		),
-		raw(
-			el(
-				'p:grpSpPr',
-				null,
-				raw(
-					el('a:xfrm', null, [
-						raw(voidEl('a:off', { x: 0, y: 0 })),
-						raw(voidEl('a:ext', { cx: 0, cy: 0 })),
-						raw(voidEl('a:chOff', { x: 0, y: 0 })),
-						raw(voidEl('a:chExt', { cx: 0, cy: 0 })),
-					])
-				)
-			)
-		),
-		raw(header),
-		raw(date),
-		raw(slideImg),
-		raw(notesPlaceholder),
-		raw(footer),
-		raw(slideNum),
-	])
+	const spTree = notesSpTree([header, date, slideImg, notesPlaceholder, footer, slideNum])
 
-	const extLst = el(
-		'p:extLst',
-		null,
-		raw(
-			el(
-				'p:ext',
-				{ uri: '{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}' },
-				raw(
-					voidEl('p14:creationId', {
-						'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main',
-						val: 1024086991,
-					})
-				)
-			)
-		)
-	)
+	const extLst = notesExtLst()
 
 	const cSld = el('p:cSld', null, [
 		raw(el('p:bg', null, raw(el('p:bgRef', { idx: 1001 }, raw(voidEl('a:schemeClr', { val: 'bg1' })))))),
@@ -434,49 +457,9 @@ export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: n
 		),
 	])
 
-	const spTree = el('p:spTree', null, [
-		raw(
-			el('p:nvGrpSpPr', null, [
-				raw(voidEl('p:cNvPr', { id: 1, name: '' })),
-				raw(voidEl('p:cNvGrpSpPr')),
-				raw(voidEl('p:nvPr')),
-			])
-		),
-		raw(
-			el(
-				'p:grpSpPr',
-				null,
-				raw(
-					el('a:xfrm', null, [
-						raw(voidEl('a:off', { x: 0, y: 0 })),
-						raw(voidEl('a:ext', { cx: 0, cy: 0 })),
-						raw(voidEl('a:chOff', { x: 0, y: 0 })),
-						raw(voidEl('a:chExt', { cx: 0, cy: 0 })),
-					])
-				)
-			)
-		),
-		raw(slideImgPh),
-		raw(notesPh),
-		raw(slideNumPh),
-	])
+	const spTree = notesSpTree([slideImgPh, notesPh, slideNumPh])
 
-	const extLst = el(
-		'p:extLst',
-		null,
-		raw(
-			el(
-				'p:ext',
-				{ uri: '{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}' },
-				raw(
-					voidEl('p14:creationId', {
-						'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main',
-						val: 1024086991,
-					})
-				)
-			)
-		)
-	)
+	const extLst = notesExtLst()
 
 	const cSld = el('p:cSld', null, [raw(spTree), raw(extLst)])
 
