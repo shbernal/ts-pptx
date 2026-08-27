@@ -60,58 +60,18 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
 	)
 }
 
-// Per-script theme font fallback tables (CT_TextFont lists), in OOXML document order. Static Office
-// defaults — no caller data, no escaping risk — unlike the `<a:latin>`/`<a:ea>`/`<a:cs>` slots below.
-const MAJOR_FONT_LIST: ReadonlyArray<readonly [string, string]> = [
-	['Jpan', '游ゴシック Light'],
-	['Hang', '맑은 고딕'],
-	['Hans', '等线 Light'],
-	['Hant', '新細明體'],
-	['Arab', 'Times New Roman'],
-	['Hebr', 'Times New Roman'],
-	['Thai', 'Angsana New'],
-	['Ethi', 'Nyala'],
-	['Beng', 'Vrinda'],
-	['Gujr', 'Shruti'],
-	['Khmr', 'MoolBoran'],
-	['Knda', 'Tunga'],
-	['Guru', 'Raavi'],
-	['Cans', 'Euphemia'],
-	['Cher', 'Plantagenet Cherokee'],
-	['Yiii', 'Microsoft Yi Baiti'],
-	['Tibt', 'Microsoft Himalaya'],
-	['Thaa', 'MV Boli'],
-	['Deva', 'Mangal'],
-	['Telu', 'Gautami'],
-	['Taml', 'Latha'],
-	['Syrc', 'Estrangelo Edessa'],
-	['Orya', 'Kalinga'],
-	['Mlym', 'Kartika'],
-	['Laoo', 'DokChampa'],
-	['Sinh', 'Iskoola Pota'],
-	['Mong', 'Mongolian Baiti'],
-	['Viet', 'Times New Roman'],
-	['Uigh', 'Microsoft Uighur'],
-	['Geor', 'Sylfaen'],
-	['Armn', 'Arial'],
-	['Bugi', 'Leelawadee UI'],
-	['Bopo', 'Microsoft JhengHei'],
-	['Java', 'Javanese Text'],
-	['Lisu', 'Segoe UI'],
-	['Mymr', 'Myanmar Text'],
-	['Nkoo', 'Ebrima'],
-	['Olck', 'Nirmala UI'],
-	['Osma', 'Ebrima'],
-	['Phag', 'Phagspa'],
-	['Syrn', 'Estrangelo Edessa'],
-	['Syrj', 'Estrangelo Edessa'],
-	['Syre', 'Estrangelo Edessa'],
-	['Sora', 'Nirmala UI'],
-	['Tale', 'Microsoft Tai Le'],
-	['Talu', 'Microsoft New Tai Lue'],
-	['Tfng', 'Ebrima'],
-]
-const MINOR_FONT_LIST: ReadonlyArray<readonly [string, string]> = [
+/**
+ * The per-script theme font fallback table (`a:fontScheme`'s CT_TextFont lists), in OOXML
+ * document order. Static Office defaults — no caller data, no escaping risk — unlike the
+ * `<a:latin>`/`<a:ea>`/`<a:cs>` slots above.
+ *
+ * Forty-one of the forty-seven scripts take the same face in the major and minor lists, so the
+ * shared table below is the whole thing and the two override maps hold the six-odd rows that
+ * actually differ. Written out twice, ninety-four lines said less than these do, and one row
+ * mistyped in one copy produces a theme that opens fine and paints a script in the wrong face —
+ * a difference nobody reviewing a diff of two 47-row tables would see.
+ */
+const THEME_FONT_LIST: ReadonlyArray<readonly [string, string]> = [
 	['Jpan', '游ゴシック'],
 	['Hang', '맑은 고딕'],
 	['Hans', '等线'],
@@ -160,6 +120,28 @@ const MINOR_FONT_LIST: ReadonlyArray<readonly [string, string]> = [
 	['Talu', 'Microsoft New Tai Lue'],
 	['Tfng', 'Ebrima'],
 ]
+
+/**
+ * The seven scripts whose *heading* face differs from the body one. Latin and CJK headings take
+ * the Light weight; the scripts with no Light cut take a serif (or, for Khmer, a different face
+ * entirely) where the body takes a sans. Every other script in {@link THEME_FONT_LIST} uses one
+ * face for both.
+ */
+const MAJOR_FONT_OVERRIDES: Readonly<Record<string, string>> = {
+	Jpan: '游ゴシック Light',
+	Hans: '等线 Light',
+	Arab: 'Times New Roman',
+	Hebr: 'Times New Roman',
+	Thai: 'Angsana New',
+	Khmr: 'MoolBoran',
+	Viet: 'Times New Roman',
+}
+
+/** The major (heading) and minor (body) lists, both derived from the one table. */
+const MAJOR_FONT_LIST: ReadonlyArray<readonly [string, string]> = THEME_FONT_LIST.map(
+	([script, face]) => [script, MAJOR_FONT_OVERRIDES[script] ?? face] as const
+)
+const MINOR_FONT_LIST = THEME_FONT_LIST
 
 function fontListChildren(scriptFaces: ReadonlyArray<readonly [string, string]>): RawXml[] {
 	return scriptFaces.map(([script, typeface]) => raw(voidEl('a:font', { script, typeface })))
