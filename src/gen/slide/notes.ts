@@ -16,6 +16,7 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 import { externalHyperlinkRel } from '../opc/rels.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 /**
  * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
@@ -318,20 +319,7 @@ export function makeXmlNotesMaster(): string {
 		raw(extLst),
 	])
 
-	const clrMap = voidEl('p:clrMap', {
-		bg1: 'lt1',
-		tx1: 'dk1',
-		bg2: 'lt2',
-		tx2: 'dk2',
-		accent1: 'accent1',
-		accent2: 'accent2',
-		accent3: 'accent3',
-		accent4: 'accent4',
-		accent5: 'accent5',
-		accent6: 'accent6',
-		hlink: 'hlink',
-		folHlink: 'folHlink',
-	})
+	const clrMap = voidEl('p:clrMap', DEFAULT_COLOR_MAP)
 
 	const notesStyleLevel = (n: number, marL: number): string =>
 		el(

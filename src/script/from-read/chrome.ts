@@ -45,26 +45,7 @@ import { layoutShapeScope, type NoteScope } from '../fidelity.js'
 import { masterObject, type AssetResolver } from './shape.js'
 import { hasDecorativeShapes, hasFormatScheme, hasTextStyles, isPlaceholderShape } from './detect.js'
 import { compact, literalColor, orUndefined } from './values.js'
-
-/**
- * The `p:clrMap` the write path always emits (`src/gen/slide/master.ts`). A source master
- * that maps a token elsewhere — a deck whose light and dark slots are swapped, the usual
- * case — resolves every `schemeClr` in the deck differently, and there is no setter for it.
- */
-const DEFAULT_COLOR_MAP: Record<string, string> = {
-	bg1: 'lt1',
-	tx1: 'dk1',
-	bg2: 'lt2',
-	tx2: 'dk2',
-	accent1: 'accent1',
-	accent2: 'accent2',
-	accent3: 'accent3',
-	accent4: 'accent4',
-	accent5: 'accent5',
-	accent6: 'accent6',
-	hlink: 'hlink',
-	folHlink: 'folHlink',
-}
+import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 /** Build the chrome IR for a deck. */
 export function chromeToIr(pres: Presentation, notes: NoteScope, assets: AssetResolver): ChromeIr {

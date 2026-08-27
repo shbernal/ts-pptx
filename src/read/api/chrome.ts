@@ -39,66 +39,16 @@ import { buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from '.
 import { TextFrame } from './text.js'
 import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
+import { COLOR_MAP_TOKENS, THEME_COLOR_SLOTS, type ColorMapToken, type ThemeColorSlot } from '../../ooxml/st-enums.js'
 
-/** The 12 theme colour-scheme slots (`a:clrScheme` children), in schema order. */
-export type ThemeColorSlot =
-	| 'dk1'
-	| 'lt1'
-	| 'dk2'
-	| 'lt2'
-	| 'accent1'
-	| 'accent2'
-	| 'accent3'
-	| 'accent4'
-	| 'accent5'
-	| 'accent6'
-	| 'hlink'
-	| 'folHlink'
-
-const THEME_COLOR_SLOTS: readonly ThemeColorSlot[] = [
-	'dk1',
-	'lt1',
-	'dk2',
-	'lt2',
-	'accent1',
-	'accent2',
-	'accent3',
-	'accent4',
-	'accent5',
-	'accent6',
-	'hlink',
-	'folHlink',
-]
-
-/** The 12 colour-map tokens (`p:clrMap` attributes), each pointing at a {@link ThemeColorSlot}. */
-export type ColorMapToken =
-	| 'bg1'
-	| 'tx1'
-	| 'bg2'
-	| 'tx2'
-	| 'accent1'
-	| 'accent2'
-	| 'accent3'
-	| 'accent4'
-	| 'accent5'
-	| 'accent6'
-	| 'hlink'
-	| 'folHlink'
-
-const COLOR_MAP_TOKENS: readonly ColorMapToken[] = [
-	'bg1',
-	'tx1',
-	'bg2',
-	'tx2',
-	'accent1',
-	'accent2',
-	'accent3',
-	'accent4',
-	'accent5',
-	'accent6',
-	'hlink',
-	'folHlink',
-]
+/**
+ * The twelve theme colour slots and the twelve colour-map tokens that point at them, plus
+ * the tuples this module iterates. Both are schema vocabulary shared with the write half
+ * (`gen/slide/master.ts` emits the identity map, `script/from-read` recognises it), so they
+ * are declared in `ooxml/st-enums.ts` and re-exported here to keep `ts-pptx/read`'s surface
+ * unchanged.
+ */
+export type { ThemeColorSlot, ColorMapToken }
 
 /**
  * One theme font family (`a:majorFont` or `a:minorFont`): the primary Latin face

@@ -159,3 +159,79 @@ export const PRESET_LINE_DASHES = [
 	'sysDashDotDot',
 ] as const
 export type PresetLineDashVal = (typeof PRESET_LINE_DASHES)[number]
+
+/**
+ * The twelve theme colour slots (`a:clrScheme` children) a `p:clrMap` token can point at.
+ *
+ * Not an `ST_` type — these are element names inside `a:CT_ColorScheme`, which the schema
+ * declares as a fixed sequence rather than an enumeration. The effect is the same: a closed,
+ * ordered set of twelve names, in the order the scheme declares them.
+ * @see ECMA-376 Part 1 §20.1.6.2
+ */
+export const THEME_COLOR_SLOTS = [
+	'dk1',
+	'lt1',
+	'dk2',
+	'lt2',
+	'accent1',
+	'accent2',
+	'accent3',
+	'accent4',
+	'accent5',
+	'accent6',
+	'hlink',
+	'folHlink',
+] as const
+export type ThemeColorSlot = (typeof THEME_COLOR_SLOTS)[number]
+
+/**
+ * The twelve colour-map tokens (`p:clrMap` attributes), in schema attribute order.
+ *
+ * A slide's `schemeClr val="tx1"` names a *token*, not a slot: the master's `p:clrMap` is the
+ * indirection that sends it to a {@link ThemeColorSlot}. Which is why the two lists look alike
+ * and are not the same list — `bg1`/`tx1` are tokens, `lt1`/`dk1` are slots.
+ * @see ECMA-376 Part 1 §19.3.1.6
+ */
+export const COLOR_MAP_TOKENS = [
+	'bg1',
+	'tx1',
+	'bg2',
+	'tx2',
+	'accent1',
+	'accent2',
+	'accent3',
+	'accent4',
+	'accent5',
+	'accent6',
+	'hlink',
+	'folHlink',
+] as const
+export type ColorMapToken = (typeof COLOR_MAP_TOKENS)[number]
+
+/**
+ * The identity colour map: the `p:clrMap` this library emits on every master and notes master,
+ * and the one the script printer recognises so it can skip printing a map that is the default.
+ *
+ * "Identity" up to the light/dark naming: each token points at the slot of the same name, with
+ * `bg`/`tx` reading as light/dark. A deck that maps them anywhere else — swapping the light and
+ * dark slots is the usual case — resolves every `schemeClr` in the deck differently.
+ *
+ * Typed `Record<ColorMapToken, ThemeColorSlot>` so a token added to {@link COLOR_MAP_TOKENS}
+ * without a mapping, or a slot misspelled, is a compile error rather than a theme that opens
+ * fine and paints one script in the wrong colour. Declared in the same order as the tokens,
+ * because it is emitted by iterating this object and the attribute order is part of the bytes.
+ */
+export const DEFAULT_COLOR_MAP: Readonly<Record<ColorMapToken, ThemeColorSlot>> = {
+	bg1: 'lt1',
+	tx1: 'dk1',
+	bg2: 'lt2',
+	tx2: 'dk2',
+	accent1: 'accent1',
+	accent2: 'accent2',
+	accent3: 'accent3',
+	accent4: 'accent4',
+	accent5: 'accent5',
+	accent6: 'accent6',
+	hlink: 'hlink',
+	folHlink: 'folHlink',
+}

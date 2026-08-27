@@ -16,6 +16,7 @@ import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
@@ -330,20 +331,7 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 		)
 		.join('')
 
-	const clrMap = voidEl('p:clrMap', {
-		bg1: 'lt1',
-		tx1: 'dk1',
-		bg2: 'lt2',
-		tx2: 'dk2',
-		accent1: 'accent1',
-		accent2: 'accent2',
-		accent3: 'accent3',
-		accent4: 'accent4',
-		accent5: 'accent5',
-		accent6: 'accent6',
-		hlink: 'hlink',
-		folHlink: 'folHlink',
-	})
+	const clrMap = voidEl('p:clrMap', DEFAULT_COLOR_MAP)
 
 	// CT_HeaderFooter/@sldNum defaults to true (ECMA-376). When a slide-number placeholder is
 	// defined on the master we must NOT disable it here, otherwise slides that PowerPoint inserts
