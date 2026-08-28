@@ -137,7 +137,10 @@ export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: num
 	// `sizeAttr` is empty when the caller set no font size — PowerPoint then picks the default —
 	// and interpolating it empty leaves TWO spaces between the tag name and `b=`. Those are
 	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
-	// two run-property tags below stay hand-written. See FOLLOW-UPS `[intra-tag-attribute-padding]`.
+	// two run-property tags below stay hand-written. Dropping the padding would be the real fix —
+	// no XML consumer can see it — but that is an output change, and a whitespace-only diff is a
+	// stop rather than a cleanup. Two other sites in this directory are in the same position; the
+	// ratchet header lists them.
 	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : ''
 	const runAttrs = ` ${sizeAttr} b="${opts.titleBold ? 1 : 0}" i="${opts.titleItalic ? 1 : 0}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
@@ -748,10 +751,7 @@ export function numRefBlock(
 		'c:numCache',
 		null,
 		[
-			// `formatCode` reaches every caller already escaped — `chart-xml.ts` runs the option
-			// through `encodeXmlEntities` once and hands the same string to all five plot emitters —
-			// so it goes in as `raw`. A text child would escape it a second time.
-			raw(el('c:formatCode', null, raw(formatCode), { openPrefix: '      ' })),
+			raw(el('c:formatCode', null, formatCode, { openPrefix: '      ' })),
 			raw(voidEl('c:ptCount', { val: values.length }, { openPrefix: '      ' })),
 			raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
 		],

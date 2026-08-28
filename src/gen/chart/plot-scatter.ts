@@ -394,9 +394,13 @@ export function makeScatterPlot(
 	const chartColors = resolveChartPalette(opts)
 	// X values come from the first row; each later row is one Y series.
 	const xValues = dataValues(data[0])
-	// Legacy single-series colour-vary. `data.length === 1` means the row of X values and nothing
-	// else, so this can never fire — see FOLLOW-UPS `[scatter-vary-colors-unreachable]`. Kept as it
-	// was: changing the condition would change output, which is not what this refactor is.
+	// Legacy single-series colour-vary, and it can never fire: a scatter `data` array is one row of
+	// X values plus one row per Y series, the loop below runs over `data.slice(1)`, so by the time
+	// `data.length === 1` there are no series left to colour. The intent was presumably "one Y
+	// series" (`=== 2`). Fixing it would start emitting `<c:dPt>` colour-vary for single-series
+	// scatter charts, which is an output change and a question about what such a chart should look
+	// like — so the condition is left exactly as it has always been, said out loud rather than
+	// quietly corrected.
 	const scatterVaryColors =
 		data.length === 1 && opts.chartColors !== BARCHART_COLORS ? opts.chartColors || BARCHART_COLORS : null
 

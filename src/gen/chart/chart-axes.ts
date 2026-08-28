@@ -8,18 +8,17 @@
  * than one parameterized one. Called by {@link ./chart-xml}'s axis region.
  *
  * Sub-blocks are shared where they can be shared *exactly*: {@link axisLineSpPr} covers
- * `<c:spPr>`, which differs between the three only by indent width. `<c:txPr>` is
- * deliberately left duplicated — its inherited indentation is irregular *within* each copy
- * as well as between them (the category axis closes `</a:defRPr>` at three spaces, the value
- * axis at six), so parameterising it would take about as many indent arguments as it has
- * lines and would hide the quirks rather than share the structure. Building all three through
- * `el()` does not change that: it makes each copy's quirks explicit at its own call site,
- * which is the point.
+ * `<c:spPr>`, which differs between the three only by indent width. `<c:txPr>` stays
+ * duplicated — its inherited indentation is irregular *within* each copy as well as between
+ * them (the category axis closes `</a:defRPr>` at three spaces, the value axis at six), so
+ * one parameterised builder would take about as many indent arguments as it has lines, and
+ * would hide the quirks rather than share the structure. Each copy states its own layout at
+ * its own call site instead.
  *
- * The other way out -- regularising the whitespace so one builder *could* serve all three --
- * is a byte change, which AGENTS.md is explicit about: a whitespace-only diff is a STOP, not
- * a known divergence. Revisit this only if the emitted whitespace in these parts is ever
- * regularised deliberately, as its own decision.
+ * Regularising that whitespace so one builder *could* serve all three is still open, and
+ * still a byte change — AGENTS.md is explicit that a whitespace-only diff is a STOP, not a
+ * known divergence. It is a decision to take deliberately, with a re-baselined gate, not a
+ * cleanup to fold into something else.
  */
 
 import { asChartType, ChartType } from '../../enums.js'

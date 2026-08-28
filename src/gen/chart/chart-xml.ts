@@ -28,7 +28,6 @@ import {
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
 import type { BorderProps, ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
-import { encodeXmlEntities } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
@@ -364,7 +363,7 @@ function makeDataTableXml(rel: SlideRelChart): string {
 		// These two `val` attributes were written padded into a column with the two above, and that
 		// padding is emitted bytes. `el()` writes exactly one space before an attribute, by design,
 		// so the aligned pair stays hand-written rather than bending the builder around a cosmetic
-		// quirk. See FOLLOW-UPS `[dtable-flag-alignment]`.
+		// quirk. Removing the padding is an output change, not a cleanup; the ratchet header says why.
 		raw(`  <c:showOutline    val="${!rel.opts.showDataTableOutline ? 0 : 1}"/>`),
 		raw(`  <c:showKeys       val="${!rel.opts.showDataTableKeys ? 0 : 1}"/>`),
 		raw(spPr),
@@ -629,9 +628,7 @@ function makeChartType(
 	// single effective value format and stamp it onto every value cache below so all three engines agree.
 	// Precedence keeps the historical `valLabelFormatCode` winner,
 	// then the data-table format, and finally falls back to `dataLabelFormatCode` (the most common knob).
-	const valFmtCode = encodeXmlEntities(
-		opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || 'General'
-	)
+	const valFmtCode = opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || 'General'
 
 	switch (chartType) {
 		case ChartType.area:

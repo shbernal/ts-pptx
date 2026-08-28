@@ -35,3 +35,16 @@ when a diff needs reading.
   code; the baseline diff is what fails. Structural contracts belong in
   `test/regression/chart/`, which is a different question ("is this markup right?") from
   the one this corpus answers ("did this markup change?").
+
+## Adding one
+
+`chart-matrix.mjs` is the only deck here because charts are what needed it first, but the
+coverage gap it closes is not specific to charts: `byte-identity` gates every `src/gen/`
+refactor, and its showcase corpus reaches whatever two presentation decks happen to reach.
+The next refactor that runs into "the showcases never emit this" should add a deck rather
+than proceed on an unproven PASS. Registering one is a `gateDeck` export like the one at the
+foot of `chart-matrix.mjs`; the harness picks it up from there.
+
+Note that adding a deck changes the part count, so it needs a fresh
+`pnpm run byte-identity:baseline` — take the baseline *before* the refactor it is meant to
+gate, never after.

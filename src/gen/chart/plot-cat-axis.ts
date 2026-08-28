@@ -238,11 +238,7 @@ function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
 		'c:numCache',
 		null,
 		[
-			// `valFmtCode` arrives ALREADY ESCAPED — `chart-xml.ts` runs the option through
-			// `encodeXmlEntities` once and hands the same string to all five plot emitters — so it goes
-			// in as `raw`. A text child would escape it a second time and turn a user's `0"A&B"` from
-			// `0&quot;A&amp;B&quot;` into `0&amp;quot;A&amp;amp;B&amp;quot;`.
-			raw(el('c:formatCode', null, raw(valFmtCode), { openPrefix: '      ' })),
+			raw(el('c:formatCode', null, valFmtCode, { openPrefix: '      ' })),
 			raw(voidEl('c:ptCount', { val: catCount }, { openPrefix: '      ' })),
 			raw(
 				dataValues(obj)

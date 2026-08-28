@@ -44,6 +44,7 @@
 import TsPptx, { ChartType } from '../../dist/node.js'
 
 const LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+/** One series over the shared weekday labels. @param {string} name @param {number[]} values */
 const S = (name, values) => ({ name, labels: LABELS, values })
 
 const TWO = [S('North', [12, 18, 9, 22, 15]), S('South', [7, 14, 19, 11, 20])]
@@ -93,7 +94,7 @@ const STOCK = {
 
 const PALETTE = ['4472C4', 'ED7D31', 'A5A5A5', 'FFC000', '5B9BD5']
 
-/** Every case, reached on every run. @type {{name: string, data: unknown, opts: object}[]} */
+/** Every case, reached on every run. @type {{name: string, data: any, opts: any}[]} */
 const CASES = [
 	// ---------------------------------------------------------------- plot-cat-axis
 	{
@@ -547,6 +548,7 @@ async function compose() {
 	return pptx
 }
 
+/** @param {string} outFile @returns {Promise<string>} */
 export async function build(outFile) {
 	const pptx = await compose()
 	return await pptx.writeFile({ fileName: outFile })

@@ -4,11 +4,28 @@
  *
  * `src/gen/oxml/el.ts` exists to end hand-built XML strings: its header names
  * escaping, attribute-order and child-sequence bugs as the motivation. Most of
- * `src/gen/` now builds through it, but the chart emitters still concatenate, so
- * a plain "no raw XML anywhere" rule cannot be turned on today. Without *some*
- * gate the migration silently un-does itself: nothing stops a new emitter from
- * being written as a template literal, and nothing stops a migrated file from
- * growing one back.
+ * `src/gen/` now builds through it, but a plain "no raw XML anywhere" rule still
+ * cannot be turned on. Two kinds of holdout remain.
+ *
+ * The bulk of it is simply not migrated yet — `src/gen/pres/theme.ts` alone is
+ * more than half the total, with the rest across `src/gen/drawingml/`,
+ * `src/gen/slide/`, `src/embedded-fonts.ts`, `src/math.ts` and two files under
+ * `src/read/api/`. Those are work, not obstacles.
+ *
+ * The small remainder cannot be migrated at all. Seven occurrences under
+ * `src/gen/chart/` pad the space between a tag name and an attribute —
+ * `<c:showOutline    val="0"/>`, ` <c:baseTimeUnit  val="days"/>`, and the
+ * `<a:defRPr ${sizeAttr} b=…>` in `genXmlTitle` that emits two spaces when no
+ * font size is set. `el()` writes exactly one space before an attribute, by
+ * design, and its `fmt` describes whitespace *around* an element rather than
+ * inside its open tag. Dropping the padding would be the real fix and no XML
+ * consumer could see the difference, but it is still an output change, and
+ * AGENTS.md is explicit that a whitespace-only diff is a stop rather than a
+ * cleanup — so each one stays hand-written with the reason at its call site.
+ *
+ * Without *some* gate the migration silently un-does itself: nothing stops a new
+ * emitter from being written as a template literal, and nothing stops a migrated
+ * file from growing one back.
  *
  * So this is a ratchet, not a ban. `budget.json` freezes today's per-file count.
  * A file may go down or vanish; it may never go up, and a file not in the budget
