@@ -15,7 +15,6 @@
 import { ChartType } from '../../enums.js'
 import { XML_DECL } from '../../constants-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
-import { encodeXmlEntities } from '../utils.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
@@ -27,6 +26,15 @@ import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
 /** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
 const MS_CHART_REL = 'http://schemas.microsoft.com/office/2011/relationships/'
 
+/** The SpreadsheetML namespace every part of the embedded workbook is written in. */
+const SML_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+/** OPC content types, and the prefix the four SpreadsheetML part types share. */
+const CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+const SML_CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.'
+
+/** One `<si>` shared string carrying literal text. */
+const sharedString = (text: string): string => el('si', null, raw(el('t', null, text)))
+
 function relationship(id: string, type: string, target: string): string {
 	return voidEl('Relationship', { Id: id, Type: type, Target: target })
 }
@@ -35,6 +43,23 @@ function relationship(id: string, type: string, target: string): string {
 function relationships(rels: string[]): string {
 	return el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
 }
+
+/**
+ * The embedded workbook's style sheet, captured verbatim from an Excel-authored chart workbook.
+ * @raw-xml-asset
+ */
+const XLSX_STYLES_XML =
+	'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="0" formatCode="General"/></numFmts><fonts count="4"><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="10"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="18"/><color indexed="8"/>' +
+	'<name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><dxfs count="0"/><tableStyles count="0"/><colors><indexedColors><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ffff0000"/><rgbColor rgb="ff00ff00"/><rgbColor rgb="ff0000ff"/>' +
+	'<rgbColor rgb="ffffff00"/><rgbColor rgb="ffff00ff"/><rgbColor rgb="ff00ffff"/><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ff878787"/><rgbColor rgb="fff9f9f9"/></indexedColors></colors></styleSheet>\n'
+
+/**
+ * The Office theme the embedded workbook ships, captured verbatim. PowerPoint reads it when a user
+ * opens the chart's data, so it has to be exactly the bytes Office writes.
+ * @raw-xml-asset
+ */
+const XLSX_THEME_XML =
+	'<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="5B9BD5"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light" panose="020F0302020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic Light"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian Light"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Times New Roman"/><a:font script="Hebr" typeface="Times New Roman"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="MoolBoran"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Times New Roman"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:majorFont><a:minorFont><a:latin typeface="Calibri" panose="020F0502020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Arial"/><a:font script="Hebr" typeface="Arial"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="DaunPenh"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Arial"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/><a:extLst><a:ext uri="{05A4C25C-085E-4340-85A3-A5531E510DB2}"><thm15:themeFamily xmlns:thm15="http://schemas.microsoft.com/office/thememl/2012/main" name="Office Theme" id="{62F939B6-93AF-4DB8-9C6B-D6C7DFDC589F}" vid="{4A3C46E8-61CC-4603-A589-7422A47A8E4A}"/></a:ext></a:extLst></a:theme>'
 
 /**
  * Build the chart's embedded Excel workbook as a standalone OPC package and
@@ -59,21 +84,30 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 
 		// B: Add core contents
 		{
+			const override = (partName: string, contentType: string): string =>
+				voidEl('Override', { PartName: partName, ContentType: contentType }, { openPrefix: '  ' })
 			zipExcel.add(
 				'[Content_Types].xml',
 				XML_DECL +
-					'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-					'  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-					'  <Default Extension="xml" ContentType="application/xml"/>' +
-					'  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-					'  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
-					'  <Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>' +
-					'  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
-					'  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' +
-					'  <Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>' +
-					'  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>' +
-					'  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' +
-					'</Types>\n'
+					el('Types', { xmlns: CT_NS }, [
+						raw(
+							voidEl(
+								'Default',
+								{ Extension: 'rels', ContentType: 'application/vnd.openxmlformats-package.relationships+xml' },
+								{ openPrefix: '  ' }
+							)
+						),
+						raw(voidEl('Default', { Extension: 'xml', ContentType: 'application/xml' }, { openPrefix: '  ' })),
+						raw(override('/xl/workbook.xml', SML_CT + 'sheet.main+xml')),
+						raw(override('/xl/worksheets/sheet1.xml', SML_CT + 'worksheet+xml')),
+						raw(override('/xl/theme/theme1.xml', 'application/vnd.openxmlformats-officedocument.theme+xml')),
+						raw(override('/xl/styles.xml', SML_CT + 'styles+xml')),
+						raw(override('/xl/sharedStrings.xml', SML_CT + 'sharedStrings+xml')),
+						raw(override('/xl/tables/table1.xml', SML_CT + 'table+xml')),
+						raw(override('/docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml')),
+						raw(override('/docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml')),
+					]) +
+					'\n'
 			)
 			zipExcel.add(
 				'_rels/.rels',
@@ -85,31 +119,59 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					]) +
 					'\n'
 			)
+			const headingPairs = el('vt:vector', { size: 2, baseType: 'variant' }, [
+				raw(el('vt:variant', null, raw(el('vt:lpstr', null, 'Worksheets')))),
+				raw(el('vt:variant', null, raw(el('vt:i4', null, 1)))),
+			])
 			zipExcel.add(
 				'docProps/app.xml',
 				XML_DECL +
-					'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
-					'<Application>Microsoft Macintosh Excel</Application>' +
-					'<DocSecurity>0</DocSecurity>' +
-					'<ScaleCrop>false</ScaleCrop>' +
-					'<HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs>' +
-					'<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>Sheet1</vt:lpstr></vt:vector></TitlesOfParts>' +
-					'<Company></Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc><HyperlinksChanged>false</HyperlinksChanged><AppVersion>16.0300</AppVersion>' +
-					'</Properties>\n'
+					el(
+						'Properties',
+						{
+							xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+							'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+						},
+						[
+							raw(el('Application', null, 'Microsoft Macintosh Excel')),
+							raw(el('DocSecurity', null, 0)),
+							raw(el('ScaleCrop', null, 'false')),
+							raw(el('HeadingPairs', null, raw(headingPairs))),
+							raw(
+								el(
+									'TitlesOfParts',
+									null,
+									raw(el('vt:vector', { size: 1, baseType: 'lpstr' }, raw(el('vt:lpstr', null, 'Sheet1'))))
+								)
+							),
+							raw(el('Company', null)),
+							raw(el('LinksUpToDate', null, 'false')),
+							raw(el('SharedDoc', null, 'false')),
+							raw(el('HyperlinksChanged', null, 'false')),
+							raw(el('AppVersion', null, '16.0300')),
+						]
+					) +
+					'\n'
 			)
 			zipExcel.add(
 				'docProps/core.xml',
 				XML_DECL +
-					'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-					'<dc:creator>TsPptx</dc:creator>' +
-					'<cp:lastModifiedBy>TsPptx</cp:lastModifiedBy>' +
-					'<dcterms:created xsi:type="dcterms:W3CDTF">' +
-					new Date().toISOString() +
-					'</dcterms:created>' +
-					'<dcterms:modified xsi:type="dcterms:W3CDTF">' +
-					new Date().toISOString() +
-					'</dcterms:modified>' +
-					'</cp:coreProperties>'
+					el(
+						'cp:coreProperties',
+						{
+							'xmlns:cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
+							'xmlns:dc': 'http://purl.org/dc/elements/1.1/',
+							'xmlns:dcterms': 'http://purl.org/dc/terms/',
+							'xmlns:dcmitype': 'http://purl.org/dc/dcmitype/',
+							'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+						},
+						[
+							raw(el('dc:creator', null, 'TsPptx')),
+							raw(el('cp:lastModifiedBy', null, 'TsPptx')),
+							raw(el('dcterms:created', { 'xsi:type': 'dcterms:W3CDTF' }, new Date().toISOString())),
+							raw(el('dcterms:modified', { 'xsi:type': 'dcterms:W3CDTF' }, new Date().toISOString())),
+						]
+					)
 			)
 			zipExcel.add(
 				'xl/_rels/workbook.xml.rels',
@@ -123,28 +185,42 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 						relationship('rId4', OFFICE_REL + 'sharedStrings', 'sharedStrings.xml'),
 					])
 			)
-			zipExcel.add(
-				'xl/styles.xml',
-				XML_DECL +
-					'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="0" formatCode="General"/></numFmts><fonts count="4"><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="10"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="18"/><color indexed="8"/>' +
-					'<name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><dxfs count="0"/><tableStyles count="0"/><colors><indexedColors><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ffff0000"/><rgbColor rgb="ff00ff00"/><rgbColor rgb="ff0000ff"/>' +
-					'<rgbColor rgb="ffffff00"/><rgbColor rgb="ffff00ff"/><rgbColor rgb="ff00ffff"/><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ff878787"/><rgbColor rgb="fff9f9f9"/></indexedColors></colors></styleSheet>\n'
-			)
-			zipExcel.add(
-				'xl/theme/theme1.xml',
-				XML_DECL +
-					'<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="5B9BD5"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light" panose="020F0302020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic Light"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian Light"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Times New Roman"/><a:font script="Hebr" typeface="Times New Roman"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="MoolBoran"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Times New Roman"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:majorFont><a:minorFont><a:latin typeface="Calibri" panose="020F0502020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Arial"/><a:font script="Hebr" typeface="Arial"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="DaunPenh"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Arial"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/><a:extLst><a:ext uri="{05A4C25C-085E-4340-85A3-A5531E510DB2}"><thm15:themeFamily xmlns:thm15="http://schemas.microsoft.com/office/thememl/2012/main" name="Office Theme" id="{62F939B6-93AF-4DB8-9C6B-D6C7DFDC589F}" vid="{4A3C46E8-61CC-4603-A589-7422A47A8E4A}"/></a:ext></a:extLst></a:theme>'
-			)
+			zipExcel.add('xl/styles.xml', XML_DECL + XLSX_STYLES_XML)
+			zipExcel.add('xl/theme/theme1.xml', XML_DECL + XLSX_THEME_XML)
 			zipExcel.add(
 				'xl/workbook.xml',
 				XML_DECL +
-					'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x15" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main">' +
-					'<fileVersion appName="xl" lastEdited="7" lowestEdited="6" rupBuild="10507"/>' +
-					'<workbookPr/>' +
-					'<bookViews><workbookView xWindow="0" yWindow="500" windowWidth="20960" windowHeight="15960"/></bookViews>' +
-					'<sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets>' +
-					'<calcPr calcId="0" concurrentCalc="0"/>' +
-					'</workbook>\n'
+					el(
+						'workbook',
+						{
+							xmlns: SML_NS,
+							'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+							'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+							'mc:Ignorable': 'x15',
+							'xmlns:x15': 'http://schemas.microsoft.com/office/spreadsheetml/2010/11/main',
+						},
+						[
+							raw(voidEl('fileVersion', { appName: 'xl', lastEdited: 7, lowestEdited: 6, rupBuild: 10507 })),
+							raw(voidEl('workbookPr')),
+							raw(
+								el(
+									'bookViews',
+									null,
+									raw(
+										voidEl('workbookView', {
+											xWindow: 0,
+											yWindow: 500,
+											windowWidth: 20960,
+											windowHeight: 15960,
+										})
+									)
+								)
+							),
+							raw(el('sheets', null, raw(voidEl('sheet', { name: 'Sheet1', sheetId: 1, 'r:id': 'rId1' })))),
+							raw(voidEl('calcPr', { calcId: 0, concurrentCalc: 0 })),
+						]
+					) +
+					'\n'
 			)
 			zipExcel.add(
 				'xl/worksheets/_rels/sheet1.xml.rels',
@@ -170,105 +246,112 @@ function buildXlsxSharedStrings(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	let strSharedStrings = XML_DECL
-	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${intBubbleCols}" uniqueCount="${intBubbleCols}">`
-	} else if (chartObject.opts._type === ChartType.scatter) {
-		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${data.length}" uniqueCount="${data.length}">`
+	const isBubble = chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
+	const isScatter = chartObject.opts._type === ChartType.scatter
+	let count: number
+	let uniqueCount: number
+	// The leading entry is the blank the header row's label columns point at. Its two spellings are
+	// not interchangeable: `<t/>` is the empty string, `<t xml:space="preserve"></t>` is a preserved
+	// one, and next to character data that difference is content rather than layout.
+	let blank = ''
+	if (isBubble) {
+		count = uniqueCount = intBubbleCols
+	} else if (isScatter) {
+		count = uniqueCount = data.length
 	} else if (IS_MULTI_CAT_AXES) {
 		let totCount = data.length + 1 // +1 for the blank entry at index 0
 		dataLabels(data[0]).forEach((arrLabel) => (totCount += arrLabel.filter((label) => label && label !== '').length))
-		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${totCount}">`
-		strSharedStrings += '<si><t/></si>'
+		count = uniqueCount = totCount
+		blank = el('si', null, raw(voidEl('t')))
 	} else {
-		// series names + all labels of one series + number of label groups (data.labels.length) of one series (i.e. how many times the blank string is used)
-		const totCount =
-			data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + dataLabels(data[0]).length
+		// series names + all labels of one series + number of label groups (data.labels.length) of one
+		// series (i.e. how many times the blank string is used)
+		count = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + dataLabels(data[0]).length
 		// series names + labels of one series + blank string (same for all label groups)
-		const unqCount = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + 1
-		// start `sst`
-		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${unqCount}">`
-		// B: Add 'blank' for A1, B1, ..., of every label group inside data[n].labels
-		strSharedStrings += '<si><t xml:space="preserve"></t></si>'
+		uniqueCount = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + 1
+		blank = el('si', null, raw(el('t', { 'xml:space': 'preserve' })))
 	}
 
-	// C: Add `name`/Series
-	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-		data.forEach((objData, idx) => {
-			if (idx === 0) strSharedStrings += '<si><t>X-Axis</t></si>'
-			else {
-				strSharedStrings += `<si><t>${encodeXmlEntities(objData.name || `Y-Axis${idx}`)}</t></si>`
-				strSharedStrings += `<si><t>${encodeXmlEntities(`Size${idx}`)}</t></si>`
-			}
-		})
-	} else {
-		data.forEach((objData) => {
-			strSharedStrings += `<si><t>${encodeXmlEntities((objData.name || ' ').replace('X-Axis', 'X-Values'))}</t></si>`
-		})
-	}
+	// Series names. A bubble series contributes both a name and a size column.
+	const names = isBubble
+		? data
+				.map((objData, idx) =>
+					idx === 0 ? sharedString('X-Axis') : sharedString(objData.name || `Y-Axis${idx}`) + sharedString(`Size${idx}`)
+				)
+				.join('')
+		: data.map((objData) => sharedString((objData.name || ' ').replace('X-Axis', 'X-Values'))).join('')
 
-	// D: Add `labels`/Categories
-	if (
-		chartObject.opts._type !== ChartType.bubble &&
-		chartObject.opts._type !== ChartType.bubble3d &&
-		chartObject.opts._type !== ChartType.scatter
-	) {
-		// Use forEach backwards & check for '' to support multi-cat axes
-		dataLabels(data[0])
-			.slice()
-			.reverse()
-			.forEach((labelsGroup) => {
-				labelsGroup
-					.filter((label) => label && label !== '')
-					.forEach((label) => {
-						strSharedStrings += `<si><t>${encodeXmlEntities(label)}</t></si>`
-					})
-			})
-	}
+	// Category labels, outermost group first — the order the sheet's label columns index into.
+	// Blank entries are skipped: they share the single blank string at index 0.
+	const labels =
+		isBubble || isScatter
+			? ''
+			: dataLabels(data[0])
+					.slice()
+					.reverse()
+					.map((labelsGroup) =>
+						labelsGroup
+							.filter((label) => label && label !== '')
+							.map((label) => sharedString(label))
+							.join('')
+					)
+					.join('')
 
-	// DONE:
-	strSharedStrings += '</sst>\n'
-	return strSharedStrings
+	return XML_DECL + el('sst', { xmlns: SML_NS, count, uniqueCount }, [raw(blank), raw(names), raw(labels)]) + '\n'
 }
 
 /**
  * Build the embedded workbook's `xl/tables/table1.xml` (the data table over the sheet range).
  */
 function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], intBubbleCols: number): string {
-	let strTableXml = XML_DECL
+	const labelCols = dataLabels(data[0]).length
+	let ref: string
+	let columns: string
 	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(intBubbleCols)}${intBubbleCols}" totalsRowShown="0">`
-		strTableXml += `<tableColumns count="${intBubbleCols}">`
+		ref = `A1:${getExcelColName(intBubbleCols)}${intBubbleCols}`
 		let idxColLtr = 1
-		data.forEach((obj, idx) => {
-			if (idx === 0) {
-				strTableXml += `<tableColumn id="${idx + 1}" name="X-Values"/>`
-			} else {
-				strTableXml += `<tableColumn id="${idx + idxColLtr}" name="${obj.name}"/>`
+		columns = data
+			.map((obj, idx) => {
+				if (idx === 0) return voidEl('tableColumn', { id: idx + 1, name: 'X-Values' })
+				const nameCol = voidEl('tableColumn', { id: idx + idxColLtr, name: obj.name })
 				idxColLtr++
-				strTableXml += `<tableColumn id="${idx + idxColLtr}" name="Size${idx}"/>`
-			}
-		})
+				return nameCol + voidEl('tableColumn', { id: idx + idxColLtr, name: `Size${idx}` })
+			})
+			.join('')
 	} else if (chartObject.opts._type === ChartType.scatter) {
-		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}" totalsRowShown="0">`
-		strTableXml += `<tableColumns count="${data.length}">`
-		data.forEach((_obj, idx) => {
-			strTableXml += `<tableColumn id="${idx + 1}" name="${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}"/>`
-		})
+		ref = `A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}`
+		columns = data
+			.map((_obj, idx) => voidEl('tableColumn', { id: idx + 1, name: `${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}` }))
+			.join('')
 	} else {
-		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${firstLabelGroup(data[0]).length + 1}" totalsRowShown="0">`
-		strTableXml += `<tableColumns count="${data.length + dataLabels(data[0]).length}">`
-		dataLabels(data[0]).forEach((_labelsGroup, idx) => {
-			strTableXml += `<tableColumn id="${idx + 1}" name="Column${idx + 1}"/>`
-		})
-		data.forEach((obj, idx) => {
-			strTableXml += `<tableColumn id="${idx + dataLabels(data[0]).length + 1}" name="${encodeXmlEntities(obj.name ?? '')}"/>`
-		})
+		ref = `A1:${getExcelColName(data.length + labelCols)}${firstLabelGroup(data[0]).length + 1}`
+		// The leading columns are the label groups; the series follow them.
+		columns =
+			dataLabels(data[0])
+				.map((_labelsGroup, idx) => voidEl('tableColumn', { id: idx + 1, name: `Column${idx + 1}` }))
+				.join('') +
+			data.map((obj, idx) => voidEl('tableColumn', { id: idx + labelCols + 1, name: obj.name ?? '' })).join('')
 	}
-	strTableXml += '</tableColumns>'
-	strTableXml += '<tableStyleInfo showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>'
-	strTableXml += '</table>'
-	return strTableXml
+	const columnCount =
+		chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
+			? intBubbleCols
+			: chartObject.opts._type === ChartType.scatter
+				? data.length
+				: data.length + labelCols
+	return (
+		XML_DECL +
+		el('table', { xmlns: SML_NS, id: 1, name: 'Table1', displayName: 'Table1', ref, totalsRowShown: 0 }, [
+			raw(el('tableColumns', { count: columnCount }, raw(columns))),
+			raw(
+				voidEl('tableStyleInfo', {
+					showFirstColumn: 0,
+					showLastColumn: 0,
+					showRowStripes: 1,
+					showColumnStripes: 0,
+				})
+			),
+		])
+	)
 }
 
 /**
@@ -280,22 +363,20 @@ function buildXlsxSheet(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	let strSheetXml = XML_DECL
-	strSheetXml +=
-		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+	const isBubble = chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
+	const isScatter = chartObject.opts._type === ChartType.scatter
+	const labelCols = dataLabels(data[0]).length
+	/** One cell. `t="s"` marks a shared-string index; without it the value is a number. */
+	const cell = (col: number, row: number, value: string | number, shared = false): string =>
+		el('c', { r: `${getExcelColName(col)}${row}`, t: shared ? 's' : undefined }, raw(el('v', null, value)))
+	/** One row, spanning the sheet's full column count. */
+	const sheetRow = (row: number, span: number, cells: string): string =>
+		el('row', { r: row, spans: `1:${span}` }, raw(cells))
 
-	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-		strSheetXml += `<dimension ref="A1:${getExcelColName(intBubbleCols)}${dataValues(data[0]).length + 1}"/>`
-	} else if (chartObject.opts._type === ChartType.scatter) {
-		strSheetXml += `<dimension ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}"/>`
-	} else {
-		strSheetXml += `<dimension ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${dataValues(data[0]).length + 1}"/>`
-	}
+	const colCount = isBubble ? intBubbleCols : isScatter ? data.length : data.length + labelCols
+	let rows = ''
 
-	strSheetXml +=
-		'<sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="B1" sqref="B1"/></sheetView></sheetViews>'
-	strSheetXml += '<sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>'
-	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+	if (isBubble) {
 		/* EX: INPUT: `data`
 				[
 					{ name:'X-Axis'  , values:[10,11,12,13,14,15,16,17,18,19,20] },
@@ -309,34 +390,22 @@ function buildXlsxSheet(
 					2|    11    |     22     |      4     |     33     |      8     |
 					-|----------|------------|------------|------------|------------|
 				*/
-		strSheetXml += '<sheetData>'
+		// Header row. Every column is a shared-string index; column A is the 'X-Axis' name.
+		let header = ''
+		for (let idx = 0; idx < intBubbleCols; idx++) header += cell(idx + 1, 1, idx, true)
+		rows += sheetRow(1, intBubbleCols, header)
 
-		// A: Create header row first (NOTE: Start at index=1 as headers cols start with 'B')
-		strSheetXml += `<row r="1" spans="1:${intBubbleCols}">`
-		strSheetXml += '<c r="A1" t="s"><v>0</v></c>'
-		for (let idx = 1; idx < intBubbleCols; idx++) {
-			strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
-		}
-		strSheetXml += '</row>'
-
-		// B: Add row for each X-Axis value (Y-Axis* value is optional)
+		// One row per X value; each series contributes a value column and a size column.
 		dataValues(data[0]).forEach((val, idx) => {
-			// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
-			strSheetXml += `<row r="${idx + 2}" spans="1:${intBubbleCols}">`
-			strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
-			// Add Y-Axis 1->N (idy=0 = Xaxis)
+			let cells = cell(1, idx + 2, val)
 			let idxColLtr = 2
 			for (let idy = 1; idy < data.length; idy++) {
-				// y-value
-				strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-				idxColLtr++
-				// y-size
-				strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataSizes(data[idy])[idx] ?? ''}</v></c>`
-				idxColLtr++
+				cells += cell(idxColLtr++, idx + 2, dataValues(data[idy])[idx] ?? '')
+				cells += cell(idxColLtr++, idx + 2, dataSizes(data[idy])[idx] ?? '')
 			}
-			strSheetXml += '</row>'
+			rows += sheetRow(idx + 2, intBubbleCols, cells)
 		})
-	} else if (chartObject.opts._type === ChartType.scatter) {
+	} else if (isScatter) {
 		/* EX: INPUT: `data`
 					[
 						{ name:'X-AxisA', values:[ 1, 2, 3, 4, 5] },
@@ -350,31 +419,20 @@ function buildXlsxSheet(
 					2|    1    |    2    |    3    |
 					-|---------|---------|---------|
 				*/
-		strSheetXml += '<sheetData>'
+		let header = ''
+		for (let idx = 0; idx < data.length; idx++) header += cell(idx + 1, 1, idx, true)
+		rows += sheetRow(1, data.length, header)
 
-		// A: Create header row first (every `name` row provided)
-		strSheetXml += `<row r="1" spans="1:${data.length}">`
-		for (let idx = 0; idx < data.length; idx++) {
-			strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
-		}
-		strSheetXml += '</row>'
-
-		// B: Add row for each X-Axis value (Y-Axis* value is optional)
 		dataValues(data[0]).forEach((val, idx) => {
-			// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
-			strSheetXml += `<row r="${idx + 2}" spans="1:${data.length}">`
-			strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
-			// Add Y-Axis 1->N
+			// The leading column is the X value; the rest are one Y series each.
+			let cells = cell(1, idx + 2, val)
 			for (let idy = 1; idy < data.length; idy++) {
-				strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}"><v>${
-					dataValues(data[idy])[idx] || dataValues(data[idy])[idx] === 0 ? dataValues(data[idy])[idx] : ''
-				}</v></c>`
+				const yValue = dataValues(data[idy])[idx]
+				cells += cell(idy + 1, idx + 2, yValue || yValue === 0 ? yValue : '')
 			}
-			strSheetXml += '</row>'
+			rows += sheetRow(idx + 2, data.length, cells)
 		})
-	} else {
-		strSheetXml += '<sheetData>'
-
+	} else if (!IS_MULTI_CAT_AXES) {
 		/* EX: INPUT: `data`
 					[
 						{ name:'Red', labels:['Jan..May-17'], values:[11,13,14,15,16] },
@@ -392,93 +450,100 @@ function buildXlsxSheet(
 					6|May-17 |   75|   93|  170|
 					-|-------|-----|-----|-----|
 				*/
+		// Header row: the label columns point at the blank shared string, then the series names.
+		let header = ''
+		for (let idx = 0; idx < labelCols; idx++) header += cell(idx + 1, 1, 0, true)
+		for (let idx = 0; idx < data.length; idx++) header += cell(idx + 1 + labelCols, 1, idx + 1, true)
+		rows += sheetRow(1, data.length + labelCols, header)
 
-		if (!IS_MULTI_CAT_AXES) {
-			// A: Create header row first
-			strSheetXml += `<row r="1" spans="1:${data.length + dataLabels(data[0]).length}">`
-			dataLabels(data[0]).forEach((_labelsGroup, idx) => {
-				strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>0</v></c>`
+		// Normally one row per category; a category-less chartEx layout (a histogram feeds PowerPoint
+		// raw observations with no labels) has no label groups, so the row count falls back to the
+		// longest value series and the leading label columns are simply skipped — values land in A.
+		const rowCount = firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length))
+		for (let idx = 0; idx < rowCount; idx++) {
+			let cells = ''
+			for (let idx2 = labelCols - 1; idx2 >= 0; idx2--)
+				cells += cell(labelCols - idx2, idx + 2, data.length + idx + 1, true)
+			for (let idy = 0; idy < data.length; idy++) {
+				cells += cell(labelCols + idy + 1, idx + 2, dataValues(data[idy])[idx] ?? '')
+			}
+			rows += sheetRow(idx + 2, data.length + labelCols, cells)
+		}
+	} else {
+		const TOT_SER = data.length
+		const TOT_CAT = firstLabelGroup(data[0]).length
+		// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
+		// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
+		const revLabelGroups = dataLabels(data[0]).slice().reverse()
+
+		// Pre-build a map from (revLevelIdx, rowIdx) -> shared-string index.
+		// SST layout: 0=blank, 1..TOT_SER=series names, then non-empty labels per
+		// reversed level in appearance order.
+		const ssLabelMap = new Map<string, number>()
+		let ssIdx = TOT_SER + 1
+		revLabelGroups.forEach((labelsGroup, revLevelIdx) => {
+			labelsGroup.forEach((label, rowIdx) => {
+				if (label && label !== '') ssLabelMap.set(`${revLevelIdx}:${rowIdx}`, ssIdx++)
 			})
-			for (let idx = 0; idx < data.length; idx++) {
-				strSheetXml += `<c r="${getExcelColName(idx + 1 + dataLabels(data[0]).length)}1" t="s"><v>${idx + 1}</v></c>` // NOTE: use `t="s"` for label cols!
-			}
-			strSheetXml += '</row>'
+		})
 
-			// B: Add data row(s). Normally one row per category; a category-less chartEx layout
-			// (histogram feeds PowerPoint raw observations with no labels) has no label groups, so
-			// the row count falls back to the longest value series and the leading label columns are
-			// simply skipped — values land in column A.
-			const rowCount =
-				firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length))
-			for (let idx = 0; idx < rowCount; idx++) {
-				strSheetXml += `<row r="${idx + 2}" spans="1:${data.length + dataLabels(data[0]).length}">`
-				// Leading cols are reserved for the label groups
-				for (let idx2 = dataLabels(data[0]).length - 1; idx2 >= 0; idx2--) {
-					strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length - idx2)}${idx + 2}" t="s">`
-					strSheetXml += `<v>${data.length + idx + 1}</v>`
-					strSheetXml += '</c>'
-				}
-				for (let idy = 0; idy < data.length; idy++) {
-					strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-				}
-				strSheetXml += '</row>'
-			}
-		} else {
-			const TOT_SER = data.length
-			const TOT_CAT = firstLabelGroup(data[0]).length
-			const TOT_LVL = dataLabels(data[0]).length
-			// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
-			// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
-			const revLabelGroups = dataLabels(data[0]).slice().reverse()
+		// Header row: label columns blank (index 0), series name columns use indices 1..TOT_SER
+		let header = ''
+		for (let col = 1; col <= labelCols; col++) header += cell(col, 1, 0, true)
+		for (let ser = 0; ser < TOT_SER; ser++) header += cell(labelCols + ser + 1, 1, ser + 1, true)
+		rows += sheetRow(1, TOT_SER + labelCols, header)
 
-			// Pre-build a map from (revLevelIdx, rowIdx) -> shared-string index.
-			// SST layout: 0=blank, 1..TOT_SER=series names, then non-empty labels per
-			// reversed level in appearance order.
-			const ssLabelMap = new Map<string, number>()
-			let ssIdx = TOT_SER + 1
-			revLabelGroups.forEach((labelsGroup, revLevelIdx) => {
-				labelsGroup.forEach((label, rowIdx) => {
-					if (label && label !== '') ssLabelMap.set(`${revLevelIdx}:${rowIdx}`, ssIdx++)
-				})
-			})
-
-			// Header row: label columns blank (index 0), series name columns use indices 1..TOT_SER
-			strSheetXml += `<row r="1" spans="1:${TOT_SER + TOT_LVL}">`
-			for (let col = 1; col <= TOT_LVL; col++) {
-				strSheetXml += `<c r="${getExcelColName(col)}1" t="s"><v>0</v></c>`
-			}
-			for (let ser = 0; ser < TOT_SER; ser++) {
-				strSheetXml += `<c r="${getExcelColName(TOT_LVL + ser + 1)}1" t="s"><v>${ser + 1}</v></c>`
-			}
-			strSheetXml += '</row>'
-
-			// One data row per leaf category
-			for (let idx = 0; idx < TOT_CAT; idx++) {
-				strSheetXml += `<row r="${idx + 2}" spans="1:${TOT_SER + TOT_LVL}">`
-				// Label columns: column idy+1 holds revLabelGroups[idy]; emit only non-empty cells
-				revLabelGroups.forEach((labelsGroup, idy) => {
+		// One data row per leaf category
+		for (let idx = 0; idx < TOT_CAT; idx++) {
+			// Label columns: column idy+1 holds revLabelGroups[idy]; emit only non-empty cells
+			let cells = revLabelGroups
+				.map((labelsGroup, idy) => {
 					const colLabel = labelsGroup[idx]
-					if (colLabel && colLabel !== '') {
-						strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}" t="s"><v>${ssLabelMap.get(`${idy}:${idx}`)}</v></c>`
-					}
+					return colLabel && colLabel !== '' ? cell(idy + 1, idx + 2, ssLabelMap.get(`${idy}:${idx}`) ?? '', true) : ''
 				})
-				// Data columns
-				for (let idy = 0; idy < TOT_SER; idy++) {
-					strSheetXml += `<c r="${getExcelColName(TOT_LVL + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-				}
-				strSheetXml += '</row>'
+				.join('')
+			for (let idy = 0; idy < TOT_SER; idy++) {
+				cells += cell(labelCols + idy + 1, idx + 2, dataValues(data[idy])[idx] ?? '')
 			}
+			rows += sheetRow(idx + 2, TOT_SER + labelCols, cells)
 		}
 	}
-	strSheetXml += '</sheetData>'
 
-	strSheetXml += '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
-	// Link the `table1.xml` file to define an actual Table in Excel
-	// NOTE: Intentionally no `<tableParts>` here. A tablePart only works for scatter charts;
-	// every other chart type reports a "cannot find linked file" error. The chart data can be
-	// edited / range-selected without it, so it is deliberately never emitted.
-	strSheetXml += '</worksheet>\n'
-	return strSheetXml
+	const sheetView = el(
+		'sheetViews',
+		null,
+		raw(
+			el(
+				'sheetView',
+				{ tabSelected: 1, workbookViewId: 0 },
+				raw(voidEl('selection', { activeCell: 'B1', sqref: 'B1' }))
+			)
+		)
+	)
+	return (
+		XML_DECL +
+		el(
+			'worksheet',
+			{
+				xmlns: SML_NS,
+				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+				'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+				'mc:Ignorable': 'x14ac',
+				'xmlns:x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
+			},
+			[
+				raw(voidEl('dimension', { ref: `A1:${getExcelColName(colCount)}${dataValues(data[0]).length + 1}` })),
+				raw(sheetView),
+				raw(voidEl('sheetFormatPr', { baseColWidth: 10, defaultRowHeight: 16 })),
+				raw(el('sheetData', null, raw(rows))),
+				raw(voidEl('pageMargins', { left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 })),
+				// NOTE: Intentionally no `<tableParts>`. A tablePart only works for scatter charts; every
+				// other chart type reports a "cannot find linked file" error. The chart data can be
+				// edited / range-selected without it, so it is deliberately never emitted.
+			]
+		) +
+		'\n'
+	)
 }
 
 /**
