@@ -134,73 +134,95 @@ export function createChartTextFonts(typeface: string): string {
 }
 
 export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): string {
-	const align =
-		opts.titleAlign === 'left' || opts.titleAlign === 'right'
-			? `<a:pPr algn="${opts.titleAlign.slice(0, 1)}">`
-			: '<a:pPr>'
-	const rotate = opts.titleRotate
-		? `<a:bodyPr rot="${convertAngleUnits(opts.titleRotate, 'titleRotate')}"/>`
-		: '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
-	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
-	const titleBold = opts.titleBold ? 1 : 0
-	const titleItalic = opts.titleItalic ? 1 : 0
-	const titleUnderline = opts.titleUnderline ? 'sng' : 'none'
+	// `sizeAttr` is empty when the caller set no font size — PowerPoint then picks the default —
+	// and interpolating it empty leaves TWO spaces between the tag name and `b=`. Those are
+	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
+	// two run-property tags below stay hand-written. See FOLLOW-UPS `[intra-tag-attribute-padding]`.
+	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : ''
+	const runAttrs = ` ${sizeAttr} b="${opts.titleBold ? 1 : 0}" i="${opts.titleItalic ? 1 : 0}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
+	const runChildren =
+		'\n              ' +
+		genXmlColorSelection(opts.color || DEF_FONT_COLOR) +
+		'\n              ' +
+		createChartTextFonts(opts.fontFace || 'Arial') +
+		'\n            '
 
-	let layout = '<c:layout/>'
+	// NOTE: manualLayout x/y vals are *relative to the entire slide*. Each axis is independent in
+	// CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that axis on automatic layout, so a
+	// caller can center horizontally while still applying a manual vertical offset (and vice-versa).
+	// Schema order is xMode, yMode, x, y.
 	const hasX = opts.titlePos && typeof opts.titlePos.x === 'number'
 	const hasY = opts.titlePos && typeof opts.titlePos.y === 'number'
+	/** Fold a slide-relative offset into the fraction-of-chart value `c:x`/`c:y` want. */
+	const edgeFraction = (offset: number): number => {
+		let val = offset === 0 ? 0 : (offset * (offset / 5)) / 10
+		if (val >= 1) val = val / 10
+		if (val >= 0.1) val = val / 10
+		return val
+	}
+	let layout = voidEl('c:layout')
 	if (hasX || hasY) {
-		// NOTE: manualLayout x/y vals are *relative to entire slide*. Each axis is
-		// independent in CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that
-		// axis on automatic layout, so a caller can center horizontally while still
-		// applying a manual vertical offset (and vice-versa).
-		// Schema order is xMode, yMode, x, y.
-		let modes = ''
-		let vals = ''
-		if (hasX) {
-			const totalX = (opts.titlePos?.x ?? 0) + (chartX ?? 0)
-			let valX = totalX === 0 ? 0 : (totalX * (totalX / 5)) / 10
-			if (valX >= 1) valX = valX / 10
-			if (valX >= 0.1) valX = valX / 10
-			modes += '<c:xMode val="edge"/>'
-			vals += `<c:x val="${valX}"/>`
-		}
-		if (hasY) {
-			const totalY = (opts.titlePos?.y ?? 0) + (chartY ?? 0)
-			let valY = totalY === 0 ? 0 : (totalY * (totalY / 5)) / 10
-			if (valY >= 1) valY = valY / 10
-			if (valY >= 0.1) valY = valY / 10
-			modes += '<c:yMode val="edge"/>'
-			vals += `<c:y val="${valY}"/>`
-		}
-		layout = `<c:layout><c:manualLayout>${modes}${vals}</c:manualLayout></c:layout>`
+		const modes = (hasX ? voidEl('c:xMode', { val: 'edge' }) : '') + (hasY ? voidEl('c:yMode', { val: 'edge' }) : '')
+		const vals =
+			(hasX ? voidEl('c:x', { val: edgeFraction((opts.titlePos?.x ?? 0) + (chartX ?? 0)) }) : '') +
+			(hasY ? voidEl('c:y', { val: edgeFraction((opts.titlePos?.y ?? 0) + (chartY ?? 0)) }) : '')
+		layout = el('c:layout', null, raw(el('c:manualLayout', null, raw(modes + vals))))
 	}
 
-	return `<c:title>
-      <c:tx>
-        <c:rich>
-          ${rotate}
-          <a:lstStyle/>
-          <a:p>
-            ${align}
-            <a:defRPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
-              ${genXmlColorSelection(opts.color || DEF_FONT_COLOR)}
-              ${createChartTextFonts(opts.fontFace || 'Arial')}
-            </a:defRPr>
-          </a:pPr>
-          <a:r>
-            <a:rPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
-              ${genXmlColorSelection(opts.color || DEF_FONT_COLOR)}
-              ${createChartTextFonts(opts.fontFace || 'Arial')}
-            </a:rPr>
-            ${el('a:t', null, opts.title ?? '')}
-          </a:r>
-        </a:p>
-        </c:rich>
-      </c:tx>
-      ${layout}
-      <c:overlay val="0"/>
-    </c:title>`
+	const paragraph = el(
+		'a:p',
+		null,
+		[
+			raw(
+				el(
+					'a:pPr',
+					opts.titleAlign === 'left' || opts.titleAlign === 'right' ? { algn: opts.titleAlign.slice(0, 1) } : null,
+					raw('\n            <a:defRPr' + runAttrs + runChildren + '</a:defRPr>'),
+					{ openPrefix: '\n            ', closePrefix: '\n          ' }
+				)
+			),
+			raw(
+				el(
+					'a:r',
+					null,
+					[
+						raw('\n            <a:rPr' + runAttrs + runChildren + '</a:rPr>'),
+						raw('\n            ' + el('a:t', null, opts.title ?? '')),
+					],
+					{ openPrefix: '\n          ', closePrefix: '\n          ' }
+				)
+			),
+		],
+		{ openPrefix: '\n          ', closePrefix: '\n        ' }
+	)
+	const rich = el(
+		'c:rich',
+		null,
+		[
+			// Don't specify a rotation when none was asked for, so the default applies (which is
+			// vertical on a category axis).
+			raw(
+				voidEl(
+					'a:bodyPr',
+					{ rot: opts.titleRotate ? convertAngleUnits(opts.titleRotate, 'titleRotate') : undefined },
+					{ openPrefix: '\n          ' }
+				)
+			),
+			raw(voidEl('a:lstStyle', null, { openPrefix: '\n          ' })),
+			raw(paragraph),
+		],
+		{ openPrefix: '\n        ', closePrefix: '\n        ' }
+	)
+	return el(
+		'c:title',
+		null,
+		[
+			raw(el('c:tx', null, raw(rich), { openPrefix: '\n      ', closePrefix: '\n      ' })),
+			raw('\n      ' + layout),
+			raw(voidEl('c:overlay', { val: 0 }, { openPrefix: '\n      ' })),
+		],
+		{ closePrefix: '\n    ' }
+	)
 }
 
 /**
@@ -241,28 +263,56 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
  * @param leaderLines - emit the trailing `<c:showLeaderLines>` (category-axis plots only)
  */
 export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
-	let xml = '  <c:dLbls>'
-	xml += '    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
-	xml += '    <c:txPr>'
-	xml += '      <a:bodyPr/>'
-	xml += '      <a:lstStyle/>'
-	xml += '      <a:p><a:pPr>'
-	xml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
-	xml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
-	xml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
-	xml += '        </a:defRPr>'
-	xml += '      </a:pPr></a:p>'
-	xml += '    </c:txPr>'
-	if (opts.dataLabelPosition) xml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'
-	xml += '    <c:showLegendKey val="0"/>'
-	xml += '    <c:showVal val="' + (opts.showValue ? '1' : '0') + '"/>'
-	xml += '    <c:showCatName val="0"/>'
-	xml += '    <c:showSerName val="' + (opts.showSerName ? '1' : '0') + '"/>'
-	xml += '    <c:showPercent val="0"/>'
-	xml += '    <c:showBubbleSize val="0"/>'
-	if (leaderLines) xml += `    <c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
-	xml += '  </c:dLbls>'
-	return xml
+	const defRPr = el(
+		'a:defRPr',
+		{
+			b: opts.dataLabelFontBold ? 1 : 0,
+			i: opts.dataLabelFontItalic ? 1 : 0,
+			strike: 'noStrike',
+			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
+			u: 'none',
+		},
+		[
+			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
+			raw('          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+		],
+		{ openPrefix: '        ', closePrefix: '        ' }
+	)
+	const txPr = el(
+		'c:txPr',
+		null,
+		[
+			raw(voidEl('a:bodyPr', null, { openPrefix: '      ' })),
+			raw(voidEl('a:lstStyle', null, { openPrefix: '      ' })),
+			raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr), { closePrefix: '      ' })), { openPrefix: '      ' })),
+		],
+		{ openPrefix: '    ', closePrefix: '    ' }
+	)
+	return el(
+		'c:dLbls',
+		null,
+		[
+			raw(
+				voidEl(
+					'c:numFmt',
+					{ formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 },
+					{ openPrefix: '    ' }
+				)
+			),
+			raw(txPr),
+			opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
+			raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
+			raw(voidEl('c:showVal', { val: opts.showValue ? 1 : 0 }, { openPrefix: '    ' })),
+			raw(voidEl('c:showCatName', { val: 0 }, { openPrefix: '    ' })),
+			raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 }, { openPrefix: '    ' })),
+			raw(voidEl('c:showPercent', { val: 0 }, { openPrefix: '    ' })),
+			raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+			leaderLines
+				? raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }, { openPrefix: '    ' }))
+				: null,
+		],
+		{ openPrefix: '  ', closePrefix: '  ' }
+	)
 }
 
 /**
@@ -314,7 +364,7 @@ export function numCachePt(idx: number, value: number | null | undefined): strin
 		warn('chart/non-finite-value', `chart value "${value}" at index ${idx} is not a finite number; data point omitted.`)
 		return ''
 	}
-	return `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
+	return el('c:pt', { idx }, raw(el('c:v', null, value)))
 }
 
 /**
@@ -345,11 +395,11 @@ export function makeChartErrorBarsXml(
 		const barType = eb.barType || 'both'
 		const direction = eb.direction || 'y'
 
-		strXml += '<c:errBars>'
-		strXml += `<c:errDir val="${direction}"/>`
-		strXml += `<c:errBarType val="${barType}"/>`
-		strXml += `<c:errValType val="${valueType}"/>`
-		strXml += `<c:noEndCap val="${eb.noEndCap ? '1' : '0'}"/>`
+		let children =
+			voidEl('c:errDir', { val: direction }) +
+			voidEl('c:errBarType', { val: barType }) +
+			voidEl('c:errValType', { val: valueType }) +
+			voidEl('c:noEndCap', { val: eb.noEndCap ? 1 : 0 })
 
 		if (valueType === 'cust') {
 			// Custom amounts: <c:plus>/<c:minus> each hold a number source (we emit <c:numLit>).
@@ -360,7 +410,7 @@ export function makeChartErrorBarsXml(
 						'chart/error-bars-missing-values',
 						`chart series "${obj.name}" errorBars valueType 'cust' needs \`plusValues\` for barType '${barType}'.`
 					)
-				strXml += makeErrBarNumLit('plus', eb.plusValues || [])
+				children += makeErrBarNumLit('plus', eb.plusValues || [])
 			}
 			if (barType !== 'plus') {
 				if (!eb.minusValues?.length)
@@ -368,22 +418,28 @@ export function makeChartErrorBarsXml(
 						'chart/error-bars-missing-values',
 						`chart series "${obj.name}" errorBars valueType 'cust' needs \`minusValues\` for barType '${barType}'.`
 					)
-				strXml += makeErrBarNumLit('minus', eb.minusValues || [])
+				children += makeErrBarNumLit('minus', eb.minusValues || [])
 			}
 		} else if (valueType !== 'stdErr') {
 			// fixedVal / percentage / stdDev use a single magnitude (stdErr derives it from the data).
-			strXml += `<c:val val="${eb.value ?? 1}"/>`
+			children += voidEl('c:val', { val: eb.value ?? 1 })
 		}
 
 		if (eb.color || eb.size != null) {
-			strXml += '<c:spPr><a:ln'
-			strXml += eb.size != null ? ` w="${ptsToEmuLenient(eb.size)}"` : ''
-			strXml += '>'
-			strXml += eb.color ? genXmlColorSelection(eb.color) : ''
-			strXml += '</a:ln></c:spPr>'
+			children += el(
+				'c:spPr',
+				null,
+				raw(
+					el(
+						'a:ln',
+						{ w: eb.size != null ? ptsToEmuLenient(eb.size) : undefined },
+						raw(eb.color ? genXmlColorSelection(eb.color) : '')
+					)
+				)
+			)
 		}
 
-		strXml += '</c:errBars>'
+		strXml += el('c:errBars', null, raw(children))
 	})
 
 	return strXml
@@ -395,13 +451,12 @@ export function makeChartErrorBarsXml(
  * @param values - per-point magnitudes (index-aligned with the series values)
  */
 function makeErrBarNumLit(tag: 'plus' | 'minus', values: number[]): string {
-	let strXml = `<c:${tag}><c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>`
-	values.forEach((value, idx) => {
-		strXml += numCachePt(idx, value)
-	})
-	strXml += `</c:numLit></c:${tag}>`
-
-	return strXml
+	const numLit = el('c:numLit', null, [
+		raw(el('c:formatCode', null, 'General')),
+		raw(voidEl('c:ptCount', { val: values.length })),
+		raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
+	])
+	return el(`c:${tag}`, null, raw(numLit))
 }
 
 /**
@@ -411,7 +466,7 @@ function makeErrBarNumLit(tag: 'plus' | 'minus', values: number[]): string {
  */
 export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string {
 	if (!opt) return ''
-	if (opt === true) return '<c:serLines/>'
+	if (opt === true) return voidEl('c:serLines')
 	if (opt.style === 'none') return ''
 	const line = el(
 		'a:ln',
@@ -446,11 +501,12 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
 	const w = ptsToEmuLenient(opts.leaderLineSize ?? 0.75)
 	const color = opts.leaderLineColor || '808080'
-	return (
-		'<c:leaderLines><c:spPr>' +
-		`<a:ln w="${w}" cap="flat">${genXmlColorSelection(color)}<a:prstDash val="solid"/><a:round/></a:ln>` +
-		'<a:effectLst/></c:spPr></c:leaderLines>'
-	)
+	const line = el('a:ln', { w, cap: 'flat' }, [
+		raw(genXmlColorSelection(color)),
+		raw(voidEl('a:prstDash', { val: 'solid' })),
+		raw(voidEl('a:round')),
+	])
+	return el('c:leaderLines', null, raw(el('c:spPr', null, [raw(line), raw(voidEl('a:effectLst'))])))
 }
 
 /**
@@ -467,24 +523,28 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
  */
 export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): string {
 	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
-	const bold = opts.dataLabelFontBold ? '1' : '0'
-	const italic = opts.dataLabelFontItalic ? '1' : '0'
+	const bold = opts.dataLabelFontBold ? 1 : 0
+	const italic = opts.dataLabelFontItalic ? 1 : 0
 	const color = createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)
 	const face = opts.dataLabelFontFace || 'Arial'
 	const lang = opts.lang || 'en-US'
-	return (
-		`<c:dLbl><c:idx val="${idx}"/>` +
-		'<c:tx><c:rich><a:bodyPr/><a:lstStyle/>' +
-		`<a:p><a:pPr><a:defRPr sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike">` +
-		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:defRPr></a:pPr>` +
-		`<a:r><a:rPr lang="${lang}" sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike" dirty="0">` +
-		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:rPr>` +
-		el('a:t', null, text) +
-		'</a:r></a:p>' +
-		'</c:rich></c:tx>' +
-		'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>' +
-		'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
-	)
+	const runChildren = [raw(el('a:solidFill', null, raw(color))), raw(createChartTextFonts(face))]
+	const fontAttrs = { sz, b: bold, i: italic, u: 'none', strike: 'noStrike' }
+	const paragraph = el('a:p', null, [
+		raw(el('a:pPr', null, raw(el('a:defRPr', fontAttrs, runChildren)))),
+		raw(el('a:r', null, [raw(el('a:rPr', { lang, ...fontAttrs, dirty: 0 }, runChildren)), raw(el('a:t', null, text))])),
+	])
+	const rich = el('c:rich', null, [raw(voidEl('a:bodyPr')), raw(voidEl('a:lstStyle')), raw(paragraph)])
+	return el('c:dLbl', null, [
+		raw(voidEl('c:idx', { val: idx })),
+		raw(el('c:tx', null, raw(rich))),
+		raw(voidEl('c:showLegendKey', { val: 0 })),
+		raw(voidEl('c:showVal', { val: 0 })),
+		raw(voidEl('c:showCatName', { val: 0 })),
+		raw(voidEl('c:showSerName', { val: 0 })),
+		raw(voidEl('c:showPercent', { val: 0 })),
+		raw(voidEl('c:showBubbleSize', { val: 0 })),
+	])
 }
 
 /**
@@ -492,9 +552,12 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  * @param border - point border style (`type`, `color`, `pt`)
  */
 export function createChartBorderLine(border: BorderProps): string {
-	if (border.type === 'none') return '<a:ln><a:noFill/></a:ln>'
-	const dash = border.type === 'dash' ? 'dash' : 'solid'
-	return `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(border, 1))}" cap="flat">${genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })}<a:prstDash val="${dash}"/><a:round/></a:ln>`
+	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
+	return el('a:ln', { w: ptsToEmuLenient(resolveBorderWidth(border, 1)), cap: 'flat' }, [
+		raw(genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })),
+		raw(voidEl('a:prstDash', { val: border.type === 'dash' ? 'dash' : 'solid' })),
+		raw(voidEl('a:round')),
+	])
 }
 
 /**
@@ -539,29 +602,30 @@ export function makeSeriesDataPointsXml(
 		// Nothing to style for this point -> omit the c:dPt entirely
 		if (!fillColor && !pattern && !border) return
 
-		xml += '<c:dPt>'
-		xml += `<c:idx val="${index}"/>`
-		if (isBar) xml += '<c:invertIfNegative val="0"/>'
-		xml += '<c:bubble3D val="0"/>'
-		xml += '<c:spPr>'
+		let shape = ''
 		if ((isBar || isScatter) && opts.lineSize === 0 && !border && !ptStyle?.fill && !pattern) {
 			// Preserve legacy color-vary behavior: hide outline when lineSize===0
-			xml += '<a:ln><a:noFill/></a:ln>'
+			shape = el('a:ln', null, raw(voidEl('a:noFill')))
 		} else {
 			// Pattern fill takes precedence over a solid fill (OOXML allows only one fill per c:dPt).
 			// Default the pattern foreground to this point's resolved color so it reads as a hatched bar.
 			if (pattern) {
-				xml += genXmlPatternFill(fillColor && !pattern.fgColor ? { ...pattern, fgColor: fillColor } : pattern)
+				shape = genXmlPatternFill(fillColor && !pattern.fgColor ? { ...pattern, fgColor: fillColor } : pattern)
 			} else if (fillColor) {
 				// BAR3D color-vary historically tints the edge line, not the face fill
-				if (chartType === ChartType.bar3d) xml += `<a:ln>${genXmlColorSelection(fillColor)}</a:ln>`
-				else xml += genXmlColorSelection(fillColor)
+				shape =
+					chartType === ChartType.bar3d
+						? el('a:ln', null, raw(genXmlColorSelection(fillColor)))
+						: genXmlColorSelection(fillColor)
 			}
-			if (border) xml += createChartBorderLine(border)
+			if (border) shape += createChartBorderLine(border)
 		}
-		xml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)
-		xml += '</c:spPr>'
-		xml += '</c:dPt>'
+		xml += el('c:dPt', null, [
+			raw(voidEl('c:idx', { val: index })),
+			isBar ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
+			raw(voidEl('c:bubble3D', { val: 0 })),
+			raw(el('c:spPr', null, [raw(shape), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])),
+		])
 	})
 	return xml
 }
@@ -680,17 +744,22 @@ export function numRefBlock(
 	values: Array<number | null | undefined>,
 	refIndent = '    '
 ): string {
-	let xml = `<${tag}>`
-	xml += '  <c:numRef>'
-	xml += `${refIndent}<c:f>${ref}</c:f>`
-	xml += '    <c:numCache>'
-	xml += '      <c:formatCode>' + formatCode + '</c:formatCode>'
-	xml += `      <c:ptCount val="${values.length}"/>`
-	values.forEach((value, idx) => {
-		xml += numCachePt(idx, value)
+	const numCache = el(
+		'c:numCache',
+		null,
+		[
+			// `formatCode` reaches every caller already escaped — `chart-xml.ts` runs the option
+			// through `encodeXmlEntities` once and hands the same string to all five plot emitters —
+			// so it goes in as `raw`. A text child would escape it a second time.
+			raw(el('c:formatCode', null, raw(formatCode), { openPrefix: '      ' })),
+			raw(voidEl('c:ptCount', { val: values.length }, { openPrefix: '      ' })),
+			raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
+		],
+		{ openPrefix: '    ', closePrefix: '    ' }
+	)
+	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref, { openPrefix: refIndent })), raw(numCache)], {
+		openPrefix: '  ',
+		closePrefix: '  ',
 	})
-	xml += '    </c:numCache>'
-	xml += '  </c:numRef>'
-	xml += `</${tag}>`
-	return xml
+	return el(tag, null, raw(numRef))
 }

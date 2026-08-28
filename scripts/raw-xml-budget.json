@@ -1,7 +1,7 @@
 {
 	"src/embedded-fonts.ts": 5,
 	"src/gen/chart/chart-axes.ts": 1,
-	"src/gen/chart/chart-parts.ts": 137,
+	"src/gen/chart/chart-parts.ts": 4,
 	"src/gen/chart/chart-xml.ts": 2,
 	"src/gen/chart/embed-xlsx.ts": 282,
 	"src/gen/drawingml/color.ts": 1,
