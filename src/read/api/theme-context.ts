@@ -9,7 +9,7 @@
  * background needs on top of {@link resolveSlideThemeParts} — so a token resolves
  * identically whether it is read or baked.
  */
-import { applyColorTransforms } from '../oxml/color-transform.js'
+import { applyColorTransforms, type ColorTransform } from '../oxml/color-transform.js'
 import { attr, boolValue, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
 import {
 	parseClrMap,
@@ -465,7 +465,7 @@ export function resolveInheritedFrame(ph: PlaceholderRef, ctx: ThemeContext): Re
  */
 export interface ResolvedColor {
 	hex: string
-	transforms: { name: string; value: string | null }[]
+	transforms: ColorTransform[]
 	effectiveHex: string
 	alpha?: number
 }

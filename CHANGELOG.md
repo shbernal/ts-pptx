@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`GradientStop.resolvedColor` and `CellBorder.resolvedColor`** (`ts-pptx/read`). A
+  `ResolvedColor` keeps three things: the base `hex`, the raw `transforms` list, and the
+  `effectiveHex` after applying them. Two other places read a colour through the same
+  resolver and kept only the last two, so the transform list was computed and then dropped
+  on the floor. A gradient stop reported `position`/`color`/`schemeColor`/`effectiveHex`
+  and a table cell border reported a resolved hex plus a raw `schemeColor`, with nothing
+  between them: on a deck whose accent carries `<a:lumMod val="75000"/>`, all three of a
+  solid fill, a gradient stop and a cell border resolved to the same `2F5597`, and only the
+  solid fill could say what the transform had been.
+
+  Why it matters to a consumer: a reader could not tell "this stop stated no transforms"
+  from "this reader could not see them". Anything re-authoring a deck against a *different*
+  theme needs the first fact, because `effectiveHex` alone is the theme baked in, and a
+  `lumMod`-darkened accent carried forward as a literal hex stops tracking the theme it
+  came from with nothing saying so.
+
+  Both now carry the full `ResolvedColor` the resolver already built, under `resolvedColor`.
+  The existing flat fields are unchanged and stay the convenience for painting:
+  `GradientStop.effectiveHex` and `CellBorder.color` are both exactly
+  `resolvedColor?.effectiveHex ?? null`. An empty `transforms` means the source stated
+  none; a `null` `resolvedColor` means there was no resolvable colour to read. Nothing has
+  to migrate.
+
+  `ResolvedColor.transforms` is now typed as the already-exported `ColorTransform[]`
+  rather than a structurally identical inline literal, so the three places that hand one
+  around name the same type.
+
 - **`Run.resolvedItalic`** (`ts-pptx/read`). `Run` resolved four character properties
   through the placeholder / list-style / master chain — colour, size, face and `@b` — and
   not `@i`, so a run inside a placeholder that inherits `i="1"` from the master's

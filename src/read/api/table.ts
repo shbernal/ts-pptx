@@ -99,7 +99,26 @@ export interface CellBorder {
 	widthPt: number | null
 	/** Dash style (`a:prstDash/@val`, e.g. `solid`/`sysDash`), or `null` when unset. */
 	dash: string | null
-	/** The stroke colour resolved against the table theme to a literal hex (`effectiveHex`), or `null`. */
+	/**
+	 * The stroke colour as a full {@link ResolvedColor} — base `hex`, the raw
+	 * `transforms` list (`lumMod`/`shade`/…) in document order, and the
+	 * `effectiveHex`/`alpha` after applying them — the same object a shape's
+	 * `resolvedLine` gives. `null` when the edge carries no solid fill, or the
+	 * colour cannot be made literal.
+	 *
+	 * This is the field to read when re-authoring a border against a *different*
+	 * theme: {@link color} alone is one theme baked in, so a `lumMod`-darkened
+	 * accent carried forward as a literal hex silently stops tracking the theme it
+	 * came from. `transforms` is what says whether there was anything to track, and
+	 * an empty list here means the edge stated none — not that the reader could not
+	 * see them.
+	 */
+	resolvedColor: ResolvedColor | null
+	/**
+	 * The stroke colour resolved against the table theme to a literal hex — exactly
+	 * `resolvedColor?.effectiveHex ?? null`, kept as a flat field because painting a
+	 * rule is what most callers want. `null` when the edge has no resolvable colour.
+	 */
 	color: string | null
 	/** Raw `schemeClr` token of the stroke (`a:solidFill/a:schemeClr/@val`), or `null` for an srgb/absent colour. */
 	schemeColor: string | null
@@ -821,7 +840,8 @@ export class TableCell {
 	/**
 	 * The cell's edge borders (`a:tcPr/a:lnL|lnR|lnT|lnB|lnTlToBr|lnBlToTr`), or
 	 * `null` when the cell defines none. Each present edge decodes to a
-	 * {@link CellBorder} (width / dash / resolved + raw colour / suppressed flag);
+	 * {@link CellBorder} (width / dash / resolved colour + its raw token and transform
+	 * list / suppressed flag);
 	 * absent edges are `null`. Cell borders are the biggest visible table gap — a
 	 * replica built only from geometry and fill draws every cell edge-to-edge with
 	 * no rule, so this surfaces the per-side stroke the writer's `border` option emits.
@@ -839,6 +859,7 @@ export class TableCell {
 			return {
 				widthPt: w === null ? null : w / EMU_PER_POINT,
 				dash: dash ? (attr(dash, 'val') ?? null) : null,
+				resolvedColor: resolved,
 				color: resolved ? resolved.effectiveHex : null,
 				schemeColor: scheme,
 				noFill: !!firstChild(ln, 'a:noFill'),

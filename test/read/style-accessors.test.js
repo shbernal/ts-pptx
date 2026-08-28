@@ -227,6 +227,76 @@ describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 		const solid = shapeNamed(slide, 'solid-control')
 		assertEqual(solid.gradientStops, null, 'a solid-filled shape reports null gradientStops')
 	})
+
+	test('a stop that states no colour transform reports an empty list, not a missing one', async () => {
+		// The distinction issue #26 is about: `transforms: []` has to mean "the stop
+		// stated none", which is only readable as such because the field exists at all.
+		const slide = (await openFixture('gradient-fill')).slides[0]
+		const stop = shapeNamed(slide, 'grad-linear-2').gradientStops[0]
+		assert(stop.resolvedColor, 'an explicit srgb stop resolves')
+		assertEqual(stop.resolvedColor.hex, '451DC7', 'base hex is the srgb value')
+		assertEqual(stop.resolvedColor.transforms.length, 0, 'a bare srgbClr carries no transform children')
+		assertEqual(stop.resolvedColor.effectiveHex, stop.effectiveHex, 'the flat effectiveHex mirrors resolvedColor')
+	})
+})
+
+describe('GradientStop.resolvedColor — the transform list survives the read (off-fixture)', () => {
+	// A gradient stop used to keep only the *result* of applying its colour
+	// transforms, so a `lumMod`-darkened accent came back as a literal hex with
+	// nothing saying it had ever been one — and a consumer re-authoring against a
+	// different theme could not tell "stated no transforms" from "could not see them".
+	//
+	// No fixture reaches a transformed stop through a slide-level accessor: the ones
+	// PowerPoint wrote sit on the slideMaster background of gradient-fill.pptx /
+	// theme-colors.pptx, which the read model surfaces as an inherited themeRef. The
+	// markup below is that master's own `a:gs`, copied verbatim —
+	//   <a:gs pos="0"><a:schemeClr val="bg2"><a:lumMod val="60000"/>
+	//     <a:lumOff val="40000"/><a:alpha val="7000"/></a:schemeClr></a:gs>
+	// — so this is PowerPoint's shape for the construct even though the container is
+	// hand-authored. The write API has no option for a stop transform, so a
+	// round-trip cannot produce one either.
+	const spGrad = (spPr, clrScheme) => {
+		const xml = `<p:spTree xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:sp>${spPr}</p:sp></p:spTree>`
+		const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
+		const el = spTree.getElementsByTagNameNS(P_NS, 'sp')[0]
+		// `bg2` is a MAP token: clrMap sends it to a clrScheme slot (`lt2` in a stock
+		// master), and only then does the scheme hold the literal.
+		const ctx = { clrMap: new Map([['bg2', 'lt2']]), clrScheme: new Map(clrScheme ?? []) }
+		return new AutoShape(el, /** @type {any} */ ({ themeContext: () => ctx }))
+	}
+
+	const MASTER_STOP =
+		'<a:gs pos="0"><a:schemeClr val="bg2"><a:lumMod val="60000"/><a:lumOff val="40000"/><a:alpha val="7000"/></a:schemeClr></a:gs>'
+
+	test('a scheme stop reports its base hex and its raw lumMod/lumOff/alpha list', () => {
+		const shape = spGrad(
+			'<p:spPr><a:gradFill><a:gsLst>' +
+				MASTER_STOP +
+				'<a:gs pos="100000"><a:srgbClr val="FFFFFF"/></a:gs>' +
+				'</a:gsLst><a:lin ang="0"/></a:gradFill></p:spPr>',
+			[['lt2', '1E5155']]
+		)
+		const stop = shape.gradientStops[0]
+		assertEqual(stop.schemeColor, 'bg2', 'the raw token is still reported')
+		assert(stop.resolvedColor, 'the stop now carries a full ResolvedColor')
+		assertEqual(stop.resolvedColor.hex, '1E5155', 'base hex is the theme colour before any transform')
+		assertEqual(
+			stop.resolvedColor.transforms.map((t) => `${t.name}=${t.value}`).join(','),
+			'lumMod=60000,lumOff=40000,alpha=7000',
+			'every transform child is reported in document order'
+		)
+		assertEqual(stop.resolvedColor.effectiveHex, stop.effectiveHex, 'the flat effectiveHex mirrors resolvedColor')
+		assert(stop.resolvedColor.effectiveHex !== '1E5155', 'the transforms actually moved the colour')
+	})
+
+	test('an unresolvable stop colour reports a null resolvedColor rather than an empty one', () => {
+		// With no clrScheme entry the token cannot be made literal. Reporting `null`
+		// keeps "could not see it" distinct from "there was nothing to see".
+		const shape = spGrad('<p:spPr><a:gradFill><a:gsLst>' + MASTER_STOP + '</a:gsLst></a:gradFill></p:spPr>', [])
+		const stop = shape.gradientStops[0]
+		assertEqual(stop.resolvedColor, null, 'an unmapped token yields no resolved colour')
+		assertEqual(stop.effectiveHex, null, 'and the flat field agrees')
+	})
 })
 
 describe('Shape line dash / explicit no-line reads (off-fixture)', () => {

@@ -199,6 +199,27 @@ describe('Table cell styling', () => {
 		assertEqual(formattedTable(await openFixture('table')).cell(0, 0).borders, null, 'a:tcPr without a border -> null')
 	})
 
+	test('a PowerPoint-authored border keeps its colour transform list, not just the flattened hex', async () => {
+		// slide 2's `LabelsVertical` table carries the rules PowerPoint writes for a
+		// themed table: <a:lnB …><a:solidFill><a:schemeClr val="bg1">
+		// <a:lumMod val="85000"/></a:schemeClr></a:solidFill>. `color` alone is the
+		// theme baked in (D9D9D9); the token plus the transform list is what lets a
+		// consumer re-author the same rule against a different theme.
+		const labels = allTables(await openFixture('table')).find((t) => t.cell(0, 0)?.borders?.bottom)
+		assert(labels, 'fixture has a table whose cells carry PowerPoint-authored borders')
+		const bottom = labels.cell(0, 0).borders.bottom
+		assertEqual(bottom.schemeColor, 'bg1', 'the raw token is still reported')
+		assert(bottom.resolvedColor, 'the border now carries a full ResolvedColor')
+		assertEqual(bottom.resolvedColor.hex, 'FFFFFF', 'base hex is bg1 before the transform')
+		assertEqual(
+			bottom.resolvedColor.transforms.map((t) => `${t.name}=${t.value}`).join(','),
+			'lumMod=85000',
+			'the lumMod PowerPoint wrote survives the read'
+		)
+		assertEqual(bottom.resolvedColor.effectiveHex, 'D9D9D9', 'lumMod 85% darkens white to D9D9D9')
+		assertEqual(bottom.color, 'D9D9D9', 'the flat color mirrors resolvedColor.effectiveHex')
+	})
+
 	test('element_ escape hatches expose the underlying a:tbl / a:tr / a:tc nodes', async () => {
 		const table = firstTable(await openFixture('table'))
 		const row = table.rows[0]

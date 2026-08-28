@@ -6,7 +6,7 @@
  */
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'
-import { resolveColorElement } from './theme-context.js'
+import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
 
 /** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
@@ -18,14 +18,28 @@ export interface GradientStop {
 	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
 	schemeColor: string | null
 	/**
+	 * The stop's colour as a full {@link ResolvedColor} — base `hex`, the raw
+	 * `transforms` list (`lumMod`/`shade`/…) in document order, and the
+	 * `effectiveHex`/`alpha` after applying them — exactly what a solid fill's
+	 * `resolvedFill` gives. `null` when the colour cannot be made literal (an
+	 * unmapped token, or a colour model we do not resolve).
+	 *
+	 * This is the field to read when re-authoring a stop against a *different*
+	 * theme: {@link effectiveHex} alone is one theme baked in, so carrying it
+	 * forward as a literal silently stops the stop tracking the theme it came from.
+	 * `transforms` is what says whether there was anything to track, and an empty
+	 * list here means the stop stated none — not that the reader could not see them.
+	 */
+	resolvedColor: ResolvedColor | null
+	/**
 	 * The stop's colour resolved against the slide theme **with its colour
-	 * transforms applied** — the final rendered hex (the gradient counterpart of
-	 * {@link import('./theme-context.js').ResolvedColor.effectiveHex}). `null` when
-	 * the colour cannot be made literal (an unmapped token, or a colour model we do
-	 * not resolve).
+	 * transforms applied** — the final rendered hex, i.e. exactly
+	 * `resolvedColor?.effectiveHex ?? null`, kept as a flat field because painting a
+	 * gradient is what most callers want. `null` when the colour cannot be made
+	 * literal (an unmapped token, or a colour model we do not resolve).
 	 */
 	effectiveHex: string | null
-	/** The stop's opacity (0–1) when an `alpha*` transform set one, else `undefined`. */
+	/** The stop's opacity (0–1) when an `alpha*` transform set one, else `undefined`. Mirrors `resolvedColor.alpha`. */
 	alpha?: number
 }
 
@@ -68,6 +82,7 @@ export function readGradientStops(container: Element, ctx: ColorContext): Gradie
 			position: pos === null ? null : pos / PERCENT_SCALE,
 			color: srgb ? attr(srgb, 'val') : null,
 			schemeColor: scheme ? attr(scheme, 'val') : null,
+			resolvedColor: resolved,
 			effectiveHex: resolved ? resolved.effectiveHex : null,
 			...(resolved?.alpha !== undefined ? { alpha: resolved.alpha } : {}),
 		}

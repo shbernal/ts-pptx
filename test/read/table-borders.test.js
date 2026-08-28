@@ -95,6 +95,18 @@ describe('TableCell.borders — a:tcPr/a:lnL|lnR|lnT|lnB', () => {
 		}
 	})
 
+	test('a written border reports an empty transform list, not a missing one', async () => {
+		// The distinction issue #26 is about: `transforms: []` has to mean "this edge
+		// stated none", which is only readable as such because the field exists at all.
+		const { presentation } = await authorRead(borderedTable)
+		const top = firstTable(presentation).cell(0, 0).borders.top
+		assert(top.resolvedColor, 'a drawn border carries a full ResolvedColor')
+		assertEqual(top.resolvedColor.hex, 'FF0000', 'base hex is the authored literal')
+		assertEqual(top.resolvedColor.transforms.length, 0, 'a bare srgbClr carries no transform children')
+		assertEqual(top.resolvedColor.effectiveHex, top.color, 'the flat color mirrors resolvedColor.effectiveHex')
+		assertEqual(firstTable(presentation).cell(0, 0).borders.left.resolvedColor, null, 'a noFill edge resolves none')
+	})
+
 	test.skipIf(!validatorInstalled)('the authored bordered/styled decks are schema-valid', async () => {
 		const bordered = await authorRead(borderedTable)
 		assertEqual((await schemaErrors(bordered.buf)).length, 0, 'bordered deck validates')

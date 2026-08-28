@@ -1320,7 +1320,8 @@ class TableRow {
 interface CellBorder {
 	widthPt: number // a:ln/@w ÷ 12700
 	dash: string | null // a:prstDash/@val
-	color: string | null // effective hex of the stroke's solid fill
+	resolvedColor: ResolvedColor | null // base hex + raw transform list + effectiveHex
+	color: string | null // effective hex — exactly resolvedColor?.effectiveHex ?? null
 	schemeColor: string | null // unresolved theme token, when the stroke is a schemeClr
 	noFill: boolean // explicit <a:noFill/> — a deliberately suppressed edge
 }
@@ -1346,6 +1347,18 @@ class TableCell {
 	readonly pictureFill: PictureFill | null // a:tcPr/a:blipFill — see "Picture fill"
 }
 ```
+
+A border reports its colour twice on purpose. `color` is the hex a renderer
+paints, which is what most callers want. `resolvedColor` is the same colour
+unflattened: the base `hex` before any transform, the raw `transforms` list
+(`lumMod`/`shade`/…) in document order, and the `effectiveHex`/`alpha` after
+applying them. Read the second when you are re-authoring a border against a
+*different* theme, because `color` alone is one theme baked in: a
+`lumMod`-darkened accent carried forward as a literal hex stops tracking the
+theme it came from, and nothing in the flat field says so. An empty
+`transforms` means the edge stated none; a `null` `resolvedColor` means there
+was no resolvable colour to read. `GradientStop.resolvedColor` carries the same
+object for the same reason, beside its own flat `effectiveHex`.
 
 `styleId` surfaces the **raw** `a:tableStyleId` GUID, not a resolved style: the
 id is the codegen handoff to the writer's `tableStyle` option (whose built-in
