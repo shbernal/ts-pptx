@@ -3,10 +3,10 @@
 // the notes frame, so a notes run's own `schemeClr` resolves (`Run.resolvedColor`).
 // But the notes frame was built without a placeholder context, so the *inherited*
 // getters — the ones that read from the notesMaster's `p:notesStyle` when a run sets
-// no own `@sz`/`a:latin`/`@b` — stayed inert (null). This suite covers the fix:
+// no own `@sz`/`a:latin`/`@b`/`@i` — stayed inert (null). This suite covers the fix:
 // `NotesPlaceholder.textFrame` now gives the body a placeholder context whose
 // `FlattenContext.notesStyle` is the notesMaster's `p:notesStyle`, so a body run's
-// `resolvedSizePt`/`resolvedFontFace`/`resolvedBold` (and inherited `resolvedColor`)
+// `resolvedSizePt`/`resolvedFontFace`/`resolvedBold`/`resolvedItalic` (and inherited `resolvedColor`)
 // walk that chain the same way a slide placeholder run walks layout→master→txStyles.
 //
 // Gate: AUTHORABLE. The gate check found the earlier "fixture-only" assumption
@@ -79,9 +79,11 @@ describe('read: notes-body inherited run properties (F2)', () => {
 		assertEqual(run.resolvedBold, null, 'inherited bold is null when the notesStyle omits @b')
 	})
 
-	test("a run's own size/face/bold win over the inherited notesStyle (negative control)", async () => {
+	test("a run's own size/face/bold/italic win over the inherited notesStyle (negative control)", async () => {
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addNotes([{ text: 'styled', options: { fontSize: 20, fontFace: 'Georgia', bold: true } }])
+			pres
+				.addSlide()
+				.addNotes([{ text: 'styled', options: { fontSize: 20, fontFace: 'Georgia', bold: true, italic: true } }])
 		})
 
 		const run = firstNotesRun(presentation)
@@ -90,6 +92,7 @@ describe('read: notes-body inherited run properties (F2)', () => {
 		assertEqual(run.resolvedSizePt, 20, 'own size wins over the notesStyle 12pt')
 		assertEqual(run.resolvedFontFace, 'Georgia', 'own face wins over +mn-lt/Calibri')
 		assertEqual(run.resolvedBold, true, 'own bold wins over the notesStyle (which defines none)')
+		assertEqual(run.resolvedItalic, true, 'own italic reaches the notes frame through the same chain')
 	})
 
 	test.skipIf(!validatorInstalled)('the authored inherited-notes deck is schema-valid', async () => {

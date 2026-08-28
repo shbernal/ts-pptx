@@ -10,7 +10,7 @@
  * identically whether it is read or baked.
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
-import { attr, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
 import {
 	parseClrMap,
 	parseClrScheme,
@@ -343,11 +343,34 @@ export function resolveInheritedRunFontFace(
 }
 
 /**
- * Whether a run effectively renders bold when its own `a:rPr` sets no `@b`,
- * walking the same chain as {@link resolveInheritedRunSize}: the first
- * `a:defRPr/@b` (`1`/`true` → `true`, `0`/`false` → `false`) in the paragraph →
+ * Whether a run effectively renders with the boolean character property `name`
+ * (`b`/`i`) when its own `a:rPr` sets none, walking the same chain as
+ * {@link resolveInheritedRunSize}: the first `a:defRPr/@<name>` in the paragraph →
  * slide → (placeholder) layout → master → `p:txStyles` → `p:defaultTextStyle`
- * chain. A non-placeholder run skips the placeholder tiers but still reaches
+ * chain. The first tier that *states* the attribute wins, and its value is parsed
+ * by {@link boolValue} — the same `xsd:boolean` parser the run's own `bold`/`italic`
+ * getters use — so an unparseable value reports `null` rather than being read as
+ * `false`. `null` when nothing in the chain states it.
+ */
+function resolveInheritedRunFlag(
+	name: string,
+	ph: PlaceholderRef | null,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: ThemeContext
+): boolean | null {
+	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
+		const raw = attr(defRPr, name)
+		if (raw !== null) return boolValue(raw)
+	}
+	return null
+}
+
+/**
+ * Whether a run effectively renders bold when its own `a:rPr` sets no `@b`: the
+ * first `a:defRPr/@b` in the inheritance chain (see {@link resolveInheritedRunFlag}).
+ * A non-placeholder run skips the placeholder tiers but still reaches
  * `p:defaultTextStyle` (which sets no `@b` in a PowerPoint-written deck, so bold
  * stays `null` there). `null` when nothing in the chain defines bold.
  */
@@ -358,11 +381,25 @@ export function resolveInheritedRunBold(
 	slideLstStyle: Element | null,
 	ctx: ThemeContext
 ): boolean | null {
-	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
-		const b = attr(defRPr, 'b')
-		if (b !== null) return b === '1' || b === 'true'
-	}
-	return null
+	return resolveInheritedRunFlag('b', ph, level, pPr, slideLstStyle, ctx)
+}
+
+/**
+ * Whether a run effectively renders italic when its own `a:rPr` sets no `@i`: the
+ * first `a:defRPr/@i` in the inheritance chain (see {@link resolveInheritedRunFlag}).
+ * `@b` and `@i` are siblings on `CT_TextCharacterProperties` and a master text
+ * style states them together, so this is the exact twin of
+ * {@link resolveInheritedRunBold} one attribute along. `null` when nothing in the
+ * chain defines italic.
+ */
+export function resolveInheritedRunItalic(
+	ph: PlaceholderRef | null,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: ThemeContext
+): boolean | null {
+	return resolveInheritedRunFlag('i', ph, level, pPr, slideLstStyle, ctx)
 }
 
 /**

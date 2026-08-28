@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Run.resolvedItalic`** (`ts-pptx/read`). `Run` resolved four character properties
+  through the placeholder / list-style / master chain — colour, size, face and `@b` — and
+  not `@i`, so a run inside a placeholder that inherits `i="1"` from the master's
+  `p:txStyles` reported `italic: null` with no way to answer what it actually renders as.
+  `@b` and `@i` are siblings on `CT_TextCharacterProperties` and PowerPoint writes them as
+  a pair (every level `a:defRPr` in a stock master carries both); the write API already
+  treats them as one, since `MasterTextStyleLevel` has `bold` and `italic` — so a deck
+  could be *authored* with an inherited italic that could not then be read back. Anything
+  painting from the read model as `props.X ?? resolved.X` had to render such a subtitle
+  upright. It resolves the same chain `resolvedBold` documents (paragraph `a:defRPr` →
+  slide `a:lstStyle` → layout → master placeholder `a:lstStyle` → master `p:txStyles` →
+  `p:defaultTextStyle`) and reports `null` when the run states no `@i` and inherits none.
+
+  Both flags now share one walker, which corrects a smaller thing on the way past: an
+  unparseable `@b` (`b="yes"`) used to resolve to `false`, because the old code tested
+  `=== '1' || === 'true'` and let everything else fall through as not-bold. It is parsed by
+  `boolValue` now — the same `xsd:boolean` parser `Run.bold`/`Run.italic` use — so a value
+  the schema does not allow reports `null` (unknown) rather than a confident `false`.
+
 - **`a:prstClr` and `a:hslClr` resolve, so five of the six DrawingML colour models now
   report a colour** (`ts-pptx/read`). `resolveColor` handled `a:srgbClr`, `a:sysClr` and
   `a:schemeClr`; a colour written in any of the other three read as `null` everywhere in

@@ -517,12 +517,13 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 	})
 })
 
-describe('Placeholder-inherited run bold — real PowerPoint XML', () => {
+describe('Placeholder-inherited run bold / italic — real PowerPoint XML', () => {
 	// Sibling of the size/face leg. The multi-theme master text styles carry an
-	// explicit b="0" on their level defRPrs, so a placeholder run with no own @b
-	// resolves to false — an INHERITED non-bold, deliberately distinct from a null
-	// "sets none and inherits none". A plain text box has no placeholder chain, so
-	// its resolvedBold falls back to the run's own value (null here).
+	// explicit b="0" AND i="0" on their level defRPrs — PowerPoint writes the pair
+	// together — so a placeholder run with no own @b/@i resolves to false for both:
+	// an INHERITED non-bold/non-italic, deliberately distinct from a null "sets none
+	// and inherits none". A plain text box has no placeholder chain, so its
+	// resolvedBold/resolvedItalic fall back to the run's own value (null here).
 	test('a placeholder run with no own @b resolves inherited bold from the master text style', async () => {
 		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'inherited-title')
 		const run = shape.textFrame.paragraphs[0].runs[0]
@@ -541,6 +542,26 @@ describe('Placeholder-inherited run bold — real PowerPoint XML', () => {
 		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.resolvedBold, null, 'no own @b and no placeholder chain to inherit from')
+	})
+
+	test('a placeholder run with no own @i resolves inherited italic from the master text style', async () => {
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'inherited-title')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.italic, null, 'the run sets no own @i')
+		assertEqual(run.resolvedItalic, false, 'inherits titleStyle i="0" from the master (explicit upright, not null)')
+	})
+
+	test('a body placeholder run also resolves its inherited italic', async () => {
+		const shape = shapeNamed((await openFixture('multi-theme')).slides[1], 'explicit-body')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.italic, null, 'the run sets no own @i')
+		assertEqual(run.resolvedItalic, false, 'inherits bodyStyle lvl1 i="0" from the master')
+	})
+
+	test('a non-placeholder run reports no inherited italic (own value governs)', async () => {
+		const shape = shapeNamed((await openFixture('theme-colors')).slides[0], 'text-accent5-run')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.resolvedItalic, null, 'no own @i and no placeholder chain to inherit from')
 	})
 })
 

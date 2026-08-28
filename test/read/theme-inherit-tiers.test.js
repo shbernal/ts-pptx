@@ -128,7 +128,7 @@ describe('resolveInheritedRunColor — the two upper tiers', () => {
 	})
 })
 
-describe('inherited run size / face / bold — the two upper tiers', () => {
+describe('inherited run size / face / bold / italic — the two upper tiers', () => {
 	test('size: paragraph defRPr @sz, then lstStyle level @sz', () => {
 		assertEqual(
 			firstRun(placeholderFrame(`<a:p><a:pPr><a:defRPr sz="3600"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`))
@@ -181,11 +181,71 @@ describe('inherited run size / face / bold — the two upper tiers', () => {
 		assertEqual(run.resolvedBold, true, 'bold still comes from the paragraph tier that defines it')
 	})
 
-	test('nothing in the chain defines size/face/bold → each resolves null', () => {
+	test('italic: a paragraph defRPr @i="1" resolves to an inherited true', () => {
+		assertEqual(
+			firstRun(placeholderFrame(`<a:p><a:pPr><a:defRPr i="1"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`)).resolvedItalic,
+			true,
+			'inherits an explicit italic from the paragraph defRPr'
+		)
+	})
+
+	test('italic: the lstStyle level defRPr is the second tier, and @b/@i resolve independently', () => {
+		// The paragraph tier states only @b, so italic must fall through it to the
+		// lstStyle tier below — the same present-but-silent fall-through bold gets.
+		const run = firstRun(
+			placeholderFrame(
+				`<a:lstStyle><a:lvl1pPr><a:defRPr i="1"/></a:lvl1pPr></a:lstStyle>` +
+					`<a:p><a:pPr><a:defRPr b="1"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`
+			)
+		)
+		assertEqual(run.resolvedBold, true, 'bold comes from the paragraph tier that states it')
+		assertEqual(run.resolvedItalic, true, 'italic skips the i-less paragraph tier for the lstStyle tier')
+	})
+
+	test('italic: an explicit @i="0" in an upper tier wins over an italic tier below it', () => {
+		const run = firstRun(
+			placeholderFrame(
+				`<a:lstStyle><a:lvl1pPr><a:defRPr i="1"/></a:lvl1pPr></a:lstStyle>` +
+					`<a:p><a:pPr><a:defRPr i="0"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`
+			)
+		)
+		assertEqual(run.resolvedItalic, false, 'the first tier that states @i governs, false included')
+	})
+
+	test("italic: the run's own @i governs over every inherited tier", () => {
+		const run = firstRun(
+			placeholderFrame(`<a:p><a:pPr><a:defRPr i="1"/></a:pPr><a:r><a:rPr i="0"/><a:t>x</a:t></a:r></a:p>`)
+		)
+		assertEqual(run.italic, false, 'the run states its own @i')
+		assertEqual(run.resolvedItalic, false, "the run's own value is not overridden by the chain")
+	})
+
+	test('nothing in the chain defines size/face/bold/italic → each resolves null', () => {
 		const run = firstRun(placeholderFrame(`<a:p><a:r><a:t>x</a:t></a:r></a:p>`))
 		assertEqual(run.resolvedSizePt, null, 'no @sz anywhere → null')
 		assertEqual(run.resolvedFontFace, null, 'no a:latin anywhere → null')
 		assertEqual(run.resolvedBold, null, 'no @b anywhere → null')
+		assertEqual(run.resolvedItalic, null, 'no @i anywhere → null')
+	})
+
+	test('a non-placeholder run reports null, never undefined', () => {
+		// `TextFrame` builds the inheritance thunks only for placeholder text, so a
+		// plain text box reaches no tier at all. The point here is the *shape* of the
+		// answer: `resolvedItalic` degrades to `null` like `resolvedBold`, rather than
+		// being an absent accessor — which is the whole defect issue #27 reported.
+		const frame = new TextFrame(
+			txBodyEl(`<a:p><a:pPr><a:defRPr b="1" i="1"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`),
+			/** @type {any} */ ({}),
+			ctx()
+		)
+		const run = firstRun(frame)
+		assertEqual(run.resolvedBold, null, 'no inheritance thunk → null')
+		assertEqual(run.resolvedItalic, null, 'italic degrades identically, not to undefined')
+	})
+
+	test('an unparseable @i is reported as unknown rather than read as false', () => {
+		const run = firstRun(placeholderFrame(`<a:p><a:pPr><a:defRPr i="yes"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`))
+		assertEqual(run.resolvedItalic, null, 'a non-xsd:boolean @i resolves null, matching Run.italic')
 	})
 })
 

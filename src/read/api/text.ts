@@ -30,6 +30,7 @@ import {
 	resolveColorElement,
 	resolveInheritedAnchor,
 	resolveInheritedRunBold,
+	resolveInheritedRunItalic,
 	resolveInheritedRunColor,
 	resolveInheritedRunFontFace,
 	resolveInheritedRunSize,
@@ -202,6 +203,12 @@ export class Run {
 		 * for non-placeholder runs. Called lazily.
 		 */
 		private readonly inheritedBold?: () => boolean | null,
+		/**
+		 * Resolves whether this run inherits italic from the same chain when it sets no
+		 * own `@i`. Built by the owning {@link Paragraph} for placeholder text; absent
+		 * for non-placeholder runs. Called lazily.
+		 */
+		private readonly inheritedItalic?: () => boolean | null,
 		/**
 		 * The owning part's relationships, used to resolve a run hyperlink's `@r:id`
 		 * to its external URL or internal target partname. Absent when the run was
@@ -460,6 +467,20 @@ export class Run {
 		return this.bold ?? this.inheritedBold?.() ?? null
 	}
 
+	/**
+	 * Whether this run effectively renders italic. It is the run's own `@i`
+	 * ({@link italic}) when set; otherwise, for a run inside a placeholder, the italic
+	 * state it inherits from the placeholder/list-style chain (paragraph `a:defRPr` →
+	 * slide `a:lstStyle` → layout → master placeholder `a:lstStyle` → master
+	 * `p:txStyles`). `null` when the run sets no `@i` and inherits none — the
+	 * resolved counterpart of {@link italic}, and the twin of {@link resolvedBold}:
+	 * `@b` and `@i` are siblings a master text style states together, so a deck that
+	 * can be authored with an inherited italic can be read back with one.
+	 */
+	get resolvedItalic(): boolean | null {
+		return this.italic ?? this.inheritedItalic?.() ?? null
+	}
+
 	/** Escape hatch: the underlying `a:r` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.element
@@ -547,6 +568,9 @@ export class Paragraph {
 		const inheritedBold = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
 			resolveInheritedRunBold(ph, level, pPr, slideLst, ctx)
 		)
+		const inheritedItalic = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
+			resolveInheritedRunItalic(ph, level, pPr, slideLst, ctx)
+		)
 		const fontRef = this.inherit?.placeholder.fontRef ?? null
 		return getElements(this.element, 'a:r').map(
 			(element) =>
@@ -558,6 +582,7 @@ export class Paragraph {
 					inheritedSize,
 					inheritedFace,
 					inheritedBold,
+					inheritedItalic,
 					this.relationships,
 					fontRef
 				)
@@ -578,7 +603,7 @@ export class Paragraph {
 
 	/**
 	 * Build a memoized per-paragraph thunk for one inherited run property
-	 * (colour/size/face), or `undefined` for non-placeholder paragraphs. All runs in
+	 * (colour/size/face/bold/italic), or `undefined` for non-placeholder paragraphs. All runs in
 	 * a paragraph share its level and `a:pPr`, so each `resolve` runs at most once
 	 * and only when a run actually lacks its own value and asks.
 	 */
