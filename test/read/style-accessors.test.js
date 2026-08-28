@@ -289,6 +289,37 @@ describe('GradientStop.resolvedColor — the transform list survives the read (o
 		assert(stop.resolvedColor.effectiveHex !== '1E5155', 'the transforms actually moved the colour')
 	})
 
+	test('the three colour models beyond srgb/scheme resolve, and a preset reports its raw name', () => {
+		// `a:CT_GradientStop` is a sequence of exactly one `a:EG_ColorChoice` (six
+		// members, min=1 max=1), so the stop's colour is whichever element sits there.
+		// The reader used to hunt for `a:srgbClr`/`a:schemeClr` by name, so a stop
+		// written in any of the other models came back blank in every field even
+		// though `resolveColorElement` resolves five of the six everywhere else. No
+		// fixture in the read corpus carries one, and the write API has no option that
+		// emits one, so the evidence here is the schema plus the preset table
+		// (`preset-color.test.js`), not a PowerPoint-authored deck.
+		const shape = spGrad(
+			'<p:spPr><a:gradFill><a:gsLst>' +
+				'<a:gs pos="0"><a:prstClr val="cornflowerBlue"><a:lumMod val="75000"/></a:prstClr></a:gs>' +
+				'<a:gs pos="50000"><a:sysClr val="windowText" lastClr="000000"/></a:gs>' +
+				'<a:gs pos="100000"><a:hslClr hue="0" sat="0%" lum="100%"/></a:gs>' +
+				'</a:gsLst></a:gradFill></p:spPr>'
+		)
+		const [preset, sys, hsl] = shape.gradientStops
+
+		assertEqual(preset.presetColor, 'cornflowerBlue', 'the raw prstClr name is reported')
+		assertEqual(preset.color, null, 'a preset stop states no srgb colour')
+		assertEqual(preset.schemeColor, null, 'nor a scheme token')
+		assertEqual(preset.resolvedColor.hex, '6495ED', 'cornflowerBlue resolves through the ECMA preset table')
+		assertEqual(preset.resolvedColor.transforms.length, 1, 'and its transform child survives')
+
+		// sysClr and hslClr have no raw field of their own: they are reported through
+		// resolvedColor alone, which is stated on the interface rather than inferred.
+		assertEqual(sys.presetColor, null, 'a sysClr stop names no preset')
+		assertEqual(sys.effectiveHex, '000000', 'sysClr resolves through @lastClr')
+		assertEqual(hsl.effectiveHex, 'FFFFFF', 'hslClr at lum 100% is white')
+	})
+
 	test('an unresolvable stop colour reports a null resolvedColor rather than an empty one', () => {
 		// With no clrScheme entry the token cannot be made literal. Reporting `null`
 		// keeps "could not see it" distinct from "there was nothing to see".

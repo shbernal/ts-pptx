@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A gradient stop reads every colour model the reader resolves, and reports a preset
+  name** (`ts-pptx/read`). `readGradientStops` hunted for `a:srgbClr` and `a:schemeClr` by
+  tag name, so a stop written as `a:prstClr`, `a:sysClr` or `a:hslClr` came back blank in
+  every field — `color`, `schemeColor`, `effectiveHex` all `null` — even though
+  `resolveColorElement` resolves five of the six models everywhere else, and even though
+  the `a:prstClr`/`a:hslClr` work above claims gradients among the places it reaches. It
+  did not reach this one.
+
+  `a:CT_GradientStop` is a sequence of exactly one `a:EG_ColorChoice`, so the stop's colour
+  is whichever element sits in that slot; it is read by position now rather than by name,
+  and every model the resolver handles arrives.
+
+  **`GradientStop.presetColor` now exists.** Three places already documented it — the
+  `presetColorHex` export note above, and the `RecolorColor` cross-references that describe
+  themselves as mirroring "the {@link GradientStop} split
+  (`color`/`schemeColor`/`presetColor`)" — against a type that had no such field. It is the
+  raw `a:prstClr/@val`, matching the raw/resolved split the rest of the read model uses. A
+  stop written as `a:sysClr` or `a:hslClr` has no raw field of its own and is reported
+  through `resolvedColor` alone, which the interface now states rather than leaving to be
+  inferred from three `null`s.
+
+  Downstream, the script converter drops a stop it cannot resolve and falls back to no
+  gradient below two stops, so a deck whose gradient used any of these models silently lost
+  it; those stops now convert.
+
 - **`GradientStop.resolvedColor` and `CellBorder.resolvedColor`** (`ts-pptx/read`). A
   `ResolvedColor` keeps three things: the base `hex`, the raw `transforms` list, and the
   `effectiveHex` after applying them. Two other places read a colour through the same

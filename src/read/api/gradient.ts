@@ -4,7 +4,7 @@
  * into its stops (colour + position) plus the linear/path geometry, resolving each
  * stop's colour against the slide theme.
  */
-import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { attr, firstChild, firstChildElement, getElements, intValue, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
@@ -13,10 +13,24 @@ import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
 export interface GradientStop {
 	/** Stop offset along the gradient, 0–1 (from `@pos`, thousandths of a percent), or `null` if unset. */
 	position: number | null
-	/** Explicit RGB colour as 6-hex (`a:srgbClr/@val`), or `null` when the stop uses a scheme colour. */
+	/** Explicit RGB colour as 6-hex (`a:srgbClr/@val`), or `null` when the stop uses another colour model. */
 	color: string | null
-	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
+	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses another colour model. */
 	schemeColor: string | null
+	/**
+	 * Preset colour name (`a:prstClr/@val`, e.g. `black`/`cornflowerBlue` — the
+	 * ECMA-376 §20.1.10.47 table), or `null` when the stop uses another colour
+	 * model. The same raw/resolved split {@link import('./shapes/types.js').RecolorColor}
+	 * uses; {@link import('../oxml/preset-color.js').presetColorHex}, exported from
+	 * `ts-pptx/read`, makes one literal.
+	 *
+	 * These three raw fields name three of the five colour models the reader
+	 * resolves. A stop written as `a:sysClr` or `a:hslClr` leaves all three `null`
+	 * and is reported through {@link resolvedColor} alone, which is the only place
+	 * its colour appears; `a:scrgbClr`, which the reader deliberately does not
+	 * resolve, leaves {@link resolvedColor} `null` too.
+	 */
+	presetColor: string | null
 	/**
 	 * The stop's colour as a full {@link ResolvedColor} — base `hex`, the raw
 	 * `transforms` list (`lumMod`/`shade`/…) in document order, and the
@@ -74,14 +88,22 @@ export function readGradientStops(container: Element, ctx: ColorContext): Gradie
 	const gsLst = firstChild(grad, 'a:gsLst')
 	if (!gsLst) return []
 	return getElements(gsLst, 'a:gs').map((gs) => {
+		// `a:gs` holds exactly one `a:EG_ColorChoice` child, so the stop's colour is
+		// whichever element that is. Reading it by *position* rather than by hunting
+		// for two known tag names is what lets every model `resolveColorElement`
+		// handles reach the resolver: a `a:prstClr`/`a:sysClr`/`a:hslClr` stop used to
+		// come back blank in every field, though the reader resolves all three
+		// everywhere else.
+		const colorEl = firstChildElement(gs)
+		const model = colorEl?.localName ?? null
 		const pos = intValue(attr(gs, 'pos'))
-		const srgb = firstChild(gs, 'a:srgbClr')
-		const scheme = firstChild(gs, 'a:schemeClr')
-		const resolved = resolveColorElement(srgb ?? scheme ?? null, ctx)
+		const resolved = resolveColorElement(colorEl, ctx)
+		const rawOf = (local: string) => (colorEl && model === local ? attr(colorEl, 'val') : null)
 		return {
 			position: pos === null ? null : pos / PERCENT_SCALE,
-			color: srgb ? attr(srgb, 'val') : null,
-			schemeColor: scheme ? attr(scheme, 'val') : null,
+			color: rawOf('srgbClr'),
+			schemeColor: rawOf('schemeClr'),
+			presetColor: rawOf('prstClr'),
 			resolvedColor: resolved,
 			effectiveHex: resolved ? resolved.effectiveHex : null,
 			...(resolved?.alpha !== undefined ? { alpha: resolved.alpha } : {}),
