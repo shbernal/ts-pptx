@@ -26,7 +26,7 @@ import {
 	XML_DECL,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
-import type { ShapeFillProps } from '../../types/index.js'
+import type { BorderProps, ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
 import { encodeXmlEntities } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
@@ -34,7 +34,7 @@ import { resolveBorderWidth } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { createChartTextFonts, genXmlTitle } from './chart-parts.js'
+import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
 import { makeCatAxis, makeSerAxis, makeValAxis } from './chart-axes.js'
 import { makeCatAxisPlot } from './plot-cat-axis.js'
 import { makeScatterPlot } from './plot-scatter.js'
@@ -43,6 +43,13 @@ import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
+
+/** The three namespaces every `<c:chartSpace>` declares, in the order PowerPoint writes them. */
+const CHART_SPACE_NS = {
+	'xmlns:c': 'http://schemas.openxmlformats.org/drawingml/2006/chart',
+	'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+	'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+}
 
 /**
  * Whether a chart-area/plot-area `fill` says anything the fill dispatch can act on.
@@ -67,79 +74,70 @@ function isStatedFill(fill?: ShapeFillProps): fill is ShapeFillProps {
 }
 
 /**
- * Build the chartSpace/chart header: chartSpace open, title (or autoTitleDeleted),
- * optional 3D view, and the plotArea open with optional manual layout.
+ * The chart title (or the `autoTitleDeleted` flag that suppresses PowerPoint's default one)
+ * followed by the 3-D scene, for the two families that plot into one.
  */
 function makeChartHeaderXml(rel: SlideRelChart): string {
-	const chartArea = rel.opts.chartArea ?? {}
-	let strXml = ''
-	// CHARTSPACE: BEGIN vvv
-	strXml +=
-		'<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-	strXml += voidEl('c:date1904', { val: 0 }) // ppt defaults to 1904 dates, excel to 1900
-	strXml += voidEl('c:roundedCorners', { val: chartArea.roundedCorners ? 1 : 0 })
-	strXml += '<c:chart>'
-
-	// OPTION: Title
-	if (rel.opts.showTitle) {
-		strXml += genXmlTitle(
-			{
-				title: rel.opts.title || 'Chart Title',
-				color: rel.opts.titleColor,
-				fontFace: rel.opts.titleFontFace,
-				fontSize: rel.opts.titleFontSize || DEF_FONT_TITLE_SIZE,
-				titleAlign: rel.opts.titleAlign,
-				titleBold: rel.opts.titleBold,
-				titleItalic: rel.opts.titleItalic,
-				titleUnderline: rel.opts.titleUnderline,
-				titlePos: rel.opts.titlePos,
-				titleRotate: rel.opts.titleRotate,
-			},
-			rel.opts.x as number,
-			rel.opts.y as number
-		)
-		strXml += voidEl('c:autoTitleDeleted', { val: 0 })
-	} else {
-		// NOTE: Add autoTitleDeleted tag in else to prevent default creation of chart title even when showTitle is set to false
-		strXml += voidEl('c:autoTitleDeleted', { val: 1 })
-	}
-	/** Add 3D view tag
-	 * @see: https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_perspective_topic_ID0E6BUQB.html
-	 */
+	// NOTE: `autoTitleDeleted` is emitted in both arms — without it PowerPoint creates a default
+	// chart title even when `showTitle` is false.
+	const title = rel.opts.showTitle
+		? genXmlTitle(
+				{
+					title: rel.opts.title || 'Chart Title',
+					color: rel.opts.titleColor,
+					fontFace: rel.opts.titleFontFace,
+					fontSize: rel.opts.titleFontSize || DEF_FONT_TITLE_SIZE,
+					titleAlign: rel.opts.titleAlign,
+					titleBold: rel.opts.titleBold,
+					titleItalic: rel.opts.titleItalic,
+					titleUnderline: rel.opts.titleUnderline,
+					titlePos: rel.opts.titlePos,
+					titleRotate: rel.opts.titleRotate,
+				},
+				rel.opts.x as number,
+				rel.opts.y as number
+			) + voidEl('c:autoTitleDeleted', { val: 0 })
+		: voidEl('c:autoTitleDeleted', { val: 1 })
+	// 3-D view: https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_perspective_topic_ID0E6BUQB.html
 	if (rel.opts._type === ChartType.bar3d) {
-		strXml += el('c:view3D', null, [
-			raw(voidEl('c:rotX', { val: rel.opts.v3DRotX })),
-			raw(voidEl('c:rotY', { val: rel.opts.v3DRotY })),
-			raw(voidEl('c:rAngAx', { val: !rel.opts.v3DRAngAx ? 0 : 1 })),
-			raw(voidEl('c:perspective', { val: rel.opts.v3DPerspective })),
-		])
-	} else if (rel.opts._type === ChartType.surface) {
-		// A surface chart is a 3-D scene: view3D + floor/side/back walls precede the plotArea.
-		strXml += makeSurfaceScene(rel.opts)
-	}
-
-	strXml += '<c:plotArea>'
-	// IMPORTANT: Dont specify layout to enable auto-fit: PPT does a great job maximizing space with all 4 TRBL locations
-	if (rel.opts.layout) {
-		const manualLayout = el(
-			'c:manualLayout',
-			null,
-			[
-				raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
-				raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
-				raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
-				raw(voidEl('c:x', { val: rel.opts.layout.x || 0 }, { closePrefix: ' ' })),
-				raw(voidEl('c:y', { val: rel.opts.layout.y || 0 }, { closePrefix: ' ' })),
-				raw(voidEl('c:w', { val: rel.opts.layout.w || 1 }, { closePrefix: ' ' })),
-				raw(voidEl('c:h', { val: rel.opts.layout.h || 1 }, { closePrefix: ' ' })),
-			],
-			{ childPrefix: '  ', closePrefix: ' ' }
+		return (
+			title +
+			el('c:view3D', null, [
+				raw(voidEl('c:rotX', { val: rel.opts.v3DRotX })),
+				raw(voidEl('c:rotY', { val: rel.opts.v3DRotY })),
+				raw(voidEl('c:rAngAx', { val: !rel.opts.v3DRAngAx ? 0 : 1 })),
+				raw(voidEl('c:perspective', { val: rel.opts.v3DPerspective })),
+			])
 		)
-		strXml += el('c:layout', null, raw(manualLayout), { childPrefix: ' ' })
-	} else {
-		strXml += voidEl('c:layout')
 	}
-	return strXml
+	// A surface chart is a 3-D scene: view3D + floor/side/back walls precede the plotArea.
+	if (rel.opts._type === ChartType.surface) return title + makeSurfaceScene(rel.opts)
+	return title
+}
+
+/**
+ * The plot area's `<c:layout>`. Manual layout is emitted only when the caller asked for one:
+ * an empty `<c:layout/>` lets PowerPoint auto-fit, which it does well across all four TRBL
+ * legend positions.
+ */
+function makePlotAreaLayoutXml(rel: SlideRelChart): string {
+	const layout = rel.opts.layout
+	if (!layout) return voidEl('c:layout')
+	const manualLayout = el(
+		'c:manualLayout',
+		null,
+		[
+			raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
+			raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
+			raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
+			raw(voidEl('c:x', { val: layout.x || 0 }, { closePrefix: ' ' })),
+			raw(voidEl('c:y', { val: layout.y || 0 }, { closePrefix: ' ' })),
+			raw(voidEl('c:w', { val: layout.w || 1 }, { closePrefix: ' ' })),
+			raw(voidEl('c:h', { val: layout.h || 1 }, { closePrefix: ' ' })),
+		],
+		{ childPrefix: '  ', closePrefix: ' ' }
+	)
+	return el('c:layout', null, raw(manualLayout), { childPrefix: ' ' })
 }
 
 /**
@@ -262,123 +260,194 @@ function makeChartAxesXml(
 }
 
 /**
- * Build the plotArea properties (data table, fill, border), close plotArea, then the legend.
+ * The `<c:spPr>` shared by the plot area and the chart space: a stated fill or none, a border
+ * or an explicit no-line, and an empty effect list. The two differ only in how far in they are
+ * indented, which is what `fmt` and `effectIndent` carry.
  */
-function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
-	const plotArea = rel.opts.plotArea ?? {}
-	let strXml = ''
-	// NOTE: DataTable goes between '</c:valAx>' and '<c:spPr>'
-	if (rel.opts.showDataTable) {
-		strXml += '<c:dTable>'
-		strXml += `  <c:showHorzBorder val="${!rel.opts.showDataTableHorzBorder ? 0 : 1}"/>`
-		strXml += `  <c:showVertBorder val="${!rel.opts.showDataTableVertBorder ? 0 : 1}"/>`
-		strXml += `  <c:showOutline    val="${!rel.opts.showDataTableOutline ? 0 : 1}"/>`
-		strXml += `  <c:showKeys       val="${!rel.opts.showDataTableKeys ? 0 : 1}"/>`
-		strXml += '  <c:spPr>'
-		strXml += '    <a:noFill/>'
-		strXml +=
-			'    <a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="tx1"><a:lumMod val="15000"/><a:lumOff val="85000"/></a:schemeClr></a:solidFill><a:round/></a:ln>'
-		strXml += '    <a:effectLst/>'
-		strXml += '  </c:spPr>'
-		strXml += '  <c:txPr>'
-		strXml +=
-			'   <a:bodyPr rot="0" spcFirstLastPara="1" vertOverflow="ellipsis" vert="horz" wrap="square" anchor="ctr" anchorCtr="1"/>'
-		strXml += '   <a:lstStyle/>'
-		strXml += '   <a:p>'
-		strXml += '     <a:pPr rtl="0">'
-		strXml += `       <a:defRPr sz="${ptToHundredths(rel.opts.dataTableFontSize || DEF_FONT_SIZE)}" b="0" i="0" u="none" strike="noStrike" kern="1200" baseline="0">`
-		strXml +=
-			'         <a:solidFill><a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr></a:solidFill>'
-		strXml += '         <a:latin typeface="+mn-lt"/>'
-		strXml += '         <a:ea typeface="+mn-ea"/>'
-		strXml += '         <a:cs typeface="+mn-cs"/>'
-		strXml += '       </a:defRPr>'
-		strXml += '     </a:pPr>'
-		strXml += '    <a:endParaRPr lang="en-US"/>'
-		strXml += '   </a:p>'
-		strXml += ' </c:txPr>'
-		strXml += '</c:dTable>'
-	}
+function chartShapeProps(
+	fill: ShapeFillProps | undefined,
+	border: BorderProps | undefined,
+	effectIndent: string,
+	fmt: { openPrefix?: string; closePrefix?: string }
+): string {
+	return el(
+		'c:spPr',
+		null,
+		[
+			raw(isStatedFill(fill) ? genXmlColorSelection(fill) : voidEl('a:noFill')),
+			raw(
+				border
+					? el(
+							'a:ln',
+							{ w: ptsToEmuLenient(resolveBorderWidth(border, 1)), cap: 'flat' },
+							raw(genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }))
+						)
+					: el('a:ln', null, raw(voidEl('a:noFill')))
+			),
+			raw(voidEl('a:effectLst', null, { openPrefix: effectIndent })),
+		],
+		fmt
+	)
+}
 
-	strXml += '  <c:spPr>'
+/**
+ * The `<c:dTable>` grid drawn under the plot. Sits between the last `</c:valAx>` and the plot
+ * area's own `<c:spPr>`.
+ */
+function makeDataTableXml(rel: SlideRelChart): string {
+	const spPr = el(
+		'c:spPr',
+		null,
+		[
+			raw(voidEl('a:noFill', null, { openPrefix: '    ' })),
+			raw(dimmedTextLine(15000, 85000, { openPrefix: '    ' })),
+			raw(voidEl('a:effectLst', null, { openPrefix: '    ' })),
+		],
+		{ openPrefix: '  ', closePrefix: '  ' }
+	)
+	const defRPr = el(
+		'a:defRPr',
+		{
+			sz: ptToHundredths(rel.opts.dataTableFontSize || DEF_FONT_SIZE),
+			b: 0,
+			i: 0,
+			u: 'none',
+			strike: 'noStrike',
+			kern: 1200,
+			baseline: 0,
+		},
+		[
+			raw('         ' + dimmedTextFill(65000, 35000)),
+			raw(voidEl('a:latin', { typeface: '+mn-lt' }, { openPrefix: '         ' })),
+			raw(voidEl('a:ea', { typeface: '+mn-ea' }, { openPrefix: '         ' })),
+			raw(voidEl('a:cs', { typeface: '+mn-cs' }, { openPrefix: '         ' })),
+		],
+		{ openPrefix: '       ', closePrefix: '       ' }
+	)
+	const txPr = el(
+		'c:txPr',
+		null,
+		[
+			raw(
+				voidEl(
+					'a:bodyPr',
+					{
+						rot: 0,
+						spcFirstLastPara: 1,
+						vertOverflow: 'ellipsis',
+						vert: 'horz',
+						wrap: 'square',
+						anchor: 'ctr',
+						anchorCtr: 1,
+					},
+					{ openPrefix: '   ' }
+				)
+			),
+			raw(voidEl('a:lstStyle', null, { openPrefix: '   ' })),
+			raw(
+				el(
+					'a:p',
+					null,
+					[
+						raw(el('a:pPr', { rtl: 0 }, raw(defRPr), { openPrefix: '     ', closePrefix: '     ' })),
+						raw(voidEl('a:endParaRPr', { lang: 'en-US' }, { openPrefix: '    ' })),
+					],
+					{ openPrefix: '   ', closePrefix: '   ' }
+				)
+			),
+		],
+		{ openPrefix: '  ', closePrefix: ' ' }
+	)
+	return el('c:dTable', null, [
+		raw(voidEl('c:showHorzBorder', { val: !rel.opts.showDataTableHorzBorder ? 0 : 1 }, { openPrefix: '  ' })),
+		raw(voidEl('c:showVertBorder', { val: !rel.opts.showDataTableVertBorder ? 0 : 1 }, { openPrefix: '  ' })),
+		// These two `val` attributes were written padded into a column with the two above, and that
+		// padding is emitted bytes. `el()` writes exactly one space before an attribute, by design,
+		// so the aligned pair stays hand-written rather than bending the builder around a cosmetic
+		// quirk. See FOLLOW-UPS `[dtable-flag-alignment]`.
+		raw(`  <c:showOutline    val="${!rel.opts.showDataTableOutline ? 0 : 1}"/>`),
+		raw(`  <c:showKeys       val="${!rel.opts.showDataTableKeys ? 0 : 1}"/>`),
+		raw(spPr),
+		raw(txPr),
+	])
+}
 
-	// OPTION: Fill
-	strXml += isStatedFill(plotArea.fill) ? genXmlColorSelection(plotArea.fill) : '<a:noFill/>'
-
-	// OPTION: Border
-	strXml += plotArea.border
-		? `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(plotArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: plotArea.border.color ?? '363636', transparency: plotArea.border.transparency })}</a:ln>`
-		: '<a:ln><a:noFill/></a:ln>'
-
-	// Close shapeProp/plotArea before Legend
-	strXml += '    <a:effectLst/>'
-	strXml += '  </c:spPr>'
-	strXml += '</c:plotArea>'
-
-	// OPTION: Legend
-	// IMPORTANT: Dont specify layout to enable auto-fit: PPT does a great job maximizing space with all 4 TRBL locations
-	if (rel.opts.showLegend) {
-		strXml += '<c:legend>'
-		strXml += '<c:legendPos val="' + rel.opts.legendPos + '"/>'
-		// For combo charts: suppress series from subcharts that set showLegend: false
-		if (Array.isArray(rel.opts._type)) {
-			let seriesIdx = 0
-			rel.opts._type.forEach((type) => {
-				if (type.options?.showLegend === false) {
-					for (let i = 0; i < type.data.length; i++) {
-						strXml += `<c:legendEntry><c:idx val="${seriesIdx + i}"/><c:delete val="1"/></c:legendEntry>`
-					}
+/**
+ * The `<c:legend>`: position, the entries a combo chart deletes, an optional manual placement,
+ * and the text properties when any legend font option is set.
+ */
+function makeLegendXml(rel: SlideRelChart): string {
+	// For combo charts: suppress the series belonging to subcharts that set `showLegend: false`.
+	let entries = ''
+	if (Array.isArray(rel.opts._type)) {
+		let seriesIdx = 0
+		for (const type of rel.opts._type) {
+			if (type.options?.showLegend === false) {
+				for (let i = 0; i < type.data.length; i++) {
+					entries += el('c:legendEntry', null, [
+						raw(voidEl('c:idx', { val: seriesIdx + i })),
+						raw(voidEl('c:delete', { val: 1 })),
+					])
 				}
-				seriesIdx += type.data.length
-			})
-		}
-		// OPTION: Manual legend placement
-		// Each axis of CT_ManualLayout is independent: omitting xMode/x (or
-		// yMode/y, etc.) leaves that axis on automatic layout. x/y use edge
-		// mode so they are absolute fractions of the chart; w/h are fractions
-		// of the chart size. Schema order: xMode, yMode, x, y, w, h.
-		const legendLayout = rel.opts.legendLayout
-		const hasLegendX = legendLayout && typeof legendLayout.x === 'number'
-		const hasLegendY = legendLayout && typeof legendLayout.y === 'number'
-		const hasLegendW = legendLayout && typeof legendLayout.w === 'number'
-		const hasLegendH = legendLayout && typeof legendLayout.h === 'number'
-		if (hasLegendX || hasLegendY || hasLegendW || hasLegendH) {
-			let modes = ''
-			let vals = ''
-			if (hasLegendX) {
-				modes += '<c:xMode val="edge"/>'
-				vals += `<c:x val="${legendLayout.x}"/>`
 			}
-			if (hasLegendY) {
-				modes += '<c:yMode val="edge"/>'
-				vals += `<c:y val="${legendLayout.y}"/>`
-			}
-			if (hasLegendW) vals += `<c:w val="${legendLayout.w}"/>`
-			if (hasLegendH) vals += `<c:h val="${legendLayout.h}"/>`
-			strXml += `<c:layout><c:manualLayout>${modes}${vals}</c:manualLayout></c:layout>`
+			seriesIdx += type.data.length
 		}
-		strXml += '<c:overlay val="0"/>'
-		if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
-			strXml += '<c:txPr>'
-			strXml += '  <a:bodyPr/>'
-			strXml += '  <a:lstStyle/>'
-			strXml += '  <a:p>'
-			strXml += '    <a:pPr>'
-			// No `Number()` here, and none at the ten sibling font-size options either: the
-			// option is typed `number`, and a caller from untyped JS who passes a string now
-			// gets `coord/non-finite` from the converter rather than a silent coercion.
-			strXml += rel.opts.legendFontSize ? `<a:defRPr sz="${ptToHundredths(rel.opts.legendFontSize)}">` : '<a:defRPr>'
-			if (rel.opts.legendColor) strXml += genXmlColorSelection(rel.opts.legendColor)
-			if (rel.opts.legendFontFace) strXml += createChartTextFonts(rel.opts.legendFontFace)
-			strXml += '      </a:defRPr>'
-			strXml += '    </a:pPr>'
-			strXml += '    <a:endParaRPr lang="en-US"/>'
-			strXml += '  </a:p>'
-			strXml += '</c:txPr>'
-		}
-		strXml += '</c:legend>'
 	}
-	return strXml
+
+	// Manual legend placement. Each axis of CT_ManualLayout is independent: omitting xMode/x (or
+	// yMode/y, etc.) leaves that axis on automatic layout. x/y use edge mode so they are absolute
+	// fractions of the chart; w/h are fractions of the chart size. Schema order: xMode, yMode, x, y, w, h.
+	const legendLayout = rel.opts.legendLayout
+	const placed = (key: 'x' | 'y' | 'w' | 'h'): boolean => typeof legendLayout?.[key] === 'number'
+	let layout = ''
+	if (placed('x') || placed('y') || placed('w') || placed('h')) {
+		const modes =
+			(placed('x') ? voidEl('c:xMode', { val: 'edge' }) : '') + (placed('y') ? voidEl('c:yMode', { val: 'edge' }) : '')
+		const vals = (['x', 'y', 'w', 'h'] as const)
+			.filter(placed)
+			.map((key) => voidEl(`c:${key}`, { val: legendLayout?.[key] }))
+			.join('')
+		layout = el('c:layout', null, raw(el('c:manualLayout', null, raw(modes + vals))))
+	}
+
+	let txPr = ''
+	if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
+		// No `Number()` here, and none at the ten sibling font-size options either: the
+		// option is typed `number`, and a caller from untyped JS who passes a string now
+		// gets `coord/non-finite` from the converter rather than a silent coercion.
+		const defRPr = el(
+			'a:defRPr',
+			{ sz: rel.opts.legendFontSize ? ptToHundredths(rel.opts.legendFontSize) : undefined },
+			[
+				raw(rel.opts.legendColor ? genXmlColorSelection(rel.opts.legendColor) : ''),
+				raw(rel.opts.legendFontFace ? createChartTextFonts(rel.opts.legendFontFace) : ''),
+			],
+			{ closePrefix: '      ' }
+		)
+		txPr = el('c:txPr', null, [
+			raw(voidEl('a:bodyPr', null, { openPrefix: '  ' })),
+			raw(voidEl('a:lstStyle', null, { openPrefix: '  ' })),
+			raw(
+				el(
+					'a:p',
+					null,
+					[
+						raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: '    ' })),
+						raw(voidEl('a:endParaRPr', { lang: 'en-US' }, { openPrefix: '    ' })),
+					],
+					{ openPrefix: '  ', closePrefix: '  ' }
+				)
+			),
+		])
+	}
+
+	return el('c:legend', null, [
+		raw(voidEl('c:legendPos', { val: rel.opts.legendPos })),
+		raw(entries),
+		raw(layout),
+		raw(voidEl('c:overlay', { val: 0 })),
+		raw(txPr),
+	])
 }
 
 /**
@@ -388,9 +457,9 @@ function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
  * @return {string} XML
  */
 export function makeXmlCharts(rel: SlideRelChart): string {
-	let strXml = XML_DECL
 	// `chartArea`/`plotArea` are always populated by addChartDefinition() but stay optional on the type.
 	const chartArea = rel.opts.chartArea ?? {}
+	const plotAreaOpts = rel.opts.plotArea ?? {}
 	let usesSecondaryValAxis = false
 	let usesSecondaryCatAxis = false
 	// Combo charts: a scatter/bubble subchart draws numbers on its category (X)
@@ -403,12 +472,10 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	let primaryCatAxisHasCategoryChart = false
 	let secondaryCatAxisHasCategoryChart = false
 
-	// STEP 1: Create chart
-	strXml += makeChartHeaderXml(rel)
-
-	// STEP 2: Create chart-type XML (plot each subchart's series/points)
+	// STEP 1: the plot for every subchart's series and points.
+	let plots = ''
 	if (Array.isArray(rel.opts._type)) {
-		rel.opts._type.forEach((type) => {
+		for (const type of rel.opts._type) {
 			const options = { ...rel.opts, ...type.options }
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
@@ -426,14 +493,14 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 				if (usesValueXAxis) primaryCatAxisValType = subType
 				else primaryCatAxisHasCategoryChart = true
 			}
-			strXml += makeChartType(subType, type.data as OptsChartDataInternal[], options, valAxisId, catAxisId)
-		})
+			plots += makeChartType(subType, type.data as OptsChartDataInternal[], options, valAxisId, catAxisId)
+		}
 	} else if (rel.opts._type) {
-		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
+		plots = makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
 	}
 
-	// STEP 3: Axes
-	strXml += makeChartAxesXml(
+	// STEP 2: the axes the plots just referenced (the flags above decide how many).
+	const axes = makeChartAxesXml(
 		rel,
 		usesSecondaryValAxis,
 		usesSecondaryCatAxis,
@@ -443,35 +510,38 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		secondaryCatAxisHasCategoryChart
 	)
 
-	// STEP 4: Chart properties and plotArea options: border, data table, fill, legend
-	strXml += makeChartPlotAreaPropsXml(rel)
+	// STEP 3: the plot area, then the chart it sits in.
+	const plotArea = el('c:plotArea', null, [
+		raw(makePlotAreaLayoutXml(rel)),
+		raw(plots),
+		raw(axes),
+		// NOTE: the data table goes between `</c:valAx>` and `<c:spPr>`.
+		rel.opts.showDataTable ? raw(makeDataTableXml(rel)) : null,
+		raw(chartShapeProps(plotAreaOpts.fill, plotAreaOpts.border, '    ', { openPrefix: '  ', closePrefix: '  ' })),
+	])
+	const chart = el('c:chart', null, [
+		raw(makeChartHeaderXml(rel)),
+		raw(plotArea),
+		rel.opts.showLegend ? raw(makeLegendXml(rel)) : null,
+		raw(voidEl('c:plotVisOnly', { val: 1 }, { openPrefix: '  ' })),
+		raw(voidEl('c:dispBlanksAs', { val: rel.opts.displayBlanksAs }, { openPrefix: '  ' })),
+		rel.opts._type === ChartType.scatter ? raw(voidEl('c:showDLblsOverMax', { val: 1 })) : null,
+	])
 
-	strXml += '  <c:plotVisOnly val="1"/>'
-	strXml += '  <c:dispBlanksAs val="' + rel.opts.displayBlanksAs + '"/>'
-	if (rel.opts._type === ChartType.scatter) strXml += '<c:showDLblsOverMax val="1"/>'
-
-	strXml += '</c:chart>'
-
-	// STEP 5: chartSpace shape props
-	strXml += '<c:spPr>'
-	strXml += isStatedFill(chartArea.fill) ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
-	strXml += chartArea.border
-		? `<a:ln w="${ptsToEmuLenient(resolveBorderWidth(chartArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: chartArea.border.color ?? '363636', transparency: chartArea.border.transparency })}</a:ln>`
-		: '<a:ln><a:noFill/></a:ln>'
-	strXml += '  <a:effectLst/>'
-	strXml += '</c:spPr>'
-
-	// STEP 6: Data (add relId)
-	strXml += '<c:externalData r:id="rId1"><c:autoUpdate val="0"/></c:externalData>'
-
-	// STEP 7: Metadata (custom chart-level annotations via the schema-valid extension list)
-	// CT_ChartSpace document order: externalData → printSettings → userShapes → extLst (extLst LAST).
-	strXml += genXmlChartMetadata(rel.opts.metadata)
-
-	// LAST: chartSpace end
-	strXml += '</c:chartSpace>'
-
-	return strXml
+	// STEP 4: the chart space around it — shape props, the embedded workbook relationship, and
+	// the metadata extension (CT_ChartSpace order: externalData → printSettings → userShapes → extLst).
+	return (
+		XML_DECL +
+		el('c:chartSpace', CHART_SPACE_NS, [
+			// PowerPoint defaults to 1904 dates, Excel to 1900.
+			raw(voidEl('c:date1904', { val: 0 })),
+			raw(voidEl('c:roundedCorners', { val: chartArea.roundedCorners ? 1 : 0 })),
+			raw(chart),
+			raw(chartShapeProps(chartArea.fill, chartArea.border, '  ', {})),
+			raw(el('c:externalData', { 'r:id': 'rId1' }, raw(voidEl('c:autoUpdate', { val: 0 })))),
+			raw(genXmlChartMetadata(rel.opts.metadata)),
+		])
+	)
 }
 
 /**

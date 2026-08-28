@@ -20,7 +20,15 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { catRefBlock, numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
+import {
+	catRefBlock,
+	dimmedTextFill,
+	dimmedTextLine,
+	numCachePt,
+	paletteColor,
+	resolveChartPalette,
+	strRefBlock,
+} from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
@@ -49,30 +57,6 @@ const STOCK_DLBLS = el('c:dLbls', null, [
 	raw(voidEl('c:showPercent', { val: 0 })),
 	raw(voidEl('c:showBubbleSize', { val: 0 })),
 ])
-
-/**
- * An `<a:solidFill>` of the theme text color dimmed towards the background — the grey the stock
- * furniture (hi-low lines, up/down bars) is drawn in. `lumMod`/`lumOff` are the two halves of one
- * dimming: how much of the luminance survives, and how much white is mixed back in.
- */
-const dimmedTextFill = (lumMod: number, lumOff: number): string =>
-	el(
-		'a:solidFill',
-		null,
-		raw(
-			el('a:schemeClr', { val: 'tx1' }, [
-				raw(voidEl('a:lumMod', { val: lumMod })),
-				raw(voidEl('a:lumOff', { val: lumOff })),
-			])
-		)
-	)
-
-/** The hairline outline drawn in {@link dimmedTextFill}, shared by hi-low lines and up/down bars. */
-const dimmedTextLine = (lumMod: number, lumOff: number): string =>
-	el('a:ln', { w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr' }, [
-		raw(dimmedTextFill(lumMod, lumOff)),
-		raw(voidEl('a:round')),
-	])
 
 /** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
 function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {

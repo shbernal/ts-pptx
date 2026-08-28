@@ -266,6 +266,37 @@ export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): 
 }
 
 /**
+ * An `<a:solidFill>` of the theme text colour dimmed towards the background — the grey the chart
+ * furniture (stock hi-low lines and up/down bars, the data-table grid) is drawn in.
+ * `lumMod`/`lumOff` are the two halves of one dimming: how much of the luminance survives, and
+ * how much white is mixed back in.
+ * @param lumMod - surviving luminance, in thousandths of a percent
+ * @param lumOff - luminance added back, in thousandths of a percent
+ */
+export function dimmedTextFill(lumMod: number, lumOff: number): string {
+	return el(
+		'a:solidFill',
+		null,
+		raw(
+			el('a:schemeClr', { val: 'tx1' }, [
+				raw(voidEl('a:lumMod', { val: lumMod })),
+				raw(voidEl('a:lumOff', { val: lumOff })),
+			])
+		)
+	)
+}
+
+/** The hairline outline drawn in {@link dimmedTextFill}, at the same three dimming levels. */
+export function dimmedTextLine(lumMod: number, lumOff: number, fmt?: { openPrefix?: string }): string {
+	return el(
+		'a:ln',
+		{ w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr' },
+		[raw(dimmedTextFill(lumMod, lumOff)), raw(voidEl('a:round'))],
+		fmt
+	)
+}
+
+/**
  * Build a `<c:pt>` numeric-cache data point, or '' to leave a gap.
  *
  * `<c:v>` inside a `<c:numCache>` is an `xsd:double`; emitting `NaN`, `Infinity`
