@@ -19,8 +19,8 @@ import {
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
-import { el, raw } from '../oxml/el.js'
-import { catRefBlock, numCachePt, paletteColor, resolveChartPalette } from './chart-parts.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+import { catRefBlock, numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
@@ -41,8 +41,38 @@ const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolea
 export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!style && STOCK_STYLE_SPEC[style].volume
 
 /** Minimal `<c:dLbls>` block (all labels off) shared by the stock and volume-bar subcharts. */
-const STOCK_DLBLS =
-	'<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>'
+const STOCK_DLBLS = el('c:dLbls', null, [
+	raw(voidEl('c:showLegendKey', { val: 0 })),
+	raw(voidEl('c:showVal', { val: 0 })),
+	raw(voidEl('c:showCatName', { val: 0 })),
+	raw(voidEl('c:showSerName', { val: 0 })),
+	raw(voidEl('c:showPercent', { val: 0 })),
+	raw(voidEl('c:showBubbleSize', { val: 0 })),
+])
+
+/**
+ * An `<a:solidFill>` of the theme text color dimmed towards the background — the grey the stock
+ * furniture (hi-low lines, up/down bars) is drawn in. `lumMod`/`lumOff` are the two halves of one
+ * dimming: how much of the luminance survives, and how much white is mixed back in.
+ */
+const dimmedTextFill = (lumMod: number, lumOff: number): string =>
+	el(
+		'a:solidFill',
+		null,
+		raw(
+			el('a:schemeClr', { val: 'tx1' }, [
+				raw(voidEl('a:lumMod', { val: lumMod })),
+				raw(voidEl('a:lumOff', { val: lumOff })),
+			])
+		)
+	)
+
+/** The hairline outline drawn in {@link dimmedTextFill}, shared by hi-low lines and up/down bars. */
+const dimmedTextLine = (lumMod: number, lumOff: number): string =>
+	el('a:ln', { w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr' }, [
+		raw(dimmedTextFill(lumMod, lumOff)),
+		raw(voidEl('a:round')),
+	])
 
 /** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
 function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {
@@ -51,7 +81,7 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 	const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
 	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
 	// them as dates rather than serial numbers; text ones take a plain `strRef`.
-	let strXml = el(
+	const cat = el(
 		'c:cat',
 		null,
 		raw(
@@ -60,27 +90,30 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 				: catRefBlock('str', catRef, cats)
 		)
 	)
-
-	strXml += '<c:val><c:numRef>'
-	strXml += `<c:f>${sheetRangeRef(valColRow, 2, valColRow, cats.length + 1)}</c:f>`
-	strXml += '<c:numCache>'
-	strXml += `<c:formatCode>${valFmtCode}</c:formatCode>`
-	strXml += `<c:ptCount val="${cats.length}"/>`
-	dataValues(obj).forEach((value, idx) => (strXml += numCachePt(idx, value)))
-	strXml += '</c:numCache></c:numRef></c:val>'
-	return strXml
+	const numCache = el('c:numCache', null, [
+		// `valFmtCode` arrives ALREADY ESCAPED — `chart-xml.ts` runs the option through
+		// `encodeXmlEntities` once and hands the same string to all five plot emitters — so it goes
+		// in as `raw`. Passing it as a text child would escape it a second time and turn a user's
+		// `0"A&B"` from `0&quot;A&amp;B&quot;` into `0&amp;quot;A&amp;amp;B&amp;quot;`.
+		raw(el('c:formatCode', null, raw(valFmtCode))),
+		raw(voidEl('c:ptCount', { val: cats.length })),
+		raw(
+			dataValues(obj)
+				.map((value, idx) => numCachePt(idx, value))
+				.join('')
+		),
+	])
+	const numRef = el('c:numRef', null, [
+		raw(el('c:f', null, sheetRangeRef(valColRow, 2, valColRow, cats.length + 1))),
+		raw(numCache),
+	])
+	return cat + el('c:val', null, raw(numRef))
 }
 
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
 function stockSeriesName(obj: OptsChartDataInternal): string {
 	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
-	return (
-		'<c:tx><c:strRef>' +
-		`<c:f>${sheetCellRef(nameCol, 1)}</c:f>` +
-		'<c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
-		el('c:v', null, obj.name ?? '') +
-		'</c:pt></c:strCache></c:strRef></c:tx>'
-	)
+	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')
 }
 
 /** Emit a single stock (line) series: invisible line, optional close-marker, cat/val refs. */
@@ -90,23 +123,33 @@ function makeStockLineSer(
 	valFmtCode: string,
 	markCloseColor: string | null
 ): string {
-	let strXml = '<c:ser>'
-	strXml += `<c:idx val="${obj._dataIndex}"/><c:order val="${obj._dataIndex}"/>`
-	strXml += stockSeriesName(obj)
 	// Stock series draw no line themselves (the hi-low lines / up-down bars carry the visual).
-	strXml += '<c:spPr><a:ln w="19050" cap="rnd"><a:noFill/><a:round/></a:ln><a:effectLst/></c:spPr>'
-	if (markCloseColor) {
-		strXml +=
-			'<c:marker><c:symbol val="dot"/><c:size val="5"/><c:spPr>' +
-			genXmlColorSelection(markCloseColor) +
-			`<a:ln w="9525">${genXmlColorSelection(markCloseColor)}</a:ln><a:effectLst/></c:spPr></c:marker>`
-	} else {
-		strXml += '<c:marker><c:symbol val="none"/></c:marker>'
-	}
-	strXml += stockCatVal(obj, opts, valFmtCode)
-	strXml += '<c:smooth val="0"/>'
-	strXml += '</c:ser>'
-	return strXml
+	const spPr = el('c:spPr', null, [
+		raw(el('a:ln', { w: 19050, cap: 'rnd' }, [raw(voidEl('a:noFill')), raw(voidEl('a:round'))])),
+		raw(voidEl('a:effectLst')),
+	])
+	const marker = markCloseColor
+		? el('c:marker', null, [
+				raw(voidEl('c:symbol', { val: 'dot' })),
+				raw(voidEl('c:size', { val: 5 })),
+				raw(
+					el('c:spPr', null, [
+						raw(genXmlColorSelection(markCloseColor)),
+						raw(el('a:ln', { w: 9525 }, raw(genXmlColorSelection(markCloseColor)))),
+						raw(voidEl('a:effectLst')),
+					])
+				),
+			])
+		: el('c:marker', null, raw(voidEl('c:symbol', { val: 'none' })))
+	return el('c:ser', null, [
+		raw(voidEl('c:idx', { val: obj._dataIndex })),
+		raw(voidEl('c:order', { val: obj._dataIndex })),
+		raw(stockSeriesName(obj)),
+		raw(spPr),
+		raw(marker),
+		raw(stockCatVal(obj, opts, valFmtCode)),
+		raw(voidEl('c:smooth', { val: 0 })),
+	])
 }
 
 /**
@@ -131,44 +174,84 @@ export function makeStockPlot(
 
 	// VOLUME: a bar series on the PRIMARY axis pair (drawn behind the price series).
 	if (volumeSeries) {
-		strXml += '<c:barChart>'
-		strXml += '<c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/>'
-		strXml += '<c:ser>'
-		strXml += `<c:idx val="${volumeSeries._dataIndex}"/><c:order val="${volumeSeries._dataIndex}"/>`
-		strXml += stockSeriesName(volumeSeries)
-		strXml += `<c:spPr>${genXmlColorSelection(chartColors[0] ?? '4472C4')}</c:spPr>`
-		strXml += '<c:invertIfNegative val="0"/>'
-		strXml += stockCatVal(volumeSeries, opts, valFmtCode)
-		strXml += '</c:ser>'
-		strXml += STOCK_DLBLS
-		strXml += '<c:gapWidth val="150"/>'
-		strXml += `<c:axId val="${AXIS_ID_CATEGORY_PRIMARY}"/><c:axId val="${AXIS_ID_VALUE_PRIMARY}"/>`
-		strXml += '</c:barChart>'
+		const volumeSer = el('c:ser', null, [
+			raw(voidEl('c:idx', { val: volumeSeries._dataIndex })),
+			raw(voidEl('c:order', { val: volumeSeries._dataIndex })),
+			raw(stockSeriesName(volumeSeries)),
+			raw(el('c:spPr', null, raw(genXmlColorSelection(chartColors[0] ?? '4472C4')))),
+			raw(voidEl('c:invertIfNegative', { val: 0 })),
+			raw(stockCatVal(volumeSeries, opts, valFmtCode)),
+		])
+		strXml += el('c:barChart', null, [
+			raw(voidEl('c:barDir', { val: 'col' })),
+			raw(voidEl('c:grouping', { val: 'clustered' })),
+			raw(voidEl('c:varyColors', { val: 0 })),
+			raw(volumeSer),
+			raw(STOCK_DLBLS),
+			raw(voidEl('c:gapWidth', { val: 150 })),
+			raw(voidEl('c:axId', { val: AXIS_ID_CATEGORY_PRIMARY })),
+			raw(voidEl('c:axId', { val: AXIS_ID_VALUE_PRIMARY })),
+		])
 	}
 
 	// STOCK: the price series drawn with invisible lines + hi-low lines (+ up-down bars for OHLC).
-	strXml += '<c:stockChart>'
-	stockSeries.forEach((obj, idx) => {
-		// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
-		const isClose = !spec.upDownBars && idx === stockSeries.length - 1
-		const markColor = isClose ? paletteColor(chartColors, obj._dataIndex, 'ED7D31') : null
-		strXml += makeStockLineSer(obj, opts, valFmtCode, markColor)
-	})
-	strXml += STOCK_DLBLS
-	strXml +=
-		'<c:hiLowLines><c:spPr><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="tx1"><a:lumMod val="75000"/><a:lumOff val="25000"/></a:schemeClr></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr></c:hiLowLines>'
-	if (spec.upDownBars) {
-		strXml +=
-			'<c:upDownBars><c:gapWidth val="150"/>' +
-			'<c:upBars><c:spPr><a:solidFill><a:schemeClr val="bg1"/></a:solidFill><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr></c:upBars>' +
-			'<c:downBars><c:spPr><a:solidFill><a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr></a:solidFill><a:ln w="9525" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr></a:solidFill><a:round/></a:ln><a:effectLst/></c:spPr></c:downBars>' +
-			'</c:upDownBars>'
-	}
+	const sers = stockSeries
+		.map((obj, idx) => {
+			// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
+			const isClose = !spec.upDownBars && idx === stockSeries.length - 1
+			const markColor = isClose ? paletteColor(chartColors, obj._dataIndex, 'ED7D31') : null
+			return makeStockLineSer(obj, opts, valFmtCode, markColor)
+		})
+		.join('')
+	const hiLowLines = el(
+		'c:hiLowLines',
+		null,
+		raw(el('c:spPr', null, [raw(dimmedTextLine(75000, 25000)), raw(voidEl('a:effectLst'))]))
+	)
+	// The up bar is a hollow body (background fill), the down bar a filled one; both are outlined in
+	// the same grey, which is how a rising and a falling category tell themselves apart.
+	const upDownBars = spec.upDownBars
+		? el('c:upDownBars', null, [
+				raw(voidEl('c:gapWidth', { val: 150 })),
+				raw(
+					el(
+						'c:upBars',
+						null,
+						raw(
+							el('c:spPr', null, [
+								raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'bg1' })))),
+								raw(dimmedTextLine(65000, 35000)),
+								raw(voidEl('a:effectLst')),
+							])
+						)
+					)
+				),
+				raw(
+					el(
+						'c:downBars',
+						null,
+						raw(
+							el('c:spPr', null, [
+								raw(dimmedTextFill(65000, 35000)),
+								raw(dimmedTextLine(65000, 35000)),
+								raw(voidEl('a:effectLst')),
+							])
+						)
+					)
+				),
+			])
+		: ''
 	// Volume styles put the price series on the SECONDARY axis pair (the bar owns the primary pair).
 	const stockCatId = spec.volume ? AXIS_ID_CATEGORY_SECONDARY : catAxisId
 	const stockValId = spec.volume ? AXIS_ID_VALUE_SECONDARY : valAxisId
-	strXml += `<c:axId val="${stockCatId}"/><c:axId val="${stockValId}"/>`
-	strXml += '</c:stockChart>'
+	strXml += el('c:stockChart', null, [
+		raw(sers),
+		raw(STOCK_DLBLS),
+		raw(hiLowLines),
+		raw(upDownBars),
+		raw(voidEl('c:axId', { val: stockCatId })),
+		raw(voidEl('c:axId', { val: stockValId })),
+	])
 
 	return strXml
 }

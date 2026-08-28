@@ -8,7 +8,6 @@
 	"src/gen/chart/plot-cat-axis.ts": 92,
 	"src/gen/chart/plot-pie.ts": 108,
 	"src/gen/chart/plot-scatter.ts": 144,
-	"src/gen/chart/plot-stock.ts": 127,
 	"src/gen/drawingml/color.ts": 1,
 	"src/gen/drawingml/math.ts": 2,
 	"src/gen/drawingml/text-body.ts": 2,
