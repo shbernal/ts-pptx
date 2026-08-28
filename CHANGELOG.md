@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.6.0] - 2026-08-28
+
+This release finishes a colour job the read model had been doing half of. `a:prstClr` and
+`a:hslClr` resolve, so five of the six DrawingML colour models report a colour wherever one
+is read, and the three accessors that were hunting for `a:srgbClr` and `a:schemeClr` by tag
+name — a gradient stop, a shadow, a cell border — take the colour element by position
+instead and get all of them. A gradient stop and a cell border also carry the whole
+`ResolvedColor` now, transform list included, so a consumer can tell "this source stated no
+transforms" from "this reader could not see them", and `Run.resolvedItalic` closes the last
+of the inherited character properties. Three definers stop writing their own state onto the
+options object you hand them: 3.5.0 named `addText`, but `addShape` and `addTable` did it
+too, which is what made one style literal spread across three shapes come out sharing a
+name and silently losing its paging. Two allocations sized straight from numbers nothing
+checked — a chart's cached point count, a table cell's spans — aborted the host process
+with no exception to catch, and are bounded now. And `test:com` gains a sibling:
+LibreOffice has no SmartArt layout engine, so it paints the drawing cache PowerPoint
+recomputes, which is the only way to show 3.5.0's mirror reaching a pixel rather than a
+part.
 
 ### Added
 
@@ -3659,6 +3676,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.6.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.6.0
 [3.5.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.5.0
 [3.4.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.4.0
 [3.3.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.3.0
