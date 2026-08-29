@@ -5,7 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.7.0] - 2026-08-30
+
+`groupObjects()` has always addressed objects by `objectName`, and there has never been a
+way to learn those names. That is fine while one caller authored everything and useless
+the moment a slide is assembled by independent renderers, which is exactly the case
+`groupObjects()` was added for: nobody kept the descriptors, so the only handle on what is
+on the slide is a name nothing reports. The two ways out were both bad — make every
+renderer surrender its internals, or keep a parallel ledger that is wrong the first time a
+renderer adds an object it did not announce. `slide.objects` is the accessor that was
+missing, and it reports the groupable-kinds rule alongside each object so a consumer does
+not pin a second copy of it.
+
+This is also the first release to go out under two names. `pptx-ts` is the same build
+published a second time, for people who cannot or will not type a scope; `@shbernal/ts-pptx`
+stays canonical, and installing both at once is the one thing not to do.
 
 ### Added
 
@@ -30,6 +44,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The name is reversed rather than scope-stripped because `ts-pptx` on npm belongs to an
   unrelated project.
+
+- **`slide.objects`: the authored objects on a slide, bottom-to-top in z-order.** The
+  read-back half of `groupObjects()`. Each entry is a `SlideObjectInfo` carrying `type`,
+  `objectName`, `isPlaceholder`, `canGroup`, and `children` (a group's members, nested to
+  any depth). It is a snapshot rather than a live handle: a fresh array on every access,
+  inert, and the way to act on it is to call the authoring API with the names it reports.
+
+  **`objectName` comes back in the caller's spelling, not the stored one.** Every
+  `add*Definition` stores the name attribute-escaped and `groupObjects()` escapes the
+  caller's spelling before comparing, so reporting the stored form would hand back a name
+  that escapes a *second* time on the way in and resolves to nothing — the same mismatch
+  1.0.0 fixed on the input side, arriving from the other direction. A shape named `Q&A`
+  reads back as `Q&A`. The promise is the round trip rather than invertibility, and it
+  holds even where decoding is not a true inverse: a name authored as the literal string
+  `&amp;` decodes to `&amp;` and re-encodes to the stored `&amp;amp;`.
+
+  **`objectName` is always a string.** An object authored without one still carries the
+  generated `Shape 3` / `Text 1` / `Group 2` identity PowerPoint shows in the Selection
+  Pane, and that name addresses it as well as an authored one does — reporting `null` there
+  would have withheld a usable handle to signal a distinction nothing downstream of
+  authoring records anyway.
+
+  **`canGroup` is the predicate `groupObjects()` throws on**, not a restatement of it.
+  `GROUPABLE_TYPES` and the placeholder exclusion now live behind one `isGroupableObject`
+  that both the accessor and the throw path call. A consumer that had to re-state the rule
+  would be pinning a copy of a list it does not own: it would keep refusing the day
+  grouping learns a new kind and go on offering the day one is withdrawn, with nothing
+  failing in either direction. It answers about the object and not the call — an
+  unresolved, duplicated or ambiguous name still throws, and no single object can speak
+  for a selection.
 
 ### Changed
 
