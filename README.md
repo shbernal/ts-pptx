@@ -42,6 +42,14 @@ npm install @shbernal/ts-pptx
 yarn add @shbernal/ts-pptx
 ```
 
+The unscoped name [`pptx-ts`](https://www.npmjs.com/package/pptx-ts) is an alias
+for the same package: same contents, same version, published from the same
+commit by the same workflow. Take it if a scoped name is awkward somewhere in
+your toolchain. Install one or the other and never both, because two copies of
+this library in one dependency tree are two module registries and state such as
+the diagnostic handler is per-copy. The scoped name is canonical: the issue
+tracker, the changelog and every example in these docs use it.
+
 ### Installing an unreleased commit
 
 Any commit is installable directly from GitHub, without waiting for a release:

@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **The package is published under a second, unscoped name: `pptx-ts`.** npm has one
+  package per name and no notion of a redirect, so an alias on the registry is not a
+  pointer at another package: it is a second publish of the same content under a second
+  name. That is what this is. `scripts/alias-package.mjs` stages a copy of the build the
+  release gates just proved, and `.github/workflows/publish.yml` publishes that copy after
+  the canonical publish has succeeded. Three things differ from `@shbernal/ts-pptx` at
+  the same version, and nothing else does: `package.json#name`, a `README.md` banner
+  naming the scoped package as the canonical one, and the absence of the `scripts` block,
+  which is dev-only metadata in a published manifest and whose `prepack` would delete the
+  staged `dist/` if a publish ever ran without `--ignore-scripts`. `version`, `exports`,
+  `files`, `dependencies` and the `dist/` and `skills/` payloads are the same bytes, so
+  the alias is the package the gates measured rather than a near-copy of it.
+
+  **Install one or the other, never both.** Two copies of this library in one dependency
+  tree are two module registries, and per-copy state such as the diagnostic handler stops
+  behaving as one library. The scoped name stays canonical: the issue tracker, this
+  changelog and every example in the docs use it, and nothing about cutting a release
+  changes because the second name exists.
+
+  The name is reversed rather than scope-stripped because `ts-pptx` on npm belongs to an
+  unrelated project.
+
+### Changed
+
+- **The publish workflow is re-runnable when only one of the two names went out.**
+  Publishing two packages is not atomic, so the canonical publish can succeed and the
+  alias fail after it. The unpublished-version guard therefore fails only when **both**
+  names already carry the version, and each publish step is skipped when its own name
+  already does. Re-dispatching the workflow on the same tag finishes the missing half and
+  touches nothing else. Previously the guard failed whenever the version existed under the
+  one name it knew about, which would have made `workflow_dispatch` useless in precisely
+  the state it exists for. The alias is published last for the same reason: a failure in
+  it costs a re-dispatch, never the release that already went out.
+
 ## [3.6.0] - 2026-08-28
 
 This release finishes a colour job the read model had been doing half of. `a:prstClr` and

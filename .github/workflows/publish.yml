@@ -68,15 +68,40 @@ jobs:
             exit 1
           fi
 
+      # A release now publishes two names, so "is this version unpublished?" has two
+      # answers and the job needs both. The alias name is read back from the staging
+      # script rather than written here a second time: a guard that checks a different
+      # package than the publish step touches is worse than no guard. `--print-name`
+      # returns before the script touches the filesystem, so this can run ahead of the
+      # install below.
+      #
+      # The failure is *both* already published, not either. Publishing two packages is
+      # not atomic, so the second one can fail on its own — and a run that hard-failed
+      # whenever any name was present would make `workflow_dispatch` useless in exactly
+      # the state it exists for, since the first name is on the registry by then. Each
+      # publish below is skipped when its own name is already there, which makes a
+      # re-dispatch on the same tag finish the half that is missing and touch nothing
+      # else. If neither is missing there is nothing to do, and that is the error.
       - name: Verify version is unpublished
+        id: targets
         run: |
-          PACKAGE_NAME="$(node -p "require('./package.json').name")"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          CANONICAL_NAME="$(node -p "require('./package.json').name")"
+          ALIAS_NAME="$(node scripts/alias-package.mjs --print-name)"
 
-          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then
-            echo "::error::$PACKAGE_NAME@$PACKAGE_VERSION is already published on npm."
+          CANONICAL_TODO=true
+          ALIAS_TODO=true
+          if npm view "$CANONICAL_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then CANONICAL_TODO=false; fi
+          if npm view "$ALIAS_NAME@$PACKAGE_VERSION" version >/dev/null 2>&1; then ALIAS_TODO=false; fi
+
+          if [ "$CANONICAL_TODO" = false ] && [ "$ALIAS_TODO" = false ]; then
+            echo "::error::$CANONICAL_NAME@$PACKAGE_VERSION and $ALIAS_NAME@$PACKAGE_VERSION are both already published on npm."
             exit 1
           fi
+
+          echo "canonical=$CANONICAL_TODO" >> "$GITHUB_OUTPUT"
+          echo "alias=$ALIAS_TODO" >> "$GITHUB_OUTPUT"
+          echo "Publishing: $CANONICAL_NAME=$CANONICAL_TODO $ALIAS_NAME=$ALIAS_TODO"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -87,4 +112,20 @@ jobs:
         run: pnpm run build
 
       - name: Publish to npm
+        if: steps.targets.outputs.canonical == 'true'
         run: npm publish --access public --provenance --ignore-scripts
+
+      # The unscoped alias, `pptx-ts`: the same build staged under a second name, because
+      # npm has one package per name and no redirect. It has its own trusted-publisher
+      # configuration naming this workflow, so the OIDC exchange — which npm performs per
+      # package — succeeds for both names in one job.
+      #
+      # It runs *after* the canonical publish, and therefore only if that succeeded. The
+      # order is the whole safety property: the alias is a convenience, and a failure in
+      # it (a staging error, a registry hiccup, a trusted-publisher configuration that was
+      # revoked) must cost at most a re-dispatch, never the release that already went out.
+      - name: Publish unscoped alias
+        if: steps.targets.outputs.alias == 'true'
+        run: |
+          node scripts/alias-package.mjs --out .tmp/alias-package
+          npm publish .tmp/alias-package --access public --provenance --ignore-scripts

@@ -46,6 +46,10 @@ features:
 pnpm add @shbernal/ts-pptx
 ```
 
+`pptx-ts` is an alias for the same package, published from the same commit at the
+same version. Take it if a scoped name is awkward in your toolchain, and install
+one or the other rather than both. These docs use the scoped name throughout.
+
 ## Start Here
 
 - [Project target](project-target.md): what this project is optimized for.

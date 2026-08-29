@@ -29,7 +29,7 @@ So the whole job is: write the CHANGELOG, let `pnpm version` bump and tag, and c
 a Release. CI does the rest (and re-runs every lint/typecheck/test/pack gate before
 it publishes).
 
-### The one historical exception (already spent — do not repeat it)
+### The one exception, and it is not a release step
 
 npm cannot configure a trusted publisher for a package that does not yet exist:
 the setting lives on the package's settings page, so the package has to be on the
@@ -38,9 +38,21 @@ registry first ([npm/cli#8544](https://github.com/npm/cli/issues/8544)). Bootstr
 (since deprecated) purely to create the package; trusted publishing was enabled
 immediately after, and `1.0.0` onward went through CI with provenance.
 
-That exception is spent. It applies again only if this project is ever published
-under a **new name or scope**. For every release of the existing package, the rule
-above holds without qualification: no local `npm publish`.
+It has been spent twice: once for the scoped package, and once for `pptx-ts`, the
+unscoped alias. It applies again only if this project starts publishing under
+another **new name or scope**, and the runbook for that is "Bootstrapping a New
+Package Name" in `docs/RELEASING.md`. It is never part of cutting a release. For
+every release of a name that already exists, the rule above holds without
+qualification: no local `npm publish`.
+
+### Two names, one release
+
+A release publishes `@shbernal/ts-pptx` and then `pptx-ts`, which is the same
+build staged under a second name by `scripts/alias-package.mjs`. This changes
+nothing about the steps below: you do not bump, tag or stage the alias, and there
+is no second changelog. The only places it surfaces are the run you watch in
+step 6, which has one more publish step, and the failure modes at the bottom of
+this page.
 
 ## Choosing the version (SemVer)
 
@@ -176,8 +188,17 @@ gh run list --workflow=publish.yml --limit 1
 gh run watch <run-id>      # or: gh run view <run-id> --log-failed
 ```
 
-Confirm it reaches "Publish to npm" and succeeds. Only then is the release done.
-Sanity check: `npm view @shbernal/ts-pptx version` should report `X.Y.Z`.
+Confirm it reaches "Publish to npm" **and** "Publish unscoped alias" and that
+both succeed. Only then is the release done. Sanity check both names:
+
+```bash
+npm view @shbernal/ts-pptx version
+npm view pptx-ts version
+```
+
+Both should report `X.Y.Z`. A step reported as skipped rather than failed means
+that name already carried this version, which is the expected shape of a
+re-dispatch and not a problem.
 
 ## If the publish run fails
 
@@ -189,5 +210,10 @@ Sanity check: `npm view @shbernal/ts-pptx version` should report `X.Y.Z`.
   patch and re-release, or (if the tag content is still what you want) delete and
   recreate the tag + Release after pushing the fix. Prefer a fresh patch version
   over force-moving a published-looking tag.
+- **The canonical publish succeeded and the alias failed** → the version is on npm
+  under one name only. Re-dispatch the workflow on the same tag: its guard fails
+  only when *both* names already carry the version, and each publish step skips
+  the name that already does, so the re-run finishes the missing half. Do not
+  publish the alias by hand.
 - The workflow can also be re-run manually via `workflow_dispatch` from the tag if
   the failure was transient (`gh workflow run publish.yml --ref vX.Y.Z`).
