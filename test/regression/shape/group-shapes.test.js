@@ -1,6 +1,7 @@
 import { Presentation, isGroupShape } from '../../../dist/read.js'
 import {
 	PNG_1X1,
+	TsPptx,
 	setDiagnosticHandler,
 	defineRegressionSuite,
 	build,
@@ -852,6 +853,169 @@ defineRegressionSuite('Group shapes', [
 			)
 			// (The members' geometry is unchanged by grouping; that is asserted against the emitted
 			// xfrm above, since the read model exposes `xfrm()` as a raw element rather than as x/y/w/h.)
+		},
+	},
+
+	// --- slide.objects: the read-back half of groupObjects(), which addresses objects by a name
+	// --- the caller previously had no way to enumerate.
+	{
+		name: 'slide.objects reports every authored object bottom-to-top, with its name and kind',
+		fn: async () => {
+			const pres = new TsPptx()
+			const s = pres.addSlide()
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Bottom' })
+			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: 'Middle' })
+			s.addImage({ data: PNG_1X1, x: 3, y: 1, w: 1, h: 1, objectName: 'Top' })
+
+			assertEqual(
+				s.objects.map((o) => o.objectName).join(','),
+				'Bottom,Middle,Top',
+				'expected authoring order, which is bottom-to-top z-order'
+			)
+			// A shape is a `text` object (it shares the text-box name bucket), so both report `text`.
+			assertEqual(s.objects.map((o) => o.type).join(','), 'text,text,image', 'object kinds')
+			assert(
+				s.objects.every((o) => o.canGroup && !o.isPlaceholder && o.children.length === 0),
+				'expected three groupable, non-placeholder leaves; got: ' + JSON.stringify(s.objects)
+			)
+		},
+	},
+	{
+		name: 'slide.objects names an unnamed object by the identity PowerPoint shows in the Selection Pane',
+		fn: async () => {
+			const pres = new TsPptx()
+			const s = pres.addSlide()
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1 })
+			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1 })
+
+			// Never null: the generated name addresses the object as well as an authored one does,
+			// and it is what the Selection Pane shows.
+			assert(
+				s.objects.every((o) => typeof o.objectName === 'string' && o.objectName.length > 0),
+				'expected a generated name on every unnamed object; got: ' + JSON.stringify(s.objects)
+			)
+			// And it resolves: the generated name is a usable handle, not just a label.
+			s.groupObjects(
+				s.objects.map((o) => o.objectName),
+				{ objectName: 'FromGenerated' }
+			)
+			assertEqual(s.objects.length, 1, 'expected the two generated names to have resolved into one group')
+			assertEqual(s.objects[0].objectName, 'FromGenerated', 'group name')
+		},
+	},
+	{
+		// The mirror of 'groupObjects resolves names containing XML metacharacters'. Names are stored
+		// attribute-escaped, so reporting the *stored* spelling would hand back a name that escapes a
+		// second time on the way in and resolves to nothing — the same defect, read side.
+		name: 'slide.objects reports a name with XML metacharacters in the spelling that resolves',
+		fn: async () => {
+			const metacharacters = 'Risk <high> "1" \'2\'\ttabbed\nwrapped'
+			const pres = new TsPptx()
+			const s = pres.addSlide()
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Q&A' })
+			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: metacharacters })
+
+			// A name that is *itself* an entity spelling is the case where decoding is not a true
+			// inverse — it yields `&amp;`, which re-encodes to the stored `&amp;amp;`. The round trip
+			// is what is promised, and it still holds; only invertibility does not.
+			s.addText('Bye', { x: 3, y: 1, w: 1, h: 1, objectName: '&amp;' })
+
+			assertEqual(s.objects[0].objectName, 'Q&A', 'expected the caller spelling, not the stored `Q&amp;A`')
+			assertEqual(s.objects[1].objectName, metacharacters, 'expected every metacharacter back verbatim')
+			assertEqual(s.objects[2].objectName, '&amp;', 'expected a literal entity spelling back as authored')
+			// The guarantee that matters: what comes out goes back in.
+			s.groupObjects(
+				s.objects.map((o) => o.objectName),
+				{ objectName: 'R&D' }
+			)
+			assertEqual(s.objects.length, 1, 'expected all three reported names to resolve')
+			assertEqual(s.objects[0].objectName, 'R&D', 'expected the group name decoded too')
+		},
+	},
+	{
+		name: 'slide.objects nests a group as children and keeps reporting the members by name',
+		fn: async () => {
+			const pres = new TsPptx()
+			const s = pres.addSlide()
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Box' })
+			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: 'Caption' })
+			s.addText('Loose', { x: 3, y: 1, w: 1, h: 1, objectName: 'Loose' })
+			s.groupObjects(['Box', 'Caption'], { objectName: 'Branding' })
+
+			assertEqual(s.objects.map((o) => o.objectName).join(','), 'Branding,Loose', 'expected two top-level objects')
+			const [group] = s.objects
+			assertEqual(group.type, 'group', 'expected the wrapper to report as a group')
+			assert(group.canGroup, 'expected a group to be groupable, so groups can nest')
+			assertEqual(
+				group.children.map((c) => c.objectName).join(','),
+				'Box,Caption',
+				'expected the members to report as the group children, in z-order'
+			)
+			assertEqual(s.objects[1].children.length, 0, 'expected a leaf to report no children')
+		},
+	},
+	{
+		// canGroup exists so a consumer does not pin its own copy of the groupable-kinds list. These
+		// are the two exclusions with nothing else to signal them: a chart is a groupable-looking
+		// object of an ungroupable kind, and a placeholder is a groupable *kind* that grouping still
+		// refuses, because grouping it would sever the layout inheritance that makes it one.
+		name: 'slide.objects marks the kinds groupObjects refuses, and groupObjects agrees',
+		fn: async () => {
+			const pres = new TsPptx()
+			pres.defineSlideMaster({
+				title: 'PLACEHOLDER',
+				objects: [{ placeholder: { options: { name: 'body', type: 'body', x: 1, y: 3, w: 4, h: 1 } } }],
+			})
+			const s = pres.addSlide({ masterTitle: 'PLACEHOLDER' })
+			s.addText('In the placeholder', { placeholder: 'body' })
+			s.addChart([{ name: 'S', labels: ['a'], values: [1] }], {
+				type: 'bar',
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				objectName: 'Chart',
+			})
+
+			const [placeholder, chart] = s.objects
+			assert(placeholder.isPlaceholder, 'expected the placeholder to be flagged')
+			assert(!placeholder.canGroup, 'expected a placeholder to be ungroupable despite its groupable kind')
+			assertEqual(chart.type, 'chart', 'chart kind')
+			assert(!chart.isPlaceholder && !chart.canGroup, 'expected a chart to be ungroupable and not a placeholder')
+
+			// canGroup is not a second opinion: it is the same predicate groupObjects throws on.
+			for (const object of s.objects) {
+				let err = null
+				try {
+					s.groupObjects([object.objectName])
+				} catch (ex) {
+					err = ex
+				}
+				assert(err, `expected groupObjects to refuse ${object.objectName}`)
+				assert(
+					/is not supported yet/.test(err.message),
+					`expected an ungroupable-kind message for ${object.objectName}; got: ${err.message}`
+				)
+			}
+		},
+	},
+	{
+		name: 'slide.objects is a snapshot, not a live handle',
+		fn: async () => {
+			const pres = new TsPptx()
+			const s = pres.addSlide()
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Box' })
+
+			const before = s.objects
+			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: 'Caption' })
+			assertEqual(before.length, 1, 'expected the earlier snapshot not to grow')
+			assertEqual(s.objects.length, 2, 'expected a fresh read to see the new object')
+
+			// `readonly` states this at compile time; the cast is what lets the test prove it at
+			// runtime too, since a readonly property is erased and a stray write would land.
+			const escaped = /** @type {{ objectName: string }} */ (before[0])
+			escaped.objectName = 'Renamed'
+			assertEqual(s.objects[0].objectName, 'Box', 'expected the slide to ignore a write to the snapshot')
 		},
 	},
 ])

@@ -175,6 +175,21 @@ const GROUPABLE_TYPES: readonly SlideObjectType[] = [
 ]
 
 /**
+ * Whether `groupObjects()` would accept this object, given only what it is. The remaining reasons a
+ * call can still fail are about the *selection* rather than the object — an unresolved, duplicated
+ * or ambiguous name — so a consumer cannot decide those from one object either way.
+ *
+ * Exported because `Slide.objects` reports it as `canGroup`, and a consumer that had to re-state the
+ * rule would be pinning a copy of the list above: it would keep refusing the day grouping learns a
+ * new kind, and go on offering the day one is withdrawn, with nothing failing in either direction.
+ * @param {SlideObject} obj - a top-level authored object
+ * @returns {boolean} true when its kind is groupable and it is not a placeholder
+ */
+export function isGroupableObject(obj: SlideObject): boolean {
+	return GROUPABLE_TYPES.includes(obj._type) && !obj.options?.placeholder
+}
+
+/**
  * Depth-first search for an object whose *stored* name is `key`, among group children. Used only to
  * explain a failed lookup, so it takes the same attribute-escaped key the caller already compared
  * against `_slideObjects` (see `groupObjectsDefinition`) rather than escaping again per call.
@@ -256,7 +271,7 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 				`groupObjects(): objectName "${name}" is ambiguous — ${matches.length} objects on this slide share it. Give them unique objectNames.`
 			)
 		}
-		if (!GROUPABLE_TYPES.includes(obj._type) || obj.options?.placeholder) {
+		if (!isGroupableObject(obj)) {
 			const kind = obj.options?.placeholder ? 'placeholder' : obj._type
 			throw new UnsupportedFeatureError(
 				'group/kind-not-groupable',

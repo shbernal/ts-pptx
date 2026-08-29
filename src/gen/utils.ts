@@ -85,6 +85,36 @@ export function encodeXmlAttrValue(xml: string | number): string {
 }
 
 /**
+ * Reverse {@link encodeXmlAttrValue}, so a stored attribute value reads back in the spelling its
+ * caller used. Entity replacement runs in the mirror order, with `&amp;` last: encoded output only
+ * ever opens an entity with a `&` it wrote itself, so no earlier replacement can manufacture one.
+ *
+ * Full invertibility is not on offer and is not what a consumer needs — the encoder *strips* XML
+ * 1.0 illegal control characters, and no inverse brings those back. The guarantee is the round
+ * trip: `encodeXmlAttrValue(decodeXmlAttrValue(stored)) === stored` for every `stored` the encoder
+ * produced. It holds for a caller who authored `&amp;` literally (decode yields `&amp;`, which
+ * re-encodes to `&amp;amp;`, the stored value) and for one whose name carried a stripped control
+ * character (stripping is idempotent).
+ *
+ * That round trip is the whole point. A name read back off a stored object has to resolve when it
+ * is handed to a lookup that escapes before comparing — `groupObjects()` is the one that does —
+ * and the *stored* spelling would escape a second time and match nothing.
+ * @param {string} value - a stored attribute value, as written by `encodeXmlAttrValue`
+ * @returns {string} the spelling the caller passed
+ */
+export function decodeXmlAttrValue(value: string): string {
+	return value
+		.replace(/&#9;/g, '\t')
+		.replace(/&#10;/g, '\n')
+		.replace(/&#13;/g, '\r')
+		.replace(/&apos;/g, "'")
+		.replace(/&quot;/g, '"')
+		.replace(/&gt;/g, '>')
+		.replace(/&lt;/g, '<')
+		.replace(/&amp;/g, '&')
+}
+
+/**
  * Practical maximum length for a `p:cNvPr` object name. PowerPoint does not
  * enforce a hard spec limit, but very long names are a strong signal of a bug
  * and are unwieldy in the Selection Pane.

@@ -23,6 +23,7 @@ import type {
 	PresLayout,
 	ShapeProps,
 	SlideNumberProps,
+	SlideObjectInfo,
 	OptsChartData,
 	TableProps,
 	TableRow,
@@ -44,12 +45,13 @@ import type {
 	SectionInternalProps,
 } from './types/internal.js'
 import { emuToInches } from './units.js'
+import { decodeXmlAttrValue } from './gen/utils.js'
 import { InvalidOptionError } from './errors.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { addChartDefinition } from './gen/define/chart.js'
 import { addCommentDefinition } from './gen/define/comment.js'
 import { addConnectorDefinition } from './gen/define/connector.js'
-import { addGroupDefinition, groupObjectsDefinition } from './gen/define/group.js'
+import { addGroupDefinition, groupObjectsDefinition, isGroupableObject } from './gen/define/group.js'
 import { addImageDefinition } from './gen/define/image.js'
 import { addMediaDefinition } from './gen/define/media.js'
 import { addModel3dDefinition } from './gen/define/model3d.js'
@@ -59,6 +61,31 @@ import { addShapeDefinition } from './gen/define/shape.js'
 import { addTableDefinition } from './gen/define/table.js'
 import { addTextDefinition } from './gen/define/text.js'
 import { addSectionZoomDefinition, addSlideZoomDefinition, addSummaryZoomDefinition } from './gen/define/zoom.js'
+
+/**
+ * Project one authored render-object onto the public {@link SlideObjectInfo}, recursing into a
+ * group's children.
+ *
+ * The name is decoded on the way out. Every `add*Definition` stores it attribute-escaped, and
+ * `groupObjects()` escapes the caller's spelling before it compares, so handing the stored form
+ * back would escape it twice and resolve nothing — the same mismatch that once made `groupObjects`
+ * throw for an object plainly on the slide, arriving from the other direction.
+ *
+ * Every `add*Definition` also *generates* a name when the caller passed none, so the fallback below
+ * is unreachable through the public API. It is there because the field is typed non-optional
+ * internally only by convention, and an empty name would otherwise read back as `undefined` from a
+ * surface that promises a string.
+ */
+function toSlideObjectInfo(obj: SlideObject): SlideObjectInfo {
+	const stored = obj.options?.objectName
+	return {
+		type: obj._type,
+		objectName: typeof stored === 'string' && stored.length > 0 ? decodeXmlAttrValue(stored) : '',
+		isPlaceholder: !!obj.options?.placeholder,
+		canGroup: isGroupableObject(obj),
+		children: (obj._groupObjects ?? []).map(toSlideObjectInfo),
+	}
+}
 
 /** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
 function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] {
@@ -191,6 +218,18 @@ export default class SlideBuilder {
 
 	public get newAutoPagedSlides(): Slide[] {
 		return this._newAutoPagedSlides
+	}
+
+	/**
+	 * The objects authored on this slide so far, bottom-to-top in z-order.
+	 *
+	 * Built fresh on every access rather than cached: the underlying list is mutated in place by
+	 * `addGroup`/`groupObjects` as well as appended to, so a cache would have to be invalidated from
+	 * every authoring path and would go stale the first time one was added without remembering.
+	 * Building it costs a walk of a list a slide-sized deck keeps in the dozens.
+	 */
+	public get objects(): readonly SlideObjectInfo[] {
+		return this._slideObjects.map(toSlideObjectInfo)
 	}
 
 	/** Slide width in inches (resolved from the active presentation layout). */

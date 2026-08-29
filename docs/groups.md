@@ -5,6 +5,7 @@ summary: "Wrap slide objects in a PowerPoint group (<p:grpSp>) with addGroup() o
 read_when:
   - Grouping shapes/text/images into one selectable PowerPoint group
   - Grouping objects that were already added to a slide (groupObjects)
+  - Listing what a slide already holds, to decide what to group (slide.objects)
   - Understanding why a group never moves or scales its children
   - Binding a connector or animation to a shape inside a group
 doc_type: "guide"
@@ -23,6 +24,8 @@ objects. ts-pptx offers two entry points:
   replaying their descriptors.
 
 Both produce the same XML and share the same framing and naming rules.
+`slide.objects` reports what is already there, which is how a caller that did not
+author the objects learns the names `groupObjects()` takes.
 
 ## The identity child space (why a group never moves its children)
 
@@ -146,6 +149,73 @@ anything moves, so a bad name leaves the slide untouched rather than half-groupe
 - an ambiguous name shared by more than one object,
 - an ungroupable kind (`chart`/`table`/`media`/`placeholder`),
 - an empty or duplicate-laden `objectNames` array.
+
+## `slide.objects`: what is on the slide, and what can be grouped
+
+`groupObjects()` addresses objects by name, so something has to know the names.
+When one caller authored everything, that is easy. When a slide is assembled by
+independent renderers, it is not: nobody kept the descriptors, and a parallel
+ledger of what was added is wrong the moment a renderer adds an object it did not
+announce. `slide.objects` is the read-back half.
+
+```js
+const s = pptx.addSlide()
+renderHeader(s) // adds 'card:header', 'card:header_icon'
+renderBody(s) // adds 'card:body', 'card:body_label'
+
+for (const o of s.objects) {
+  console.log(o.type, o.objectName, o.canGroup)
+}
+// text  card:header       true
+// image card:header_icon  true
+// text  card:body         true
+// text  card:body_label   true
+
+const card = s.objects.filter((o) => o.canGroup && o.objectName.startsWith('card:'))
+s.groupObjects(
+  card.map((o) => o.objectName),
+  { objectName: 'Card' }
+)
+```
+
+Each entry is a `SlideObjectInfo`:
+
+| field           | meaning                                                                |
+| --------------- | ---------------------------------------------------------------------- |
+| `type`          | the kind the object was authored as (a shape is a `text` object)        |
+| `objectName`    | the Selection Pane name, in the spelling that resolves (see below)      |
+| `isPlaceholder` | occupies a layout placeholder, which grouping refuses on top of kind    |
+| `canGroup`      | whether `groupObjects()` accepts this object's kind                     |
+| `children`      | a group's members, same shape, nested to any depth; empty for a leaf    |
+
+Three things are worth knowing:
+
+- **The order is z-order**, bottom to top, the same order the objects were added
+  and the same order `groupObjects()` uses when it stacks a group's children.
+- **`objectName` is always a string.** An object authored without one still gets
+  the generated `Shape 3` / `Text 1` / `Group 2` identity PowerPoint shows in the
+  Selection Pane, and that name addresses it just as well. Nothing records which
+  is which, so if the distinction matters, make it with your own naming
+  convention.
+- **`canGroup` answers about the object, not the call.** It is the same predicate
+  `groupObjects()` throws on, so it will not drift from the groupable-kinds list.
+  The remaining failures are about the *selection* (a name that resolves to
+  nothing, or to two objects), which no single object can speak for.
+
+It is a snapshot, not a live handle: a fresh array on every access, describing the
+slide as it was, and writing to it does nothing. To change the slide, call the
+authoring API with the names it gave you.
+
+### Why the name comes back decoded
+
+`objectName` is stored attribute-escaped, and `groupObjects()` escapes the
+caller's spelling before it compares. So `slide.objects` reports the *caller's*
+spelling: a shape named `Q&A` reads back as `Q&A`, not the stored `Q&amp;A`,
+which would escape a second time on the way in and resolve to nothing.
+
+The guarantee is the round trip, not invertibility: a name that comes out of
+`slide.objects` goes back into `groupObjects()` and finds its object. That holds
+even for a name that is itself an entity spelling (`&amp;` authored literally).
 
 ## Cross-references into a group
 

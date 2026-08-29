@@ -4,7 +4,7 @@
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, TableStyle } from '../enums.js'
+import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
 import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'
@@ -91,6 +91,48 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 export interface SlideLayout {
 	background?: BackgroundProps
 }
+
+/**
+ * One authored object on a slide, as {@link Slide.objects} reports it: what it is and how it is
+ * addressed, not how it is drawn. It is a snapshot taken when the getter ran, not a live handle —
+ * nothing on it writes back, and a later `addShape`/`groupObjects` leaves it describing the slide
+ * as it was.
+ *
+ * The point of it is composition. A slide assembled by independent renderers arrives with objects
+ * whose descriptors nobody kept, and the only durable handle on them is the `objectName` each one
+ * was authored with; without a way to enumerate those, a consumer that wants to act on what is
+ * already there has to either make every renderer surrender its internals or keep a parallel
+ * ledger of what it added — and a ledger is wrong the moment a renderer adds an object it did not
+ * announce.
+ */
+export interface SlideObjectInfo {
+	/** What kind of object this is — the same value the object was authored as. */
+	readonly type: SlideObjectType
+	/**
+	 * Selection Pane name, in the spelling the caller passed to `objectName`, so it can be handed
+	 * straight back to `groupObjects()` or to an animation or connector reference.
+	 *
+	 * Always a string: an object authored without a name still gets the generated `Shape 3` /
+	 * `Text 1` / `Group 2` identity PowerPoint shows in the Selection Pane, and that name addresses
+	 * it just as well. The two are indistinguishable here on purpose — nothing downstream of
+	 * authoring records which is which, and a consumer that cares can tell them apart by the
+	 * naming convention it chose for its own objects.
+	 */
+	readonly objectName: string
+	/** True when the object occupies a layout placeholder, which grouping refuses on top of kind. */
+	readonly isPlaceholder: boolean
+	/**
+	 * Whether `groupObjects()` would accept this object on kind alone. It cannot speak for the
+	 * *selection* — an unresolved, duplicated or ambiguous name still throws — so it answers "is
+	 * this object groupable", never "will this call succeed".
+	 */
+	readonly canGroup: boolean
+	/**
+	 * Children, when `type` is `group`; empty otherwise. Ordered bottom-to-top like
+	 * {@link Slide.objects} itself, and nested to whatever depth the groups nest.
+	 */
+	readonly children: readonly SlideObjectInfo[]
+}
 export interface Slide {
 	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): Slide
 	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
@@ -111,6 +153,19 @@ export interface Slide {
 	addGroup: (children: GroupChildProps[], options?: GroupProps) => Slide
 	/** Group objects already on this slide, addressed by their `objectName`, into a single group. */
 	groupObjects: (objectNames: string[], options?: GroupProps) => Slide
+
+	/**
+	 * The objects authored on this slide so far, bottom-to-top in z-order — the read-back half of
+	 * `groupObjects()`, which addresses those same objects by name but until now gave no way to
+	 * learn the names.
+	 *
+	 * A fresh snapshot on every access, and inert: it describes the slide, and writing to it does
+	 * nothing. To act on what it reports, call the authoring API with the names it hands you.
+	 * @example
+	 * const cards = slide.objects.filter((o) => o.canGroup && o.objectName?.startsWith('card:'))
+	 * slide.groupObjects(cards.map((o) => o.objectName), { objectName: 'Cards' })
+	 */
+	readonly objects: readonly SlideObjectInfo[]
 
 	readonly newAutoPagedSlides?: Slide[]
 
