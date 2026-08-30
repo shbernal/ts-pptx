@@ -16,7 +16,7 @@ import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } 
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
-	numCachePt,
+	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
@@ -30,22 +30,9 @@ const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== fal
 function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
 	const valCol = obj._dataIndex + dataLabels(obj).length + 1
-	const numCache = el('c:numCache', null, [
-		raw(el('c:formatCode', null, valFmtCode)),
-		raw(voidEl('c:ptCount', { val: cats.length })),
-		raw(
-			dataValues(obj)
-				.map((value, idx) => numCachePt(idx, value))
-				.join('')
-		),
-	])
-	const numRef = el('c:numRef', null, [
-		raw(el('c:f', null, sheetRangeRef(valCol, 2, valCol, cats.length + 1))),
-		raw(numCache),
-	])
 	return (
 		el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${cats.length + 1}`, cats))) +
-		el('c:val', null, raw(numRef))
+		numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, cats.length + 1), valFmtCode, dataValues(obj), cats.length)
 	)
 }
 

@@ -25,7 +25,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { convertAngleUnits, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
+import { convertAngleUnits, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
@@ -221,6 +221,29 @@ export const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
  */
 export function chartColorLineFill(color: string): string {
 	return color === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(color)
+}
+
+/**
+ * The series *fill* for one plotted series: `<a:noFill>` for a transparent series, a solid fill
+ * carrying `<a:alpha>` when the chart sets `chartColorsOpacity`, and a plain solid fill
+ * otherwise.
+ *
+ * Read against {@link chartColorLineFill}, which is the same decision for a *stroke* and stops
+ * one step earlier — a stroke has no opacity option to fold in. Three plot builders (bubble,
+ * scatter, and the whole category-axis family) each carried this expression verbatim, down to
+ * the diagnostic code and the option name in its message, which is what made the `transparent`
+ * arm easy to add to one and forget in another.
+ *
+ * @param opts - the chart's normalized options, read for `chartColorsOpacity`
+ * @param serColor - the series' resolved palette colour, or `'transparent'`
+ */
+export function seriesFill(opts: ChartOptsInternal, serColor: string): string {
+	if (serColor === 'transparent') return voidEl('a:noFill')
+	if (!opts.chartColorsOpacity) return genXmlColorSelection(serColor)
+	const alpha = voidEl('a:alpha', {
+		val: percentToFixedPercent(opts.chartColorsOpacity, 'chart/option-out-of-range', 'chartColorsOpacity'),
+	})
+	return el('a:solidFill', null, raw(createColorElement(serColor, alpha)))
 }
 /**
  * Emit the `<a:latin>/<a:ea>/<a:cs>` font trio for a chart text run.
@@ -734,20 +757,28 @@ export function catRefBlock(kind: 'num' | 'str', ref: string, labels: string[], 
  * may supply fewer Y values than X — a timeline with only the first few months filled in), and
  * the shorter array's tail arrives here as `undefined`, which {@link numCachePt} skips.
  *
- * @param tag - the wrapping element: `c:xVal`, `c:yVal` or `c:bubbleSize`
+ * `ptCount` is the length of the cached *range* — the number of cells `ref` spans — which is not
+ * always `values.length`. A category chart caches one column against the chart's category count
+ * and may hold fewer values than that, so it states the count explicitly; scatter and bubble pad
+ * their arrays to the range instead and let the default stand. Both spellings mean the same
+ * thing, and having only one of them derived by accident is how they drifted apart.
+ *
+ * @param tag - the wrapping element: `c:val`, `c:xVal`, `c:yVal` or `c:bubbleSize`
  * @param ref - the `<c:f>` formula, from {@link sheetRangeRef} or written inline
  * @param formatCode - the cached `<c:formatCode>`
  * @param values - the points to cache, in order; `null`/`undefined` entries are gaps
+ * @param ptCount - cells spanned by `ref`; defaults to `values.length`
  */
 export function numRefBlock(
-	tag: 'c:xVal' | 'c:yVal' | 'c:bubbleSize',
+	tag: 'c:val' | 'c:xVal' | 'c:yVal' | 'c:bubbleSize',
 	ref: string,
 	formatCode: string,
-	values: Array<number | null | undefined>
+	values: Array<number | null | undefined>,
+	ptCount: number = values.length
 ): string {
 	const numCache = el('c:numCache', null, [
 		raw(el('c:formatCode', null, formatCode)),
-		raw(voidEl('c:ptCount', { val: values.length })),
+		raw(voidEl('c:ptCount', { val: ptCount })),
 		raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
 	])
 	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)])

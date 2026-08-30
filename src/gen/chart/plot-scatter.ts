@@ -11,11 +11,10 @@
 import { BARCHART_COLORS, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
-import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
-import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
@@ -29,6 +28,7 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	seriesFill,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -174,27 +174,7 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 
 /** Fill, outline and shadow for one scatter series. */
 function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	const fill =
-		serColor === 'transparent'
-			? voidEl('a:noFill')
-			: opts.chartColorsOpacity
-				? el(
-						'a:solidFill',
-						null,
-						raw(
-							createColorElement(
-								serColor,
-								voidEl('a:alpha', {
-									val: percentToFixedPercent(
-										opts.chartColorsOpacity,
-										'chart/option-out-of-range',
-										'chartColorsOpacity'
-									),
-								})
-							)
-						)
-					)
-				: genXmlColorSelection(serColor)
+	const fill = seriesFill(opts, serColor)
 	const line =
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))

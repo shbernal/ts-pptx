@@ -16,6 +16,7 @@ import { createShadowEffectLst } from '../drawingml/effect.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
+	catRefBlock,
 	createChartBorderLine,
 	createDataBorderLine,
 	createLeaderLinesElement,
@@ -112,14 +113,9 @@ function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOpt
 	])
 }
 
-/** The `<c:cat>` slice-name reference and the `<c:val>` cache, both keyed on the label count. */
+/** The `<c:cat>` slice-name reference, keyed on the label count. */
 function pieCategories(labels: string[]): string {
-	const strCache = el('c:strCache', null, [
-		raw(voidEl('c:ptCount', { val: labels.length })),
-		raw(labels.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join('')),
-	])
-	const strRef = el('c:strRef', null, [raw(el('c:f', null, `Sheet1!$A$2:$A$${labels.length + 1}`)), raw(strCache)])
-	return el('c:cat', null, raw(strRef))
+	return el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${labels.length + 1}`, labels)))
 }
 
 /** The `<c:val>` numeric cache. A missing value keeps its `<c:pt>` with an empty `<c:v>`. */

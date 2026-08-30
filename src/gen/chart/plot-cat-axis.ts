@@ -17,11 +17,10 @@ import {
 	DEF_SHAPE_SHADOW,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
-import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
-import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -36,9 +35,10 @@ import {
 	makeChartErrorBarsXml,
 	makeCustomDLblXml,
 	makeSeriesDataPointsXml,
-	numCachePt,
+	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	seriesFill,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -77,27 +77,7 @@ function serShapeProps(
 	lineSize: number | undefined,
 	serIndex: number
 ): string {
-	const fill =
-		seriesColor === 'transparent'
-			? voidEl('a:noFill')
-			: opts.chartColorsOpacity
-				? el(
-						'a:solidFill',
-						null,
-						raw(
-							createColorElement(
-								seriesColor,
-								voidEl('a:alpha', {
-									val: percentToFixedPercent(
-										opts.chartColorsOpacity,
-										'chart/option-out-of-range',
-										'chartColorsOpacity'
-									),
-								})
-							)
-						)
-					)
-				: genXmlColorSelection(seriesColor)
+	const fill = seriesFill(opts, seriesColor)
 	let line = ''
 	if (isLineLike(chartType)) {
 		const effectiveLineSize = lineSize ?? opts.lineSize ?? 2
@@ -205,20 +185,7 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const valCol = obj._dataIndex + dataLabels(obj).length + 1
 	const catCount = firstLabelGroup(obj).length
-	const numCache = el('c:numCache', null, [
-		raw(el('c:formatCode', null, valFmtCode)),
-		raw(voidEl('c:ptCount', { val: catCount })),
-		raw(
-			dataValues(obj)
-				.map((value, idx) => numCachePt(idx, value))
-				.join('')
-		),
-	])
-	const numRef = el('c:numRef', null, [
-		raw(el('c:f', null, sheetRangeRef(valCol, 2, valCol, catCount + 1))),
-		raw(numCache),
-	])
-	return el('c:val', null, raw(numRef))
+	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, catCount + 1), valFmtCode, dataValues(obj), catCount)
 }
 
 /**

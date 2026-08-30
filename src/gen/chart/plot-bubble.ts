@@ -9,10 +9,9 @@
 import { ChartType } from '../../enums.js'
 import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
-import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { ptsToEmuLenient } from '../../units-internal.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
@@ -22,33 +21,14 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	seriesFill,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
 
 /** Fill + outline + shadow for one bubble series, from the palette colour and the line options. */
 function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	const fill =
-		serColor === 'transparent'
-			? voidEl('a:noFill')
-			: opts.chartColorsOpacity
-				? el(
-						'a:solidFill',
-						null,
-						raw(
-							createColorElement(
-								serColor,
-								voidEl('a:alpha', {
-									val: percentToFixedPercent(
-										opts.chartColorsOpacity,
-										'chart/option-out-of-range',
-										'chartColorsOpacity'
-									),
-								})
-							)
-						)
-					)
-				: genXmlColorSelection(serColor)
+	const fill = seriesFill(opts, serColor)
 	const line =
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))

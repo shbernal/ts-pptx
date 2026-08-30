@@ -24,7 +24,7 @@ import {
 	dLblShowFlags,
 	dimmedTextFill,
 	dimmedTextLine,
-	numCachePt,
+	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
@@ -68,20 +68,16 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 				: catRefBlock('str', catRef, cats)
 		)
 	)
-	const numCache = el('c:numCache', null, [
-		raw(el('c:formatCode', null, valFmtCode)),
-		raw(voidEl('c:ptCount', { val: cats.length })),
-		raw(
-			dataValues(obj)
-				.map((value, idx) => numCachePt(idx, value))
-				.join('')
-		),
-	])
-	const numRef = el('c:numRef', null, [
-		raw(el('c:f', null, sheetRangeRef(valColRow, 2, valColRow, cats.length + 1))),
-		raw(numCache),
-	])
-	return cat + el('c:val', null, raw(numRef))
+	return (
+		cat +
+		numRefBlock(
+			'c:val',
+			sheetRangeRef(valColRow, 2, valColRow, cats.length + 1),
+			valFmtCode,
+			dataValues(obj),
+			cats.length
+		)
+	)
 }
 
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
