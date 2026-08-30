@@ -11,7 +11,7 @@ import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../
 import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill } from '../../drawingml/line.js'
 import { lineWidthToEmu } from '../../../units-internal.js'
-import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { el, raw, voidEl, type XmlAttrs, type XmlFmt } from '../../oxml/el.js'
 
 /**
  * Everything the dispatch in `gen/slide/object.ts` has already resolved for one slide object,
@@ -119,4 +119,125 @@ export function genXmlShapeLine(ln: ShapeLineProps): string {
 		ln.beginArrowType ? raw(voidEl('a:headEnd', { type: ln.beginArrowType })) : null,
 		ln.endArrowType ? raw(voidEl('a:tailEnd', { type: ln.endArrowType })) : null,
 	])
+}
+
+/**
+ * An `<a:off>`/`<a:ext>` transform, under whichever wrapper the context calls for: `p:xfrm` on a
+ * `<p:graphicFrame>`, `a:xfrm` inside a `<p:spPr>`. Nine sites across the graphic-frame and
+ * preview-picture emitters wrote the same six-line pair.
+ * @param tag - `p:xfrm` or `a:xfrm`
+ * @param frame - the box, in EMU
+ * @param fmt - byte-significant layout, where the caller's part indents
+ */
+export function xfrmEl(
+	tag: 'p:xfrm' | 'a:xfrm',
+	frame: { x: number; y: number; cx: number; cy: number },
+	fmt?: XmlFmt
+): string {
+	return el(
+		tag,
+		null,
+		[raw(voidEl('a:off', { x: frame.x, y: frame.y })), raw(voidEl('a:ext', { cx: frame.cx, cy: frame.cy }))],
+		fmt
+	)
+}
+
+/**
+ * A `<p:graphicFrame>`: its non-visual properties, its transform, and the `<a:graphic>` /
+ * `<a:graphicData>` envelope around a payload.
+ *
+ * The child order is the point. `CT_GraphicalObjectFrame` sequences
+ * `nvGraphicFramePr` → `xfrm` → `graphic`, and PowerPoint reports a frame that gets it wrong as
+ * a corrupt file (0x80070570) rather than as a bad element — a failure the five emitters that
+ * build one (chart, table, OLE, zoom, 3D model) each had to be right about separately.
+ *
+ * `nvGraphicFramePr` stays the caller's to build and is *not* folded in here. The five differ in
+ * every part of it — an empty `<p:cNvGraphicFramePr>` for a chart against four different
+ * `<a:graphicFrameLocks>` default sets, a `<p:nvPr>` that is empty for three and carries a
+ * placeholder (and, for a table, a `p14:modId` extension) for the other two — and each of those
+ * differences is deliberate and documented where it is made.
+ *
+ * @param opts.nvGraphicFramePr - the already-serialized `<p:nvGraphicFramePr>`
+ * @param opts.frame - the frame's slide-absolute box, in EMU
+ * @param opts.uri - the `<a:graphicData>` payload namespace
+ * @param opts.payload - the already-serialized `<a:graphicData>` content
+ * @param opts.fmt - per-element byte layout; `graphicAttrs` adds attributes to `<a:graphic>`
+ *   (the chart frame alone redeclares `xmlns:a` there, as PowerPoint writes it)
+ */
+export function graphicFrameEl(opts: {
+	nvGraphicFramePr: string
+	frame: { x: number; y: number; cx: number; cy: number }
+	uri: string
+	payload: string
+	fmt?: { xfrm?: XmlFmt; graphic?: XmlFmt; graphicData?: XmlFmt; graphicAttrs?: XmlAttrs }
+}): string {
+	const { nvGraphicFramePr, frame, uri, payload, fmt } = opts
+	return el('p:graphicFrame', null, [
+		raw(nvGraphicFramePr),
+		raw(xfrmEl('p:xfrm', frame, fmt?.xfrm)),
+		raw(
+			el(
+				'a:graphic',
+				fmt?.graphicAttrs ?? null,
+				raw(el('a:graphicData', { uri }, raw(payload), fmt?.graphicData)),
+				fmt?.graphic
+			)
+		),
+	])
+}
+
+/**
+ * The `<a:picLocks>` set PowerPoint fixes on an `mc:Fallback` preview picture.
+ *
+ * Fixed rather than taken from the caller's `objectLock`, and that is true of every construct
+ * that emits one: the fallback picture is what a consumer *without* the feature draws, while the
+ * caller's locks belong on the `mc:Choice` frame — the object PowerPoint itself manipulates. The
+ * two element types also accept different flags, so folding a `graphicFrameLocks` set onto a
+ * `picLocks` would warn about every flag they do not share. Routed through `genXmlObjectLock` so
+ * attribute order comes from `PICTURE_LOCK_ATTRS` (`gen/drawingml/locks.ts`) rather than from a literal, and a flag
+ * added to the table lands in the right place.
+ *
+ * A 3D model spreads `noCrop` on top: it is reframed by its camera, never by cropping the cached
+ * raster.
+ */
+export const FALLBACK_PICTURE_LOCKS = Object.freeze({
+	noGrp: true,
+	noRot: true,
+	noChangeAspect: true,
+	noMove: true,
+	noResize: true,
+	noEditPoints: true,
+	noAdjustHandles: true,
+	noChangeArrowheads: true,
+	noChangeShapeType: true,
+})
+
+/**
+ * The drawn half of an `mc:Fallback` preview picture: the `<p:blipFill>` onto the cached image
+ * and the `<p:spPr>` that places it. Identical in the OLE, zoom and 3D-model emitters, which is
+ * everything a preview picture is apart from its `<p:nvPicPr>` — and there the three differ on
+ * purpose (an id-less `cNvPr` for OLE, a hyperlinked one for a zoom tile, `noCrop` for a model),
+ * so each keeps its own.
+ * @param previewRid - the relationship id of the cached image
+ * @param frame - where the picture is drawn, in EMU
+ * @param outline - `true` for the hairline grey border a zoom tile carries
+ */
+export function previewPicBody(
+	previewRid: number,
+	frame: { x: number; y: number; cx: number; cy: number },
+	outline = false
+): string {
+	return (
+		el('p:blipFill', null, [
+			raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })),
+			raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+		]) +
+		el('p:spPr', null, [
+			raw(xfrmEl('a:xfrm', frame)),
+			raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
+			outline
+				? raw(el('a:ln', { w: '3175' }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'ltGray' }))))))
+				: null,
+		])
+	)
 }

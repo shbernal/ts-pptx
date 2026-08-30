@@ -15,7 +15,6 @@
 	"src/gen/slide/objects/image.ts": 9,
 	"src/gen/slide/objects/media.ts": 1,
 	"src/gen/slide/objects/shared.ts": 1,
-	"src/gen/slide/objects/table.ts": 4,
 	"src/gen/slide/objects/text.ts": 12,
 	"src/gen/slide/objects/zoom.ts": 1,
 	"src/math.ts": 5,

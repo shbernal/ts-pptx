@@ -4,7 +4,7 @@
 
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
-import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import { MC_NS, type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
 
 /** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
 const VML_NS = 'urn:schemas-microsoft-com:vml'
@@ -54,18 +54,7 @@ export function renderOleObject(ctx: RenderContext): string {
 				raw(voidEl('p:nvPr')),
 			])
 		),
-		raw(
-			el('p:blipFill', null, [
-				raw(voidEl('a:blip', { 'r:embed': `rId${ole.previewRid}` })),
-				raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
-			])
-		),
-		raw(
-			el('p:spPr', null, [
-				raw(el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
-				raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
-			])
-		),
+		raw(previewPicBody(ole.previewRid, { x, y, cx, cy })),
 	])
 
 	const alternateContent = el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [
@@ -73,28 +62,23 @@ export function renderOleObject(ctx: RenderContext): string {
 		raw(el('mc:Fallback', null, raw(oleObj([raw(voidEl('p:embed')), raw(previewPic)])))),
 	])
 
-	return el('p:graphicFrame', null, [
+	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
+		raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') + '/>'),
 		raw(
-			el('p:nvGraphicFramePr', null, [
-				raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') + '/>'),
+			el(
+				'p:cNvGraphicFramePr',
+				null,
 				raw(
-					el(
-						'p:cNvGraphicFramePr',
-						null,
-						raw(
-							genXmlObjectLock(
-								'a:graphicFrameLocks',
-								GRAPHIC_FRAME_LOCK_ATTRS,
-								{ noChangeAspect: true, ...opts.objectLock },
-								opts.objectName
-							)
-						)
+					genXmlObjectLock(
+						'a:graphicFrameLocks',
+						GRAPHIC_FRAME_LOCK_ATTRS,
+						{ noChangeAspect: true, ...opts.objectLock },
+						opts.objectName
 					)
-				),
-				raw(voidEl('p:nvPr')),
-			])
+				)
+			)
 		),
-		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
-		raw(el('a:graphic', null, raw(el('a:graphicData', { uri: OLE_NS }, raw(alternateContent))))),
+		raw(voidEl('p:nvPr')),
 	])
+	return graphicFrameEl({ nvGraphicFramePr, frame: { x, y, cx, cy }, uri: OLE_NS, payload: alternateContent })
 }

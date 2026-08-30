@@ -14,7 +14,15 @@
 
 import type { Model3dInternal } from '../../../types/internal.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import {
+	FALLBACK_PICTURE_LOCKS,
+	MC_NS,
+	type RenderContext,
+	cNvPrOpen,
+	graphicFrameEl,
+	previewPicBody,
+	xfrmEl,
+} from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** The `am3d` namespace, doubling as `a:graphicData@uri` and the `mc:Choice Requires` token's URI. */
@@ -120,41 +128,14 @@ function fallbackPic(
 							// `Model3dProps` has an `objectLock`, for the reason the zoom emitter spells out:
 							// this is the `mc:Fallback` picture, and `a:picLocks` takes a different flag set
 							// from the `a:graphicFrameLocks` the caller's locks land on.
-							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
-								noGrp: true,
-								noRot: true,
-								noChangeAspect: true,
-								noMove: true,
-								noResize: true,
-								noEditPoints: true,
-								noAdjustHandles: true,
-								noChangeArrowheads: true,
-								noChangeShapeType: true,
-								noCrop: true,
-							})
+							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { ...FALLBACK_PICTURE_LOCKS, noCrop: true })
 						)
 					)
 				),
 				raw(voidEl('p:nvPr')),
 			])
 		),
-		raw(
-			el('p:blipFill', null, [
-				raw(voidEl('a:blip', { 'r:embed': `rId${model.previewRid}` })),
-				raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
-			])
-		),
-		raw(
-			el('p:spPr', null, [
-				raw(
-					el('a:xfrm', null, [
-						raw(voidEl('a:off', { x: xf.x, y: xf.y })),
-						raw(voidEl('a:ext', { cx: xf.cx, cy: xf.cy })),
-					])
-				),
-				raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
-			])
-		),
+		raw(previewPicBody(model.previewRid, xf)),
 	])
 }
 
@@ -177,7 +158,7 @@ export function renderModel3dObject(ctx: RenderContext): string {
 	// `am3d:spPr`'s xfrm is FRAME-LOCAL: origin 0,0 with the graphic frame's own extent. The
 	// slide-absolute position lives on `p:xfrm` below (and on the fallback picture's `p:spPr`).
 	const spPr = el('am3d:spPr', null, [
-		raw(el('a:xfrm', null, [raw(voidEl('a:off', { x: 0, y: 0 })), raw(voidEl('a:ext', { cx, cy }))])),
+		raw(xfrmEl('a:xfrm', { x: 0, y: 0, cx, cy })),
 		raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
 	])
 
@@ -191,29 +172,29 @@ export function renderModel3dObject(ctx: RenderContext): string {
 		raw(lightsXml()),
 	])
 
-	const graphicFrame = el('p:graphicFrame', null, [
+	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
+		raw(cNvPrOpen(idx + 2, opts.objectName, altText) + '/>'),
 		raw(
-			el('p:nvGraphicFramePr', null, [
-				raw(cNvPrOpen(idx + 2, opts.objectName, altText) + '/>'),
+			el(
+				'p:cNvGraphicFramePr',
+				null,
+				// PowerPoint writes an empty `<a:graphicFrameLocks/>` here — no flags, but the
+				// element present — so that is what an unlocked model emits. `genXmlObjectLock`
+				// returns `''` when nothing is set, hence the fallback.
 				raw(
-					el(
-						'p:cNvGraphicFramePr',
-						null,
-						// PowerPoint writes an empty `<a:graphicFrameLocks/>` here — no flags, but the
-						// element present — so that is what an unlocked model emits. `genXmlObjectLock`
-						// returns `''` when nothing is set, hence the fallback.
-						raw(
-							genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, opts.objectLock, opts.objectName) ||
-								voidEl('a:graphicFrameLocks')
-						)
-					)
-				),
-				raw(voidEl('p:nvPr')),
-			])
+					genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, opts.objectLock, opts.objectName) ||
+						voidEl('a:graphicFrameLocks')
+				)
+			)
 		),
-		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
-		raw(el('a:graphic', null, raw(el('a:graphicData', { uri: AM3D_NS }, raw(model3d))))),
+		raw(voidEl('p:nvPr')),
 	])
+	const graphicFrame = graphicFrameEl({
+		nvGraphicFramePr,
+		frame: { x, y, cx, cy },
+		uri: AM3D_NS,
+		payload: model3d,
+	})
 
 	return el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [
 		raw(el('mc:Choice', { 'xmlns:am3d': AM3D_NS, Requires: 'am3d' }, raw(graphicFrame))),

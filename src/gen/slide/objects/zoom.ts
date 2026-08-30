@@ -9,7 +9,14 @@
 
 import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import {
+	FALLBACK_PICTURE_LOCKS,
+	MC_NS,
+	type RenderContext,
+	cNvPrOpen,
+	graphicFrameEl,
+	previewPicBody,
+} from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
@@ -102,42 +109,13 @@ function zoomFallbackPic(
 						// below, which is the object PowerPoint actually manipulates. Routed through
 						// `genXmlObjectLock` so the attribute order is the table's rather than this
 						// literal's, and a flag added to the set lands in the right place.
-						raw(
-							genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, {
-								noGrp: true,
-								noRot: true,
-								noChangeAspect: true,
-								noMove: true,
-								noResize: true,
-								noEditPoints: true,
-								noAdjustHandles: true,
-								noChangeArrowheads: true,
-								noChangeShapeType: true,
-							})
-						)
+						raw(genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, FALLBACK_PICTURE_LOCKS))
 					)
 				),
 				raw(voidEl('p:nvPr')),
 			])
 		),
-		raw(
-			el('p:blipFill', null, [
-				raw(voidEl('a:blip', { 'r:embed': `rId${tile.previewRid}` })),
-				raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
-			])
-		),
-		raw(
-			el('p:spPr', null, [
-				raw(
-					el('a:xfrm', null, [
-						raw(voidEl('a:off', { x: absXf.x, y: absXf.y })),
-						raw(voidEl('a:ext', { cx: absXf.cx, cy: absXf.cy })),
-					])
-				),
-				raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
-				raw(el('a:ln', { w: '3175' }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'ltGray' })))))),
-			])
-		),
+		raw(previewPicBody(tile.previewRid, absXf, true)),
 	])
 }
 
@@ -172,33 +150,33 @@ export function renderZoomObject(ctx: RenderContext): string {
 					.concat(raw(voidEl(`${prefix}:gridLayout`)))
 			: [raw(zoomObjEl(zoom.variant, firstTile, zoom.returnToParent, zoom.transitionDur, { x: 0, y: 0, cx, cy }))]
 
-	const graphicFrame = el('p:graphicFrame', null, [
+	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
+		raw(cNvPrOpen(idx + 2, objectName, '') + '/>'),
 		raw(
-			el('p:nvGraphicFramePr', null, [
-				raw(cNvPrOpen(idx + 2, objectName, '') + '/>'),
+			el(
+				'p:cNvGraphicFramePr',
+				null,
+				// `noChangeAspect` is PowerPoint's own default for a zoom tile (it mirrors the
+				// target slide's aspect); the caller's flags fold over it, so passing
+				// `noChangeAspect: false` lifts it.
 				raw(
-					el(
-						'p:cNvGraphicFramePr',
-						null,
-						// `noChangeAspect` is PowerPoint's own default for a zoom tile (it mirrors the
-						// target slide's aspect); the caller's flags fold over it, so passing
-						// `noChangeAspect: false` lifts it.
-						raw(
-							genXmlObjectLock(
-								'a:graphicFrameLocks',
-								GRAPHIC_FRAME_LOCK_ATTRS,
-								{ noChangeAspect: true, ...opts.objectLock },
-								objectName
-							)
-						)
+					genXmlObjectLock(
+						'a:graphicFrameLocks',
+						GRAPHIC_FRAME_LOCK_ATTRS,
+						{ noChangeAspect: true, ...opts.objectLock },
+						objectName
 					)
-				),
-				raw(voidEl('p:nvPr')),
-			])
+				)
+			)
 		),
-		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
-		raw(el('a:graphic', null, raw(el('a:graphicData', { uri }, raw(el(`${prefix}:${zm}`, null, objectsXml)))))),
+		raw(voidEl('p:nvPr')),
 	])
+	const graphicFrame = graphicFrameEl({
+		nvGraphicFramePr,
+		frame: { x, y, cx, cy },
+		uri,
+		payload: el(`${prefix}:${zm}`, null, objectsXml),
+	})
 	const choice = el('mc:Choice', { [`xmlns:${prefix}`]: uri, Requires: prefix }, raw(graphicFrame))
 
 	// Fallback: a hyperlinked picture per tile at its slide-absolute position.

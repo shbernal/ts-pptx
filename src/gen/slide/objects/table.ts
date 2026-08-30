@@ -20,7 +20,7 @@ import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { P14_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import { P14_NS, type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 
 type TableInheritableOption =
 	| 'align'
@@ -106,7 +106,6 @@ export function renderTableObject(ctx: RenderContext): string {
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.
-	let strXml: string
 	let arrTabRows: TableCell[][] = []
 	let objTabOpts: ObjectOptions = {}
 	let intColCnt = 0
@@ -136,50 +135,57 @@ export function renderTableObject(ctx: RenderContext): string {
 	// with another shape's `idx + 2` on the same slide (e.g. a table plus enough sibling
 	// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
 	// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
-	strXml =
-		'<p:graphicFrame><p:nvGraphicFramePr>' + cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'
-	strXml +=
-		el(
-			'p:cNvGraphicFramePr',
-			null,
-			raw(
-				genXmlObjectLock(
-					'a:graphicFrameLocks',
-					GRAPHIC_FRAME_LOCK_ATTRS,
-					{ noGrp: true, ...itemOpts.objectLock },
-					itemOpts.objectName
+	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
+		raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+		raw(
+			el(
+				'p:cNvGraphicFramePr',
+				null,
+				raw(
+					genXmlObjectLock(
+						'a:graphicFrameLocks',
+						GRAPHIC_FRAME_LOCK_ATTRS,
+						{ noGrp: true, ...itemOpts.objectLock },
+						itemOpts.objectName
+					)
 				)
 			)
-		) +
+		),
 		// A table bound to a layout placeholder emits that placeholder's <p:ph> (idx/type) so
 		// PowerPoint treats the graphicFrame as filling the placeholder. The <p:ph>
 		// precedes <p:extLst> per CT_ApplicationNonVisualDrawingProps document order.
-		el(
-			'p:nvPr',
-			null,
-			[
-				raw(genXmlPlaceholder(placeholderObj)),
-				raw(
-					el(
-						'p:extLst',
-						null,
-						raw(
-							el(
-								'p:ext',
-								{ uri: '{D42A27DB-BD31-4B8C-83A1-F6EECF244321}' },
-								raw(voidEl('p14:modId', { 'xmlns:p14': P14_NS, val: '1579011935' }))
+		raw(
+			el(
+				'p:nvPr',
+				null,
+				[
+					raw(genXmlPlaceholder(placeholderObj)),
+					raw(
+						el(
+							'p:extLst',
+							null,
+							raw(
+								el(
+									'p:ext',
+									{ uri: '{D42A27DB-BD31-4B8C-83A1-F6EECF244321}' },
+									raw(voidEl('p14:modId', { 'xmlns:p14': P14_NS, val: '1579011935' }))
+								)
 							)
 						)
-					)
-				),
-			],
-			{ openPrefix: '  ' }
-		) +
-		'</p:nvGraphicFramePr>'
-	strXml += el('p:xfrm', null, [
-		raw(voidEl('a:off', { x: x || (x === 0 ? 0 : EMU_PER_INCH), y: y || (y === 0 ? 0 : EMU_PER_INCH) })),
-		raw(voidEl('a:ext', { cx: cx || (cx === 0 ? 0 : EMU_PER_INCH), cy: cy || EMU_PER_INCH })),
+					),
+				],
+				{ openPrefix: '  ' }
+			)
+		),
 	])
+	// A table's box falls back to one inch on any axis the caller left undefined, rather than to
+	// the zero a missing extent would otherwise emit.
+	const frame = {
+		x: x || (x === 0 ? 0 : EMU_PER_INCH),
+		y: y || (y === 0 ? 0 : EMU_PER_INCH),
+		cx: cx || (cx === 0 ? 0 : EMU_PER_INCH),
+		cy: cy || EMU_PER_INCH,
+	}
 	{
 		// NOTE: attribute ORDER is byte-significant. None of these flags appears in the byte-gate
 		// baseline (zero parts each), so their emission is pinned by test/regression instead.
@@ -473,20 +479,11 @@ export function renderTableObject(ctx: RenderContext): string {
 
 	// STEP 5: Complete table. NOTE: the closing tags carry indentation the opening tags do not,
 	// so each `closePrefix` is stated explicitly rather than derived from depth.
-	strXml += el(
-		'a:graphic',
-		null,
-		raw(
-			el(
-				'a:graphicData',
-				{ uri: 'http://schemas.openxmlformats.org/drawingml/2006/table' },
-				raw(el('a:tbl', null, raw(tblInner), { closePrefix: '      ' })),
-				{ closePrefix: '    ' }
-			)
-		),
-		{ closePrefix: '  ' }
-	)
-	strXml += '</p:graphicFrame>'
-
-	return strXml
+	return graphicFrameEl({
+		nvGraphicFramePr,
+		frame,
+		uri: 'http://schemas.openxmlformats.org/drawingml/2006/table',
+		payload: el('a:tbl', null, raw(tblInner), { closePrefix: '      ' }),
+		fmt: { graphic: { closePrefix: '  ' }, graphicData: { closePrefix: '    ' } },
+	})
 }
