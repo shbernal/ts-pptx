@@ -211,7 +211,7 @@ Three operations, all purely structural (no semantic parse):
   only; it never deletes shapes (`flattenAnimations` in
   `src/read/api/animation.ts`).
 
-### Interaction with import paths (`src/read/api/presentation.ts`)
+### Interaction with import paths (`src/read/api/presentation-imports.ts`)
 
 - **`importSlide` copy mode**: whole slide part copied byte-identically;
   transition + timing already survive. No change needed.

@@ -73,7 +73,12 @@ exports and let this repository own the internal OOXML generation details.
   resolvers answer "what would this be?" and build detached elements, the ops write the
   answers into a live part. That line is what lets the read model's getters and the
   import-time bake share one implementation, which is what keeps a colour reported
-  before export equal to the colour written into the file.
+  before export equal to the colour written into the file. One file in `read/api/` is
+  not object model: `presentation-imports.ts` holds the bodies of `Presentation`'s four
+  import entry points, whose contracts stay on the class as the doc comments a caller
+  reads. It is not an `ops/` module because it is not independent of its caller -- it
+  reaches back into the deck for three `@internal` members the methods that stayed
+  behind share with it.
 - `src/measure/` holds the calibrated text-measurement engine behind the
   `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
   (advance widths + the registry), `text-fit.ts` (the wrap simulator and the
