@@ -13,7 +13,7 @@ import { IMAGE_FORMATS } from './image-formats.js'
 /**
  * Read the intrinsic dimensions of an image from its header bytes.
  * - synchronous: parses only file-format headers, never decodes pixels
- * - raster: PNG, JPEG, GIF, BMP, and WebP (VP8 / VP8L / VP8X) — natural pixels
+ * - raster: PNG, JPEG, GIF, BMP, TIFF, and WebP (VP8 / VP8L / VP8X) — natural pixels
  * - vector: SVG — intrinsic size from the root `<svg>` width/height or viewBox
  * - unrecognized formats return `null` (no measurable intrinsic size)
  *
@@ -115,6 +115,38 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 			i += 2 + segLen
 		}
 		return null
+	}
+
+	// TIFF: an 8-byte header pointing at the first IFD, whose entries carry ImageWidth (0x0100)
+	// and ImageLength (0x0101). Every other format above reads its size from a fixed offset; this
+	// one has to walk, because a TIFF states where its directory is rather than where its pixels
+	// are. Added because the sniffer already recognised TIFF and this did not, so a `.tif` got a
+	// content type and then silently no intrinsic size.
+	if (IMAGE_FORMATS.tiff.magic(b)) {
+		const little = b[0] === 0x49
+		const u16 = (n: number): number => (little ? u(n) | (u(n + 1) << 8) : (u(n) << 8) | u(n + 1))
+		const u32 = (n: number): number =>
+			little
+				? (u(n) | (u(n + 1) << 8) | (u(n + 2) << 16) | (u(n + 3) << 24)) >>> 0
+				: ((u(n) << 24) | (u(n + 1) << 16) | (u(n + 2) << 8) | u(n + 3)) >>> 0
+
+		const ifd = u32(4)
+		if (ifd + 2 > b.length) return null
+		const entries = u16(ifd)
+		let w = 0
+		let h = 0
+		for (let i = 0; i < entries; i++) {
+			const entry = ifd + 2 + i * 12
+			if (entry + 12 > b.length) return null
+			const tag = u16(entry)
+			if (tag !== 0x0100 && tag !== 0x0101) continue
+			// The value sits inline in the last four bytes. A SHORT (type 3) occupies the first two
+			// of them, which on a big-endian file is not where a LONG (type 4) starts.
+			const value = u16(entry + 2) === 3 ? u16(entry + 8) : u32(entry + 8)
+			if (tag === 0x0100) w = value
+			else h = value
+		}
+		return w > 0 && h > 0 ? { w, h } : null
 	}
 
 	// SVG: text-based vector with no binary signature. When the payload is an

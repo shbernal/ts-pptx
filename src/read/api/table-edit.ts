@@ -14,8 +14,6 @@
  * validate-at-the-boundary rule the write path follows, with the difference that here there
  * is a caller to throw at rather than a deck to degrade (see `ooxml/check-enum.ts`).
  */
-import { InvalidOptionError } from '../../errors.js'
-import type { InvalidOptionErrorCode } from '../../codes.js'
 import { getOrAddChild, insertInOrder, type Element } from '../oxml/dom.js'
 import { TCPR_AFTER } from '../../ooxml/sequence.js'
 import { TEXT_ANCHORS, TEXT_HORZ_OVERFLOW, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
@@ -61,15 +59,4 @@ export function tcPrChild(tcPr: Element, qname: string): Element {
  */
 export function insertTcPrChild(tcPr: Element, qname: string, node: Element): void {
 	insertInOrder(tcPr, node, TCPR_AFTER[qname] ?? [])
-}
-
-/**
- * Round a measurement to whole EMU, rejecting a value that cannot be written.
- * `NaN`/`Infinity` would reach the attribute verbatim and make the part invalid, which is
- * exactly the "silent coercion of invalid input" the project's policy rules out.
- */
-export function checkFiniteEmu(value: number, field: string, code: InvalidOptionErrorCode): number {
-	if (!Number.isFinite(value))
-		throw new InvalidOptionError(code, `${field} must be a finite number of EMU, got: ${String(value)}`)
-	return Math.round(value)
 }

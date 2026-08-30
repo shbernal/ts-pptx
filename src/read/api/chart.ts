@@ -19,7 +19,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
-import { EMU_PER_POINT } from '../../units.js'
+import { ptFromEmu } from './coords.js'
 
 /** A chart axis number format (`c:numFmt`). */
 export interface AxisNumberFormat {
@@ -401,7 +401,7 @@ export class ChartSeries {
 		const dash = firstChild(ln, 'a:prstDash')
 		const solid = readSolid(ln)
 		return {
-			widthPt: w === null ? null : w / EMU_PER_POINT,
+			widthPt: ptFromEmu(w),
 			dash: dash ? (attr(dash, 'val') ?? null) : null,
 			color: solid.color,
 			schemeColor: solid.schemeColor,

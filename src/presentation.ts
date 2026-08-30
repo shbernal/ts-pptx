@@ -294,6 +294,21 @@ export default class PresentationCore {
 
 	private LAYOUTS: { [key: string]: PresLayout }
 
+	/**
+	 * The built-in default layout, or a throw. `LAYOUTS` is a string-keyed map, so the lookup is
+	 * typed as possibly-missing at every call site even though the constructor registers it — and
+	 * the two callers that need it were spelling the same guard and the same message.
+	 */
+	#requireDefaultLayout(): PresLayout {
+		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
+		if (!defLayout)
+			throw new InternalError(
+				'layout/default-not-registered',
+				`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`
+			)
+		return defLayout
+	}
+
 	private _presLayout: PresLayout
 	public get presLayout(): PresLayout {
 		return this._presLayout
@@ -324,12 +339,7 @@ export default class PresentationCore {
 		this._subject = 'ts-pptx Presentation'
 		this._title = 'ts-pptx Presentation'
 		// ts-pptx props
-		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
-		if (!defLayout)
-			throw new InternalError(
-				'layout/default-not-registered',
-				`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`
-			)
+		const defLayout = this.#requireDefaultLayout()
 		this._presLayout = {
 			name: defLayout.name,
 			_sizeW: defLayout.width,
@@ -915,12 +925,7 @@ export default class PresentationCore {
 	 */
 	addSlide(options?: AddSlideProps): Slide {
 		const masterTitle = options?.masterTitle ?? ''
-		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
-		if (!defLayout)
-			throw new InternalError(
-				'layout/default-not-registered',
-				`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`
-			)
+		const defLayout = this.#requireDefaultLayout()
 		let slideLayout: SlideLayoutInternal = {
 			_name: defLayout.name,
 			_presLayout: this.presLayout,

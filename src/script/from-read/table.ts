@@ -24,6 +24,7 @@ import { compact, inches, literalColor, orUndefined, positionOfFrame } from './v
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { gradientStops, patternOption } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
+import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 
 /** How {@link pictureFillOption}'s notes name a cell. */
 const CELL_PICTURE_FILL: PictureFillSubject = {
@@ -339,20 +340,8 @@ function cellBorders(cell: TableCell, notes: NoteScope): IrValue | undefined {
 	return edges.map((edge) => borderIr(edge, notes))
 }
 
-/** The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts. */
-const WRITABLE_DASHES = new Set([
-	'solid',
-	'dot',
-	'dash',
-	'lgDash',
-	'dashDot',
-	'lgDashDot',
-	'lgDashDotDot',
-	'sysDash',
-	'sysDot',
-	'sysDashDot',
-	'sysDashDotDot',
-])
+/** The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts — the whole set. */
+const WRITABLE_DASHES = new Set<string>(PRESET_LINE_DASHES)
 
 /**
  * One decoded edge (or diagonal) as `BorderProps`.

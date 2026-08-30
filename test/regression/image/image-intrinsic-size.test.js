@@ -18,6 +18,12 @@ const RASTER_4x2 = {
 	bmp: 'image/bmp;base64,Qk0AAAAAAAAAAAAAAAAAAAAABAAAAAIAAAAAAAAAAAA=',
 	webp: 'image/webp;base64,UklGRgAAAABXRUJQVlA4WAAAAAAAAAAAAwAAAQAAAAA=',
 	jpeg: 'image/jpeg;base64,/9j/wAARCAACAAQDAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+	// TIFF states where its directory is rather than where its pixels are, so both byte orders are
+	// exercised — and, within each, both places a value can sit: ImageWidth as a SHORT (which on a
+	// big-endian file occupies the first two bytes of the four-byte value field) and ImageLength as
+	// a LONG (which fills all four).
+	'tiff (little-endian)': 'image/tiff;base64,SUkqAAgAAAACAAABAwABAAAABAAAAAEBBAABAAAAAgAAAAAAAAA=',
+	'tiff (big-endian)': 'image/tiff;base64,TU0AKgAAAAgAAgEAAAMAAAABAAQAAAEBAAQAAAABAAAAAgAAAAA=',
 }
 
 // Tiny inline SVG (vector → no intrinsic pixel size, must keep the 1in fallback).

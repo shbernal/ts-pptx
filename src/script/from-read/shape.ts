@@ -45,6 +45,7 @@ import { textFrameOptions, textRuns } from './text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
 import { PERCENT_SCALE } from '../../units.js'
+import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 
 /** Resolves an image/media part name to bytes the deck-level walk has registered. */
 export interface AssetResolver {
@@ -72,19 +73,7 @@ const SHAPE_PICTURE_FILL: PictureFillSubject = {
 const WRITABLE_ARROWS = new Set(['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'])
 
 /** Dash tokens `ShapeLineProps.dashType` accepts — the whole `ST_PresetLineDashVal` set. */
-const WRITABLE_DASHES = new Set([
-	'solid',
-	'dot',
-	'dash',
-	'lgDash',
-	'dashDot',
-	'lgDashDot',
-	'lgDashDotDot',
-	'sysDash',
-	'sysDot',
-	'sysDashDot',
-	'sysDashDotDot',
-])
+const WRITABLE_DASHES = new Set<string>(PRESET_LINE_DASHES)
 
 /**
  * `a:ln/@cap` tokens → the `ShapeLineProps.cap` spelling that authors them. The read side

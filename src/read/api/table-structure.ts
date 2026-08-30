@@ -21,6 +21,7 @@
  * a bad edit, which is why the span bookkeeping here is explicit rather than incidental.
  */
 import { InvalidOptionError } from '../../errors.js'
+import { EMU_PER_INCH } from '../../units.js'
 import {
 	attr,
 	createElement,
@@ -239,7 +240,7 @@ export function removeRow(tbl: Element, index: number): void {
  * `index` is an `hMerge` continuation, the insertion point falls inside a horizontal span,
  * so the span widens by one and the new cell joins it as another continuation.
  */
-export function insertColumn(tbl: Element, index?: number, widthEmu = 914400): Element {
+export function insertColumn(tbl: Element, index?: number, widthEmu = EMU_PER_INCH): Element {
 	const grid = gridOf(tbl)
 	const cols = getElements(grid, 'a:gridCol')
 	const at = index === undefined ? cols.length : checkIndex(index, cols.length, 'column', true)

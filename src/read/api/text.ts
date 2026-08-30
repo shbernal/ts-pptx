@@ -42,6 +42,7 @@ import {
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { EMU_PER_POINT } from '../../units.js'
 import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../ooxml/sequence.js'
+import { ptFromEmu } from './coords.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve an *inherited* run
@@ -745,7 +746,7 @@ export class Paragraph {
 	#emuAttrPt(name: string): number | null {
 		const pPr = firstChild(this.element, 'a:pPr')
 		const emu = pPr ? intValue(attr(pPr, name)) : null
-		return emu === null ? null : emu / EMU_PER_POINT
+		return ptFromEmu(emu)
 	}
 
 	/**

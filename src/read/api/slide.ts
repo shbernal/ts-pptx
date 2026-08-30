@@ -49,6 +49,7 @@ import {
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-types.js'
 import { imageFormatForBytes } from '../../media/image-formats.js'
+import { checkFiniteEmu, checkPositiveEmu } from './coords.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
 
@@ -575,11 +576,11 @@ export class Slide implements ShapeHost {
 	 * Allocates a drawing id unique within the slide. Marks the slide part dirty.
 	 */
 	addTextBox(options: AddTextBoxOptions): AutoShape {
-		const { left, top, width, height } = options
-		requireFinite(left, 'left')
-		requireFinite(top, 'top')
-		requirePositive(width, 'width')
-		requirePositive(height, 'height')
+		// Checked and rounded up front, so the builder below is handed whole EMU.
+		const left = checkFiniteEmu(options.left, 'left')
+		const top = checkFiniteEmu(options.top, 'top')
+		const width = checkPositiveEmu(options.width, 'width')
+		const height = checkPositiveEmu(options.height, 'height')
 
 		const spTree = this.#spTree()
 		if (!spTree)
@@ -592,10 +593,10 @@ export class Slide implements ShapeHost {
 			id,
 			name: options.name ?? `TextBox ${id}`,
 			text: options.text ?? '',
-			left: Math.round(left),
-			top: Math.round(top),
-			width: Math.round(width),
-			height: Math.round(height),
+			left,
+			top,
+			width,
+			height,
 		})
 		this.#appendShape(spTree, sp)
 		return new AutoShape(sp, this)
@@ -609,11 +610,11 @@ export class Slide implements ShapeHost {
 	 * format is sniffed from the bytes unless `extension`/`contentType` are given.
 	 */
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture {
-		const { left, top, width, height } = options
-		requireFinite(left, 'left')
-		requireFinite(top, 'top')
-		requirePositive(width, 'width')
-		requirePositive(height, 'height')
+		// Checked and rounded up front, so the builder below is handed whole EMU.
+		const left = checkFiniteEmu(options.left, 'left')
+		const top = checkFiniteEmu(options.top, 'top')
+		const width = checkPositiveEmu(options.width, 'width')
+		const height = checkPositiveEmu(options.height, 'height')
 
 		const sniffed = sniffImageType(image)
 		const extension = (options.extension ?? sniffed?.extension)?.toLowerCase().replace(/^\./, '')
@@ -641,10 +642,10 @@ export class Slide implements ShapeHost {
 			id,
 			name: options.name ?? `Picture ${id}`,
 			relId,
-			left: Math.round(left),
-			top: Math.round(top),
-			width: Math.round(width),
-			height: Math.round(height),
+			left,
+			top,
+			width,
+			height,
 		})
 		this.#appendShape(spTree, pic)
 		return new Picture(pic, this)
@@ -722,16 +723,6 @@ export class Slide implements ShapeHost {
 	#spTree(): Element | null {
 		return spTreeOf(this.part.dom.documentElement)
 	}
-}
-
-function requireFinite(value: number, name: string): void {
-	if (!Number.isFinite(value))
-		throw new InvalidOptionError('coord/non-finite', `${name} must be a finite number of EMU, got ${value}`)
-}
-
-function requirePositive(value: number, name: string): void {
-	requireFinite(value, name)
-	if (value <= 0) throw new InvalidOptionError('coord/not-positive', `${name} must be positive, got ${value}`)
 }
 
 /** The box a built shape sits in, in EMU. */

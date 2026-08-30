@@ -26,7 +26,6 @@ import { FILL_CHOICES, normalizeHex, setSolidFill } from '../oxml/fill.js'
 import {
 	ANCHOR_VALUES,
 	checkEnum,
-	checkFiniteEmu,
 	EDGE_QNAMES,
 	HORZ_OVERFLOW_VALUES,
 	insertTcPrChild,
@@ -35,6 +34,7 @@ import {
 	VERT_VALUES,
 	type TableCellEdge,
 } from './table-edit.js'
+import { checkFiniteEmu, ptFromEmu } from './coords.js'
 import { insertColumn, insertRow, mergeCells, removeColumn, removeRow, rowsOf, unmergeCell } from './table-structure.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
 import type { ThemeContext } from '../oxml/theme.js'
@@ -857,7 +857,7 @@ export class TableCell {
 			const scheme = this.#fillSchemeColorOf(ln)
 			const resolved = this.themeColors ? resolveSolidFillColor(ln, this.themeColors) : null
 			return {
-				widthPt: w === null ? null : w / EMU_PER_POINT,
+				widthPt: ptFromEmu(w),
 				dash: dash ? (attr(dash, 'val') ?? null) : null,
 				resolvedColor: resolved,
 				color: resolved ? resolved.effectiveHex : null,
@@ -929,7 +929,7 @@ export class TableCell {
 		const rig = firstChild(cell3D, 'a:lightRig')
 		const pts = (value: string | null): number | null => {
 			const emu = intValue(value)
-			return emu === null ? null : emu / EMU_PER_POINT
+			return ptFromEmu(emu)
 		}
 		return {
 			material: attr(cell3D, 'prstMaterial') ?? null,

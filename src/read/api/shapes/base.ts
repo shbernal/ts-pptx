@@ -69,6 +69,7 @@ import type {
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../../units.js'
+import { ptFromEmu } from '../coords.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -434,11 +435,7 @@ export abstract class Shape {
 	 * Read it back with {@link fillNoFill}.
 	 */
 	noFill(): void {
-		if (!this.supportsFill)
-			throw new UnsupportedFeatureError(
-				'shape/fill-unsupported',
-				`${this.shapeType} shapes do not support a solid fill`
-			)
+		this.#requireFillSupport()
 		const { props, fillAfter } = this.getOrAddProperties()
 		removeChildrenByQName(props, FILL_CHOICES)
 		getOrAddChild(props, 'a:noFill', fillAfter)
@@ -467,7 +464,7 @@ export abstract class Shape {
 	get lineWidthPt(): number | null {
 		const ln = this.#line()
 		const w = ln ? intValue(attr(ln, 'w')) : null
-		return w === null ? null : w / EMU_PER_POINT
+		return ptFromEmu(w)
 	}
 
 	/**
@@ -804,6 +801,19 @@ export abstract class Shape {
 		return props ? firstChild(props, 'a:ln') : null
 	}
 
+	/**
+	 * Throw unless this shape kind has a fill to set. Both the explicit `<a:noFill/>` setter and
+	 * the solid-fill one need it, and a kind that cannot be filled is a caller mistake rather than
+	 * a no-op — silently accepting the call would report success for a shape that never changes.
+	 */
+	#requireFillSupport(): void {
+		if (!this.supportsFill)
+			throw new UnsupportedFeatureError(
+				'shape/fill-unsupported',
+				`${this.shapeType} shapes do not support a solid fill`
+			)
+	}
+
 	#setFill(color: { qname: string; val: string } | null): void {
 		if (color === null) {
 			const props = this.properties()
@@ -812,11 +822,7 @@ export abstract class Shape {
 			this.markDirty()
 			return
 		}
-		if (!this.supportsFill)
-			throw new UnsupportedFeatureError(
-				'shape/fill-unsupported',
-				`${this.shapeType} shapes do not support a solid fill`
-			)
+		this.#requireFillSupport()
 		const { props, fillAfter } = this.getOrAddProperties()
 		setSolidFill(props, fillAfter, color)
 		this.markDirty()
