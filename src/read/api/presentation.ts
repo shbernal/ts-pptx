@@ -60,6 +60,7 @@ import type {
 } from './presentation-types.js'
 import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
+import { requireEqualSlideSize, requireKnownSlideSizes, slideSizesMatch } from './ops/slide-size.js'
 import { carryTableStyles } from './ops/table-styles.js'
 import { promoteMasters } from './ops/master-registry.js'
 import { checkSelectionCopyable, copyPart, copySlidePart, newOwnedScope, type ImportContext } from './ops/part-copy.js'
@@ -490,24 +491,14 @@ export class Presentation {
 		const sourceSlide = source.slides[index]
 		if (!sourceSlide) throw new InvalidOptionError('slide/index-out-of-range', `No slide at index ${index} to import`)
 
-		// 1. Pre-flight: slide sizes must match unless the caller opts into a rescale.
+		// 1. Pre-flight: slide sizes must match unless the caller opts into a rescale. Either way
+		//    both decks have to declare one — a rescale cannot be computed from a size that is
+		//    not there, and neither can a comparison.
 		const target = this.slideSize
 		const incoming = source.slideSize
-		const sizesDiffer =
-			!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu
-		if (sizesDiffer && !options.rescale) {
-			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-			throw new InvalidOptionError(
-				'import/slide-size-mismatch',
-				`importSlide requires equal slide sizes (pass { rescale: 'fit' | 'stretch' } to rescale); target is ${fmt(target)}, source is ${fmt(incoming)}`
-			)
-		}
-		if (sizesDiffer && options.rescale && (!target || !incoming)) {
-			throw new InvalidOptionError(
-				'import/slide-size-unknown',
-				'importSlide rescale requires both decks to declare a slide size (p:sldSz)'
-			)
-		}
+		if (options.rescale) requireKnownSlideSizes(target, incoming, 'importSlide rescale')
+		else requireEqualSlideSize(target, incoming, 'importSlide', "pass { rescale: 'fit' | 'stretch' } to rescale")
+		const sizesDiffer = !slideSizesMatch(target, incoming)
 
 		// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
 		//    the slide and attaches it to this deck's master; 'restyle' attaches it
@@ -680,14 +671,7 @@ export class Presentation {
 				)
 			}
 			outputIndexes.add(request.outputIndex)
-			const incoming = request.source.slideSize
-			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
-				const fmt = (size: SlideSize | null): string => (size ? `${size.widthEmu}×${size.heightEmu} EMU` : 'unknown')
-				throw new InvalidOptionError(
-					'import/slide-size-mismatch',
-					`importSlides requires equal slide sizes; target is ${fmt(target)}, source is ${fmt(incoming)}`
-				)
-			}
+			requireEqualSlideSize(target, request.source.slideSize, 'importSlides')
 		}
 
 		// 1b. Dry-run the copy against each source, still reading only source
@@ -816,15 +800,12 @@ export class Presentation {
 	 */
 	importSlideMasters(source: Presentation, options: ImportSlideMastersOptions = {}): ImportedSlideMaster[] {
 		if (options.requireEqualSize !== false) {
-			const target = this.slideSize
-			const incoming = source.slideSize
-			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
-				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new InvalidOptionError(
-					'import/slide-size-mismatch',
-					`importSlideMasters requires equal slide sizes (pass { requireEqualSize: false } to override); target is ${fmt(target)}, source is ${fmt(incoming)}`
-				)
-			}
+			requireEqualSlideSize(
+				this.slideSize,
+				source.slideSize,
+				'importSlideMasters',
+				'pass { requireEqualSize: false } to override'
+			)
 		}
 
 		const pickMaster = options.masters ?? (() => true)
@@ -980,14 +961,18 @@ export class Presentation {
 
 		// 2. Author + extract; enforce equal slide size (no geometry rescale in v1).
 		const extracted = await source.extractSlides({ onMediaError: options.onMediaError })
-		const size = this.slideSize
-		if (!size || size.widthEmu !== extracted.widthEmu || size.heightEmu !== extracted.heightEmu) {
-			const fmt = (w: number, h: number): string => `${w}×${h} EMU`
-			throw new InvalidOptionError(
-				'import/slide-size-mismatch',
-				`appendSlides requires equal slide sizes; target is ${size ? fmt(size.widthEmu, size.heightEmu) : 'unknown'}, source is ${fmt(extracted.widthEmu, extracted.heightEmu)}`
-			)
-		}
+		// The extracted size is always known, so it is lifted into a `SlideSize` rather than kept
+		// as a loose pair — that is what let this call site keep a second formatter alive.
+		requireEqualSlideSize(
+			this.slideSize,
+			{
+				widthEmu: extracted.widthEmu,
+				heightEmu: extracted.heightEmu,
+				widthIn: emuToInches(extracted.widthEmu),
+				heightIn: emuToInches(extracted.heightEmu),
+			},
+			'appendSlides'
+		)
 
 		// Any existing slide partname seeds the fresh-partname family; fall back to a
 		// literal seed for a slide-less template shell (reservePartNameLike parses the
@@ -1173,21 +1158,11 @@ export class Presentation {
 		// lifted geometry onto this canvas (computed once, applied per shape below).
 		const targetSize = this.slideSize
 		const sourceSize = source.presentation.slideSize
-		const sizesMatch =
-			!!targetSize &&
-			!!sourceSize &&
-			targetSize.widthEmu === sourceSize.widthEmu &&
-			targetSize.heightEmu === sourceSize.heightEmu
 		let transform: RescaleTransform | null = null
-		if (!sizesMatch) {
-			if (!options.rescale || !targetSize || !sourceSize) {
-				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new InvalidOptionError(
-					'import/slide-size-mismatch',
-					`importShape requires equal slide sizes (or { rescale }); target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`
-				)
-			}
-			transform = computeRescale(sourceSize, targetSize, options.rescale === 'stretch' ? 'stretch' : 'fit')
+		if (!slideSizesMatch(targetSize, sourceSize)) {
+			if (!options.rescale) requireEqualSlideSize(targetSize, sourceSize, 'importShape', 'or { rescale }')
+			const [known, incoming] = requireKnownSlideSizes(targetSize, sourceSize, 'importShape rescale')
+			transform = computeRescale(incoming, known, options.rescale === 'stretch' ? 'stretch' : 'fit')
 		}
 
 		// Resolve + validate every index up front so a bad batch throws before mutating.

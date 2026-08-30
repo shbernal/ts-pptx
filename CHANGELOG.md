@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`import/slide-size-unknown` now means what its name says, at every import entry point.**
+  Five methods enforce equal slide sizes — `importSlide`, `importSlides`,
+  `importSlideMasters`, `appendSlides` and `importShape`/`importShapes` — and they carried
+  five copies of the same precondition that disagreed about one thing: what an *unknown*
+  size is. `importSlide` reported a deck with no `p:sldSz` as `import/slide-size-unknown`,
+  but only when a rescale had been requested; the other four folded it into
+  `import/slide-size-mismatch` and printed the word `unknown` inside the message. So a
+  consumer branching on `err.code` could not tell "these decks are different sizes" from "I
+  could not read a size" anywhere but one method, and the `unknown` code existed for a case
+  one of five call sites could raise.
+
+  The two conditions are separate everywhere now. `import/slide-size-unknown` is raised
+  whenever a deck does not declare a size, and `import/slide-size-mismatch` only when both
+  are known and differ. The split is worth having because only the second one is
+  *answerable*: a mismatch is what `{ rescale }` and `{ requireEqualSize: false }` exist
+  for, while a size that is not there cannot be compared or rescaled onto no matter what
+  the caller passes.
+
+  **Migration:** a `catch` matching `import/slide-size-mismatch` will stop seeing the
+  missing-`p:sldSz` case at the four methods that used to report it that way; match both
+  codes to keep the old breadth. Nothing changes for two decks that both declare a size,
+  which is every deck PowerPoint writes.
+
 ### Fixed
 
 - **A chart `x`/`y` spelled as a percentage or a unit string is honoured instead of being
