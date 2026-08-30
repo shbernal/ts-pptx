@@ -16,8 +16,8 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
+import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
@@ -333,7 +333,13 @@ function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serInde
 						raw(
 							createColorElement(
 								serColor,
-								voidEl('a:alpha', { val: Math.round(opts.chartColorsOpacity * FIXED_PCT_PER_PERCENT) })
+								voidEl('a:alpha', {
+									val: percentToFixedPercent(
+										opts.chartColorsOpacity,
+										'chart/option-out-of-range',
+										'chartColorsOpacity'
+									),
+								})
 							)
 						)
 					)

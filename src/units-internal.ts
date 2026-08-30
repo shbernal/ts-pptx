@@ -25,6 +25,7 @@ import {
 	PERCENT_SCALE,
 	type Emu,
 } from './units.js'
+import type { DiagnosticCode } from './codes.js'
 import type { Coord, PresLayout } from './types/index.js'
 
 /**
@@ -151,22 +152,71 @@ export function ptsToEmuLenient(pt: number | string): number {
 }
 
 /**
+ * Clamp a caller-supplied percentage into the range its schema type allows, warning when it had
+ * to move. Returns the value in the caller's own unit — each helper below applies its own
+ * arithmetic afterwards, because the inverting and non-inverting forms do not round alike.
+ *
+ * `NaN` throws rather than clamping: there is no nearest in-range value for it, and
+ * `Math.min`/`Math.max` propagate it straight through to the attribute (`val="NaN"`), which is
+ * exactly the degenerate output the range check exists to prevent. `Infinity` is not in that
+ * category — it clamps to the bound like any other out-of-range number, and warns.
+ *
+ * @param value - the caller's value
+ * @param min - inclusive lower bound, in the caller's unit
+ * @param max - inclusive upper bound, in the caller's unit
+ * @param code - diagnostic code raised when the value is clamped
+ * @param label - option name as the caller spells it, opening the warning
+ */
+function clampPercentInput(value: number, min: number, max: number, code: DiagnosticCode, label: string): number {
+	if (typeof value !== 'number' || Number.isNaN(value))
+		throw new InvalidOptionError(
+			'percent/non-finite',
+			`${label} must be a number from ${min} to ${max}; received ${String(value)}.`
+		)
+	const clamped = Math.min(max, Math.max(min, value))
+	if (clamped !== value) warn(code, `${label} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
+	return clamped
+}
+
+/**
  * Convert a transparency percentage (0-100) into a schema-valid `<a:alpha>` value
  * (ST_PositiveFixedPercentage, 0-100000). Out-of-range transparency yields an
  * alpha that PowerPoint rejects as needing repair, so clamp into range and warn.
+ *
+ * This is the **inverting** form: 0 transparency is full opacity (`val="100000"`). Use
+ * {@link percentToFixedPercent} where the option already reads as opacity.
  */
 export function transparencyToAlpha(transparency: number): number {
-	const pct = Math.min(100, Math.max(0, transparency))
-	if (pct !== transparency)
-		warn('transparency/out-of-range', `transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
+	const pct = clampPercentInput(transparency, 0, 100, 'transparency/out-of-range', 'transparency')
 	return Math.round((100 - pct) * FIXED_PCT_PER_PERCENT)
 }
 
 /** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
 export function opacityToAlpha(opacity: number): number {
-	const o = Math.min(1, Math.max(0, opacity))
-	if (o !== opacity) warn('opacity/out-of-range', `opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
-	return Math.round(o * PERCENT_SCALE)
+	return fractionToFixedPercent(opacity, 'opacity/out-of-range', 'opacity')
+}
+
+/**
+ * Convert a percentage (0-100) into a schema-valid fixed-percentage value (0-100000) — the
+ * **non-inverting** sibling of {@link transparencyToAlpha}, for options the caller already
+ * states as "how much", such as a chart series' fill opacity.
+ * @param value - the caller's percentage
+ * @param code - diagnostic code raised when the value is clamped
+ * @param label - option name as the caller spells it, opening the warning
+ */
+export function percentToFixedPercent(value: number, code: DiagnosticCode, label: string): number {
+	return Math.round(clampPercentInput(value, 0, 100, code, label) * FIXED_PCT_PER_PERCENT)
+}
+
+/**
+ * Convert a 0-1 fraction into a schema-valid fixed-percentage value (0-100000), for the options
+ * spelled as a fraction rather than a percentage (an opacity, a luminance threshold).
+ * @param value - the caller's fraction
+ * @param code - diagnostic code raised when the value is clamped
+ * @param label - option name as the caller spells it, opening the warning
+ */
+export function fractionToFixedPercent(value: number, code: DiagnosticCode, label: string): number {
+	return Math.round(clampPercentInput(value, 0, 1, code, label) * PERCENT_SCALE)
 }
 
 /**

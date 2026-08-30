@@ -15,12 +15,13 @@ import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection } from './fill.js'
 import { inch2Emu, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
+import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {
 	clampCharSpacingSpc,
 	clampFontSizeSz,
+	clampLineSpacingMultiplePct,
 	clampLineSpacingPts,
 	clampParaIndentEmu,
 	clampParaMarginEmu,
@@ -161,7 +162,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		if (opts.lineSpacing) {
 			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPts', { val: clampLineSpacingPts(opts.lineSpacing) })))
 		} else if (opts.lineSpacingMultiple) {
-			const val = Math.round(opts.lineSpacingMultiple * PERCENT_SCALE)
+			const val = clampLineSpacingMultiplePct(opts.lineSpacingMultiple)
 			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPct', { val })))
 		}
 

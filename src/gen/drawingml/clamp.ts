@@ -1,18 +1,19 @@
 /**
  * ts-pptx: DrawingML value clamps
  *
- * Clamp font/character/line spacing values (points) into their ST_* schema
- * ranges and convert to the hundredths-of-a-point units the attributes expect.
+ * Clamp font/character/line spacing values into their ST_* schema ranges and convert to the
+ * units the attributes expect — hundredths of a point for most of them, thousandths of a
+ * percent for the one measure the caller states as a multiple rather than a size.
  * Out-of-range values make PowerPoint report the package as needing repair.
  */
 
-import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { warnOnce } from '../../diagnostics.js'
 import type { DiagnosticCode } from '../../codes.js'
 
 /**
- * One clamped text measure: how to convert the caller's points, what range the schema type
+ * One clamped text measure: how to convert the caller's value, what range the schema type
  * allows in the converted unit, and how to say so if the value falls outside it.
  */
 interface ClampSpec {
@@ -20,30 +21,30 @@ interface ClampSpec {
 	code: DiagnosticCode
 	/** Option name as the caller spells it, opening the warning. */
 	label: string
-	/** The valid range in points, as the warning states it. */
+	/** The valid range in the caller's own unit, as the warning states it. */
 	range: string
-	/** Points to the attribute's own unit. */
-	convert: (points: number) => number
-	/** Converted units per point — divides the clamped value back into points for the warning. */
-	perPoint: number
+	/** The caller's unit to the attribute's own unit. */
+	convert: (value: number) => number
+	/** Converted units per caller unit — divides the clamped value back for the warning. */
+	perUnit: number
 	min: number
 	max: number
 }
 
 /**
- * Clamp a points value into its schema range and warn once if it did not already fit.
+ * Clamp a caller's value into its schema range and warn once if it did not already fit.
  *
- * The five measures below differ only in the fields of {@link ClampSpec}; the arithmetic and
+ * The six measures below differ only in the fields of {@link ClampSpec}; the arithmetic and
  * the shape of the warning are the same for all of them. `warnOnce` keys its dedupe set on the
  * code plus the message, so the wording is part of the contract, not decoration.
  */
-function clampWithWarn(points: number, spec: ClampSpec): number {
-	const raw = spec.convert(points)
+function clampWithWarn(value: number, spec: ClampSpec): number {
+	const raw = spec.convert(value)
 	const clamped = Math.min(spec.max, Math.max(spec.min, raw))
 	if (clamped !== raw)
 		warnOnce(
 			spec.code,
-			`${spec.label} ${points} is outside the valid range ${spec.range}; using ${clamped / spec.perPoint}.`
+			`${spec.label} ${value} is outside the valid range ${spec.range}; using ${clamped / spec.perUnit}.`
 		)
 	return clamped
 }
@@ -53,7 +54,7 @@ const FONT_SIZE: ClampSpec = {
 	label: 'fontSize',
 	range: '1-4000pt',
 	convert: ptToHundredths,
-	perPoint: HUNDREDTHS_PER_POINT,
+	perUnit: HUNDREDTHS_PER_POINT,
 	min: 100,
 	max: 400000,
 }
@@ -63,7 +64,7 @@ const CHAR_SPACING: ClampSpec = {
 	label: 'charSpacing',
 	range: '-4000..4000pt',
 	convert: ptToHundredths,
-	perPoint: HUNDREDTHS_PER_POINT,
+	perUnit: HUNDREDTHS_PER_POINT,
 	min: -400000,
 	max: 400000,
 }
@@ -73,7 +74,7 @@ const PARA_MARGIN: ClampSpec = {
 	label: 'paraMarginLeft',
 	range: '0-4032pt',
 	convert: ptsToEmuLenient,
-	perPoint: EMU_PER_POINT,
+	perUnit: EMU_PER_POINT,
 	min: 0,
 	max: 51206400,
 }
@@ -83,7 +84,7 @@ const PARA_INDENT: ClampSpec = {
 	label: 'paraIndent',
 	range: '-4032..4032pt',
 	convert: ptsToEmuLenient,
-	perPoint: EMU_PER_POINT,
+	perUnit: EMU_PER_POINT,
 	min: -51206400,
 	max: 51206400,
 }
@@ -93,9 +94,19 @@ const LINE_SPACING: ClampSpec = {
 	label: 'lineSpacing',
 	range: '0-1584pt',
 	convert: ptToHundredths,
-	perPoint: HUNDREDTHS_PER_POINT,
+	perUnit: HUNDREDTHS_PER_POINT,
 	min: 0,
 	max: 158400,
+}
+
+const LINE_SPACING_MULTIPLE: ClampSpec = {
+	code: 'text/line-spacing-out-of-range',
+	label: 'lineSpacingMultiple',
+	range: '0-132',
+	convert: (multiple) => Math.round(multiple * PERCENT_SCALE),
+	perUnit: PERCENT_SCALE,
+	min: 0,
+	max: 13200000,
 }
 
 /**
@@ -133,4 +144,14 @@ export function clampParaIndentEmu(indentPts: number): number {
 /** Clamp line spacing (points) into ST_TextSpacingPoint (0..1584pt); returns hundredths for `<a:spcPts val>`. */
 export function clampLineSpacingPts(lineSpacingPts: number): number {
 	return clampWithWarn(lineSpacingPts, LINE_SPACING)
+}
+
+/**
+ * Clamp a line-spacing multiple into ST_TextSpacingPercentOrPercentString (0..13200000, i.e. a
+ * multiple of 0..132); returns thousandths of a percent for `<a:spcPct val>`. The bound is the
+ * schema's, not the `0.0-9.99` the option documents: a multiple of 12 is unusual, not invalid,
+ * and only the values PowerPoint reports as needing repair are worth moving.
+ */
+export function clampLineSpacingMultiplePct(multiple: number): number {
+	return clampWithWarn(multiple, LINE_SPACING_MULTIPLE)
 }

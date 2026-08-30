@@ -77,6 +77,7 @@ export type DiagnosticCode =
 	| 'image-fill/unresolved-media'
 	| 'image/crop-and-sizing-conflict'
 	| 'image/unmeasurable-natural-size'
+	| 'image/bilevel-threshold-out-of-range'
 	// Tables
 	| 'table/invalid-border'
 	| 'table/invalid-outer-border'
@@ -162,6 +163,7 @@ export type DiagnosticCode =
 export type InvalidOptionErrorCode =
 	// Units and coordinates
 	| 'coord/non-finite'
+	| 'percent/non-finite'
 	| 'coord/not-positive'
 	| 'coord/negative'
 	| 'coord/invalid-format'

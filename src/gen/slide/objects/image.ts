@@ -18,8 +18,8 @@ import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { getImageSizeFromBase64 } from '../../../media/image-size.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
-import { getSmartParseNumber } from '../../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, pixelsToEmu } from '../../../units.js'
+import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
+import { pixelsToEmu } from '../../../units.js'
 import { warn } from '../../../diagnostics.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
@@ -104,13 +104,7 @@ export function renderImageObject(
 	// writes none. That space is byte-significant, so it is passed in rather than normalized away.
 	const blipEffects = (alphaPrefix: string): XmlChild[] => [
 		imgOpts.transparency
-			? raw(
-					voidEl(
-						'a:alphaModFix',
-						{ amt: Math.round((100 - imgOpts.transparency) * FIXED_PCT_PER_PERCENT) },
-						{ openPrefix: alphaPrefix }
-					)
-				)
+			? raw(voidEl('a:alphaModFix', { amt: transparencyToAlpha(imgOpts.transparency) }, { openPrefix: alphaPrefix }))
 			: null,
 		imgOpts.duotone
 			? raw(
@@ -130,7 +124,15 @@ export function renderImageObject(
 			: null,
 		imgOpts.grayscale ? raw(voidEl('a:grayscl')) : null,
 		imgOpts.biLevel
-			? raw(voidEl('a:biLevel', { thresh: Math.round(imgOpts.biLevel.threshold * PERCENT_SCALE) }))
+			? raw(
+					voidEl('a:biLevel', {
+						thresh: fractionToFixedPercent(
+							imgOpts.biLevel.threshold,
+							'image/bilevel-threshold-out-of-range',
+							'biLevel.threshold'
+						),
+					})
+				)
 			: null,
 	]
 

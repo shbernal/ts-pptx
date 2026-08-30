@@ -157,7 +157,7 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 		return voidEl('a:noFill')
 	}
 	const alpha = props.transparency
-	const blipInner = alpha ? voidEl('a:alphaModFix', { amt: Math.round((100 - alpha) * FIXED_PCT_PER_PERCENT) }) : ''
+	const blipInner = alpha ? voidEl('a:alphaModFix', { amt: transparencyToAlpha(alpha) }) : ''
 	return el('a:blipFill', { dpi: 0, rotWithShape: 1 }, [
 		// `<a:blip>` stays paired even with no `alphaModFix` child — the arity rule.
 		raw(el('a:blip', { 'r:embed': `rId${props._imgRid}` }, raw(blipInner))),

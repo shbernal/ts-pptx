@@ -2303,6 +2303,62 @@ export default [
 		},
 	},
 	{
+		// The percent-valued options that reach an attribute WITHOUT going through
+		// `units-internal.ts`. Each one multiplied the caller's number by the fixed-percentage
+		// scale and emitted whatever came out, so `chartColorsOpacity: 150` wrote
+		// `<a:alpha val="150000"/>` (ST_PositiveFixedPercentage caps at 100000) and
+		// `transparency: 150` wrote a NEGATIVE `alphaModFix`. All four are PowerPoint repair
+		// prompts, which is why the assertion is the validator rather than the emitted string.
+		name: 'out-of-range percent options (chart opacity, image transparency/biLevel, line-spacing multiple) are clamped',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const png = 'image/png;base64,' + b64
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					const s = p.addSlide()
+					// chartColorsOpacity is a 0-100 percentage; 150 overflows <a:alpha>.
+					s.addChart(
+						[
+							{ name: 'X-Axis', values: [1, 2, 3, 4] },
+							{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
+						],
+						{ type: ChartType.bubble, x: 0.5, y: 0.5, w: 4, h: 3, chartColorsOpacity: 150 }
+					)
+					// Image transparency INVERTS (amt = 100 - transparency), so an over-100 value
+					// went negative rather than over-max.
+					s.addImage({ data: png, x: 5, y: 0.5, w: 1, h: 1, transparency: 150 })
+					s.addImage({ data: png, x: 6.5, y: 0.5, w: 1, h: 1, transparency: -30 })
+					// biLevel.threshold is a 0-1 fraction, not a percentage.
+					s.addImage({ data: png, x: 5, y: 2, w: 1, h: 1, biLevel: { threshold: 5 } })
+					s.addImage({ data: png, x: 6.5, y: 2, w: 1, h: 1, biLevel: { threshold: -2 } })
+					// <a:spcPct> is ST_TextSpacingPercentOrPercentString (max 13200000).
+					s.addText('Too much air', { x: 0.5, y: 4, w: 4, h: 1, lineSpacingMultiple: 200 })
+					s.addText('Negative air', { x: 0.5, y: 5, w: 4, h: 1, lineSpacingMultiple: -1 })
+					// The same inverting conversion again, on the shape image-fill path.
+					s.addShape(ShapeType.rect, {
+						x: 5,
+						y: 4,
+						w: 2,
+						h: 1,
+						fill: { type: 'image', image: { data: png }, transparency: 150 },
+					})
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			for (const option of ['chartColorsOpacity', 'transparency', 'biLevel.threshold', 'lineSpacingMultiple'])
+				assert(
+					warnings.some((w) => w.includes(option)),
+					`expected an out-of-range warning naming \`${option}\``
+				)
+			await expectNoSchemaErrors(buf, 'percent-bounded-attrs-clamped')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {
