@@ -1154,6 +1154,19 @@ about it. (The byte-identity harness likewise *builds* the showcase decks withou
 asserting anything about them: a showcase that throws simply takes the harness
 down with it.)
 
+That is also why the harness's corpus is exactly what those decks happen to emit,
+and why a PASS is evidence only about the parts they reach. Two constructs the
+library authors are known to be outside it: **zoom** frames and **OLE** objects,
+neither of which any showcase creates. A refactor that touches
+`gen/slide/objects/zoom.ts` or `ole.ts` therefore gets a green gate for free and
+has to earn its evidence some other way: build a probe deck that exercises the
+construct, capture its slide XML before and after, and diff with the per-build
+GUIDs (`zmPr@id`) normalized, having first made the probe fail on a deliberate
+one-attribute change. `test:com` covers OLE from the other direction: it opens
+the deck in PowerPoint and reads each `progId` back. Charts, tables and 3D models
+*are* in the corpus, as is the theme inside a chart's embedded workbook, since the
+harness recurses into each `.xlsx`.
+
 The test role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
 from `demos/node` and ran `vite build`. Both signals it produced are now covered
 directly, and more precisely: `test:package` imports all ten export subpaths out
