@@ -9,7 +9,6 @@
 import { SlideObjectType } from '../../../enums.js'
 import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
 import type { BorderProps, ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
-import type { SlideObject } from '../../../types/internal.js'
 import { checkEnumOrWarn } from '../../../ooxml/check-enum.js'
 import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
@@ -21,7 +20,7 @@ import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { cNvPrOpen, P14_NS } from './shared.js'
+import { P14_NS, type RenderContext, cNvPrOpen } from './shared.js'
 
 type TableInheritableOption =
 	| 'align'
@@ -96,16 +95,14 @@ function applyOuterBorder(
 /**
  * Render a `table` slide object to its `<p:graphicFrame>` XML (merge-grid, row/col spans, per-cell styling).
  */
-export function renderTableObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	placeholderObj: SlideObject | null,
-	itemOpts: ObjectOptions
-): string {
+export function renderTableObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+		placeholder: placeholderObj,
+		itemOpts,
+	} = ctx
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.

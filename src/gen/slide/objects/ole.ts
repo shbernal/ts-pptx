@@ -2,10 +2,9 @@
  * ts-pptx: OLE-object slide-object serialization
  */
 
-import type { SlideObject } from '../../../types/internal.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
-import { cNvPrOpen, MC_NS } from './shared.js'
+import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
 
 /** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
 const VML_NS = 'urn:schemas-microsoft-com:vml'
@@ -23,14 +22,12 @@ const OLE_NS = 'http://schemas.openxmlformats.org/presentationml/2006/ole'
  * Note `mc:Choice Requires="v"` only *declares* the VML namespace — modern PowerPoint writes no
  * `spid` and no `vmlDrawing` part, so neither is emitted here.
  */
-export function renderOleObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number
-): string {
+export function renderOleObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+	} = ctx
 	const ole = slideItemObj.ole
 	if (!ole) return ''
 	const opts = slideItemObj.options || {}

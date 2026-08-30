@@ -8,7 +8,6 @@
 
 import { SlideObjectType } from '../../../enums.js'
 import { DEF_TEXT_SHADOW } from '../../../constants-internal.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
@@ -17,24 +16,23 @@ import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingm
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
-import type { ObjectOptions } from '../../../types/index.js'
+import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
 /**
  * Render a `text` / `placeholder` slide object to its `<p:sp>` XML.
  */
-export function renderTextObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	slide: PresSlideInternal | SlideLayoutInternal,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	placeholderObj: SlideObject | null,
-	locationAttrs: XmlAttrs,
-	itemOpts: ObjectOptions
-): string {
+export function renderTextObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		slide,
+		frame: { x, y, cx },
+		placeholder: placeholderObj,
+		locationAttrs,
+		itemOpts,
+	} = ctx
+	// Reassigned below when a line-less text shape has no height, so it is not destructured const.
+	let cy = ctx.frame.cy
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly

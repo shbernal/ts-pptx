@@ -7,9 +7,9 @@
  * consumers still get a clickable navigation thumbnail. See `gen/define/zoom.ts`.
  */
 
-import type { SlideObject, ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
+import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { cNvPrOpen, MC_NS } from './shared.js'
+import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
@@ -147,14 +147,12 @@ function zoomFallbackPic(
  * 2016+); the `mc:Fallback` carries a hyperlinked picture — or, for a Summary Zoom, a group of them —
  * so pre-2016 consumers still get a clickable navigation thumbnail. See `gen/define/zoom.ts`.
  */
-export function renderZoomObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number
-): string {
+export function renderZoomObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+	} = ctx
 	const zoom = slideItemObj.zoom
 	if (!zoom) return ''
 	const opts = slideItemObj.options || {}

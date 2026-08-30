@@ -6,25 +6,21 @@
  * paired `<p14:media>` rel binds by `r:link` or `r:embed` — so they share one body.
  */
 
-import type { SlideObject } from '../../../types/internal.js'
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
-import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { cNvPrOpen, P14_NS } from './shared.js'
-import type { ObjectOptions } from '../../../types/index.js'
+import { el, raw, voidEl } from '../../oxml/el.js'
+import { P14_NS, type RenderContext, cNvPrOpen } from './shared.js'
 
 /**
  * Render a `media` (audio/video/online) slide object to its `<p:pic>` XML.
  */
-export function renderMediaObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	locationAttrs: XmlAttrs,
-	itemOpts: ObjectOptions
-): string {
+export function renderMediaObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+		locationAttrs,
+		itemOpts,
+	} = ctx
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.

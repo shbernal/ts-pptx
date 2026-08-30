@@ -26,7 +26,7 @@ import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { cNvPrOpen } from './objects/shared.js'
+import { type RenderContext, cNvPrOpen } from './objects/shared.js'
 import { renderChartObject } from './objects/chart.js'
 import { renderConnectorObject } from './objects/connector.js'
 import { renderImageObject } from './objects/image.js'
@@ -419,8 +419,6 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		let cx: number = getSmartParseNumber('75%', 'X', slide._presLayout)
 		let cy = 0
 		let placeholderObj: SlideObject | null = null
-		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
-		const rounding = slideItemObj.options?.rounding
 
 		const slideLayout = (slide as PresSlideInternal)._slideLayout
 		const wantedPlaceholder = slideItemObj.options?.placeholder
@@ -479,58 +477,52 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		}
 
 		// B: Add OBJECT to the current Slide.
-		// Each renderer below is called from here and nowhere else, so the options they need are
-		// passed as `itemOpts` — already normalized, in step A above. Six of them used to take the
-		// whole `slideItemObj` and re-run `options = options || {}` as their first statement, on an
-		// argument their only caller had already fixed; that assignment existed to re-narrow the
-		// type, and threading the narrowed value in does the same job without a mutation in the
-		// middle of an emit pass. If one of them ever gains a second call site, normalizing is that
-		// caller's job — a contract stated once at the boundary beats a defensive copy of it in
-		// every callee. (`renderOleObject`, `renderZoomObject` and `renderModel3dObject` read no
-		// options at all, which is why they take none.)
+		// Each renderer below is called from here and nowhere else, so everything resolved above
+		// travels as one `RenderContext` — including `itemOpts`, already normalized in step A. Six
+		// of them used to take the whole `slideItemObj` and re-run `options = options || {}` as
+		// their first statement, on an argument their only caller had already fixed; that
+		// assignment existed to re-narrow the type, and threading the narrowed value in does the
+		// same job without a mutation in the middle of an emit pass. If one of them ever gains a
+		// second call site, normalizing is that caller's job — a contract stated once at the
+		// boundary beats a defensive copy of it in every callee.
+		const ctx: RenderContext = {
+			obj: slideItemObj,
+			idx,
+			slide,
+			frame: { x, y, cx, cy },
+			placeholder: placeholderObj,
+			locationAttrs,
+			itemOpts,
+		}
+
 		switch (slideItemObj._type) {
 			case SlideObjectType.table:
-				strSlideXml += renderTableObject(slideItemObj, idx, x, y, cx, cy, placeholderObj, itemOpts)
+				strSlideXml += renderTableObject(ctx)
 				break
 			case SlideObjectType.text:
 			case SlideObjectType.placeholder:
-				strSlideXml += renderTextObject(slideItemObj, idx, slide, x, y, cx, cy, placeholderObj, locationAttrs, itemOpts)
+				strSlideXml += renderTextObject(ctx)
 				break
 			case SlideObjectType.connector:
-				strSlideXml += renderConnectorObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, shapeIds, itemOpts)
+				strSlideXml += renderConnectorObject(ctx, shapeIds)
 				break
 			case SlideObjectType.image:
-				strSlideXml += renderImageObject(
-					slideItemObj,
-					idx,
-					slide,
-					x,
-					y,
-					cx,
-					cy,
-					imgWidth,
-					imgHeight,
-					placeholderObj,
-					locationAttrs,
-					sizing,
-					rounding,
-					itemOpts
-				)
+				strSlideXml += renderImageObject(ctx, { imgWidth, imgHeight })
 				break
 			case SlideObjectType.media:
-				strSlideXml += renderMediaObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, itemOpts)
+				strSlideXml += renderMediaObject(ctx)
 				break
 			case SlideObjectType.chart:
-				strSlideXml += renderChartObject(slideItemObj, idx, x, y, cx, cy, placeholderObj, itemOpts)
+				strSlideXml += renderChartObject(ctx)
 				break
 			case SlideObjectType.oleObject:
-				strSlideXml += renderOleObject(slideItemObj, idx, x, y, cx, cy)
+				strSlideXml += renderOleObject(ctx)
 				break
 			case SlideObjectType.zoom:
-				strSlideXml += renderZoomObject(slideItemObj, idx, x, y, cx, cy)
+				strSlideXml += renderZoomObject(ctx)
 				break
 			case SlideObjectType.model3d:
-				strSlideXml += renderModel3dObject(slideItemObj, idx, x, y, cx, cy)
+				strSlideXml += renderModel3dObject(ctx)
 				break
 
 			case SlideObjectType.group: {

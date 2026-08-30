@@ -6,11 +6,48 @@
  * renderer never has to import from its own caller.
  */
 
-import type { HyperlinkProps, ShapeLineProps } from '../../../types/index.js'
+import type { HyperlinkProps, ObjectOptions, ShapeLineProps } from '../../../types/index.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
 import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill } from '../../drawingml/line.js'
 import { lineWidthToEmu } from '../../../units-internal.js'
-import { el, raw, voidEl } from '../../oxml/el.js'
+import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+
+/**
+ * Everything the dispatch in `gen/slide/object.ts` has already resolved for one slide object,
+ * handed to whichever renderer that object's `_type` selects.
+ *
+ * One object rather than a positional prefix because the prefix was not actually shared: `slide`
+ * sat in position 3 for two of the nine renderers and was absent from the other seven, and
+ * `renderImageObject` took six adjacent `number` parameters that no type could tell apart.
+ * Transposing `cx` and `cy` there compiled, shipped, and produced a stretched picture that
+ * nothing outside a rendered slide would have flagged. Named fields make that transposition
+ * impossible to write.
+ *
+ * A renderer takes a second argument only for what genuinely is not here: the connector's
+ * `shapeIds` map, and the image's natural pixel size (captured *before* a placeholder overrides
+ * the frame, so it is not `frame.cx`/`frame.cy`).
+ */
+export interface RenderContext {
+	/** The slide object being emitted. */
+	obj: SlideObject
+	/** Its index in the walk, which seeds the `<p:cNvPr>` id. */
+	idx: number
+	/** The page it belongs to — a slide or a layout. */
+	slide: PresSlideInternal | SlideLayoutInternal
+	/** The resolved box in EMU: normalized for negative extents, then overridden by a placeholder. */
+	frame: { x: number; y: number; cx: number; cy: number }
+	/** The layout placeholder this object inherits from, or `null`. */
+	placeholder: SlideObject | null
+	/** `<a:xfrm>` placement attributes (`flipH`, `flipV`, `rot`); attribute order is byte-significant. */
+	locationAttrs: XmlAttrs
+	/**
+	 * The object's options, already normalized by the dispatch. Read these rather than
+	 * re-narrowing `obj.options`: each renderer has exactly one call site, and a contract stated
+	 * there beats a defensive re-assignment in every callee.
+	 */
+	itemOpts: ObjectOptions
+}
 
 /** PowerPoint 2010 (`p14`) namespace — carries `<p14:modId>` and `<p14:media>`. */
 export const P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'

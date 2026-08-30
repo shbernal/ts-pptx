@@ -8,10 +8,9 @@
 
 import { ChartType, isChartExType } from '../../../enums.js'
 import type { ObjectOptions } from '../../../types/index.js'
-import type { SlideObject } from '../../../types/internal.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { cNvPrOpen, MC_NS } from './shared.js'
+import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -33,16 +32,14 @@ const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: strin
  * carrying the `<cx:chart>` reference (rendered by PowerPoint 2016+/Microsoft 365) and an
  * `<mc:Fallback>` placeholder shape shown by every other consumer.
  */
-export function renderChartObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	placeholderObj: SlideObject | null,
-	itemOpts: ObjectOptions
-): string {
+export function renderChartObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+		placeholder: placeholderObj,
+		itemOpts,
+	} = ctx
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.

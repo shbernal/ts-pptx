@@ -7,9 +7,7 @@
  * bytes' natural pixel ratio, which only becomes available once `_relsMedia` is populated.
  */
 
-import type { ObjectOptions } from '../../../types/index.js'
 import { DEF_TEXT_SHADOW } from '../../../constants-internal.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
 import { createColorElement } from '../../drawingml/color.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
@@ -17,31 +15,23 @@ import { genXmlImageCrop, genXmlVectorAspectFit, ImageSizingXml } from '../../dr
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { getImageSizeFromBase64 } from '../../../media/image-size.js'
-import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
+import { el, raw, voidEl, type XmlChild } from '../../oxml/el.js'
 import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
 import { pixelsToEmu } from '../../../units.js'
 import { warn } from '../../../diagnostics.js'
-import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
+import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
 /**
  * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
  */
-export function renderImageObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	slide: PresSlideInternal | SlideLayoutInternal,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	imgWidth: number,
-	imgHeight: number,
-	placeholderObj: SlideObject | null,
-	locationAttrs: XmlAttrs,
-	sizing: ObjectOptions['sizing'],
-	rounding: ObjectOptions['rounding'],
-	itemOpts: ObjectOptions
-): string {
+export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: number; imgHeight: number }): string {
+	const { obj: slideItemObj, idx, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
+	const { x, y } = ctx.frame
+	// Both pairs are reassigned below: `_szAuto` backfills an omitted dimension from the image's
+	// natural ratio, and `sizing` then picks the box actually drawn.
+	let { cx, cy } = ctx.frame
+	let { imgWidth, imgHeight } = imgSize
+	const { sizing, rounding } = itemOpts
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly

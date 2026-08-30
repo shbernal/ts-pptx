@@ -12,9 +12,9 @@
  * than derived from anything.
  */
 
-import type { Model3dInternal, SlideObject } from '../../../types/internal.js'
+import type { Model3dInternal } from '../../../types/internal.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { cNvPrOpen, MC_NS } from './shared.js'
+import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 
 /** The `am3d` namespace, doubling as `a:graphicData@uri` and the `mc:Choice Requires` token's URI. */
@@ -163,14 +163,12 @@ function fallbackPic(
  * real `<p:graphicFrame>` (the `am3d:model3d` graphicData PowerPoint 2019+ renders live); the
  * `mc:Fallback` carries the cached preview picture. See `gen/define/model3d.ts`.
  */
-export function renderModel3dObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number
-): string {
+export function renderModel3dObject(ctx: RenderContext): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+	} = ctx
 	const model = slideItemObj.model3d
 	if (!model) return ''
 	const opts = slideItemObj.options || {}

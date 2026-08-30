@@ -8,25 +8,21 @@
 
 import type { SlideObject } from '../../../types/internal.js'
 import { warn } from '../../../diagnostics.js'
-import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { el, raw, voidEl } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
-import { cNvPrOpen, genXmlShapeLine } from './shared.js'
-import type { ObjectOptions } from '../../../types/index.js'
+import { type RenderContext, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
 /**
  * Render a `connector` slide object to its `<p:cxnSp>` XML (start/end shape bindings via shapeIds).
  */
-export function renderConnectorObject(
-	slideItemObj: SlideObject,
-	idx: number,
-	x: number,
-	y: number,
-	cx: number,
-	cy: number,
-	locationAttrs: XmlAttrs,
-	shapeIds: Map<SlideObject, number>,
-	itemOpts: ObjectOptions
-): string {
+export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObject, number>): string {
+	const {
+		obj: slideItemObj,
+		idx,
+		frame: { x, y, cx, cy },
+		locationAttrs,
+		itemOpts,
+	} = ctx
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.
