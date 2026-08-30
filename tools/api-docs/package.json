@@ -6,7 +6,7 @@
 	"description": "Holds TypeDoc and the TypeScript it needs. Not published, not imported, not a build step — see README.md.",
 	"devDependencies": {
 		"typedoc": "^0.28.20",
-		"typedoc-plugin-markdown": "^4.12.0",
+		"typedoc-plugin-markdown": "^4.13.0",
 		"typescript": "6.0.3"
 	}
 }
