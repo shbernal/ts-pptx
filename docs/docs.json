@@ -46,6 +46,7 @@
         "measured-text-fit",
         "embedded-fonts",
         "evidence-and-fixtures",
+        "chart-whitespace-flatten",
         "troubleshooting",
         "README"
       ]

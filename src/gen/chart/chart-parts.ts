@@ -28,7 +28,7 @@ import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertAngleUnits, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
-import { el, raw, voidEl, type XmlChild, type XmlFmt } from '../oxml/el.js'
+import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 
 /**
  * The signature every axis-plot builder shares: `<c:areaChart>`, `<c:barChart>`,
@@ -54,26 +54,16 @@ import { el, raw, voidEl, type XmlChild, type XmlFmt } from '../oxml/el.js'
  * a flag inserted in the wrong place is a repair prompt rather than a wrong-looking chart.
  * Every flag defaults to `0`, so a caller names only what it means to turn on.
  *
- * `prefix` is the `openPrefix` the historical template layout put in front of each element.
- * It is uniform at every call site but one — `scatterSerDLbls` alternates between two
- * indents, a fossil of the string it was migrated from — and that one keeps its explicit
- * block rather than being fitted with a per-flag prefix map.
- *
  * @param flags - the values to emit, defaulting to `0`
- * @param prefix - `openPrefix` for all six elements
  */
-export function dLblShowFlags(
-	flags: {
-		legendKey?: 0 | 1
-		val?: 0 | 1
-		catName?: 0 | 1
-		serName?: 0 | 1
-		percent?: 0 | 1
-		bubbleSize?: 0 | 1
-	},
-	prefix = ''
-): XmlChild[] {
-	const fmt = prefix ? { openPrefix: prefix } : undefined
+export function dLblShowFlags(flags: {
+	legendKey?: 0 | 1
+	val?: 0 | 1
+	catName?: 0 | 1
+	serName?: 0 | 1
+	percent?: 0 | 1
+	bubbleSize?: 0 | 1
+}): XmlChild[] {
 	return (
 		[
 			['c:showLegendKey', flags.legendKey],
@@ -83,7 +73,7 @@ export function dLblShowFlags(
 			['c:showPercent', flags.percent],
 			['c:showBubbleSize', flags.bubbleSize],
 		] as const
-	).map(([name, val]) => raw(voidEl(name, { val: val ?? 0 }, fmt)))
+	).map(([name, val]) => raw(voidEl(name, { val: val ?? 0 })))
 }
 
 /**
@@ -109,15 +99,13 @@ export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string |
 }
 
 /**
- * The colour and typeface children of those run properties; `indent` is theirs, not the
- * parent's, which is what lets one helper serve call sites at four different depths.
+ * The colour and typeface children of those run properties.
  * @param opts - the chart's normalized options
- * @param indent - leading whitespace for each child
  */
-export function labelFontChildren(opts: ChartOptsInternal, indent = ''): XmlChild[] {
+export function labelFontChildren(opts: ChartOptsInternal): XmlChild[] {
 	return [
-		raw(indent + el('a:solidFill', null, raw(createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)))),
-		raw(indent + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+		raw(el('a:solidFill', null, raw(createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)))),
+		raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
 	]
 }
 
@@ -126,10 +114,8 @@ export function labelFontChildren(opts: ChartOptsInternal, indent = ''): XmlChil
  * chart-level and bubble label blocks share. See {@link labelFontAttrs} for why there are two
  * orderings and why they stay apart.
  * @param opts - the chart's normalized options
- * @param fontsPrefix - leading whitespace before the `<a:latin>` typeface block
- * @param fmt - `openPrefix`/`closePrefix` for the element itself
  */
-export function dataLabelDefRPr(opts: ChartOptsInternal, fontsPrefix = '', fmt?: XmlFmt): string {
+export function dataLabelDefRPr(opts: ChartOptsInternal): string {
 	return el(
 		'a:defRPr',
 		{
@@ -141,9 +127,8 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, fontsPrefix = '', fmt?:
 		},
 		[
 			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
-			raw(fontsPrefix + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
-		],
-		fmt
+			raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+		]
 	)
 }
 
@@ -265,16 +250,15 @@ export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: num
 	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
 	// two run-property tags below stay hand-written. Dropping the padding would be the real fix —
 	// no XML consumer can see it — but that is an output change, and a whitespace-only diff is a
-	// stop rather than a cleanup. Two other sites in this directory are in the same position; the
-	// ratchet header lists them.
+	// stop rather than a cleanup. The chart flatten did NOT take it: that space is inside a tag
+	// rather than between elements, which is a different claim needing different evidence, and
+	// `prove-whitespace` freezes intra-tag whitespace so it stays visible. See
+	// `docs/chart-whitespace-flatten.md`. Two other sites in this directory are in the same
+	// position; the ratchet header lists them.
 	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : ''
 	const runAttrs = ` ${sizeAttr} b="${opts.titleBold ? 1 : 0}" i="${opts.titleItalic ? 1 : 0}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
-		'\n              ' +
-		genXmlColorSelection(opts.color || DEF_FONT_COLOR) +
-		'\n              ' +
-		createChartTextFonts(opts.fontFace || 'Arial') +
-		'\n            '
+		genXmlColorSelection(opts.color || DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace || 'Arial')
 
 	// NOTE: manualLayout x/y vals are *relative to the entire slide*. Each axis is independent in
 	// CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that axis on automatic layout, so a
@@ -298,60 +282,24 @@ export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: num
 		layout = el('c:layout', null, raw(el('c:manualLayout', null, raw(modes + vals))))
 	}
 
-	const paragraph = el(
-		'a:p',
-		null,
-		[
-			raw(
-				el(
-					'a:pPr',
-					opts.titleAlign === 'left' || opts.titleAlign === 'right' ? { algn: opts.titleAlign.slice(0, 1) } : null,
-					raw('\n            <a:defRPr' + runAttrs + runChildren + '</a:defRPr>'),
-					{ openPrefix: '\n            ', closePrefix: '\n          ' }
-				)
-			),
-			raw(
-				el(
-					'a:r',
-					null,
-					[
-						raw('\n            <a:rPr' + runAttrs + runChildren + '</a:rPr>'),
-						raw('\n            ' + el('a:t', null, opts.title ?? '')),
-					],
-					{ openPrefix: '\n          ', closePrefix: '\n          ' }
-				)
-			),
-		],
-		{ openPrefix: '\n          ', closePrefix: '\n        ' }
-	)
-	const rich = el(
-		'c:rich',
-		null,
-		[
-			// Don't specify a rotation when none was asked for, so the default applies (which is
-			// vertical on a category axis).
-			raw(
-				voidEl(
-					'a:bodyPr',
-					{ rot: opts.titleRotate ? convertAngleUnits(opts.titleRotate, 'titleRotate') : undefined },
-					{ openPrefix: '\n          ' }
-				)
-			),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '\n          ' })),
-			raw(paragraph),
-		],
-		{ openPrefix: '\n        ', closePrefix: '\n        ' }
-	)
-	return el(
-		'c:title',
-		null,
-		[
-			raw(el('c:tx', null, raw(rich), { openPrefix: '\n      ', closePrefix: '\n      ' })),
-			raw('\n      ' + layout),
-			raw(voidEl('c:overlay', { val: 0 }, { openPrefix: '\n      ' })),
-		],
-		{ closePrefix: '\n    ' }
-	)
+	const paragraph = el('a:p', null, [
+		raw(
+			el(
+				'a:pPr',
+				opts.titleAlign === 'left' || opts.titleAlign === 'right' ? { algn: opts.titleAlign.slice(0, 1) } : null,
+				raw('<a:defRPr' + runAttrs + runChildren + '</a:defRPr>')
+			)
+		),
+		raw(el('a:r', null, [raw('<a:rPr' + runAttrs + runChildren + '</a:rPr>'), raw(el('a:t', null, opts.title ?? ''))])),
+	])
+	const rich = el('c:rich', null, [
+		// Don't specify a rotation when none was asked for, so the default applies (which is
+		// vertical on a category axis).
+		raw(voidEl('a:bodyPr', { rot: opts.titleRotate ? convertAngleUnits(opts.titleRotate, 'titleRotate') : undefined })),
+		raw(voidEl('a:lstStyle', null)),
+		raw(paragraph),
+	])
+	return el('c:title', null, [raw(el('c:tx', null, raw(rich))), raw(layout), raw(voidEl('c:overlay', { val: 0 }))])
 }
 
 /**
@@ -367,13 +315,12 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 			cap: createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap),
 		},
 		[
-			raw('  ' + el('a:solidFill', null, raw(createColorElement(glOpts.color || DEF_GRIDLINE_COLOR)))),
-			raw('   ' + voidEl('a:prstDash', { val: glOpts.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
-		],
-		{ openPrefix: '  ', closePrefix: '  ' }
+			raw(el('a:solidFill', null, raw(createColorElement(glOpts.color || DEF_GRIDLINE_COLOR)))),
+			raw(voidEl('a:prstDash', { val: glOpts.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
+		]
 	)
 
-	return el('c:majorGridlines', null, raw(el('c:spPr', null, raw(line), { openPrefix: ' ', closePrefix: ' ' })))
+	return el('c:majorGridlines', null, raw(el('c:spPr', null, raw(line))))
 }
 
 /**
@@ -392,37 +339,19 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
  * @param leaderLines - emit the trailing `<c:showLeaderLines>` (category-axis plots only)
  */
 export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
-	const defRPr = dataLabelDefRPr(opts, '          ', { openPrefix: '        ', closePrefix: '        ' })
-	const txPr = el(
-		'c:txPr',
-		null,
-		[
-			raw(voidEl('a:bodyPr', null, { openPrefix: '      ' })),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '      ' })),
-			raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr), { closePrefix: '      ' })), { openPrefix: '      ' })),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	return el(
-		'c:dLbls',
-		null,
-		[
-			raw(
-				voidEl(
-					'c:numFmt',
-					{ formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 },
-					{ openPrefix: '    ' }
-				)
-			),
-			raw(txPr),
-			opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
-			...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }, '    '),
-			leaderLines
-				? raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }, { openPrefix: '    ' }))
-				: null,
-		],
-		{ openPrefix: '  ', closePrefix: '  ' }
-	)
+	const defRPr = dataLabelDefRPr(opts)
+	const txPr = el('c:txPr', null, [
+		raw(voidEl('a:bodyPr', null)),
+		raw(voidEl('a:lstStyle', null)),
+		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
+	])
+	return el('c:dLbls', null, [
+		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
+		raw(txPr),
+		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
+		...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }),
+		leaderLines ? raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })) : null,
+	])
 }
 
 /**
@@ -447,13 +376,11 @@ export function dimmedTextFill(lumMod: number, lumOff: number): string {
 }
 
 /** The hairline outline drawn in {@link dimmedTextFill}, at the same three dimming levels. */
-export function dimmedTextLine(lumMod: number, lumOff: number, fmt?: { openPrefix?: string }): string {
-	return el(
-		'a:ln',
-		{ w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr' },
-		[raw(dimmedTextFill(lumMod, lumOff)), raw(voidEl('a:round'))],
-		fmt
-	)
+export function dimmedTextLine(lumMod: number, lumOff: number): string {
+	return el('a:ln', { w: 9525, cap: 'flat', cmpd: 'sng', algn: 'ctr' }, [
+		raw(dimmedTextFill(lumMod, lumOff)),
+		raw(voidEl('a:round')),
+	])
 }
 
 /**
@@ -754,45 +681,20 @@ export function makeSeriesDataPointsXml(
 }
 
 /**
- * The whitespace spelling a {@link strRefBlock} is emitted with.
- *
- * The five hand-written copies this replaces produced the same elements three different ways —
- * `plot-scatter`, `plot-bubble` and `plot-cat-axis` agreed on one indentation, `plot-surface` ran
- * everything together with none, and `plot-pie` broke the cache across four lines. All three are
- * inert to PowerPoint, and all three are *emitted* bytes, so this extraction has to preserve which
- * one each call site produced. That is what this parameter is for, and it is exactly what a
- * whitespace normalization would erase — which is why that is its own deliberate, re-baselined
- * piece of work and this is not.
- */
-export type StrRefLayout = 'indented' | 'compact' | 'expanded'
-
-/**
  * A `<c:tx>` series-name block: the `<c:f>` formula plus the one-point `<c:strCache>` mirroring
  * the header cell it points at. The string counterpart of {@link numRefBlock}.
  *
- * Built through `el()`/`voidEl()` rather than by concatenation, with the indentation carried on
- * the `openPrefix`/`childPrefix`/`closePrefix` byte-layout hooks those helpers already have. The
- * five copies this replaces were all hand-built strings, so routing them here takes fifty-odd
- * hand-written delimiters out of `src/gen/chart/` rather than moving them into one file.
+ * The five copies this replaces were all hand-built strings, so routing them here takes
+ * fifty-odd hand-written delimiters out of `src/gen/chart/` rather than moving them into one
+ * file.
  * @param ref - the `<c:f>` formula, from {@link sheetCellRef} or written inline
  * @param name - the series name to cache; escaped on the way into `<c:v>`
- * @param layout - which of the three historical whitespace spellings to emit; see {@link StrRefLayout}
  */
-export function strRefBlock(ref: string, name: string, layout: StrRefLayout = 'indented'): string {
-	const compact = layout === 'compact'
+export function strRefBlock(ref: string, name: string): string {
 	const pt = el('c:pt', { idx: 0 }, raw(el('c:v', null, name)))
-	const cacheChildren = [raw(voidEl('c:ptCount', { val: 1 })), raw(pt)]
-	const strCache =
-		layout === 'expanded'
-			? el('c:strCache', null, cacheChildren, { childPrefix: '        ', closePrefix: '      ' })
-			: el('c:strCache', null, cacheChildren)
-	const indent = (spaces: string): string => (compact ? '' : spaces)
-	const strRef = el('c:strRef', null, [raw(el('c:f', null, ref)), raw(strCache)], {
-		openPrefix: indent('    '),
-		childPrefix: indent('      '),
-		closePrefix: indent('    '),
-	})
-	return el('c:tx', null, raw(strRef), { openPrefix: indent('  '), closePrefix: indent('  ') })
+	const strCache = el('c:strCache', null, [raw(voidEl('c:ptCount', { val: 1 })), raw(pt)])
+	const strRef = el('c:strRef', null, [raw(el('c:f', null, ref)), raw(strCache)])
+	return el('c:tx', null, raw(strRef))
 }
 
 /**
@@ -804,41 +706,21 @@ export function strRefBlock(ref: string, name: string, layout: StrRefLayout = 'i
  * and cat-axis each carried both arms of that choice, and surface carried the string one, five
  * copies of the same `<c:f>` + `<c:ptCount>` + `<c:pt idx>` loop.
  *
- * `layout` preserves which whitespace spelling each site emitted, for the reason
- * {@link StrRefLayout} gives. The `<c:multiLvlStrRef>` arm of a cat-axis is deliberately not
- * folded in: multi-level categories nest a `<c:lvl>` per label group, which is a different shape
- * rather than a different spelling.
+ * The `<c:multiLvlStrRef>` arm of a cat-axis is deliberately not folded in: multi-level
+ * categories nest a `<c:lvl>` per label group, which is a different shape rather than a
+ * different spelling.
  * @param kind - `num` for a numeric (date) category cache, `str` for a text one
  * @param ref - the `<c:f>` formula
  * @param labels - the category labels, in order; escaped on the way into `<c:v>`
  * @param formatCode - the cached `<c:formatCode>`; numeric caches only
- * @param layout - which whitespace spelling to emit
  */
-export function catRefBlock(
-	kind: 'num' | 'str',
-	ref: string,
-	labels: string[],
-	formatCode?: string,
-	layout: 'compact' | 'indented' = 'compact'
-): string {
-	const indent = (spaces: string): string => (layout === 'indented' ? spaces : '')
-	// `<c:ptCount>` and the points it counts are ONE child: the indented sites put whitespace
-	// before the count and none before each point, so splitting them would indent every point.
+export function catRefBlock(kind: 'num' | 'str', ref: string, labels: string[], formatCode?: string): string {
 	const points = labels.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join('')
-	const cache = el(
-		`c:${kind}Cache`,
-		null,
-		[
-			formatCode === undefined ? null : raw(el('c:formatCode', null, formatCode)),
-			raw(voidEl('c:ptCount', { val: labels.length }) + points),
-		],
-		{ childPrefix: indent('      '), closePrefix: indent('    ') }
-	)
-	return el(`c:${kind}Ref`, null, [raw(el('c:f', null, ref)), raw(cache)], {
-		openPrefix: indent('  '),
-		childPrefix: indent('    '),
-		closePrefix: indent('  '),
-	})
+	const cache = el(`c:${kind}Cache`, null, [
+		formatCode === undefined ? null : raw(el('c:formatCode', null, formatCode)),
+		raw(voidEl('c:ptCount', { val: labels.length }) + points),
+	])
+	return el(`c:${kind}Ref`, null, [raw(el('c:f', null, ref)), raw(cache)])
 }
 
 /**
@@ -855,31 +737,18 @@ export function catRefBlock(
  * @param ref - the `<c:f>` formula, from {@link sheetRangeRef} or written inline
  * @param formatCode - the cached `<c:formatCode>`
  * @param values - the points to cache, in order; `null`/`undefined` entries are gaps
- * @param refIndent - leading whitespace before `<c:f>`. Bubble's `c:yVal` has none where every
- *   other block has four spaces. That is inert inter-element whitespace, but it is *emitted*
- *   whitespace, and this extraction is behaviour-preserving — normalizing it would be a byte
- *   change wearing a cleanup's clothes, which the byte-identity gate exists to refuse.
  */
 export function numRefBlock(
 	tag: 'c:xVal' | 'c:yVal',
 	ref: string,
 	formatCode: string,
-	values: Array<number | null | undefined>,
-	refIndent = '    '
+	values: Array<number | null | undefined>
 ): string {
-	const numCache = el(
-		'c:numCache',
-		null,
-		[
-			raw(el('c:formatCode', null, formatCode, { openPrefix: '      ' })),
-			raw(voidEl('c:ptCount', { val: values.length }, { openPrefix: '      ' })),
-			raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref, { openPrefix: refIndent })), raw(numCache)], {
-		openPrefix: '  ',
-		closePrefix: '  ',
-	})
+	const numCache = el('c:numCache', null, [
+		raw(el('c:formatCode', null, formatCode)),
+		raw(voidEl('c:ptCount', { val: values.length })),
+		raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
+	])
+	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)])
 	return el(tag, null, raw(numRef))
 }

@@ -123,21 +123,20 @@ function makeChartHeaderXml(rel: SlideRelChart): string {
 function makePlotAreaLayoutXml(rel: SlideRelChart): string {
 	const layout = rel.opts.layout
 	if (!layout) return voidEl('c:layout')
-	const manualLayout = el(
-		'c:manualLayout',
-		null,
-		[
-			raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
-			raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
-			raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
-			raw(voidEl('c:x', { val: layout.x || 0 }, { closePrefix: ' ' })),
-			raw(voidEl('c:y', { val: layout.y || 0 }, { closePrefix: ' ' })),
-			raw(voidEl('c:w', { val: layout.w || 1 }, { closePrefix: ' ' })),
-			raw(voidEl('c:h', { val: layout.h || 1 }, { closePrefix: ' ' })),
-		],
-		{ childPrefix: '  ', closePrefix: ' ' }
-	)
-	return el('c:layout', null, raw(manualLayout), { childPrefix: ' ' })
+	const manualLayout = el('c:manualLayout', null, [
+		// Every space here sits before `/>`, INSIDE the tag rather than between elements, so
+		// it is out of scope for the flatten (docs/chart-whitespace-flatten.md) and stays.
+		// `prove-whitespace` freezes intra-tag whitespace, and reported these when the
+		// codemod first took them — which is the whole reason it looks at them.
+		raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
+		raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
+		raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
+		raw(voidEl('c:x', { val: layout.x || 0 }, { closePrefix: ' ' })),
+		raw(voidEl('c:y', { val: layout.y || 0 }, { closePrefix: ' ' })),
+		raw(voidEl('c:w', { val: layout.w || 1 }, { closePrefix: ' ' })),
+		raw(voidEl('c:h', { val: layout.h || 1 }, { closePrefix: ' ' })),
+	])
+	return el('c:layout', null, raw(manualLayout))
 }
 
 /**
@@ -261,33 +260,22 @@ function makeChartAxesXml(
 
 /**
  * The `<c:spPr>` shared by the plot area and the chart space: a stated fill or none, a border
- * or an explicit no-line, and an empty effect list. The two differ only in how far in they are
- * indented, which is what `fmt` and `effectIndent` carry.
+ * or an explicit no-line, and an empty effect list.
  */
-function chartShapeProps(
-	fill: ShapeFillProps | undefined,
-	border: BorderProps | undefined,
-	effectIndent: string,
-	fmt: { openPrefix?: string; closePrefix?: string }
-): string {
-	return el(
-		'c:spPr',
-		null,
-		[
-			raw(isStatedFill(fill) ? genXmlColorSelection(fill) : voidEl('a:noFill')),
-			raw(
-				border
-					? el(
-							'a:ln',
-							{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' },
-							raw(genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }))
-						)
-					: el('a:ln', null, raw(voidEl('a:noFill')))
-			),
-			raw(voidEl('a:effectLst', null, { openPrefix: effectIndent })),
-		],
-		fmt
-	)
+function chartShapeProps(fill: ShapeFillProps | undefined, border: BorderProps | undefined): string {
+	return el('c:spPr', null, [
+		raw(isStatedFill(fill) ? genXmlColorSelection(fill) : voidEl('a:noFill')),
+		raw(
+			border
+				? el(
+						'a:ln',
+						{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' },
+						raw(genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }))
+					)
+				: el('a:ln', null, raw(voidEl('a:noFill')))
+		),
+		raw(voidEl('a:effectLst', null)),
+	])
 }
 
 /**
@@ -295,16 +283,11 @@ function chartShapeProps(
  * area's own `<c:spPr>`.
  */
 function makeDataTableXml(rel: SlideRelChart): string {
-	const spPr = el(
-		'c:spPr',
-		null,
-		[
-			raw(voidEl('a:noFill', null, { openPrefix: '    ' })),
-			raw(dimmedTextLine(15000, 85000, { openPrefix: '    ' })),
-			raw(voidEl('a:effectLst', null, { openPrefix: '    ' })),
-		],
-		{ openPrefix: '  ', closePrefix: '  ' }
-	)
+	const spPr = el('c:spPr', null, [
+		raw(voidEl('a:noFill', null)),
+		raw(dimmedTextLine(15000, 85000)),
+		raw(voidEl('a:effectLst', null)),
+	])
 	const defRPr = el(
 		'a:defRPr',
 		{
@@ -317,50 +300,30 @@ function makeDataTableXml(rel: SlideRelChart): string {
 			baseline: 0,
 		},
 		[
-			raw('         ' + dimmedTextFill(65000, 35000)),
-			raw(voidEl('a:latin', { typeface: '+mn-lt' }, { openPrefix: '         ' })),
-			raw(voidEl('a:ea', { typeface: '+mn-ea' }, { openPrefix: '         ' })),
-			raw(voidEl('a:cs', { typeface: '+mn-cs' }, { openPrefix: '         ' })),
-		],
-		{ openPrefix: '       ', closePrefix: '       ' }
+			raw(dimmedTextFill(65000, 35000)),
+			raw(voidEl('a:latin', { typeface: '+mn-lt' })),
+			raw(voidEl('a:ea', { typeface: '+mn-ea' })),
+			raw(voidEl('a:cs', { typeface: '+mn-cs' })),
+		]
 	)
-	const txPr = el(
-		'c:txPr',
-		null,
-		[
-			raw(
-				voidEl(
-					'a:bodyPr',
-					{
-						rot: 0,
-						spcFirstLastPara: 1,
-						vertOverflow: 'ellipsis',
-						vert: 'horz',
-						wrap: 'square',
-						anchor: 'ctr',
-						anchorCtr: 1,
-					},
-					{ openPrefix: '   ' }
-				)
-			),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '   ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(el('a:pPr', { rtl: 0 }, raw(defRPr), { openPrefix: '     ', closePrefix: '     ' })),
-						raw(voidEl('a:endParaRPr', { lang: 'en-US' }, { openPrefix: '    ' })),
-					],
-					{ openPrefix: '   ', closePrefix: '   ' }
-				)
-			),
-		],
-		{ openPrefix: '  ', closePrefix: ' ' }
-	)
+	const txPr = el('c:txPr', null, [
+		raw(
+			voidEl('a:bodyPr', {
+				rot: 0,
+				spcFirstLastPara: 1,
+				vertOverflow: 'ellipsis',
+				vert: 'horz',
+				wrap: 'square',
+				anchor: 'ctr',
+				anchorCtr: 1,
+			})
+		),
+		raw(voidEl('a:lstStyle', null)),
+		raw(el('a:p', null, [raw(el('a:pPr', { rtl: 0 }, raw(defRPr))), raw(voidEl('a:endParaRPr', { lang: 'en-US' }))])),
+	])
 	return el('c:dTable', null, [
-		raw(voidEl('c:showHorzBorder', { val: !rel.opts.showDataTableHorzBorder ? 0 : 1 }, { openPrefix: '  ' })),
-		raw(voidEl('c:showVertBorder', { val: !rel.opts.showDataTableVertBorder ? 0 : 1 }, { openPrefix: '  ' })),
+		raw(voidEl('c:showHorzBorder', { val: !rel.opts.showDataTableHorzBorder ? 0 : 1 })),
+		raw(voidEl('c:showVertBorder', { val: !rel.opts.showDataTableVertBorder ? 0 : 1 })),
 		// These two `val` attributes were written padded into a column with the two above, and that
 		// padding is emitted bytes. `el()` writes exactly one space before an attribute, by design,
 		// so the aligned pair stays hand-written rather than bending the builder around a cosmetic
@@ -421,23 +384,12 @@ function makeLegendXml(rel: SlideRelChart): string {
 			[
 				raw(rel.opts.legendColor ? genXmlColorSelection(rel.opts.legendColor) : ''),
 				raw(rel.opts.legendFontFace ? createChartTextFonts(rel.opts.legendFontFace) : ''),
-			],
-			{ closePrefix: '      ' }
+			]
 		)
 		txPr = el('c:txPr', null, [
-			raw(voidEl('a:bodyPr', null, { openPrefix: '  ' })),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '  ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: '    ' })),
-						raw(voidEl('a:endParaRPr', { lang: 'en-US' }, { openPrefix: '    ' })),
-					],
-					{ openPrefix: '  ', closePrefix: '  ' }
-				)
-			),
+			raw(voidEl('a:bodyPr', null)),
+			raw(voidEl('a:lstStyle', null)),
+			raw(el('a:p', null, [raw(el('a:pPr', null, raw(defRPr))), raw(voidEl('a:endParaRPr', { lang: 'en-US' }))])),
 		])
 	}
 
@@ -516,14 +468,14 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		raw(axes),
 		// NOTE: the data table goes between `</c:valAx>` and `<c:spPr>`.
 		rel.opts.showDataTable ? raw(makeDataTableXml(rel)) : null,
-		raw(chartShapeProps(plotAreaOpts.fill, plotAreaOpts.border, '    ', { openPrefix: '  ', closePrefix: '  ' })),
+		raw(chartShapeProps(plotAreaOpts.fill, plotAreaOpts.border)),
 	])
 	const chart = el('c:chart', null, [
 		raw(makeChartHeaderXml(rel)),
 		raw(plotArea),
 		rel.opts.showLegend ? raw(makeLegendXml(rel)) : null,
-		raw(voidEl('c:plotVisOnly', { val: 1 }, { openPrefix: '  ' })),
-		raw(voidEl('c:dispBlanksAs', { val: rel.opts.displayBlanksAs }, { openPrefix: '  ' })),
+		raw(voidEl('c:plotVisOnly', { val: 1 })),
+		raw(voidEl('c:dispBlanksAs', { val: rel.opts.displayBlanksAs })),
 		isScatterChart(rel.opts._type) ? raw(voidEl('c:showDLblsOverMax', { val: 1 })) : null,
 	])
 
@@ -536,7 +488,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 			raw(voidEl('c:date1904', { val: 0 })),
 			raw(voidEl('c:roundedCorners', { val: chartArea.roundedCorners ? 1 : 0 })),
 			raw(chart),
-			raw(chartShapeProps(chartArea.fill, chartArea.border, '  ', {})),
+			raw(chartShapeProps(chartArea.fill, chartArea.border)),
 			raw(el('c:externalData', { 'r:id': 'rId1' }, raw(voidEl('c:autoUpdate', { val: 0 })))),
 			raw(genXmlChartMetadata(rel.opts.metadata)),
 		])

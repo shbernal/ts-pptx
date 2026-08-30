@@ -33,7 +33,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `append-ceiling.mjs` | Diagnostic | What survives appending an authored slide to a template deck | manual (`read:append-ceiling`) |
 | `browser-harness-server.mjs` | Library | Static server for the Playwright harness | started by `playwright.config.ts` |
 | `bundle-size-ratchet.mjs` | Gate | Gzipped size of the browser entry's closure vs `bundle-size-budget.json` | `verify:full`, `check:package` |
-| `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor | manual — see note below |
+| `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor; `prove-whitespace` discharges one recorded reformat | manual — see note below |
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
@@ -62,6 +62,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `script-roundtrip.mjs` | Gate | Generated script must rebuild the deck it came from | `verify:full`, CI |
 | `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
 | `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
+| `xml-equivalence.mjs` | Library | Proves two XML parts differ only in inert inter-element whitespace | `byte-identity.mjs prove-whitespace`; unit-tested |
 
 ### Why four of these are manual on purpose
 

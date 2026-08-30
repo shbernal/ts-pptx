@@ -87,7 +87,7 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
 function stockSeriesName(obj: OptsChartDataInternal): string {
 	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
-	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')
+	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')
 }
 
 /** Emit a single stock (line) series: invisible line, optional close-marker, cat/val refs. */

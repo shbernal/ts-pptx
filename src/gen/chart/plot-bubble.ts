@@ -64,27 +64,24 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 }
 
 /**
- * The `<c:bubbleSize>` cache: the per-point sizes that scale each bubble. Its own block rather
- * than {@link numRefBlock} because the wrapping tag differs and so does the indentation — the
- * `<c:ptCount>` here sits three spaces further in than anything around it.
+ * The `<c:bubbleSize>` cache: the per-point sizes that scale each bubble.
+ *
+ * It is its own block for a reason that has expired. What kept it out of {@link numRefBlock}
+ * was the indentation as much as the wrapping tag: its `<c:ptCount>` sat three spaces further
+ * in than anything around it. The emitters are flat now (`docs/chart-whitespace-flatten.md`),
+ * which leaves the two identical apart from the tag and a constant format code, so this folds
+ * into `numRefBlock` by widening `tag`. Left standing here deliberately: the flatten is a
+ * whitespace-only change and stays one, so that its proof means what it says.
  */
 function bubbleSizeBlock(obj: OptsChartDataInternal, ref: string): string {
 	const sizes = dataSizes(obj)
-	const numCache = el(
-		'c:numCache',
-		null,
-		[
-			raw(el('c:formatCode', null, 'General', { openPrefix: '        ' })),
-			raw(voidEl('c:ptCount', { val: sizes.length }, { openPrefix: '           ' })),
-			raw(sizes.map((value, idx) => numCachePt(idx, value)).join('')),
-		],
-		{ openPrefix: '      ', closePrefix: '      ' }
-	)
-	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)], {
-		openPrefix: '    ',
-		closePrefix: '    ',
-	})
-	return el('c:bubbleSize', null, raw(numRef), { openPrefix: '  ', closePrefix: '  ' })
+	const numCache = el('c:numCache', null, [
+		raw(el('c:formatCode', null, 'General')),
+		raw(voidEl('c:ptCount', { val: sizes.length })),
+		raw(sizes.map((value, idx) => numCachePt(idx, value)).join('')),
+	])
+	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)])
+	return el('c:bubbleSize', null, raw(numRef))
 }
 
 /** The shared `<c:dLbls>` block: number format, label text style, and which parts are shown. */
@@ -106,8 +103,7 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
 					'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
 				},
-				raw(voidEl('c15:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }, { openPrefix: '    ' })),
-				{ openPrefix: '  ', closePrefix: '  ' }
+				raw(voidEl('c15:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }))
 			)
 		)
 	)
@@ -155,22 +151,21 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 				'c:yVal',
 				sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, xValues.length + 1),
 				valFmtCode,
-				xValues.map((_value, i) => yValues[i]),
-				'' // bubble's yVal has never indented its `<c:f>`; see numRefBlock
+				xValues.map((_value, i) => yValues[i])
 			)
 			idxColLtr++
 			const sizeRef = sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, dataSizes(obj).length + 1)
 			idxColLtr++
 			return el('c:ser', null, [
-				raw(voidEl('c:idx', { val: idx }, { openPrefix: '  ' })),
-				raw(voidEl('c:order', { val: idx }, { openPrefix: '  ' })),
+				raw(voidEl('c:idx', { val: idx })),
+				raw(voidEl('c:order', { val: idx })),
 				raw(name),
 				raw(spPr),
 				// No `<c:dLbls>` per series — the chart-level block below carries the labels.
 				raw(xVal),
 				raw(yVal),
 				raw(bubbleSizeBlock(obj, sizeRef)),
-				raw(voidEl('c:bubble3D', { val: chartType === ChartType.bubble3d ? 1 : 0 }, { openPrefix: '  ' })),
+				raw(voidEl('c:bubble3D', { val: chartType === ChartType.bubble3d ? 1 : 0 })),
 			])
 		})
 		.join('')

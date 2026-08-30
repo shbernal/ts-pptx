@@ -17,11 +17,14 @@ import { chartXml } from './chart-parts.js'
 // surface are unproven there, not proven unchanged — so a refactor that touched them was
 // checked against a throwaway differential, and this file is what makes the next one cheaper.
 //
-// Two of the cases below pin something that looks like an accident and is not, which is the
-// whole reason to write them down: bubble's `<c:f>` carries no indentation where every other
-// numeric-reference block has four spaces, and scatter's `<c:dLbls>` omits the trailing
-// `<c:showLeaderLines>` that the category-axis plots emit. Both are the current bytes. Change
-// either deliberately, with a note, or not at all.
+// One case below pins something that looks like an accident and is not, which is the whole
+// reason to write it down: scatter's `<c:dLbls>` omits the trailing `<c:showLeaderLines>` that
+// the category-axis plots emit. That is the current bytes. Change it deliberately, with a note,
+// or not at all.
+//
+// A second such pin used to live here — bubble's `<c:f>` carrying no indentation where every
+// other numeric-reference block had four spaces. The chart emitters are flat now
+// (docs/chart-whitespace-flatten.md), so that difference no longer exists to pin.
 
 const XY = [
 	{ name: 'X', labels: ['a', 'b', 'c'], values: [1, 2, 3] },
@@ -44,26 +47,22 @@ function valBlock(xml, tag) {
 
 defineRegressionSuite('Shared chart fragments', [
 	{
-		name: 'a scatter numeric-reference block indents its formula; the bubble y-block does not',
+		name: 'every numeric-reference block emits the same shape, scatter and bubble alike',
 		fn: async () => {
+			// This case used to pin four different indentations, one of which was bubble's y-block
+			// having none where the other three had four spaces. All four are flat now
+			// (docs/chart-whitespace-flatten.md), so what is left to pin is the part that was
+			// always the point: one builder, one shape, and the right formula in each block.
 			const scatter = await chartFor(ChartType.scatter, XY)
-			assertIncludes(
-				valBlock(scatter, 'c:xVal'),
-				'<c:numRef>    <c:f>Sheet1!$A$2:$A$4</c:f>',
-				'four spaces before the formula'
-			)
-			assertIncludes(valBlock(scatter, 'c:yVal'), '<c:numRef>    <c:f>Sheet1!$B$2:$B$4</c:f>', 'and on the y-block')
+			assertIncludes(valBlock(scatter, 'c:xVal'), '<c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>', 'scatter x-block')
+			assertIncludes(valBlock(scatter, 'c:yVal'), '<c:numRef><c:f>Sheet1!$B$2:$B$4</c:f>', 'scatter y-block')
 
 			const bubble = await chartFor(ChartType.bubble, [XY[0], { ...XY[1], sizes: [10, 20, 30] }])
-			assertIncludes(
-				valBlock(bubble, 'c:xVal'),
-				'<c:numRef>    <c:f>Sheet1!$A$2:$A$4</c:f>',
-				'bubble indents its x-block like everything else'
-			)
+			assertIncludes(valBlock(bubble, 'c:xVal'), '<c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>', 'bubble x-block')
 			assertIncludes(
 				valBlock(bubble, 'c:yVal'),
 				'<c:numRef><c:f>Sheet1!$B$2:$B$4</c:f>',
-				'but its y-block never has — inert whitespace, and still the emitted bytes'
+				'bubble y-block, no longer the odd one out'
 			)
 		},
 	},
@@ -98,15 +97,18 @@ defineRegressionSuite('Shared chart fragments', [
 				'<c:showLeaderLines',
 				'scatter never has — it has no <c:dLblPos> layout that moves a label away from its point'
 			)
-			// The rest of the block is the same on both, which is why they share a builder --
-			// including the indentation, which is emitted and therefore part of the pin.
+			// The rest of the block is the same on both, which is why they share a builder. The
+			// run is pinned as one contiguous string because the ORDER is `CT_DLbls`'s and is not
+			// negotiable: a flag in the wrong place is a repair prompt, not a wrong-looking chart.
+			// (It used to pin the indentation too; that is gone, see
+			// docs/chart-whitespace-flatten.md.)
 			for (const xml of [line, scatter]) {
 				assertIncludes(
 					xml,
-					'    <c:showLegendKey val="0"/>    <c:showVal val="1"/>    <c:showCatName val="0"/>',
-					'the flag run, in order, with its indentation'
+					'<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/>',
+					'the flag run, in schema order'
 				)
-				assertIncludes(xml, '    <c:showSerName val="0"/>    <c:showPercent val="0"/>    <c:showBubbleSize val="0"/>')
+				assertIncludes(xml, '<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>')
 			}
 		},
 	},

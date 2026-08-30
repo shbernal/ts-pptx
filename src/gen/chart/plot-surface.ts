@@ -63,7 +63,7 @@ function makeSurfaceSer(obj: OptsChartDataInternal, valFmtCode: string, seriesCo
 	return el('c:ser', null, [
 		raw(voidEl('c:idx', { val: obj._dataIndex })),
 		raw(voidEl('c:order', { val: obj._dataIndex })),
-		raw(strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '', 'compact')),
+		raw(strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')),
 		raw(spPr),
 		raw(surfaceCatVal(obj, valFmtCode)),
 	])

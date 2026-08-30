@@ -112,10 +112,7 @@ function serShapeProps(
 	} else if (opts.dataBorder) {
 		line = createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
 	}
-	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))], {
-		openPrefix: '  ',
-		closePrefix: '  ',
-	})
+	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
 }
 
 /**
@@ -123,29 +120,19 @@ function serShapeProps(
  * (schema order: spPr → marker → dPt → dLbls).
  */
 function serMarker(opts: ChartOptsInternal, markerColor: string, seriesColor: string): string {
-	const spPr = el(
-		'c:spPr',
-		null,
-		[
-			raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
-			raw(
-				el(
-					'a:ln',
-					{ w: opts.lineDataSymbolLineSize, cap: 'flat' },
-					[
-						raw(chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)),
-						raw(voidEl('a:prstDash', { val: 'solid' })),
-						raw(voidEl('a:round')),
-					],
-					{ openPrefix: '    ' }
-				)
-			),
-			raw(voidEl('a:effectLst', null, { openPrefix: '    ' })),
-		],
-		{ openPrefix: '  ', closePrefix: '  ' }
-	)
+	const spPr = el('c:spPr', null, [
+		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
+		raw(
+			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
+				raw(chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)),
+				raw(voidEl('a:prstDash', { val: 'solid' })),
+				raw(voidEl('a:round')),
+			])
+		),
+		raw(voidEl('a:effectLst', null)),
+	])
 	return el('c:marker', null, [
-		raw(voidEl('c:symbol', { val: opts.lineDataSymbol }, { openPrefix: '  ' })),
+		raw(voidEl('c:symbol', { val: opts.lineDataSymbol })),
 		// Defaults to "auto" otherwise (but this is usually too small, so there is a default).
 		opts.lineDataSymbolSize ? raw(voidEl('c:size', { val: opts.lineDataSymbolSize })) : null,
 		raw(spPr),
@@ -198,26 +185,19 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 	const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
 	if (opts.catLabelFormatCode) {
 		// A `catLabelFormatCode` implies numbers, so the cache is a numRef carrying that format.
-		return el('c:cat', null, raw(catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General', 'indented')))
+		return el('c:cat', null, raw(catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General')))
 	}
-	if (groups.length === 1) return el('c:cat', null, raw(catRefBlock('str', catRef, cats, undefined, 'indented')))
+	if (groups.length === 1) return el('c:cat', null, raw(catRefBlock('str', catRef, cats)))
 	const lvls = groups
 		.map((labelsGroup) =>
 			el('c:lvl', null, raw(labelsGroup.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join('')))
 		)
 		.join('')
-	const cache = el(
-		'c:multiLvlStrCache',
-		null,
-		[raw(voidEl('c:ptCount', { val: cats.length }, { openPrefix: '      ' })), raw(lvls)],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	const ref = el(
-		'c:multiLvlStrRef',
-		null,
-		[raw(el('c:f', null, sheetRangeRef(1, 2, groups.length, cats.length + 1), { openPrefix: '    ' })), raw(cache)],
-		{ openPrefix: '  ', closePrefix: '  ' }
-	)
+	const cache = el('c:multiLvlStrCache', null, [raw(voidEl('c:ptCount', { val: cats.length })), raw(lvls)])
+	const ref = el('c:multiLvlStrRef', null, [
+		raw(el('c:f', null, sheetRangeRef(1, 2, groups.length, cats.length + 1))),
+		raw(cache),
+	])
 	return el('c:cat', null, raw(ref))
 }
 
@@ -225,26 +205,19 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const valCol = obj._dataIndex + dataLabels(obj).length + 1
 	const catCount = firstLabelGroup(obj).length
-	const numCache = el(
-		'c:numCache',
-		null,
-		[
-			raw(el('c:formatCode', null, valFmtCode, { openPrefix: '      ' })),
-			raw(voidEl('c:ptCount', { val: catCount }, { openPrefix: '      ' })),
-			raw(
-				dataValues(obj)
-					.map((value, idx) => numCachePt(idx, value))
-					.join('')
-			),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	const numRef = el(
-		'c:numRef',
-		null,
-		[raw(el('c:f', null, sheetRangeRef(valCol, 2, valCol, catCount + 1))), raw(numCache)],
-		{ openPrefix: '  ', closePrefix: '  ' }
-	)
+	const numCache = el('c:numCache', null, [
+		raw(el('c:formatCode', null, valFmtCode)),
+		raw(voidEl('c:ptCount', { val: catCount })),
+		raw(
+			dataValues(obj)
+				.map((value, idx) => numCachePt(idx, value))
+				.join('')
+		),
+	])
+	const numRef = el('c:numRef', null, [
+		raw(el('c:f', null, sheetRangeRef(valCol, 2, valCol, catCount + 1))),
+		raw(numCache),
+	])
 	return el('c:val', null, raw(numRef))
 }
 
@@ -306,12 +279,12 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
 			const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, serIndex)
 			return el('c:ser', null, [
-				raw(voidEl('c:idx', { val: obj._dataIndex }, { openPrefix: '  ' })),
+				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
 				raw(strRefBlock(sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1), obj.name ?? '')),
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, serIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
-				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 }, { openPrefix: '  ' })) : null,
+				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
 				isLineLike(chartType) ? raw(serMarker(opts, paletteColor(chartColors, obj._dataIndex), seriesColor)) : null,
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` in CT_*Ser schema order.
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, barVaryColors)),
@@ -330,21 +303,17 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 	let plotOptions = ''
 	if (chartType === ChartType.bar) {
 		plotOptions =
-			voidEl('c:gapWidth', { val: opts.barGapWidthPct }, { openPrefix: '  ' }) +
-			voidEl(
-				'c:overlap',
-				{ val: opts.barOverlapPct ?? ((opts.barGrouping || '').includes('tacked') ? 100 : 0) },
-				{ openPrefix: '  ' }
-			) +
+			voidEl('c:gapWidth', { val: opts.barGapWidthPct }) +
+			voidEl('c:overlap', { val: opts.barOverlapPct ?? ((opts.barGrouping || '').includes('tacked') ? 100 : 0) }) +
 			// `<c:serLines>` connects data points across stacked bar/column series.
 			createSerLinesElement(opts.barSeriesLine)
 	} else if (chartType === ChartType.bar3d) {
 		plotOptions =
-			voidEl('c:gapWidth', { val: opts.barGapWidthPct }, { openPrefix: '  ' }) +
-			voidEl('c:gapDepth', { val: opts.barGapDepthPct }, { openPrefix: '  ' }) +
-			voidEl('c:shape', { val: opts.bar3DShape }, { openPrefix: '  ' })
+			voidEl('c:gapWidth', { val: opts.barGapWidthPct }) +
+			voidEl('c:gapDepth', { val: opts.barGapDepthPct }) +
+			voidEl('c:shape', { val: opts.bar3DShape })
 	} else if (chartType === ChartType.line) {
-		plotOptions = voidEl('c:marker', { val: 1 }, { openPrefix: '  ' })
+		plotOptions = voidEl('c:marker', { val: 1 })
 	}
 
 	return el(`c:${chartType}Chart`, null, [

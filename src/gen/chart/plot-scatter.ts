@@ -46,38 +46,20 @@ import {
 function customXYRuns(obj: OptsChartDataInternal, opts: ChartOptsInternal): string {
 	const lang = opts.lang || 'en-US'
 	const literal = (text: string): string =>
-		el(
-			'a:r',
-			null,
-			[
-				raw(voidEl('a:rPr', { lang, baseline: 0, dirty: 0 }, { openPrefix: '                  ' })),
-				raw(el('a:t', null, text, { openPrefix: '                  ' })),
-			],
-			{ openPrefix: '              ', closePrefix: '              ' }
-		)
+		el('a:r', null, [raw(voidEl('a:rPr', { lang, baseline: 0, dirty: 0 })), raw(el('a:t', null, text))])
 	const field = (type: 'XVALUE' | 'YVALUE', text: string): string =>
-		el(
-			'a:fld',
-			{ id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}`, type },
-			[
-				raw(voidEl('a:rPr', { lang, baseline: 0 }, { openPrefix: '                  ' })),
-				raw(
-					el('a:pPr', null, raw(voidEl('a:defRPr', null, { openPrefix: '                      ' })), {
-						openPrefix: '                  ',
-						closePrefix: '                  ',
-					})
-				),
-				raw('                  ' + el('a:t', null, text)),
-			],
-			{ openPrefix: '              ', closePrefix: '              ' }
-		)
+		el('a:fld', { id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}`, type }, [
+			raw(voidEl('a:rPr', { lang, baseline: 0 })),
+			raw(el('a:pPr', null, raw(voidEl('a:defRPr', null)))),
+			raw(el('a:t', null, text)),
+		])
 	return (
 		literal(' (') +
 		field('XVALUE', '[' + (obj.name ?? '')) +
 		literal(', ') +
 		field('YVALUE', '[' + (obj.name ?? '') + ']') +
 		literal(')') +
-		voidEl('a:endParaRPr', { lang, dirty: 0 }, { openPrefix: '              ' })
+		voidEl('a:endParaRPr', { lang, dirty: 0 })
 	)
 }
 
@@ -92,182 +74,77 @@ function scatterCustomLabel(
 	idx: number,
 	chartUuid: string
 ): string {
-	const rich = el(
-		'c:rich',
-		null,
-		[
-			raw(
-				el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null, { openPrefix: '                ' })), {
-					openPrefix: '            ',
-					closePrefix: '            ',
-				})
-			),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '            ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
+	const rich = el('c:rich', null, [
+		raw(el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null)))),
+		raw(voidEl('a:lstStyle', null)),
+		raw(
+			el('a:p', null, [
+				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))))),
+				raw(
+					el('a:r', null, [
 						raw(
-							el(
-								'a:pPr',
-								null,
-								raw(
-									el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts, '                        '), {
-										openPrefix: '                    ',
-										closePrefix: '                    ',
-									})
-								),
-								{ openPrefix: '                ', closePrefix: '                ' }
-							)
+							el('a:rPr', { lang: opts.lang || 'en-US', ...labelFontAttrs(opts), dirty: 0 }, labelFontChildren(opts))
 						),
-						raw(
-							el(
-								'a:r',
-								null,
-								[
-									raw(
-										el(
-											'a:rPr',
-											{ lang: opts.lang || 'en-US', ...labelFontAttrs(opts), dirty: 0 },
-											labelFontChildren(opts, '                        '),
-											{ openPrefix: '                    ', closePrefix: '                    ' }
-										)
-									),
-									raw('                    ' + el('a:t', null, label)),
-								],
-								{ openPrefix: '              ', closePrefix: '              ' }
-							)
-						),
-						// The X/Y values are appended only for a label that is not blank or all spaces,
-						// which is what lets a caller label a subset of the points.
-						opts.dataLabelFormatScatter === 'customXY' && !/^ *$/.test(label) ? raw(customXYRuns(obj, opts)) : null,
-					],
-					{ openPrefix: '            ', closePrefix: '            ' }
-				)
-			),
-		],
-		{ openPrefix: '      ', closePrefix: '      ' }
-	)
-	const spPr = el(
-		'c:spPr',
-		null,
-		[
-			raw(voidEl('a:noFill', null, { openPrefix: '        ' })),
-			raw(
-				el('a:ln', null, raw(voidEl('a:noFill', null, { openPrefix: '            ' })), {
-					openPrefix: '        ',
-					closePrefix: '        ',
-				})
-			),
-			raw(voidEl('a:effectLst', null, { openPrefix: '        ' })),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	const extLst = el(
-		'c:extLst',
-		null,
-		[
-			raw(
-				voidEl(
-					'c:ext',
-					{
-						uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
-						'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
-					},
-					{ openPrefix: '      ' }
-				)
-			),
-			raw(
-				el(
-					'c:ext',
-					{
-						uri: '{C3380CC4-5D6E-409C-BE32-E72D297353CC}',
-						'xmlns:c16': 'http://schemas.microsoft.com/office/drawing/2014/chart',
-					},
-					raw(
-						voidEl(
-							'c16:uniqueId',
-							{ val: `{${String(idx + 1).padStart(8, '0')}${chartUuid}}` },
-							{ openPrefix: '            ' }
-						)
-					),
-					{ openPrefix: '      ', closePrefix: '      ' }
-				)
-			),
-		],
-		{ openPrefix: '    ', closePrefix: '        ' }
-	)
-	return el(
-		'c:dLbl',
-		null,
-		[
-			raw(voidEl('c:idx', { val: idx }, { openPrefix: '    ' })),
-			raw(el('c:tx', null, raw(rich), { openPrefix: '    ', closePrefix: '    ' })),
-			raw(spPr),
-			opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
-			...dLblShowFlags({}, '    '),
-			raw(voidEl('c:showLeaderLines', { val: 1 }, { openPrefix: '       ' })),
-			raw(extLst),
-		],
-		{ openPrefix: '  ' }
-	)
+						raw(el('a:t', null, label)),
+					])
+				),
+				// The X/Y values are appended only for a label that is not blank or all spaces,
+				// which is what lets a caller label a subset of the points.
+				opts.dataLabelFormatScatter === 'customXY' && !/^ *$/.test(label) ? raw(customXYRuns(obj, opts)) : null,
+			])
+		),
+	])
+	const spPr = el('c:spPr', null, [
+		raw(voidEl('a:noFill', null)),
+		raw(el('a:ln', null, raw(voidEl('a:noFill', null)))),
+		raw(voidEl('a:effectLst', null)),
+	])
+	const extLst = el('c:extLst', null, [
+		raw(
+			voidEl('c:ext', {
+				uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
+				'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
+			})
+		),
+		raw(
+			el(
+				'c:ext',
+				{
+					uri: '{C3380CC4-5D6E-409C-BE32-E72D297353CC}',
+					'xmlns:c16': 'http://schemas.microsoft.com/office/drawing/2014/chart',
+				},
+				raw(voidEl('c16:uniqueId', { val: `{${String(idx + 1).padStart(8, '0')}${chartUuid}}` }))
+			)
+		),
+	])
+	return el('c:dLbl', null, [
+		raw(voidEl('c:idx', { val: idx })),
+		raw(el('c:tx', null, raw(rich))),
+		raw(spPr),
+		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
+		...dLblShowFlags({}),
+		raw(voidEl('c:showLeaderLines', { val: 1 })),
+		raw(extLst),
+	])
 }
 
 /** The single chart-level `<c:dLbls>` of the `XY` label format: PowerPoint composes the text. */
 function scatterXYLabels(opts: ChartOptsInternal): string {
-	const spPr = el(
-		'c:spPr',
-		null,
-		[
-			raw(voidEl('a:noFill', null, { openPrefix: '        ' })),
-			raw(
-				el('a:ln', null, raw(voidEl('a:noFill', null, { openPrefix: '            ' })), {
-					openPrefix: '        ',
-					closePrefix: '        ',
-				})
-			),
-			raw(voidEl('a:effectLst', null, { openPrefix: '          ' })),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
-	const txPr = el(
-		'c:txPr',
-		null,
-		[
-			raw(
-				el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null, { openPrefix: '            ' })), {
-					openPrefix: '        ',
-					closePrefix: '        ',
-				})
-			),
-			raw(voidEl('a:lstStyle', null, { openPrefix: '        ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(
-							el(
-								'a:pPr',
-								null,
-								raw(
-									el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts, '                    '), {
-										openPrefix: '                ',
-										closePrefix: '                ',
-									})
-								),
-								{ openPrefix: '            ', closePrefix: '            ' }
-							)
-						),
-						raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' }, { openPrefix: '            ' })),
-					],
-					{ openPrefix: '        ', closePrefix: '        ' }
-				)
-			),
-		],
-		{ openPrefix: '    ', closePrefix: '    ' }
-	)
+	const spPr = el('c:spPr', null, [
+		raw(voidEl('a:noFill', null)),
+		raw(el('a:ln', null, raw(voidEl('a:noFill', null)))),
+		raw(voidEl('a:effectLst', null)),
+	])
+	const txPr = el('c:txPr', null, [
+		raw(el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null)))),
+		raw(voidEl('a:lstStyle', null)),
+		raw(
+			el('a:p', null, [
+				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))))),
+				raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' })),
+			])
+		),
+	])
 	const extLst = el(
 		'c:extLst',
 		null,
@@ -278,22 +155,20 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
 					'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
 				},
-				raw(voidEl('c15:showLeaderLines', { val: 1 }, { openPrefix: '            ' })),
-				{ openPrefix: '        ', closePrefix: '        ' }
+				raw(voidEl('c15:showLeaderLines', { val: 1 }))
 			)
-		),
-		{ openPrefix: '    ', closePrefix: '    ' }
+		)
 	)
 	return el('c:dLbls', null, [
 		raw(spPr),
 		raw(txPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
-		raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showVal', { val: opts.showLabel ? 1 : 0 }, { openPrefix: ' ' })),
-		raw(voidEl('c:showCatName', { val: opts.showLabel ? 1 : 0 }, { openPrefix: ' ' })),
-		raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 }, { openPrefix: ' ' })),
-		raw(voidEl('c:showPercent', { val: 0 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
+		raw(voidEl('c:showLegendKey', { val: 0 })),
+		raw(voidEl('c:showVal', { val: opts.showLabel ? 1 : 0 })),
+		raw(voidEl('c:showCatName', { val: opts.showLabel ? 1 : 0 })),
+		raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 })),
+		raw(voidEl('c:showPercent', { val: 0 })),
+		raw(voidEl('c:showBubbleSize', { val: 0 })),
 		raw(extLst),
 	])
 }
@@ -329,10 +204,7 @@ function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serInde
 					raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
 					raw(voidEl('a:round')),
 				])
-	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))], {
-		openPrefix: '  ',
-		closePrefix: '  ',
-	})
+	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
 }
 
 /** The point marker: symbol, optional size, and its own fill and outline. */
@@ -349,7 +221,7 @@ function scatterMarker(opts: ChartOptsInternal, markerColor: string): string {
 		raw(voidEl('a:effectLst')),
 	])
 	return el('c:marker', null, [
-		raw(voidEl('c:symbol', { val: opts.lineDataSymbol }, { openPrefix: '  ' })),
+		raw(voidEl('c:symbol', { val: opts.lineDataSymbol })),
 		// Defaults to "auto" otherwise (but this is usually too small, so there is a default).
 		opts.lineDataSymbolSize ? raw(voidEl('c:size', { val: opts.lineDataSymbolSize })) : null,
 		raw(spPr),
@@ -417,8 +289,8 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			}
 
 			return el('c:ser', null, [
-				raw(voidEl('c:idx', { val: idx }, { openPrefix: '  ' })),
-				raw(voidEl('c:order', { val: idx }, { openPrefix: '  ' })),
+				raw(voidEl('c:idx', { val: idx })),
+				raw(voidEl('c:order', { val: idx })),
 				raw(strRefBlock(sheetCellRef(idx + 2, 1), obj.name ?? '')),
 				raw(scatterSerShapeProps(opts, serColor, idx)),
 				raw(scatterMarker(opts, serColor)),

@@ -8,14 +8,24 @@
  * one (recursing into its embedded .xlsx parts, which are their own OPC packages),
  * and diffing every part against a frozen baseline.
  *
- *   node scripts/byte-identity.mjs baseline   # freeze current output as the reference
- *   node scripts/byte-identity.mjs check      # rebuild, regenerate, diff vs baseline
+ *   node scripts/byte-identity.mjs baseline          # freeze current output as the reference
+ *   node scripts/byte-identity.mjs check             # rebuild, regenerate, diff vs baseline
+ *   node scripts/byte-identity.mjs prove-whitespace  # for a deliberate reformat; see below
  *
  * Workflow: freeze a baseline BEFORE the refactor, then `check` after each step.
  * `baseline` enforces that ordering by refusing to run on a dirty `src/gen/`
- * (override with `--allow-dirty`). Both subcommands run `pnpm run build` first —
- * the deck is generated from `dist/`, not `src/`, so a stale build would silently
- * gate the wrong code.
+ * (override with `--allow-dirty`). Every subcommand runs the build first — the deck
+ * is generated from `dist/`, not `src/`, so a stale build would silently gate the
+ * wrong code.
+ *
+ * `prove-whitespace` is NOT a looser `check`, and reaching for it because `check` went
+ * red is a misuse. AGENTS.md keeps whitespace-only byte diffs a STOP because judging a
+ * diff to be "just formatting" is the same act that would wave through a content change;
+ * this subcommand replaces the judgement with a program (`xml-equivalence.mjs`), which
+ * compares raw text, attribute order, quote characters and self-closing forms and relaxes
+ * whitespace only where it provably cannot be content. It exists for one recorded change —
+ * the `src/gen/chart/` flatten, `docs/chart-whitespace-flatten.md` — and a second use
+ * wants its own entry in that doc. `check` remains the gate for every other refactor.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -23,6 +33,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { diffParts, explodePackage, listParts, loadShowcases } from './pptx-parts.mjs'
 import { ROOT, parseCliOrExit, run } from './script-utils.mjs'
+import { XmlSyntaxError, proveWhitespaceOnly } from './xml-equivalence.mjs'
 
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
 const BASELINE = path.join(OUT_ROOT, 'baseline')
@@ -33,22 +44,27 @@ const DECKS = path.join(OUT_ROOT, 'decks')
 
 const USAGE = `Byte-identity gate for write-side refactors.
 
-  node scripts/byte-identity.mjs baseline   freeze current output as the reference
-  node scripts/byte-identity.mjs check      rebuild, regenerate, diff vs baseline
+  node scripts/byte-identity.mjs baseline          freeze current output as the reference
+  node scripts/byte-identity.mjs check             rebuild, regenerate, diff vs baseline
+  node scripts/byte-identity.mjs prove-whitespace  prove every diff is inert whitespace
 
 Freeze a baseline BEFORE the refactor, then \`check\` after each step.
 
+\`prove-whitespace\` is for one recorded, deliberate reformat (docs/chart-whitespace-flatten.md),
+not for getting past a red \`check\`.
+
 Options:
   --allow-dirty   permit \`baseline\` on an uncommitted src/gen/ (read the refusal first)
+  --show          with prove-whitespace, print every relaxed position, not a count
   -h, --help      show this message`
 
 const { values, positionals } = parseCliOrExit(process.argv.slice(2), {
 	usage: USAGE,
 	allowPositionals: true,
-	options: { 'allow-dirty': { type: 'boolean', default: false } },
+	options: { 'allow-dirty': { type: 'boolean', default: false }, show: { type: 'boolean', default: false } },
 })
 const mode = positionals[0]
-if (mode !== 'baseline' && mode !== 'check') {
+if (mode !== 'baseline' && mode !== 'check' && mode !== 'prove-whitespace') {
 	console.error(mode ? `unknown subcommand: ${mode}` : 'a subcommand is required')
 	console.error('\n' + USAGE)
 	process.exit(2)
@@ -172,12 +188,88 @@ if (!fs.existsSync(BASELINE)) {
 await explodeDecks(await generateDecks(), CURRENT)
 
 const diffs = diffParts(BASELINE, CURRENT)
-if (diffs.length === 0) {
-	console.log('PASS - byte-identical (' + listParts(CURRENT).length + ' parts)')
-	process.exit(0)
+
+if (mode === 'check') {
+	if (diffs.length === 0) {
+		console.log('PASS - byte-identical (' + listParts(CURRENT).length + ' parts)')
+		process.exit(0)
+	}
+	console.error('FAIL - emitted bytes changed (' + diffs.length + ' part(s)):')
+	for (const line of diffs.slice(0, 40)) console.error('  ' + line)
+	if (diffs.length > 40) console.error('  ... and ' + (diffs.length - 40) + ' more')
+	process.exit(1)
 }
 
-console.error('FAIL - emitted bytes changed (' + diffs.length + ' part(s)):')
-for (const line of diffs.slice(0, 40)) console.error('  ' + line)
-if (diffs.length > 40) console.error('  ... and ' + (diffs.length - 40) + ' more')
-process.exit(1)
+process.exit(proveWhitespace(diffs))
+
+/**
+ * Put every changed part to {@link proveWhitespaceOnly} and report.
+ *
+ * An added or removed part fails outright: the prover compares two texts, and a part that
+ * exists on one side only has no counterpart to be equivalent to. A part that will not
+ * tokenize fails the same way — an unreadable part has not been proved anything.
+ *
+ * Prints the count of relaxed positions per part rather than each one, because the whole
+ * point of the change this exists for is that there are thousands of them; `--show` prints
+ * them when a specific position is in question.
+ * @param {string[]} diffLines output of {@link diffParts}
+ * @returns {number} process exit code
+ */
+function proveWhitespace(diffLines) {
+	if (diffLines.length === 0) {
+		console.log('PASS - byte-identical (' + listParts(CURRENT).length + ' parts); nothing to prove')
+		return 0
+	}
+
+	/** @type {string[]} */
+	const failures = []
+	let proved = 0
+	let relaxed = 0
+
+	for (const line of diffLines) {
+		const [verdict, part] = [line.slice(0, 7).trim(), line.slice(9)]
+		if (verdict !== 'CHANGED') {
+			failures.push(verdict + ' ' + part + ': a part with no counterpart cannot be proved equivalent')
+			continue
+		}
+		const base = fs.readFileSync(path.join(BASELINE, part), 'utf8')
+		const current = fs.readFileSync(path.join(CURRENT, part), 'utf8')
+		let result
+		try {
+			result = proveWhitespaceOnly(base, current)
+		} catch (error) {
+			if (!(error instanceof XmlSyntaxError)) throw error
+			failures.push(part + ': will not tokenize - ' + error.message)
+			continue
+		}
+		if (!result.ok) {
+			failures.push(part + ': ' + result.path + ' - ' + result.reason)
+			continue
+		}
+		proved++
+		relaxed += result.relaxations.length
+		if (values.show)
+			for (const item of result.relaxations)
+				console.log('  ' + part + ' ' + item.path + ' ' + item.from + ' -> ' + item.to)
+	}
+
+	if (failures.length > 0) {
+		console.error('FAIL - ' + failures.length + ' of ' + diffLines.length + ' changed part(s) are not whitespace-only:')
+		for (const failure of failures.slice(0, 40)) console.error('  ' + failure)
+		if (failures.length > 40) console.error('  ... and ' + (failures.length - 40) + ' more')
+		return 1
+	}
+
+	const unchanged = listParts(CURRENT).length - diffLines.length
+	console.log(
+		'PASS - whitespace-only (' +
+			proved +
+			' part(s) proved, ' +
+			relaxed +
+			' relaxed position(s); ' +
+			unchanged +
+			' byte-identical)'
+	)
+	console.log('Every other difference - text, attributes, order, escaping, self-closing form - is nil.')
+	return 0
+}
