@@ -19,7 +19,7 @@ import { withCheckedSpans } from '../../table/spans.js'
 import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
 import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { inch2Emu, marginToEmu, resolveTableColWidthsEmu } from '../../../units-internal.js'
+import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
 import { cNvPrOpen, P14_NS } from './shared.js'
 
@@ -296,15 +296,12 @@ export function renderTableObject(
 
 	// STEP 4: Build table rows/cells
 	arrTabRows.forEach((cells, rIdx) => {
-		// A: Table Height provided without rowH? Then distribute rows
-		let intRowH = 0 // IMPORTANT: Default must be zero for auto-sizing to work
-		if (Array.isArray(objTabOpts.rowH) && objTabOpts.rowH[rIdx]) intRowH = inch2Emu(Number(objTabOpts.rowH[rIdx]))
-		else if (objTabOpts.rowH && !isNaN(Number(objTabOpts.rowH))) intRowH = inch2Emu(Number(objTabOpts.rowH))
-		else if (itemOpts.cy || itemOpts.h) {
-			// `cy` already holds the table height resolved to EMU (line ~276), correctly handling
-			// inches/percent/unit-string inputs — reuse it rather than re-parsing options.h.
-			intRowH = Math.round((itemOpts.h ? cy : typeof itemOpts.cy === 'number' ? itemOpts.cy : 1) / arrTabRows.length)
-		}
+		// A: `rowH` pins the row; a table height provided without one is split evenly.
+		// `cy` already holds the table height resolved to EMU (line ~276), correctly handling
+		// inches/percent/unit-string inputs — reuse it rather than re-parsing options.h.
+		// IMPORTANT: `null` (auto-height) must reach the attribute as zero for auto-sizing to work.
+		const tableHeightEmu = itemOpts.h ? cy : typeof itemOpts.cy === 'number' ? itemOpts.cy : 0
+		const intRowH = resolveTableRowHeightEmu(objTabOpts.rowH, rIdx, tableHeightEmu, arrTabRows.length) ?? 0
 
 		// B: Start row — cells accumulate here and the row wraps them once, below.
 		const rowCells: string[] = []

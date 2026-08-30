@@ -594,6 +594,17 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Height of table rows (inches)
 	 * - single value is applied to every row equally based upon `h`
 	 * - array of values in applied to each row in order
+	 *
+	 * An entry pins its row only when it is a **number greater than zero**. `0`, a negative
+	 * value and anything that does not read as a finite number are not heights, so they do
+	 * not pin: the row is sized from the table's `h` instead, or grows to fit if there is
+	 * none, and a `table/invalid-row-height` diagnostic says so. A *missing* array slot is
+	 * different and is silent — that is how an auto-height row is spelled.
+	 *
+	 * The reading is shared by everything that answers a question about row height: the
+	 * emitted `<a:tr h>`, the export-time measured-fit pass, the auto-pager, and
+	 * `pptx.tableLayout()`. A prediction that disagreed with what the export bakes would be
+	 * worse than no prediction (`docs/measured-text-fit.md`).
 	 * @default rows of equal height based upon `h`
 	 */
 	rowH?: number | number[]

@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptx.tableLayout()` no longer disagrees with the file the export writes about row
+  heights, and its numbers change.** `rowH` was read independently in four places: the
+  `<a:tr h>` emitter, the export-time measured-fit pass, the auto-pager, and
+  `tableLayout()` itself. `rowH: [0, 2]` on a two-row table with `h: 4` baked a 2.0in
+  first row (`0` is falsy, so the writer fell through to the even split of `h`) while
+  `tableLayout()` returned **0.2004in** for it and flagged `heightExact: true` — a tenfold
+  error on the number a caller places the next shape against, reported as pinned. A
+  negative entry reached the file as `<a:tr h="-914400">`, and a stringified one
+  (`rowH: ['1']`, reachable from untyped JS) was honoured by the writer and rejected by
+  `tableLayout()`. `docs/measured-text-fit.md` states the invariant this broke: a
+  layout-time prediction must never disagree with what the export then bakes.
+
+  All four now call `resolveTableRowHeightEmu`, beside the `resolveTableColWidthsEmu` the
+  column side has always shared. **An entry pins its row only when it is a number greater
+  than zero.** `0`, a negative, and anything that does not read as a finite number are not
+  heights: the row is sized from the table's `h` instead, or grows to fit if there is none,
+  and the new `table/invalid-row-height` diagnostic says which entry did that. A *missing*
+  array slot stays silent, because that is how the auto-pager spells an auto-height row.
+  Separately, `heightExact` is now false whenever the default-line fallback supplied a
+  row's height, which is a number `tableLayout()` invented rather than one the file pins.
+
+  **Migration:** read `heightExact` before trusting a height, as the API already asked. If
+  you wrote `rowH: [0, …]` expecting a zero-height row, nothing ever gave you one — the
+  writer split `h`, and that is now what every path reports. Emitted bytes are unchanged
+  for every `rowH` that was already a positive number.
+
 - **`fill: { gradient }` and `fill: { pattern }` paint what they name, instead of a black
   shape.** Which fill kind a props object asks for was answered in seven places and they
   disagreed. The stroke emitter inferred `gradient` from the sub-object; the shared fill

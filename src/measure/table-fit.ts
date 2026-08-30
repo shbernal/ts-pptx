@@ -9,7 +9,13 @@
 
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from '../constants-internal.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
-import { getSmartParseNumber, inch2Emu, marginToEmu, resolveTableColWidthsEmu } from '../units-internal.js'
+import {
+	getSmartParseNumber,
+	inch2Emu,
+	marginToEmu,
+	resolveTableColWidthsEmu,
+	resolveTableRowHeightEmu,
+} from '../units-internal.js'
 import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text-fit.js'
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
@@ -175,18 +181,9 @@ export function computeTableLayout(
 	for (let c = 0; c < numCols; c++) colXEmu[c + 1] = (colXEmu[c] ?? 0) + (colWidthsEmu[c] ?? 0)
 
 	const tableHeightEmu = opts.h != null ? getSmartParseNumber(opts.h, 'Y', presLayout) : 0
-	// Explicit row height (EMU) or null when the row is auto-height. An array `rowH`
-	// slot that is missing/NaN falls back to an even split of table `h` if one is set.
-	const explicitRowHEmu = (r: number): number | null => {
-		if (Array.isArray(opts.rowH)) {
-			const v = opts.rowH[r]
-			if (typeof v === 'number' && isFinite(v)) return inch2Emu(v)
-			return tableHeightEmu > 0 ? Math.round(tableHeightEmu / numRows) : null
-		}
-		if (opts.rowH != null && !isNaN(Number(opts.rowH))) return inch2Emu(Number(opts.rowH))
-		if (tableHeightEmu > 0) return Math.round(tableHeightEmu / numRows)
-		return null
-	}
+	// Explicit row height (EMU) or null when the row is auto-height — `resolveTableRowHeightEmu`,
+	// the same reading the writer bakes and the export-time fit pass measures against.
+	const explicitRowHEmu = (r: number): number | null => resolveTableRowHeightEmu(opts.rowH, r, tableHeightEmu, numRows)
 	const resolve = makeRegistryResolver(registry)
 	const defLineEmu = inch2Emu((DEF_FONT_SIZE * LINEH_MODIFIER) / 100)
 
@@ -238,8 +235,14 @@ export function computeTableLayout(
 	}
 
 	// A row touched only by rowspans (no single-row cell, no explicit height) still
-	// needs a non-zero height: give it one default line.
-	for (let r = 0; r < numRows; r++) if ((rowHeightsEmu[r] ?? 0) <= 0) rowHeightsEmu[r] = defLineEmu
+	// needs a non-zero height: give it one default line. That height is this function's own
+	// invention, so the row stops being exact — a caller told it was pinned would place the
+	// next shape against a number nothing in the file agrees with.
+	for (let r = 0; r < numRows; r++)
+		if ((rowHeightsEmu[r] ?? 0) <= 0) {
+			rowHeightsEmu[r] = defLineEmu
+			rowExact[r] = false
+		}
 
 	// Prefix-sum row y offsets.
 	const rowYEmu = new Array<number>(numRows + 1).fill(0)

@@ -12,7 +12,7 @@
 
 import { SlideObjectType } from '../enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
-import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu } from '../units-internal.js'
+import { getSmartParseNumber, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../units-internal.js'
 import { warn } from '../diagnostics.js'
 import { collectUncoveredCodepoints, makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import {
@@ -212,13 +212,9 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 				: typeof tableOpts.cy === 'number'
 					? tableOpts.cy
 					: 0
-		const rowHeightEmu = (rIdx: number): number => {
-			if (Array.isArray(tableOpts.rowH) && tableOpts.rowH[rIdx]) return inch2Emu(Number(tableOpts.rowH[rIdx]))
-			if (tableOpts.rowH != null && !Array.isArray(tableOpts.rowH) && !isNaN(Number(tableOpts.rowH)))
-				return inch2Emu(Number(tableOpts.rowH))
-			if (tableHeightEmu > 0) return Math.round(tableHeightEmu / numRows)
-			return 0 // auto-height row → grows to fit, no shrink
-		}
+		// `null` is an auto-height row — it grows to fit, so there is nothing to shrink into.
+		const rowHeightEmu = (rIdx: number): number =>
+			resolveTableRowHeightEmu(tableOpts.rowH, rIdx, tableHeightEmu, numRows) ?? 0
 
 		for (const { cell, row: r, col: colStart, colSpan, rowSpan } of walkTableGrid(rows, numCols)) {
 			const colEnd = colStart + colSpan

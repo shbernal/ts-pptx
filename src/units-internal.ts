@@ -135,6 +135,64 @@ export function resolveTableColWidthsEmu(
 }
 
 /**
+ * The single rule for whether one `rowH` entry pins a table row, in inches.
+ *
+ * An entry pins its row when it reads as a **finite number greater than zero**. Everything
+ * else returns `null` — the row is sized from the table's own height, or grows to fit — and
+ * an entry that is present but unusable warns, because `rowH: [0, …]` and `rowH: [-1, …]`
+ * are things a caller wrote on purpose and none of the readings this replaced was what they
+ * meant. A missing slot is not that: an array with holes is how the auto-pager spells
+ * "this row is auto-height", so `undefined` is silent.
+ *
+ * Three call sites read `rowH` and they disagreed. The writer and the export-time fit pass
+ * both used a truthiness test, so `0` fell through to the even split of `h`;
+ * `pptx.tableLayout()` used `typeof === 'number'`, so `0` pinned the row at zero inches and
+ * was then rescued by a default-line fallback — reporting 0.2in against the file's 2.0in,
+ * and flagging it `heightExact`. A negative entry reached `<a:tr h="-914400">`.
+ *
+ * @param entry - one `rowH` array slot, or the scalar `rowH`
+ * @returns the pinned height in inches, or `null` when the row is not pinned by `rowH`
+ */
+export function pinnedRowHeightInches(entry: unknown): number | null {
+	if (entry === undefined || entry === null) return null
+	const inches = Number(entry)
+	if (Number.isFinite(inches) && inches > 0) return inches
+	warnOnce(
+		'table/invalid-row-height',
+		`rowH entry ${String(entry)} is not a positive number of inches; the row is sized from the table height instead.`
+	)
+	return null
+}
+
+/**
+ * Resolve one table row's height to EMU — the row-height twin of
+ * {@link resolveTableColWidthsEmu}, shared by the table XML emitter, the export-time
+ * measured-fit pass and `pptx.tableLayout()` so a prediction cannot disagree with what the
+ * export bakes.
+ *
+ * - a `rowH` entry that {@link pinnedRowHeightInches} accepts pins the row
+ * - otherwise the table's already-resolved height (`totalHeightEmu`, EMU) is split evenly
+ *   across `rowCount` rows
+ * - otherwise `null`: the row is auto-height and grows to fit its content
+ *
+ * @param rowH - the caller's `rowH`, scalar or per-row array
+ * @param rowIndex - which row is being resolved
+ * @param totalHeightEmu - the table's resolved height in EMU, or 0 when it has none
+ * @param rowCount - number of rows to split that height across
+ * @returns the row height in EMU, or `null` for an auto-height row
+ */
+export function resolveTableRowHeightEmu(
+	rowH: number | number[] | undefined,
+	rowIndex: number,
+	totalHeightEmu: number,
+	rowCount: number
+): number | null {
+	const pinned = pinnedRowHeightInches(Array.isArray(rowH) ? rowH[rowIndex] : rowH)
+	if (pinned !== null) return Math.round(inch2Emu(pinned))
+	return totalHeightEmu > 0 && rowCount > 0 ? Math.round(totalHeightEmu / rowCount) : null
+}
+
+/**
  * Convert points to EMU, leniently: anything that does not read as a finite number — a `NaN`,
  * an `Infinity`, a non-numeric string, `null` — becomes `0` rather than throwing.
  *

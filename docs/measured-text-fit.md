@@ -240,7 +240,8 @@ PowerPoint has **no** text-autofit for table cells: `a:tcPr`
 `fit:'shrink'` (also cascades from a table-level `fit:'shrink'`) cannot bake a
 `fontScale`. Instead, `measure-fit.ts` walks the cell grid (colspan/rowspan via an
 occupancy sweep; column widths from the shared `resolveTableColWidthsEmu`; row
-heights from `rowH`/table `h`; cell margins + table→cell inheritance), runs the
+heights from the shared `resolveTableRowHeightEmu`; cell margins + table→cell
+inheritance), runs the
 **same** shrink solver, and bakes a **reduced literal font size** (floored to
 0.1pt) onto the cell runs: which both PowerPoint and LibreOffice render
 identically with no edit/resize. Only fixed-height rows are touched; auto-height
@@ -251,6 +252,16 @@ are ignored for cells (a row already auto-grows ≈ spAutoFit).
 A precondition bug was fixed along the way: auto-width tables (`w` without `colW`)
 emitted ~0-EMU `gridCol` widths; `gen/slide/objects/table.ts` now divides the resolved EMU width via
 `resolveTableColWidthsEmu`.
+
+Row heights reached the same shape later and for the same reason. `rowH` was read
+independently by the emitter, this pass, the auto-pager and `pptx.tableLayout()`, and the
+four disagreed on what a `0`, a negative, or a stringified entry meant, so
+`rowH: [0, 2]` baked a 2.0in row and predicted a 0.2in one, flagged exact.
+`resolveTableRowHeightEmu` in `src/units-internal.ts` is the one reading now, beside the
+column resolver: an entry pins its row only when it is a number greater than zero, and
+anything else present reports `table/invalid-row-height` and falls back to the even split
+of the table's `h`. A *missing* array slot stays silent, because that is how the auto-pager
+spells an auto-height row.
 
 ### Unregistered-font heuristic
 

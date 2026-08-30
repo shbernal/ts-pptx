@@ -86,6 +86,7 @@ export type DiagnosticCode =
 	| 'table/col-width-count-mismatch'
 	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
+	| 'table/invalid-row-height'
 	// Text and bullets
 	| 'text/invalid-columns'
 	| 'text/invalid-column-spacing'

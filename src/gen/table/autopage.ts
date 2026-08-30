@@ -18,7 +18,7 @@ import type {
 	TableCellProps,
 } from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
-import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
+import { getSmartParseNumber, inch2Emu, marginToEmu, pinnedRowHeightInches } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
@@ -415,10 +415,10 @@ export function getSlidesForTableRows(
 	// Resolve a row's explicit height (inches) from the original `rowH` *array*, keyed by original
 	// row index. A single-number `rowH` is left to propagate via table options (it applies uniformly,
 	// so it needs no per-row remapping); only the array form is index-sensitive after pagination.
+	// Whether a slot pins its row is `pinnedRowHeightInches`, the same rule the writer applies to
+	// the array this builds — a `0` accepted here and rejected there is how the two readings drift.
 	const resolveRowH = (origRowIdx: number): number | undefined =>
-		Array.isArray(tableProps.rowH) && typeof tableProps.rowH[origRowIdx] === 'number'
-			? tableProps.rowH[origRowIdx]
-			: undefined
+		Array.isArray(tableProps.rowH) ? (pinnedRowHeightInches(tableProps.rowH[origRowIdx]) ?? undefined) : undefined
 
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[], rowH: [] as Array<number | undefined> }
