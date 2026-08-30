@@ -7,7 +7,7 @@
  */
 
 import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
-import { fillNamesPaint, genXmlColorSelection } from './fill.js'
+import { fillNamesPaint, genXmlColorSelection, resolveLineKind } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
@@ -100,11 +100,12 @@ export function createLineCap(lineCap?: LineCap): string {
 /**
  * Emit the paint child of an `<a:ln>` stroke.
  *
- * DrawingML allows the same fill group inside `<a:ln>` as inside a shape fill, so a stroke
- * can be a gradient, pattern or picture as well as a solid color. Which one is asked for is
- * {@link resolveFillKind}'s answer, shared with the shape interior — the stroke side used to
- * infer `gradient` from its sub-object while the interior inferred nothing, so the same
- * `{ gradient }` spelling painted a gradient outline and a black fill.
+ * `<a:ln>` takes almost the same fill group as a shape interior, so a stroke can be a gradient
+ * or a pattern as well as a solid color. Which one is asked for is {@link resolveLineKind}'s
+ * answer, shared with the shape interior — the stroke side used to infer `gradient` from its
+ * sub-object while the interior inferred nothing, so the same `{ gradient }` spelling painted a
+ * gradient outline and a black fill. "Almost" is the picture fill: `EG_LineFillProperties` has
+ * no `a:blipFill`, and `resolveLineKind` is where that is refused.
  *
  * Returns '' when the line names no paint at all ({@link fillNamesPaint}), so the caller emits
  * no fill child and the stroke inherits its color from the theme or placeholder. `type: 'none'`
@@ -114,5 +115,10 @@ export function createLineCap(lineCap?: LineCap): string {
  * @returns XML string
  */
 export function genXmlLineFill(line: ShapeLineProps): string {
-	return fillNamesPaint(line) ? genXmlColorSelection(line) : ''
+	if (!fillNamesPaint(line)) return ''
+	// Refuses a picture stroke; every other kind is dispatched by the shared builder. Both
+	// `define/` rebuilds have already resolved the kind, so this only fires for a props object
+	// reaching the emitter directly.
+	resolveLineKind(line)
+	return genXmlColorSelection(line)
 }

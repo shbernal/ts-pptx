@@ -24,7 +24,11 @@ in the file*. Two independent entry points share one OOXML model:
   `src/gen/pres/presentation.ts`, field on the internal model in `src/types/index.ts`.
 - **Import-carry**: `importSlide(source, i, { embedFonts: true })` brings a
   source deck's presentation-level embedded fonts across when lifting a slide.
-  Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`).
+  `importSlides` spells it per request (`{ ..., embedFonts: true }`) and carries a
+  source's whole list once however many of its pages the batch names, with a dry
+  run of its own so a refused batch still leaves the deck byte-identical.
+  Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`,
+  `checkEmbeddedFontsCopyable`).
 
 Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
 See `CHANGELOG.md` for the import-carry limits. Tests:
@@ -135,6 +139,14 @@ Opt-in (default off, so existing behaviour is unchanged). When set,
    `panose`/`pitchFamily`/`charset`) and inserting each face slot in schema order.
 5. De-dupe by `typeface` + face slot: a face this deck already embeds is reused,
    not duplicated, so importing the same slide twice carries each face once.
+
+`importSlides` runs the same carry, once per source deck whose requests include at
+least one `embedFonts`. It also runs `checkEmbeddedFontsCopyable` first, a
+read-only walk of steps 1 and 3 over the source alone. The batch's guarantee is
+that it applies in full or leaves the deck byte-identical, and the carry happens
+after the pages are copied, so without that check a source missing a font binary
+would throw with parts already added. Keep the two in step: they have to skip the
+same entries (a `p:font` with no `typeface`, a face slot with no `r:id`).
 
 ## Oracle & fixtures
 

@@ -193,8 +193,35 @@ export function resolveFillKind(props: Color | ShapeFillProps | ShapeLineProps |
 	if (props.type) return props.type
 	if (props.gradient) return 'gradient'
 	if (props.pattern) return 'pattern'
-	if (props.image) return 'image'
+	if ('image' in props && props.image) return 'image'
 	return 'solid'
+}
+
+/** The paint kinds a stroke can ask for: {@link FillKind} without the one `<a:ln>` has no slot for. */
+export type LineFillKind = Exclude<FillKind, 'image'>
+
+/**
+ * {@link resolveFillKind} for a stroke, which has one kind fewer.
+ *
+ * `<a:ln>`'s paint child is `EG_LineFillProperties` — `a:noFill`, `a:solidFill`, `a:gradFill`,
+ * `a:pattFill` — with no `a:blipFill` among them, so a picture stroke has no OOXML expression
+ * and `ShapeLineProps` subtracts `image` from the fill props it inherits. This is where the
+ * subtraction is enforced at run time, for the JS caller TypeScript cannot stop: the request
+ * is refused rather than painted as nothing, because emitting a blipFill inside `a:ln` is a
+ * package PowerPoint reports as needing repair, and emitting nothing is a stroke the caller
+ * asked to be a picture and got in the theme colour without being told.
+ *
+ * Every stroke site resolves through here — the two `define/` rebuilds and the emitter — so
+ * the refusal names the call the caller made rather than surfacing at serialization time.
+ */
+export function resolveLineKind(props: ShapeLineProps | undefined): LineFillKind {
+	const kind = resolveFillKind(props)
+	if (kind === 'image')
+		throw new UnsupportedFeatureError(
+			'line/image-fill-unsupported',
+			'A picture stroke is not expressible in OOXML: `a:ln` accepts noFill/solidFill/gradFill/pattFill only. Use `fill: { image }` for a picture interior, or give the line a solid, gradient or pattern paint.'
+		)
+	return kind
 }
 
 /**

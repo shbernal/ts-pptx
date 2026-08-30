@@ -569,6 +569,33 @@ export interface ImportSlidesRequest {
 	 * has none, exactly as `importSlide` and `appendSlides` do.
 	 */
 	importNotes?: boolean
+	/**
+	 * Carry this request's *source deck's* embedded fonts across, as
+	 * `importSlide`'s {@link ImportSlideOptions.embedFonts} does. Default false.
+	 *
+	 * Spelled per request for symmetry with the rest, but the carry itself is a
+	 * whole-deck operation: `p:embeddedFontLst` does not record which page uses
+	 * which face, so a source deck whose requests include even one `embedFonts`
+	 * carries **all** of its faces, once. Merging into this deck de-dupes by
+	 * typeface and face slot, so several sources embedding the same family
+	 * contribute it once.
+	 */
+	embedFonts?: boolean
+	/**
+	 * Rescale this page's geometry onto this deck's canvas when the source deck's
+	 * slide size differs, as `importSlide`'s {@link ImportSlideOptions.rescale}
+	 * does (`'fit'`/`true` preserves aspect ratio and centres; `'stretch'` fills).
+	 * Default false, which keeps the batch's requirement that the sizes match.
+	 *
+	 * **Every request naming one source must give the same value.** A batch import
+	 * uses `'copy'` theme semantics, so a rescale rewrites the imported layout and
+	 * master shape trees as well as the page's, and those are shared between that
+	 * source's pages: rescaling one page and not another would leave the second
+	 * aligned against a master that had moved under it. A batch that disagrees is
+	 * refused with `import/rescale-conflict` before anything is copied. Different
+	 * sources are independent and may each choose.
+	 */
+	rescale?: boolean | 'fit' | 'stretch'
 }
 
 /** Options for {@link Presentation.fromTemplate}. */

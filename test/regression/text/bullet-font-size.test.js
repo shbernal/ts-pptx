@@ -44,7 +44,7 @@ defineRegressionSuite('Bullet glyph font and size', [
 		},
 	},
 	{
-		name: 'out-of-range bullet.size warns and emits no <a:buSzPct/> at all',
+		name: 'out-of-range bullet.size warns and clamps to the nearest bound',
 		fn: async () => {
 			const warnings = []
 			setDiagnosticHandler((d) => warnings.push(d.message))
@@ -58,14 +58,48 @@ defineRegressionSuite('Bullet glyph font and size', [
 			} finally {
 				setDiagnosticHandler(null)
 			}
-			// A rejected size leaves the element out rather than pinning the glyph to 100%:
-			// an explicit 100% overrides whatever size the list style sets, which is a silent
-			// change the caller did not ask for on top of the one they got warned about.
-			assert(!/<a:buSzPct/.test(ppr), 'expected no <a:buSzPct/> for a rejected size; got: ' + ppr)
+			// 25-400% is ST_TextBulletSizePercent's range, and a finite value outside it has a
+			// nearest legal neighbour, so it moves there and says so. Emitting nothing instead
+			// resized the glyph to whatever the list style inherits, which is a discarded
+			// request reported as a warning (docs/diagnostics.md, "Warn or throw?").
+			assert(
+				/<a:buSzPct val="400000"\/>/.test(ppr),
+				'expected <a:buSzPct val="400000"/> for a clamped size; got: ' + ppr
+			)
 			assert(
 				warnings.some((w) => w.includes('bullet.size')),
-				'expected a console.warn mentioning bullet.size; got: ' + JSON.stringify(warnings)
+				'expected a diagnostic mentioning bullet.size; got: ' + JSON.stringify(warnings)
 			)
+		},
+	},
+	{
+		name: 'bullet.size below the range clamps up to 25%',
+		fn: async () => {
+			setDiagnosticHandler(() => {})
+			let ppr
+			try {
+				const { zip } = await build((p) => {
+					p.addSlide().addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { size: 1 } })
+				})
+				ppr = (await getPPr(zip)).ppr
+			} finally {
+				setDiagnosticHandler(null)
+			}
+			assert(/<a:buSzPct val="25000"\/>/.test(ppr), 'expected <a:buSzPct val="25000"/>; got: ' + ppr)
+		},
+	},
+	{
+		name: 'a bullet.size that is not a number throws rather than emitting val="NaN"',
+		fn: async () => {
+			let err
+			try {
+				await build((p) => {
+					p.addSlide().addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { size: Number.NaN } })
+				})
+			} catch (e) {
+				err = e
+			}
+			assert(err && err.code === 'percent/non-finite', 'expected percent/non-finite; got: ' + String(err && err.code))
 		},
 	},
 	{

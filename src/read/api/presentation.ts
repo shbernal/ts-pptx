@@ -69,7 +69,7 @@ import { checkSelectionCopyable, copyPart, copySlidePart, newOwnedScope, type Im
 // and writes the package through the deck's public surface, and none of them is something a
 // caller navigates *to*.
 import { rewriteCarriedRels } from './ops/carried-rels.js'
-import { carryEmbeddedFonts, carryGeneratedEmbeddedFonts } from './ops/embedded-fonts.js'
+import { carryEmbeddedFonts, carryGeneratedEmbeddedFonts, checkEmbeddedFontsCopyable } from './ops/embedded-fonts.js'
 import { sourceFlattenContext } from './ops/flatten-context.js'
 import { importSlidePreserve, importSlideRestyle } from './ops/import-slide.js'
 import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
@@ -590,11 +590,21 @@ export class Presentation {
 	 * several requests gets its own copy of its notes each time, as of everything
 	 * else that page owns.
 	 *
+	 * `embedFonts` and `rescale` travel per request as well, and both are whole-deck
+	 * decisions wearing a per-page spelling, so the batch reconciles them before it
+	 * moves anything. A source deck's embedded fonts are carried once when *any* of
+	 * its requests asks for them (the list does not record which page uses which
+	 * face, so there is nothing finer to carry), and the font parts are part of the
+	 * up-front dry run like everything else. `rescale` must **agree** across every
+	 * request naming one source: a `'copy'` import rescales the imported layout and
+	 * master alongside the page, and those are shared, so a batch that rescaled one
+	 * page of a source and not another would leave the second bound to a rescaled
+	 * master. Disagreement is `import/rescale-conflict` rather than a silent pick.
+	 *
 	 * Scope: pages come across under `'copy'` theme semantics (their own layout →
-	 * master → theme subgraph, shared parts deduped via the copy registry).
-	 * Embedded fonts are not carried, and sizes must match, since there is no batch
-	 * spelling for `embedFonts` or `rescale`. Use {@link importSlide} when you need
-	 * either of those.
+	 * master → theme subgraph, shared parts deduped via the copy registry). There is
+	 * still no batch spelling for `theme`, `carryMasterGraphics` or `remapLiterals`;
+	 * use {@link importSlide} when you need one of those.
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[] {
 		// 1. Validate everything up front: indexes exist, selections and output
@@ -637,8 +647,13 @@ export class Presentation {
 		// requests: the set is what the dry run walks, and the per-request output
 		// parts are allocated in step 2. `notesPages` is the subset whose notes are
 		// coming too, which the dry run has to walk past the dropped notes rel.
+		// `fontSources` and `rescaleBySource` are the two deck-level options wearing a
+		// per-request spelling, reconciled here so the copy below reads one answer per
+		// source rather than re-deciding per page.
 		const selectedPages = new Map<OpcPackage, Set<string>>()
 		const notesPages = new Map<OpcPackage, Set<string>>()
+		const fontSources = new Map<OpcPackage, Presentation>()
+		const rescaleBySource = new Map<OpcPackage, 'fit' | 'stretch' | false>()
 		for (const request of resolved) {
 			let pages = selectedPages.get(request.source.opc)
 			if (!pages) {
@@ -646,6 +661,21 @@ export class Presentation {
 				selectedPages.set(request.source.opc, pages)
 			}
 			pages.add(request.sourceSlide.partName)
+			if (request.embedFonts) fontSources.set(request.source.opc, request.source)
+			// A rescale rewrites the shared imported layout and master as well as the
+			// page, so the requests naming one source have to agree on it: rescaling one
+			// of a source's pages and not another would leave the second aligned against
+			// a master that moved under it. Normalized first, so `true` and `'fit'` are
+			// the same answer rather than a conflict.
+			const rescale = request.rescale === true ? 'fit' : (request.rescale ?? false)
+			const agreed = rescaleBySource.get(request.source.opc)
+			if (agreed !== undefined && agreed !== rescale) {
+				throw new InvalidOptionError(
+					'import/rescale-conflict',
+					`importSlides: requests from one source must agree on \`rescale\`; got ${JSON.stringify(agreed)} and ${JSON.stringify(rescale)}`
+				)
+			}
+			rescaleBySource.set(request.source.opc, rescale)
 			if (!request.importNotes) continue
 			let withNotes = notesPages.get(request.source.opc)
 			if (!withNotes) {
@@ -671,7 +701,17 @@ export class Presentation {
 				)
 			}
 			outputIndexes.add(request.outputIndex)
-			requireEqualSlideSize(target, request.source.slideSize, 'importSlides')
+			// A rescale needs both sizes known but not equal; without one they must match,
+			// and the hint names the spelling that answers the mismatch.
+			if (rescaleBySource.get(request.source.opc))
+				requireKnownSlideSizes(target, request.source.slideSize, 'importSlides rescale')
+			else
+				requireEqualSlideSize(
+					target,
+					request.source.slideSize,
+					'importSlides',
+					"pass { rescale: 'fit' | 'stretch' } on the request to rescale"
+				)
 		}
 
 		// 1b. Dry-run the copy against each source, still reading only source
@@ -692,6 +732,9 @@ export class Presentation {
 				copyMaster,
 			})
 		}
+		// The font carry runs after the copy and reaches parts the page graph never
+		// touches, so it gets its own dry run for the same reason the notes do.
+		for (const source of fontSources.values()) checkEmbeddedFontsCopyable(source)
 
 		// 2. Materialize each request's output page now, so the copy traversals can
 		//    wire slide→slide relationships to their pre-allocated destinations.
@@ -753,6 +796,26 @@ export class Presentation {
 				request.sourceSlide.partName,
 				request.destPart.partName
 			)
+		}
+
+		// 3c. Rescale each rescaling source's pages onto this deck's canvas. Nothing
+		//     to do where the sizes already match, and the memo makes the shared layout
+		//     and master — which `'copy'` semantics rescale alongside the page — move
+		//     exactly once however many of that source's pages the batch brought over.
+		for (const request of planned) {
+			const mode = rescaleBySource.get(request.source.opc)
+			if (!mode) continue
+			const incoming = request.source.slideSize
+			if (!target || !incoming || slideSizesMatch(target, incoming)) continue
+			rescaleImportedGeometry(this, this.#rescaledParts, request.destPart.partName, 'copy', incoming, target, mode)
+		}
+
+		// 3d. Carry the embedded fonts of every source that asked, once per source. A
+		//     face this deck already embeds is reused rather than duplicated, and the
+		//     binaries come across through the same per-source registry the pages used,
+		//     so a repeated import copies each face once.
+		for (const [sourceOpc, source] of fontSources) {
+			carryEmbeddedFonts(this, source, this.#importContext(sourceOpc))
 		}
 
 		// 4. Wire into p:sldIdLst at each requested final position. Ascending order

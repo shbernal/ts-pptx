@@ -13,7 +13,7 @@ import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from 
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
-import { resolveFillKind } from '../drawingml/fill.js'
+import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
@@ -122,10 +122,10 @@ export function addTextDefinition(
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
 				// ShapeLineProps defaults, the same block as define/shape.ts. Spread first,
 				// override only what is defaulted here — see there for why listing the carried
-				// keys instead silently dropped `gradient`, `pattern`, `image` and `cap`. The
-				// kind is `resolveFillKind`'s answer, and only a solid stroke gets the default
-				// line color; every other kind takes its paint from its own sub-object.
-				const itemLineKind = resolveFillKind(itemLine)
+				// keys instead silently dropped `gradient`, `pattern` and `cap`. The kind is
+				// `resolveLineKind`'s answer, and only a solid stroke gets the default line
+				// color; every other kind takes its paint from its own sub-object.
+				const itemLineKind = resolveLineKind(itemLine)
 				const newLineOpts: ShapeLineProps = {
 					...itemLine,
 					type: itemLineKind,

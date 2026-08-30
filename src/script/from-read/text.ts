@@ -180,22 +180,25 @@ function bulletStyle(bullet: BulletStyle, notes: NoteScope): Record<string, IrVa
 		)
 	}
 
-	// 25–400% is the range the write path accepts; outside it the option is rejected with a
-	// console warning and the glyph silently falls back to full size, so it is declared here.
+	// 25–400% is ST_TextBulletSizePercent's range, and the write path clamps an out-of-range
+	// value to the nearest bound rather than accepting it. Print the clamped number so the
+	// script says what the deck will get, and declare the difference — printing the source
+	// value instead would make the script warn on every run.
 	const sizePct = bullet.sizePct
-	if (sizePct !== null && (sizePct < 25 || sizePct > 400)) {
+	const clampedPct = sizePct === null ? null : Math.min(400, Math.max(25, sizePct))
+	if (sizePct !== null && clampedPct !== sizePct) {
 		notes.note(
 			'text.bullet.sizePct',
 			'approximated',
 			'unwritable',
-			`bullet glyph size ${sizePct}% is outside the 25–400% range the write API accepts, so no a:buSzPct is emitted and the glyph size is left to be inherited`
+			`bullet glyph size ${sizePct}% is outside the 25–400% range the write API accepts, so it is printed as ${clampedPct}% — the bound the write path clamps it to`
 		)
 	}
 
 	return (
 		compact({
 			fontFace: orUndefined(bullet.font),
-			size: sizePct === null || sizePct < 25 || sizePct > 400 ? undefined : sizePct,
+			size: clampedPct ?? undefined,
 			color: bulletColor(bullet, notes),
 		}) ?? {}
 	)

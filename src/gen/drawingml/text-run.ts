@@ -14,8 +14,8 @@ import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection } from './fill.js'
-import { inch2Emu, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
+import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {
@@ -215,18 +215,16 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			// `bullet` emits — and invisible until `Paragraph.bulletDetail` gave the round-trip
 			// check something to see it with, which reported the added 100% on every bulleted
 			// fixture.
-			let bulletSizePct: number | undefined
-			if (opts.bullet.size !== undefined) {
-				const bulletSize = Number(opts.bullet.size)
-				// 25–400% is the range PowerPoint's bullet-size dialog accepts (and the
-				// range `<a:buSzPct>` renders sensibly); values outside it are rejected
-				// rather than clamped so the caller notices the bad input.
-				if (!Number.isFinite(bulletSize) || bulletSize < 25 || bulletSize > 400) {
-					warn('bullet/size-out-of-range', '`bullet.size` must be a percentage between 25 and 400!')
-				} else {
-					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
-				}
-			}
+			// 25-400% is ST_TextBulletSizePercent's range (and what PowerPoint's bullet-size
+			// dialog accepts), so an out-of-range value goes through the same clamp every other
+			// percentage option uses: a finite one moves to the nearest bound and warns, and a
+			// value that is not a number throws. Dropping the attribute instead — what this did
+			// until the policies were unified — resized the glyph to whatever the list style
+			// inherits, which is a discarded request reported as a warning.
+			const bulletSizePct =
+				opts.bullet.size === undefined
+					? undefined
+					: percentToFixedPercent(opts.bullet.size, 'bullet/size-out-of-range', 'bullet.size', 25, 400)
 			const strXmlBulletSize = bulletSizePct === undefined ? '' : voidEl('a:buSzPct', { val: bulletSizePct })
 			// NOTE: the builder escapes `typeface`, so the manual `encodeXmlEntities` that used to
 			// wrap it here is gone — keeping both would double-escape (`&` -> `&amp;amp;`).
@@ -535,20 +533,15 @@ export function genXmlTextRun(textObj: TextProps): string {
  * @see ECMA-376 CT_TextNormAutofit (attributes in 1000ths of a percent)
  */
 export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
-	// NOTE: fontScale/lnSpcReduction are authored as a percent (0-100); OOXML stores them in 1000ths of a percent.
-	const pct = (val: number | undefined, name: string): number | null => {
-		if (val === undefined || val === null) return null
-		if (typeof val !== 'number' || !Number.isFinite(val) || val < 0 || val > 100) {
-			warn(
-				'text/invalid-fit-percentage',
-				`fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`
-			)
-			return null
-		}
-		return Math.round(val * FIXED_PCT_PER_PERCENT)
-	}
+	// fontScale/lnSpcReduction are authored as a percent (0-100); OOXML stores them in 1000ths
+	// of a percent. Both are ST_TextFontScalePercentOrPercentString / ST_TextFontScalePercent
+	// ranges the shared percentage clamp already speaks: an out-of-range but finite scale moves
+	// to the nearest bound and warns, and a non-number throws. They used to be dropped, which
+	// left the shrink autofit silently un-parameterised.
+	const pct = (val: number | undefined, name: string): number | null =>
+		val === undefined || val === null ? null : percentToFixedPercent(val, 'text/invalid-fit-percentage', `fit.${name}`)
 
-	// `pct` returns null for an absent/rejected value, and the builder omits null attributes.
+	// `pct` returns null for an absent value, and the builder omits null attributes.
 	return voidEl('a:normAutofit', {
 		fontScale: pct(fit.fontScale, 'fontScale'),
 		lnSpcReduction: pct(fit.lnSpcReduction, 'lnSpcReduction'),

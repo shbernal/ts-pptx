@@ -7,7 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`importSlides` takes `embedFonts` and `rescale`, so the batch path is no longer the
+  one missing two options.** The batch is the import with the all-or-nothing guarantee, so
+  it is the one a caller should reach for, and it was also the one that could not carry a
+  source deck's embedded fonts or put a differently-sized source on this canvas. Both are
+  now per request, spelled as they are on `importSlide`.
+
+  Both are really whole-*deck* decisions wearing a per-page spelling, so the batch
+  reconciles them before it moves anything:
+
+  - `embedFonts` carries the source deck's **whole** face list, once, when any of that
+    source's requests asks. `p:embeddedFontLst` does not record which page uses which
+    face, so there is nothing finer to carry. Merging de-dupes by typeface and face slot
+    as before. The font parts are part of the up-front dry run
+    (`checkEmbeddedFontsCopyable`) for the same reason the notes are: the carry runs after
+    the pages are copied, so a source missing a font binary would otherwise throw with
+    parts already added and no way back.
+  - `rescale` must **agree** across the requests naming one source, or the batch is
+    refused with the new `import/rescale-conflict` before anything is copied. A batch
+    import is `'copy'` themed, so a rescale rewrites the imported layout and master shape
+    trees alongside the page, and those are shared between that source's pages: rescaling
+    one and not another would leave the second aligned against a master that had moved
+    under it. `true` and `'fit'` are the same answer, not a disagreement, and different
+    sources are independent.
+
+  A size mismatch without the option is still `import/slide-size-mismatch`, and its
+  message now names the spelling that answers it.
+
 ### Changed
+
+- **An out-of-range percentage has one answer, and three options stop having their own.**
+  `bullet.size`, `fit.fontScale` and `fit.lnSpcReduction` used to *reject* a value outside
+  their range: warn, and emit no attribute at all. That is the combination
+  `docs/diagnostics.md` ("Warn or throw?") exists to rule out, because the request is
+  discarded and reported as a warning, and the caller reads the warning while getting a
+  deck whose bullet is silently back at its inherited size. All three now go through the
+  same clamp every other percentage option already used:
+
+  - **Finite and out of range: clamp to the nearest bound and warn.** `bullet.size: 500`
+    emits `<a:buSzPct val="400000"/>`; `fit.fontScale: 150` emits `fontScale="100000"`.
+    The diagnostic codes are unchanged (`bullet/size-out-of-range`,
+    `text/invalid-fit-percentage`) and still fire; only what happens next differs.
+  - **Not a number at all: throw `percent/non-finite`.** There is no nearest legal value
+    for `NaN`, and clamping it puts `val="NaN"` in the package. This is the same throw
+    `transparency`, `opacity` and the other clamped percentages have always raised.
+
+  **Migration:** if you were relying on an out-of-range `bullet.size` or `fit.*` being
+  dropped, omit the option instead — that is still how you leave the value inherited. A
+  `NaN` reaching any of the three is now an `InvalidOptionError` rather than a warning; so
+  is a numeric *string* (`bullet.size: '80'`), which the coercing `Number()` in front of
+  that option used to accept. The rule is written down in `docs/diagnostics.md` under
+  "The rule applied: an out-of-range number".
 
 - **`import/slide-size-unknown` now means what its name says, at every import entry point.**
   Five methods enforce equal slide sizes — `importSlide`, `importSlides`,
@@ -31,6 +83,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   missing-`p:sldSz` case at the four methods that used to report it that way; match both
   codes to keep the old breadth. Nothing changes for two decks that both declare a size,
   which is every deck PowerPoint writes.
+
+### Removed
+
+- **`image` is gone from `ShapeLineProps`: a picture stroke is not expressible in OOXML.**
+  `ShapeLineProps extends ShapeFillProps` carried `image` and `type: 'image'` along with
+  everything else, and `<a:ln>`'s paint child is `EG_LineFillProperties` — `a:noFill`,
+  `a:solidFill`, `a:gradFill`, `a:pattFill` and nothing else. There is no `a:blipFill`
+  slot on a stroke to put a bitmap in. The option had therefore never worked: no call site
+  registered the media for it, so `line: { image: { path } }` reached the emitter with no
+  relationship, warned `image-fill/unresolved-media` about a rel it was never going to be
+  given, and painted nothing.
+
+  `ShapeLineProps` now subtracts `image`, `_imgRid` and the `'image'` member of `type`
+  from the fill props it inherits, so TypeScript rejects the spelling outright, and the
+  new `resolveLineKind` refuses it at run time (`line/image-fill-unsupported`, an
+  `UnsupportedFeatureError`) for the JS caller types cannot stop. Refusing beats painting
+  nothing: had the media ever been registered, the emitted `a:blipFill` inside `a:ln`
+  would have been a package PowerPoint reports as needing repair.
+
+  **Migration:** use `fill: { image }` for a picture interior. A stroke can still be
+  `solid`, `gradient` or `pattern`.
 
 ### Fixed
 

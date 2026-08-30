@@ -136,9 +136,16 @@ describe('shrink autofit', () => {
 		expect(genXmlNormAutofit({ type: 'shrink', fontScale: 0 })).toBe('<a:normAutofit fontScale="0"/>')
 	})
 
-	test('an out-of-range value is dropped rather than clamped', () => {
+	test('an out-of-range value is clamped to the nearest bound, not dropped', () => {
+		// The shared percentage policy: a finite value has a nearest legal neighbour, so it
+		// moves there and warns. Dropping the attribute left the shrink un-parameterised,
+		// which is a discarded request reported as a warning.
 		expect(genXmlNormAutofit({ type: 'shrink', fontScale: 500, lnSpcReduction: 20 })).toBe(
-			'<a:normAutofit lnSpcReduction="20000"/>'
+			'<a:normAutofit fontScale="100000" lnSpcReduction="20000"/>'
 		)
+	})
+
+	test('a value that is not a number throws rather than emitting val="NaN"', () => {
+		expect(() => genXmlNormAutofit({ type: 'shrink', fontScale: Number.NaN })).toThrow(/fit.fontScale/)
 	})
 })

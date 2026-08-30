@@ -12,8 +12,13 @@
 //     copy still lands inside the batch;
 //   - `{ importNotes: true }` carries a page's notes across per request, under the
 //     one-notesMaster rule, and the dry run covers that graph too;
+//   - `{ embedFonts: true }` carries the *source deck's* whole face list once, and
+//     `{ rescale }` puts a differently-sized source on this canvas -- both are
+//     deck-level decisions in a per-page spelling, so the batch reconciles them up
+//     front and refuses a source whose requests disagree about the rescale;
 //   - results survive a save → reopen round-trip with no dangling relationships.
 
+import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
@@ -29,6 +34,7 @@ const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const TAGS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags'
 const TAGS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tags+xml'
+const FONT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font'
 
 /** Every `notesMaster` a deck registers in presentation.xml, resolved to partnames. */
 function notesMasters(pres) {
@@ -101,6 +107,21 @@ function catchCode(fn) {
 	} catch (err) {
 		return err.code ?? null
 	}
+}
+
+/** A two-page 4x3 deck: a source on a canvas the 16x9 destinations do not share. */
+async function otherCanvasDeck() {
+	const wide = new TsPptx()
+	wide.layout = 'LAYOUT_4x3'
+	wide.addSlide().addText('other canvas', { x: 1, y: 1, w: 4, h: 1 })
+	wide.addSlide().addText('and another', { x: 2, y: 2, w: 4, h: 1 })
+	return Presentation.load(await wide.write({ outputType: 'uint8array' }))
+}
+
+/** Every `a:off` on a page, as `x,y` strings, so a rescale shows up as a list that moved. */
+function offsetsOf(slide) {
+	const xml = new TextDecoder().decode(slide.part.bytes)
+	return [...xml.matchAll(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/g)].map((m) => `${m[1]},${m[2]}`)
 }
 
 /**
@@ -225,17 +246,122 @@ describe('Presentation.importSlides', () => {
 		assertEqual(reopened.slides[0].partName, second.partName, 'and about the first')
 	})
 
-	test('a source with a different slide size is rejected', async () => {
+	test('a source with a different slide size is rejected unless the request rescales', async () => {
 		const target = await generatedDeck(false)
-		const wide = new TsPptx()
-		wide.layout = 'LAYOUT_4x3'
-		wide.addSlide().addText('other canvas', { x: 1, y: 1, w: 4, h: 1 })
-		const source = await Presentation.load(await wide.write({ outputType: 'uint8array' }))
+		const source = await otherCanvasDeck()
 		const beforeBytes = await target.save()
 		assertEqual(
 			catchCode(() => target.importSlides([{ source, sourceIndex: 0, outputIndex: 0 }])),
 			'import/slide-size-mismatch',
-			'importSlides has no rescale escape hatch, so a size difference is fatal'
+			'a size difference is fatal without the rescale spelling'
+		)
+		assert(bytesEqual(beforeBytes, await target.save()), 'and the deck is untouched')
+	})
+
+	test("{ rescale } scales an imported page onto this deck's canvas", async () => {
+		// The 4x3 source is 9144000 EMU wide against the destination's 12192000, so a
+		// 'fit' rescale has to move every offset it finds on the page.
+		const target = await generatedDeck(false)
+		const source = await otherCanvasDeck()
+		const before = offsetsOf(source.slides[0])
+		target.importSlides([{ source, sourceIndex: 0, outputIndex: 0, rescale: 'fit' }])
+		// Through a save: the rescale edits the part's DOM, and `part.bytes` is the
+		// original until the package is serialized.
+		const reopened = await Presentation.load(await target.save())
+		const after = offsetsOf(reopened.slides[0])
+		assertEqual(after.length, before.length, 'the same shapes came across')
+		assert(
+			after.some((off, i) => off !== before[i]),
+			`expected the geometry to move; got ${JSON.stringify(after)} against ${JSON.stringify(before)}`
+		)
+		assertNoDanglingRels(reopened.opc)
+
+		// And without the option the same import is refused, so the movement above is
+		// the rescale rather than something the copy would have done anyway.
+		const plain = await generatedDeck(false)
+		assertEqual(
+			catchCode(() => plain.importSlides([{ source, sourceIndex: 0, outputIndex: 0 }])),
+			'import/slide-size-mismatch',
+			'the same batch without { rescale } is the rejected one'
+		)
+	})
+
+	test('requests from one source must agree on rescale, and disagreement changes no byte', async () => {
+		// A batch import is `'copy'` themed, so a rescale moves the shared imported
+		// layout and master too: rescaling one of a source's pages and not another
+		// would leave the second aligned against a master that had shifted under it.
+		const target = await generatedDeck(false)
+		const source = await otherCanvasDeck()
+		const beforeBytes = await target.save()
+		assertEqual(
+			catchCode(() =>
+				target.importSlides([
+					{ source, sourceIndex: 0, outputIndex: 0, rescale: 'fit' },
+					{ source, sourceIndex: 1, outputIndex: 1, rescale: 'stretch' },
+				])
+			),
+			'import/rescale-conflict',
+			'two rescale modes for one source is a conflict, not a pick'
+		)
+		assert(bytesEqual(beforeBytes, await target.save()), 'and the deck is untouched')
+		// `true` is the documented spelling of `'fit'`, so the two agree.
+		assertEqual(
+			catchCode(() =>
+				target.importSlides([
+					{ source, sourceIndex: 0, outputIndex: 0, rescale: true },
+					{ source, sourceIndex: 1, outputIndex: 1, rescale: 'fit' },
+				])
+			),
+			null,
+			'`true` and `fit` are one answer'
+		)
+	})
+
+	test("{ embedFonts } carries a source deck's faces once, however many of its pages come over", async () => {
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
+		target.importSlides([
+			{ source, sourceIndex: 0, outputIndex: 0, embedFonts: true },
+			// The second request does not ask; the carry is a whole-deck operation, so
+			// asking once is asking for the source's whole list, exactly once.
+			{ source, sourceIndex: 0, outputIndex: 1 },
+		])
+
+		const zip = await JSZip.loadAsync(await target.save())
+		const fontParts = Object.keys(zip.files).filter((n) => /^ppt\/fonts\/font\d+\.fntdata$/.test(n))
+		assertEqual(fontParts.length, 2, `the source's two faces carried once each (got ${JSON.stringify(fontParts)})`)
+		const ct = await zip.file('[Content_Types].xml').async('string')
+		assertEqual((ct.match(/x-fontdata/g) || []).length, 1, 'content type registered once (Default only)')
+		const pres = await zip.file('ppt/presentation.xml').async('string')
+		assert(/<p:font typeface="Silkscreen"/.test(pres), `embeddedFontLst merged; got ${pres}`)
+		assertEqual((pres.match(/<p:embeddedFont>/g) || []).length, 1, 'one entry for the one typeface')
+		assertNoDanglingRels((await Presentation.load(await target.save())).opc)
+	})
+
+	test('no embedFonts request leaves the deck without fonts, as before', async () => {
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
+		target.importSlides([{ source, sourceIndex: 0, outputIndex: 0 }])
+		const zip = await JSZip.loadAsync(await target.save())
+		assert(!Object.keys(zip.files).some((n) => /fntdata/.test(n)), 'no font parts without embedFonts')
+		const pres = await zip.file('ppt/presentation.xml').async('string')
+		assert(!/embeddedFontLst/.test(pres), 'no embeddedFontLst without embedFonts')
+	})
+
+	test('a font carry that could not complete is refused with the deck byte-identical', async () => {
+		// The carry runs after the pages are copied, so without a dry run of its own a
+		// missing binary would throw with parts already added and no way back.
+		const target = await openFixture('empty')
+		const source = await openFixture('embedded-fonts')
+		const presRels = source.opc.relationshipsFor(source.presentationPart.partName)
+		const fontPart = presRels.byType(FONT_REL).map((rel) => presRels.resolveTarget(rel.id))[0]
+		assert(fontPart, 'the fixture embeds at least one face')
+		source.opc.removePart(fontPart)
+		const beforeBytes = await target.save()
+		assertEqual(
+			catchCode(() => target.importSlides([{ source, sourceIndex: 0, outputIndex: 0, embedFonts: true }])),
+			'package/part-missing',
+			'the font dry run rejects the batch'
 		)
 		assert(bytesEqual(beforeBytes, await target.save()), 'and the deck is untouched')
 	})

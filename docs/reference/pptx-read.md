@@ -376,7 +376,8 @@ class Presentation {
 	 * another selected page (or one already imported from that source) and is
 	 * rewritten to the fresh partnames. Pages come across under `'copy'` theme
 	 * semantics; a request may carry its page's speaker notes with
-	 * `importNotes: true`, but embedded fonts and `rescale` have no batch spelling.
+	 * `importNotes: true`, its source deck's embedded fonts with `embedFonts: true`,
+	 * and a differently-sized source's geometry onto this canvas with `rescale`.
 	 * See "Importing several slides as one batch".
 	 */
 	importSlides(requests: readonly ImportSlidesRequest[]): Slide[]
@@ -447,6 +448,8 @@ interface ImportSlidesRequest {
 	sourceIndex: number // zero-based source slide index; name one page N times for N copies
 	outputIndex: number // zero-based position in the FINAL destination slide list
 	importNotes?: boolean // carry this page's notesSlide part; default false (notes dropped)
+	embedFonts?: boolean // carry this SOURCE DECK's embedded fonts (all of them, once); default false
+	rescale?: boolean | 'fit' | 'stretch' // rescale when sizes differ; must agree across one source's requests
 }
 
 interface ImportShapeOptions {
@@ -2112,7 +2115,8 @@ The returned array is parallel to `requests`: `result[0]` is the cover above
 even though it was inserted after the closer.
 
 Every request is validated before any byte moves: source pages exist, output
-positions are unique and within the final slide list, slide sizes match, and a
+positions are unique and within the final slide list, slide sizes match (or the
+request rescales), one source's requests agree about that rescale, and a
 read-only dry run of the copy proves every part it would reach is present. A
 rejected batch therefore leaves the target byte-identical whichever rule rejected
 it, where a loop of `importSlide` could leave a half-stitched deck behind.
@@ -2178,10 +2182,41 @@ Two batch-specific consequences:
   *owns*, as is anything hanging off it, so each copy takes its own (see
   [Owned vs shared parts](#owned-vs-shared-parts)).
 
+##### Embedded fonts and rescaling in a batch
+
+Both are spelled per request, like the notes, and both are really decisions about
+a whole **deck**. The batch reconciles them up front rather than re-deciding per
+page.
+
+```js
+target.importSlides([
+  { source: library, sourceIndex: 2, outputIndex: 0, embedFonts: true, rescale: 'fit' },
+  { source: library, sourceIndex: 5, outputIndex: 1, rescale: 'fit' },
+  { source: scratch, sourceIndex: 0, outputIndex: 2 }, // a different source decides for itself
+])
+```
+
+- **`embedFonts` carries the source deck's whole face list, once.**
+  `p:embeddedFontLst` does not record which page uses which face, so there is
+  nothing finer to carry: one request asking is the source's entire list coming
+  across. Merging into this deck de-dupes by typeface and face slot, exactly as
+  [`importSlide`'s `embedFonts`](../embedded-fonts.md#import-carry-importslide-embedfonts-true) does, so several
+  sources embedding one family contribute it once. The font parts are part of the
+  up-front dry run too, for the same reason the notes are: the carry runs after
+  the pages are copied, so a missing binary would otherwise be a way back into a
+  half-stitched deck.
+- **`rescale` must agree across the requests naming one source.** A batch import
+  is `'copy'` themed, so a rescale rewrites the imported layout and master shape
+  trees alongside the page, and those are shared between that source's pages.
+  Rescaling one page and not another would leave the second aligned against a
+  master that had moved under it, so a batch that disagrees is refused with
+  `import/rescale-conflict` before anything is copied. `true` and `'fit'` are the
+  same answer, not a disagreement. Different sources are independent.
+
 Pages come across under `'copy'` theme semantics (their own layout → master →
-theme subgraph, shared parts deduped via the copy registry). Embedded fonts are
-not carried and there is no batch `rescale`, so the sizes really must match. Reach
-for `importSlide` when you need either of those.
+theme subgraph, shared parts deduped via the copy registry). `theme`,
+`carryMasterGraphics` and `remapLiterals` still have no batch spelling: reach for
+`importSlide` when you need one of those.
 
 #### Themes: `copy` (default) vs `preserve`
 

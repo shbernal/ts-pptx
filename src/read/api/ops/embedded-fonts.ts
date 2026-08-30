@@ -76,6 +76,43 @@ interface IncomingEmbeddedFont {
 }
 
 /**
+ * Dry-run {@link carryEmbeddedFonts} against one source, reading only the *source* package:
+ * every face this deck would copy names a part that is actually there.
+ *
+ * `importSlides` needs it because that batch either applies in full or leaves the deck
+ * byte-identical, and the font carry runs after the page copy — by which point a missing
+ * binary would throw with parts already added and no way back. `importSlide` has no such
+ * guarantee to keep and does not call it.
+ *
+ * Keep it in step with {@link carryEmbeddedFonts}: the two must skip the same entries (a
+ * `p:font` with no `typeface`, a face slot with no `r:id`), or the guarantee is only as good
+ * as the drift between them. The one throw the carry has past this point is
+ * `package/part-has-no-root` on the *destination*, which the batch checks up front for its
+ * own insert.
+ */
+export function checkEmbeddedFontsCopyable(source: Presentation): void {
+	const sourceRoot = source.presentationPart.dom.documentElement
+	const sourceLst = sourceRoot && firstChild(sourceRoot, 'p:embeddedFontLst')
+	if (!sourceLst) return
+	const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
+	for (const srcEntry of getElements(sourceLst, 'p:embeddedFont')) {
+		const srcFont = firstChild(srcEntry, 'p:font')
+		if (!srcFont || !attr(srcFont, 'typeface')) continue
+		for (const slot of EMBEDDED_FONT_SLOTS) {
+			const srcFace = firstChild(srcEntry, `p:${slot}`)
+			const srcRid = srcFace && attr(srcFace, 'r:id')
+			if (!srcFace || !srcRid) continue
+			const partName = sourcePresRels.resolveTarget(srcRid)
+			if (!source.opc.part(partName))
+				throw new PackageReadError(
+					'package/part-missing',
+					`importSlides: source package has no part ${partName} (embedded font face ${slot})`
+				)
+		}
+	}
+}
+
+/**
  * Copy `source`'s embedded fonts into this deck and merge them into our
  * `p:embeddedFontLst`. Font binaries come across via {@link copyPart} (so the
  * per-source registry dedupes faces shared across repeated imports); entries are

@@ -138,6 +138,28 @@ Ask what the library does *next*, not how bad the input looks:
 nothing to place, so it throws; a bullet image with no usable source falls back to a `•`, so it
 warns. See [Errors](./errors.md) for the thrown half.
 
+### The rule applied: an out-of-range number
+
+Every option stated as a percentage, a size, or a spacing has a range its OOXML attribute
+allows, and one answer for a value outside it:
+
+- **Finite and out of range:** clamp to the nearest bound and warn. There is a legal value next
+  to the one asked for, so the deck comes out recognisable. `transparency: 120` paints at 100,
+  `bullet.size: 500` draws the glyph at 400%, `fit.fontScale: 150` scales at 100.
+- **Not a number at all** (`NaN`, a string, `undefined` where a number is required): throw.
+  There is no nearest legal value, so the request is discarded, and clamping it would put
+  `val="NaN"` in the package.
+
+`Infinity` belongs to the first group, not the second: it has a nearest bound like any other
+out-of-range number.
+
+This is worth stating as one rule because the third option is the tempting one and it is
+wrong. *Rejecting* a finite out-of-range value and emitting nothing looks strict, but it
+discards the request and reports it as a warning, which is exactly the combination the rule
+above exists to rule out: the caller reads a warning and gets a deck whose bullet is silently
+back at its inherited size. `bullet.size`, `fit.fontScale` and `fit.lnSpcReduction` behaved
+that way until they were routed through the shared clamp.
+
 Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
 rejects it under `eslint/no-console`: such a line cannot be captured, silenced, or branched on. The only
 exemptions are `diagnostics.ts`, which owns the default handler, and the two `verbose: true`

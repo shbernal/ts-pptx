@@ -201,13 +201,29 @@ export interface ShapeFillProps {
 /**
  * Line (stroke) options.
  *
- * A stroke is painted like a fill: in addition to a solid `color`, it accepts the
- * inherited `gradient`/`pattern`/`image` fill options (DrawingML allows the same
- * fill group inside `<a:ln>`). Setting `gradient` (or `type: 'gradient'`) paints a
- * gradient stroke, e.g. `line: { width: 1, gradient: { kind: 'linear', angle: 0,
- * stops: [{ position: 0, color: 'accent3' }, { position: 100, color: 'accent4' }] } }`.
+ * A stroke is painted much like a fill: in addition to a solid `color`, it accepts the
+ * inherited `gradient` and `pattern` fill options. Setting `gradient` (or
+ * `type: 'gradient'`) paints a gradient stroke, e.g. `line: { width: 1, gradient: {
+ * kind: 'linear', angle: 0, stops: [{ position: 0, color: 'accent3' }, { position: 100,
+ * color: 'accent4' }] } }`.
+ *
+ * **A picture stroke is not one of them**, which is why `image` and `type: 'image'` are
+ * subtracted from the inherited fill props rather than carried. `<a:ln>`'s paint child is
+ * `EG_LineFillProperties` — `a:noFill`, `a:solidFill`, `a:gradFill`, `a:pattFill` and
+ * nothing else — so unlike a shape interior a stroke has no `a:blipFill` slot to put a
+ * bitmap in, and a package that emitted one is what PowerPoint answers with a repair
+ * prompt. The interface carried `image` from `ShapeFillProps` regardless, and no call site
+ * ever registered the media for it, so a picture stroke reached the emitter with no rel and
+ * painted nothing. It is now spelled out as unsupported: a JS caller who sets it anyway
+ * gets `line/image-fill-unsupported`.
  */
-export interface ShapeLineProps extends ShapeFillProps {
+export interface ShapeLineProps extends Omit<ShapeFillProps, 'type' | 'image' | '_imgRid'> {
+	/**
+	 * Stroke paint kind. The same vocabulary as {@link ShapeFillProps.type} minus
+	 * `'image'`, which `<a:ln>` cannot express (see the note on this interface).
+	 * @default 'solid'
+	 */
+	type?: 'none' | 'inherit' | 'solid' | 'gradient' | 'pattern'
 	/**
 	 * Line width (pt)
 	 * @default 1

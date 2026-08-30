@@ -260,6 +260,7 @@ export type InvalidOptionErrorCode =
 	| 'import/destination-missing-layout'
 	| 'import/output-index-conflict'
 	| 'import/output-index-out-of-range'
+	| 'import/rescale-conflict'
 	// Replacing or adding picture content
 	| 'image/undeterminable-extension'
 	| 'image/undeterminable-type'
@@ -309,6 +310,7 @@ export type InvalidOptionErrorCode =
 export type UnsupportedFeatureErrorCode =
 	// Requests with no OOXML expression the library emits
 	| 'gradient/type-unsupported'
+	| 'line/image-fill-unsupported'
 	| 'group/kind-not-groupable'
 	| 'shape/element-unsupported'
 	// Asked of a shape kind that has nowhere to put it

@@ -124,6 +124,31 @@ defineRegressionSuite('Fill kind inference', [
 		},
 	},
 	{
+		name: 'a picture stroke is refused rather than painted as nothing',
+		fn: async () => {
+			// `<a:ln>`'s paint child is EG_LineFillProperties (noFill/solidFill/gradFill/pattFill),
+			// so a bitmap stroke has no OOXML expression at all. `ShapeLineProps` subtracts `image`
+			// from the fill props it inherits, and this is the runtime half of that subtraction:
+			// the spelling was reachable from JS, registered no media, and painted nothing while
+			// warning about a rel it was never going to be given.
+			for (const line of [
+				{ width: 2, image: { data: PNG } },
+				{ width: 2, type: 'image', image: { data: PNG } },
+			]) {
+				let err
+				try {
+					await slideXml((p) => p.addSlide().addShape('rect', { ...BOX, line }))
+				} catch (e) {
+					err = e
+				}
+				assertEqual(err?.code, 'line/image-fill-unsupported', `expected a refusal for line: ${JSON.stringify(line)}`)
+			}
+			// The interior is unaffected: a picture fill is a shape fill, and still paints.
+			const xml = await slideXml((p) => p.addSlide().addShape('rect', { ...BOX, fill: { image: { data: PNG } } }))
+			assertEqual(shapeFill(xml).join(','), 'blipFill', 'a picture *fill* still paints')
+		},
+	},
+	{
 		name: "a line `type: 'inherit'` emits no paint child at all",
 		fn: async () => {
 			const xml = await slideXml((p) => p.addSlide().addShape('rect', { ...BOX, line: { width: 2, type: 'inherit' } }))

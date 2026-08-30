@@ -54,7 +54,7 @@ defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction) [u
 		},
 	},
 	{
-		name: 'out-of-range values are dropped (no degenerate attribute)',
+		name: 'out-of-range values clamp to the nearest bound and warn',
 		fn: async () => {
 			const warnings = []
 			setDiagnosticHandler((d) => warnings.push(d.message))
@@ -66,7 +66,7 @@ defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction) [u
 						y: 1,
 						w: 4,
 						h: 1,
-						fit: { type: 'shrink', fontScale: 150, lnSpcReduction: NaN },
+						fit: { type: 'shrink', fontScale: 150, lnSpcReduction: -10 },
 					})
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -74,10 +74,30 @@ defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction) [u
 				setDiagnosticHandler(null)
 			}
 			assert(
-				xml.indexOf('<a:normAutofit/>') !== -1,
-				'expected bare <a:normAutofit/> when values are invalid; got: ' + xml
+				xml.indexOf('<a:normAutofit fontScale="100000" lnSpcReduction="0"/>') !== -1,
+				'expected both attributes clamped into 0-100; got: ' + xml
 			)
-			assert(warnings.length === 2, 'expected a warning per invalid attribute; got: ' + JSON.stringify(warnings))
+			assert(warnings.length === 2, 'expected a warning per clamped attribute; got: ' + JSON.stringify(warnings))
+		},
+	},
+	{
+		name: 'a fit percentage that is not a number throws rather than emitting val="NaN"',
+		fn: async () => {
+			let err
+			try {
+				await build((p) => {
+					p.addSlide().addText('bad', {
+						x: 1,
+						y: 1,
+						w: 4,
+						h: 1,
+						fit: { type: 'shrink', lnSpcReduction: NaN },
+					})
+				})
+			} catch (e) {
+				err = e
+			}
+			assert(err && err.code === 'percent/non-finite', 'expected percent/non-finite; got: ' + String(err && err.code))
 		},
 	},
 ])

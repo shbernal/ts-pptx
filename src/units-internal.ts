@@ -219,6 +219,14 @@ export function ptsToEmuLenient(pt: number | string): number {
  * exactly the degenerate output the range check exists to prevent. `Infinity` is not in that
  * category — it clamps to the bound like any other out-of-range number, and warns.
  *
+ * **This is the one policy for an out-of-range percentage**, and it is the policy
+ * `docs/diagnostics.md` ("Warn or throw?") describes: a finite value has a nearest legal
+ * neighbour, so the deck still comes out recognisable and the move is a warning; a value that
+ * is not a number at all has no neighbour, so the request is discarded and that throws.
+ * Rejecting a finite out-of-range value and emitting nothing is neither, and was how three
+ * options behaved before they were routed through here: it discards the request and reports
+ * it as a warning, which is the combination the rule exists to rule out.
+ *
  * @param value - the caller's value
  * @param min - inclusive lower bound, in the caller's unit
  * @param max - inclusive upper bound, in the caller's unit
@@ -255,15 +263,22 @@ export function opacityToAlpha(opacity: number): number {
 }
 
 /**
- * Convert a percentage (0-100) into a schema-valid fixed-percentage value (0-100000) — the
- * **non-inverting** sibling of {@link transparencyToAlpha}, for options the caller already
+ * Convert a percentage into a schema-valid fixed-percentage value (thousandths of a percent) —
+ * the **non-inverting** sibling of {@link transparencyToAlpha}, for options the caller already
  * states as "how much", such as a chart series' fill opacity.
+ *
+ * `min`/`max` default to the 0-100 nearly every such option allows. They are parameters because
+ * the fixed-percentage attributes do not all share one range: `<a:buSzPct>` is
+ * ST_TextBulletSizePercent (25-400), so the bullet-size option needs its own bounds while
+ * keeping this function's policy.
  * @param value - the caller's percentage
  * @param code - diagnostic code raised when the value is clamped
  * @param label - option name as the caller spells it, opening the warning
+ * @param min - inclusive lower bound in percent
+ * @param max - inclusive upper bound in percent
  */
-export function percentToFixedPercent(value: number, code: DiagnosticCode, label: string): number {
-	return Math.round(clampPercentInput(value, 0, 100, code, label) * FIXED_PCT_PER_PERCENT)
+export function percentToFixedPercent(value: number, code: DiagnosticCode, label: string, min = 0, max = 100): number {
+	return Math.round(clampPercentInput(value, min, max, code, label) * FIXED_PCT_PER_PERCENT)
 }
 
 /**
