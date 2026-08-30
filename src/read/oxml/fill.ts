@@ -44,6 +44,24 @@ export function solidFillColor(parent: Element | null, qname: string): string | 
 }
 
 /**
+ * The `@val` of an **already-resolved** colour element, when it is exactly the named kind.
+ *
+ * The sibling of {@link solidFillColor}, for the callers that hold the colour element itself
+ * rather than its parent: a run's `a:highlight` child, a bullet's `a:buClr` child, a picture
+ * recolour's `a:duotone` entries. Each of those wrote the `localName` test inline, and each
+ * paired it with the same `attr(el, 'val')`.
+ *
+ * `null` for a different colour kind is the point, not a failure: a `schemeClr` has no literal
+ * hex to give, and a caller with no theme context has nothing to resolve it against.
+ *
+ * @param el - a DrawingML colour element (`a:srgbClr`, `a:schemeClr`, …), or nothing
+ * @param kind - the colour element this caller can use
+ */
+export function colorValueIf(el: Element | null | undefined, kind: 'srgbClr' | 'schemeClr' | 'prstClr'): string | null {
+	return el && el.localName === kind ? (attr(el, 'val') ?? null) : null
+}
+
+/**
  * Replace `parent`'s solid fill with a single colour element. Any competing fill
  * choice is dropped first, then `a:solidFill` is inserted before `afterOrder`
  * (its schema successors). To *clear* a fill instead, remove `a:solidFill`

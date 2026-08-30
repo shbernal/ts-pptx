@@ -24,7 +24,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
-import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import { colorValueIf, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type ThemeContext } from '../oxml/theme.js'
 import {
 	resolveColorElement,
@@ -341,7 +341,7 @@ export class Run {
 		if (!colorEl) return null
 		if (this.themeContext) return resolveColorElement(colorEl, this.themeContext)
 		// Without a theme context only a literal srgbClr can be made concrete.
-		const hex = colorEl.localName === 'srgbClr' ? attr(colorEl, 'val') : null
+		const hex = colorValueIf(colorEl, 'srgbClr')
 		return hex ? { hex, transforms: [], effectiveHex: hex } : null
 	}
 
@@ -738,8 +738,8 @@ export class Paragraph {
 			font: buFont ? (attr(buFont, 'typeface') ?? null) : null,
 			sizePct: pctVal === null ? null : pctVal / 1000,
 			sizePt: ptVal === null ? null : ptVal / 100,
-			color: colorEl?.localName === 'srgbClr' ? (attr(colorEl, 'val') ?? null) : null,
-			schemeColor: colorEl?.localName === 'schemeClr' ? (attr(colorEl, 'val') ?? null) : null,
+			color: colorValueIf(colorEl, 'srgbClr'),
+			schemeColor: colorValueIf(colorEl, 'schemeClr'),
 			resolvedColor: this.themeContext ? resolveColorElement(colorEl, this.themeContext) : null,
 		}
 	}

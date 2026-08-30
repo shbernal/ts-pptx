@@ -22,6 +22,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../../media/image-size.js'
 import { warn } from '../../../diagnostics.js'
 import { relativePartName } from '../../opc/partnames.js'
+import { colorValueIf } from '../../oxml/fill.js'
 import { Shape } from './base.js'
 import { childElements } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
@@ -73,9 +74,9 @@ function extFromContentType(contentType: string): string {
 function recolorColorOf(color: Element | null): RecolorColor | null {
 	if (!color || color.namespaceURI !== OOXML_NS.a) return null
 	return {
-		color: color.localName === 'srgbClr' ? attr(color, 'val') : null,
-		schemeColor: color.localName === 'schemeClr' ? attr(color, 'val') : null,
-		presetColor: color.localName === 'prstClr' ? attr(color, 'val') : null,
+		color: colorValueIf(color, 'srgbClr'),
+		schemeColor: colorValueIf(color, 'schemeClr'),
+		presetColor: colorValueIf(color, 'prstClr'),
 	}
 }
 

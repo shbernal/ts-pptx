@@ -242,7 +242,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			const innerHeightPt = (heightEmu - ins.marT - ins.marB) / EMU_PER_POINT
 			if (!(innerWidthPt > 0) || !(innerHeightPt > 0)) continue
 
-			const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as SlideObject)
+			const paragraphs = extractParagraphs({ text: cell.text, options: eff })
 			if (!paragraphs) continue
 			auditCoverage(paragraphs)
 			const box: FitBox = { innerWidthPt, innerHeightPt }

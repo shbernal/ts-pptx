@@ -23,10 +23,28 @@ const CRLF_RE = /\r*\n/g
 
 export type RunOpts = TextPropsOptions & ObjectOptions
 
+/**
+ * The two fields a run list is read from, and the whole contract {@link normalizeRuns} and
+ * {@link extractParagraphs} have.
+ *
+ * Both used to take a full `SlideObject`, which is why both of their table call sites had to
+ * write `{ text: cell.text, options: eff } as unknown as SlideObject` — a cell's `text` is
+ * `string | TableCell[]` and a slide object's is `TextProps[]`, so nothing weaker than a
+ * double cast would fit. Naming the two fields these functions actually read makes a table
+ * cell an ordinary argument, and a `SlideObject` still one too.
+ *
+ * `text` is deliberately loose: `normalizeRuns` accepts a bare string, a number, one
+ * `TextProps`, or an array of them, and branches on the shape at runtime.
+ */
+export interface RunSource {
+	text?: unknown
+	options?: RunOpts
+}
+
 /** Normalize `slideObj.text` (string | TextProps | TextProps[]) to a run list. */
-export function normalizeRuns(obj: SlideObject): TextProps[] {
+export function normalizeRuns(obj: RunSource): TextProps[] {
 	const opts = obj.options ?? {}
-	const text = obj.text as unknown
+	const text = obj.text
 	if (text == null) return []
 	if (typeof text === 'string' || typeof text === 'number') return [{ text: String(text), options: opts }]
 	if (!Array.isArray(text) && typeof text === 'object' && 'text' in text) {
@@ -38,8 +56,8 @@ export function normalizeRuns(obj: SlideObject): TextProps[] {
 }
 
 /** Build a measurable `FitParagraph[]` from a text object, or null if not measurable. */
-export function extractParagraphs(obj: SlideObject): FitParagraph[] | null {
-	const opts = (obj.options ?? {}) as RunOpts
+export function extractParagraphs(obj: RunSource): FitParagraph[] | null {
+	const opts = obj.options ?? {}
 	const runs = normalizeRuns(obj)
 	if (runs.length === 0) return null
 	return buildFitParagraphs(runs, opts)

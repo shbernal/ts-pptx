@@ -28,7 +28,6 @@ import type {
 	TableLayoutResult,
 	TableProps,
 } from '../types/index.js'
-import type { SlideObject } from '../types/internal.js'
 
 const CELL_INHERIT_KEYS = [
 	'fontFace',
@@ -193,7 +192,7 @@ export function computeTableLayout(
 		const fontSizePt = Number(eff.fontSize ?? DEF_FONT_SIZE) || DEF_FONT_SIZE
 		const oneLineEmu = inch2Emu((fontSizePt * LINEH_MODIFIER) / 100)
 		if (!(innerWidthPt > 0)) return oneLineEmu
-		const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as SlideObject)
+		const paragraphs = extractParagraphs({ text: cell.text, options: eff })
 		if (!paragraphs) return oneLineEmu
 		const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 		if (layout === null) return oneLineEmu

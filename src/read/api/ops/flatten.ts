@@ -325,20 +325,42 @@ function resolvePlaceholderRunColors(slideRoot: Element, ctx: FlattenContext): v
  * @param resolve - the inherited value for a placeholder type/idx at a list level, or `null`
  * @param write - apply a resolved value to one run
  */
+/**
+ * Visit every placeholder shape in a lifted subtree that has a text body, with the two
+ * identifiers each pass resolves inheritance against.
+ *
+ * The preamble is the same for all three of them: nothing to inherit *from* when neither a
+ * layout nor a master came across, a `p:sp` without a `p:ph` is not a placeholder, and one
+ * without a `p:txBody` has no text to inherit anything for. It was written out three times,
+ * which is one more than the file's own {@link bakePlaceholderRunProperty} was already
+ * generalising over.
+ *
+ * @param shapeRoot - the root of the lifted subtree
+ * @param ctx - the flatten context, carrying the source layout/master roots
+ * @param visit - called per placeholder with its text body, `p:ph/@type` and `@idx`
+ */
+function forEachPlaceholderTextBody(
+	shapeRoot: Element,
+	ctx: FlattenContext,
+	visit: (txBody: Element, type: string | null, idx: string) => void
+): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of descendantsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		visit(txBody, attr(ph, 'type'), attr(ph, 'idx') ?? '0')
+	}
+}
+
 function bakePlaceholderRunProperty<T>(
 	slideRoot: Element,
 	ctx: FlattenContext,
 	resolve: (type: string | null, idx: string, level: number, ctx: FlattenContext) => T | null,
 	write: (run: Element, value: T, pPr: Element | null, slideLst: Element | null, level: number) => void
 ): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of descendantsByTag(slideRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const type = attr(ph, 'type')
-		const idx = attr(ph, 'idx') ?? '0'
+	forEachPlaceholderTextBody(slideRoot, ctx, (txBody, type, idx) => {
 		const slideLst = firstChild(txBody, 'a:lstStyle')
 		const byLevel = new Map<number, T | null>()
 		for (const p of getElements(txBody, 'a:p')) {
@@ -354,7 +376,7 @@ function bakePlaceholderRunProperty<T>(
 			if (!value) continue
 			for (const run of runs) write(run, value, pPr, slideLst, level)
 		}
-	}
+	})
 }
 
 /** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
@@ -405,18 +427,13 @@ function resolvePlaceholderGeometry(slideRoot: Element, ctx: FlattenContext): vo
  * autofit) are left as authored — they have sane defaults a plain shape keeps.
  */
 function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of descendantsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
+	forEachPlaceholderTextBody(shapeRoot, ctx, (txBody, type, idx) => {
 		const bodyPr = firstChild(txBody, 'a:bodyPr')
-		if (bodyPr && attr(bodyPr, 'anchor') != null) continue // slide fixes it — not inherited
-		const anchor = placeholderInheritedAnchor(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (!anchor) continue
+		if (bodyPr && attr(bodyPr, 'anchor') != null) return // slide fixes it — not inherited
+		const anchor = placeholderInheritedAnchor(type, idx, ctx)
+		if (!anchor) return
 		setAttr(bodyPr ?? getOrAddChild(txBody, 'a:bodyPr', ['a:lstStyle', 'a:p']), 'anchor', anchor)
-	}
+	})
 }
 
 /**
@@ -441,14 +458,9 @@ function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void
  * levels are resolved by the later `resolveSchemeColors` pass.
  */
 function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of descendantsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const tiers = placeholderInheritedListStyles(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (tiers.length === 0) continue
+	forEachPlaceholderTextBody(shapeRoot, ctx, (txBody, type, idx) => {
+		const tiers = placeholderInheritedListStyles(type, idx, ctx)
+		if (tiers.length === 0) return
 		const slideLst = firstChild(txBody, 'a:lstStyle')
 		const merged = createElement(ownerDocumentOf(txBody), 'a:lstStyle')
 		let any = false
@@ -460,10 +472,10 @@ function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): v
 			merged.appendChild(src.cloneNode(true))
 			any = true
 		}
-		if (!any) continue
+		if (!any) return
 		if (slideLst) txBody.replaceChild(merged, slideLst)
 		else insertInOrder(txBody, merged, ['a:p'])
-	}
+	})
 }
 
 /**
