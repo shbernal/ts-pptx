@@ -107,6 +107,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A non-finite value in a pie or doughnut series no longer produces a deck PowerPoint
+  refuses to open.** Every other chart family cached its values through one builder, which
+  warns on a non-finite number and leaves the point out; pie and doughnut built their own
+  `<c:val>` and wrote whatever they were handed, so `values: [10, Infinity, 38]` reached the
+  package as `<c:v>Infinity</c:v>` and PowerPoint rejected the file with 0x80070570, the
+  corrupt-file error. `NaN` and `INF` in that position do the same. A pie now goes through the
+  shared builder, so a non-finite value warns (`chart/non-finite-value`) and is dropped, as it
+  always has been on a bar or a line.
+
+  A *gap* — a `null` or `undefined` slice value — also changes spelling, from a `<c:pt>` with
+  an empty `<c:v>` to no `<c:pt>` at all. That half is not a defect being fixed: measured
+  against desktop PowerPoint the two are equivalent, opening without a prompt, resolving to the
+  same object model and exporting to a byte-identical image. It changes because one spelling of
+  a gap is better than two. Nothing here is visible to the schema — `<c:v>` is `s:ST_Xstring`,
+  so the OpenXmlValidator passes all four spellings alike, which is why PowerPoint is the
+  oracle this was settled against.
+
+  **Migration:** an untyped caller passing a *numeric string* (`values: ['42', '7']`) to a pie
+  or doughnut now gets `chart/non-finite-value` and an empty chart, where the value used to
+  reach the cache and render. That is what every other chart type has always done with one —
+  the option is `number[]` — so convert before the call rather than relying on the pie path.
+
 - **A chart `x`/`y` spelled as a percentage or a unit string is honoured instead of being
   replaced by 1 inch.** Both are ordinary `Coord` values, and the guard in front of them
   was `!isNaN(Number(x))` — false for `'50%'` and `'2in'` alike, so the value was thrown

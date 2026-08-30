@@ -409,12 +409,17 @@ export function dimmedTextLine(lumMod: number, lumOff: number): string {
 /**
  * Build a `<c:pt>` numeric-cache data point, or '' to leave a gap.
  *
- * `<c:v>` inside a `<c:numCache>` is an `xsd:double`; emitting `NaN`, `Infinity`
- * or an empty string yields an invalid value that makes PowerPoint report the
- * package as needing repair. Null/undefined are intentional gaps and are skipped
- * silently (a sparse, idx-keyed cache is valid); other non-finite numbers are
- * skipped with a warning, per the library's "warn rather than emit a degenerate
- * result" policy.
+ * A `<c:v>` holding `NaN`, `INF` or `Infinity` makes PowerPoint refuse the package with
+ * 0x80070570, the corrupt-file error, so a non-finite number is skipped with a warning per the
+ * library's "warn rather than emit a degenerate result" policy. Null/undefined are intentional
+ * gaps and are skipped silently (a sparse, idx-keyed cache is valid).
+ *
+ * **PowerPoint is the only oracle for this.** `<c:v>` is `s:ST_Xstring` in the schema, not
+ * `xsd:double` — nothing above is a schema violation, and the OpenXmlValidator reports every one
+ * of those three packages clean. An *empty* `<c:v>` is the case that shows why the distinction is
+ * worth stating rather than reasoning about: it looks equally invalid and it is not, opening
+ * cleanly and reading back as an empty point. See `pieValues` in
+ * `src/gen/chart/plot-pie.ts`, which emitted both spellings until the measurement was made.
  * @param idx - zero-based data-point index (emitted as `idx`)
  * @param value - numeric value (or null/undefined gap)
  */

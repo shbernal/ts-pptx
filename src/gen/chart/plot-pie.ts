@@ -23,6 +23,7 @@ import {
 	dLblShowFlags,
 	labelFontAttrs,
 	labelFontChildren,
+	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
@@ -118,18 +119,26 @@ function pieCategories(labels: string[]): string {
 	return el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${labels.length + 1}`, labels)))
 }
 
-/** The `<c:val>` numeric cache. A missing value keeps its `<c:pt>` with an empty `<c:v>`. */
+/**
+ * The `<c:val>` numeric cache, keyed on the slice count.
+ *
+ * This was the last hand-built copy of {@link numRefBlock}, and it was kept out of that merge
+ * because it disagreed about a gap rather than merely spelling one differently: it emitted a
+ * `<c:pt>` with an empty `<c:v>` for a `null`/`undefined`/`NaN` and `<c:v>Infinity</c:v>` for an
+ * infinity, where `numCachePt` leaves the point out. Measured against desktop PowerPoint,
+ * the two disagreements are not alike:
+ *
+ * - The empty `<c:v>` was harmless. A pie with the point present-but-empty and the same pie with
+ *   the point absent open without a repair prompt, resolve to the same object model
+ *   (`SeriesCollection(1).Values` reads `Empty` at that index in both), and export to a
+ *   byte-identical PNG. A sensitivity check confirms the cache is what paints: perturbing a
+ *   *neighbouring* cached value moves both the read-back and the pixels.
+ * - `<c:v>Infinity</c:v>` was not. PowerPoint refuses the package with 0x80070570 — the
+ *   corrupt-file error — and so does `NaN` or `INF` in that position. A pie was therefore the one
+ *   family where a non-finite value reached the deck instead of being warned about and dropped.
+ */
 function pieValues(obj: OptsChartDataInternal, count: number, valFmtCode: string): string {
-	const points = dataValues(obj)
-		.map((value, idx) => el('c:pt', { idx }, raw(el('c:v', null, value || value === 0 ? value : ''))))
-		.join('')
-	const numCache = el('c:numCache', null, [
-		raw(el('c:formatCode', null, valFmtCode)),
-		raw(voidEl('c:ptCount', { val: count })),
-		raw(points),
-	])
-	const numRef = el('c:numRef', null, [raw(el('c:f', null, `Sheet1!$B$2:$B$${count + 1}`)), raw(numCache)])
-	return el('c:val', null, raw(numRef))
+	return numRefBlock('c:val', `Sheet1!$B$2:$B$${count + 1}`, valFmtCode, dataValues(obj), count)
 }
 
 /**

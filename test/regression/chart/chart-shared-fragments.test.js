@@ -173,4 +173,48 @@ defineRegressionSuite('Shared chart fragments', [
 			assertEqual(emptyPie, pie, 'empty is byte-identical to omitted on a pie')
 		},
 	},
+	{
+		// Pie was the last family building its own `<c:val>` instead of going through the shared
+		// numeric-reference block, and it disagreed about a gap rather than merely spelling one
+		// differently: a missing slice value kept its `<c:pt>` with an empty `<c:v>`, and an
+		// infinity reached the deck as `<c:v>Infinity</c:v>`, which PowerPoint refuses to open
+		// (0x80070570). Nothing covered a gap in a pie series, which is how it survived.
+		//
+		// The schema oracle cannot stand in for this test: `<c:v>` is `s:ST_Xstring`, so the
+		// OpenXmlValidator passes the corrupt spelling as readily as the correct one.
+		name: 'a pie caches a gap the same way every other family does',
+		fn: async () => {
+			const gap = await chartFor(ChartType.pie, [
+				{ name: 'Status', labels: ['Red', 'Amber', 'Green', 'Unknown'], values: [10, null, 38, 2] },
+			])
+			const val = valBlock(gap, 'c:val')
+			assertIncludes(val, '<c:ptCount val="4"/>', 'the range still spans every slice')
+			assertNotIncludes(val, '<c:v></c:v>', 'the gap leaves the point out rather than emptying it')
+			assertEqual((val.match(/<c:pt idx="/g) || []).length, 3, 'only the three supplied values are cached')
+			assertIncludes(val, '<c:pt idx="2"><c:v>38</c:v></c:pt>', 'the slices after the gap keep their own indices')
+
+			// A doughnut shares the builder, so it inherits the same treatment.
+			const doughnut = await chartFor(ChartType.doughnut, [
+				{ name: 'Status', labels: ['a', 'b', 'c'], values: [1, undefined, 3] },
+			])
+			assertNotIncludes(valBlock(doughnut, 'c:val'), '<c:v></c:v>', 'and so does a doughnut')
+
+			// The half that was a repair prompt, not a cosmetic difference.
+			const diag = await captureDiagnostics(async () => {
+				const nonFinite = await chartFor(ChartType.pie, [
+					{ name: 'Status', labels: ['a', 'b', 'c'], values: [1, Infinity, 3] },
+				])
+				assertNotIncludes(nonFinite, '<c:v>Infinity</c:v>', 'an infinity never reaches the cache')
+				assertEqual(
+					(valBlock(nonFinite, 'c:val').match(/<c:pt idx="/g) || []).length,
+					2,
+					'it is dropped like any other non-finite value'
+				)
+			})
+			assert(
+				diag.codes.includes('chart/non-finite-value'),
+				'expected the non-finite warning; got: ' + JSON.stringify(diag.codes)
+			)
+		},
+	},
 ])
