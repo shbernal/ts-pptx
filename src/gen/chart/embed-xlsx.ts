@@ -365,9 +365,24 @@ function buildXlsxSheet(
 	const isBubble = isBubbleChart(chartObject.opts._type)
 	const isScatter = isScatterChart(chartObject.opts._type)
 	const labelCols = dataLabels(data[0]).length
-	/** One cell. `t="s"` marks a shared-string index; without it the value is a number. */
-	const cell = (col: number, row: number, value: string | number, shared = false): string =>
-		el('c', { r: `${getExcelColName(col)}${row}`, t: shared ? 's' : undefined }, raw(el('v', null, value)))
+	/**
+	 * One cell. `t="s"` marks a shared-string index; without it the value is a number.
+	 *
+	 * A gap is written as a present-but-empty `<v></v>`, which is how a missing value has always
+	 * reached this sheet (`?? ''` at the call sites) and which Excel reads back as an empty cell.
+	 * A **non-finite** number is the same thing: `<v>Infinity</v>` (or `NaN`, or `INF`) is not a
+	 * number Excel will parse, and it refuses the whole workbook with 0x3EC rather than skipping
+	 * the cell — a failure PowerPoint hides, because it does not parse the embedding on open. It
+	 * surfaces on "Edit Data", by which point the chart's own cache is already clean: `numCachePt`
+	 * (`./chart-parts.ts`) and the chartEx numeric dimension (`./chartex-data.ts`) both drop a
+	 * non-finite point, with a `chart/non-finite-value` warning, before it reaches the chart part.
+	 * Every numeric cell written here is mirrored by one of those caches, so the drop is silent on
+	 * this side rather than warned about twice for the same value.
+	 */
+	const cell = (col: number, row: number, value: string | number, shared = false): string => {
+		const cellValue = typeof value === 'number' && !Number.isFinite(value) ? '' : value
+		return el('c', { r: `${getExcelColName(col)}${row}`, t: shared ? 's' : undefined }, raw(el('v', null, cellValue)))
+	}
 	/** One row, spanning the sheet's full column count. */
 	const sheetRow = (row: number, span: number, cells: string): string =>
 		el('row', { r: row, spans: `1:${span}` }, raw(cells))

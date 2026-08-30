@@ -107,6 +107,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A non-finite value no longer reaches the embedded workbook either, for any chart
+  family.** The fix above cleaned the chart's own cache; the workbook the chart is backed by
+  is written by a separate builder, and that one still wrote `<v>Infinity</v>` (or `NaN`) into
+  the cell. Excel refuses such a workbook outright, with 0x3EC. PowerPoint hides it, because it
+  does not parse the embedding when it opens the deck — the deck opens and paints from the
+  cache, and the failure surfaces only when a user picks **Edit Data**, at which point the
+  chart looks fine and the workbook behind it will not load. A non-finite number now leaves the
+  same empty cell a `null` value always has, which Excel reads back as an empty cell. Nothing
+  warns on this side: every numeric cell in the sheet is mirrored by a cache point, and that is
+  where `chart/non-finite-value` is already reported for the same value.
+
 - **A non-finite value in a pie or doughnut series no longer produces a deck PowerPoint
   refuses to open.** Every other chart family cached its values through one builder, which
   warns on a non-finite number and leaves the point out; pie and doughnut built their own

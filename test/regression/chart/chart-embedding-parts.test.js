@@ -1,6 +1,6 @@
 import TsPptx, { ChartType } from '../../../dist/node.js'
 import JSZip from 'jszip'
-import { defineRegressionSuite, build, listEntries, assert } from '../../helpers.js'
+import { defineRegressionSuite, build, listEntries, assert, assertIncludes, assertNotIncludes } from '../../helpers.js'
 
 // 1x1 PNG (red pixel) for image-only deck case
 const PNG_DATA =
@@ -68,6 +68,80 @@ defineRegressionSuite('Chart embedding parts [legacy bug-17]', [
 				embedEntries.length > 0,
 				'expected ppt/embeddings/ entries when chart present; got: ' + JSON.stringify(entries)
 			)
+		},
+	},
+	{
+		// The workbook is the half of a chart nothing else checks. PowerPoint does not parse the
+		// embedding when it opens the deck, so a workbook Excel refuses (0x3EC) still gives a deck
+		// that opens and paints — the failure only surfaces on "Edit Data", by which point the
+		// chart's own cache is already clean, because `numCachePt` dropped the bad point on the way
+		// into `chart.xml`. `<v>Infinity</v>` was reaching every family's sheet regardless.
+		//
+		// A gap is `<v></v>`, which is what a `null` value has always produced here and which Excel
+		// reads back as an empty cell; a non-finite number now takes that same path.
+		name: 'no family writes a non-finite number into the embedded workbook',
+		fn: async () => {
+			const labels = ['a', 'b', 'c']
+			const cases = [
+				['bar', ChartType.bar, [{ name: 'S1', labels, values: [1, Infinity, 3] }]],
+				['pie', ChartType.pie, [{ name: 'S1', labels, values: [1, -Infinity, 3] }]],
+				['line, NaN', ChartType.line, [{ name: 'S1', labels, values: [1, NaN, 3] }]],
+				[
+					'scatter',
+					ChartType.scatter,
+					[
+						{ name: 'X', labels, values: [1, 2, 3] },
+						{ name: 'Y', labels, values: [4, Infinity, 6] },
+					],
+				],
+				[
+					'bubble, in the size column',
+					ChartType.bubble,
+					[
+						{ name: 'X', labels, values: [1, 2, 3] },
+						{ name: 'Y', labels, values: [4, 5, 6], sizes: [7, Infinity, 9] },
+					],
+				],
+				[
+					'multi-level categories',
+					ChartType.bar,
+					[{ name: 'S1', labels: [labels, ['Grp', '', '']], values: [1, Infinity, 3] }],
+				],
+			]
+
+			for (const [what, type, data] of cases) {
+				const { buf } = await build((p) => {
+					p.addSlide().addChart(data, { type, x: 1, y: 1, w: 6, h: 4 })
+				})
+				const xlsx = (await JSZip.loadAsync(buf)).file('ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
+				assert(xlsx, `${what}: expected an embedded workbook`)
+				const sheet = await (
+					await JSZip.loadAsync(await xlsx.async('arraybuffer'))
+				)
+					.file('xl/worksheets/sheet1.xml')
+					.async('string')
+				assertNotIncludes(sheet, 'Infinity', `${what}: no infinity reaches the workbook`)
+				assertNotIncludes(sheet, 'NaN', `${what}: nor a NaN`)
+				assertIncludes(sheet, '<v></v>', `${what}: the bad value leaves the same empty cell a gap does`)
+			}
+
+			// The spelling a gap has always had, so the fix above is the only thing that changed.
+			const { buf } = await build((p) => {
+				p.addSlide().addChart([{ name: 'S1', labels: ['a', 'b', 'c'], values: [1, null, 3] }], {
+					type: ChartType.bar,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 4,
+				})
+			})
+			const xlsx = (await JSZip.loadAsync(buf)).file('ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
+			const sheet = await (
+				await JSZip.loadAsync(await xlsx.async('arraybuffer'))
+			)
+				.file('xl/worksheets/sheet1.xml')
+				.async('string')
+			assertIncludes(sheet, '<c r="B3"><v></v></c>', 'a null value is an empty cell')
 		},
 	},
 ])
