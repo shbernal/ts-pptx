@@ -7,15 +7,10 @@
  * so the embeddedFontLst face `r:id`s match the rels that back them.
  */
 
-import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
-import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
-
-function relationship(rId: number, type: string, target: string): string {
-	return voidEl('Relationship', { Id: `rId${rId}`, Type: type, Target: target })
-}
+import { relationshipEl, relationshipsPart } from '../opc/rels.js'
+import { OFFICE_REL } from '../../ooxml/rel-types.js'
 
 /**
  * Creates `ppt/_rels/presentation.xml.rels`
@@ -38,27 +33,27 @@ export function presentationFontRelStart(slides: PresSlideInternal[]): number {
 
 export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFonts?: EmbeddedFont[]): string {
 	let intRelNum = 1
-	const rels: string[] = [relationship(1, OFFICE_REL + 'slideMaster', 'slideMasters/slideMaster1.xml')]
+	const rels: string[] = [relationshipEl(1, OFFICE_REL + 'slideMaster', 'slideMasters/slideMaster1.xml')]
 	for (let idx = 1; idx <= slides.length; idx++) {
-		rels.push(relationship(++intRelNum, OFFICE_REL + 'slide', `slides/slide${idx}.xml`))
+		rels.push(relationshipEl(++intRelNum, OFFICE_REL + 'slide', `slides/slide${idx}.xml`))
 	}
 	intRelNum++
 	rels.push(
-		relationship(intRelNum + 0, OFFICE_REL + 'notesMaster', 'notesMasters/notesMaster1.xml'),
-		relationship(intRelNum + 1, OFFICE_REL + 'presProps', 'presProps.xml'),
-		relationship(intRelNum + 2, OFFICE_REL + 'viewProps', 'viewProps.xml'),
-		relationship(intRelNum + 3, OFFICE_REL + 'theme', 'theme/theme1.xml'),
-		relationship(intRelNum + 4, OFFICE_REL + 'tableStyles', 'tableStyles.xml')
+		relationshipEl(intRelNum + 0, OFFICE_REL + 'notesMaster', 'notesMasters/notesMaster1.xml'),
+		relationshipEl(intRelNum + 1, OFFICE_REL + 'presProps', 'presProps.xml'),
+		relationshipEl(intRelNum + 2, OFFICE_REL + 'viewProps', 'viewProps.xml'),
+		relationshipEl(intRelNum + 3, OFFICE_REL + 'theme', 'theme/theme1.xml'),
+		relationshipEl(intRelNum + 4, OFFICE_REL + 'tableStyles', 'tableStyles.xml')
 	)
 	// The presentation-level commentAuthors part is shared by every slide's comments, so it is
 	// related once from the presentation (only when the deck has at least one comment).
 	if ((slides || []).some((slide) => (slide._comments || []).length > 0)) {
-		rels.push(relationship(intRelNum + 5, OFFICE_REL + 'commentAuthors', 'commentAuthors.xml'))
+		rels.push(relationshipEl(intRelNum + 5, OFFICE_REL + 'commentAuthors', 'commentAuthors.xml'))
 	}
 	// Embedded fonts: one `font` rel per face, ids continuing past the fixed rels above.
 	for (const face of flattenEmbeddedFaces(embeddedFonts || [], presentationFontRelStart(slides))) {
-		rels.push(relationship(face.rId, FONT_REL_TYPE, `fonts/font${face.partIndex}.fntdata`))
+		rels.push(relationshipEl(face.rId, FONT_REL_TYPE, `fonts/font${face.partIndex}.fntdata`))
 	}
 
-	return XML_DECL + CRLF + el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
+	return relationshipsPart(rels)
 }

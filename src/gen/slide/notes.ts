@@ -13,8 +13,8 @@ import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
-import { externalHyperlinkRel } from '../opc/rels.js'
+import { OFFICE_REL } from '../../ooxml/rel-types.js'
+import { externalHyperlinkRel, relationshipEl, relationshipsEl, relationshipsPart } from '../opc/rels.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
@@ -491,26 +491,12 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
 
 	return (
 		XML_DECL +
-		el(
-			'Relationships',
-			{ xmlns: PACKAGE_REL_NS },
+		relationshipsEl(
 			[
-				raw(
-					voidEl('Relationship', {
-						Id: 'rId1',
-						Type: OFFICE_REL + 'notesMaster',
-						Target: '../notesMasters/notesMaster1.xml',
-					})
-				),
-				raw(
-					voidEl('Relationship', {
-						Id: 'rId2',
-						Type: OFFICE_REL + 'slide',
-						Target: `../slides/slide${slideNumber}.xml`,
-					})
-				),
+				relationshipEl(1, OFFICE_REL + 'notesMaster', '../notesMasters/notesMaster1.xml'),
+				relationshipEl(2, OFFICE_REL + 'slide', `../slides/slide${slideNumber}.xml`),
 				// Always a child, even when empty, so its `childPrefix` indent is still emitted.
-				raw(hlinkRels),
+				hlinkRels,
 			],
 			// Two quirks kept verbatim: this part alone follows XML_DECL with a bare `\n`
 			// rather than CRLF, and the closing tag hugs the last child with no prefix.
@@ -524,15 +510,9 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
  * @return {string} XML
  */
 export function makeXmlNotesMasterRel(): string {
-	return (
-		XML_DECL +
-		CRLF +
-		el(
-			'Relationships',
-			{ xmlns: PACKAGE_REL_NS },
-			raw(voidEl('Relationship', { Id: 'rId1', Type: OFFICE_REL + 'theme', Target: '../theme/theme2.xml' })),
-			// The closing tag is indented to child depth, not parent depth — as emitted today.
-			{ childPrefix: '\n\t\t', closePrefix: '\n\t\t' }
-		)
+	return relationshipsPart(
+		[relationshipEl(1, OFFICE_REL + 'theme', '../theme/theme2.xml')],
+		// The closing tag is indented to child depth, not parent depth — as emitted today.
+		{ childPrefix: '\n\t\t', closePrefix: '\n\t\t' }
 	)
 }

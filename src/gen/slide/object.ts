@@ -9,7 +9,7 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUM_PLACEHOLDER_TEXT, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import { DEF_PRES_LAYOUT_NAME, SLDNUM_PLACEHOLDER_TEXT, SLDNUMFLDID } from '../../constants-internal.js'
 import type { ObjectOptions, SlideNumberProps } from '../../types/index.js'
 import type {
 	PresSlideInternal,
@@ -37,8 +37,8 @@ import { renderTableObject } from './objects/table.js'
 import { renderTextObject } from './objects/text.js'
 import { renderZoomObject } from './objects/zoom.js'
 import { collectSlideShapeIds } from './shape-ids.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
-import { externalHyperlinkRel } from '../opc/rels.js'
+import { OFFICE_REL } from '../../ooxml/rel-types.js'
+import { externalHyperlinkRel, relationshipEl, relationshipsPart } from '../opc/rels.js'
 
 /** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
@@ -673,9 +673,7 @@ export function slideObjectRelationsToXml(
 		lastRid = Math.max(lastRid, rel.rId)
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
-				rels.push(
-					voidEl('Relationship', { Id: `rId${rel.rId}`, Type: OFFICE_REL + 'slide', Target: `slide${rel.Target}.xml` })
-				)
+				rels.push(relationshipEl(rel.rId, OFFICE_REL + 'slide', `slide${rel.Target}.xml`))
 			} else {
 				rels.push(externalHyperlinkRel(rel.rId, rel.Target))
 			}
@@ -688,13 +686,7 @@ export function slideObjectRelationsToXml(
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
 		// chartEx parts use the MS chartEx rel type; classic charts use the ECMA `chart` rel.
-		rels.push(
-			voidEl('Relationship', {
-				Id: `rId${rel.rId}`,
-				Type: rel.isChartEx ? CHARTEX_REL : OFFICE_REL + 'chart',
-				Target: rel.Target,
-			})
-		)
+		rels.push(relationshipEl(rel.rId, rel.isChartEx ? CHARTEX_REL : OFFICE_REL + 'chart', rel.Target))
 	})
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relType = rel.type.toLowerCase()
@@ -703,7 +695,7 @@ export function slideObjectRelationsToXml(
 		// with the SAME escaper the builder uses, or the two drift apart.
 		const relTarget = encodeXmlAttrValue(rel.Target)
 		const media = (type: string, targetMode?: string): string =>
-			voidEl('Relationship', { Id: `rId${rel.rId}`, Type: type, Target: rel.Target, TargetMode: targetMode })
+			relationshipEl(rel.rId, type, rel.Target, { targetMode })
 		lastRid = Math.max(lastRid, rel.rId)
 		if (rel.oleRelType) {
 			// An OLE payload part carries its rel type verbatim (`.../package` or `.../oleObject`);
@@ -730,8 +722,8 @@ export function slideObjectRelationsToXml(
 
 	// STEP 2: Add default rels
 	defaultRels.forEach((rel, idx) => {
-		rels.push(voidEl('Relationship', { Id: `rId${lastRid + idx + 1}`, Type: rel.type, Target: rel.target }))
+		rels.push(relationshipEl(lastRid + idx + 1, rel.type, rel.target))
 	})
 
-	return XML_DECL + CRLF + el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
+	return relationshipsPart(rels)
 }

@@ -17,6 +17,7 @@ import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { relationshipEl, relationshipsEl } from '../opc/rels.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
@@ -34,15 +35,6 @@ const SML_CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.'
 
 /** One `<si>` shared string carrying literal text. */
 const sharedString = (text: string): string => el('si', null, raw(el('t', null, text)))
-
-function relationship(id: string, type: string, target: string): string {
-	return voidEl('Relationship', { Id: id, Type: type, Target: target })
-}
-
-/** `<Relationships>` wrapper shared by the workbook's `.rels` parts (all flat, no indent). */
-function relationships(rels: string[]): string {
-	return el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
-}
 
 /**
  * The embedded workbook's style sheet, captured verbatim from an Excel-authored chart workbook.
@@ -112,10 +104,10 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			zipExcel.add(
 				'_rels/.rels',
 				XML_DECL +
-					relationships([
-						relationship('rId1', PACKAGE_REL_NS + '/metadata/core-properties', 'docProps/core.xml'),
-						relationship('rId2', OFFICE_REL + 'extended-properties', 'docProps/app.xml'),
-						relationship('rId3', OFFICE_REL + 'officeDocument', 'xl/workbook.xml'),
+					relationshipsEl([
+						relationshipEl('rId1', PACKAGE_REL_NS + '/metadata/core-properties', 'docProps/core.xml'),
+						relationshipEl('rId2', OFFICE_REL + 'extended-properties', 'docProps/app.xml'),
+						relationshipEl('rId3', OFFICE_REL + 'officeDocument', 'xl/workbook.xml'),
 					]) +
 					'\n'
 			)
@@ -178,11 +170,11 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 				XML_DECL +
 					// Ids are deliberately out of order (3/2/1/4) — that is how this part has
 					// always been emitted, and rel order is byte-significant.
-					relationships([
-						relationship('rId3', OFFICE_REL + 'styles', 'styles.xml'),
-						relationship('rId2', OFFICE_REL + 'theme', 'theme/theme1.xml'),
-						relationship('rId1', OFFICE_REL + 'worksheet', 'worksheets/sheet1.xml'),
-						relationship('rId4', OFFICE_REL + 'sharedStrings', 'sharedStrings.xml'),
+					relationshipsEl([
+						relationshipEl('rId3', OFFICE_REL + 'styles', 'styles.xml'),
+						relationshipEl('rId2', OFFICE_REL + 'theme', 'theme/theme1.xml'),
+						relationshipEl('rId1', OFFICE_REL + 'worksheet', 'worksheets/sheet1.xml'),
+						relationshipEl('rId4', OFFICE_REL + 'sharedStrings', 'sharedStrings.xml'),
 					])
 			)
 			zipExcel.add('xl/styles.xml', XML_DECL + XLSX_STYLES_XML)
@@ -224,7 +216,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'xl/worksheets/_rels/sheet1.xml.rels',
-				XML_DECL + relationships([relationship('rId1', OFFICE_REL + 'table', '../tables/table1.xml')]) + '\n'
+				XML_DECL + relationshipsEl([relationshipEl('rId1', OFFICE_REL + 'table', '../tables/table1.xml')]) + '\n'
 			)
 		}
 
@@ -556,7 +548,7 @@ function buildChartRelsXml(embeddingTarget: string): string {
 	// `voidEl` escapes the Target. The one in-tree caller passes an internally built
 	// `../embeddings/Microsoft_Excel_WorksheetN.xlsx`, so that is a no-op on bytes;
 	// it matters only for the read-side injection path, which supplies its own target.
-	return XML_DECL + relationships([relationship('rId1', OFFICE_REL + 'package', embeddingTarget)])
+	return XML_DECL + relationshipsEl([relationshipEl('rId1', OFFICE_REL + 'package', embeddingTarget)])
 }
 
 /**
@@ -570,10 +562,10 @@ function buildChartRelsXml(embeddingTarget: string): string {
 function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styleTarget: string): string {
 	return (
 		XML_DECL +
-		relationships([
-			relationship('rId1', OFFICE_REL + 'package', embeddingTarget),
-			relationship('rId2', MS_CHART_REL + 'chartColorStyle', colorsTarget),
-			relationship('rId3', MS_CHART_REL + 'chartStyle', styleTarget),
+		relationshipsEl([
+			relationshipEl('rId1', OFFICE_REL + 'package', embeddingTarget),
+			relationshipEl('rId2', MS_CHART_REL + 'chartColorStyle', colorsTarget),
+			relationshipEl('rId3', MS_CHART_REL + 'chartStyle', styleTarget),
 		])
 	)
 }
