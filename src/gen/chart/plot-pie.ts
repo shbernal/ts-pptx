@@ -14,15 +14,15 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { resolveBorderWidth } from '../drawingml/line.js'
-import { lineWidthToEmu } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	createChartBorderLine,
 	createChartTextFonts,
+	createDataBorderLine,
 	createLeaderLinesElement,
+	dLblShowFlags,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
@@ -58,16 +58,7 @@ function pieDataPoint(
 	const border = ptStyle?.border
 		? createChartBorderLine(ptStyle.border)
 		: opts.dataBorder
-			? el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
-					raw(
-						genXmlColorSelection({
-							color: opts.dataBorder.color ?? '363636',
-							transparency: opts.dataBorder.transparency,
-						})
-					),
-					raw(voidEl('a:prstDash', { val: 'solid' })),
-					raw(voidEl('a:round')),
-				])
+			? createDataBorderLine(opts.dataBorder, 'flat')
 			: ''
 	const spPr = el(
 		'c:spPr',
@@ -156,12 +147,15 @@ function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOpt
 			chartType === ChartType.pie && opts.dataLabelPosition
 				? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }))
 				: null,
-			raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showVal', { val: customLbl ? 0 : opts.showValue ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showCatName', { val: opts.showLabel ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showPercent', { val: opts.showPercent ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+			...dLblShowFlags(
+				{
+					val: customLbl ? 0 : opts.showValue ? 1 : 0,
+					catName: opts.showLabel ? 1 : 0,
+					serName: opts.showSerName ? 1 : 0,
+					percent: opts.showPercent ? 1 : 0,
+				},
+				'    '
+			),
 		],
 		{ closePrefix: '  ' }
 	)
@@ -294,12 +288,7 @@ export function makePiePlot(
 			)
 		),
 		chartType === ChartType.pie ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' })) : null,
-		raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showVal', { val: 0 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showCatName', { val: 1 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showSerName', { val: 0 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showPercent', { val: 1 }, { openPrefix: '    ' })),
-		raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+		...dLblShowFlags({ catName: 1, percent: 1 }, '    '),
 		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }, { openPrefix: ' ' })),
 		raw(createLeaderLinesElement(opts)),
 	])

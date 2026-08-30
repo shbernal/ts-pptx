@@ -9,7 +9,6 @@
  * the stock branch of `makeChartAxesXml` (which reuses {@link ./chart-axes}).
  */
 
-import { ChartType } from '../../enums.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
@@ -22,12 +21,14 @@ import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } 
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
+	dLblShowFlags,
 	dimmedTextFill,
 	dimmedTextLine,
 	numCachePt,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
+	type PlotBuilder,
 } from './chart-parts.js'
 
 type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
@@ -49,14 +50,7 @@ const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolea
 export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!style && STOCK_STYLE_SPEC[style].volume
 
 /** Minimal `<c:dLbls>` block (all labels off) shared by the stock and volume-bar subcharts. */
-const STOCK_DLBLS = el('c:dLbls', null, [
-	raw(voidEl('c:showLegendKey', { val: 0 })),
-	raw(voidEl('c:showVal', { val: 0 })),
-	raw(voidEl('c:showCatName', { val: 0 })),
-	raw(voidEl('c:showSerName', { val: 0 })),
-	raw(voidEl('c:showPercent', { val: 0 })),
-	raw(voidEl('c:showBubbleSize', { val: 0 })),
-])
+const STOCK_DLBLS = el('c:dLbls', null, [...dLblShowFlags({})])
 
 /** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
 function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {
@@ -138,14 +132,7 @@ function makeStockLineSer(
  * `<c:stockChart>` on the secondary axis pair; the non-volume styles draw only the stock chart on
  * the primary pair. `valAxisId`/`catAxisId` are the primary ids passed by the dispatch.
  */
-export function makeStockPlot(
-	_chartType: ChartType,
-	data: OptsChartDataInternal[],
-	opts: ChartOptsInternal,
-	valAxisId: string,
-	catAxisId: string,
-	valFmtCode: string
-): string {
+export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
 	const spec = STOCK_STYLE_SPEC[(opts.stockStyle as StockStyle) || 'hlc']
 	const chartColors = resolveChartPalette(opts)
 	const volumeSeries = spec.volume ? data[0] : null

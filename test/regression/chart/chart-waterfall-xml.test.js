@@ -107,6 +107,13 @@ describe('waterfall (chartEx) chart', () => {
 		// legend + data labels honored
 		expect(xml).toContain('<cx:legend pos="t" align="ctr" overlay="0"/>')
 		expect(xml).toContain('<cx:visibility seriesName="0" categoryName="0" value="1"/>')
+		// The axis pair, exact, as the other four axis-bearing layouts pin theirs. Waterfall was
+		// the one that did not, and no showcase deck emits a chartEx part, so the byte-identity
+		// harness cannot see this markup at all -- it is proven here or nowhere. A chartEx
+		// `catScaling` gapWidth is a FRACTION (1.0 = 100%), not the classic integer percent.
+		expect((xml.match(/<cx:axis /g) || []).length).toBe(2)
+		expect(xml).toContain('<cx:axis id="0"><cx:catScaling gapWidth="0.5"/><cx:tickLabels/></cx:axis>')
+		expect(xml).toContain('<cx:axis id="1"><cx:valScaling/><cx:majorGridlines/><cx:tickLabels/></cx:axis>')
 	})
 
 	test('omits subtotals/legend/dataLabels when not requested', async () => {

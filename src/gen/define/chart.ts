@@ -23,6 +23,7 @@ import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, Slide
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
+import { isBubbleChart } from '../chart/chart-kind.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -139,12 +140,7 @@ function normalizeChartDataLabelPosition(options: ChartOptsInternal, chartType: 
 		if (chartType === ChartType.pie) {
 			if (!['bestFit', 'ctr', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
-		if (
-			chartType === ChartType.bubble ||
-			chartType === ChartType.bubble3d ||
-			chartType === ChartType.line ||
-			chartType === ChartType.scatter
-		) {
+		if (isBubbleChart(chartType) || chartType === ChartType.line || chartType === ChartType.scatter) {
 			if (!['b', 'ctr', 'l', 'r', 't'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
 		if (chartType === ChartType.bar) {

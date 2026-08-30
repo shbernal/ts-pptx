@@ -236,82 +236,64 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	])
 }
 
+/** The chartEx category axis: a gap width and tick labels. `id` is 0 except on the funnel. */
+function catScalingAxis(gapWidth: string, id = 0): string {
+	return el('cx:axis', { id }, [raw(voidEl('cx:catScaling', { gapWidth })), raw(voidEl('cx:tickLabels'))])
+}
+
+/** The chartEx primary value axis (id 1): a linear scale, gridlines and tick labels. */
+function gridlinedValAxis(): string {
+	return el('cx:axis', { id: 1 }, [
+		raw(voidEl('cx:valScaling')),
+		raw(voidEl('cx:majorGridlines')),
+		raw(voidEl('cx:tickLabels')),
+	])
+}
+
 /**
- * Build the `<cx:axis>` list for a layout (matched to what PowerPoint itself emits for each):
- * - **waterfall** — a category (id 0) + value (id 1) axis.
- * - **funnel** — a SINGLE category axis, which PowerPoint numbers id 1, with no value axis and no
- *   gridlines (the bars run horizontally off one category scale).
- * - **pareto** — like histogram (cat id0 gapWidth0 + val id1) PLUS a SECONDARY value axis id2
- *   scaled 0..1 with `unit="percentage"` that the cumulative `paretoLine` series binds to.
- * - **boxWhisker** — a category (id0, gapWidth 1) + value (id1, gridlines) axis, like waterfall
- *   but with the wider default gap PowerPoint uses to separate the boxes.
- * Every other layout returns no axes — the hierarchical treemap/sunburst are genuinely axis-free
- * (categories are encoded by the nested tiles/rings, not an axis scale), and a `regionMap` plots on
- * geography rather than any Cartesian axis.
+ * The category-axis gap width each axis-bearing chartEx layout uses. A chartEx `catScaling`
+ * gapWidth is a **fraction** (1.0 = 100%), NOT the classic integer percent.
+ *
+ * Histogram bins abut, so they take 0; the pareto's aggregated columns are histogram columns
+ * and take the same. A layout absent from this table has no axes at all: the hierarchical
+ * treemap and sunburst encode categories in nested tiles and rings rather than an axis scale,
+ * and a `regionMap` plots on geography.
+ */
+const CHARTEX_CAT_GAP_WIDTH: Partial<Record<ChartType, string>> = {
+	[ChartType.waterfall]: '0.5',
+	[ChartType.histogram]: '0',
+	[ChartType.pareto]: '0',
+	[ChartType.boxWhisker]: '1',
+}
+
+/**
+ * Build the `<cx:axis>` list for a layout, matched to what PowerPoint itself emits for each.
+ *
+ * Four of the five axis-bearing layouts are the same pair — a category axis (id 0) and a
+ * gridlined value axis (id 1) — differing only in gap width, so they are a table rather than
+ * four arms. The two that are not: the **funnel** has a SINGLE category axis, which PowerPoint
+ * numbers id 1, with no value axis and no gridlines (its bars run horizontally off one
+ * category scale); and the **pareto** adds a third axis for its cumulative line.
  */
 function makeChartExAxes(type: ChartType): string {
-	// chartEx catScaling gapWidth is a fraction (1.0 = 100%), NOT the classic integer percent.
-	if (type === ChartType.waterfall) {
-		const catAxis = el('cx:axis', { id: 0 }, [
-			raw(voidEl('cx:catScaling', { gapWidth: '0.5' })),
-			raw(voidEl('cx:tickLabels')),
-		])
-		const valAxis = el('cx:axis', { id: 1 }, [
-			raw(voidEl('cx:valScaling')),
-			raw(voidEl('cx:majorGridlines')),
-			raw(voidEl('cx:tickLabels')),
-		])
-		return catAxis + valAxis
-	}
-	if (type === ChartType.funnel) {
-		return el('cx:axis', { id: 1 }, [raw(voidEl('cx:catScaling', { gapWidth: '2.19' })), raw(voidEl('cx:tickLabels'))])
-	}
-	if (type === ChartType.histogram) {
-		// Histogram bins abut, so the category axis uses gapWidth 0; the value axis carries gridlines.
-		const catAxis = el('cx:axis', { id: 0 }, [
-			raw(voidEl('cx:catScaling', { gapWidth: '0' })),
-			raw(voidEl('cx:tickLabels')),
-		])
-		const valAxis = el('cx:axis', { id: 1 }, [
-			raw(voidEl('cx:valScaling')),
-			raw(voidEl('cx:majorGridlines')),
-			raw(voidEl('cx:tickLabels')),
-		])
-		return catAxis + valAxis
-	}
-	if (type === ChartType.pareto) {
-		// Aggregated column axes (like histogram: cat id0 gapWidth0 + val id1) …
-		const catAxis = el('cx:axis', { id: 0 }, [
-			raw(voidEl('cx:catScaling', { gapWidth: '0' })),
-			raw(voidEl('cx:tickLabels')),
-		])
-		const valAxis = el('cx:axis', { id: 1 }, [
-			raw(voidEl('cx:valScaling')),
-			raw(voidEl('cx:majorGridlines')),
-			raw(voidEl('cx:tickLabels')),
-		])
-		// … plus the SECONDARY value axis (id2) the cumulative paretoLine plots against: a 0..1
-		// percentage scale, no gridlines (the primary value axis already carries them).
-		const pctAxis = el('cx:axis', { id: 2 }, [
+	// The funnel is the one asymmetric layout: a single axis, and it is the *value* id the
+	// category scale hangs off, so it is not a row in the table above.
+	if (type === ChartType.funnel) return catScalingAxis('2.19', 1)
+
+	const gapWidth = CHARTEX_CAT_GAP_WIDTH[type]
+	if (gapWidth === undefined) return ''
+	const axes = catScalingAxis(gapWidth) + gridlinedValAxis()
+	// The pareto adds a SECONDARY value axis (id 2) for the cumulative paretoLine: a 0..1
+	// percentage scale, no gridlines, since the primary value axis already carries them.
+	if (type !== ChartType.pareto) return axes
+	return (
+		axes +
+		el('cx:axis', { id: 2 }, [
 			raw(voidEl('cx:valScaling', { max: '1', min: '0' })),
 			raw(voidEl('cx:units', { unit: 'percentage' })),
 			raw(voidEl('cx:tickLabels')),
 		])
-		return catAxis + valAxis + pctAxis
-	}
-	if (type === ChartType.boxWhisker) {
-		const catAxis = el('cx:axis', { id: 0 }, [
-			raw(voidEl('cx:catScaling', { gapWidth: '1' })),
-			raw(voidEl('cx:tickLabels')),
-		])
-		const valAxis = el('cx:axis', { id: 1 }, [
-			raw(voidEl('cx:valScaling')),
-			raw(voidEl('cx:majorGridlines')),
-			raw(voidEl('cx:tickLabels')),
-		])
-		return catAxis + valAxis
-	}
-	return ''
+	)
 }
 
 /** Build a minimal `<cx:title>` from the chart title options (only when `showTitle`). */

@@ -7,23 +7,24 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { resolveBorderWidth } from '../drawingml/line.js'
-import { lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
-import { ptToHundredths } from '../../units.js'
+import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
-	createChartTextFonts,
+	createDataBorderLine,
+	dLblShowFlags,
+	dataLabelDefRPr,
 	numCachePt,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
+	type PlotBuilder,
 } from './chart-parts.js'
 
 /** Fill + outline + shadow for one bubble series, from the palette colour and the line options. */
@@ -53,16 +54,7 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))
 			: opts.dataBorder
-				? el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
-						raw(
-							genXmlColorSelection({
-								color: opts.dataBorder.color ?? '363636',
-								transparency: opts.dataBorder.transparency,
-							})
-						),
-						raw(voidEl('a:prstDash', { val: 'solid' })),
-						raw(voidEl('a:round')),
-					])
+				? createDataBorderLine(opts.dataBorder, 'flat')
 				: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: 'flat' }, [
 						raw(genXmlColorSelection(serColor)),
 						raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
@@ -97,20 +89,7 @@ function bubbleSizeBlock(obj: OptsChartDataInternal, ref: string): string {
 
 /** The shared `<c:dLbls>` block: number format, label text style, and which parts are shown. */
 function bubbleDataLabels(opts: ChartOptsInternal): string {
-	const defRPr = el(
-		'a:defRPr',
-		{
-			b: opts.dataLabelFontBold ? 1 : 0,
-			i: opts.dataLabelFontItalic ? 1 : 0,
-			strike: 'noStrike',
-			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
-			u: 'none',
-		},
-		[
-			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
-		]
-	)
+	const defRPr = dataLabelDefRPr(opts)
 	const txPr = el('c:txPr', null, [
 		raw(voidEl('a:bodyPr')),
 		raw(voidEl('a:lstStyle')),
@@ -136,12 +115,11 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		raw(voidEl('c:showLegendKey', { val: 0 })),
-		raw(voidEl('c:showVal', { val: opts.showValue ? 1 : 0 })),
-		raw(voidEl('c:showCatName', { val: 0 })),
-		raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 })),
-		raw(voidEl('c:showPercent', { val: 0 })),
-		raw(voidEl('c:showBubbleSize', { val: opts.showBubbleSize ? 1 : 0 })),
+		...dLblShowFlags({
+			val: opts.showValue ? 1 : 0,
+			serName: opts.showSerName ? 1 : 0,
+			bubbleSize: opts.showBubbleSize ? 1 : 0,
+		}),
 		raw(extLst),
 	])
 }
@@ -149,14 +127,7 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 /**
  * Plot a bubble / bubble3d chart into `<c:bubbleChart>` (X/Y plus per-point size).
  */
-export function makeBubblePlot(
-	chartType: ChartType,
-	data: OptsChartDataInternal[],
-	opts: ChartOptsInternal,
-	valAxisId: string,
-	catAxisId: string,
-	valFmtCode: string
-): string {
+export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
 	/*
 				`data` = [
 					{ name:'X-Axis',     values:[1,2,3,4,5,6,7,8,9,10,11,12] },

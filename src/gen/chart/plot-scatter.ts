@@ -8,8 +8,7 @@
  * dispatch.
  */
 
-import { ChartType } from '../../enums.js'
-import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { BARCHART_COLORS, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
 import { createColorElement } from '../drawingml/color.js'
@@ -17,39 +16,22 @@ import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
-import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	chartColorLineFill,
 	chartDataLabels,
-	createChartTextFonts,
+	dLblShowFlags,
+	labelFontAttrs,
+	labelFontChildren,
 	makeChartErrorBarsXml,
 	makeSeriesDataPointsXml,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
+	type PlotBuilder,
 } from './chart-parts.js'
-
-/** The font attributes a scatter label's `<a:defRPr>` and `<a:rPr>` both carry, in schema order. */
-function labelFontAttrs(opts: ChartOptsInternal): Record<string, string | number> {
-	return {
-		sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
-		b: opts.dataLabelFontBold ? 1 : 0,
-		i: opts.dataLabelFontItalic ? 1 : 0,
-		u: 'none',
-		strike: 'noStrike',
-	}
-}
-
-/** The colour and typeface children of those run properties; `indent` is theirs, not the parent's. */
-function labelFontChildren(opts: ChartOptsInternal, indent: string) {
-	return [
-		raw(indent + el('a:solidFill', null, raw(createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)))),
-		raw(indent + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
-	]
-}
 
 /**
  * The `(x, y)` runs appended to a `customXY` label: a literal `" ("`, an `XVALUE` field, a
@@ -224,12 +206,7 @@ function scatterCustomLabel(
 			raw(el('c:tx', null, raw(rich), { openPrefix: '    ', closePrefix: '    ' })),
 			raw(spPr),
 			opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
-			raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showVal', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showCatName', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showSerName', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showPercent', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+			...dLblShowFlags({}, '    '),
 			raw(voidEl('c:showLeaderLines', { val: 1 }, { openPrefix: '       ' })),
 			raw(extLst),
 		],
@@ -382,14 +359,7 @@ function scatterMarker(opts: ChartOptsInternal, markerColor: string): string {
 /**
  * Plot an XY scatter chart into `<c:scatterChart>` (paired X/Y numeric series).
  */
-export function makeScatterPlot(
-	chartType: ChartType,
-	data: OptsChartDataInternal[],
-	opts: ChartOptsInternal,
-	valAxisId: string,
-	catAxisId: string,
-	valFmtCode: string
-): string {
+export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
 	/*
 				`data` = [
 					{ name:'X-Axis',    values:[1,2,3,4,5,6,7,8,9,10,11,12] },

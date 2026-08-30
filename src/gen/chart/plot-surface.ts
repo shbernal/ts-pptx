@@ -9,13 +9,19 @@
  * `makeChartHeaderXml`). Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
-import { ChartType } from '../../enums.js'
 import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { catRefBlock, numCachePt, paletteColor, resolveChartPalette, strRefBlock } from './chart-parts.js'
+import {
+	catRefBlock,
+	numCachePt,
+	paletteColor,
+	resolveChartPalette,
+	strRefBlock,
+	type PlotBuilder,
+} from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
@@ -68,14 +74,7 @@ function makeSurfaceSer(obj: OptsChartDataInternal, valFmtCode: string, seriesCo
  * series shares the category axis; the series axis (Z) is the third axis. `valAxisId`/`catAxisId`
  * are the primary ids passed by the dispatch; the series axis uses `AXIS_ID_SERIES_PRIMARY`.
  */
-export function makeSurfacePlot(
-	_chartType: ChartType,
-	data: OptsChartDataInternal[],
-	opts: ChartOptsInternal,
-	valAxisId: string,
-	catAxisId: string,
-	valFmtCode: string
-): string {
+export const makeSurfacePlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
 	const tag = isSurface3D(opts) ? 'surface3DChart' : 'surfaceChart'
 	const chartColors = resolveChartPalette(opts)
 	const sers = data

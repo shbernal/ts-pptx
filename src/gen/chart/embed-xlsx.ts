@@ -12,7 +12,6 @@
  * mapping the two sides share lives in `./data-refs.ts`.
  */
 
-import { ChartType } from '../../enums.js'
 import { XML_DECL } from '../../constants-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
 import { ZipWriter } from '../../zip.js'
@@ -22,6 +21,7 @@ import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } f
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
 import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
+import { isBubbleChart, isScatterChart } from './chart-kind.js'
 
 /** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
 const MS_CHART_REL = 'http://schemas.microsoft.com/office/2011/relationships/'
@@ -246,8 +246,8 @@ function buildXlsxSharedStrings(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	const isBubble = chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
-	const isScatter = chartObject.opts._type === ChartType.scatter
+	const isBubble = isBubbleChart(chartObject.opts._type)
+	const isScatter = isScatterChart(chartObject.opts._type)
 	let count: number
 	let uniqueCount: number
 	// The leading entry is the blank the header row's label columns point at. Its two spellings are
@@ -307,7 +307,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 	const labelCols = dataLabels(data[0]).length
 	let ref: string
 	let columns: string
-	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+	if (isBubbleChart(chartObject.opts._type)) {
 		ref = `A1:${getExcelColName(intBubbleCols)}${intBubbleCols}`
 		let idxColLtr = 1
 		columns = data
@@ -318,7 +318,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 				return nameCol + voidEl('tableColumn', { id: idx + idxColLtr, name: `Size${idx}` })
 			})
 			.join('')
-	} else if (chartObject.opts._type === ChartType.scatter) {
+	} else if (isScatterChart(chartObject.opts._type)) {
 		ref = `A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}`
 		columns = data
 			.map((_obj, idx) => voidEl('tableColumn', { id: idx + 1, name: `${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}` }))
@@ -332,12 +332,11 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 				.join('') +
 			data.map((obj, idx) => voidEl('tableColumn', { id: idx + labelCols + 1, name: obj.name ?? '' })).join('')
 	}
-	const columnCount =
-		chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
-			? intBubbleCols
-			: chartObject.opts._type === ChartType.scatter
-				? data.length
-				: data.length + labelCols
+	const columnCount = isBubbleChart(chartObject.opts._type)
+		? intBubbleCols
+		: isScatterChart(chartObject.opts._type)
+			? data.length
+			: data.length + labelCols
 	return (
 		XML_DECL +
 		el('table', { xmlns: SML_NS, id: 1, name: 'Table1', displayName: 'Table1', ref, totalsRowShown: 0 }, [
@@ -363,8 +362,8 @@ function buildXlsxSheet(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	const isBubble = chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d
-	const isScatter = chartObject.opts._type === ChartType.scatter
+	const isBubble = isBubbleChart(chartObject.opts._type)
+	const isScatter = isScatterChart(chartObject.opts._type)
 	const labelCols = dataLabels(data[0]).length
 	/** One cell. `t="s"` marks a shared-string index; without it the value is a number. */
 	const cell = (col: number, row: number, value: string | number, shared = false): string =>

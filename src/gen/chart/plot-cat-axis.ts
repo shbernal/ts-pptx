@@ -20,16 +20,19 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { createLineCap } from '../drawingml/line.js'
+import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
+	catRefBlock,
 	chartColorLineFill,
 	chartDataLabels,
 	createChartTextFonts,
+	createDataBorderLine,
 	createSerLinesElement,
+	dLblShowFlags,
 	makeChartErrorBarsXml,
 	makeCustomDLblXml,
 	makeSeriesDataPointsXml,
@@ -37,7 +40,7 @@ import {
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
-	catRefBlock,
+	type PlotBuilder,
 } from './chart-parts.js'
 
 /** The chart types drawn as a line (a marker per point, an optional smooth) rather than as a body. */
@@ -107,20 +110,7 @@ function serShapeProps(
 						raw(voidEl('a:round')),
 					])
 	} else if (opts.dataBorder) {
-		line = el(
-			'a:ln',
-			{ w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: createLineCap(opts.lineCap) },
-			[
-				raw(
-					genXmlColorSelection({
-						color: opts.dataBorder.color ?? '363636',
-						transparency: opts.dataBorder.transparency,
-					})
-				),
-				raw(voidEl('a:prstDash', { val: 'solid' })),
-				raw(voidEl('a:round')),
-			]
-		)
+		line = createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
 	}
 	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))], {
 		openPrefix: '  ',
@@ -192,12 +182,7 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 		opts.dataLabelBkgrdColors ? raw(el('c:spPr', null, raw(genXmlColorSelection(seriesColor)))) : null,
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		raw(voidEl('c:showLegendKey', { val: 0 })),
-		raw(voidEl('c:showVal', { val: opts.showValue ? 1 : 0 })),
-		raw(voidEl('c:showCatName', { val: 0 })),
-		raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 })),
-		raw(voidEl('c:showPercent', { val: 0 })),
-		raw(voidEl('c:showBubbleSize', { val: 0 })),
+		...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }),
 		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })),
 	])
 }
@@ -267,14 +252,7 @@ function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
  * Plot a category-axis chart family (area / bar / bar3d / line / radar) into a
  * `<c:xxxChart>` element. These share the grouping / series / cat+val axis structure.
  */
-export function makeCatAxisPlot(
-	chartType: ChartType,
-	data: OptsChartDataInternal[],
-	opts: ChartOptsInternal,
-	valAxisId: string,
-	catAxisId: string,
-	valFmtCode: string
-): string {
+export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
 	/* EX1:
 				data: [
 				 {

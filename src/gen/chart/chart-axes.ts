@@ -42,6 +42,7 @@ import {
 	genXmlTitle,
 	validTimeUnit,
 } from './chart-parts.js'
+import { isScatterChart, isXyChart } from './chart-kind.js'
 
 /**
  * The `<c:spPr>` axis-line block, identical in shape on all three axes.
@@ -80,9 +81,31 @@ function axisLineSpPr(
 	return el('c:spPr', null, raw(line), { openPrefix: at(0), closePrefix: at(0) })
 }
 
+/**
+ * The `<a:p>` an axis `<c:txPr>` wraps its run properties in: the `<a:pPr>` carrying `defRPr`,
+ * then an empty `<a:endParaRPr>`. All three axis builders emit exactly this.
+ *
+ * The two prefixes are what kept it copied rather than shared: the value axis indents its
+ * `a:pPr` close and its own open one level differently from the category and series axes.
+ * @param defRPr - the already-built `<a:defRPr>`
+ * @param lang - the deck's language tag, for `endParaRPr`
+ * @param pPrClosePrefix - `closePrefix` for the `<a:pPr>`
+ * @param openPrefix - `openPrefix` for the `<a:p>` itself, whose `closePrefix` matches it
+ */
+function axisTextParagraph(defRPr: string, lang: string, pPrClosePrefix: string, openPrefix: string): string {
+	return el(
+		'a:p',
+		null,
+		[
+			raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: pPrClosePrefix })),
+			raw(voidEl('a:endParaRPr', { lang }, { openPrefix: '  ' })),
+		],
+		{ openPrefix, closePrefix: '  ' }
+	)
+}
+
 export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
-	const usesValueAxisForCategories =
-		opts._type === ChartType.scatter || opts._type === ChartType.bubble || opts._type === ChartType.bubble3d
+	const usesValueAxisForCategories = isXyChart(opts._type)
 	const usesCategoryAxis = !usesValueAxisForCategories && !opts.catLabelFormatCode
 	// NOTE: scatter and bubble charts display numbers on the X axis, so their category axis is a
 	// second value axis; a `catLabelFormatCode` means dates, which is a `<c:dateAx>`.
@@ -112,18 +135,17 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 				{ openPrefix: '  ' }
 			)
 
-	const ticks =
-		opts._type === ChartType.scatter
-			? voidEl('c:majorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
-				voidEl('c:minorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
-				voidEl('c:tickLblPos', { val: opts.catAxisLabelPos || 'nextTo' }, { openPrefix: '  ' })
-			: voidEl('c:majorTickMark', { val: opts.catAxisMajorTickMark || 'out' }, { openPrefix: '  ' }) +
-				voidEl('c:minorTickMark', { val: opts.catAxisMinorTickMark || 'none' }, { openPrefix: '  ' }) +
-				voidEl(
-					'c:tickLblPos',
-					{ val: opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') },
-					{ openPrefix: '  ' }
-				)
+	const ticks = isScatterChart(opts._type)
+		? voidEl('c:majorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
+			voidEl('c:minorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
+			voidEl('c:tickLblPos', { val: opts.catAxisLabelPos || 'nextTo' }, { openPrefix: '  ' })
+		: voidEl('c:majorTickMark', { val: opts.catAxisMajorTickMark || 'out' }, { openPrefix: '  ' }) +
+			voidEl('c:minorTickMark', { val: opts.catAxisMinorTickMark || 'none' }, { openPrefix: '  ' }) +
+			voidEl(
+				'c:tickLblPos',
+				{ val: opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') },
+				{ openPrefix: '  ' }
+			)
 
 	const defRPr = el(
 		'a:defRPr',
@@ -151,17 +173,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 				})
 			),
 			raw(voidEl('a:lstStyle', null, { openPrefix: '    ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: '  ' })),
-						raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' }, { openPrefix: '  ' })),
-					],
-					{ openPrefix: '    ', closePrefix: '  ' }
-				)
-			),
+			raw(axisTextParagraph(defRPr, opts.lang || 'en-US', '  ', '    ')),
 		],
 		{ openPrefix: '  ', closePrefix: ' ' }
 	)
@@ -255,18 +267,17 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		{ openPrefix: '  ', closePrefix: '  ' }
 	)
 
-	const ticks =
-		opts._type === ChartType.scatter
-			? voidEl('c:majorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
-				voidEl('c:minorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
-				voidEl('c:tickLblPos', { val: 'nextTo' }, { openPrefix: '  ' })
-			: voidEl('c:majorTickMark', { val: opts.valAxisMajorTickMark || 'out' }, { openPrefix: ' ' }) +
-				voidEl('c:minorTickMark', { val: opts.valAxisMinorTickMark || 'none' }, { openPrefix: ' ' }) +
-				voidEl(
-					'c:tickLblPos',
-					{ val: opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low') },
-					{ openPrefix: ' ' }
-				)
+	const ticks = isScatterChart(opts._type)
+		? voidEl('c:majorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
+			voidEl('c:minorTickMark', { val: 'none' }, { openPrefix: '  ' }) +
+			voidEl('c:tickLblPos', { val: 'nextTo' }, { openPrefix: '  ' })
+		: voidEl('c:majorTickMark', { val: opts.valAxisMajorTickMark || 'out' }, { openPrefix: ' ' }) +
+			voidEl('c:minorTickMark', { val: opts.valAxisMinorTickMark || 'none' }, { openPrefix: ' ' }) +
+			voidEl(
+				'c:tickLblPos',
+				{ val: opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low') },
+				{ openPrefix: ' ' }
+			)
 
 	const defRPr = el(
 		'a:defRPr',
@@ -298,17 +309,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 				)
 			),
 			raw(voidEl('a:lstStyle', null, { openPrefix: '  ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: '    ' })),
-						raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' }, { openPrefix: '  ' })),
-					],
-					{ openPrefix: '  ', closePrefix: '  ' }
-				)
-			),
+			raw(axisTextParagraph(defRPr, opts.lang || 'en-US', '    ', '  ')),
 		],
 		{ openPrefix: ' ', closePrefix: ' ' }
 	)
@@ -323,7 +324,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 				: voidEl('c:crosses', { val: axisPos === 'r' || axisPos === 't' ? 'max' : 'autoZero' }, { openPrefix: ' ' })
 	const crossBetween =
 		opts.valAxisCrossBetween ||
-		(opts._type === ChartType.scatter ||
+		(isScatterChart(opts._type) ||
 		!!(Array.isArray(opts._type) && opts._type.some((type) => asChartType(type.type) === ChartType.area))
 			? 'midCat'
 			: 'between')
@@ -403,17 +404,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			// Don't specify `rot="0"`, so we get the auto behavior.
 			raw(voidEl('a:bodyPr', null, { openPrefix: '    ' })),
 			raw(voidEl('a:lstStyle', null, { openPrefix: '    ' })),
-			raw(
-				el(
-					'a:p',
-					null,
-					[
-						raw(el('a:pPr', null, raw(defRPr), { openPrefix: '    ', closePrefix: '  ' })),
-						raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' }, { openPrefix: '  ' })),
-					],
-					{ openPrefix: '    ', closePrefix: '  ' }
-				)
-			),
+			raw(axisTextParagraph(defRPr, opts.lang || 'en-US', '  ', '    ')),
 		],
 		{ openPrefix: '  ', closePrefix: ' ' }
 	)

@@ -42,6 +42,7 @@ import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
+import { isScatterChart, isXyChart } from './chart-kind.js'
 
 /** The three namespaces every `<c:chartSpace>` declares, in the order PowerPoint writes them. */
 const CHART_SPACE_NS = {
@@ -483,8 +484,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 			const subType = asChartType(type.type)
 			// Record whether this subchart needs a value-based X axis (scatter/bubble)
 			// or a category-based X axis, keyed to the primary/secondary cat axis it uses.
-			const usesValueXAxis =
-				subType === ChartType.scatter || subType === ChartType.bubble || subType === ChartType.bubble3d
+			const usesValueXAxis = isXyChart(subType)
 			if (options.secondaryCatAxis) {
 				if (usesValueXAxis) secondaryCatAxisValType = subType
 				else secondaryCatAxisHasCategoryChart = true
@@ -524,7 +524,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		rel.opts.showLegend ? raw(makeLegendXml(rel)) : null,
 		raw(voidEl('c:plotVisOnly', { val: 1 }, { openPrefix: '  ' })),
 		raw(voidEl('c:dispBlanksAs', { val: rel.opts.displayBlanksAs }, { openPrefix: '  ' })),
-		rel.opts._type === ChartType.scatter ? raw(voidEl('c:showDLblsOverMax', { val: 1 })) : null,
+		isScatterChart(rel.opts._type) ? raw(voidEl('c:showDLblsOverMax', { val: 1 })) : null,
 	])
 
 	// STEP 4: the chart space around it — shape props, the embedded workbook relationship, and

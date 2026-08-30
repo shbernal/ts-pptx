@@ -49,7 +49,7 @@ export type XmlAttrs = Record<string, string | number | null | undefined>
  * - `childPrefix` — emitted before each child
  * - `closePrefix` — emitted before the closing delimiter (`</name>`, or `/>` for `voidEl`)
  */
-interface XmlFmt {
+export interface XmlFmt {
 	openPrefix?: string
 	childPrefix?: string
 	closePrefix?: string

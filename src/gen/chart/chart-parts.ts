@@ -28,7 +28,133 @@ import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertAngleUnits, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
-import { el, raw, voidEl } from '../oxml/el.js'
+import { el, raw, voidEl, type XmlChild, type XmlFmt } from '../oxml/el.js'
+
+/**
+ * The signature every axis-plot builder shares: `<c:areaChart>`, `<c:barChart>`,
+ * `<c:lineChart>`, `<c:radarChart>`, `<c:scatterChart>`, `<c:bubbleChart>`,
+ * `<c:stockChart>` and `<c:surfaceChart>` are all built from the same six inputs and
+ * dispatched from one `switch` in {@link ./chart-xml}.
+ *
+ * Naming it makes adding an input one edit instead of six, and makes a builder that
+ * disagrees with the dispatch a type error rather than an argument quietly dropped on the
+ * floor. `makePiePlot` is deliberately not of this type: a pie has no axes, so it takes
+ * neither axis id, and widening the contract to fit it would mean handing it two arguments
+ * it must ignore.
+ *
+ * `chartType` is passed even to the builders that serve a single kind (`stock`, `surface`),
+ * which spell it `_chartType`, so the dispatch stays uniform.
+ */
+/**
+ * The six `c:show*` flags every `<c:dLbls>` carries, in schema order, as `XmlChild`s for the
+ * parent's child list. Eight `<c:dLbls>` builders across five modules wrote all six out by
+ * hand; each cared about one or two of them and hard-coded the rest to `0`.
+ *
+ * The order is `CT_DLbls`'s and is not negotiable, which is the other reason to state it once:
+ * a flag inserted in the wrong place is a repair prompt rather than a wrong-looking chart.
+ * Every flag defaults to `0`, so a caller names only what it means to turn on.
+ *
+ * `prefix` is the `openPrefix` the historical template layout put in front of each element.
+ * It is uniform at every call site but one — `scatterSerDLbls` alternates between two
+ * indents, a fossil of the string it was migrated from — and that one keeps its explicit
+ * block rather than being fitted with a per-flag prefix map.
+ *
+ * @param flags - the values to emit, defaulting to `0`
+ * @param prefix - `openPrefix` for all six elements
+ */
+export function dLblShowFlags(
+	flags: {
+		legendKey?: 0 | 1
+		val?: 0 | 1
+		catName?: 0 | 1
+		serName?: 0 | 1
+		percent?: 0 | 1
+		bubbleSize?: 0 | 1
+	},
+	prefix = ''
+): XmlChild[] {
+	const fmt = prefix ? { openPrefix: prefix } : undefined
+	return (
+		[
+			['c:showLegendKey', flags.legendKey],
+			['c:showVal', flags.val],
+			['c:showCatName', flags.catName],
+			['c:showSerName', flags.serName],
+			['c:showPercent', flags.percent],
+			['c:showBubbleSize', flags.bubbleSize],
+		] as const
+	).map(([name, val]) => raw(voidEl(name, { val: val ?? 0 }, fmt)))
+}
+
+/**
+ * The data-label run properties, in the attribute order the scatter and custom-label paths
+ * emit: `sz, b, i, u, strike`.
+ *
+ * There is a second ordering in this file — `b, i, strike, sz, u`, used by
+ * {@link chartDataLabels} and by the bubble plot — and the two are **deliberately not
+ * merged**. Attribute order carries no meaning in XML, so either is correct and a reader is
+ * right to want one; but merging them moves bytes in a refactor whose whole claim is that it
+ * does not, and the byte-identity gate is what makes that claim checkable. Unifying the
+ * spelling is a decision to take on its own, with its own re-baseline.
+ * @param opts - the chart's normalized options
+ */
+export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string | number> {
+	return {
+		sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
+		b: opts.dataLabelFontBold ? 1 : 0,
+		i: opts.dataLabelFontItalic ? 1 : 0,
+		u: 'none',
+		strike: 'noStrike',
+	}
+}
+
+/**
+ * The colour and typeface children of those run properties; `indent` is theirs, not the
+ * parent's, which is what lets one helper serve call sites at four different depths.
+ * @param opts - the chart's normalized options
+ * @param indent - leading whitespace for each child
+ */
+export function labelFontChildren(opts: ChartOptsInternal, indent = ''): XmlChild[] {
+	return [
+		raw(indent + el('a:solidFill', null, raw(createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)))),
+		raw(indent + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+	]
+}
+
+/**
+ * The `<a:defRPr>` a `<c:dLbls>` text style carries, in the `b, i, strike, sz, u` ordering the
+ * chart-level and bubble label blocks share. See {@link labelFontAttrs} for why there are two
+ * orderings and why they stay apart.
+ * @param opts - the chart's normalized options
+ * @param fontsPrefix - leading whitespace before the `<a:latin>` typeface block
+ * @param fmt - `openPrefix`/`closePrefix` for the element itself
+ */
+export function dataLabelDefRPr(opts: ChartOptsInternal, fontsPrefix = '', fmt?: XmlFmt): string {
+	return el(
+		'a:defRPr',
+		{
+			b: opts.dataLabelFontBold ? 1 : 0,
+			i: opts.dataLabelFontItalic ? 1 : 0,
+			strike: 'noStrike',
+			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
+			u: 'none',
+		},
+		[
+			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
+			raw(fontsPrefix + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+		],
+		fmt
+	)
+}
+
+export type PlotBuilder = (
+	chartType: ChartType,
+	data: OptsChartDataInternal[],
+	opts: ChartOptsInternal,
+	valAxisId: string,
+	catAxisId: string,
+	valFmtCode: string
+) => string
 
 export const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
@@ -266,21 +392,7 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
  * @param leaderLines - emit the trailing `<c:showLeaderLines>` (category-axis plots only)
  */
 export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
-	const defRPr = el(
-		'a:defRPr',
-		{
-			b: opts.dataLabelFontBold ? 1 : 0,
-			i: opts.dataLabelFontItalic ? 1 : 0,
-			strike: 'noStrike',
-			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
-			u: 'none',
-		},
-		[
-			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
-			raw('          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
-		],
-		{ openPrefix: '        ', closePrefix: '        ' }
-	)
+	const defRPr = dataLabelDefRPr(opts, '          ', { openPrefix: '        ', closePrefix: '        ' })
 	const txPr = el(
 		'c:txPr',
 		null,
@@ -304,12 +416,7 @@ export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): 
 			),
 			raw(txPr),
 			opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }, { openPrefix: ' ' })) : null,
-			raw(voidEl('c:showLegendKey', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showVal', { val: opts.showValue ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showCatName', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showPercent', { val: 0 }, { openPrefix: '    ' })),
-			raw(voidEl('c:showBubbleSize', { val: 0 }, { openPrefix: '    ' })),
+			...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }, '    '),
 			leaderLines
 				? raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }, { openPrefix: '    ' }))
 				: null,
@@ -525,14 +632,9 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
  * @return {string} a `<c:dLbl>` element
  */
 export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): string {
-	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
-	const bold = opts.dataLabelFontBold ? 1 : 0
-	const italic = opts.dataLabelFontItalic ? 1 : 0
-	const color = createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)
-	const face = opts.dataLabelFontFace || 'Arial'
 	const lang = opts.lang || 'en-US'
-	const runChildren = [raw(el('a:solidFill', null, raw(color))), raw(createChartTextFonts(face))]
-	const fontAttrs = { sz, b: bold, i: italic, u: 'none', strike: 'noStrike' }
+	const runChildren = labelFontChildren(opts)
+	const fontAttrs = labelFontAttrs(opts)
 	const paragraph = el('a:p', null, [
 		raw(el('a:pPr', null, raw(el('a:defRPr', fontAttrs, runChildren)))),
 		raw(el('a:r', null, [raw(el('a:rPr', { lang, ...fontAttrs, dirty: 0 }, runChildren)), raw(el('a:t', null, text))])),
@@ -541,12 +643,7 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
 	return el('c:dLbl', null, [
 		raw(voidEl('c:idx', { val: idx })),
 		raw(el('c:tx', null, raw(rich))),
-		raw(voidEl('c:showLegendKey', { val: 0 })),
-		raw(voidEl('c:showVal', { val: 0 })),
-		raw(voidEl('c:showCatName', { val: 0 })),
-		raw(voidEl('c:showSerName', { val: 0 })),
-		raw(voidEl('c:showPercent', { val: 0 })),
-		raw(voidEl('c:showBubbleSize', { val: 0 })),
+		...dLblShowFlags({}),
 	])
 }
 
@@ -554,6 +651,29 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  * Build an `<a:ln>` border element from a per-data-point `BorderProps`.
  * @param border - point border style (`type`, `color`, `pt`)
  */
+/**
+ * The `<a:ln>` a chart-level `dataBorder` paints around every data point — the bubble, the
+ * pie slice, the bar.
+ *
+ * A near-sibling of {@link createChartBorderLine} rather than the same thing, and the four
+ * differences are all deliberate: a data-point outline defaults to 0.75pt against a chart
+ * border's 1pt, to `363636` against `666666`, is always solid because `dataBorder` has no
+ * dash spelling of its own, and has no `type: 'none'` arm because the caller decides whether
+ * to emit it at all. Three plot builders carried a byte-identical copy of it.
+ *
+ * `cap` is the one thing that genuinely varies: the bubble and pie paths pin `flat`, the
+ * category-axis path resolves the chart's own `lineCap`.
+ * @param dataBorder - the chart's `dataBorder`
+ * @param cap - the `cap` attribute value, already resolved
+ */
+export function createDataBorderLine(dataBorder: BorderProps, cap: string): string {
+	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(dataBorder, 0.75)), cap }, [
+		raw(genXmlColorSelection({ color: dataBorder.color ?? '363636', transparency: dataBorder.transparency })),
+		raw(voidEl('a:prstDash', { val: 'solid' })),
+		raw(voidEl('a:round')),
+	])
+}
+
 export function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
 	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' }, [
