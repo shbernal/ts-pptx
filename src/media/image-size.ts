@@ -8,6 +8,7 @@
  */
 
 import { decodeBase64ToBytes } from './base64.js'
+import { IMAGE_FORMATS } from './image-formats.js'
 
 /**
  * Read the intrinsic dimensions of an image from its header bytes.
@@ -41,21 +42,21 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 	const u = (n: number): number => b[n] ?? 0
 
 	// PNG: 8-byte signature, then IHDR with width@16 / height@20 (big-endian uint32)
-	if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
+	if (IMAGE_FORMATS.png.magic?.(b)) {
 		const w = (u(16) << 24) | (u(17) << 16) | (u(18) << 8) | u(19)
 		const h = (u(20) << 24) | (u(21) << 16) | (u(22) << 8) | u(23)
 		return w > 0 && h > 0 ? { w, h } : null
 	}
 
 	// GIF: "GIF87a"/"GIF89a", width@6 / height@8 (little-endian uint16)
-	if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {
+	if (IMAGE_FORMATS.gif.magic?.(b)) {
 		const w = u(6) | (u(7) << 8)
 		const h = u(8) | (u(9) << 8)
 		return w > 0 && h > 0 ? { w, h } : null
 	}
 
 	// BMP: "BM", width@18 / height@22 (little-endian int32; height may be negative for top-down)
-	if (b[0] === 0x42 && b[1] === 0x4d) {
+	if (IMAGE_FORMATS.bmp.magic?.(b)) {
 		const w = u(18) | (u(19) << 8) | (u(20) << 16) | (u(21) << 24)
 		const h = u(22) | (u(23) << 8) | (u(24) << 16) | (u(25) << 24)
 		const aw = Math.abs(w)
@@ -64,16 +65,7 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 	}
 
 	// WebP: "RIFF"...."WEBP" then a VP8 / VP8L / VP8X chunk
-	if (
-		b[0] === 0x52 &&
-		b[1] === 0x49 &&
-		b[2] === 0x46 &&
-		b[3] === 0x46 &&
-		b[8] === 0x57 &&
-		b[9] === 0x45 &&
-		b[10] === 0x42 &&
-		b[11] === 0x50
-	) {
+	if (IMAGE_FORMATS.webp.magic?.(b)) {
 		const fourCC = String.fromCharCode(u(12), u(13), u(14), u(15))
 		if (fourCC === 'VP8 ' && b.length >= 30) {
 			// Lossy: 14-bit width/height at offset 26/28 (little-endian, mask off scale bits)
@@ -97,8 +89,8 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 		return null
 	}
 
-	// JPEG: "FFD8", scan segment markers for a Start-Of-Frame (SOFn) and read height@5 / width@7
-	if (b[0] === 0xff && b[1] === 0xd8) {
+	// JPEG: "FFD8FF", scan segment markers for a Start-Of-Frame (SOFn) and read height@5 / width@7
+	if (IMAGE_FORMATS.jpeg.magic?.(b)) {
 		let i = 2
 		while (i + 9 < b.length) {
 			if (b[i] !== 0xff) {

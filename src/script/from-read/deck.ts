@@ -22,27 +22,10 @@ import { shapeCall, unwritableFramePayload, type AssetResolver } from './shape.j
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
 import { compact } from './values.js'
+import { assetFilenameExtension } from '../../media/content-type.js'
 
 /** Default slide size (10" × 7.5") for a deck whose `presentation.xml` declares none. */
 const DEFAULT_SLIDE_SIZE = { widthEmu: 9144000, heightEmu: 6858000 }
-
-/** Extensions by content type, so an emitted asset filename is one a viewer recognises. */
-const ASSET_EXTENSIONS: Record<string, string> = {
-	'image/png': 'png',
-	'image/jpeg': 'jpg',
-	'image/gif': 'gif',
-	'image/bmp': 'bmp',
-	'image/webp': 'webp',
-	'image/tiff': 'tif',
-	'image/x-emf': 'emf',
-	'image/x-wmf': 'wmf',
-	'image/svg+xml': 'svg',
-	// PowerPoint authors the `x-` form for an embedded transition sound; both spellings
-	// appear in the wild and neither has `wav` as its trailing path component.
-	'audio/x-wav': 'wav',
-	'audio/wav': 'wav',
-	'audio/mpeg': 'mp3',
-}
 
 /**
  * Collects media as shapes reference it, assigning each part a stable sequential name.
@@ -70,7 +53,7 @@ class Assets implements AssetResolver {
 		const part = this.pres.opc.part(partName)
 		if (!part) return null
 
-		const extension = ASSET_EXTENSIONS[part.contentType] ?? partName.split('.').pop() ?? 'bin'
+		const extension = assetFilenameExtension(part.contentType) ?? partName.split('.').pop() ?? 'bin'
 		const kind = part.contentType.startsWith('audio/') ? 'audio' : 'image'
 		const index = (this.#counts.get(kind) ?? 0) + 1
 		this.#counts.set(kind, index)

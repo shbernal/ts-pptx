@@ -6,30 +6,19 @@
  * PowerPoint offers to repair.
  */
 
+import { imageFormatForContentType, imageFormatForExtension } from './image-formats.js'
+
 /**
- * Map an image file extension to its OOXML content type.
- * Inverse of the read-side `IMAGE_EXTENSION_BY_CONTENT_TYPE` (src/read/api/shapes/picture.ts):
- * EMF/WMF use the `x-`-prefixed forms PowerPoint authors (and that the read side
- * expects), `jpg`/`jpeg` normalize to `image/jpeg`, and `svg` to `image/svg+xml`.
- * Only the content type is derived here; the file extension (used for the media
- * Target filename) is left to the caller.
+ * Map an image file extension to its OOXML content type, through the format registry in
+ * `media/image-formats.ts`. An extension the registry does not carry falls through to
+ * `image/<extn>`, which is right for any format whose content type is its extension.
+ * Only the content type is derived here; the file extension (used for the media Target
+ * filename) is left to the caller.
  * @param {string} extn - image file extension (e.g. `png`, `jpg`, `emf`)
  * @returns {string} OOXML content type (e.g. `image/png`, `image/x-emf`)
  */
 export function imageContentType(extn: string): string {
-	switch ((extn || '').toLowerCase()) {
-		case 'emf':
-			return 'image/x-emf'
-		case 'wmf':
-			return 'image/x-wmf'
-		case 'svg':
-			return 'image/svg+xml'
-		case 'jpg':
-		case 'jpeg':
-			return 'image/jpeg'
-		default:
-			return 'image/' + (extn || '').toLowerCase()
-	}
+	return imageFormatForExtension(extn)?.contentType ?? 'image/' + (extn || '').toLowerCase()
 }
 
 /**
@@ -141,4 +130,20 @@ export function avContentType(extn: string, mtype: 'audio' | 'video'): string {
 		default:
 			return mtype + '/' + (extn || '').toLowerCase()
 	}
+}
+
+/**
+ * The extension an emitted *asset filename* should carry for a media content type, or `null`
+ * when nothing here names one and the caller should fall back to the source part's own suffix.
+ *
+ * This is the on-disk spelling, not the media part's: `image/jpeg` is `jpg` and `image/tiff` is
+ * `tif` here, because an asset directory is read by people and opened by desktop viewers. See the
+ * `filenameExt` column in `media/image-formats.ts`. Audio goes through {@link audioExtensionForSubtype}, which is
+ * already the one table for that direction.
+ */
+export function assetFilenameExtension(contentType: string): string | null {
+	const image = imageFormatForContentType(contentType)
+	if (image) return image.filenameExt
+	const ct = (contentType || '').toLowerCase()
+	return ct.startsWith('audio/') ? audioExtensionForSubtype(ct.slice('audio/'.length)) : null
 }

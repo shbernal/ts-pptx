@@ -20,6 +20,7 @@ import {
 	type Element,
 } from '../../oxml/dom.js'
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../../media/image-size.js'
+import { imageFormatForContentType } from '../../../media/image-formats.js'
 import { warn } from '../../../diagnostics.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { colorValueIf } from '../../oxml/fill.js'
@@ -34,26 +35,14 @@ import { BLIPFILL_BLIP_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
 
-/** Known content-type → file-extension map for image media parts. */
-const IMAGE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = Object.freeze({
-	'image/png': 'png',
-	'image/jpeg': 'jpeg',
-	'image/gif': 'gif',
-	'image/bmp': 'bmp',
-	'image/tiff': 'tiff',
-	'image/webp': 'webp',
-	'image/svg+xml': 'svg',
-	'image/x-emf': 'emf',
-	'image/x-wmf': 'wmf',
-})
-
 /**
- * Default a media-part file extension from a content type. Known image types use
- * an explicit map; otherwise fall back to the content-type subtype (before any
- * `+suffix`, with a leading `x-` stripped), e.g. `image/x-foo` → `foo`.
+ * Default a media-part file extension from a content type. A format the registry in
+ * `media/image-formats.ts` names uses its canonical extension; otherwise fall back to the
+ * content-type subtype (before any `+suffix`, with a leading `x-` stripped), e.g.
+ * `image/x-foo` → `foo`.
  */
 function extFromContentType(contentType: string): string {
-	const known = IMAGE_EXTENSION_BY_CONTENT_TYPE[contentType.toLowerCase()]
+	const known = imageFormatForContentType(contentType)?.ext
 	if (known) return known
 	const subtype = contentType.toLowerCase().split('/')[1] ?? ''
 	const ext = (subtype.split('+')[0] ?? '').replace(/^x-/, '')

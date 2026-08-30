@@ -48,6 +48,7 @@ import {
 } from './transition.js'
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-types.js'
+import { imageFormatForBytes } from '../../media/image-formats.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
 
@@ -94,35 +95,10 @@ interface ImageType {
 	contentType: string
 }
 
-/** Recognize a handful of common raster formats from their leading bytes. */
+/** Recognize a common raster format from its leading bytes, through the shared registry. */
 function sniffImageType(bytes: Uint8Array): ImageType | null {
-	const b = bytes
-	if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47)
-		return { extension: 'png', contentType: 'image/png' }
-	if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff)
-		return { extension: 'jpeg', contentType: 'image/jpeg' }
-	if (b.length >= 4 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38)
-		return { extension: 'gif', contentType: 'image/gif' }
-	if (b.length >= 2 && b[0] === 0x42 && b[1] === 0x4d) return { extension: 'bmp', contentType: 'image/bmp' }
-	if (
-		b.length >= 4 &&
-		((b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0x00) ||
-			(b[0] === 0x4d && b[1] === 0x4d && b[2] === 0x00 && b[3] === 0x2a))
-	)
-		return { extension: 'tiff', contentType: 'image/tiff' }
-	if (
-		b.length >= 12 &&
-		b[0] === 0x52 &&
-		b[1] === 0x49 &&
-		b[2] === 0x46 &&
-		b[3] === 0x46 &&
-		b[8] === 0x57 &&
-		b[9] === 0x45 &&
-		b[10] === 0x42 &&
-		b[11] === 0x50
-	)
-		return { extension: 'webp', contentType: 'image/webp' }
-	return null
+	const format = imageFormatForBytes(bytes)
+	return format ? { extension: format.ext, contentType: format.contentType } : null
 }
 
 export class Slide implements ShapeHost {
