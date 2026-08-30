@@ -764,6 +764,32 @@ export default [
 		},
 	},
 	{
+		// `<p:bgPr>` requires a fill child, so the gate deciding whether to emit `<p:bg>` at all
+		// has to agree with the dispatcher deciding what goes inside it. It did not: the gate
+		// accepted a `color` or the literal `type: 'gradient'` and dropped every other spelling,
+		// so these four backgrounds silently inherited the master. Emitting them is the fix, and
+		// the validator is what proves the element they now produce is well-formed.
+		name: 'pattern and sub-object-inferred slide backgrounds emit a valid p:bgPr',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const gradient = {
+					kind: 'linear',
+					angle: 90,
+					stops: [
+						{ position: 0, color: '451DC7' },
+						{ position: 100, color: '0B003D' },
+					],
+				}
+				const pattern = { preset: 'diagCross', fgColor: '003366', bgColor: 'FFFFFF' }
+				p.addSlide().background = { gradient }
+				p.addSlide().background = { pattern }
+				p.addSlide().background = { type: 'pattern', pattern }
+				p.addSlide().background = { type: 'none' }
+			})
+			await expectNoSchemaErrors(buf, 'inferred-kind-backgrounds')
+		},
+	},
+	{
 		name: 'bullet text',
 		fn: async () => {
 			const { buf } = await build((p) => {

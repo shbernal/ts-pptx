@@ -7,12 +7,11 @@
  */
 
 import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
-import { genXmlColorSelection, genXmlGradientFill } from './fill.js'
+import { fillNamesPaint, genXmlColorSelection } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
-import { voidEl } from '../oxml/el.js'
 
 /** Every key `BorderProps` defines. Keep in step with the interface in `types/style.ts`. */
 const BORDER_KEYS: readonly string[] = ['type', 'dashType', 'color', 'width', 'transparency', 'cap']
@@ -100,24 +99,20 @@ export function createLineCap(lineCap?: LineCap): string {
 
 /**
  * Emit the paint child of an `<a:ln>` stroke.
- * DrawingML allows the same fill group inside `<a:ln>` as inside a shape fill, so a
- * stroke can be a gradient/pattern as well as a solid color:
- * - a `gradient` (or `type: 'gradient'`) produces a `<a:gradFill>` (gradient stroke);
- * - a `pattern`/`image` type delegates to the shared fill dispatch;
- * - otherwise a `color` produces a `<a:solidFill>`.
- * Returns '' when the line specifies no paint, so the caller emits no fill child and
- * the stroke inherits its color from the theme/placeholder.
+ *
+ * DrawingML allows the same fill group inside `<a:ln>` as inside a shape fill, so a stroke
+ * can be a gradient, pattern or picture as well as a solid color. Which one is asked for is
+ * {@link resolveFillKind}'s answer, shared with the shape interior — the stroke side used to
+ * infer `gradient` from its sub-object while the interior inferred nothing, so the same
+ * `{ gradient }` spelling painted a gradient outline and a black fill.
+ *
+ * Returns '' when the line names no paint at all ({@link fillNamesPaint}), so the caller emits
+ * no fill child and the stroke inherits its color from the theme or placeholder. `type: 'none'`
+ * is not that case: it is an explicit *no stroke*, and a shape authored with it grew the theme's
+ * border back when the two were conflated.
  * @param {ShapeLineProps} line line options
  * @returns XML string
  */
 export function genXmlLineFill(line: ShapeLineProps): string {
-	// `type: 'none'` is an explicit *no stroke*, and it is not the same as saying nothing.
-	// Omitting the paint child leaves the outline to the theme or placeholder, so a shape
-	// authored with `line: { type: 'none' }` grew the theme's border instead of losing it.
-	if (line.type === 'none') return voidEl('a:noFill')
-	// `gradient` presence selects a gradient stroke even when `type` was omitted.
-	if (line.gradient || line.type === 'gradient') return genXmlGradientFill(line.gradient)
-	if (line.type === 'pattern' || line.type === 'image') return genXmlColorSelection(line)
-	if (line.color) return genXmlColorSelection(line)
-	return ''
+	return fillNamesPaint(line) ? genXmlColorSelection(line) : ''
 }

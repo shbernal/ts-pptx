@@ -20,7 +20,7 @@ import type {
 	SlideRelMedia,
 } from '../../types/internal.js'
 import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../utils.js'
-import { genXmlColorSelection } from '../drawingml/fill.js'
+import { fillNamesPaint, genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, getSmartParseNumber, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
@@ -164,7 +164,11 @@ function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal): str
 				])
 			)
 		)
-	} else if (slide.background?.color || slide.background?.type === 'gradient') {
+		// A background paints whenever it names one — `fillNamesPaint`, the same test the stroke
+		// side uses. This gate used to accept a `color` or the literal `type: 'gradient'`, so a
+		// background authored as `{ gradient }`, `{ pattern }` or `{ type: 'pattern', … }` was
+		// dropped without a word and the slide came out inheriting the master.
+	} else if (fillNamesPaint(slide.background)) {
 		strSlideXml += el(
 			'p:bg',
 			null,

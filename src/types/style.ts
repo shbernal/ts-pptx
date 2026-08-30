@@ -163,17 +163,26 @@ export interface ShapeFillProps {
 	 * On a table cell (`TableCellProps.fill`) and a slide background the two spellings
 	 * differ the same way, except that *omitting* the option there already means
 	 * inherit, so `'inherit'` is merely the explicit form of the default.
+	 *
+	 * **Omitting `type` is not the same as omitting the fill.** Setting `gradient`,
+	 * `pattern` or `image` selects that kind on its own — the sub-object is the statement,
+	 * and `type` is how you say something the sub-objects cannot. Where both are given and
+	 * they disagree, **the explicit `type` wins** and the sub-object is ignored, because
+	 * that is the only rule under which `{ type: 'none', gradient }` can still mean
+	 * transparent.
 	 * @default 'solid'
 	 */
 	type?: 'none' | 'inherit' | 'solid' | 'gradient' | 'pattern' | 'image'
 
 	/**
-	 * Native PPTX gradient fill options.
+	 * Native PPTX gradient fill options. Setting this (or `type: 'gradient'`) paints the
+	 * shape interior with a gradient instead of a color.
 	 */
 	gradient?: GradientFillProps
 
 	/**
-	 * Native PPTX pattern fill options.
+	 * Native PPTX pattern fill options. Setting this (or `type: 'pattern'`) paints the
+	 * shape interior with a two-color preset pattern instead of a color.
 	 */
 	pattern?: PatternFillProps
 

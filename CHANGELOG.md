@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`fill: { gradient }` and `fill: { pattern }` paint what they name, instead of a black
+  shape.** Which fill kind a props object asks for was answered in seven places and they
+  disagreed. The stroke emitter inferred `gradient` from the sub-object; the shared fill
+  dispatcher inferred nothing at all, so a `fill` carrying a `gradient` or a `pattern` and
+  no `type` fell to the `'solid'` default and emitted a black `<a:solidFill>` — reporting
+  it, worse, as `"" is not a valid scheme color or hex RGB!`, which blames a colour string
+  the caller never wrote. Three `define/` modules each carried their own copy of the image
+  half, the two `ShapeLineProps` rebuilds stamped a `type` on before the emitter could
+  infer one (so `line: { pattern }` came out a default-black solid), and the slide
+  background gate accepted a `color` or the literal `type: 'gradient'` and silently dropped
+  `{ gradient }`, `{ pattern }`, `{ type: 'pattern', … }` and `{ type: 'none' }`.
+
+  `resolveFillKind` is the one answer now, and every one of those sites asks it.
+  **A sub-object selects its kind on its own; an explicit `type` beats a sub-object that
+  disagrees.** That second half is the rule under which `{ type: 'none', gradient }` can
+  still mean transparent, so it is stated rather than left as fallout from ordering, and it
+  is now in the `ShapeFillProps.type` doc comment. With no `type`, the first sub-object
+  present wins in declaration order — `gradient`, then `pattern`, then `image`.
+
+  **Migration:** nothing to do if you always spelled `type` out. If you relied on a
+  sub-object being ignored — `{ type: 'solid', color, gradient }` painting solid — that
+  still works, and it is the case explicit-wins protects. What changes under you is a
+  `fill`, `line` or `background` carrying only a sub-object: it used to come out black,
+  default-stroked, or absent, and now paints what it names. A `background` spelled
+  `{ type: 'none' }` now emits `<a:noFill/>` where it previously emitted no `<p:bg>` at
+  all; omit the background entirely, or spell `{ type: 'inherit' }`, to keep inheriting the
+  master.
+
+- **Percent-valued options are clamped into their schema range instead of reaching the
+  attribute raw.** `chartColorsOpacity: 150` wrote `<a:alpha val="150000"/>` against an
+  `ST_PositiveFixedPercentage` maximum of 100000 (and `Infinity` wrote `val="Infinity"`);
+  image `transparency` inverts, so 150 wrote a *negative* `<a:alphaModFix>` and -30 wrote
+  one over the maximum; `biLevel.threshold` is a 0-1 fraction, so 5 wrote
+  `thresh="500000"`; and `lineSpacingMultiple: 200` wrote `<a:spcPct val="20000000"/>`
+  against a maximum of 13200000. Every one of those makes PowerPoint offer to repair the
+  package. All four now clamp and warn, through the same `units-internal.ts` helpers the
+  already-correct `transparency` and `opacity` paths were using — plus two that were
+  missing, for the non-inverting 0-100 and the 0-1 forms. A `NaN` now throws under the new
+  `percent/non-finite` code rather than reaching the attribute as `val="NaN"`; `Infinity`
+  clamps to the bound like any other out-of-range number. In-range input is byte-identical.
+  New diagnostic: `image/bilevel-threshold-out-of-range`.
+
 ## [3.7.0] - 2026-08-30
 
 `groupObjects()` has always addressed objects by `objectName`, and there has never been a

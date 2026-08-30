@@ -13,6 +13,7 @@ import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from 
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
+import { resolveFillKind } from '../drawingml/fill.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
@@ -119,13 +120,16 @@ export function addTextDefinition(
 			// B:
 			if (itemOpts.shape === ShapeType.line) {
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
-				// ShapeLineProps defaults. Spread first, override only what is defaulted here —
-				// see the same block in define/shape.ts for why listing the carried keys instead
-				// silently dropped `gradient`, `pattern`, `image` and `cap` off this path.
+				// ShapeLineProps defaults, the same block as define/shape.ts. Spread first,
+				// override only what is defaulted here — see there for why listing the carried
+				// keys instead silently dropped `gradient`, `pattern`, `image` and `cap`. The
+				// kind is `resolveFillKind`'s answer, and only a solid stroke gets the default
+				// line color; every other kind takes its paint from its own sub-object.
+				const itemLineKind = resolveFillKind(itemLine)
 				const newLineOpts: ShapeLineProps = {
 					...itemLine,
-					type: itemLine.type || 'solid',
-					color: itemLine.color || DEF_SHAPE_LINE_COLOR,
+					type: itemLineKind,
+					color: itemLineKind === 'solid' ? itemLine.color || DEF_SHAPE_LINE_COLOR : itemLine.color,
 					transparency: itemLine.transparency || 0,
 					width: itemLine.width || 1,
 					dashType: itemLine.dashType || 'solid',
@@ -241,10 +245,7 @@ export function addTextDefinition(
 	createBulletImageRels(target, newObject.options, textObjects)
 
 	// STEP 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
-	if (
-		typeof newObject.options.fill === 'object' &&
-		(newObject.options.fill.type === 'image' || newObject.options.fill.image)
-	) {
+	if (typeof newObject.options.fill === 'object' && resolveFillKind(newObject.options.fill) === 'image') {
 		registerImageFillMedia(target, newObject.options.fill)
 	}
 

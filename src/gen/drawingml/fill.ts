@@ -166,21 +166,74 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 	])
 }
 
+/** The fill kinds a `ShapeFillProps`/`ShapeLineProps` can ask for. */
+export type FillKind = NonNullable<ShapeFillProps['type']>
+
 /**
- * Create color selection
- * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
+ * Resolve which fill kind a set of fill or line props asks for.
+ *
+ * **An explicit `type` always wins**, even against a sub-object that disagrees:
+ * `{ type: 'solid', gradient }` is a solid fill whose gradient is ignored. That is the rule
+ * `type: 'none'` needs in order to mean anything (`{ type: 'none', color }` must stay
+ * transparent), so it is the rule everywhere rather than one kind's exception.
+ *
+ * With no `type`, the first sub-object present selects the kind, in declaration order —
+ * `gradient`, then `pattern`, then `image`. Setting two without a `type` is already a
+ * contradiction; the order exists so the answer is stated rather than emergent.
+ *
+ * Everything else is `'solid'`, which is what `type` documents as its default.
+ *
+ * This is the one answer. It used to be given in four places: the stroke emitter inferred
+ * `gradient` only, the shared dispatcher inferred nothing at all (so `fill: { gradient }`
+ * painted a black `<a:solidFill>` and blamed the caller's colours for it), and three
+ * `define/` modules each carried their own copy of the image half.
+ */
+export function resolveFillKind(props: Color | ShapeFillProps | ShapeLineProps | undefined): FillKind {
+	if (!props || typeof props === 'string') return 'solid'
+	if (props.type) return props.type
+	if (props.gradient) return 'gradient'
+	if (props.pattern) return 'pattern'
+	if (props.image) return 'image'
+	return 'solid'
+}
+
+/**
+ * Does this fill or line props object name a paint at all?
+ *
+ * The question every *optional* paint site has to answer before dispatching: an outline, a
+ * slide background and a table cell each inherit when the caller said nothing, so emitting
+ * a fill child for an empty props object would paint them default black.
+ *
+ * "Said nothing" is narrower than "is empty". `'inherit'` is the explicit spelling of the
+ * same silence and is false here. `'none'` is a statement — `<a:noFill/>` — and is true.
+ * A `'solid'` kind needs a `color` to be saying anything; every other kind carries its
+ * payload in its own sub-object, so its presence is the statement.
+ */
+export function fillNamesPaint(props: Color | ShapeFillProps | ShapeLineProps | undefined): boolean {
+	if (!props) return false
+	if (typeof props === 'string') return props.length > 0
+	const kind = resolveFillKind(props)
+	if (kind === 'inherit') return false
+	if (kind === 'solid') return Boolean(props.color)
+	return true
+}
+
+/**
+ * Emit the fill group a set of fill/line props asks for, dispatching on
+ * {@link resolveFillKind}. Returns '' for props that name nothing to paint, so a caller
+ * with an optional paint can hand this whatever it has — including `undefined`.
+ * @param {Color | ShapeFillProps | ShapeLineProps | undefined} props fill props
  * @returns XML string
  */
-export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLineProps): string {
-	let fillType = 'solid'
+export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLineProps | undefined): string {
 	let colorVal = ''
 	let internalElements = ''
 	let outText = ''
 
 	if (props) {
+		const fillType = resolveFillKind(props)
 		if (typeof props === 'string') colorVal = props
 		else {
-			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
 			internalElements += alphaFromTransparency(props.transparency)
 		}

@@ -30,6 +30,7 @@ import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
+import { resolveFillKind } from '../drawingml/fill.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -250,7 +251,7 @@ function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][],
 	const register = (fill: ShapeFillProps | undefined): void => {
 		// `type:'image'` and a bare `image:{…}` are both accepted, mirroring the shape path.
 		if (!fill || typeof fill !== 'object') return
-		if (fill.type !== 'image' && !fill.image) return
+		if (resolveFillKind(fill) !== 'image') return
 		if (seen.has(fill)) return
 		seen.add(fill)
 		registerImageFillMedia(target, fill)

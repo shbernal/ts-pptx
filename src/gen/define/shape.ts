@@ -11,6 +11,7 @@ import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
+import { resolveFillKind } from '../drawingml/fill.js'
 import { assertKnownPreset } from '../drawingml/geometry.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -82,17 +83,18 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	assertKnownPreset(resolvedShapeName)
 
 	// 1: ShapeLineProps defaults
-	// A stroke can carry a non-solid paint (a `gradient`) just like a fill, so infer the
-	// stroke `type` from the gradient when the caller omits it (`line: { gradient }`) and
-	// preserve the gradient through normalization. Only a solid stroke gets the default
-	// line color; a gradient stroke takes its colors from its stops.
+	// A stroke can carry a non-solid paint just like a fill, so the kind comes from
+	// `resolveFillKind` and is stamped on before the emitter sees it. Only a solid stroke
+	// gets the default line color; every other kind takes its paint from its sub-object.
+	// This block used to infer `gradient` alone, which is how `line: { pattern }` came out
+	// a default-black solid: normalization had already written `type: 'solid'` over it.
 	//
 	// Spread first, then override only the keys this block actually defaults. Listing the
 	// carried keys instead is what broke `pattern`, `image` and `cap`: each was added to
 	// `ShapeLineProps` without being added here, so the emitter read a key normalization
 	// had already dropped — `line: { type: 'pattern' }` reached `genXmlPatternFill` with no
 	// pattern object and threw. A spread cannot fall out of sync with the type.
-	const lineType = options.line.type || (options.line.gradient ? 'gradient' : 'solid')
+	const lineType = resolveFillKind(options.line)
 	const newLineOpts: ShapeLineProps = {
 		...options.line,
 		type: lineType,
@@ -119,7 +121,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	createHyperlinkRels(target, newObject)
 
 	// 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
-	if (typeof options.fill === 'object' && (options.fill.type === 'image' || options.fill.image)) {
+	if (typeof options.fill === 'object' && resolveFillKind(options.fill) === 'image') {
 		registerImageFillMedia(target, options.fill)
 	}
 
