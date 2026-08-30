@@ -10,12 +10,12 @@
  * used to sit here as ~280 lines of private methods and made that split hard to see: the
  * read model's own surface was outnumbered by one feature's internals.
  *
- * The four import entry points went the same way: their contracts stay here as the doc
- * comments a caller reads, and their bodies live in `presentation-imports.ts`. Those bodies
- * are the one thing in this directory that is not independent of this class — they reach back
- * for {@link importContext}, {@link insertSlidePart} and {@link rescaledParts}, which
- * {@link cloneSlide} and {@link appendSlides} read too and so could not travel with them.
- * Those three are `@internal` for that and nothing else.
+ * The four import entry points went the same way, and {@link appendSlides} after them: their
+ * contracts stay here as the doc comments a caller reads, and their bodies live in
+ * `presentation-imports.ts` and `ops/append-slides.ts`. Those bodies are the one thing in this
+ * directory that is not independent of this class — they reach back for {@link importContext},
+ * {@link insertSlidePart} and {@link rescaledParts}, which {@link cloneSlide} reads too and so
+ * could not travel with them. Those three are `@internal` for that and nothing else.
  */
 import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
@@ -56,27 +56,16 @@ import type {
 	SlideSource,
 } from './presentation-types.js'
 import { cSldName } from '../oxml/slide-dom.js'
-import { requireEqualSlideSize } from './ops/slide-size.js'
 import type { ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
 // caller navigates *to*.
-import { carryGeneratedEmbeddedFonts } from './ops/embedded-fonts.js'
-import { ensureNotesMasterFromXml } from './ops/notes-master.js'
+import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { duplicateOwnedTargets } from './ops/page-owned.js'
 import { pruneIfOrphan } from './ops/prune.js'
-import {
-	IMAGE_REL,
-	NOTES_MASTER_REL,
-	NOTES_SLIDE_CONTENT_TYPE,
-	NOTES_SLIDE_REL,
-	OFFICE_DOCUMENT_REL,
-	SLIDE_CONTENT_TYPE,
-	SLIDE_LAYOUT_REL,
-	SLIDE_REL,
-} from '../../ooxml/rel-types.js'
+import { OFFICE_DOCUMENT_REL, SLIDE_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 import { presentationRels } from './ops/deck-target.js'
 import {
@@ -87,35 +76,12 @@ import {
 	importSlides as importSlidesInto,
 } from './presentation-imports.js'
 
-const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
-const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
-// chartEx (Office 2016) charts are reached through a Microsoft rel, not the ECMA `chart` one,
-// and their two mandatory style sidecars through a third pair — see `gen/chart/chartex-style.ts`.
-const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/chartEx'
-const CHART_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartStyle'
-const CHART_COLOR_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartColorStyle'
-const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
-const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
-const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
-// Microsoft 2007 `media` rel: paired with the ECMA audio/video rel (same Target),
-// referenced by the slide body's <p14:media r:embed>.
-const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
-
-const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
-// chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
-const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'
-const CHART_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartstyle+xml'
-const CHART_COLOR_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartcolorstyle+xml'
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-
 /** Content type of the main part in an editable `.pptx` package. */
 const PRESENTATION_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 /** Content type of the main part in a `.potx` template package — flipped to {@link PRESENTATION_MAIN_CONTENT_TYPE} by {@link Presentation.fromTemplate}. */
 const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
-
-const textEncoder = new TextEncoder()
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
@@ -649,187 +615,7 @@ export class Presentation {
 	 * - Source and destination slide sizes must match (no geometry rescale).
 	 */
 	async appendSlides(source: SlideSource, options: AppendSlidesOptions): Promise<Slide[]> {
-		// 1. Resolve the target layout partname (explicit; no silent fallback).
-		const gallery = this.layouts()
-		let target: LayoutHandle
-		if (typeof options.layout === 'string') {
-			const matches = gallery.filter((l) => l.name === options.layout)
-			if (matches.length > 1) {
-				throw new InvalidOptionError(
-					'layout/ambiguous-name',
-					`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`
-				)
-			}
-			const [only] = matches
-			if (!only) {
-				const names = gallery.map((l) => JSON.stringify(l.name)).join(', ')
-				throw new InvalidOptionError(
-					'layout/not-found',
-					`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`
-				)
-			}
-			target = only
-		} else {
-			const handle = options.layout
-			if (!gallery.some((l) => l.partName === handle.partName)) {
-				throw new InvalidOptionError(
-					'layout/foreign-handle',
-					`appendSlides: layout ${handle.partName} does not belong to this presentation`
-				)
-			}
-			target = handle
-		}
-
-		// 2. Author + extract; enforce equal slide size (no geometry rescale in v1).
-		const extracted = await source.extractSlides({ onMediaError: options.onMediaError })
-		// The extracted size is always known, so it is lifted into a `SlideSize` rather than kept
-		// as a loose pair — that is what let this call site keep a second formatter alive.
-		requireEqualSlideSize(
-			this.slideSize,
-			{
-				widthEmu: extracted.widthEmu,
-				heightEmu: extracted.heightEmu,
-				widthIn: emuToInches(extracted.widthEmu),
-				heightIn: emuToInches(extracted.heightEmu),
-			},
-			'appendSlides'
-		)
-
-		// Any existing slide partname seeds the fresh-partname family; fall back to a
-		// literal seed for a slide-less template shell (reservePartNameLike parses the
-		// string, it does not require the part to exist).
-		const slideTemplate = this.slides[0]?.partName ?? '/ppt/slides/slide1.xml'
-
-		// Pass 1: reserve + add every slide body first, so internal slide-to-slide
-		// links (which may point forward) can resolve to any appended slide. Adding
-		// each part immediately claims its name — reservePartNameLike returns max+1
-		// from the existing parts, so the next reservation sees it. (addPart registers
-		// the slide's Override content type.)
-		const placed = extracted.slides.map((slide) => {
-			const partName = this.opc.reservePartNameLike(slideTemplate)
-			const part = this.opc.addPart(partName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
-			return { slide, part, partName }
-		})
-
-		// 1-based source slide number -> the appended slide's new partname.
-		const partBySourceNumber = new Map<number, string>(placed.map((p, i) => [i + 1, p.partName]))
-
-		// Pass 2: build each slide's .rels and wire it into presentation.xml. Media,
-		// hyperlinks, charts, and slide-links keep the body's rId (addWithId); the
-		// layout rel is added last via add() so its auto-id cannot collide.
-		const added: Slide[] = []
-		placed.forEach(({ slide, part, partName }, i) => {
-			const rels = this.opc.relationshipsFor(partName)
-			for (const m of slide.media) {
-				const mediaPartName = this.opc.reserveMediaPartName(m.extn)
-				this.opc.addPart(mediaPartName, m.contentType, m.bytes)
-				rels.addWithId(`rId${m.rId}`, IMAGE_REL, relativePartName(partName, mediaPartName))
-			}
-			for (const av of slide.avMedia) {
-				// One media part backs two rels (ECMA audio/video + MS-2007 media) sharing
-				// its Target; the preview poster is a separate image part. ensureDefault
-				// runs before addPart so the content type resolves via a Default extension
-				// entry (what PowerPoint authors) rather than a per-part Override.
-				const mediaPartName = this.opc.reserveMediaPartName(av.mediaExtn, 'media')
-				this.opc.contentTypes.ensureDefault(av.mediaExtn, av.mediaContentType)
-				this.opc.addPart(mediaPartName, av.mediaContentType, av.mediaBytes)
-				const mediaTarget = relativePartName(partName, mediaPartName)
-				rels.addWithId(`rId${av.mediaRid}`, av.mtype === 'audio' ? AUDIO_REL : VIDEO_REL, mediaTarget)
-				rels.addWithId(`rId${av.msMediaRid}`, MS_MEDIA_REL, mediaTarget)
-
-				const previewPartName = this.opc.reserveMediaPartName(av.previewExtn)
-				this.opc.contentTypes.ensureDefault(av.previewExtn, av.previewContentType)
-				this.opc.addPart(previewPartName, av.previewContentType, av.previewBytes)
-				rels.addWithId(`rId${av.previewRid}`, IMAGE_REL, relativePartName(partName, previewPartName))
-			}
-			for (const ov of slide.onlineMedia) {
-				// Online (external-link) video: two External rels share the link Target — the
-				// ECMA video rel and the MS-2007 media rel — with no media binary part and no
-				// content-type entry. The poster image is wired by the `slide.media` loop above.
-				rels.addWithId(`rId${ov.mediaRid}`, VIDEO_REL, ov.link, 'External')
-				rels.addWithId(`rId${ov.msMediaRid}`, MS_MEDIA_REL, ov.link, 'External')
-			}
-			for (const h of slide.hyperlinks) {
-				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
-			}
-			if (slide.notes) {
-				// Speaker notes. The notes part carries its own rel namespace, independent of
-				// the slide's: rId1 = notesMaster, rId2 = the slide it annotates, hyperlinks
-				// from rId3 — the order the generator's body was serialized against, so these
-				// are added by explicit id rather than left to auto-numbering.
-				const notesPartName = this.opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
-				this.opc.addPart(notesPartName, NOTES_SLIDE_CONTENT_TYPE, textEncoder.encode(slide.notes.xml))
-				rels.add(NOTES_SLIDE_REL, relativePartName(partName, notesPartName))
-
-				const notesRels = this.opc.relationshipsFor(notesPartName)
-				const notesMasterPartName = extracted.notesMaster ? ensureNotesMasterFromXml(this, extracted.notesMaster) : null
-				if (notesMasterPartName) {
-					notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(notesPartName, notesMasterPartName))
-				}
-				notesRels.addWithId('rId2', SLIDE_REL, relativePartName(notesPartName, partName))
-				for (const h of slide.notes.hyperlinks) {
-					notesRels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
-				}
-			}
-			for (const c of slide.charts) {
-				// Chart part + its embedded workbook, each under a fresh name. Both chart
-				// flavours reference the workbook through the chart part's own rId1, so the
-				// chart .rels is rebuilt here against the reserved workbook partname.
-				//
-				// A chartEx chart differs in every other coordinate: the `chartEx{N}.xml` name
-				// family, the MS chartex content type, the MS `chartEx` rel off the slide, and two
-				// mandatory sidecars at rId2/rId3 — without which PowerPoint reports the deck as
-				// corrupt (schema-valid but unopenable). `c.chartEx` carries both sidecar bodies;
-				// the generator built them, so nothing here reaches into the emitters.
-				const isChartEx = c.chartEx !== undefined
-				const chartPartName = this.opc.reservePartNameLike(
-					isChartEx ? '/ppt/charts/chartEx1.xml' : '/ppt/charts/chart1.xml'
-				)
-				this.opc.addPart(
-					chartPartName,
-					isChartEx ? CHARTEX_CONTENT_TYPE : CHART_CONTENT_TYPE,
-					textEncoder.encode(c.chartXml)
-				)
-				const embeddingPartName = this.opc.reservePartNameLike('/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
-				this.opc.contentTypes.ensureDefault('xlsx', XLSX_CONTENT_TYPE)
-				this.opc.addPart(embeddingPartName, XLSX_CONTENT_TYPE, c.embeddingBytes)
-				const chartRels = this.opc.relationshipsFor(chartPartName)
-				chartRels.addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
-				if (c.chartEx) {
-					// rId2 = colors, rId3 = style: the order the write path authors
-					// (`buildChartExRelsXml` in gen/chart/embed-xlsx.ts).
-					const colorsPartName = this.opc.reservePartNameLike('/ppt/charts/colors1.xml')
-					this.opc.addPart(colorsPartName, CHART_COLOR_STYLE_CONTENT_TYPE, textEncoder.encode(c.chartEx.colorsXml))
-					chartRels.addWithId('rId2', CHART_COLOR_STYLE_REL, relativePartName(chartPartName, colorsPartName))
-
-					const stylePartName = this.opc.reservePartNameLike('/ppt/charts/style1.xml')
-					this.opc.addPart(stylePartName, CHART_STYLE_CONTENT_TYPE, textEncoder.encode(c.chartEx.styleXml))
-					chartRels.addWithId('rId3', CHART_STYLE_REL, relativePartName(chartPartName, stylePartName))
-				}
-				rels.addWithId(`rId${c.rId}`, isChartEx ? CHARTEX_REL : CHART_REL, relativePartName(partName, chartPartName))
-			}
-			for (const link of slide.slideLinks) {
-				const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)
-				if (!targetPartName) {
-					throw new InvalidOptionError(
-						'import/unresolved-slide-link',
-						`appendSlides: slide ${i} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`
-					)
-				}
-				rels.addWithId(`rId${link.rId}`, SLIDE_REL, relativePartName(partName, targetPartName))
-			}
-			rels.add(SLIDE_LAYOUT_REL, relativePartName(partName, target.partName))
-
-			// Wire into presentation.xml (rel + p:sldId) at the requested position.
-			const at = options.at === undefined ? undefined : options.at + i
-			added.push(this.#insertSlidePart(part, at))
-		})
-
-		// Carry the generator's presentation-level embedded fonts (pptx.embedFont) into
-		// this deck, so author-side embedded fonts survive the append onto a template.
-		carryGeneratedEmbeddedFonts(this, extracted.embeddedFonts || [])
-
-		return added
+		return appendSlidesInto(this, source, options)
 	}
 
 	/**
