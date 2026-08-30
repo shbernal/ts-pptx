@@ -9,7 +9,7 @@
 import type { BorderProps, TableCellDiagonals } from '../../types/index.js'
 import { genXmlColorSelection } from './fill.js'
 import { createLineCap, resolveBorderDash, resolveBorderWidth } from './line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /**
@@ -24,7 +24,7 @@ function genBorderLine(name: string, border: BorderProps): string {
 	if (border.type === 'none') return el(`a:${name}`, { w: 0, cap, cmpd: 'sng', algn: 'ctr' }, raw(voidEl('a:noFill')))
 	return el(
 		`a:${name}`,
-		{ w: ptsToEmuLenient(resolveBorderWidth(border, 1)), cap, cmpd: 'sng', algn: 'ctr' },
+		{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap, cmpd: 'sng', algn: 'ctr' },
 		[
 			genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }),
 			voidEl('a:prstDash', { val: resolveBorderDash(border) }),

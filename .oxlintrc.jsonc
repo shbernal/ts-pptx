@@ -206,6 +206,20 @@
 		"typescript/no-non-null-assertion": "error",
 		"typescript/no-unnecessary-type-assertion": "error",
 
+		// The coercing numeric globals, banned so the sweep that removed them does not decay.
+		// `isNaN` and `isFinite` coerce their argument first, which makes them answer a
+		// different question from the one at the call site: `Number('') === 0`, so `isNaN('')`
+		// is false and an empty string reads as a valid zero, and `isNaN(Infinity)` is false
+		// too, so a value with no finite representation passes a "is this a number" guard and
+		// reaches an attribute as `val="Infinity"`. Both had happened here. `Number.isFinite`
+		// is the test nearly every site wants; `Number.isNaN` is for the few that clamp an
+		// infinity on purpose rather than rejecting it.
+		//
+		// Scoped to `src/**` in `overrides` below rather than named globally, because the
+		// scripts and the test suite are not the published package and pay a different price
+		// for a coercion.
+		"eslint/no-restricted-globals": "off",
+
 		// Library output goes through `warn()` / `warnOnce()` so a consumer can route or
 		// silence it (see diagnostics.ts), and failures go through the error classes. A
 		// direct `console.*` is neither: it cannot be captured, muted, or branched on.
@@ -310,6 +324,26 @@
 		// forbids, so this is the one rule lost in the swap and it is lost harmlessly.
 	},
 	"overrides": [
+		{
+			// See `no-restricted-globals` in `rules` above for why these two are banned. The
+			// override is where the rule is actually configured: `rules` can only turn it off
+			// tree-wide, and the ban is meant for the published library rather than for
+			// `scripts/**` and `test/**`.
+			"files": ["src/**/*.ts"],
+			"rules": {
+				"eslint/no-restricted-globals": [
+					"error",
+					{
+						"name": "isNaN",
+						"message": "`isNaN` coerces: isNaN('') is false. Use Number.isNaN, or Number.isFinite if a non-finite value is also invalid.",
+					},
+					{
+						"name": "isFinite",
+						"message": "`isFinite` coerces: isFinite('1') is true. Use Number.isFinite.",
+					},
+				],
+			},
+		},
 		{
 			// The three exemptions to `no-console`, all deliberate.
 			//

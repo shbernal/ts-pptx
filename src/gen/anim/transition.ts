@@ -57,7 +57,7 @@ export function slideTransitionToXml(slide: PresSlideInternal): string {
 	const typeEl = voidEl(`p:${transition.type}`, transition.variant ?? null)
 	const sndAc = transitionSoundToXml(transition)
 
-	const hasDuration = typeof transition.durationMs === 'number' && isFinite(transition.durationMs)
+	const hasDuration = typeof transition.durationMs === 'number' && Number.isFinite(transition.durationMs)
 	const speed = transition.speed ?? (hasDuration ? transitionSpeedForDuration(transition.durationMs as number) : null)
 	const baseAttrs: XmlAttrs = {
 		spd: speed || null,

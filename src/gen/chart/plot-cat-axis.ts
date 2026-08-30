@@ -21,7 +21,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -109,7 +109,7 @@ function serShapeProps(
 	} else if (opts.dataBorder) {
 		line = el(
 			'a:ln',
-			{ w: ptsToEmuLenient(resolveBorderWidth(opts.dataBorder, 0.75)), cap: createLineCap(opts.lineCap) },
+			{ w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: createLineCap(opts.lineCap) },
 			[
 				raw(
 					genXmlColorSelection({

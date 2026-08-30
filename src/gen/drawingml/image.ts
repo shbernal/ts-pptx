@@ -97,7 +97,7 @@ export function genXmlImageCrop(crop: { l?: number; t?: number; r?: number; b?: 
 	const where = objectName ? ` for image "${objectName}"` : ''
 	const edges = { l: crop.l ?? 0, t: crop.t ?? 0, r: crop.r ?? 0, b: crop.b ?? 0 }
 	for (const [name, val] of Object.entries(edges)) {
-		if (typeof val !== 'number' || !isFinite(val) || val < 0 || val > 100) {
+		if (typeof val !== 'number' || !Number.isFinite(val) || val < 0 || val > 100) {
 			throw new InvalidOptionError(
 				'image/crop-inset-out-of-range',
 				`addImage crop.${name} must be a percentage between 0 and 100 (got ${String(val)})${where}.`

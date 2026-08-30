@@ -87,9 +87,11 @@ export type DiagnosticCode =
 	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
 	| 'table/invalid-row-height'
+	| 'table/invalid-header-row-count'
 	// Text and bullets
 	| 'text/invalid-columns'
 	| 'text/invalid-column-spacing'
+	| 'text/invalid-indent-level'
 	| 'text/invalid-fit-percentage'
 	| 'text/char-spacing-out-of-range'
 	| 'text/line-spacing-out-of-range'

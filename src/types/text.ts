@@ -458,6 +458,16 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	flipV?: boolean
 	glow?: TextGlowProps
 	hyperlink?: HyperlinkProps
+	/**
+	 * Outline level of the paragraph (`a:p/@lvl`) — which of the list style's nine levels the
+	 * paragraph takes its bullet, indent and typography from.
+	 * - range: 0-8, whole numbers only (`ST_TextIndentLevelType`); anything else is reported
+	 *   under `text/invalid-indent-level` and ignored
+	 * - `0` is the default and writes no attribute
+	 * - this is the discrete level, not a measurement: `paraMarginLeft` and `paraIndent` are the
+	 *   points-valued controls
+	 * @default 0
+	 */
 	indentLevel?: number
 	isTextBox?: boolean
 	line?: ShapeLineProps

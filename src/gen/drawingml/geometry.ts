@@ -136,7 +136,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 				typeof adj.name !== 'string' ||
 				adj.name.length === 0 ||
 				typeof adj.value !== 'number' ||
-				!isFinite(adj.value)
+				!Number.isFinite(adj.value)
 			) {
 				warn(
 					'geometry/invalid-shape-adjust',
@@ -301,7 +301,7 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 	if (options.connectionSites?.length) {
 		const cxnEls: string[] = []
 		options.connectionSites.forEach((c) => {
-			if (!c || typeof c.ang !== 'number' || !isFinite(c.ang)) {
+			if (!c || typeof c.ang !== 'number' || !Number.isFinite(c.ang)) {
 				warn(
 					'geometry/invalid-connection-site',
 					`connectionSite entry ${JSON.stringify(c)} is invalid (needs a finite \`ang\` in degrees) and was ignored.`

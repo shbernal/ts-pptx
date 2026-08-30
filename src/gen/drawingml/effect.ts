@@ -113,7 +113,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	// OPT: `angle`
 	if (corrected.angle) {
 		// A: REALITY-CHECK
-		if (isNaN(Number(corrected.angle)) || corrected.angle < 0 || corrected.angle > 359) {
+		if (!Number.isFinite(Number(corrected.angle)) || corrected.angle < 0 || corrected.angle > 359) {
 			warn('shadow/angle-out-of-range', 'shadow.angle can only be 0-359')
 			corrected.angle = 270
 		}
@@ -126,7 +126,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	// every emit site reads.
 	if (corrected.transparency !== undefined) {
 		const pct = Number(corrected.transparency)
-		if (isNaN(pct) || pct < 0 || pct > 100) {
+		if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
 			warn('shadow/transparency-out-of-range', 'shadow.transparency can only be 0-100')
 		} else {
 			corrected._alpha = 1 - pct / 100

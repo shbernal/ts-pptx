@@ -408,7 +408,7 @@ export function renderTableObject(
 			if (
 				!Array.isArray(cellMargin) ||
 				cellMargin.length !== 4 ||
-				cellMargin.some((v) => typeof v !== 'number' || !isFinite(v))
+				cellMargin.some((v) => typeof v !== 'number' || !Number.isFinite(v))
 			) {
 				cellMargin = DEF_CELL_MARGIN_IN
 			}

@@ -30,7 +30,7 @@ import type { BorderProps, ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
@@ -278,7 +278,7 @@ function chartShapeProps(
 				border
 					? el(
 							'a:ln',
-							{ w: ptsToEmuLenient(resolveBorderWidth(border, 1)), cap: 'flat' },
+							{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' },
 							raw(genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }))
 						)
 					: el('a:ln', null, raw(voidEl('a:noFill')))

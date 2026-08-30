@@ -76,7 +76,7 @@ function warnUnknownBorderKeys(border: BorderProps): void {
 export function resolveBorderWidth(border: BorderProps, defaultPt: number): number {
 	warnUnknownBorderKeys(border)
 	const val = border.width
-	return typeof val === 'number' && !isNaN(val) ? val : defaultPt
+	return typeof val === 'number' && Number.isFinite(val) ? val : defaultPt
 }
 
 /**

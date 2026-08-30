@@ -176,18 +176,18 @@ function masterBulletXml(
 /** Serialize one `<a:lvlNpPr>` from its default, layering an optional caller override. */
 function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverride: MasterTextStyleLevel = {}): string {
 	const marL =
-		typeof levelOverride.marginLeft === 'number' && !isNaN(levelOverride.marginLeft)
+		typeof levelOverride.marginLeft === 'number' && Number.isFinite(levelOverride.marginLeft)
 			? inch2Emu(levelOverride.marginLeft)
 			: base.marL
 	const indentEmu =
-		typeof levelOverride.indent === 'number' && !isNaN(levelOverride.indent)
+		typeof levelOverride.indent === 'number' && Number.isFinite(levelOverride.indent)
 			? inch2Emu(levelOverride.indent)
 			: base.indent
 	const algn = (levelOverride.align && masterAlignAttr(levelOverride.align)) || base.algn
 
 	let sz = base.sz
 	if (typeof levelOverride.fontSize === 'number') {
-		if (isNaN(levelOverride.fontSize) || levelOverride.fontSize <= 0)
+		if (!Number.isFinite(levelOverride.fontSize) || levelOverride.fontSize <= 0)
 			warn(
 				'master/invalid-text-style-font-size',
 				`master textStyles fontSize "${levelOverride.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`

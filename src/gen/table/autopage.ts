@@ -334,7 +334,7 @@ export function getSlidesForTableRows(
 
 		if (masterSlide && typeof masterSlide._margin !== 'undefined') {
 			if (Array.isArray(masterSlide._margin)) arrInchMargins = masterSlide._margin
-			else if (!isNaN(Number(masterSlide._margin))) {
+			else if (Number.isFinite(Number(masterSlide._margin))) {
 				arrInchMargins = [
 					Number(masterSlide._margin),
 					Number(masterSlide._margin),
@@ -344,7 +344,7 @@ export function getSlidesForTableRows(
 			}
 		} else if (tableProps.slideMargin || tableProps.slideMargin === 0) {
 			if (Array.isArray(tableProps.slideMargin)) arrInchMargins = tableProps.slideMargin
-			else if (!isNaN(tableProps.slideMargin))
+			else if (Number.isFinite(tableProps.slideMargin))
 				arrInchMargins = [
 					tableProps.slideMargin,
 					tableProps.slideMargin,
@@ -394,7 +394,7 @@ export function getSlidesForTableRows(
 
 	// STEP 5: Calculate column widths if not provided (emuSlideTabW will be used below to determine lines-per-col)
 	if (!tableProps.colW || !Array.isArray(tableProps.colW)) {
-		if (tableProps.colW && !isNaN(Number(tableProps.colW))) {
+		if (tableProps.colW && Number.isFinite(Number(tableProps.colW))) {
 			const arrColW: number[] = []
 			const colW = Number(tableProps.colW)
 			const firstRow = tableRows[0] || []

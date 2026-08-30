@@ -45,7 +45,7 @@ export function getSmartParseNumber(size: Coord | null | undefined, xyDir: 'X' |
 	// GUARD: A NaN/Infinity coordinate is always a mistake (commonly arithmetic on an
 	// `undefined` layout dimension). Fail loud with a targeted hint instead of the generic
 	// converter message, since this is the most common way a deck collapses to zero-size.
-	if (typeof size === 'number' && !isFinite(size)) {
+	if (typeof size === 'number' && !Number.isFinite(size)) {
 		throw new InvalidOptionError(
 			'coord/non-finite',
 			`Invalid ${xyDir || 'coordinate'} value: expected a finite number but received ${String(size)}. ` +

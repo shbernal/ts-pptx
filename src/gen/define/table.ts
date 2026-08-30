@@ -246,6 +246,32 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
  * `createHyperlinkRels` does: `target` has to be the slide the cell actually lands on, or
  * every relationship piles onto the first slide.
  */
+/**
+ * Resolve `autoPageHeaderRows` to a usable count of header rows.
+ *
+ * It is a count, so it has to be a whole number, at least one, and no larger than the table
+ * itself — a header taller than the table repeats every row onto every continuation slide and
+ * leaves no room for body content. Anything else falls back to `1` and reports
+ * `table/invalid-header-row-count`.
+ *
+ * The test this replaces was `!isNaN(Number(x))`, which is none of those things: `''` and `[]`
+ * both read as `0` header rows, `2.5` survived as a fraction, and `Infinity` was accepted as a
+ * count. Its sibling `autoPageLineWeight` has been range-clamped since it was written.
+ *
+ * @param value - the caller's `autoPageHeaderRows`
+ * @param rowCount - how many rows the table has
+ */
+function resolveHeaderRowCount(value: number | undefined, rowCount: number): number {
+	if (value === undefined) return 1
+	const rows = Number(value)
+	if (Number.isInteger(rows) && rows >= 1 && rows <= rowCount) return rows
+	warn(
+		'table/invalid-header-row-count',
+		`autoPageHeaderRows ${String(value)} must be a whole number from 1 to the table's row count (${rowCount}); using 1.`
+	)
+	return 1
+}
+
 function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][], opt: TableProps): void {
 	const seen = new Set<ShapeFillProps>()
 	const register = (fill: ShapeFillProps | undefined): void => {
@@ -402,14 +428,13 @@ export function addTableDefinition(
 	opt.autoPage = typeof opt.autoPage === 'boolean' ? opt.autoPage : false
 	opt.autoPagePlaceholder = typeof opt.autoPagePlaceholder === 'boolean' ? opt.autoPagePlaceholder : false
 	opt.autoPageRepeatHeader = typeof opt.autoPageRepeatHeader === 'boolean' ? opt.autoPageRepeatHeader : false
-	opt.autoPageHeaderRows =
-		typeof opt.autoPageHeaderRows !== 'undefined' && !isNaN(Number(opt.autoPageHeaderRows))
-			? Number(opt.autoPageHeaderRows)
-			: 1
-	opt.autoPageLineWeight =
-		typeof opt.autoPageLineWeight !== 'undefined' && !isNaN(Number(opt.autoPageLineWeight))
-			? Number(opt.autoPageLineWeight)
-			: 0
+	// A header-row count is a count: a whole number, not negative, and not more rows than the
+	// table has. The NaN test this replaces was none of those — `''` read as `0` header rows and
+	// `Infinity` was accepted as a count, which is the same shape of hole `autoPageLineWeight`
+	// has been guarded against two lines down since it was written.
+	opt.autoPageHeaderRows = resolveHeaderRowCount(opt.autoPageHeaderRows, tableRows.length)
+	const lineWeight = Number(opt.autoPageLineWeight)
+	opt.autoPageLineWeight = typeof opt.autoPageLineWeight !== 'undefined' && Number.isFinite(lineWeight) ? lineWeight : 0
 	if (opt.autoPageLineWeight) {
 		if (opt.autoPageLineWeight > 1) opt.autoPageLineWeight = 1
 		else if (opt.autoPageLineWeight < -1) opt.autoPageLineWeight = -1
@@ -422,7 +447,7 @@ export function addTableDefinition(
 	// Master margins override the defaults, if present
 	if (slideLayout && typeof slideLayout._margin !== 'undefined') {
 		if (Array.isArray(slideLayout._margin)) arrTableMargin = slideLayout._margin
-		else if (!isNaN(Number(slideLayout._margin))) {
+		else if (Number.isFinite(Number(slideLayout._margin))) {
 			arrTableMargin = [
 				Number(slideLayout._margin),
 				Number(slideLayout._margin),

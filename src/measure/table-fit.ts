@@ -63,7 +63,7 @@ interface CellInsetsEmu {
 export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
-	if (!Array.isArray(m) || m.length !== 4 || m.some((v) => typeof v !== 'number' || !isFinite(v)))
+	if (!Array.isArray(m) || m.length !== 4 || m.some((v) => typeof v !== 'number' || !Number.isFinite(v)))
 		m = DEF_CELL_MARGIN_IN
 	const arr = m
 	return {

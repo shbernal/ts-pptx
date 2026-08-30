@@ -15,7 +15,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -58,7 +58,7 @@ function pieDataPoint(
 	const border = ptStyle?.border
 		? createChartBorderLine(ptStyle.border)
 		: opts.dataBorder
-			? el('a:ln', { w: ptsToEmuLenient(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
+			? el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
 					raw(
 						genXmlColorSelection({
 							color: opts.dataBorder.color ?? '363636',

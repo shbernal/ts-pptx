@@ -338,6 +338,8 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	/**
 	 * Number of rows that comprise table headers
 	 * - required when `autoPageRepeatHeader` is set to true.
+	 * - a whole number from 1 to the table's own row count; anything else is reported under
+	 *   `table/invalid-header-row-count` and falls back to `1`
 	 * @example 2 - repeats the first two table rows on each new slide created
 	 * @default 1
 	 */

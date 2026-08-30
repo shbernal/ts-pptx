@@ -25,7 +25,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
+import { convertAngleUnits, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -556,7 +556,7 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  */
 export function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
-	return el('a:ln', { w: ptsToEmuLenient(resolveBorderWidth(border, 1)), cap: 'flat' }, [
+	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' }, [
 		raw(genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })),
 		raw(voidEl('a:prstDash', { val: border.type === 'dash' ? 'dash' : 'solid' })),
 		raw(voidEl('a:round')),

@@ -170,7 +170,7 @@ function rgbToHex(r: number, g: number, b: number): string {
  */
 export function htmlBorderToProps(widthStr: string, colorStr: string): BorderProps {
 	const pt = Number(String(widthStr).replace('px', ''))
-	if (!isFinite(pt) || pt <= 0) return { type: 'none' }
+	if (!Number.isFinite(pt) || pt <= 0) return { type: 'none' }
 	return { width: pt, color: cssColorToHex(colorStr) ?? '000000' }
 }
 
@@ -200,7 +200,7 @@ export function cssColorToHex(value: string): string | undefined {
 		const parts = (rgbMatch[1] ?? '').split(/[,/\s]+/).filter((part) => part.length > 0)
 		if (parts.length < 3) return undefined
 		const channels = parts.slice(0, 3).map((part) => Number(part.replace('%', '')))
-		if (channels.some((channel) => !isFinite(channel))) return undefined
+		if (channels.some((channel) => !Number.isFinite(channel))) return undefined
 		if (parts.length > 3 && Number(parts[3]) === 0) return undefined
 		// Clamp and round before hex conversion: a browser always computes whole 0-255
 		// channels, but nothing guarantees another DOM does, and `(255.5).toString(16)`
@@ -240,9 +240,9 @@ export function cssColorToHex(value: string): string | undefined {
  * @returns {number} resolved column width
  */
 export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidth: number): number {
-	const safeCalc = isFinite(calcWidth) ? calcWidth : 0
-	if (isFinite(setWidth) && setWidth > 0) return setWidth
-	return isFinite(minWidth) && minWidth > safeCalc ? minWidth : safeCalc
+	const safeCalc = Number.isFinite(calcWidth) ? calcWidth : 0
+	if (Number.isFinite(setWidth) && setWidth > 0) return setWidth
+	return Number.isFinite(minWidth) && minWidth > safeCalc ? minWidth : safeCalc
 }
 
 /** A CSS value that is a bare number, or a number with a `px`/`%` unit. Nothing else parses. */
@@ -290,7 +290,7 @@ export function parseCssWidthBasis(values: readonly string[]): number[] {
 		const match = CSS_LENGTH.exec(String(value ?? ''))
 		if (!match) return []
 		const magnitude = Number(match[1])
-		if (!isFinite(magnitude) || magnitude < 0) return []
+		if (!Number.isFinite(magnitude) || magnitude < 0) return []
 		const valueUnit = (match[2] ?? 'px').toLowerCase()
 		if (!unit) unit = valueUnit
 		else if (unit !== valueUnit) return []
@@ -332,7 +332,7 @@ export function parseCssWidthBasis(values: readonly string[]): number[] {
  * @returns {number[]} the basis vector to run the proportional calc on
  */
 export function pickColWidthBasis(measured: readonly number[], cssWidths: readonly number[]): number[] {
-	const sum = (arr: readonly number[]): number => arr.reduce((acc, n) => acc + (isFinite(n) ? n : 0), 0)
+	const sum = (arr: readonly number[]): number => arr.reduce((acc, n) => acc + (Number.isFinite(n) ? n : 0), 0)
 	if (sum(measured) > 0) return [...measured]
 	if (cssWidths.length === measured.length && sum(cssWidths) > 0) return [...cssWidths]
 	return measured.map(() => 1)
@@ -353,7 +353,7 @@ type GridCellSpans = { colspan?: number; rowspan?: number }
  */
 function gridSpan(value: unknown): number {
 	const num = Math.floor(Number(value))
-	return isFinite(num) && num > 1 ? num : 1
+	return Number.isFinite(num) && num > 1 ? num : 1
 }
 
 /**
@@ -415,7 +415,7 @@ export function measureGridColumns(rows: readonly (readonly GridCellSpans[])[]):
  */
 export function extendColBasis(basis: readonly number[], columns: number): number[] {
 	const extended = [...basis]
-	const total = extended.reduce((acc, width) => acc + (isFinite(width) ? width : 0), 0)
+	const total = extended.reduce((acc, width) => acc + (Number.isFinite(width) ? width : 0), 0)
 	const share = extended.length > 0 && total > 0 ? total / extended.length : 1
 	while (extended.length < columns) extended.push(share)
 	return extended
@@ -618,12 +618,12 @@ export function genTableToSlides(
 	// STEP 1: Set margins
 	if (masterSlide?._margin) {
 		if (Array.isArray(masterSlide._margin)) arrInchMargins = masterSlide._margin
-		else if (!isNaN(masterSlide._margin))
+		else if (Number.isFinite(masterSlide._margin))
 			arrInchMargins = [masterSlide._margin, masterSlide._margin, masterSlide._margin, masterSlide._margin]
 		opts.slideMargin = arrInchMargins
 	} else if (opts?.slideMargin) {
 		if (Array.isArray(opts.slideMargin)) arrInchMargins = opts.slideMargin
-		else if (!isNaN(opts.slideMargin))
+		else if (Number.isFinite(opts.slideMargin))
 			arrInchMargins = [opts.slideMargin, opts.slideMargin, opts.slideMargin, opts.slideMargin]
 	}
 	emuSlideTabW = (opts.w ? inch2Emu(opts.w) : pptx.presLayout.width) - inch2Emu(arrInchMargins[1] + arrInchMargins[3])
@@ -675,7 +675,7 @@ export function genTableToSlides(
 	const arrCellSpans: number[] = []
 	rowCells(srcRow.row).forEach((cell) => {
 		const offsetW = Number(cell.offsetWidth)
-		const measured = isFinite(offsetW) ? offsetW : 0
+		const measured = Number.isFinite(offsetW) ? offsetW : 0
 		arrTabColCssW.push(ctx.getComputedStyle(cell).getPropertyValue('width'))
 		// Guesstimate (divide evenly) col widths across a spanned cell.
 		// NOTE: both j$query and vanilla selectors return {0} when table is not visible)
@@ -784,7 +784,7 @@ export function genTableToSlides(
 					// Anything that is not an absolute px length (a `%` padding, a keyword) has no
 					// meaning as a fixed inset, so it insets by nothing rather than by its digits.
 					const pad = parseCssPx(style.getPropertyValue(val))
-					cellMargin[idxs] = isFinite(pad) ? pad / DEFAULT_PX_PER_INCH : 0
+					cellMargin[idxs] = Number.isFinite(pad) ? pad / DEFAULT_PX_PER_INCH : 0
 				})
 				cellOpts.margin = cellMargin
 			}

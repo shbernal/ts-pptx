@@ -13,7 +13,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
-import { percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -53,7 +53,7 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))
 			: opts.dataBorder
-				? el('a:ln', { w: ptsToEmuLenient(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
+				? el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(opts.dataBorder, 0.75)), cap: 'flat' }, [
 						raw(
 							genXmlColorSelection({
 								color: opts.dataBorder.color ?? '363636',

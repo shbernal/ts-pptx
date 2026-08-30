@@ -167,15 +167,27 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		}
 
 		// OPTION: indent
-		if (opts.indentLevel && !isNaN(Number(opts.indentLevel)) && opts.indentLevel > 0) {
-			paragraphPropXml += ` lvl="${opts.indentLevel}"`
+		// `a:p/@lvl` is ST_TextIndentLevelType (0-8) and the value is written straight into the
+		// attribute, so an unusable one is a repair prompt rather than a wrong-looking slide.
+		// The guard used to be truthiness plus `> 0`, which `Infinity` passes: `lvl="Infinity"`.
+		if (opts.indentLevel) {
+			if (Number.isInteger(opts.indentLevel) && opts.indentLevel > 0 && opts.indentLevel <= 8)
+				paragraphPropXml += ` lvl="${opts.indentLevel}"`
+			else
+				warn(
+					'text/invalid-indent-level',
+					`indentLevel ${String(opts.indentLevel)} must be a whole number from 0 to 8; ignoring it.`
+				)
 		}
 
 		// OPTION: Paragraph Spacing: Before/After
-		if (opts.paraSpaceBefore && !isNaN(Number(opts.paraSpaceBefore)) && opts.paraSpaceBefore > 0) {
+		// `NaN` is falsy, so truthiness plus `> 0` is the whole guard. A non-finite value is
+		// deliberately left to reach `ptToHundredths`, which refuses it — dropping the attribute
+		// here instead would silently lose a spacing the caller asked for.
+		if (opts.paraSpaceBefore && opts.paraSpaceBefore > 0) {
 			strXmlParaSpc += el('a:spcBef', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceBefore) })))
 		}
-		if (opts.paraSpaceAfter && !isNaN(Number(opts.paraSpaceAfter)) && opts.paraSpaceAfter > 0) {
+		if (opts.paraSpaceAfter && opts.paraSpaceAfter > 0) {
 			strXmlParaSpc += el('a:spcAft', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceAfter) })))
 		}
 
@@ -209,7 +221,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 				// 25–400% is the range PowerPoint's bullet-size dialog accepts (and the
 				// range `<a:buSzPct>` renders sensibly); values outside it are rejected
 				// rather than clamped so the caller notices the bad input.
-				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
+				if (!Number.isFinite(bulletSize) || bulletSize < 25 || bulletSize > 400) {
 					warn('bullet/size-out-of-range', '`bullet.size` must be a percentage between 25 and 400!')
 				} else {
 					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
@@ -526,7 +538,7 @@ export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 	// NOTE: fontScale/lnSpcReduction are authored as a percent (0-100); OOXML stores them in 1000ths of a percent.
 	const pct = (val: number | undefined, name: string): number | null => {
 		if (val === undefined || val === null) return null
-		if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 100) {
+		if (typeof val !== 'number' || !Number.isFinite(val) || val < 0 || val > 100) {
 			warn(
 				'text/invalid-fit-percentage',
 				`fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`

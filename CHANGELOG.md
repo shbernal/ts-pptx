@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chart `x`/`y` spelled as a percentage or a unit string is honoured instead of being
+  replaced by 1 inch.** Both are ordinary `Coord` values, and the guard in front of them
+  was `!isNaN(Number(x))` — false for `'50%'` and `'2in'` alike, so the value was thrown
+  away and the default substituted. A chart positioned at half the slide width landed an
+  inch from the left edge, silently. The guard now defaults only what the caller omitted
+  and lets the coordinate converter vet the rest, which also means a `NaN` position is
+  reported (`coord/non-finite`) rather than quietly becoming 1 inch.
+
+- **The coercing numeric globals are gone from `src/`, and banned.** `isNaN` and
+  `isFinite` coerce their argument before testing it, so they answer a different question
+  from the one at the call site: `Number('') === 0` makes `isNaN('')` false, and
+  `isNaN(Infinity)` is false, so a value with no finite representation passes a guard whose
+  job was to stop one. 39 uses of the former and 18 of the latter are now `Number.isFinite`
+  (or `Number.isNaN`, where an infinity is deliberately clamped rather than rejected), and
+  `.oxlintrc.jsonc` bans both under `no-restricted-globals` for `src/**` so the sweep
+  cannot decay. What changed beyond consistency:
+
+  - **`indentLevel` is range-checked.** It is written straight into `a:p/@lvl` with no
+    converter in between, so `Infinity` reached the package as `lvl="Infinity"`. It is
+    `ST_TextIndentLevelType` (0-8, whole numbers), and anything else now reports the new
+    `text/invalid-indent-level` and is ignored.
+  - **`autoPageHeaderRows` is checked as a count**: a whole number from 1 to the table's own
+    row count. `''` used to read as `0` header rows, a fraction survived, and `Infinity` was
+    accepted; all three now report the new `table/invalid-header-row-count` and fall back to
+    `1`. Its sibling `autoPageLineWeight` had been range-clamped since it was written.
+  - **Chart border widths go through `lineWidthToEmu`**, the ST_LineWidth clamp shape
+    strokes have always used. A negative `plotArea.border.width` or `dataBorder.width` used
+    to reach `a:ln/@w` as a negative attribute; a negative or non-finite one is now not a
+    width at all and takes the documented default.
+  - A non-finite `lineDataSymbolLineSize` used to collapse to a zero-width marker outline.
+    It goes through the same clamp.
+
 - **`pptx.tableLayout()` no longer disagrees with the file the export writes about row
   heights, and its numbers change.** `rowH` was read independently in four places: the
   `<a:tr h>` emitter, the export-time measured-fit pass, the auto-pager, and

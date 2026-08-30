@@ -22,7 +22,7 @@ import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '..
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
+import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -96,8 +96,19 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
  * @param max - inclusive upper bound
  * @param name - option name, for the warning message
  */
+/**
+ * A border width the emitter can use: a positive, finite number of points.
+ *
+ * `0` counts as "not stated" here and takes the default, which is what the truthiness test
+ * this replaces already did. What it adds is `Infinity` and a negative — neither is a width,
+ * and a negative one reached `a:ln/@w` as a negative attribute.
+ */
+function isUsableBorderWidth(width: number | undefined): boolean {
+	return typeof width === 'number' && Number.isFinite(width) && width > 0
+}
+
 function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
-	if (typeof value !== 'number' || isNaN(value)) return undefined
+	if (typeof value !== 'number' || Number.isNaN(value)) return undefined
 	const clamped = Math.min(max, Math.max(min, Math.round(value)))
 	if (clamped !== value)
 		warn('chart/option-out-of-range', `${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
@@ -189,17 +200,23 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 	options.serAxisLineShow = typeof options.serAxisLineShow !== 'undefined' ? options.serAxisLineShow : true
 
 	options.v3DRotX =
-		typeof options.v3DRotX === 'number' && !isNaN(options.v3DRotX) && options.v3DRotX >= -90 && options.v3DRotX <= 90
+		typeof options.v3DRotX === 'number' &&
+		Number.isFinite(options.v3DRotX) &&
+		options.v3DRotX >= -90 &&
+		options.v3DRotX <= 90
 			? options.v3DRotX
 			: 30
 	options.v3DRotY =
-		typeof options.v3DRotY === 'number' && !isNaN(options.v3DRotY) && options.v3DRotY >= 0 && options.v3DRotY <= 360
+		typeof options.v3DRotY === 'number' &&
+		Number.isFinite(options.v3DRotY) &&
+		options.v3DRotY >= 0 &&
+		options.v3DRotY <= 360
 			? options.v3DRotY
 			: 30
 	// v3DRAngAx: same dead-ternary shape as the show* block above, same reason for its absence.
 	options.v3DPerspective =
 		typeof options.v3DPerspective === 'number' &&
-		!isNaN(options.v3DPerspective) &&
+		Number.isFinite(options.v3DPerspective) &&
 		options.v3DPerspective >= 0 &&
 		options.v3DPerspective <= 240
 			? options.v3DPerspective
@@ -223,12 +240,13 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	// and meet the plot builders' fallback instead, which was the *bar* palette on every type —
 	// so `{ chartColors: [] }` on a pie was neither the caller's colours nor the pie default.
 	options.chartColors = options.chartColors?.length ? options.chartColors : defaultChartPalette(options._type)
-	options.chartColorsOpacity =
-		options.chartColorsOpacity && !isNaN(options.chartColorsOpacity) ? options.chartColorsOpacity : undefined
+	// NaN is falsy, so this only ever has to answer for a value the caller actually set.
+	// An out-of-range one reaches `percentToFixedPercent` at the emitter, which clamps and says so.
+	options.chartColorsOpacity = options.chartColorsOpacity || undefined
 	options.plotArea = options.plotArea || {}
 	options.plotArea.border =
 		options.plotArea.border && typeof options.plotArea.border === 'object' ? options.plotArea.border : undefined
-	if (options.plotArea.border && (!options.plotArea.border.width || isNaN(options.plotArea.border.width)))
+	if (options.plotArea.border && !isUsableBorderWidth(options.plotArea.border.width))
 		options.plotArea.border.width = DEF_CHART_BORDER.width
 	if (
 		options.plotArea.border &&
@@ -251,8 +269,7 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 		typeof options.chartArea.roundedCorners === 'boolean' ? options.chartArea.roundedCorners : true
 	//
 	options.dataBorder = options.dataBorder && typeof options.dataBorder === 'object' ? options.dataBorder : undefined
-	if (options.dataBorder && (!options.dataBorder.width || isNaN(options.dataBorder.width)))
-		options.dataBorder.width = 0.75
+	if (options.dataBorder && !isUsableBorderWidth(options.dataBorder.width)) options.dataBorder.width = 0.75
 	if (options.dataBorder && options.dataBorder.color) {
 		const isHexColor =
 			typeof options.dataBorder.color === 'string' &&
@@ -383,7 +400,7 @@ function normalizeComboSubchartOptions(
 	fixed.holeSize = clampChartPct(fixed.holeSize, 10, 90, 'holeSize')
 	fixed.firstSliceAng = clampChartPct(fixed.firstSliceAng, 0, 360, 'firstSliceAng')
 	// `<c:size val>` is ST_MarkerSize: an integer 2..72 points.
-	if (fixed.lineDataSymbolSize != null && !isNaN(fixed.lineDataSymbolSize)) {
+	if (fixed.lineDataSymbolSize != null && !Number.isNaN(fixed.lineDataSymbolSize)) {
 		const symbolSize = Math.min(72, Math.max(2, Math.round(fixed.lineDataSymbolSize)))
 		if (symbolSize !== fixed.lineDataSymbolSize)
 			warn(
@@ -393,9 +410,8 @@ function normalizeComboSubchartOptions(
 		fixed.lineDataSymbolSize = symbolSize
 	}
 	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
-	// already been through `ptsToEmuLenient` and converting it twice would emit a hairline.
-	if (sub.lineDataSymbolLineSize != null && !isNaN(sub.lineDataSymbolLineSize))
-		fixed.lineDataSymbolLineSize = ptsToEmuLenient(sub.lineDataSymbolLineSize)
+	// already been converted and doing it twice would emit a hairline.
+	if (sub.lineDataSymbolLineSize != null) fixed.lineDataSymbolLineSize = lineWidthToEmu(sub.lineDataSymbolLineSize)
 
 	const result: ChartOptsInternal = { ...sub }
 	for (const key of SUBCHART_VALIDATED_KEYS) {
@@ -437,7 +453,7 @@ export function addChartDefinition(
 ): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
-		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
+		if (glOpts.size !== undefined && (!Number.isFinite(Number(glOpts.size)) || glOpts.size <= 0)) {
 			warn('chart/invalid-grid-line-size', 'chart.gridLine.size must be greater than 0.')
 			delete glOpts.size // delete prop to used defaults
 		}
@@ -491,7 +507,7 @@ export function addChartDefinition(
 	const options: ChartOptsInternal = copyChartOptions(tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {})
 	// Captured before normalization fills in the default, so the combo pass below can tell an
 	// explicit gap width from an inherited one.
-	const callerSetBarGapWidthPct = typeof options.barGapWidthPct === 'number' && !isNaN(options.barGapWidthPct)
+	const callerSetBarGapWidthPct = typeof options.barGapWidthPct === 'number' && !Number.isNaN(options.barGapWidthPct)
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
@@ -509,8 +525,12 @@ export function addChartDefinition(
 		}
 	}
 	options._type = tmpTypes ?? asChartType(type as CHART_NAME)
-	options.x = typeof options.x !== 'undefined' && options.x != null && !isNaN(Number(options.x)) ? options.x : 1
-	options.y = typeof options.y !== 'undefined' && options.y != null && !isNaN(Number(options.y)) ? options.y : 1
+	// Default only what the caller omitted. The guard used to be `!isNaN(Number(x))`, which is
+	// false for every `Coord` that is not a bare number — so `x: '50%'` and `x: '2in'` were
+	// thrown away and replaced by 1 inch, and a `NaN` was too, silently. `getSmartParseNumber`
+	// is what vets a coordinate, and it reports a bad one instead of guessing.
+	options.x = options.x ?? 1
+	options.y = options.y ?? 1
 	options.w = options.w || '50%'
 	options.h = options.h || '50%'
 	options.objectName = options.objectName
@@ -547,7 +567,7 @@ export function addChartDefinition(
 	// repair, so round and clamp into range and warn when the input is coerced.
 	{
 		const rawSymbolSize = options.lineDataSymbolSize
-		const hasSymbolSize = rawSymbolSize != null && !isNaN(rawSymbolSize)
+		const hasSymbolSize = rawSymbolSize != null && !Number.isNaN(rawSymbolSize)
 		const symbolSize = Math.min(72, Math.max(2, Math.round(hasSymbolSize ? rawSymbolSize : 6)))
 		if (hasSymbolSize && symbolSize !== rawSymbolSize) {
 			warn(
@@ -557,17 +577,18 @@ export function addChartDefinition(
 		}
 		options.lineDataSymbolSize = symbolSize
 	}
-	options.lineDataSymbolLineSize =
-		options.lineDataSymbolLineSize && !isNaN(options.lineDataSymbolLineSize)
-			? ptsToEmuLenient(options.lineDataSymbolLineSize)
-			: ptsToEmuLenient(0.75)
+	// `lineWidthToEmu` rather than `ptsToEmuLenient`: this is an `a:ln/@w`, so an out-of-range
+	// width is a repair prompt, and collapsing one to zero would be a silent hairline instead.
+	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize
+		? lineWidthToEmu(options.lineDataSymbolLineSize)
+		: ptsToEmuLenient(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	const chartLayout = options.layout
 	if (chartLayout) {
 		;(['x', 'y', 'w', 'h'] as const).forEach((key) => {
 			const val = chartLayout[key]
 			const numVal = Number(val)
-			if (isNaN(numVal) || numVal < 0 || numVal > 1) {
+			if (!Number.isFinite(numVal) || numVal < 0 || numVal > 1) {
 				warn('chart/layout-out-of-range', 'chart.layout.' + key + ' can only be 0-1')
 				delete chartLayout[key] // remove invalid value so that default will be used
 			}

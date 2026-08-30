@@ -139,9 +139,10 @@ export function addTextDefinition(
 
 			// C: Line opts
 			itemOpts.line = itemOpts.line || {}
-			itemOpts.lineSpacing = itemOpts.lineSpacing && !isNaN(itemOpts.lineSpacing) ? itemOpts.lineSpacing : undefined
-			itemOpts.lineSpacingMultiple =
-				itemOpts.lineSpacingMultiple && !isNaN(itemOpts.lineSpacingMultiple) ? itemOpts.lineSpacingMultiple : undefined
+			// `NaN` is falsy, so the truthiness test is the whole guard; an out-of-range value is
+			// clamped and reported by `clamp.ts` at emit rather than dropped without a word here.
+			itemOpts.lineSpacing = itemOpts.lineSpacing || undefined
+			itemOpts.lineSpacingMultiple = itemOpts.lineSpacingMultiple || undefined
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			// Copy, never adopt: an incoming `_bodyProp` belongs to something else. It arrives here
@@ -162,7 +163,7 @@ export function addTextDefinition(
 			if (itemOpts.columns !== undefined) {
 				if (
 					typeof itemOpts.columns !== 'number' ||
-					isNaN(itemOpts.columns) ||
+					!Number.isFinite(itemOpts.columns) ||
 					itemOpts.columns < 1 ||
 					itemOpts.columns > 16
 				) {
@@ -172,7 +173,11 @@ export function addTextDefinition(
 				}
 			}
 			if (itemOpts.columnSpacing !== undefined) {
-				if (typeof itemOpts.columnSpacing !== 'number' || isNaN(itemOpts.columnSpacing) || itemOpts.columnSpacing < 0) {
+				if (
+					typeof itemOpts.columnSpacing !== 'number' ||
+					!Number.isFinite(itemOpts.columnSpacing) ||
+					itemOpts.columnSpacing < 0
+				) {
 					warn('text/invalid-column-spacing', 'text `columnSpacing` must be a number >= 0 (ignoring value)')
 				} else {
 					itemOpts._bodyProp.spcCol = ptsToEmuLenient(itemOpts.columnSpacing)
