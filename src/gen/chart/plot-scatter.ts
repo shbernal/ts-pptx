@@ -163,12 +163,11 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 		raw(spPr),
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		raw(voidEl('c:showLegendKey', { val: 0 })),
-		raw(voidEl('c:showVal', { val: opts.showLabel ? 1 : 0 })),
-		raw(voidEl('c:showCatName', { val: opts.showLabel ? 1 : 0 })),
-		raw(voidEl('c:showSerName', { val: opts.showSerName ? 1 : 0 })),
-		raw(voidEl('c:showPercent', { val: 0 })),
-		raw(voidEl('c:showBubbleSize', { val: 0 })),
+		...dLblShowFlags({
+			val: opts.showLabel ? 1 : 0,
+			catName: opts.showLabel ? 1 : 0,
+			serName: opts.showSerName ? 1 : 0,
+		}),
 		raw(extLst),
 	])
 }

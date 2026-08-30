@@ -8,42 +8,31 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartDataPointStyle } from '../../types/chart.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { genXmlColorSelection } from '../drawingml/fill.js'
-import { ptToHundredths } from '../../units.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	createChartBorderLine,
-	createChartTextFonts,
 	createDataBorderLine,
 	createLeaderLinesElement,
 	dLblShowFlags,
+	labelFontAttrs,
+	labelFontChildren,
 	paletteColor,
 	resolveChartPalette,
 	strRefBlock,
 } from './chart-parts.js'
 
-/** The label run properties both `<c:txPr>` spellings share. */
-function labelDefRPr(opts: ChartOptsInternal) {
-	return el(
-		'a:defRPr',
-		{
-			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
-			b: opts.dataLabelFontBold ? 1 : 0,
-			i: opts.dataLabelFontItalic ? 1 : 0,
-			u: 'none',
-			strike: 'noStrike',
-		},
-		[
-			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
-		]
-	)
+/**
+ * The label run properties both `<c:txPr>` spellings share: {@link labelFontAttrs} in the
+ * `sz, b, i, u, strike` ordering, over {@link labelFontChildren}'s colour and typeface.
+ */
+function labelDefRPr(opts: ChartOptsInternal): string {
+	return el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))
 }
 
 /** One `<c:dPt>`: the slice's own fill, its border override, and the shared shadow. */

@@ -8,10 +8,9 @@
  * than one parameterized one. Called by {@link ./chart-xml}'s axis region.
  *
  * Sub-blocks are shared where they can be shared *exactly*: {@link axisLineSpPr} covers
- * `<c:spPr>` and {@link axisTextParagraph} the `<a:p>` inside `<c:txPr>`. Both used to take
- * indentation arguments, which is what had kept them copied rather than shared; the emitters
- * are flat now (`docs/chart-whitespace-flatten.md`), so they take only what they are about.
- * The `<c:txPr>` wrappers themselves stay per-axis: they differ in element order, not layout.
+ * `<c:spPr>` and {@link axisTextProps} the whole `<c:txPr>`. Both used to take indentation
+ * arguments, which is what had kept them copied rather than shared; the emitters are flat now
+ * (`docs/chart-whitespace-flatten.md`), so they take only what they are about.
  */
 
 import { asChartType, ChartType } from '../../enums.js'
@@ -55,14 +54,21 @@ function axisLineSpPr(widthEmu: number, show: boolean | undefined, color: string
 }
 
 /**
- * The `<a:p>` an axis `<c:txPr>` wraps its run properties in: the `<a:pPr>` carrying `defRPr`,
- * then an empty `<a:endParaRPr>`. All three axis builders emit exactly this.
+ * The `<c:txPr>` an axis wraps its label run properties in: `<a:bodyPr>`, an empty
+ * `<a:lstStyle>`, then the `<a:pPr>` carrying `defRPr` and an empty `<a:endParaRPr>`. All three
+ * axis builders emit exactly this; only the rotation differs, and the series axis has none.
  *
  * @param defRPr - the already-built `<a:defRPr>`
  * @param lang - the deck's language tag, for `endParaRPr`
+ * @param rot - `a:bodyPr@rot`, already in 60000ths of a degree. `undefined` omits the
+ *   attribute, which is what gets the auto behaviour -- do not pass `0` for it.
  */
-function axisTextParagraph(defRPr: string, lang: string): string {
-	return el('a:p', null, [raw(el('a:pPr', null, raw(defRPr))), raw(voidEl('a:endParaRPr', { lang }))])
+function axisTextProps(defRPr: string, lang: string, rot?: number): string {
+	return el('c:txPr', null, [
+		raw(voidEl('a:bodyPr', { rot })),
+		raw(voidEl('a:lstStyle', null)),
+		raw(el('a:p', null, [raw(el('a:pPr', null, raw(defRPr))), raw(voidEl('a:endParaRPr', { lang }))])),
+	])
 }
 
 export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
@@ -108,16 +114,11 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			raw(createChartTextFonts(opts.catAxisLabelFontFace || 'Arial')),
 		]
 	)
-	const txPr = el('c:txPr', null, [
-		// NOTE: don't specify `rot="0"` — leaving it off is what gets the auto behavior.
-		raw(
-			voidEl('a:bodyPr', {
-				rot: opts.catAxisLabelRotate ? convertAngleUnits(opts.catAxisLabelRotate, 'catAxisLabelRotate') : undefined,
-			})
-		),
-		raw(voidEl('a:lstStyle', null)),
-		raw(axisTextParagraph(defRPr, opts.lang || 'en-US')),
-	])
+	const txPr = axisTextProps(
+		defRPr,
+		opts.lang || 'en-US',
+		opts.catAxisLabelRotate ? convertAngleUnits(opts.catAxisLabelRotate, 'catAxisLabelRotate') : undefined
+	)
 
 	const valAxisCrossTag = typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'
 	const valAxisCrossValue =
@@ -222,16 +223,11 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 			raw(createChartTextFonts(opts.valAxisLabelFontFace || 'Arial')),
 		]
 	)
-	const txPr = el('c:txPr', null, [
-		// Don't specify `rot="0"`, so we get the auto behavior.
-		raw(
-			voidEl('a:bodyPr', {
-				rot: opts.valAxisLabelRotate ? convertAngleUnits(opts.valAxisLabelRotate, 'valAxisLabelRotate') : undefined,
-			})
-		),
-		raw(voidEl('a:lstStyle', null)),
-		raw(axisTextParagraph(defRPr, opts.lang || 'en-US')),
-	])
+	const txPr = axisTextProps(
+		defRPr,
+		opts.lang || 'en-US',
+		opts.valAxisLabelRotate ? convertAngleUnits(opts.valAxisLabelRotate, 'valAxisLabelRotate') : undefined
+	)
 
 	// Where this axis meets its category axis: an explicit position, an explicit rule, or the
 	// default — a right/top axis crosses at the maximum, everything else at zero.
@@ -314,12 +310,8 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			raw(createChartTextFonts(opts.serAxisLabelFontFace || 'Arial')),
 		]
 	)
-	const txPr = el('c:txPr', null, [
-		// Don't specify `rot="0"`, so we get the auto behavior.
-		raw(voidEl('a:bodyPr', null)),
-		raw(voidEl('a:lstStyle', null)),
-		raw(axisTextParagraph(defRPr, opts.lang || 'en-US')),
-	])
+	// No `serAxisLabelRotate` option exists, so the series axis always takes the auto rotation.
+	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
 
 	// PPT auto-adjusts these once it has calculated the date bounds, so they are emitted only when
 	// the caller asked for them.

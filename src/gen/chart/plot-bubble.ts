@@ -8,7 +8,7 @@
 
 import { ChartType } from '../../enums.js'
 import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
-import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
+import type { ChartOptsInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
@@ -19,7 +19,6 @@ import {
 	createDataBorderLine,
 	dLblShowFlags,
 	dataLabelDefRPr,
-	numCachePt,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
@@ -61,27 +60,6 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 						raw(voidEl('a:round')),
 					])
 	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
-}
-
-/**
- * The `<c:bubbleSize>` cache: the per-point sizes that scale each bubble.
- *
- * It is its own block for a reason that has expired. What kept it out of {@link numRefBlock}
- * was the indentation as much as the wrapping tag: its `<c:ptCount>` sat three spaces further
- * in than anything around it. The emitters are flat now (`docs/chart-whitespace-flatten.md`),
- * which leaves the two identical apart from the tag and a constant format code, so this folds
- * into `numRefBlock` by widening `tag`. Left standing here deliberately: the flatten is a
- * whitespace-only change and stays one, so that its proof means what it says.
- */
-function bubbleSizeBlock(obj: OptsChartDataInternal, ref: string): string {
-	const sizes = dataSizes(obj)
-	const numCache = el('c:numCache', null, [
-		raw(el('c:formatCode', null, 'General')),
-		raw(voidEl('c:ptCount', { val: sizes.length })),
-		raw(sizes.map((value, idx) => numCachePt(idx, value)).join('')),
-	])
-	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)])
-	return el('c:bubbleSize', null, raw(numRef))
 }
 
 /** The shared `<c:dLbls>` block: number format, label text style, and which parts are shown. */
@@ -154,7 +132,14 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 				xValues.map((_value, i) => yValues[i])
 			)
 			idxColLtr++
-			const sizeRef = sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, dataSizes(obj).length + 1)
+			// The sizes carry a constant `General` format code: no option spells a size number format.
+			const sizes = dataSizes(obj)
+			const sizeVal = numRefBlock(
+				'c:bubbleSize',
+				sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, sizes.length + 1),
+				'General',
+				sizes
+			)
 			idxColLtr++
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: idx })),
@@ -164,7 +149,7 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 				// No `<c:dLbls>` per series — the chart-level block below carries the labels.
 				raw(xVal),
 				raw(yVal),
-				raw(bubbleSizeBlock(obj, sizeRef)),
+				raw(sizeVal),
 				raw(voidEl('c:bubble3D', { val: chartType === ChartType.bubble3d ? 1 : 0 })),
 			])
 		})

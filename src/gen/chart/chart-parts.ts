@@ -724,22 +724,23 @@ export function catRefBlock(kind: 'num' | 'str', ref: string, labels: string[], 
 }
 
 /**
- * A `<c:xVal>`/`<c:yVal>` numeric-reference block: the `<c:f>` formula plus the `<c:numCache>`
- * that mirrors the cells it points at.
+ * A numeric-reference block: the `<c:f>` formula plus the `<c:numCache>` that mirrors the cells
+ * it points at.
  *
  * Scatter and bubble each carried their own copy of this twice over, four near-identical
- * twelve-line blocks. `values` is the exact point list to cache, so the caller decides what a
- * gap is: the Y series is emitted against the X series' length (a caller may supply fewer Y
- * values than X — a timeline with only the first few months filled in), and the shorter array's
- * tail arrives here as `undefined`, which {@link numCachePt} skips.
+ * twelve-line blocks, and bubble's per-point sizes were a fifth — the same block under a third
+ * wrapping tag with a constant format code. `values` is the exact point list to cache, so the
+ * caller decides what a gap is: the Y series is emitted against the X series' length (a caller
+ * may supply fewer Y values than X — a timeline with only the first few months filled in), and
+ * the shorter array's tail arrives here as `undefined`, which {@link numCachePt} skips.
  *
- * @param tag - the wrapping element, `c:xVal` or `c:yVal`
+ * @param tag - the wrapping element: `c:xVal`, `c:yVal` or `c:bubbleSize`
  * @param ref - the `<c:f>` formula, from {@link sheetRangeRef} or written inline
  * @param formatCode - the cached `<c:formatCode>`
  * @param values - the points to cache, in order; `null`/`undefined` entries are gaps
  */
 export function numRefBlock(
-	tag: 'c:xVal' | 'c:yVal',
+	tag: 'c:xVal' | 'c:yVal' | 'c:bubbleSize',
 	ref: string,
 	formatCode: string,
 	values: Array<number | null | undefined>
