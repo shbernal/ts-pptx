@@ -170,3 +170,57 @@ export const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
 export const LN_FILL_AFTER = successorsOf(LN_SEQUENCE, 'a:solidFill')
 /** Successors of a fill choice inside `a:rPr` (and `a:defRPr`/`a:endParaRPr`). */
 export const RPR_FILL_AFTER = successorsOf(RPR_SEQUENCE, 'a:solidFill')
+/** Successors of `a:latin` inside `a:rPr` (and `a:defRPr`/`a:endParaRPr`). */
+export const RPR_LATIN_AFTER = successorsOf(RPR_SEQUENCE, 'a:latin')
+
+// --- p:presentation ----------------------------------------------------------
+
+/**
+ * `CT_Presentation` (`p:presentation`), in declaration order. Every child is a single element —
+ * there are no choice groups — so the declaration is a plain string list.
+ * @see ECMA-376 Part 1 §19.2.1.26
+ */
+const PRESENTATION_SEQUENCE: readonly SequenceStep[] = [
+	'p:sldMasterIdLst',
+	'p:notesMasterIdLst',
+	'p:handoutMasterIdLst',
+	'p:sldIdLst',
+	'p:sldSz',
+	'p:notesSz',
+	'p:smartTags',
+	'p:embeddedFontLst',
+	'p:custShowLst',
+	'p:photoAlbum',
+	'p:custDataLst',
+	'p:kinsoku',
+	'p:defaultTextStyle',
+	'p:modifyVerifier',
+	'p:extLst',
+]
+
+/** Successors of `p:sldMasterIdLst` inside `p:presentation`. */
+export const PRESENTATION_AFTER_SLD_MASTER_ID_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:sldMasterIdLst')
+/** Successors of `p:notesMasterIdLst` inside `p:presentation`. */
+export const PRESENTATION_AFTER_NOTES_MASTER_ID_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:notesMasterIdLst')
+/** Successors of `p:sldIdLst` inside `p:presentation`. */
+export const PRESENTATION_AFTER_SLD_ID_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:sldIdLst')
+
+// --- p:pic / a:blipFill ------------------------------------------------------
+
+/**
+ * `CT_Picture` (`p:pic`), in declaration order.
+ * @see ECMA-376 Part 1 §19.3.1.37
+ */
+const PIC_SEQUENCE: readonly SequenceStep[] = ['p:nvPicPr', 'p:blipFill', 'p:spPr', 'p:style', 'p:extLst']
+
+/**
+ * `CT_BlipFillProperties` (`a:blipFill`), in declaration order. `a:tile` and `a:stretch` are the
+ * `EG_FillModeProperties` choice and share one slot, so neither lists the other as a successor.
+ * @see ECMA-376 Part 1 §20.1.8.14
+ */
+const BLIPFILL_SEQUENCE: readonly SequenceStep[] = ['a:blip', 'a:srcRect', ['a:tile', 'a:stretch']]
+
+/** Successors of `p:blipFill` inside `p:pic`. */
+export const PIC_BLIPFILL_AFTER = successorsOf(PIC_SEQUENCE, 'p:blipFill')
+/** Successors of `a:blip` inside `a:blipFill`. */
+export const BLIPFILL_BLIP_AFTER = successorsOf(BLIPFILL_SEQUENCE, 'a:blip')

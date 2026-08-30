@@ -41,6 +41,7 @@ import {
 } from './theme-context.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { EMU_PER_POINT } from '../../units.js'
+import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../ooxml/sequence.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve an *inherited* run
@@ -149,27 +150,6 @@ export type BulletDetail =
 			 */
 			imagePartName: string | null
 	  } & BulletStyle)
-
-// Schema successors used to keep `a:rPr` children in document order when a
-// setter has to create one (CT_TextCharacterProperties sequence).
-const RPR_AFTER_FILL = [
-	'a:effectLst',
-	'a:effectDag',
-	'a:highlight',
-	'a:uLnTx',
-	'a:uLn',
-	'a:uFillTx',
-	'a:uFill',
-	'a:latin',
-	'a:ea',
-	'a:cs',
-	'a:sym',
-	'a:hlinkClick',
-	'a:hlinkMouseOver',
-	'a:rtl',
-	'a:extLst',
-]
-const RPR_AFTER_LATIN = ['a:ea', 'a:cs', 'a:sym', 'a:hlinkClick', 'a:hlinkMouseOver', 'a:rtl', 'a:extLst']
 
 /** One text run (`a:r`): a span of text with uniform character formatting. */
 export class Run {
@@ -384,7 +364,7 @@ export class Run {
 			if (rPr) this.part.markDirty()
 			return
 		}
-		const latin = getOrAddChild(this.#getOrAddRPr(), 'a:latin', RPR_AFTER_LATIN)
+		const latin = getOrAddChild(this.#getOrAddRPr(), 'a:latin', RPR_LATIN_AFTER)
 		setAttr(latin, 'typeface', value)
 		this.part.markDirty()
 	}
@@ -533,7 +513,7 @@ export class Run {
 			this.part.markDirty()
 			return
 		}
-		setSolidFill(this.#getOrAddRPr(), RPR_AFTER_FILL, color)
+		setSolidFill(this.#getOrAddRPr(), RPR_FILL_AFTER, color)
 		this.part.markDirty()
 	}
 }

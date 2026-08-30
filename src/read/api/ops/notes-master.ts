@@ -23,6 +23,7 @@ import {
 	THEME_REL,
 } from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
+import { PRESENTATION_AFTER_NOTES_MASTER_ID_LST } from '../../../ooxml/sequence.js'
 import { makeXmlNotesMaster } from '../../../gen/slide/notes.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
 import { presentationRels } from './deck-target.js'
@@ -142,20 +143,7 @@ function registerNotesMaster(dest: Presentation, notesMasterPartName: string): s
 			'presentation.xml has no document element to register a notes master in'
 		)
 	// `p:notesMasterIdLst` follows `p:sldMasterIdLst` in CT_Presentation order.
-	const lst = getOrAddChild(root, 'p:notesMasterIdLst', [
-		'p:handoutMasterIdLst',
-		'p:sldIdLst',
-		'p:sldSz',
-		'p:notesSz',
-		'p:embeddedFontLst',
-		'p:custShowLst',
-		'p:photoAlbum',
-		'p:custDataLst',
-		'p:kinsoku',
-		'p:defaultTextStyle',
-		'p:modifyVerifier',
-		'p:extLst',
-	])
+	const lst = getOrAddChild(root, 'p:notesMasterIdLst', PRESENTATION_AFTER_NOTES_MASTER_ID_LST)
 	// CT_NotesMasterIdList holds a single p:notesMasterId; replace any stray entry.
 	removeChildrenByQName(lst, ['p:notesMasterId'])
 	const entry = createElement(presPart.dom, 'p:notesMasterId')

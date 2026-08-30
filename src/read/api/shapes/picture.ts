@@ -29,15 +29,10 @@ import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
 import { PERCENT_SCALE } from '../../../units.js'
+import { BLIPFILL_BLIP_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
 
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
-
-// Schema successors within p:pic (CT_Picture: nvPicPr, blipFill, spPr, style?)
-// and within a:blipFill (blip?, srcRect?, (tile|stretch)?), used to keep a
-// get-or-added p:blipFill / a:blip in document order.
-const PIC_AFTER_BLIPFILL = ['p:spPr', 'p:style']
-const BLIPFILL_AFTER_BLIP = ['a:srcRect', 'a:tile', 'a:stretch']
 
 /** Known content-type → file-extension map for image media parts. */
 const IMAGE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = Object.freeze({
@@ -304,7 +299,7 @@ export class Picture extends Shape {
 	 * size against the frame extent so the swap is aspect-correct.
 	 */
 	#applyFit(fit: 'cover' | 'contain' | 'stretch', bytes: Uint8Array): void {
-		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_AFTER_BLIPFILL)
+		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_BLIPFILL_AFTER)
 		if (fit === 'stretch') {
 			removeChildrenByQName(blipFill, ['a:srcRect'])
 			return
@@ -335,7 +330,7 @@ export class Picture extends Shape {
 
 	/** Get-or-add `p:blipFill/a:blip`, keeping both in document order. */
 	#getOrAddBlip(): Element {
-		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_AFTER_BLIPFILL)
-		return getOrAddChild(blipFill, 'a:blip', BLIPFILL_AFTER_BLIP)
+		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_BLIPFILL_AFTER)
+		return getOrAddChild(blipFill, 'a:blip', BLIPFILL_BLIP_AFTER)
 	}
 }

@@ -24,6 +24,7 @@ import {
 } from '../../oxml/dom.js'
 import { presentationRels, type DeckTarget } from './deck-target.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
+import { PRESENTATION_AFTER_SLD_MASTER_ID_LST } from '../../../ooxml/sequence.js'
 import { PackageReadError } from '../../../errors.js'
 
 // ST_SlideMasterId and ST_SlideLayoutId share this floor.
@@ -53,21 +54,7 @@ export function registerMaster(dest: DeckTarget, masterPartName: string): void {
 		)
 	// `p:sldMasterIdLst` is the first child of CT_Presentation; create it before
 	// any later sibling if a (degenerate) deck lacks one.
-	const lst = getOrAddChild(root, 'p:sldMasterIdLst', [
-		'p:notesMasterIdLst',
-		'p:handoutMasterIdLst',
-		'p:sldIdLst',
-		'p:sldSz',
-		'p:notesSz',
-		'p:embeddedFontLst',
-		'p:custShowLst',
-		'p:photoAlbum',
-		'p:custDataLst',
-		'p:kinsoku',
-		'p:defaultTextStyle',
-		'p:modifyVerifier',
-		'p:extLst',
-	])
+	const lst = getOrAddChild(root, 'p:sldMasterIdLst', PRESENTATION_AFTER_SLD_MASTER_ID_LST)
 	const entry = createElement(presPart.dom, 'p:sldMasterId')
 	setAttr(entry, 'id', String(nextMasterLayoutId(dest)))
 	setAttr(entry, 'r:id', relId)

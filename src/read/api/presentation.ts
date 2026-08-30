@@ -23,6 +23,7 @@ import type { Part } from '../opc/part.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { attr, createElement, firstChild, getElements, getOrAddChild, intValue, setAttr } from '../oxml/dom.js'
 import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
+import { PRESENTATION_AFTER_SLD_ID_LST } from '../../ooxml/sequence.js'
 import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import type { AnyShape } from './shapes.js'
@@ -116,24 +117,6 @@ const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 
 const textEncoder = new TextEncoder()
 
-/**
- * `p:sldIdLst`'s document-order successors in `CT_Presentation` (ECMA-376):
- * everything that may legally follow it, so an inserted `p:sldIdLst` lands in the
- * right position when a template omitted it (zero slides).
- */
-const PRESENTATION_SLD_ID_LST_SUCCESSORS = [
-	'p:sldSz',
-	'p:notesSz',
-	'p:smartTags',
-	'p:embeddedFontLst',
-	'p:custShowLst',
-	'p:photoAlbum',
-	'p:custDataLst',
-	'p:kinsoku',
-	'p:defaultTextStyle',
-	'p:modifyVerifier',
-	'p:extLst',
-]
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
 
@@ -959,7 +942,7 @@ export class Presentation {
 			)
 		// A template with zero slides omits p:sldIdLst entirely; create it in
 		// CT_Presentation document order (after the *IdLst children, before p:sldSz).
-		const sldIdLst = getOrAddChild(root, 'p:sldIdLst', PRESENTATION_SLD_ID_LST_SUCCESSORS)
+		const sldIdLst = getOrAddChild(root, 'p:sldIdLst', PRESENTATION_AFTER_SLD_ID_LST)
 		const existing = getElements(sldIdLst, 'p:sldId')
 		const newSlideId = this.#nextSlideId(existing)
 		const sldId = createElement(presPart.dom, 'p:sldId')
