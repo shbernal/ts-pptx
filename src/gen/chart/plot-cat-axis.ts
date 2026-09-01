@@ -9,15 +9,8 @@
  */
 
 import { ChartType } from '../../enums.js'
-import {
-	AXIS_ID_SERIES_PRIMARY,
-	BARCHART_COLORS,
-	DEF_FONT_COLOR,
-	DEF_FONT_SIZE,
-	DEF_SHAPE_SHADOW,
-} from '../../constants-internal.js'
+import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
-import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
@@ -38,7 +31,8 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	seriesFill,
+	serMarker,
+	seriesShapeProps,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -77,7 +71,6 @@ function serShapeProps(
 	lineSize: number | undefined,
 	serIndex: number
 ): string {
-	const fill = seriesFill(opts, seriesColor)
 	let line = ''
 	if (isLineLike(chartType)) {
 		const effectiveLineSize = lineSize ?? opts.lineSize ?? 2
@@ -92,31 +85,7 @@ function serShapeProps(
 	} else if (opts.dataBorder) {
 		line = createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
 	}
-	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
-}
-
-/**
- * The point marker for a line/radar series. `<c:marker>` must precede `<c:dLbls>` in CT_LineSer
- * (schema order: spPr → marker → dPt → dLbls).
- */
-function serMarker(opts: ChartOptsInternal, markerColor: string, seriesColor: string): string {
-	const spPr = el('c:spPr', null, [
-		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
-		raw(
-			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
-				raw(chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)),
-				raw(voidEl('a:prstDash', { val: 'solid' })),
-				raw(voidEl('a:round')),
-			])
-		),
-		raw(voidEl('a:effectLst', null)),
-	])
-	return el('c:marker', null, [
-		raw(voidEl('c:symbol', { val: opts.lineDataSymbol })),
-		// Defaults to "auto" otherwise (but this is usually too small, so there is a default).
-		opts.lineDataSymbolSize ? raw(voidEl('c:size', { val: opts.lineDataSymbolSize })) : null,
-		raw(spPr),
-	])
+	return seriesShapeProps(opts, seriesColor, line)
 }
 
 /** Per-series `<c:dLbls>`: number format, an optional label background, text style, show flags. */

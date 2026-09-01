@@ -7,9 +7,7 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
-import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
@@ -21,14 +19,13 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	seriesFill,
+	seriesShapeProps,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
 
 /** Fill + outline + shadow for one bubble series, from the palette colour and the line options. */
 function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	const fill = seriesFill(opts, serColor)
 	const line =
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))
@@ -39,7 +36,7 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 						raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
 						raw(voidEl('a:round')),
 					])
-	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
+	return seriesShapeProps(opts, serColor, line)
 }
 
 /** The shared `<c:dLbls>` block: number format, label text style, and which parts are shown. */

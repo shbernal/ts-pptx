@@ -8,11 +8,9 @@
  * dispatch.
  */
 
-import { BARCHART_COLORS, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
+import { BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
-import { createShadowEffectLst } from '../drawingml/effect.js'
-import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
@@ -28,7 +26,8 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	seriesFill,
+	serMarker,
+	seriesShapeProps,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -174,7 +173,6 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 
 /** Fill, outline and shadow for one scatter series. */
 function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	const fill = seriesFill(opts, serColor)
 	const line =
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))
@@ -183,28 +181,7 @@ function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serInde
 					raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
 					raw(voidEl('a:round')),
 				])
-	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
-}
-
-/** The point marker: symbol, optional size, and its own fill and outline. */
-function scatterMarker(opts: ChartOptsInternal, markerColor: string): string {
-	const spPr = el('c:spPr', null, [
-		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
-		raw(
-			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
-				raw(chartColorLineFill(opts.lineDataSymbolLineColor || markerColor)),
-				raw(voidEl('a:prstDash', { val: 'solid' })),
-				raw(voidEl('a:round')),
-			])
-		),
-		raw(voidEl('a:effectLst')),
-	])
-	return el('c:marker', null, [
-		raw(voidEl('c:symbol', { val: opts.lineDataSymbol })),
-		// Defaults to "auto" otherwise (but this is usually too small, so there is a default).
-		opts.lineDataSymbolSize ? raw(voidEl('c:size', { val: opts.lineDataSymbolSize })) : null,
-		raw(spPr),
-	])
+	return seriesShapeProps(opts, serColor, line)
 }
 
 /**
@@ -272,7 +249,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				raw(voidEl('c:order', { val: idx })),
 				raw(strRefBlock(sheetCellRef(idx + 2, 1), obj.name ?? '')),
 				raw(scatterSerShapeProps(opts, serColor, idx)),
-				raw(scatterMarker(opts, serColor)),
+				raw(serMarker(opts, serColor, serColor)),
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` (CT_ScatterSer schema order).
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, scatterVaryColors)),
 				raw(labels),

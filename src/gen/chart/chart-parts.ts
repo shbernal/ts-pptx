@@ -245,6 +245,51 @@ export function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 	})
 	return el('a:solidFill', null, raw(createColorElement(serColor, alpha)))
 }
+
+/**
+ * The `<c:spPr>` every plotted series carries: its fill, the outline the caller built, and the
+ * chart's shadow. Only the outline differs between plot families -- a line-like series strokes
+ * itself, a scatter series always does, a bubble series lets `dataBorder` win -- so the caller
+ * builds `<a:ln>` and hands it over rather than describing it through flags.
+ *
+ * @param opts - the chart's normalized options, read for `chartColorsOpacity` and `shadow`
+ * @param serColor - the series' resolved palette colour, or `'transparent'`
+ * @param line - the already-built `<a:ln>`, or `''` for a series with no outline
+ */
+export function seriesShapeProps(opts: ChartOptsInternal, serColor: string, line: string): string {
+	const fill = seriesFill(opts, serColor)
+	return el('c:spPr', null, [raw(fill), raw(line), raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW))])
+}
+
+/**
+ * The point marker for a series drawn as a line: the symbol, an optional size, and the marker's
+ * own fill and outline. `<c:marker>` must precede `<c:dLbls>` in CT_LineSer and CT_ScatterSer
+ * (schema order: spPr -> marker -> dPt -> dLbls).
+ *
+ * @param opts - the chart's normalized options, read for the `lineDataSymbol*` family
+ * @param markerColor - the marker's fill colour, or `'transparent'`
+ * @param seriesColor - what the marker's outline falls back to when `lineDataSymbolLineColor` is
+ *   unset; a scatter series passes its own colour for both roles
+ */
+export function serMarker(opts: ChartOptsInternal, markerColor: string, seriesColor: string): string {
+	const spPr = el('c:spPr', null, [
+		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
+		raw(
+			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
+				raw(chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)),
+				raw(voidEl('a:prstDash', { val: 'solid' })),
+				raw(voidEl('a:round')),
+			])
+		),
+		raw(voidEl('a:effectLst')),
+	])
+	return el('c:marker', null, [
+		raw(voidEl('c:symbol', { val: opts.lineDataSymbol })),
+		// Defaults to "auto" otherwise (but this is usually too small, so there is a default).
+		opts.lineDataSymbolSize ? raw(voidEl('c:size', { val: opts.lineDataSymbolSize })) : null,
+		raw(spPr),
+	])
+}
 /**
  * Emit the `<a:latin>/<a:ea>/<a:cs>` font trio for a chart text run.
  *
