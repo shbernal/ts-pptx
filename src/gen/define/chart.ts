@@ -27,7 +27,7 @@ import type {
 	PresSlideInternal,
 	SlideObject,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, setOrClear, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { isBubbleChart } from '../chart/chart-kind.js'
@@ -100,25 +100,6 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
  */
 function isUsableBorderWidth(width: number | undefined): boolean {
 	return typeof width === 'number' && Number.isFinite(width) && width > 0
-}
-
-/**
- * Write a normalized value back onto a chart options bag, spelling "no value" as an *absent* key.
- *
- * Every key on this bag is optional, and the emitters read them with plain truthiness — so absent
- * and present-but-`undefined` are indistinguishable to a reader, but not to a spread. The bag is
- * spread (a combo subchart's overrides land on top of it, and so do the per-axis bags), and the
- * side that wins there is decided by whether the key exists, not by what it holds. One spelling of
- * absent, then: the key is gone. Same invariant `compact()` keeps on the read side
- * (`script/from-read/values.ts`).
- */
-function setOrClearChartOpt<K extends keyof ChartOptsInternal>(
-	options: ChartOptsInternal,
-	key: K,
-	value: ChartOptsInternal[K]
-): void {
-	if (value === undefined) delete options[key]
-	else options[key] = value
 }
 
 /**
@@ -259,10 +240,10 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	// where a present-but-undefined key overrides and an absent one inherits. `delete` is already
 	// how the rest of this module spells "the caller's value did not survive" — see
 	// `normalizeChartDataLabelPosition`.
-	setOrClearChartOpt(options, 'barOverlapPct', clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct'))
+	setOrClear(options, 'barOverlapPct', clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct'))
 	// `<c:holeSize>` is ST_HoleSize (10..90); `<c:firstSliceAng>` is ST_FirstSliceAng (0..360).
-	setOrClearChartOpt(options, 'holeSize', clampChartPct(options.holeSize, 10, 90, 'holeSize'))
-	setOrClearChartOpt(options, 'firstSliceAng', clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng'))
+	setOrClear(options, 'holeSize', clampChartPct(options.holeSize, 10, 90, 'holeSize'))
+	setOrClear(options, 'firstSliceAng', clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng'))
 
 	// An empty array is not a palette, so it means what saying nothing means: the built-in
 	// default for this chart type. It used to survive this pass (`Array.isArray([])` is true)

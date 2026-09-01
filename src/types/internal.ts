@@ -21,7 +21,7 @@ import type { SlideComment, TextProps } from './text.js'
 
 /** The keys of `T` that are declared optional. */
 // oxlint-disable-next-line typescript/no-empty-object-type -- `{} extends Pick<T, K>` is the test for "K is optional"; `object` fails it on a weak type.
-type OptionalKeysOf<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : never }[keyof T]
+export type OptionalKeysOf<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : never }[keyof T]
 
 /**
  * `T`, but every *optional* property may also be spelled as a present `undefined`.

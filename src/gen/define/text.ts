@@ -11,7 +11,7 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.j
 import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, setOrClear, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
@@ -93,11 +93,14 @@ export function addTextDefinition(
 				// when the run carries no explicit fill. Defaulting it to DEF_FONT_COLOR would emit a
 				// solidFill plus hlinkClr="tx", pinning the link to black and suppressing the theme
 				// hyperlink/visited colors. Only non-hyperlink text falls back to DEF_FONT_COLOR.
-				itemOpts.color =
+				setOrClear(
+					itemOpts,
+					'color',
 					itemOpts.color ||
-					objectOptions.color ||
-					target.color ||
-					(itemOpts.hyperlink || objectOptions.hyperlink ? undefined : DEF_FONT_COLOR)
+						objectOptions.color ||
+						target.color ||
+						(itemOpts.hyperlink || objectOptions.hyperlink ? undefined : DEF_FONT_COLOR)
+				)
 			}
 
 			// A.2: Placeholder should inherit their bullets or override them, so don't default them
@@ -129,11 +132,14 @@ export function addTextDefinition(
 				const newLineOpts: ShapeLineProps = {
 					...itemLine,
 					type: itemLineKind,
-					color: itemLineKind === 'solid' ? itemLine.color || DEF_SHAPE_LINE_COLOR : itemLine.color,
 					transparency: itemLine.transparency || 0,
 					width: itemLine.width || 1,
 					dashType: itemLine.dashType || 'solid',
 				}
+				// Only the solid arm writes `color`. The spread already carried whatever colour the
+				// other kinds stated, so re-writing it would turn an unstated one into a present
+				// `undefined` — a distinction the next spread of this bag can see.
+				if (itemLineKind === 'solid') newLineOpts.color = itemLine.color || DEF_SHAPE_LINE_COLOR
 				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
 			}
 
@@ -141,8 +147,8 @@ export function addTextDefinition(
 			itemOpts.line = itemOpts.line || {}
 			// `NaN` is falsy, so the truthiness test is the whole guard; an out-of-range value is
 			// clamped and reported by `clamp.ts` at emit rather than dropped without a word here.
-			itemOpts.lineSpacing = itemOpts.lineSpacing || undefined
-			itemOpts.lineSpacingMultiple = itemOpts.lineSpacingMultiple || undefined
+			if (!itemOpts.lineSpacing) delete itemOpts.lineSpacing
+			if (!itemOpts.lineSpacingMultiple) delete itemOpts.lineSpacingMultiple
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			// Copy, never adopt: an incoming `_bodyProp` belongs to something else. It arrives here
@@ -151,13 +157,15 @@ export function addTextDefinition(
 			// Adopting it makes the two shapes share one body-property record, so the last writer
 			// of `numCol`/`anchor`/`vert` wins for all of them.
 			itemOpts._bodyProp = { ...itemOpts._bodyProp }
-			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TextAnchor.ctr : undefined // VALS: [t,ctr,b]
+			// A placeholder inherits its anchor from the layout, so the key comes off rather than
+			// being written as an `undefined` — this bag is spread onto a slide's options in A.3.
+			setOrClear(itemOpts._bodyProp, 'anchor', !itemOpts.placeholder ? TextAnchor.ctr : undefined) // VALS: [t,ctr,b]
 			// `textDirection` is the documented public option; `vert` is a legacy/extended alias kept as an
 			// escape hatch for the full ST_TextVerticalType range (eaVert, mongolianVert, wordArtVertRtl).
 			// Both map directly to the `<a:bodyPr vert="…">` attribute, so prefer the documented one.
-			itemOpts._bodyProp.vert = itemOpts.textDirection ?? itemOpts.vert // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+			setOrClear(itemOpts._bodyProp, 'vert', itemOpts.textDirection ?? itemOpts.vert) // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true
-			itemOpts._bodyProp.prstTxWarp = itemOpts.textWarp // preset text warp (`<a:prstTxWarp>`), e.g. 'textArchUp'
+			setOrClear(itemOpts._bodyProp, 'prstTxWarp', itemOpts.textWarp) // preset text warp (`<a:prstTxWarp>`), e.g. 'textArchUp'
 
 			// D.1: Text columns (`numCol` range is 1-16 per ECMA-376 ST_TextColumnCount)
 			if (itemOpts.columns !== undefined) {

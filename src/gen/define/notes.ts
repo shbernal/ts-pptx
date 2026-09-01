@@ -16,10 +16,14 @@ import type { PresSlideInternal } from '../../types/internal.js'
 export function addNotesDefinition(target: PresSlideInternal, notes: string | NotesProps | NotesProps[]): void {
 	// Normalize all input forms to a TextProps[] run list so the notes-slide serializer
 	// (which reuses the standard text-run generator) can handle plain and rich notes uniformly.
+	// A run whose author stated no `options` carries no `options` key, rather than one holding
+	// `undefined`: the text emitters spread these bags, where the two are not the same state.
 	const runs: TextProps[] =
 		typeof notes === 'string'
 			? [{ text: notes }]
-			: (Array.isArray(notes) ? notes : [notes]).map((run) => ({ text: run.text, options: run.options }))
+			: (Array.isArray(notes) ? notes : [notes]).map((run) =>
+					run.options === undefined ? { text: run.text } : { text: run.text, options: run.options }
+				)
 
 	target._slideObjects.push({
 		_type: SlideObjectType.notes,

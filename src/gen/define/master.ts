@@ -5,7 +5,7 @@
  * chart / image / shape / text children via `addChildDefinition`, plus master-specific text
  * placeholders (which need the object index for `_placeholderIdx`).
  */
-import type { ObjectOptions, SlideMasterProps, TextPropsOptions } from '../../types/index.js'
+import type { ObjectOptions, SlideMasterProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { addChildDefinition } from './group.js'
 import { addTextDefinition } from './text.js'
@@ -29,7 +29,11 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 				placeholderOptions.placeholder = name
 				placeholderOptions._placeholderType = type
 				placeholderOptions._placeholderIdx = 100 + idx
-				addTextDefinition(tgt, [{ text: placeholder.text }], placeholderOptions, true)
+				// An empty placeholder is spelled as a run with no `text` key at all — `TextProps.text`
+				// is optional and the emitters read it with `||`, so a key holding `undefined` would
+				// be a second spelling of the same thing.
+				const placeholderRun: TextProps = placeholder.text === undefined ? {} : { text: placeholder.text }
+				addTextDefinition(tgt, [placeholderRun], placeholderOptions, true)
 				// NOTE: only text placeholders are supported (image/other placeholder kinds are not emitted)
 			}
 		})

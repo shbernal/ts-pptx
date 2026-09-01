@@ -8,7 +8,7 @@
 
 import { PlaceholderType, SlideObjectType } from '../../enums.js'
 import { CRLF } from '../../constants-internal.js'
-import type { ObjectOptions, TableCell, TextProps } from '../../types/index.js'
+import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {
@@ -174,22 +174,29 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		Object.keys(slideObj.text).includes('text')
 	) {
 		// Handle case 3
-		tmpTextObjects.push({
-			text: slideObj.text || '',
-			options: slideObj.options || {},
-			math: (slideObj.text as TextProps).math,
-			inline: (slideObj.text as TextProps).inline,
-		})
+		// `math`/`inline` are copied only when stated: this is a model the steps below spread
+		// (`{ ...itext.options }`, `{ ...itext }`), so a key holding `undefined` is not the same as
+		// an absent one.
+		const authored = slideObj.text as TextProps
+		const textObject: TextProps = { text: slideObj.text || '', options: slideObj.options || {} }
+		if (authored.math !== undefined) textObject.math = authored.math
+		if (authored.inline !== undefined) textObject.inline = authored.inline
+		tmpTextObjects.push(textObject)
 	} else if (Array.isArray(slideObj.text)) {
 		// Handle cases 4,5,6
 		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
 		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
-		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => ({
-			text: item.text,
-			options: item.options,
-			math: item.math,
-			inline: item.inline,
-		}))
+		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => {
+			// Projected key by key rather than spread: the array may really be `TableCell[]` (see
+			// the cast note above), and only these four belong on a `TextProps`. A key the item
+			// does not have stays off the projection rather than arriving as an `undefined`.
+			const projected: TextProps = {}
+			if (item.text !== undefined) projected.text = item.text
+			if (item.options !== undefined) projected.options = item.options
+			if (item.math !== undefined) projected.math = item.math
+			if (item.inline !== undefined) projected.inline = item.inline
+			return projected
+		})
 	}
 
 	// STEP 4: Iterate over text objects, set text/options, break into pieces if '\n'/breakLine found
@@ -213,11 +220,12 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 			lines.forEach((line, lineIdx) => {
 				const isLast = lineIdx === lines.length - 1
 				// Non-last pieces need a paragraph break after them (the \n implies it).
-				// The last piece inherits the caller's breakLine intent — do not mutate the original options object.
-				arrTextObjects.push({
-					text: line,
-					options: { ...itext.options, breakLine: isLast ? itext.options?.breakLine : true },
-				})
+				// The last piece inherits the caller's breakLine intent, *including* none — writing the
+				// key as `undefined` would make an unstated intent look like a stated one to the next
+				// spread. Copied rather than mutated, so the caller's own options are untouched.
+				const lineOptions: TextPropsOptions = { ...itext.options }
+				if (!isLast) lineOptions.breakLine = true
+				arrTextObjects.push({ text: line, options: lineOptions })
 			})
 		} else {
 			arrTextObjects.push({ ...itext, options: itext.options ?? {} })

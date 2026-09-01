@@ -14,6 +14,7 @@ import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
+import { setOrClear } from '../utils.js'
 import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -642,19 +643,27 @@ export function renderTextParagraphsXml(
 				paraXml += voidEl('a:br')
 			}
 
-			// B: Inherit pPr-type options from parent shape's `options`
-			textObj.options.align = textObj.options.align || opts.align
-			textObj.options.lineSpacing = textObj.options.lineSpacing || opts.lineSpacing
-			textObj.options.lineSpacingMultiple = textObj.options.lineSpacingMultiple || opts.lineSpacingMultiple
-			textObj.options.indentLevel = textObj.options.indentLevel || opts.indentLevel
-			textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore
-			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
+			// B: Inherit pPr-type options from parent shape's `options`.
+			// `setOrClear`, not plain assignment: where neither the run nor the shape states one,
+			// the key stays off the run's bag rather than being written as an `undefined`. Run
+			// option bags are spread — `{ ...itext.options }` in `text-body.ts`, and a placeholder's
+			// options onto a slide's in `gen/define/text.ts` — and there the two are not the same.
+			setOrClear(textObj.options, 'align', textObj.options.align || opts.align)
+			setOrClear(textObj.options, 'lineSpacing', textObj.options.lineSpacing || opts.lineSpacing)
+			setOrClear(
+				textObj.options,
+				'lineSpacingMultiple',
+				textObj.options.lineSpacingMultiple || opts.lineSpacingMultiple
+			)
+			setOrClear(textObj.options, 'indentLevel', textObj.options.indentLevel || opts.indentLevel)
+			setOrClear(textObj.options, 'paraSpaceBefore', textObj.options.paraSpaceBefore || opts.paraSpaceBefore)
+			setOrClear(textObj.options, 'paraSpaceAfter', textObj.options.paraSpaceAfter || opts.paraSpaceAfter)
 			// `??`, not `||`, on these two: `0` is a meaningful margin (flush with the frame, and
 			// the override that suppresses a bullet's hanging indent), where the options above have
 			// no zero worth stating. A falsy test would silently swap a run's explicit `0` for the
 			// shape's value.
-			textObj.options.paraMarginLeft = textObj.options.paraMarginLeft ?? opts.paraMarginLeft
-			textObj.options.paraIndent = textObj.options.paraIndent ?? opts.paraIndent
+			setOrClear(textObj.options, 'paraMarginLeft', textObj.options.paraMarginLeft ?? opts.paraMarginLeft)
+			setOrClear(textObj.options, 'paraIndent', textObj.options.paraIndent ?? opts.paraIndent)
 
 			// OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
 			// The paragraph's properties are the FIRST run's, decided once: this used to retry on
@@ -713,7 +722,7 @@ export function renderTextParagraphsXml(
 			// E: Flag close fontSize for empty [lineBreak] elements
 			if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {
 				reqsClosingFontSize = true
-				opts.fontSize = opts.fontSize || textObj.options.fontSize
+				setOrClear(opts, 'fontSize', opts.fontSize || textObj.options.fontSize)
 			}
 		})
 
