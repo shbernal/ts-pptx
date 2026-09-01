@@ -36,6 +36,7 @@ import type { AppendSlidesOptions, LayoutHandle, SlideSource } from '../presenta
 import { carryGeneratedEmbeddedFonts } from './embedded-fonts.js'
 import { ensureNotesMasterFromXml } from './notes-master.js'
 import { requireEqualSlideSize } from './slide-size.js'
+import { pickDefined } from '../../../options-internal.js'
 
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -271,7 +272,7 @@ export async function appendSlides(
 	const target = resolveLayoutTarget(deck, options.layout)
 
 	// 2. Author + extract; enforce equal slide size (no geometry rescale in v1).
-	const extracted = await source.extractSlides({ onMediaError: options.onMediaError })
+	const extracted = await source.extractSlides(pickDefined(options, ['onMediaError']))
 	// The extracted size is always known, so it is lifted into a `SlideSize` rather than kept
 	// as a loose pair — that is what let this call site keep a second formatter alive.
 	requireEqualSlideSize(

@@ -736,7 +736,10 @@ export abstract class Shape {
 			out.color = resolved.effectiveHex
 			if (resolved.alpha !== undefined) out.alpha = resolved.alpha
 		}
-		if (colorEl && colorEl.localName === 'schemeClr') out.colorToken = attr(colorEl, 'val') ?? undefined
+		// A `schemeClr` with no `val` leaves `colorToken` off entirely, which is the read model's one
+		// spelling of "not a theme colour" — the same invariant `compact()` keeps downstream.
+		const token = colorEl && colorEl.localName === 'schemeClr' ? attr(colorEl, 'val') : null
+		if (token !== null) out.colorToken = token
 	}
 
 	/** Decode a shadow element (`a:outerShdw`/`a:innerShdw` share the fields), resolving its colour. */

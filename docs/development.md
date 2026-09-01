@@ -314,20 +314,57 @@ use the root one.
 Strictness is configured once in `tsconfig.base.json` and applies to all of
 `src/`. Beyond `strict: true`, the codebase enables `strictNullChecks`,
 `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`,
-`verbatimModuleSyntax`, and the zero-cost path/usage knobs
-(`noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`,
-`noUnusedLocals`, `noUnusedParameters`). Fix new errors with real narrowing or
-guards: not `!` assertions or `as` casts (both are lint errors; see below).
+`exactOptionalPropertyTypes`, `verbatimModuleSyntax`, and the zero-cost
+path/usage knobs (`noImplicitReturns`, `noFallthroughCasesInSwitch`,
+`noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`). Fix new errors
+with real narrowing or guards: not `!` assertions or `as` casts (both are lint
+errors; see below).
 
-`exactOptionalPropertyTypes` is deliberately **left off**. The interfaces it
-flags (`IChartOptsLib`, `ObjectOptions`, `BorderProps`, …) are internal
-*normalized* option state, and normalization is built around "`undefined` means
-use-the-default / omit": the exact present-but-`undefined` pattern the flag
-forbids. Enabling it either fights that design or risks output changes (e.g.
-rewriting the latent `x || !x ? x : false` no-ops to `x ?? false` flips
-`undefined → false`). Revisit only if the chart/shape option code is ever split
-into distinct "raw input" and "resolved options" types, at which point the flag
-becomes cheap on the input type.
+#### Absent versus present-but-`undefined`
+
+`exactOptionalPropertyTypes` is the one strictness flag that asks a design
+question rather than catching a slip, so the answer is written down rather than
+re-derived per site. A `foo?: T` declaration says the key is either **missing**
+or holds a `T`; a key that is present and holds `undefined` is a third state.
+
+**Option bags spell "unset" exactly one way: an absent key.** They are stored,
+spread and enumerated (a layout placeholder's options onto a slide's, a column
+default under a cell's own, a combo subchart's overrides onto the chart's), and
+a spread decides on whether the key *exists*, not on what it holds. So a
+normalizer that rejects a value removes it. `src/options-internal.ts` has the two
+helpers for that (`setOrClear` for a write-back, `pickDefined` for a literal that
+projects a key list off a bag that may not state them all) and its module header
+is the long form of this rule. It is the write-side twin of `compact()` in
+`src/script/from-read/values.ts`, which keeps the same invariant on the read side
+and for the same reason: two IRs describing one deck must not compare unequal
+because one wrote `{ bold: undefined }` and the other wrote `{}`.
+
+**Three kinds of declaration say `| undefined`, and each says why where it is
+written.**
+
+- A property backed by a **class accessor**, such as `Slide.background` or
+  `Slide.transition`, is always *present* on a real slide, and writing
+  `undefined` is how its setter is cleared. There is no absent state to describe.
+- A **read-only argument bag**: a parameter its call sites assemble inline out of
+  values they may not have (`relationshipEl`'s `opts`, `genXmlTitle`'s title
+  settings). The reader consults it with `?.` and nothing spreads it, so the two
+  states are genuinely the same to it. `MaybeUndefined<T>` in
+  `src/types/internal.ts` is the mapped type for this, and its doc comment says
+  when *not* to reach for it.
+- A **measurement record** built in one place and read in one place (`FitRun`,
+  `FitParagraph`), where the builder produces every key on every record.
+
+**One bag deliberately carries both states**, and it is the reason the rule is
+worth keeping everywhere else: `ChartOptsOverrides`, a combo subchart's vetted
+option overrides. `gen/chart/chart-xml.ts` merges it *over* the chart-level
+options, so a present `undefined` suppresses a chart-level value where an absent
+key inherits it. Suppressing is the intent: the subchart supplied an override the
+schema rejects, and the chart-level value is one it never asked for.
+`resolveSubchartOptions` applies that distinction at the merge and drops what is
+left, so the plot builders still receive an ordinary bag.
+
+`tsconfig.test.json` sets the flag `false`, because TypeScript rejects it without
+`strictNullChecks` and the test project turns that off (see the comment there).
 
 ### Lint policy
 

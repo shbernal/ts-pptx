@@ -66,6 +66,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`exactOptionalPropertyTypes` is on, and a few published types widen to say what they
+  always did.** The flag distinguishes a missing key from one present and holding
+  `undefined`; the library now draws that line deliberately rather than by accident, with
+  the rule written down in `docs/development.md` ("Absent versus present-but-`undefined`")
+  and its two helpers in `src/options-internal.ts`.
+
+  Nothing about the emitted OOXML changes: every step of the series was gated on
+  byte-identity across all 1172 parts of the showcase decks. What a consumer can see is a
+  handful of `.d.ts` declarations that now read `?: T | undefined` — `Slide.transition`,
+  `Slide.background`, `Slide.color`, `Slide.slideNumber` and `SlideLayout.background`,
+  which `SlideBuilder` implements as accessor pairs and so always has present. That is a
+  widening, so no call that type-checked before stops doing so, and it means
+  `slide.transition = undefined` is now expressible in a project that has the flag on
+  itself.
+
+  **If you turn the flag on downstream:** the option bags the write API takes are still
+  declared `?: T`, which is deliberate. They are spread over one another inside the
+  library, where an absent key inherits and a present `undefined` overrides, so the two
+  are not interchangeable. Omit an option you have no value for rather than passing
+  `undefined` for it.
+
 - **An out-of-range percentage has one answer, and three options stop having their own.**
   `bullet.size`, `fit.fontScale` and `fit.lnSpcReduction` used to *reject* a value outside
   their range: warn, and emit no attribute at all. That is the combination

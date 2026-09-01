@@ -74,7 +74,10 @@ const PAYLOAD = ['dist', 'skills', 'LICENSE']
  * alias manifest differs from the canonical one on one line rather than in key order. See
  * the header for why `scripts` cannot come along.
  * @param {Record<string, any>} manifest the parsed canonical `package.json`
- * @param {{name?: string, version?: string}} [overrides]
+ * Both overrides admit an explicit `undefined` — they are read with `??` and truthiness, and the
+ * caller assembles them from CLI flags it may not have been given, so an absent key and a
+ * `undefined` one say the same thing here.
+ * @param {{name?: string | undefined, version?: string | undefined}} [overrides]
  * @returns {Record<string, any>}
  */
 export function aliasManifest(manifest, overrides = {}) {

@@ -3,6 +3,7 @@
 	"display": "ts-pptx base",
 	"compilerOptions": {
 		"allowSyntheticDefaultImports": true,
+		"exactOptionalPropertyTypes": true,
 		"lib": ["dom", "es2024"],
 		"module": "esnext",
 		"moduleResolution": "bundler",

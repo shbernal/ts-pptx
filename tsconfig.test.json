@@ -27,6 +27,11 @@
 		"noUnusedParameters": false,
 		"noUncheckedIndexedAccess": false,
 		"strictNullChecks": false,
+		// Off because it cannot be on: TypeScript rejects `exactOptionalPropertyTypes` without
+		// `strictNullChecks`, which the line above turns off. It would have nothing to say here
+		// anyway — the distinction it draws is between an absent key and one holding `undefined`,
+		// and without null-safety `undefined` is assignable everywhere regardless.
+		"exactOptionalPropertyTypes": false,
 		"useUnknownInCatchVariables": false
 	},
 	"include": ["test/**/*.js", "test/**/*.mjs"]
