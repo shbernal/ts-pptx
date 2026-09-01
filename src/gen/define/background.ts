@@ -61,7 +61,9 @@ export function addBackgroundDefinition(props: BackgroundProps | undefined, targ
 			path: strImgPath,
 			type: imageContentType(strImgExtn),
 			extn: strImgExtn,
-			data: props.data || undefined,
+			// A path-only background carries no `data` key at all until `gen/media.ts` loads one;
+			// writing `undefined` here would be a second spelling of the state that pass tests for.
+			...(props.data ? { data: props.data } : {}),
 			rId: intRels,
 			Target: `../media/${sanitizeMediaNamePart(target._name || '')}-image-${target._relsMedia.length + 1}.${strImgExtn}`,
 		})

@@ -15,6 +15,7 @@ import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { InvalidOptionError } from '../../errors.js'
+import { pickDefined } from '../../options-internal.js'
 
 /**
  * Adds a connector object to a slide definition.
@@ -136,18 +137,18 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			h: Math.abs(y2 - y1),
 			flipH: x2 < x1,
 			flipV: y2 < y1,
-			_connectorAdj: connectorAdj.length ? connectorAdj : undefined,
-			_startCxn: startCxn,
-			_endCxn: endCxn,
+			// A straight connector has no adjust values and an unattached end no `cxn`; each is one
+			// absent key rather than a key holding `undefined`, which is what the emitters test for.
+			...(connectorAdj.length ? { _connectorAdj: connectorAdj } : {}),
+			...pickDefined({ _startCxn: startCxn, _endCxn: endCxn }, ['_startCxn', '_endCxn']),
 			line: {
 				type: 'solid',
 				color: opts.color || DEF_SHAPE_LINE_COLOR,
 				width: typeof opts.width === 'number' ? opts.width : 1,
 				dashType: opts.dashType || 'solid',
-				beginArrowType: opts.beginArrowType,
-				endArrowType: opts.endArrowType,
+				...pickDefined(opts, ['beginArrowType', 'endArrowType']),
 			},
-			altText: opts.altText,
+			...pickDefined(opts, ['altText']),
 			objectName: opts.objectName
 				? encodeXmlAttrValue(validateObjectName(opts.objectName, 'connector'))
 				: `Connector ${connectorNameIdx}`,

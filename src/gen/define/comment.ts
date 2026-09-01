@@ -49,5 +49,8 @@ export function addCommentDefinition(target: PresSlideInternal, opts: CommentPro
 	else if (typeof opts.date === 'string' && opts.date) date = opts.date
 
 	if (!target._comments) target._comments = []
-	target._comments.push({ author, initials, text, x, y, date })
+	// `date` is omitted rather than written as `undefined` when the caller stated none: the
+	// comments emitter falls back to its own timestamp on an absent one, and the two spellings
+	// would otherwise be two ways of asking for that.
+	target._comments.push(date === undefined ? { author, initials, text, x, y } : { author, initials, text, x, y, date })
 }

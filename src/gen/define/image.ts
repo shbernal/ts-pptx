@@ -19,6 +19,7 @@ import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerImageMediaRel } from './image-rel.js'
 import { InvalidOptionError } from '../../errors.js'
+import { pickDefined } from '../../options-internal.js'
 
 /** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */
 const IMAGE_NATURAL_DPI = 96
@@ -117,7 +118,6 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const intPosY = opt.y ?? phY ?? 0
 	const intWidth = opt.w ?? phW ?? 0
 	const intHeight = opt.h ?? phH ?? 0
-	const sizing = opt.sizing
 	const objHyperlink = opt.hyperlink || ''
 	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.
 	// `data`/`path` win when also supplied, matching the documented precedence.
@@ -197,6 +197,12 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	}
 
 	// STEP 4: Set image properties & options
+	const shadow = correctShadowOptions(opt.shadow)
+	// The twelve pass-through options go through `pickDefined` rather than being listed as
+	// `key: opt.key`: an image that asks for no `crop` carries no `crop` key, where the literal
+	// wrote one holding `undefined`. Every one of these is read by an emitter that branches on the
+	// option being *there* (`if (opts.crop)`, `if (opts.duotone)`), so they were two spellings of
+	// the same request — and `ObjectOptions` is spread onto a placeholder's options besides.
 	const objectOptions: ObjectOptions = {
 		x: intPosX || 0,
 		y: intPosY || 0,
@@ -204,24 +210,26 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		h: defHeight || 1,
 		altText: opt.altText || '',
 		rounding: typeof opt.rounding === 'boolean' ? opt.rounding : false,
-		shape: opt.shape,
-		points: opt.points,
-		rectRadius: opt.rectRadius,
-		shapeAdjust: opt.shapeAdjust,
-		sizing,
-		crop: opt.crop,
-		placeholder: opt.placeholder,
+		...pickDefined(opt, [
+			'shape',
+			'points',
+			'rectRadius',
+			'shapeAdjust',
+			'sizing',
+			'crop',
+			'placeholder',
+			'duotone',
+			'grayscale',
+			'biLevel',
+			'clrChange',
+			'objectLock',
+		]),
 		rotate: opt.rotate || 0,
 		flipV: opt.flipV || false,
 		flipH: opt.flipH || false,
 		transparency: opt.transparency || 0,
-		duotone: opt.duotone,
-		grayscale: opt.grayscale,
-		biLevel: opt.biLevel,
-		clrChange: opt.clrChange,
 		objectName,
-		objectLock: opt.objectLock,
-		shadow: correctShadowOptions(opt.shadow),
+		...(shadow ? { shadow } : {}),
 		...(szAuto ? { _szAuto: szAuto } : {}),
 	}
 	newObject.options = objectOptions

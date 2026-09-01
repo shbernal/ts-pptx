@@ -33,7 +33,10 @@ export function relationshipEl(
 	id: string | number,
 	type: string,
 	target: string,
-	opts?: { targetMode?: string; fmt?: XmlFmt }
+	// Read-only argument bag: both keys are consulted with `?.` below and nothing spreads it, so a
+	// caller assembling one out of a value it may not have (`{ targetMode }`) is saying the same
+	// thing as omitting the key, and the declaration says so.
+	opts?: { targetMode?: string | undefined; fmt?: XmlFmt | undefined }
 ): string {
 	return voidEl(
 		'Relationship',

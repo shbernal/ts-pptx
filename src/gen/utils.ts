@@ -6,7 +6,6 @@
  *   - XML text               encodeXmlEntities
  *   - Identifiers & naming    getUuid, validateObjectName, getDuplicateObjectNames
  *   - Slide relationships     getNewRelId, isHyperlinkRel, mediaSlideKey
- *   - Option normalization    setOrClear
  *
  * DrawingML fragment builders moved to `gen/drawingml/{color,effect,fill,line}.ts`;
  * unit conversion to `units-internal.ts` (over the public primitives in `units.ts`);
@@ -14,28 +13,7 @@
  */
 
 import { warn } from '../diagnostics.js'
-import type { OptionalKeysOf, PresSlideInternal } from '../types/internal.js'
-
-/**
- * Write a normalized value onto an option bag, spelling "no value" as an *absent* key.
- *
- * The generator's option bags are read with plain truthiness or `?.`, so absent and
- * present-but-`undefined` look the same to a reader — but not to a spread, and these bags are
- * spread: a placeholder's options onto a slide's, a column default under a cell's own, a combo
- * subchart's overrides onto the chart's. There the side that wins is decided by whether the key
- * exists, not by what it holds, so a normalizer that rejects a value has to remove it rather than
- * paper over it. One spelling of absent, which is the invariant `compact()` keeps on the read
- * side (`script/from-read/values.ts`).
- *
- * Only optional keys are accepted, so this cannot be used to unset something required.
- * @param bag - the options bag to write onto
- * @param key - the key to set or remove
- * @param value - the normalized value, or `undefined` to remove the key
- */
-export function setOrClear<T extends object, K extends OptionalKeysOf<T> & keyof T>(bag: T, key: K, value: T[K]): void {
-	if (value === undefined) delete bag[key]
-	else bag[key] = value
-}
+import type { PresSlideInternal } from '../types/internal.js'
 
 /**
  * Fill the `x`/`y` placeholders of a hex pattern with random nibbles.

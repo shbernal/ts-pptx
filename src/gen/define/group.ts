@@ -17,6 +17,7 @@ import { addImageDefinition } from './image.js'
 import { addShapeDefinition } from './shape.js'
 import { addTextDefinition } from './text.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
+import { pickDefined } from '../../options-internal.js'
 
 /**
  * Dispatch a key-tagged child-object descriptor (`{ text }`, `{ image }`, `{ shape }`, …) to the
@@ -135,17 +136,12 @@ function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[],
 	return {
 		_type: SlideObjectType.group,
 		_groupObjects: groupObjects,
+		// `pickDefined`, not a key-by-key literal: a group that states no `rotate` carries no
+		// `rotate` key, where the literal wrote one holding `undefined` — and the group emitter
+		// decides on key presence for the geometry it derives from its children.
 		options: {
-			x: opts.x,
-			y: opts.y,
-			w: opts.w,
-			h: opts.h,
-			rotate: opts.rotate,
-			flipH: opts.flipH,
-			flipV: opts.flipV,
+			...pickDefined(opts, ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV', 'altText', 'objectLock']),
 			objectName,
-			altText: opts.altText,
-			objectLock: opts.objectLock,
 		},
 	}
 }

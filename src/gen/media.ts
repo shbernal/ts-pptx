@@ -52,9 +52,10 @@ export function encodeSlideMediaRels(
 			imageProms.push(
 				(async () => {
 					try {
-						rel.data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
+						const data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
+						rel.data = data
 						const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
-						dupes.forEach((dupe) => (dupe.data = rel.data))
+						dupes.forEach((dupe) => (dupe.data = data))
 						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)
 						// A path-deduped rel can itself be an SVG-PNG preview (the same SVG *file*
 						// placed 2+ times on one slide: each placement pushes its own fallback rel).
@@ -72,7 +73,7 @@ export function encodeSlideMediaRels(
 							rel.data = IMG_BROKEN
 							candidateRels
 								.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
-								.forEach((dupe) => (dupe.data = rel.data))
+								.forEach((dupe) => (dupe.data = IMG_BROKEN))
 							return 'done'
 						}
 						// Default: fail-fast with an actionable error that names the failing asset and

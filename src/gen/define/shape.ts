@@ -17,6 +17,7 @@ import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
+import { setOrClear } from '../../options-internal.js'
 
 /**
  * Map of common friendly shape names users pass as bare strings to their
@@ -59,7 +60,10 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// the same `<a:effectLst>`.
 	const options: ShapeProps = typeof opts === 'object' ? { ...opts } : {}
 	options.line = options.line || { type: 'none' }
-	options.shadow = correctShadowOptions(options.shadow)
+	// A shape with no shadow carries no `shadow` key: `ShapeProps` bags are spread (a style literal
+	// over another, and this one onto the slide object's options), so a key holding `undefined`
+	// would suppress an inherited shadow where an absent one does not.
+	setOrClear(options, 'shadow', correctShadowOptions(options.shadow))
 	// Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid
 	// OOXML preset spellings before storing on the slide object.
 	const resolvedShapeName: SHAPE_NAME =
@@ -98,11 +102,14 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	const newLineOpts: ShapeLineProps = {
 		...options.line,
 		type: lineType,
-		color: lineType === 'solid' ? options.line.color || DEF_SHAPE_LINE_COLOR : options.line.color,
 		transparency: options.line.transparency || 0,
 		width: options.line.width || 1,
 		dashType: options.line.dashType || 'solid',
 	}
+	// Only the solid arm writes `color`. The spread already carried whatever colour the other kinds
+	// stated, so re-writing the key would turn an unstated one into a present `undefined` — which
+	// the next spread of this bag can tell apart from an absent one.
+	if (lineType === 'solid') newLineOpts.color = options.line.color || DEF_SHAPE_LINE_COLOR
 	if (typeof options.line === 'object' && options.line.type !== 'none') options.line = newLineOpts
 
 	// 2: Set options defaults

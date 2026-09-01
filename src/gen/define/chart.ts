@@ -27,7 +27,8 @@ import type {
 	PresSlideInternal,
 	SlideObject,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, setOrClear, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { isBubbleChart } from '../chart/chart-kind.js'
