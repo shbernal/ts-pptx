@@ -16,7 +16,6 @@
 import { warn } from './diagnostics.js'
 import { InternalError, InvalidOptionError } from './errors.js'
 import SlideBuilder from './slide.js'
-import { SlideObjectType } from './enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './constants-internal.js'
 import type {
 	AddSlideProps,
@@ -53,22 +52,14 @@ import { isFontCollection } from './measure/font-collection.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
 import { measureText } from './measure/fit.js'
 import { computeTableLayout } from './measure/table-fit.js'
-import { getUuid, isHyperlinkRel } from './gen/utils.js'
 import { decodeBase64ToBytes } from './media/base64.js'
-import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
-import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
+import type { ExtractedSlides } from './read/api/presentation-types.js'
 
-import { makeXmlCharts } from './gen/chart/chart-xml.js'
-import { makeXmlChartEx } from './gen/chart/chartex-xml.js'
-import { makeChartExColorsXml, makeChartExStyleXml } from './gen/chart/chartex-style.js'
-import { buildEmbeddedWorksheet } from './gen/chart/embed-xlsx.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
-import { bakeSlideContent, encodeMediaForTargets } from './gen/prepare.js'
-import { makeXmlSlide } from './gen/slide/slide.js'
-import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './gen/slide/notes.js'
-import { makeXmlTheme } from './gen/pres/theme.js'
+import { getUuid } from './gen/utils.js'
+import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 
 const VERSION = '3.7.0'
@@ -468,165 +459,11 @@ export default class PresentationCore {
 	 * serialized body — this method does not resolve them into a package; the append
 	 * path consumes each descriptor to reserve the parts and rebuild the rel graph.
 	 */
-	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> => {
-		const onMediaError = opts.onMediaError ?? 'throw'
-
-		// STEP 1+2: The same pre-serialization pass `buildPackageParts` runs — encode media,
-		// backfill placeholders, bake measured fit — so extracted bodies match a normal write
-		// by construction rather than by keeping two copies in step. See `gen/prepare.ts`.
-		// Only slides here: this method emits no layout or master parts.
-		await encodeMediaForTargets(this._slides, this._runtime, onMediaError)
-		bakeSlideContent(this._slides, this._fontMetrics)
-
-		// STEP 3: Serialize each slide body and resolve its image media to bytes.
-		const slides: ExtractedSlide[] = this._slides.map((slide) => {
-			const relByRid = new Map(slide._relsMedia.map((rel) => [rel.rId, rel] as const))
-
-			// Embedded audio/video. addMedia (`gen/define/media.ts`) pushes three consecutive
-			// _relsMedia entries per item off `mediaRid`: the ECMA audio/video rel
-			// (rId=mediaRid), the MS-2007 `media` rel (mediaRid+1, sharing one Target),
-			// and the preview image rel (mediaRid+2). The body references all three; we
-			// surface the descriptor so appendSlides can reproduce the rel graph. Online
-			// media (external link) is excluded — it has a different rel shape and no part.
-			const avPreviewRids = new Set<number>()
-			const avMedia = slide._slideObjects
-				.filter(
-					(obj) => obj._type === SlideObjectType.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number'
-				)
-				.map((obj) => {
-					const mtype: 'audio' | 'video' = obj.mtype === 'audio' ? 'audio' : 'video'
-					const mediaRid = obj.mediaRid as number
-					const mediaRel = relByRid.get(mediaRid)
-					const previewRel = relByRid.get(mediaRid + 2)
-					if (!mediaRel || !previewRel) return null
-					const mediaBytes = decodeBase64ToBytes(typeof mediaRel.data === 'string' ? mediaRel.data : '')
-					const previewBytes = decodeBase64ToBytes(typeof previewRel.data === 'string' ? previewRel.data : '')
-					if (!mediaBytes || !previewBytes) return null
-					const mediaExtn = (mediaRel.extn || mediaRel.Target.split('.').pop() || 'mp4').toLowerCase()
-					const previewExtn = (previewRel.extn || previewRel.Target.split('.').pop() || 'png').toLowerCase()
-					avPreviewRids.add(mediaRid + 2)
-					return {
-						mtype,
-						mediaRid,
-						msMediaRid: mediaRid + 1,
-						previewRid: mediaRid + 2,
-						mediaBytes,
-						mediaExtn,
-						mediaContentType: avContentType(mediaExtn, mtype),
-						previewBytes,
-						previewExtn,
-						previewContentType: imageContentType(previewExtn),
-					}
-				})
-				.filter((m): m is NonNullable<typeof m> => m !== null)
-
-			const media = slide._relsMedia
-				// A/V preview images live in _relsMedia as image rels too; they are carried
-				// by their A/V descriptor, so exclude them from the plain-image media list.
-				.filter((rel) => rel.type.toLowerCase().includes('image') && !avPreviewRids.has(rel.rId))
-				.map((rel) => {
-					// Normalize the base64 payload's data-URI prefix, mirroring createChartMediaRels.
-					let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
-					if (!data.includes(',') && !data.includes(';')) data = 'image/png;base64,' + data
-					else if (!data.includes(',')) data = 'image/png;base64,' + data
-					else if (!data.includes(';')) data = 'image/png;' + data
-					const bytes = decodeBase64ToBytes(data)
-					const extn = (rel.extn || rel.Target.split('.').pop() || 'png').toLowerCase()
-					return bytes ? { rId: rel.rId, bytes, extn, contentType: imageContentType(extn) } : null
-				})
-				.filter((m): m is NonNullable<typeof m> => m !== null)
-
-			// Online (external-link) video. addMedia type:'online' pushes three rels off
-			// mediaRid: the ECMA video rel (mediaRid, External), the MS-2007 media rel
-			// (mediaRid+1, External, sharing the link Target), and the poster image rel
-			// (mediaRid+2, carried by `media` below as a normal image). No media binary
-			// part exists; appendSlides reproduces only the two external rels + poster.
-			const onlineMedia = slide._slideObjects
-				.filter(
-					(obj) => obj._type === SlideObjectType.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number'
-				)
-				.map((obj) => {
-					const mediaRid = obj.mediaRid as number
-					const videoRel = relByRid.get(mediaRid)
-					if (!videoRel || typeof videoRel.Target !== 'string' || !videoRel.Target) return null
-					return { mediaRid, msMediaRid: mediaRid + 1, link: videoRel.Target }
-				})
-				.filter((m): m is NonNullable<typeof m> => m !== null)
-
-			const hyperlinks = slide._rels
-				.filter((rel) => isHyperlinkRel(rel) && rel.data !== 'slide')
-				.map((rel) => ({ rId: rel.rId, target: rel.Target }))
-
-			// Internal slide-to-slide links: rel.data === 'slide', rel.Target is the
-			// 1-based source slide number (see addText's hyperlink.slide handling).
-			const slideLinks = slide._rels
-				.filter((rel) => isHyperlinkRel(rel) && rel.data === 'slide')
-				.map((rel) => ({ rId: rel.rId, sourceSlideNumber: Number(rel.Target) }))
-
-			// Charts: serialize the chart part XML + its embedded workbook bytes. The
-			// chart part's own .rels (workbook reference) is rebuilt on injection.
-			const charts: ExtractedSlide['charts'] = (slide._relsChart || []).map((rel) => {
-				// chartEx charts are a different part (`makeXmlChartEx`) behind a different rel type and
-				// content type, and PowerPoint reports one as corrupt without its style/colors sidecars
-				// (see gen/chart/chartex-style.ts). Both ride in the descriptor's `chartEx` slot, which
-				// is what tells `appendSlides` the two shapes apart: it cannot be inferred from the XML,
-				// and building one as a classic chart is what used to produce a `<c:chartSpace>` with
-				// axes and no plot behind a slide still pointing at it through `<cx:chart>`.
-				const base = { rId: rel.rId, embeddingBytes: buildEmbeddedWorksheet(rel) }
-				return rel.isChartEx
-					? {
-							...base,
-							chartXml: makeXmlChartEx(rel),
-							chartEx: { styleXml: makeChartExStyleXml(), colorsXml: makeChartExColorsXml() },
-						}
-					: { ...base, chartXml: makeXmlCharts(rel) }
-			})
-
-			// Speaker notes. makeXmlNotesSlide calls buildNotesSlideRels itself (and caches
-			// on the slide), so the rels are read back afterwards rather than rebuilt — the
-			// body and the rels file must agree on every hyperlink rId. Notes rels reserve
-			// rId1=notesMaster and rId2=slide, both of which appendSlides wires itself.
-			const hasNotes = slide._slideObjects.some((obj) => obj._type === SlideObjectType.notes)
-			const notes = hasNotes
-				? {
-						xml: makeXmlNotesSlide(slide),
-						hyperlinks: buildNotesSlideRels(slide)
-							.filter((rel) => typeof rel.Target === 'string' && rel.Target)
-							.map((rel) => ({ rId: rel.rId, target: rel.Target })),
-					}
-				: undefined
-
-			return {
-				xml: makeXmlSlide(slide),
-				media,
-				hyperlinks,
-				charts,
-				slideLinks,
-				avMedia,
-				onlineMedia,
-				...(notes ? { notes } : {}),
-			}
-		})
-
-		// Presentation-level embedded fonts (pptx.embedFont) ride alongside the slides
-		// so appendSlides can carry them into the destination deck; same model the
-		// write path serializes (see src/embedded-fonts.ts), passed through unchanged.
-		// A notes slide must bind to a notes master, and a destination template commonly has
-		// none (a deck authored without notes carries no notesMaster part). Ship ours so the
-		// append path can install one; it is discarded when the destination already has one.
-		// theme2.xml is what notesMaster1.xml.rels resolves to on the normal write path.
-		const notesMaster = slides.some((s) => s.notes)
-			? { xml: makeXmlNotesMaster(), themeXml: makeXmlTheme(this.internalPresentation) }
-			: undefined
-
-		return {
-			widthEmu: this.presLayout.width,
-			heightEmu: this.presLayout.height,
-			slides,
-			embeddedFonts: this._embeddedFonts,
-			...(notesMaster ? { notesMaster } : {}),
-		}
-	}
+	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> =>
+		extractSlidesFrom(
+			{ runtime: this._runtime, presentation: this.internalPresentation, fontMetrics: this._fontMetrics },
+			opts
+		)
 
 	// FONT METRICS (measured text fit)
 

@@ -399,6 +399,11 @@ export type InternalErrorCode =
 	// `ChartType` between them and the caller picks by `isChartExType`, so reaching either one
 	// off-catalog is a routing bug, not bad input.
 	| 'chart/type-not-routed'
+	// An internal slide-to-slide link's rel Target was not a slide number. The write side puts
+	// that Target there itself (`addText`'s `hyperlink.slide`), so a value `Number()` cannot
+	// read is a defect on this side; catching it at the extraction boundary keeps it legible,
+	// rather than handing `NaN` to the append path's rel-graph rebuild.
+	| 'slide/link-target-not-a-number'
 	| 'animation/timing-scaffold-failed'
 	// A DOM node the read model was handed is detached. Reachable in principle through the
 	// documented `part.dom` / `element_` escape hatch, but never from the library's own paths.
