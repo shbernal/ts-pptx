@@ -72,6 +72,18 @@ const SPPR_SEQUENCE: readonly SequenceStep[] = [
 ]
 
 /**
+ * `CT_Shape` (`p:sp`), in declaration order.
+ *
+ * `p:pic` (`CT_Picture`) and `p:cxnSp` (`CT_Connector`) are not this type, but their successors
+ * of `p:spPr` are a *subset* of this one's in the same relative order — both run `p:spPr`,
+ * `p:style`, `p:extLst` and neither has a `p:txBody`. So {@link SHAPE_AFTER_SPPR} serves all
+ * three: naming an element that cannot occur in a given parent is inert, because the successor
+ * list is only ever matched against children that are actually there.
+ * @see ECMA-376 Part 1 §19.3.1.43
+ */
+const SP_SEQUENCE: readonly SequenceStep[] = ['p:nvSpPr', 'p:spPr', 'p:style', 'p:txBody', 'p:extLst']
+
+/**
  * `CT_GroupShapeProperties` (`p:grpSpPr`), in declaration order. A group carries no `a:ln` and
  * no `a:sp3d` — which is exactly why it needs its own successor lists rather than borrowing the
  * shape ones.
@@ -159,10 +171,11 @@ export const GRPSPPR_AFTER_XFRM = successorsOf(GRPSPPR_SEQUENCE, 'a:xfrm')
 export const GRPSPPR_FILL_AFTER = successorsOf(GRPSPPR_SEQUENCE, 'a:solidFill')
 
 /**
- * Successors of `p:spPr` within `p:sp` (and before `p:style` within `p:pic` / `p:cxnSp`).
- * `p:blipFill` and the `p:nv*Pr` wrapper precede `p:spPr` and so are deliberately absent.
+ * Successors of `p:spPr` within `p:sp`, and equally within `p:pic` / `p:cxnSp` — see
+ * {@link SP_SEQUENCE} for why one list covers all three. `p:blipFill` and the `p:nv*Pr` wrapper
+ * precede `p:spPr`, so slicing the sequence drops them without anyone having to remember to.
  */
-export const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
+export const SHAPE_AFTER_SPPR = successorsOf(SP_SEQUENCE, 'p:spPr')
 
 // --- a:ln / a:rPr ------------------------------------------------------------
 

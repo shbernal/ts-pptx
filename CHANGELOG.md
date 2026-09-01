@@ -216,6 +216,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Bytes move only for a chart that sets one of those two options; `lineCap` left unset still
   resolves to the `flat` that was hardcoded, and every showcase deck emits byte-identically.
 
+- **A `p:spPr` created on a shape that has a `p:extLst` is inserted before it, not after.**
+  `SHAPE_AFTER_SPPR` was the one successor list in `src/ooxml/sequence.ts` written out by
+  hand instead of sliced from a declared sequence, and it was missing `p:extLst` — the last
+  child of `CT_Shape`. A `getOrAddChild(sp, 'p:spPr', …)` on such a shape therefore matched
+  no successor and *appended*, producing a schema-invalid `p:sp`. Deriving the list from a
+  declared `SP_SEQUENCE` closed the gap and removed the module's one exception to "every
+  successor list is sliced out of a sequence" in the same edit. Reachable only on input that
+  is already malformed — the schema makes `p:spPr` required — so this is the repair path
+  no longer replacing one invalidity with another.
+
 - **A chart's embedded workbook stamps one time, not two.** Its `docProps/core.xml` read
   the clock separately for `created` and `modified`, so a build that crossed a millisecond
   gave the two different values — nondeterministic output for a difference no reader acts
