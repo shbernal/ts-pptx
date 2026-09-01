@@ -36,6 +36,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A size mismatch without the option is still `import/slide-size-mismatch`, and its
   message now names the spelling that answers it.
 
+- **A native picture fill takes a source `crop`, so `fill: { type: 'image' }` is no longer
+  the one picture that cannot be cropped.** `ImageFillProps.crop` is the same
+  `{ l, t, r, b }` percentage inset that `addImage` has always taken, validated the same
+  way and serialized to the same `<a:srcRect>` — a shape, a table cell or a background
+  filled with an image can now show a sub-region of its source instead of the whole thing
+  stretched into the box:
+
+  ```js
+  slide.addShape(ShapeType.triangle, {
+    x: 1, y: 1, w: 4, h: 3,
+    fill: { type: 'image', image: { path: 'portrait.png', crop: { t: 25, b: 25 } } },
+  })
+  ```
+
+  The shape geometry stays the mask; `crop` only decides which pixels arrive inside it.
+  Note that the remaining region is still *stretched* to the fill's box, so a cover-style
+  placement means computing insets that match the box's aspect ratio yourself. Where the
+  output does not have to be a filled shape, `addImage({ shape, sizing: { type: 'cover' } })`
+  is the better answer to that: it reads the source's own dimensions and derives the
+  aspect-correct crop for you (see `docs/image-in-shape.md`).
+
+  Omitting `crop` emits the same empty `<a:srcRect/>` as before, byte for byte. An inset
+  outside 0–100, or a pair that would leave no source area, throws
+  `image/crop-inset-out-of-range` / `image/crop-insets-exceed-extent` as it does on
+  `addImage`.
+
+  Thanks to [@flyisland](https://github.com/flyisland) ([#28](https://github.com/shbernal/ts-pptx/issues/28), [#29](https://github.com/shbernal/ts-pptx/pull/29)).
+
 ### Changed
 
 - **An out-of-range percentage has one answer, and three options stop having their own.**

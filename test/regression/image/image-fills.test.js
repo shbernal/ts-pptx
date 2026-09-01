@@ -135,6 +135,40 @@ defineRegressionSuite('Image (blip) fills', [
 		},
 	},
 	{
+		// The fill route reaches the same validation as `addImage`'s `crop`, so a degenerate
+		// srcRect — which renders as an empty shape rather than as an error — fails loudly here
+		// too. Mirrors the addImage cases in `image-crop-srcrect.test.js`.
+		name: 'an invalid shape image fill crop throws rather than emitting a degenerate srcRect',
+		fn: async () => {
+			const cases = [
+				{ crop: { l: -5 }, why: 'negative' },
+				{ crop: { r: 150 }, why: 'over 100' },
+				{ crop: { l: 60, r: 60 }, why: 'l+r >= 100' },
+				{ crop: { t: 50, b: 50 }, why: 't+b >= 100' },
+				{ crop: { l: NaN }, why: 'NaN' },
+			]
+			for (const c of cases) {
+				let message = null
+				try {
+					await build((p) => {
+						const s = p.addSlide()
+						s.addShape(ShapeType.triangle, {
+							x: 1,
+							y: 1,
+							w: 3,
+							h: 2,
+							fill: { type: 'image', image: { data: PNG_1X1, crop: c.crop } },
+						})
+					})
+				} catch (err) {
+					message = err.message
+				}
+				assert(message, `expected fill crop ${c.why} (${JSON.stringify(c.crop)}) to throw`)
+				assertIncludes(message, 'image fill crop', `error names the fill, not addImage (${c.why})`)
+			}
+		},
+	},
+	{
 		name: 'image fill set via `image` alone (no explicit type) still emits a blipFill',
 		fn: async () => {
 			const { zip } = await build((p) => {
