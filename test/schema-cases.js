@@ -690,6 +690,27 @@ export default [
 		},
 	},
 	{
+		// The cropped fill is a separate case rather than a crop added to the one above: the
+		// uncropped `<a:srcRect/>` and an explicit one are two different children of
+		// `CT_BlipFillProperties`, and only one of them is the form every existing deck emits.
+		name: 'shape with a cropped image (blip) fill',
+		fn: async () => {
+			const pngData =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.triangle, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: { type: 'image', image: { data: pngData, crop: { l: 0, t: 25, r: 0, b: 25 } } },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-image-fill-crop')
+		},
+	},
+	{
 		// `a:blipFill` inside `a:tcPr` — `CT_TableCellProperties` accepts `EG_FillProperties`
 		// at child order 7, after lnL/lnR/lnT/lnB. Covers all four routes a fill takes to a
 		// cell (per-cell, headerRow, columns, table-level) plus a merged region, since the

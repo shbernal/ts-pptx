@@ -238,6 +238,27 @@ export interface ImageFillProps {
 	path?: string
 	/** Pre-encoded base64 data URI, e.g. `'image/png;base64,iVBOR...'`. */
 	data?: string
+	/**
+	 * Crop the source image to a sub-region by percentage edge insets, emitted as
+	 * DrawingML `<a:srcRect>`.
+	 * - each value is the percent (0–100) trimmed from that edge of the source image
+	 * - `l` + `r` and `t` + `b` must each be less than 100
+	 * - omitted edges default to 0
+	 *
+	 * This is the source-image crop used by native Shape picture fills. The
+	 * remaining region is stretched to fill the shape's bounding box and then
+	 * clipped by the shape geometry.
+	 */
+	crop?: {
+		/** Percent trimmed from the left edge of the source image. @default 0 */
+		l?: number
+		/** Percent trimmed from the top edge of the source image. @default 0 */
+		t?: number
+		/** Percent trimmed from the right edge of the source image. @default 0 */
+		r?: number
+		/** Percent trimmed from the bottom edge of the source image. @default 0 */
+		b?: number
+	}
 }
 
 export type Margin = number | [number, number, number, number]
