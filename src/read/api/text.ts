@@ -40,9 +40,9 @@ import {
 	type StyleFontRef,
 } from './theme-context.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
-import { EMU_PER_POINT } from '../../units.js'
+import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
 import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../ooxml/sequence.js'
-import { ptFromEmu } from './coords.js'
+import { pctFromThousandths, ptFromEmu, ptFromHundredths } from './coords.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve an *inherited* run
@@ -223,7 +223,7 @@ export class Run {
 	/** Font size in points (`a:rPr/@sz` is hundredths of a point), or `null` if unset. */
 	get fontSizePt(): number | null {
 		const size = this.#rPrAttr('sz')
-		return size === null ? null : size / 100
+		return ptFromHundredths(size)
 	}
 
 	set fontSizePt(value: number | null) {
@@ -294,7 +294,7 @@ export class Run {
 	 */
 	get baselinePct(): number | null {
 		const raw = this.#rPrAttr('baseline')
-		return raw === null ? null : raw / 1000
+		return pctFromThousandths(raw)
 	}
 
 	/**
@@ -304,7 +304,7 @@ export class Run {
 	 */
 	get charSpacingPt(): number | null {
 		const raw = this.#rPrAttr('spc')
-		return raw === null ? null : raw / 100
+		return ptFromHundredths(raw)
 	}
 
 	/**
@@ -647,12 +647,12 @@ export class Paragraph {
 		const pts = firstChild(lnSpc, 'a:spcPts')
 		if (pts) {
 			const val = intValue(attr(pts, 'val'))
-			return val === null ? null : { type: 'points', valuePt: val / 100 }
+			return val === null ? null : { type: 'points', valuePt: val / HUNDREDTHS_PER_POINT }
 		}
 		const pct = firstChild(lnSpc, 'a:spcPct')
 		if (pct) {
 			const val = intValue(attr(pct, 'val'))
-			return val === null ? null : { type: 'percent', percent: val / 1000 }
+			return val === null ? null : { type: 'percent', percent: val / FIXED_PCT_PER_PERCENT }
 		}
 		return null
 	}
@@ -717,8 +717,8 @@ export class Paragraph {
 		const ptVal = buSzPts ? intValue(attr(buSzPts, 'val')) : null
 		return {
 			font: buFont ? (attr(buFont, 'typeface') ?? null) : null,
-			sizePct: pctVal === null ? null : pctVal / 1000,
-			sizePt: ptVal === null ? null : ptVal / 100,
+			sizePct: pctFromThousandths(pctVal),
+			sizePt: ptFromHundredths(ptVal),
 			color: colorValueIf(colorEl, 'srgbClr'),
 			schemeColor: colorValueIf(colorEl, 'schemeClr'),
 			resolvedColor: this.themeContext ? resolveColorElement(colorEl, this.themeContext) : null,
@@ -739,7 +739,7 @@ export class Paragraph {
 		const spc = pPr && firstChild(pPr, qname)
 		const pts = spc && firstChild(spc, 'a:spcPts')
 		const val = pts ? intValue(attr(pts, 'val')) : null
-		return val === null ? null : val / 100
+		return ptFromHundredths(val)
 	}
 
 	/** Points from an EMU-valued `a:pPr` attribute (`marL` / `indent`), or `null`. */
@@ -928,7 +928,7 @@ export class TextFrame {
 		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
 		const norm = bodyPr && firstChild(bodyPr, 'a:normAutofit')
 		const raw = norm ? intValue(attr(norm, name)) : null
-		return raw === null ? null : raw / 1000
+		return pctFromThousandths(raw)
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

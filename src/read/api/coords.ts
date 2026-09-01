@@ -1,5 +1,5 @@
 /**
- * ts-pptx: EMU at the read model's boundary — validated on the way in, converted on the way out.
+ * ts-pptx: units at the read model's boundary — validated on the way in, converted on the way out.
  *
  * Every read-side setter that takes a measurement has to answer the same two questions before
  * the value reaches an attribute: is it finite, and (for an extent) is it positive. `NaN` or
@@ -14,7 +14,7 @@
 
 import { InvalidOptionError } from '../../errors.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
-import { EMU_PER_POINT } from '../../units.js'
+import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
 
 /**
  * Round a measurement to whole EMU, rejecting a value that cannot be written.
@@ -54,4 +54,33 @@ export function checkPositiveEmu(value: number, field: string): number {
  */
 export function ptFromEmu(emu: number | null): number | null {
 	return emu === null ? null : emu / EMU_PER_POINT
+}
+
+/**
+ * Hundredths of a point → points, propagating "absent". DrawingML measures font size, character
+ * spacing, point line spacing and bullet size in hundredths (`a:rPr/@sz`, `@spc`,
+ * `a:spcPts/@val`, `a:buSzPts/@val`), and six getters across `text.ts` and `theme-context.ts`
+ * each wrote the divisor out as a bare `100`.
+ *
+ * Naming the unit is the point: `a:buSzPct` next door is *thousandths of a percent*, so a bare
+ * divisor leaves a reader to remember which attribute is which. Read against
+ * {@link pctFromThousandths}.
+ *
+ * The two `LineSpacing` sites divide by {@link HUNDREDTHS_PER_POINT} and
+ * {@link FIXED_PCT_PER_PERCENT} in place, for the reason {@link ptFromEmu} gives about
+ * accumulators: their field is a plain `number` inside an object the caller's own null check
+ * already guards, so a nullable return would only be unwrapped again.
+ */
+export function ptFromHundredths(value: number | null): number | null {
+	return value === null ? null : value / HUNDREDTHS_PER_POINT
+}
+
+/**
+ * Thousandths of a percent → percent, propagating "absent" — `a:spcPct/@val`
+ * (`ST_TextSpacingPercent`) and `a:buSzPct/@val` (`ST_TextBulletSizePercent`), both of which
+ * spell 100% as `100000`. That is the same fixed-point percentage the write side scales into
+ * with {@link FIXED_PCT_PER_PERCENT}, read in the other direction.
+ */
+export function pctFromThousandths(value: number | null): number | null {
+	return value === null ? null : value / FIXED_PCT_PER_PERCENT
 }

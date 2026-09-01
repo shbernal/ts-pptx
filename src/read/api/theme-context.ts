@@ -30,6 +30,7 @@ import {
 	placeholderInheritedXfrm,
 } from '../oxml/placeholder-inherit.js'
 import type { OpcPackage } from '../opc/package.js'
+import { ptFromHundredths } from './coords.js'
 import { resolveSingleRel } from '../opc/partnames.js'
 import {
 	NOTES_MASTER_REL,
@@ -312,7 +313,7 @@ export function resolveInheritedRunSize(
 ): number | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const sz = intValue(attr(defRPr, 'sz'))
-		if (sz !== null) return sz / 100
+		if (sz !== null) return ptFromHundredths(sz)
 	}
 	return null
 }
