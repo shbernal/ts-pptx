@@ -305,19 +305,60 @@ export function fractionToFixedPercent(value: number, code: DiagnosticCode, labe
 }
 
 /**
+ * Convert a length stated in points to EMU, leniently, clamped into the schema range of the
+ * attribute it is headed for.
+ *
+ * The leniency and the clamp answer two different inputs and must not be confused. A value that
+ * does not read as a number at all collapses the feature to `0` via {@link ptsToEmuLenient} —
+ * a zero-width line, an unoffset shadow — because these are optional decorations on an object
+ * that still has to be emitted. A value that *is* a number but falls outside the attribute's
+ * range clamps to the nearest bound and warns, per `docs/diagnostics.md`; left alone it would
+ * make PowerPoint report the whole package as needing repair.
+ *
+ * @param pts - the caller's length in points, or any of the loose shapes `ptsToEmuLenient` takes
+ * @param maxEmu - inclusive upper bound of the attribute's schema type, in EMU
+ * @param code - diagnostic code raised when the value is clamped
+ * @param label - option name as the caller spells it, opening the warning
+ * @param range - the valid range in points, as the warning states it
+ */
+function clampLengthEmu(
+	pts: number | string,
+	maxEmu: number,
+	code: DiagnosticCode,
+	label: string,
+	range: string
+): number {
+	const raw = ptsToEmuLenient(pts)
+	const clamped = Math.min(maxEmu, Math.max(0, raw))
+	if (clamped !== raw)
+		warn(code, `${label} ${pts} is outside the valid range ${range}; using ${clamped / EMU_PER_POINT}.`)
+	return clamped
+}
+
+/**
  * Convert a line width (points) to EMU clamped into ST_LineWidth (0..20116800 EMU,
  * i.e. 0-1584pt). Out-of-range widths make PowerPoint report the package as needing
  * repair, so clamp into range and warn.
  */
 export function lineWidthToEmu(widthPts: number | string): number {
-	const raw = ptsToEmuLenient(widthPts)
-	const clamped = Math.min(20116800, Math.max(0, raw))
-	if (clamped !== raw)
-		warn(
-			'line/width-out-of-range',
-			`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / EMU_PER_POINT}.`
-		)
-	return clamped
+	return clampLengthEmu(widthPts, 20116800, 'line/width-out-of-range', 'line width', '0-1584pt')
+}
+
+/**
+ * Convert a shadow's blur radius or offset distance (points) to EMU clamped into
+ * ST_PositiveCoordinate (0..27273042316900 EMU, i.e. 0-2147483647pt) — the type both
+ * `blurRad` and `dist` carry on `a:outerShdw`/`a:innerShdw`.
+ *
+ * **The bound is the schema's, not the `0-100` / `0-200` those options document.** Those two
+ * numbers are the limits of PowerPoint's own spinners, and a blur past them is unusual rather
+ * than invalid: the file loads and paints. The one input that genuinely breaks the package is a
+ * *negative* one, because the type is unsigned — so that is what this moves, on the same
+ * reasoning `clampLineSpacingMultiplePct` in `gen/drawingml/clamp.ts` clamps to
+ * ST_TextSpacingPercent rather than to the `0.0-9.99` its own option describes. Only values
+ * PowerPoint reports as needing repair are worth moving.
+ */
+export function shadowLengthToEmu(pts: number | string, code: DiagnosticCode, label: string): number {
+	return clampLengthEmu(pts, 27273042316900, code, label, '0-2147483647pt')
 }
 
 /**

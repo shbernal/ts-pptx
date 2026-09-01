@@ -114,6 +114,8 @@ export type DiagnosticCode =
 	| 'color/invalid-value'
 	| 'shadow/invalid-type'
 	| 'shadow/angle-out-of-range'
+	| 'shadow/blur-out-of-range'
+	| 'shadow/offset-out-of-range'
 	| 'shadow/transparency-out-of-range'
 	| 'shadow/color-has-hash'
 	| 'geometry/invalid-shape-adjust'

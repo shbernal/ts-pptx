@@ -181,8 +181,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are typed `number`, and this is the same policy every clamped percentage already applies;
   convert before the call.
 
-  `shadow.blur` and `shadow.offset` are deliberately not part of this: they are lenient by
-  policy (a non-finite value collapses the feature to `0`) rather than clamped.
+  `shadow.blur` and `shadow.offset` stay lenient about a value that is not a number at all
+  (it collapses the feature to `0`); their range is the entry below.
+
+- **`shadow.blur` and `shadow.offset` are bounded by the schema, and their JSDoc now says
+  what is actually enforced.** Both are `ST_PositiveCoordinate` on `blurRad`/`dist`, which
+  is *unsigned* — so `blur: -6` reached the package as `blurRad="-76200"` and PowerPoint
+  reported the file as needing repair. A negative value now clamps to `0` and warns under
+  the new `shadow/blur-out-of-range` / `shadow/offset-out-of-range`.
+
+  The doc'd `range: 0-100` and `range: 0-200` are **not** what moved, and are gone from the
+  JSDoc rather than enforced. Those two numbers are the limits of PowerPoint's own spinners,
+  not of the format: a 150pt blur loads and paints, so clamping to 100 would have discarded
+  a legitimate request to enforce a bound nothing was checking. This is the same call
+  `clampLineSpacingMultiplePct` already makes — clamp to the schema's range, not to the one
+  the option's prose describes, because only the values PowerPoint reports as needing repair
+  are worth moving. The two bounds are now documented as what they are.
 
 - **A chart's embedded workbook stamps one time, not two.** Its `docProps/core.xml` read
   the clock separately for `created` and `modified`, so a build that crossed a millisecond

@@ -91,14 +91,40 @@ defineRegressionSuite('Shadow out-of-range policy', [
 		name: 'no shadow input reaches the package as the literal NaN',
 		fn: async () => {
 			// The guard that matters: whatever a bad input does, it never becomes an attribute
-			// value. `blur` and `offset` are deliberately lenient (non-finite collapses to 0),
-			// so they are here as the other half of that claim, not as clamped values.
+			// value. `blur` and `offset` stay deliberately lenient about a value that is not a
+			// number at all (it collapses the feature to 0, silently) -- the clamp below is only
+			// about numbers that are out of `blurRad`/`dist`'s unsigned range.
 			const { result: shdw } = await captureDiagnostics(() =>
 				shadowXml({ ...SHADOW, blur: NaN, offset: Infinity, angle: Infinity, transparency: Infinity })
 			)
 			assert(!shdw.includes('NaN'), 'no attribute may carry NaN; got: ' + shdw)
 			assert(shdw.includes('blurRad="0"'), 'a non-finite blur collapses the feature; got: ' + shdw)
 			assert(shdw.includes('dir="21540000"'), 'an infinite angle clamps like any other; got: ' + shdw)
+		},
+	},
+	{
+		// `blur` and `offset` are ST_PositiveCoordinate, so a negative one is not a smaller
+		// shadow -- it is a value PowerPoint reports as needing repair. Their JSDoc used to
+		// promise `0-100` and `0-200` and enforce neither; those two numbers are the limits of
+		// PowerPoint's own spinners, not of the format, so the schema bound is what moved.
+		name: 'a negative blur or offset clamps to zero and says so',
+		fn: async () => {
+			const { result: shdw, codes } = await captureDiagnostics(() => shadowXml({ ...SHADOW, blur: -6, offset: -2 }))
+			assert(shdw.includes('blurRad="0"'), 'a negative blur clamps to 0; got: ' + shdw)
+			assert(shdw.includes('dist="0"'), 'a negative offset clamps to 0; got: ' + shdw)
+			assert(codes.includes('shadow/blur-out-of-range'), 'the blur clamp is reported; got ' + codes.join(', '))
+			assert(codes.includes('shadow/offset-out-of-range'), 'the offset clamp is reported; got ' + codes.join(', '))
+		},
+	},
+	{
+		name: 'a blur past the PowerPoint spinner is emitted, not clamped',
+		fn: async () => {
+			// The sensitivity check for the bound above: if the doc'd `0-100` had been enforced
+			// instead of the schema's range, this would paint at 100pt and warn.
+			const { result: shdw, codes } = await captureDiagnostics(() => shadowXml({ ...SHADOW, blur: 150, offset: 300 }))
+			assert(shdw.includes('blurRad="1905000"'), 'blur 150pt is legal OOXML; got: ' + shdw)
+			assert(shdw.includes('dist="3810000"'), 'offset 300pt is legal OOXML; got: ' + shdw)
+			assertEqual(codes.length, 0, 'a value the format accepts warns about nothing')
 		},
 	},
 ])

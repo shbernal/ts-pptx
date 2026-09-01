@@ -106,7 +106,10 @@ export interface ShadowProps {
 	transparency?: number
 	/**
 	 * blur (points)
-	 * - range: 0-100
+	 * - MS-PPT > Format Shape > Effects > Shadow > Blur
+	 * - PowerPoint's own spinner stops at 100, but a larger blur is unusual rather than
+	 *   invalid: it loads and paints. Only a *negative* blur is rejected (clamped to `0` with
+	 *   a `shadow/blur-out-of-range` diagnostic), because the `blurRad` attribute is unsigned.
 	 * @default 0
 	 */
 	blur?: number
@@ -118,7 +121,10 @@ export interface ShadowProps {
 	angle?: number
 	/**
 	 * shadow offset (points)
-	 * - range: 0-200
+	 * - MS-PPT > Format Shape > Effects > Shadow > Distance
+	 * - PowerPoint's own spinner stops at 200, but a larger distance is unusual rather than
+	 *   invalid: it loads and paints. Only a *negative* offset is rejected (clamped to `0` with
+	 *   a `shadow/offset-out-of-range` diagnostic), because the `dist` attribute is unsigned.
 	 * @default 0
 	 */
 	offset?: number // PowerPoint UI: "Distance"

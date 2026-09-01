@@ -12,7 +12,7 @@ import { warn } from '../../diagnostics.js'
 import type { ShadowProps, TextGlowProps } from '../../types/index.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
-import { clampRangedInput, opacityToAlpha, ptsToEmuLenient } from '../../units-internal.js'
+import { clampRangedInput, opacityToAlpha, shadowLengthToEmu } from '../../units-internal.js'
 import { stripHash } from '../../hex-color.js'
 import { createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -58,8 +58,8 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 	// NOTE: read into locals so we never mutate the caller's options (re-emission
 	// would otherwise re-convert pt→EMU and produce absurd values).
 	const type = opts.type || 'outer'
-	const blur = ptsToEmuLenient(opts.blur ?? 0)
-	const offset = ptsToEmuLenient(opts.offset ?? 0)
+	const blur = shadowLengthToEmu(opts.blur ?? 0, 'shadow/blur-out-of-range', 'shadow.blur')
+	const offset = shadowLengthToEmu(opts.offset ?? 0, 'shadow/offset-out-of-range', 'shadow.offset')
 	const angle = Math.round((opts.angle ?? 0) * ANGLE_UNITS_PER_DEGREE)
 	const opacity = Math.round((opts._alpha ?? 0.75) * PERCENT_SCALE)
 	const color = opts.color || DEF_FONT_COLOR
