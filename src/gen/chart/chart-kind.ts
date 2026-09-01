@@ -10,15 +10,15 @@
  * chart plots numbers on both axes, so its *category* axis is a second `<c:valAx>`, its series
  * carry `xVal`/`yVal` rather than `cat`/`val`, and its embedded worksheet is laid out to match.
  *
- * `ChartOptsInternal._type` widens to `ChartMulti[]` for a combo chart, which is not any single
+ * `ChartOptsInternal._type` widens to `ChartMultiInternal[]` for a combo chart, which is not any single
  * kind, so every predicate takes the union and answers `false` for the array.
  */
 
 import { ChartType } from '../../enums.js'
-import type { ChartMulti } from '../../types/index.js'
+import type { ChartMultiInternal } from '../../types/internal.js'
 
 /** A `ChartOptsInternal._type`: one chart kind, or a combo chart's list of subcharts. */
-type ChartTypeOrCombo = ChartType | ChartMulti[] | undefined
+type ChartTypeOrCombo = ChartType | ChartMultiInternal[] | undefined
 
 /** Both bubble variants (`<c:bubbleChart>`), which differ only by `<c:bubble3D>`. */
 export function isBubbleChart(type: ChartTypeOrCombo): boolean {

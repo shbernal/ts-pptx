@@ -25,10 +25,15 @@ import {
 	DEF_FONT_TITLE_SIZE,
 	XML_DECL,
 } from '../../constants-internal.js'
-import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
+import type {
+	ChartOptsInternal,
+	ChartOptsOverrides,
+	OptsChartDataInternal,
+	SlideRelChart,
+} from '../../types/internal.js'
 import type { BorderProps, ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
-import { genXmlColorSelection } from '../drawingml/fill.js'
+import { genXmlColorSelection, solidPaint } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
 import { lineWidthToEmu } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
@@ -71,6 +76,26 @@ const CHART_SPACE_NS = {
  */
 function isStatedFill(fill?: ShapeFillProps): fill is ShapeFillProps {
 	return Boolean(fill?.color || fill?.type)
+}
+
+/**
+ * Resolve one combo subchart's overrides against the chart-level options.
+ *
+ * The override bag carries a third state the rest of the generator does not: a *present*
+ * `undefined`, meaning "this subchart's own value was rejected, so emit nothing here", as against
+ * an absent key, which inherits the chart-level value (see {@link ChartOptsOverrides}). The spread
+ * is what applies that distinction — and once it has, the keys still holding `undefined` have said
+ * everything they had to say, so they are dropped. What the plot builders receive is an ordinary
+ * options bag with one spelling of absent.
+ * @param chartOptions - the chart-level options, already normalized
+ * @param overrides - this subchart's vetted overrides
+ */
+function resolveSubchartOptions(chartOptions: ChartOptsInternal, overrides: ChartOptsOverrides): ChartOptsInternal {
+	const merged: Record<string, unknown> = { ...chartOptions, ...overrides }
+	for (const key of Object.keys(merged)) {
+		if (merged[key] === undefined) delete merged[key]
+	}
+	return merged
 }
 
 /**
@@ -270,7 +295,7 @@ function chartShapeProps(fill: ShapeFillProps | undefined, border: BorderProps |
 				? el(
 						'a:ln',
 						{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' },
-						raw(genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }))
+						raw(genXmlColorSelection(solidPaint(border.color ?? '363636', border.transparency)))
 					)
 				: el('a:ln', null, raw(voidEl('a:noFill')))
 		),
@@ -428,7 +453,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	let plots = ''
 	if (Array.isArray(rel.opts._type)) {
 		for (const type of rel.opts._type) {
-			const options = { ...rel.opts, ...type.options }
+			const options = resolveSubchartOptions(rel.opts, type.options)
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || (options.secondaryValAxis ?? false)
@@ -444,7 +469,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 				if (usesValueXAxis) primaryCatAxisValType = subType
 				else primaryCatAxisHasCategoryChart = true
 			}
-			plots += makeChartType(subType, type.data as OptsChartDataInternal[], options, valAxisId, catAxisId)
+			plots += makeChartType(subType, type.data, options, valAxisId, catAxisId)
 		}
 	} else if (rel.opts._type) {
 		plots = makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)

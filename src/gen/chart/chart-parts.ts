@@ -19,11 +19,11 @@ import {
 	PIECHART_COLORS,
 } from '../../constants-internal.js'
 import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../types/index.js'
-import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
+import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
+import { genXmlColorSelection, genXmlPatternFill, solidPaint } from '../drawingml/fill.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertAngleUnits, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
@@ -312,7 +312,7 @@ export function createChartTextFonts(typeface: string): string {
 	return voidEl('a:latin', { typeface }) + voidEl('a:ea', { typeface }) + voidEl('a:cs', { typeface })
 }
 
-export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): string {
+export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: number, chartY?: number): string {
 	// `sizeAttr` is empty when the caller set no font size — PowerPoint then picks the default —
 	// and interpolating it empty leaves TWO spaces between the tag name and `b=`. Those are
 	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
@@ -668,7 +668,7 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  */
 export function createDataBorderLine(dataBorder: BorderProps, cap: string): string {
 	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(dataBorder, 0.75)), cap }, [
-		raw(genXmlColorSelection({ color: dataBorder.color ?? '363636', transparency: dataBorder.transparency })),
+		raw(genXmlColorSelection(solidPaint(dataBorder.color ?? '363636', dataBorder.transparency))),
 		raw(voidEl('a:prstDash', { val: 'solid' })),
 		raw(voidEl('a:round')),
 	])
@@ -677,7 +677,7 @@ export function createDataBorderLine(dataBorder: BorderProps, cap: string): stri
 export function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
 	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' }, [
-		raw(genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })),
+		raw(genXmlColorSelection(solidPaint(border.color || '666666', border.transparency))),
 		raw(voidEl('a:prstDash', { val: border.type === 'dash' ? 'dash' : 'solid' })),
 		raw(voidEl('a:round')),
 	])

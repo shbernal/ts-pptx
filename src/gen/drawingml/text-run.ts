@@ -13,7 +13,7 @@ import type { ObjectOptions, TableCell, TextFitShrinkProps, TextProps, TextProps
 import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
-import { genXmlColorSelection } from './fill.js'
+import { genXmlColorSelection, solidPaint } from './fill.js'
 import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -407,7 +407,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 				raw(genXmlColorSelection(opts.outline.color || 'FFFFFF'))
 			)
 		}
-		if (opts.color) runProps += genXmlColorSelection({ color: opts.color, transparency: opts.transparency })
+		if (opts.color) runProps += genXmlColorSelection(solidPaint(opts.color, opts.transparency))
 		// EFFECTS: glow and shadow share a single <a:effectLst> (only one is allowed per CT_TextCharacterProperties; glow precedes shadow per CT_EffectList)
 		if (opts.glow || hasShadow) {
 			runProps += el('a:effectLst', null, [

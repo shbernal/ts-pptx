@@ -18,8 +18,15 @@ import { DEF_CHART_BORDER } from '../../constants-internal.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
 import { InvalidOptionError } from '../../errors.js'
-import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
-import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
+import type { BorderProps, ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
+import type {
+	ChartMultiInternal,
+	ChartOptsInternal,
+	ChartOptsOverrides,
+	OptsChartDataInternal,
+	PresSlideInternal,
+	SlideObject,
+} from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
@@ -41,12 +48,13 @@ import { isBubbleChart } from '../chart/chart-kind.js'
  * @param index - series position, across all subcharts for a combo chart
  */
 function normalizeChartSeries(item: OptsChartData, index: number): OptsChartDataInternal {
-	const labels = item.labels
-	return {
-		...item,
-		_dataIndex: index,
-		labels: labels === undefined ? undefined : Array.isArray(labels[0]) ? (labels as string[][]) : [labels as string[]],
-	}
+	// `labels` is destructured out rather than overwritten so a series with none carries no
+	// `labels` key at all: absent is this model's one spelling of "no categories", and the
+	// emitters read it with `series.labels?.length`, which cannot tell the two apart anyway.
+	const { labels, ...rest } = item
+	const series: OptsChartDataInternal = { ...rest, _dataIndex: index }
+	if (labels !== undefined) series.labels = Array.isArray(labels[0]) ? (labels as string[][]) : [labels as string[]]
+	return series
 }
 
 /**
@@ -84,6 +92,36 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
 }
 
 /**
+ * A border width the emitter can use: a positive, finite number of points.
+ *
+ * `0` counts as "not stated" here and takes the default, which is what the truthiness test
+ * this replaces already did. What it adds is `Infinity` and a negative — neither is a width,
+ * and a negative one reached `a:ln/@w` as a negative attribute.
+ */
+function isUsableBorderWidth(width: number | undefined): boolean {
+	return typeof width === 'number' && Number.isFinite(width) && width > 0
+}
+
+/**
+ * Write a normalized value back onto a chart options bag, spelling "no value" as an *absent* key.
+ *
+ * Every key on this bag is optional, and the emitters read them with plain truthiness — so absent
+ * and present-but-`undefined` are indistinguishable to a reader, but not to a spread. The bag is
+ * spread (a combo subchart's overrides land on top of it, and so do the per-axis bags), and the
+ * side that wins there is decided by whether the key exists, not by what it holds. One spelling of
+ * absent, then: the key is gone. Same invariant `compact()` keeps on the read side
+ * (`script/from-read/values.ts`).
+ */
+function setOrClearChartOpt<K extends keyof ChartOptsInternal>(
+	options: ChartOptsInternal,
+	key: K,
+	value: ChartOptsInternal[K]
+): void {
+	if (value === undefined) delete options[key]
+	else options[key] = value
+}
+
+/**
  * Round and clamp an integer chart percentage/angle option into a schema-valid range.
  *
  * Several chart attributes are bounded integer types whose out-of-range values make
@@ -97,17 +135,6 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
  * @param max - inclusive upper bound
  * @param name - option name, for the warning message
  */
-/**
- * A border width the emitter can use: a positive, finite number of points.
- *
- * `0` counts as "not stated" here and takes the default, which is what the truthiness test
- * this replaces already did. What it adds is `Infinity` and a negative — neither is a width,
- * and a negative one reached `a:ln/@w` as a negative attribute.
- */
-function isUsableBorderWidth(width: number | undefined): boolean {
-	return typeof width === 'number' && Number.isFinite(width) && width > 0
-}
-
 function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
 	if (typeof value !== 'number' || Number.isNaN(value)) return undefined
 	const clamped = Math.min(max, Math.max(min, Math.round(value)))
@@ -126,7 +153,7 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
  * @param options - options bag to correct in place
  * @param chartType - the plot type these options are emitted for, if known
  */
-function normalizeChartDataLabelPosition(options: ChartOptsInternal, chartType: ChartType | undefined): void {
+function normalizeChartDataLabelPosition(options: ChartOptsOverrides, chartType: ChartType | undefined): void {
 	if (options.dataLabelPosition) {
 		const dataLabelPosition = options.dataLabelPosition
 		if (
@@ -163,7 +190,7 @@ function normalizeChartDataLabelPosition(options: ChartOptsInternal, chartType: 
  * @param options - options bag to correct in place
  * @param chartType - the plot type these options are emitted for, if known
  */
-function normalizeChartBarGrouping(options: ChartOptsInternal, chartType: ChartType | undefined): void {
+function normalizeChartBarGrouping(options: ChartOptsOverrides, chartType: ChartType | undefined): void {
 	// barGrouping: "21.2.3.17 ST_Grouping (Grouping)"
 	if (chartType === ChartType.area) {
 		if (!['stacked', 'standard', 'percentStacked'].includes(options.barGrouping || '')) options.barGrouping = 'standard'
@@ -226,10 +253,16 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 function normalizeChartOptions(options: ChartOptsInternal): void {
 	options.barGapWidthPct = clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150
 	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
-	options.barOverlapPct = clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct')
+	// These three have no default, so a value the clamp rejects has to *leave*, not become an
+	// explicit `undefined`: this bag is spread over other bags (`gen/chart/chart-xml.ts` merges a
+	// subchart's overrides onto it, and the axis builders merge `catAxes[n]`/`valAxes[n]` onto it),
+	// where a present-but-undefined key overrides and an absent one inherits. `delete` is already
+	// how the rest of this module spells "the caller's value did not survive" — see
+	// `normalizeChartDataLabelPosition`.
+	setOrClearChartOpt(options, 'barOverlapPct', clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct'))
 	// `<c:holeSize>` is ST_HoleSize (10..90); `<c:firstSliceAng>` is ST_FirstSliceAng (0..360).
-	options.holeSize = clampChartPct(options.holeSize, 10, 90, 'holeSize')
-	options.firstSliceAng = clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng')
+	setOrClearChartOpt(options, 'holeSize', clampChartPct(options.holeSize, 10, 90, 'holeSize'))
+	setOrClearChartOpt(options, 'firstSliceAng', clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng'))
 
 	// An empty array is not a palette, so it means what saying nothing means: the built-in
 	// default for this chart type. It used to survive this pass (`Array.isArray([])` is true)
@@ -238,10 +271,9 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	options.chartColors = options.chartColors?.length ? options.chartColors : defaultChartPalette(options._type)
 	// NaN is falsy, so this only ever has to answer for a value the caller actually set.
 	// An out-of-range one reaches `percentToFixedPercent` at the emitter, which clamps and says so.
-	options.chartColorsOpacity = options.chartColorsOpacity || undefined
+	if (!options.chartColorsOpacity) delete options.chartColorsOpacity
 	options.plotArea = options.plotArea || {}
-	options.plotArea.border =
-		options.plotArea.border && typeof options.plotArea.border === 'object' ? options.plotArea.border : undefined
+	if (!options.plotArea.border || typeof options.plotArea.border !== 'object') delete options.plotArea.border
 	if (options.plotArea.border && !isUsableBorderWidth(options.plotArea.border.width))
 		options.plotArea.border.width = DEF_CHART_BORDER.width
 	if (
@@ -252,19 +284,24 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	}
 	options.plotArea.fill = options.plotArea.fill || {}
 	options.chartArea = options.chartArea || {}
-	options.chartArea.border =
-		options.chartArea.border && typeof options.chartArea.border === 'object' ? options.chartArea.border : undefined
-	if (options.chartArea.border) {
-		options.chartArea.border = {
-			color: options.chartArea.border.color || DEF_CHART_BORDER.color,
-			width: options.chartArea.border.width || DEF_CHART_BORDER.width,
-			transparency: options.chartArea.border.transparency,
+	if (!options.chartArea.border || typeof options.chartArea.border !== 'object') delete options.chartArea.border
+	const chartAreaBorder = options.chartArea.border
+	if (chartAreaBorder) {
+		// Rebuilt rather than patched, and only the three keys the chart-area emitter reads survive
+		// — `type` and `dashType` are dropped, as they always have been here. `transparency` is
+		// copied only when the caller set one, so the rebuilt border spells "no transparency" the
+		// same absent way the caller's own bag did.
+		const border: BorderProps = {
+			color: chartAreaBorder.color || DEF_CHART_BORDER.color,
+			width: chartAreaBorder.width || DEF_CHART_BORDER.width,
 		}
+		if (chartAreaBorder.transparency !== undefined) border.transparency = chartAreaBorder.transparency
+		options.chartArea.border = border
 	}
 	options.chartArea.roundedCorners =
 		typeof options.chartArea.roundedCorners === 'boolean' ? options.chartArea.roundedCorners : true
 	//
-	options.dataBorder = options.dataBorder && typeof options.dataBorder === 'object' ? options.dataBorder : undefined
+	if (!options.dataBorder || typeof options.dataBorder !== 'object') delete options.dataBorder
 	if (options.dataBorder && !isUsableBorderWidth(options.dataBorder.width)) options.dataBorder.width = 0.75
 	if (options.dataBorder && options.dataBorder.color) {
 		const isHexColor =
@@ -290,7 +327,7 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	if (!options.dataLabelFormatScatter && options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
 	//
 	options.lineSize = typeof options.lineSize === 'number' ? options.lineSize : 2
-	options.valAxisMajorUnit = typeof options.valAxisMajorUnit === 'number' ? options.valAxisMajorUnit : undefined
+	if (typeof options.valAxisMajorUnit !== 'number') delete options.valAxisMajorUnit
 
 	if (
 		options._type === ChartType.area ||
@@ -316,7 +353,8 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 				)
 			return ok
 		})
-		options.subtotals = clean.length > 0 ? clean : undefined
+		if (clean.length > 0) options.subtotals = clean
+		else delete options.subtotals
 	}
 }
 
@@ -362,15 +400,17 @@ const SUBCHART_VALIDATED_KEYS = [
  * @param callerSetBarGapWidthPct - whether the caller supplied a chart-level `barGapWidthPct`
  */
 function normalizeComboSubchartOptions(
-	subOptions: ChartOpts | undefined,
+	subOptions: ChartOptsOverrides | undefined,
 	chartOptions: ChartOptsInternal,
 	subType: ChartType,
 	callerSetBarGapWidthPct: boolean
-): ChartOpts {
-	const sub: ChartOpts = subOptions && typeof subOptions === 'object' ? subOptions : {}
+): ChartOptsOverrides {
+	const sub: ChartOptsOverrides = subOptions && typeof subOptions === 'object' ? subOptions : {}
 	// What the emitter reads for this subchart today, and the corrected copy to diff against it.
-	const merged: ChartOptsInternal = { ...chartOptions, ...sub }
-	const fixed: ChartOptsInternal = { ...merged }
+	// Both are `ChartOptsOverrides` because a correction that *rejects* a value records that as a
+	// present `undefined`, which is the state the write-back below has to be able to carry.
+	const merged: ChartOptsOverrides = { ...chartOptions, ...sub }
+	const fixed: ChartOptsOverrides = { ...merged }
 
 	// Enumerations emitted verbatim: `<c:barDir>` (ST_BarDir), `<c:grouping>` (ST_Grouping),
 	// `<c:shape>` (ST_Shape), `<c:symbol>` (ST_MarkerStyle).
@@ -409,7 +449,7 @@ function normalizeComboSubchartOptions(
 	// already been converted and doing it twice would emit a hairline.
 	if (sub.lineDataSymbolLineSize != null) fixed.lineDataSymbolLineSize = lineWidthToEmu(sub.lineDataSymbolLineSize)
 
-	const result: ChartOptsInternal = { ...sub }
+	const result: ChartOptsOverrides = { ...sub }
 	for (const key of SUBCHART_VALIDATED_KEYS) {
 		if (fixed[key] !== merged[key]) (result as Record<string, unknown>)[key] = fixed[key]
 	}
@@ -477,7 +517,7 @@ export function addChartDefinition(
 	// Multi-Type Charts
 	let tmpOpt: ChartOpts | ChartOptsInternal | undefined
 	let tmpData: OptsChartDataInternal[] = []
-	let tmpTypes: ChartMulti[] | undefined
+	let tmpTypes: ChartMultiInternal[] | undefined
 	if (Array.isArray(type)) {
 		// For multi-type charts there needs to be data for each type, as well as a single data
 		// source for non-series operations. The series are indexed across subcharts to keep the

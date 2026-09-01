@@ -19,6 +19,28 @@ import type { HyperlinkProps, ShadowProps } from './style.js'
 import type { TableCell } from './table.js'
 import type { SlideComment, TextProps } from './text.js'
 
+/** The keys of `T` that are declared optional. */
+// oxlint-disable-next-line typescript/no-empty-object-type -- `{} extends Pick<T, K>` is the test for "K is optional"; `object` fails it on a weak type.
+type OptionalKeysOf<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : never }[keyof T]
+
+/**
+ * `T`, but every *optional* property may also be spelled as a present `undefined`.
+ *
+ * Under `exactOptionalPropertyTypes` a `foo?: T` says the key is either absent or holds a `T`.
+ * That distinction is real for a bag that is **stored, spread or enumerated** — `{ ...defaults,
+ * ...options }` inherits from an absent key and is overridden by a present `undefined` — and
+ * those bags keep the strict declaration, with `delete` as their one spelling of absent (the
+ * write-side twin of `compact()` in `script/from-read/values.ts`).
+ *
+ * It is noise for a bag that is only ever **read**: typically a function parameter its call sites
+ * assemble inline out of values that may be unset (`{ color: opts.titleColor, … }`), where the
+ * reader cannot tell the two states apart in the first place. Those parameters take this instead
+ * of forcing every call site to build the object key by key.
+ *
+ * Required properties are left alone, so this never quietly makes a mandatory field optional.
+ */
+export type MaybeUndefined<T> = Omit<T, OptionalKeysOf<T>> & { [K in OptionalKeysOf<T>]?: T[K] | undefined }
+
 /**
  * Internal, wire-normalized shadow shape produced by `correctShadowOptions` — not part of the
  * public `ShadowProps` input. `_alpha` (0.0 fully transparent – 1.0 fully opaque) is the alpha
@@ -37,10 +59,34 @@ export interface OptsChartDataInternal extends OptsChartData {
 	_dataIndex: number
 }
 export interface ChartOptsInternal extends ChartOpts {
-	_type?: ChartType | ChartMulti[] // internal, normalized from `CHART_NAME`
+	_type?: ChartType | ChartMultiInternal[] // internal, normalized from `CHART_NAME`
+}
+/**
+ * A combo subchart's option overrides after `addChartDefinition` vetted them — the one bag in the
+ * generator where a key may be *present* and hold `undefined`.
+ *
+ * Everywhere else "unset" has exactly one spelling, an absent key: `compact()` enforces it on the
+ * read side (`script/from-read/values.ts`) and the `delete` idiom does on the write side
+ * (`gen/define/chart.ts`). This bag needs the third state because it is merged *over* the
+ * chart-level options at emit time (`{ ...rel.opts, ...type.options }` in `gen/chart/chart-xml.ts`),
+ * where a present `undefined` suppresses the chart-level value and an absent key inherits it.
+ * Suppressing is the intent: the subchart supplied an override the schema rejects, and the
+ * chart-level value is one it never asked for — inheriting it would be a different chart than
+ * either party described. For a combo chart the chart-level pass cannot vet these itself, since
+ * `_type` is an array there and every type-keyed correction matches no branch.
+ */
+export type ChartOptsOverrides = MaybeUndefined<ChartOptsInternal>
+/**
+ * One subchart of a combo chart, as `addChartDefinition` rebuilt it: series normalized onto
+ * {@link OptsChartDataInternal} and options narrowed to the vetted {@link ChartOptsOverrides}.
+ * `ChartOptsInternal._type` holds these, never the caller's own {@link ChartMulti} objects.
+ */
+export interface ChartMultiInternal extends Omit<ChartMulti, 'data' | 'options'> {
+	data: OptsChartDataInternal[]
+	options: ChartOptsOverrides
 }
 export interface SlideRelChart extends OptsChartData {
-	type: CHART_NAME | ChartMulti[]
+	type: CHART_NAME | ChartMultiInternal[]
 	opts: ChartOptsInternal
 	data: OptsChartDataInternal[]
 	// internal below

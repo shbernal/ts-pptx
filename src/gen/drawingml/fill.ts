@@ -250,6 +250,20 @@ export function fillNamesPaint(props: Color | ShapeFillProps | ShapeLineProps | 
 }
 
 /**
+ * A solid paint for {@link genXmlColorSelection}, carrying `transparency` only when one was set.
+ *
+ * Every caller assembles this out of an optional source — `border.transparency`,
+ * `opts.transparency` — and writing the key with an `undefined` in it would be a second spelling
+ * of "no transparency": one that reads the same here, but not in a bag that is spread over
+ * another. So the key is simply absent, which is this codebase's one spelling of unset.
+ * @param color - the colour to paint, already resolved against whatever default applies
+ * @param transparency - percent transparency, or `undefined` for none
+ */
+export function solidPaint(color: Color, transparency: number | undefined): ShapeFillProps {
+	return transparency === undefined ? { color } : { color, transparency }
+}
+
+/**
  * Emit the fill group a set of fill/line props asks for, dispatching on
  * {@link resolveFillKind}. Returns '' for props that name nothing to paint, so a caller
  * with an optional paint can hand this whatever it has — including `undefined`.
