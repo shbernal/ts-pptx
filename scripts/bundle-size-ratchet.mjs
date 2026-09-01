@@ -13,18 +13,31 @@
  *   node scripts/bundle-size-ratchet.mjs --list     # per-chunk breakdown
  *
  * **What is measured.** For each budgeted entry, the transitive closure of its *relative*
- * imports — the files tsdown emits and the package ships — gzipped at level 9. Bare
- * specifiers are excluded because they are the consumer's dependencies, resolved and paid
- * for by the consumer's bundler: for the browser entry those are `fflate` and
- * (dynamically, on first font registration) `opentype.js`. Dynamic *relative* imports are
- * included — they ship in the package whether or not a consumer's bundler splits them.
+ * imports — the files tsdown emits and the package ships — minified, then gzipped at
+ * level 9. Bare specifiers are excluded because they are the consumer's dependencies,
+ * resolved and paid for by the consumer's bundler: for the browser entry those are
+ * `fflate` and (dynamically, on first font registration) `opentype.js`. Dynamic *relative*
+ * imports are included — they ship in the package whether or not a consumer's bundler
+ * splits them.
  *
- * **This number is a proxy, not a download size.** `dist/` is unminified, and every real
- * browser consumer runs it through a bundler that minifies before serving. So the figure
- * here is comfortably larger than what anyone downloads. What makes it a useful gate is
- * that it moves when the code moves: a dependency reaching the browser entry, or a chunk
- * split going wrong, shows up as a step change. Do not quote it as "the browser bundle
- * is N kB"; docs/runtime-and-package-support.md says what it does mean.
+ * **Why minify first, when `dist/` ships unminified.** Because the alternative measures
+ * documentation. Almost half of `dist/` by weight is doc comments, and they do not survive
+ * any consumer's build — every real browser consumer runs this through a bundler that
+ * minifies before serving. Gating on the unminified bytes therefore charges a commit for
+ * prose and credits it for deletions of prose, and that is not a hypothetical: over the
+ * twenty-three commits from v3.7.0 to 147951de, the "state it once" refactors *removed*
+ * 14.5 kB of code from the browser closure while adding 26.9 kB of comments explaining the
+ * consolidations, and the gate booked the net as a 10.2 kB regression that all but failed
+ * the entry. Read closure, same window: +25.3 kB of comments against +7.8 kB of code. A
+ * gate whose sign can be opposite to the truth is worse than no gate, because a re-freeze
+ * looks like the answer every time.
+ *
+ * Minifying makes the number mean the thing its budget claims. It is still a proxy — a
+ * consumer's bundler tree-shakes across the closure, which this deliberately does not, so
+ * the figure stays an upper bound — but it is now within sight of a download rather than
+ * three times it, and it moves only when code moves. That also buys sensitivity for free:
+ * a 1 kB regression is 1.5% of the minified reader entry against 0.5% of the raw one, so
+ * it lands well inside {@link HEADROOM_PCT} instead of hiding under it.
  *
  * **How it differs from the raw-xml ratchet**, whose mechanics this otherwise copies.
  * That one fails when a count drops, because a lower number is the goal and banking it is
@@ -38,6 +51,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import esbuild from 'esbuild'
 import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
 
 const DIST = path.join(ROOT, 'dist')
@@ -172,21 +186,47 @@ export function closureOf(entry, dir = DIST) {
 	return [...seen].sort()
 }
 
-/** @param {string} name @returns {number} gzipped bytes */
-const gzipBytes = (name) => zlib.gzipSync(fs.readFileSync(path.join(DIST, name)), { level: 9 }).byteLength
+/**
+ * One emitted file as a consumer's bundler would serve it: minified, then gzipped.
+ *
+ * `transformSync` rather than `build`, because the unit is the file, not the closure —
+ * bundling here would tree-shake across the closure and turn the measurement into a claim
+ * about one consumer's import graph rather than about what the package ships. Per-file
+ * also keeps {@link measureEntries} synchronous and the shared chunks counted identically
+ * for every entry that reaches them.
+ *
+ * `legalComments: 'none'` because the default keeps `@license` banners, which would put
+ * the same prose sensitivity back in through the one comment class minifying preserves.
+ * Nothing in `dist/` carries one today; this is so nothing has to notice when something
+ * does.
+ * @param {string} name file name under `dir`
+ * @param {string} [dir] directory holding the emitted files; defaults to `dist/`
+ * @returns {number} minified, gzipped bytes
+ */
+export function shippedBytes(name, dir = DIST) {
+	const source = fs.readFileSync(path.join(dir, name), 'utf8')
+	const { code } = esbuild.transformSync(source, {
+		format: 'esm',
+		legalComments: 'none',
+		loader: 'js',
+		minify: true,
+		target: 'es2024',
+	})
+	return zlib.gzipSync(Buffer.from(code), { level: 9 }).byteLength
+}
 
 /** @param {number} bytes */
 const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
 
 /**
  * Measure every budgeted entry against `dist/`.
- * @returns {Map<string, {files: Array<{name: string, gzip: number}>, gzip: number}>}
+ * @returns {Map<string, {files: Array<{name: string, bytes: number}>, bytes: number}>}
  */
 export function measureEntries() {
 	const measured = new Map()
 	for (const entry of ENTRIES) {
-		const files = closureOf(entry).map((name) => ({ name, gzip: gzipBytes(name) }))
-		measured.set(entry, { files, gzip: files.reduce((sum, file) => sum + file.gzip, 0) })
+		const files = closureOf(entry).map((name) => ({ name, bytes: shippedBytes(name) }))
+		measured.set(entry, { files, bytes: files.reduce((sum, file) => sum + file.bytes, 0) })
 	}
 	return measured
 }
@@ -217,10 +257,10 @@ export function main(argv) {
 	const measured = measureEntries()
 
 	if (values.list) {
-		for (const [entry, { files, gzip }] of measured) {
-			console.log(`${entry}: ${kb(gzip)} gzipped, ${files.length} file(s)`)
-			for (const file of [...files].sort((a, b) => b.gzip - a.gzip))
-				console.log(`  ${kb(file.gzip).padStart(9)}  ${file.name}`)
+		for (const [entry, { files, bytes }] of measured) {
+			console.log(`${entry}: ${kb(bytes)} minified+gzipped, ${files.length} file(s)`)
+			for (const file of [...files].sort((a, b) => b.bytes - a.bytes))
+				console.log(`  ${kb(file.bytes).padStart(9)}  ${file.name}`)
 		}
 		return 0
 	}
@@ -230,9 +270,11 @@ export function main(argv) {
 		const frozen = {}
 		// Rounded up to a whole kB so the budget reads as a decision someone made rather than
 		// as a build artifact copied into a file.
-		for (const [entry, { gzip, files }] of measured) {
-			frozen[entry] = Math.ceil((gzip * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
-			console.log(`bundle size: froze ${entry} at ${kb(frozen[entry])} (measured ${kb(gzip)}, ${files.length} file(s))`)
+		for (const [entry, { bytes, files }] of measured) {
+			frozen[entry] = Math.ceil((bytes * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
+			console.log(
+				`bundle size: froze ${entry} at ${kb(frozen[entry])} (measured ${kb(bytes)}, ${files.length} file(s))`
+			)
 		}
 		fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
 		return 0
@@ -249,23 +291,23 @@ export function main(argv) {
 		return 1
 	}
 
-	const checked = [...measured].map(([entry, { gzip, files }]) => ({
+	const checked = [...measured].map(([entry, { bytes, files }]) => ({
 		entry,
-		gzip,
+		bytes,
 		files,
 		budget: budgetFile[entry] ?? 0,
 	}))
-	const over = checked.filter((row) => row.gzip > row.budget)
+	const over = checked.filter((row) => row.bytes > row.budget)
 	const under = checked.filter(
-		(row) => row.gzip < row.budget * (1 - SLACK_PCT / 100) && row.budget - row.gzip >= SLACK_MIN_BYTES
+		(row) => row.bytes < row.budget * (1 - SLACK_PCT / 100) && row.budget - row.bytes >= SLACK_MIN_BYTES
 	)
 
 	if (over.length) {
 		console.error('bundle size FAILED — an entry grew past its budget:\n')
-		for (const { entry, gzip, files, budget } of over) {
-			console.error(`  ${entry}: ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
-			for (const file of [...files].sort((a, b) => b.gzip - a.gzip).slice(0, 5))
-				console.error(`    ${kb(file.gzip).padStart(9)}  ${file.name}`)
+		for (const { entry, bytes, files, budget } of over) {
+			console.error(`  ${entry}: ${kb(bytes)} minified+gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
+			for (const file of [...files].sort((a, b) => b.bytes - a.bytes).slice(0, 5))
+				console.error(`    ${kb(file.bytes).padStart(9)}  ${file.name}`)
 		}
 		console.error('\nRun `pnpm run bundle-size:list` for the full breakdown. If the growth is')
 		console.error(`intended, raise the number in ${relBudget} in the same commit and say what`)
@@ -275,13 +317,15 @@ export function main(argv) {
 
 	if (under.length) {
 		console.log(`bundle size: ${SLACK_PCT}%+ under budget — bank it by lowering ${relBudget}:\n`)
-		for (const { entry, gzip, budget } of under) console.log(`  ${entry}: ${kb(budget)} -> ${kb(gzip)}`)
+		for (const { entry, bytes, budget } of under) console.log(`  ${entry}: ${kb(budget)} -> ${kb(bytes)}`)
 		console.log('\n  pnpm run bundle-size:freeze')
 		return 1
 	}
 
-	for (const { entry, gzip, files, budget } of checked)
-		console.log(`bundle size: ok — ${entry} ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
+	for (const { entry, bytes, files, budget } of checked)
+		console.log(
+			`bundle size: ok — ${entry} ${kb(bytes)} minified+gzipped (budget ${kb(budget)}), ${files.length} file(s)`
+		)
 	return 0
 }
 

@@ -8,7 +8,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, test } from 'vitest'
-import { closureOf, relativeImportsOf } from '../../scripts/bundle-size-ratchet.mjs'
+import { closureOf, relativeImportsOf, shippedBytes } from '../../scripts/bundle-size-ratchet.mjs'
 
 describe('relativeImportsOf', () => {
 	test('finds the three specifier forms tsdown emits', () => {
@@ -108,5 +108,55 @@ describe('closureOf', () => {
 	test('a missing file is a hard error, never a silently smaller closure', () => {
 		const dir = emit({ 'entry.js': `import './gone.js'` })
 		expect(() => closureOf('entry.js', dir)).toThrow(/gone\.js is missing/)
+	})
+})
+
+// The other direction the measurement can be wrong in, and the one that actually bit: not
+// missing bytes, but counting bytes no consumer receives. `dist/` ships unminified and is
+// roughly half doc comments, so a gate on the raw bytes charges a commit for prose. Over
+// v3.7.0..147951de it booked the "state it once" refactors as a 10.2 kB regression on the
+// browser entry while the code in that closure had *shrunk* by 14.5 kB.
+describe('shippedBytes', () => {
+	const dirs = []
+	const emit = (text) => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ts-pptx-shipped-'))
+		dirs.push(dir)
+		fs.writeFileSync(path.join(dir, 'chunk.js'), text)
+		return dir
+	}
+	afterAll(() => {
+		for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true })
+	})
+
+	const body = `export function add(first, second) {
+	return first + second
+}`
+
+	test('documentation does not count — the same code costs the same either way', () => {
+		const bare = emit(body)
+		const documented = emit(`/**
+ * ${'Prose about the consolidation. '.repeat(40)}
+ */
+${body}`)
+		expect(shippedBytes('chunk.js', documented)).toBe(shippedBytes('chunk.js', bare))
+	})
+
+	test('a license banner does not count either — `legalComments` is off', () => {
+		const bare = emit(body)
+		const licensed = emit(`/*! @license ${'MIT, at length. '.repeat(40)} */
+${body}`)
+		expect(shippedBytes('chunk.js', licensed)).toBe(shippedBytes('chunk.js', bare))
+	})
+
+	// The property the gate is actually for: real code still moves the number.
+	test('code does count', () => {
+		const bare = emit(body)
+		const more = emit(`${body}
+export const table = ${JSON.stringify(Array.from({ length: 400 }, (_, i) => `entry-${i}`))}`)
+		expect(shippedBytes('chunk.js', more)).toBeGreaterThan(shippedBytes('chunk.js', bare))
+	})
+
+	test('a file that will not parse is a hard error, never a smaller number', () => {
+		expect(() => shippedBytes('chunk.js', emit('export function ( {'))).toThrow(/Transform failed/)
 	})
 })

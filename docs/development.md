@@ -105,12 +105,13 @@ pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
 
 `bundle-size:check` freezes what each published entry point and its chunks weigh,
-gzipped, against `scripts/bundle-size-budget.json`. It fails only when an entry grows past
-its budget, and asks for a re-freeze only when it comes in far enough under to be
-worth banking: bytes move on every commit, and a gate that failed on every
+minified and gzipped, against `scripts/bundle-size-budget.json`. It fails only when an
+entry grows past its budget, and asks for a re-freeze only when it comes in far enough
+under to be worth banking: bytes move on every commit, and a gate that failed on every
 commit would get switched off. `pnpm run bundle-size:list` shows the per-chunk
-breakdown; `pnpm run bundle-size:freeze` re-baselines deliberately. The number is
-a growth detector, not a download size: see
+breakdown; `pnpm run bundle-size:freeze` re-baselines deliberately. Minified because
+`dist/` is roughly half doc comments and a gate on the raw bytes charges a commit for
+prose. The number is still an upper bound rather than a download size: see
 [Bundle Size](runtime-and-package-support.md#bundle-size).
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.

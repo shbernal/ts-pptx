@@ -220,15 +220,22 @@ executes on the write path.)
 ## Bundle Size
 
 `scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point
-`package.json` publishes and the chunks each one pulls in, gzipped, and
-`pnpm run check:package` enforces it. Per entry rather than for the package as a
-whole, because the question a consumer asks is what importing *one* subpath
-costs; the shared chunks are counted once per entry that reaches them. Read the number as a
-**growth detector, not a download size**: `dist/` is unminified, and every real
-browser consumer runs it through a bundler that minifies before serving, so what
-anyone actually downloads is well under the figure the gate prints. What the gate
-is for is the step change: a dependency reaching the browser entry, or a chunk
-split going wrong.
+`package.json` publishes and the chunks each one pulls in, minified and then
+gzipped, and `pnpm run check:package` enforces it. Per entry rather than for the
+package as a whole, because the question a consumer asks is what importing *one*
+subpath costs; the shared chunks are counted once per entry that reaches them.
+
+Minified, because `dist/` ships unminified and is close to half doc comments by
+weight, none of which survives a consumer's build. Gating on the raw bytes made
+the number track how much the code was *documented*: the refactor series between
+v3.7.0 and 147951de took 14.5 kB of code out of the browser closure, added 26.9 kB
+of comments explaining the consolidations, and the gate reported the net as a
+10.2 kB regression. Minifying first takes prose out of the measurement.
+
+It is still an upper bound rather than a download size, because a consumer's
+bundler also tree-shakes across the closure and this deliberately does not. What
+the gate is for is the step change: a dependency reaching the browser entry, or a
+chunk split going wrong.
 
 `pnpm run bundle-size:list` prints the per-chunk breakdown; the budget lives in
 `scripts/bundle-size-budget.json` and is raised or lowered deliberately with
