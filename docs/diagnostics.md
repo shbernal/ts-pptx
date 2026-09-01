@@ -157,8 +157,9 @@ This is worth stating as one rule because the third option is the tempting one a
 wrong. *Rejecting* a finite out-of-range value and emitting nothing looks strict, but it
 discards the request and reports it as a warning, which is exactly the combination the rule
 above exists to rule out: the caller reads a warning and gets a deck whose bullet is silently
-back at its inherited size. `bullet.size`, `fit.fontScale` and `fit.lnSpcReduction` behaved
-that way until they were routed through the shared clamp.
+back at its inherited size. `bullet.size`, `fit.fontScale`, `fit.lnSpcReduction`,
+`shadow.transparency` and `shadow.angle` behaved that way until they were routed through the
+shared clamp.
 
 Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
 rejects it under `eslint/no-console`: such a line cannot be captured, silenced, or branched on. The only

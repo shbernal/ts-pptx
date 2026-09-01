@@ -154,6 +154,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`shadow.transparency` and `shadow.angle` follow the project's own out-of-range rule.**
+  Both were the third option `docs/diagnostics.md` names as the tempting wrong one: they
+  reported a warning *and* discarded the request, so the caller read a diagnostic and got a
+  shadow they had not asked for. Four behaviours change, and none of them for an input that
+  was already in range — every showcase deck emits byte-identically:
+
+  - `transparency: 120` now clamps to `100` and paints fully transparent, warning
+    `shadow/transparency-out-of-range`. It used to warn and leave the derived alpha unset,
+    which fell through to the emitter's 0.75 default: a shadow at 25% opacity nobody
+    requested.
+  - `transparency: NaN` now throws `percent/non-finite`, as every other percentage option
+    does. It used to warn and paint the same 0.75 default.
+  - `angle: 400` now clamps to `359` (`dir="21540000"`), warning `shadow/angle-out-of-range`.
+    It used to become `270` — not the nearest bound, and not the `@default 0` the option
+    documents, but `DEF_TEXT_SHADOW.angle`, so a shape's shadow silently borrowed a text
+    shadow's direction. A negative angle clamps to `0` for the same reason. The angle is
+    clamped rather than wrapped modulo 360: `ST_PositiveFixedAngle` has a nearest legal
+    neighbour like any other range, and the rule as written is "clamp to the nearest bound".
+  - `angle: NaN` now throws the new `shadow/angle-non-finite`. It used to reach the package
+    as `dir="NaN"`: the guard was written `if (corrected.angle)`, and `NaN` is falsy, so the
+    range check it was standing in front of never ran.
+
+  **Migration:** an untyped caller passing a numeric string (`angle: '45'`,
+  `transparency: '40'`) now gets a throw where the value used to be coerced. Both options
+  are typed `number`, and this is the same policy every clamped percentage already applies;
+  convert before the call.
+
+  `shadow.blur` and `shadow.offset` are deliberately not part of this: they are lenient by
+  policy (a non-finite value collapses the feature to `0`) rather than clamped.
+
 - **A non-finite value no longer reaches the embedded workbook either, for any chart
   family.** The fix above cleaned the chart's own cache; the workbook the chart is backed by
   is written by a separate builder, and that one still wrote `<v>Infinity</v>` (or `NaN`) into

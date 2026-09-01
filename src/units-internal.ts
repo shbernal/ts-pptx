@@ -25,7 +25,7 @@ import {
 	PERCENT_SCALE,
 	type Emu,
 } from './units.js'
-import type { DiagnosticCode } from './codes.js'
+import type { DiagnosticCode, InvalidOptionErrorCode } from './codes.js'
 import type { Coord, PresLayout } from './types/index.js'
 
 /**
@@ -210,8 +210,8 @@ export function ptsToEmuLenient(pt: number | string): number {
 }
 
 /**
- * Clamp a caller-supplied percentage into the range its schema type allows, warning when it had
- * to move. Returns the value in the caller's own unit — each helper below applies its own
+ * Clamp a caller-supplied number into the range its schema type allows, warning when it had to
+ * move. Returns the value in the caller's own unit — each helper below applies its own
  * arithmetic afterwards, because the inverting and non-inverting forms do not round alike.
  *
  * `NaN` throws rather than clamping: there is no nearest in-range value for it, and
@@ -219,24 +219,36 @@ export function ptsToEmuLenient(pt: number | string): number {
  * exactly the degenerate output the range check exists to prevent. `Infinity` is not in that
  * category — it clamps to the bound like any other out-of-range number, and warns.
  *
- * **This is the one policy for an out-of-range percentage**, and it is the policy
+ * **This is the one policy for an out-of-range number**, and it is the policy
  * `docs/diagnostics.md` ("Warn or throw?") describes: a finite value has a nearest legal
  * neighbour, so the deck still comes out recognisable and the move is a warning; a value that
  * is not a number at all has no neighbour, so the request is discarded and that throws.
- * Rejecting a finite out-of-range value and emitting nothing is neither, and was how three
+ * Rejecting a finite out-of-range value and emitting nothing is neither, and was how five
  * options behaved before they were routed through here: it discards the request and reports
  * it as a warning, which is the combination the rule exists to rule out.
+ *
+ * Most of what passes through here is a percentage, which is why the throw names one by
+ * default; `nonFiniteCode` is for the callers whose option is not one, such as a shadow's
+ * angle in degrees.
  *
  * @param value - the caller's value
  * @param min - inclusive lower bound, in the caller's unit
  * @param max - inclusive upper bound, in the caller's unit
  * @param code - diagnostic code raised when the value is clamped
  * @param label - option name as the caller spells it, opening the warning
+ * @param nonFiniteCode - error code thrown when the value is not a number at all
  */
-function clampPercentInput(value: number, min: number, max: number, code: DiagnosticCode, label: string): number {
+export function clampRangedInput(
+	value: number,
+	min: number,
+	max: number,
+	code: DiagnosticCode,
+	label: string,
+	nonFiniteCode: InvalidOptionErrorCode = 'percent/non-finite'
+): number {
 	if (typeof value !== 'number' || Number.isNaN(value))
 		throw new InvalidOptionError(
-			'percent/non-finite',
+			nonFiniteCode,
 			`${label} must be a number from ${min} to ${max}; received ${String(value)}.`
 		)
 	const clamped = Math.min(max, Math.max(min, value))
@@ -253,7 +265,7 @@ function clampPercentInput(value: number, min: number, max: number, code: Diagno
  * {@link percentToFixedPercent} where the option already reads as opacity.
  */
 export function transparencyToAlpha(transparency: number): number {
-	const pct = clampPercentInput(transparency, 0, 100, 'transparency/out-of-range', 'transparency')
+	const pct = clampRangedInput(transparency, 0, 100, 'transparency/out-of-range', 'transparency')
 	return Math.round((100 - pct) * FIXED_PCT_PER_PERCENT)
 }
 
@@ -278,7 +290,7 @@ export function opacityToAlpha(opacity: number): number {
  * @param max - inclusive upper bound in percent
  */
 export function percentToFixedPercent(value: number, code: DiagnosticCode, label: string, min = 0, max = 100): number {
-	return Math.round(clampPercentInput(value, min, max, code, label) * FIXED_PCT_PER_PERCENT)
+	return Math.round(clampRangedInput(value, min, max, code, label) * FIXED_PCT_PER_PERCENT)
 }
 
 /**
@@ -289,7 +301,7 @@ export function percentToFixedPercent(value: number, code: DiagnosticCode, label
  * @param label - option name as the caller spells it, opening the warning
  */
 export function fractionToFixedPercent(value: number, code: DiagnosticCode, label: string): number {
-	return Math.round(clampPercentInput(value, 0, 1, code, label) * PERCENT_SCALE)
+	return Math.round(clampRangedInput(value, 0, 1, code, label) * PERCENT_SCALE)
 }
 
 /**

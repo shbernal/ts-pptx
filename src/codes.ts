@@ -172,6 +172,7 @@ export type InvalidOptionErrorCode =
 	| 'coord/invalid-format'
 	// Geometry
 	| 'geometry/arc-angle-non-finite'
+	| 'shadow/angle-non-finite'
 	// Charts
 	| 'chart/missing-type'
 	| 'chart/unknown-type'

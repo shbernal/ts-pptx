@@ -12,7 +12,7 @@ import { warn } from '../../diagnostics.js'
 import type { ShadowProps, TextGlowProps } from '../../types/index.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
-import { opacityToAlpha, ptsToEmuLenient } from '../../units-internal.js'
+import { clampRangedInput, opacityToAlpha, ptsToEmuLenient } from '../../units-internal.js'
 import { createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
@@ -110,27 +110,27 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 		corrected.type = 'outer'
 	}
 
-	// OPT: `angle`
-	if (corrected.angle) {
-		// A: REALITY-CHECK
-		if (!Number.isFinite(Number(corrected.angle)) || corrected.angle < 0 || corrected.angle > 359) {
-			warn('shadow/angle-out-of-range', 'shadow.angle can only be 0-359')
-			corrected.angle = 270
-		}
-
-		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
-		corrected.angle = Math.round(Number(corrected.angle))
+	// OPT: `angle` — clamped into ST_PositiveFixedAngle's 0-359 and rounded to whole degrees.
+	// The absence check is `undefined`, not truthiness: `0` is a legal angle (a shadow cast to
+	// the right), and under `if (corrected.angle)` a `NaN` fell through the guard entirely and
+	// reached the emitter, which wrote `dir="NaN"` into the package.
+	if (corrected.angle !== undefined) {
+		corrected.angle = Math.round(
+			clampRangedInput(corrected.angle, 0, 359, 'shadow/angle-out-of-range', 'shadow.angle', 'shadow/angle-non-finite')
+		)
 	}
 
 	// OPT: `transparency` (PowerPoint UI term, 0-100) -> internal `_alpha` (0.0-1.0), which
 	// every emit site reads.
 	if (corrected.transparency !== undefined) {
-		const pct = Number(corrected.transparency)
-		if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
-			warn('shadow/transparency-out-of-range', 'shadow.transparency can only be 0-100')
-		} else {
-			corrected._alpha = 1 - pct / 100
-		}
+		const pct = clampRangedInput(
+			corrected.transparency,
+			0,
+			100,
+			'shadow/transparency-out-of-range',
+			'shadow.transparency'
+		)
+		corrected._alpha = 1 - pct / 100
 	}
 
 	// OPT: `color`
