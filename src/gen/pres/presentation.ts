@@ -5,17 +5,17 @@
  * list, default text styles, sections) and the small presProps/viewProps parts.
  */
 
-import { CRLF, XML_DECL } from '../../constants-internal.js'
+import { CRLF, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, XML_DECL } from '../../constants-internal.js'
 import type { PresentationPropsInternal, SectionInternalProps } from '../../types/internal.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
-function defaultTextStyleLevel(idy: number): string {
+function defaultTextStyleLevel(idy: number, marL: number): string {
 	return el(
 		`a:lvl${idy}pPr`,
-		{ marL: (idy - 1) * 457200, algn: 'l', defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 },
+		{ marL, algn: 'l', ...LEVEL_PPR_TAIL },
 		raw(
 			el('a:defRPr', { sz: 1800, kern: 1200 }, [
 				raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
@@ -119,7 +119,7 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 	const defaultTextStyle = el(
 		'p:defaultTextStyle',
 		null,
-		Array.from({ length: 9 }, (_, i) => raw(defaultTextStyleLevel(i + 1)))
+		LEVEL_MARGINS_EMU.map((marL, i) => raw(defaultTextStyleLevel(i + 1, marL)))
 	)
 
 	const extLst = pres.sections && pres.sections.length > 0 ? sectionsExtLst(pres.sections) : ''

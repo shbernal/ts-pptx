@@ -6,7 +6,7 @@
  * Office master, with any `MasterTextStyleProps` overrides layered on top.
  */
 
-import { CRLF, LAYOUT_IDX_SERIES_BASE, XML_DECL } from '../../constants-internal.js'
+import { CRLF, LAYOUT_IDX_SERIES_BASE, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, XML_DECL } from '../../constants-internal.js'
 import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
@@ -121,9 +121,12 @@ const MASTER_BODY_DEFAULTS: MasterLevelDefault[] = [
 		font: 'mn',
 	},
 ]
-const MASTER_OTHER_DEFAULTS: MasterLevelDefault[] = [
-	0, 457200, 914400, 1371600, 1828800, 2286000, 2743200, 3200400, 3657600,
-].map((marL) => ({ marL, algn: 'l', sz: 1800, font: 'mn' as const }))
+const MASTER_OTHER_DEFAULTS: MasterLevelDefault[] = LEVEL_MARGINS_EMU.map((marL) => ({
+	marL,
+	algn: 'l',
+	sz: 1800,
+	font: 'mn' as const,
+}))
 
 function masterAlignAttr(align: MasterTextStyleLevel['align']): string {
 	switch (align) {
@@ -199,24 +202,20 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 		? voidEl('a:latin', { typeface: levelOverride.fontFace })
 		: voidEl('a:latin', { typeface: `+${base.font}-lt` })
 
-	return el(
-		`a:lvl${levelNum}pPr`,
-		{ marL, indent: indentEmu, algn, defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 },
-		[
-			typeof base.spcBefPct === 'number'
-				? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: base.spcBefPct }))))
-				: null,
-			raw(masterBulletXml(levelOverride.bullet, base.bu)),
-			raw(
-				el('a:defRPr', { sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 }, [
-					raw(el('a:solidFill', null, raw(colorXml))),
-					raw(latinXml),
-					raw(voidEl('a:ea', { typeface: `+${base.font}-ea` })),
-					raw(voidEl('a:cs', { typeface: `+${base.font}-cs` })),
-				])
-			),
-		]
-	)
+	return el(`a:lvl${levelNum}pPr`, { marL, indent: indentEmu, algn, ...LEVEL_PPR_TAIL }, [
+		typeof base.spcBefPct === 'number'
+			? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: base.spcBefPct }))))
+			: null,
+		raw(masterBulletXml(levelOverride.bullet, base.bu)),
+		raw(
+			el('a:defRPr', { sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 }, [
+				raw(el('a:solidFill', null, raw(colorXml))),
+				raw(latinXml),
+				raw(voidEl('a:ea', { typeface: `+${base.font}-ea` })),
+				raw(voidEl('a:cs', { typeface: `+${base.font}-cs` })),
+			])
+		),
+	])
 }
 
 /** Clamp a caller-provided per-level override array to the 9 valid list levels, warning on overflow. */
@@ -264,7 +263,7 @@ function makeXmlMasterDefaultTxStyles(): string {
 		font: 'mj' | 'mn',
 		spcBefPct?: number
 	): string =>
-		el(`a:lvl${n}pPr`, { ...attrs, defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 }, [
+		el(`a:lvl${n}pPr`, { ...attrs, ...LEVEL_PPR_TAIL }, [
 			typeof spcBefPct === 'number' ? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: spcBefPct })))) : null,
 			raw(bullet),
 			raw(

@@ -7,7 +7,7 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { CRLF, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import { CRLF, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
 import type { TextProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
@@ -347,7 +347,7 @@ export function makeXmlNotesMaster(): string {
 	const notesStyleLevel = (n: number, marL: number): string =>
 		el(
 			`a:lvl${n}pPr`,
-			{ marL, algn: 'l', defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 },
+			{ marL, algn: 'l', ...LEVEL_PPR_TAIL },
 			raw(
 				el('a:defRPr', { sz: 1200, kern: 1200 }, [
 					raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
@@ -360,11 +360,7 @@ export function makeXmlNotesMaster(): string {
 	const notesStyle = el(
 		'p:notesStyle',
 		null,
-		raw(
-			[0, 457200, 914400, 1371600, 1828800, 2286000, 2743200, 3200400, 3657600]
-				.map((marL, i) => notesStyleLevel(i + 1, marL))
-				.join('')
-		)
+		raw(LEVEL_MARGINS_EMU.map((marL, i) => notesStyleLevel(i + 1, marL)).join(''))
 	)
 
 	return (

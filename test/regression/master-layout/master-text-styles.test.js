@@ -37,6 +37,31 @@ defineRegressionSuite('Master text styles', [
 		},
 	},
 	{
+		// A configured `align` is the one per-level attribute that is *computed* while the rest of
+		// the paragraph-property tail (`defTabSz`, `rtl`, the line-break flags) is shared boilerplate.
+		// Both halves of that are asserted, value and position: the tail is spread from one constant,
+		// and a spread that carried `algn` would overwrite the computed value while leaving the
+		// attribute order looking untouched. No showcase deck configures `textStyles`, so the
+		// byte-identity harness cannot see this path at all.
+		name: 'a configured level alignment survives, and keeps its place in the attribute order',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'ALIGNED_MASTER',
+					textStyles: { title: { align: 'right' }, body: [{ align: 'center' }] },
+				})
+				p.addSlide({ masterTitle: 'ALIGNED_MASTER' })
+			})
+			const xml = await masterXml(zip)
+			assertIncludes(xml, '<a:lvl1pPr marL="0" algn="r" defTabSz="914400"', 'configured title alignment')
+			assertIncludes(
+				xml,
+				'<a:lvl1pPr marL="342900" indent="-342900" algn="ctr" defTabSz="914400"',
+				'configured body alignment'
+			)
+		},
+	},
+	{
 		name: 'body level overrides emit configured size, color, and bullet',
 		fn: async () => {
 			const { zip } = await build((p) => {

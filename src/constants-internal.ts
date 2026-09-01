@@ -12,6 +12,7 @@
 
 import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
+import { EMU_PER_INCH } from './units.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
@@ -105,3 +106,35 @@ export const SLDNUM_PLACEHOLDER_TEXT = '‹#›'
 // The XML prolog every emitted OOXML part begins with. Kept as one constant so a
 // stray edit can't desync one part's declaration from the rest.
 export const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+
+/**
+ * The nine list levels' default left margins (`a:lvlNpPr/@marL`), half an inch apart.
+ *
+ * `p:txStyles`' body and other styles, `p:notesStyle` and the presentation's
+ * `p:defaultTextStyle` are four separate ladders in the file and one ladder in fact: the
+ * three modules that emit them each carried their own copy of these nine numbers, so a
+ * level's margin could only be changed in one of them by accident.
+ */
+export const LEVEL_MARGINS_EMU: readonly number[] = Array.from({ length: 9 }, (_, i) => i * (EMU_PER_INCH / 2))
+
+/**
+ * The paragraph-property tail every default `a:lvlNpPr` carries, whatever else it sets.
+ *
+ * Spread it *after* the level's own attributes: `el()` emits in `Object.entries` order, so
+ * where these land in the tag is byte-significant, and every emitting site puts `marL` (and
+ * where it has one, `indent` and `algn`) ahead of them.
+ *
+ * `algn` is deliberately not in here even though three of the four sites write `algn="l"`.
+ * The fourth computes it per level — a configured master's title can be centred or right —
+ * and a spread that carried `algn` would silently overwrite that: a later key in an object
+ * literal replaces the value without moving the key, so the attribute order would still look
+ * right while the alignment was wrong. No showcase deck configures a master text style, so
+ * `byte-identity` cannot see that path; `master-text-styles.test.js` pins it instead.
+ */
+export const LEVEL_PPR_TAIL = {
+	defTabSz: EMU_PER_INCH,
+	rtl: 0,
+	eaLnBrk: 1,
+	latinLnBrk: 0,
+	hangingPunct: 1,
+} as const
