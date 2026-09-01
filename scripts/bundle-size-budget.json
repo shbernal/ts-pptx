@@ -1,12 +1,12 @@
 {
-	"browser.js": 296960,
-	"html.js": 38912,
-	"index.js": 285696,
-	"inspect.js": 225280,
+	"browser.js": 311296,
+	"html.js": 40960,
+	"index.js": 300032,
+	"inspect.js": 237568,
 	"math.js": 7168,
-	"measure.js": 40960,
-	"node.js": 284672,
-	"read.js": 220160,
-	"script.js": 158720,
+	"measure.js": 43008,
+	"node.js": 299008,
+	"read.js": 233472,
+	"script.js": 163840,
 	"zip.js": 6144
 }
