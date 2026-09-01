@@ -266,7 +266,13 @@ export interface SlideBaseProps {
 	 */
 	_objectNameCounts?: Partial<Record<SlideObjectType, number>>
 
-	background?: BackgroundProps
+	/**
+	 * `| undefined` for the same reason {@link Slide.background} carries it: `SlideBuilder`
+	 * implements this as an accessor pair, so it is always *present* on a real slide or layout and
+	 * answers `undefined` when none is set. The `_`-prefixed members above are plain fields and
+	 * keep the strict form.
+	 */
+	background?: BackgroundProps | undefined
 }
 export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	_slide?: {

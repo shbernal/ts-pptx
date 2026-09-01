@@ -194,7 +194,9 @@ export default class SlideBuilder {
 	 * Slide-show transition (`p:transition`) played when advancing to this slide.
 	 * @type {TransitionProps}
 	 */
-	private _transition?: TransitionProps
+	// `| undefined` because the setter takes one: `slide.transition = undefined` is how a
+	// transition is removed, and the backing field has to be able to hold what the setter accepts.
+	private _transition?: TransitionProps | undefined
 	public set transition(value: TransitionProps | undefined) {
 		this._transition = value
 	}
@@ -467,7 +469,13 @@ export default class SlideBuilder {
 	 * @return {SlideBuilder} this Slide
 	 */
 	addText(text: string | number | TextProps[], options?: TextPropsOptions): SlideBuilder {
-		const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options }] : text
+		// The bare-string form is wrapped into a one-run list, and a call with no options produces a
+		// run with no `options` key — the same shape a caller writing `[{ text: 'x' }]` hands in.
+		// Writing the key as `undefined` would make the two arms differ where the emitters spread.
+		const textParam: TextProps[] =
+			typeof text === 'string' || typeof text === 'number'
+				? [options === undefined ? { text } : { text, options }]
+				: text
 		addTextDefinition(this, textParam, options || {}, false)
 		return this
 	}

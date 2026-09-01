@@ -61,6 +61,7 @@ import { createSlideMaster } from './gen/define/master.js'
 import { getUuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
+import { pickDefined, setOrClear } from './options-internal.js'
 
 const VERSION = '3.7.0'
 
@@ -399,7 +400,7 @@ export default class PresentationCore {
 		// the last section — the originating slide may not be at the tail of the deck.
 		const lastSlide = this._slides[this._slides.length - 1]
 		const sourceSection = this._sections.find((sect) => sect._slides.some((s) => s._slideNum === lastSlide?._slideNum))
-		nextOptions.sectionTitle = sourceSection?.title ?? undefined
+		setOrClear(nextOptions, 'sectionTitle', sourceSection?.title)
 
 		return this.addSlide(nextOptions) as PresSlideInternal
 	}
@@ -508,7 +509,7 @@ export default class PresentationCore {
 		// any `face` has always worked), so defaulting `font` there would break that.
 		const font = opts?.font ?? (isFontCollection(bytes) ? face : undefined)
 		const metrics = await parseFontMetrics(bytes, font === undefined ? undefined : { font })
-		this._fontMetrics.set(face, metrics, { bold: opts?.bold, italic: opts?.italic })
+		this._fontMetrics.set(face, metrics, pickDefined(opts ?? {}, ['bold', 'italic']))
 	}
 
 	/**
@@ -652,9 +653,8 @@ export default class PresentationCore {
 	 */
 	async toBytes(props?: WriteBaseProps): Promise<Uint8Array> {
 		return (await writePackage(this.packageSource(), {
-			compression: props?.compression,
+			...pickDefined(props ?? {}, ['compression', 'onMediaError']),
 			outputType: 'uint8array',
-			onMediaError: props?.onMediaError,
 		})) as Uint8Array
 	}
 
@@ -664,11 +664,10 @@ export default class PresentationCore {
 	 * @returns {Promise<string | ArrayBuffer | Blob | Uint8Array>} file content in selected type
 	 */
 	async write(props?: WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array> {
-		return await writePackage(this.packageSource(), {
-			compression: props?.compression,
-			outputType: props?.outputType,
-			onMediaError: props?.onMediaError,
-		})
+		return await writePackage(
+			this.packageSource(),
+			pickDefined(props ?? {}, ['compression', 'outputType', 'onMediaError'])
+		)
 	}
 
 	/**
@@ -700,14 +699,15 @@ export default class PresentationCore {
 	 * @returns {Promise<string>} the presentation name
 	 */
 	async writeFile(props?: WriteFileProps): Promise<string> {
-		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props ?? {}
+		const rawName = props?.fileName ?? 'Presentation.pptx'
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
-		const data = await writePackage(this.packageSource(), {
-			compression,
-			outputType: this._runtime.writeFileOutputType ?? undefined,
-			onMediaError,
-		})
+		// `writeFileOutputType` is the archive type this runtime prefers where it has one (Node
+		// asks for a Buffer); a runtime that states none leaves the key off, so `zipPackageParts`
+		// applies its own default rather than being handed an `undefined` to interpret.
+		const writeProps: WriteProps = pickDefined(props ?? {}, ['compression', 'onMediaError'])
+		setOrClear(writeProps, 'outputType', this._runtime.writeFileOutputType ?? undefined)
+		const data = await writePackage(this.packageSource(), writeProps)
 		return await this._runtime.writeFile(fileName, data)
 	}
 

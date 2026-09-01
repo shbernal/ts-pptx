@@ -89,7 +89,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	tableFill?: TableProps['tableFill'] // table
 }
 export interface SlideLayout {
-	background?: BackgroundProps
+	background?: BackgroundProps | undefined
 }
 
 /**
@@ -133,6 +133,17 @@ export interface SlideObjectInfo {
 	 */
 	readonly children: readonly SlideObjectInfo[]
 }
+/**
+ * A slide as the authoring API presents it.
+ *
+ * The four settable properties (`transition`, `background`, `color`, `slideNumber`) admit an
+ * explicit `undefined`, which is not the loophole it looks like under
+ * `exactOptionalPropertyTypes`: `SlideBuilder` implements them as accessor pairs, so the property
+ * is *always* present on a real slide and its getter answers `undefined` when nothing is set.
+ * There is no absent state for the declaration to describe. Writing one is also how the setters
+ * are cleared — `slide.transition = undefined` removes the `p:transition` — and an interface that
+ * could not express the value its own setter takes would be describing a different type.
+ */
 export interface Slide {
 	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): Slide
 	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
@@ -173,7 +184,7 @@ export interface Slide {
 	 * Slide-show transition played when advancing to this slide (`p:transition`).
 	 * @example slide.transition = { type: 'fade', durationMs: 1500 }
 	 */
-	transition?: TransitionProps
+	transition?: TransitionProps | undefined
 
 	/**
 	 * Slide width in inches, resolved from the active presentation layout.
@@ -194,13 +205,13 @@ export interface Slide {
 	 * @example { path: '/home/user/images/myimg.png` } - retrieve image via local path
 	 * @example { data: 'image/png;base64,iVtDaDrF[...]=' } - base64 string
 	 */
-	background?: BackgroundProps
+	background?: BackgroundProps | undefined
 	/**
 	 * Default text color (hex format)
 	 * @example 'FF3399'
 	 * @default '000000' (DEF_FONT_COLOR)
 	 */
-	color?: HexColor
+	color?: HexColor | undefined
 	/**
 	 * Whether slide is hidden
 	 * @default false
@@ -209,7 +220,7 @@ export interface Slide {
 	/**
 	 * Slide number options
 	 */
-	slideNumber?: SlideNumberProps
+	slideNumber?: SlideNumberProps | undefined
 }
 export interface AddSlideProps {
 	/** Title of the slide master to use for the new slide (the `title` passed to {@link SlideMasterProps} via `defineSlideMaster`). */
