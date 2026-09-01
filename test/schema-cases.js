@@ -683,7 +683,7 @@ export default [
 					y: 1,
 					w: 4,
 					h: 1,
-					fill: { type: 'image', image: { data: pngData } },
+					fill: { type: 'image', image: { data: pngData, crop: { l: 0, t: 25, r: 0, b: 25 } } },
 				})
 			})
 			await expectNoSchemaErrors(buf, 'shape-image-fill')

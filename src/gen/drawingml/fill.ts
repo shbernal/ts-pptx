@@ -19,6 +19,7 @@ import type {
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { createColorElement } from './color.js'
+import { genXmlImageCropRect } from './image.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -158,10 +159,11 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 	}
 	const alpha = props.transparency
 	const blipInner = alpha ? voidEl('a:alphaModFix', { amt: transparencyToAlpha(alpha) }) : ''
+	const srcRect = props.image?.crop ? genXmlImageCropRect(props.image.crop) : voidEl('a:srcRect')
 	return el('a:blipFill', { dpi: 0, rotWithShape: 1 }, [
 		// `<a:blip>` stays paired even with no `alphaModFix` child — the arity rule.
 		raw(el('a:blip', { 'r:embed': `rId${props._imgRid}` }, raw(blipInner))),
-		raw(voidEl('a:srcRect')),
+		raw(srcRect),
 		raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
 	])
 }

@@ -93,29 +93,48 @@ export function genXmlVectorAspectFit(
  * @param objectName - for error messages
  * @returns the `<a:srcRect>` + `<a:stretch>` blipFill children
  */
-export function genXmlImageCrop(crop: { l?: number; t?: number; r?: number; b?: number }, objectName?: string): string {
-	const where = objectName ? ` for image "${objectName}"` : ''
+type ImageCrop = { l?: number; t?: number; r?: number; b?: number }
+
+function normalizeImageCrop(
+	crop: ImageCrop,
+	label: string,
+	where: string
+): { l: number; t: number; r: number; b: number } {
 	const edges = { l: crop.l ?? 0, t: crop.t ?? 0, r: crop.r ?? 0, b: crop.b ?? 0 }
 	for (const [name, val] of Object.entries(edges)) {
 		if (typeof val !== 'number' || !Number.isFinite(val) || val < 0 || val > 100) {
 			throw new InvalidOptionError(
 				'image/crop-inset-out-of-range',
-				`addImage crop.${name} must be a percentage between 0 and 100 (got ${String(val)})${where}.`
+				`${label} crop.${name} must be a percentage between 0 and 100 (got ${String(val)})${where}.`
 			)
 		}
 	}
 	if (edges.l + edges.r >= 100)
 		throw new InvalidOptionError(
 			'image/crop-insets-exceed-extent',
-			`addImage crop: left+right insets (${edges.l}%+${edges.r}%) must be < 100%${where}.`
+			`${label} crop: left+right insets (${edges.l}%+${edges.r}%) must be < 100%${where}.`
 		)
 	if (edges.t + edges.b >= 100)
 		throw new InvalidOptionError(
 			'image/crop-insets-exceed-extent',
-			`addImage crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`
+			`${label} crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`
 		)
+	return edges
+}
+
+/**
+ * Build an explicit `<a:srcRect>` crop from percentage edge insets (0–100), emitted verbatim.
+ * This is the shared source-rectangle half used by both picture objects and native picture fills.
+ */
+export function genXmlImageCropRect(crop: ImageCrop, label = 'image fill', where = ''): string {
+	const edges = normalizeImageCrop(crop, label, where)
 	const v = (perc: number): number => Math.round(perc * FIXED_PCT_PER_PERCENT)
 	// NOTE: attribute order here is l/t/r/b, where the sizing modes above emit l/r/t/b. Attribute
 	// order is byte-significant, so the two orderings are kept as they are rather than unified.
-	return voidEl('a:srcRect', { l: v(edges.l), t: v(edges.t), r: v(edges.r), b: v(edges.b) }) + STRETCH
+	return voidEl('a:srcRect', { l: v(edges.l), t: v(edges.t), r: v(edges.r), b: v(edges.b) })
+}
+
+export function genXmlImageCrop(crop: ImageCrop, objectName?: string): string {
+	const where = objectName ? ` for image "${objectName}"` : ''
+	return genXmlImageCropRect(crop, 'addImage', where) + STRETCH
 }

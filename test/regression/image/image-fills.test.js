@@ -114,6 +114,27 @@ defineRegressionSuite('Image (blip) fills', [
 		},
 	},
 	{
+		name: 'shape image fill emits source crop inside the native shape geometry',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.triangle, {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 2,
+					fill: { type: 'image', image: { data: PNG_1X1, crop: { l: 0, t: 25, r: 0, b: 25 } } },
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const shapeBlock = firstXmlBlock(xml, 'p:sp', 'shape')
+
+			assert(/<a:prstGeom\s+prst="triangle"/.test(shapeBlock), `expected native triangle geometry; got: ${shapeBlock}`)
+			assertIncludes(shapeBlock, '<a:srcRect l="0" t="25000" r="0" b="25000"/>', 'shape image fill source crop')
+			assertIncludes(shapeBlock, '<a:stretch><a:fillRect/></a:stretch>', 'shape image fill stretch after crop')
+		},
+	},
+	{
 		name: 'image fill set via `image` alone (no explicit type) still emits a blipFill',
 		fn: async () => {
 			const { zip } = await build((p) => {
