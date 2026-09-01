@@ -45,7 +45,55 @@ function valBlock(xml, tag) {
 	return block[0]
 }
 
+/** The first `<c:ser>`'s `<c:spPr>`, whole — the series' own fill/outline/shadow. */
+function serShapeProps(xml) {
+	const block = /<c:ser>[\s\S]*?<c:spPr>[\s\S]*?<\/c:spPr>/.exec(xml)
+	assert(block, 'expected a <c:ser> with a <c:spPr>; got: ' + xml.slice(0, 400))
+	return block[0].slice(block[0].indexOf('<c:spPr>'))
+}
+
+const BUBBLE = [XY[0], { ...XY[1], sizes: [10, 20, 30] }]
+
 defineRegressionSuite('Shared chart fragments', [
+	{
+		// Bubble built its series line differently from scatter and the category-axis family in
+		// two ways, neither of which anything explained. Both were omissions.
+		name: 'a bubble series line reads its colour and its cap the way its siblings do',
+		fn: async () => {
+			// Half one: the stroke colour went through `genXmlColorSelection` directly rather than
+			// `chartColorLineFill`, so a `'transparent'` palette entry -- which means an invisible
+			// series -- reached colour validation, warned, and painted the bubble outline black.
+			// That is the exact hole `chartColorLineFill` was written to close for the other two.
+			const { result: invisible, codes } = await captureDiagnostics(() =>
+				chartFor(ChartType.bubble, BUBBLE, { chartColors: ['transparent'] })
+			)
+			const spPr = serShapeProps(invisible)
+			assertNotIncludes(spPr, '<a:srgbClr', 'a transparent series falls back to no solid colour')
+			assertEqual((spPr.match(/<a:noFill\/>/g) || []).length, 2, 'series fill and series line both: ' + spPr)
+			assertEqual(codes.length, 0, "'transparent' is a palette value, not a bad colour; got " + codes.join(', '))
+
+			// Half two: the cap was hardcoded `flat`, so `lineCap` was accepted and silently dropped
+			// for bubble alone. It is not cosmetic here -- a bubble outline carries `lineDash`, and
+			// the cap shapes the end of every dash in it.
+			const round = await chartFor(ChartType.bubble, BUBBLE, { lineCap: 'round', lineDash: 'dash' })
+			assertIncludes(serShapeProps(round), 'cap="rnd"', 'bubble honours lineCap')
+
+			// And the default is unmoved: `createLineCap(undefined)` is the `flat` that was there.
+			assertIncludes(serShapeProps(await chartFor(ChartType.bubble, BUBBLE)), 'cap="flat"', 'default cap')
+		},
+	},
+	{
+		// The same option on the other arm of the same branch: with `dataBorder` set, the border
+		// wins over the palette line, and it too was passed a hardcoded cap.
+		name: 'a bubble dataBorder honours lineCap as well',
+		fn: async () => {
+			const xml = await chartFor(ChartType.bubble, BUBBLE, {
+				lineCap: 'square',
+				dataBorder: { color: '336699', width: 2 },
+			})
+			assertIncludes(serShapeProps(xml), 'cap="sq"', 'the dataBorder arm reads the same option')
+		},
+	},
 	{
 		name: 'every numeric-reference block emits the same shape, scatter and bubble alike',
 		fn: async () => {

@@ -8,11 +8,12 @@
 
 import { ChartType } from '../../enums.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
-import { genXmlColorSelection } from '../drawingml/fill.js'
+import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
+	chartColorLineFill,
 	createDataBorderLine,
 	dLblShowFlags,
 	dataLabelDefRPr,
@@ -24,15 +25,25 @@ import {
 	type PlotBuilder,
 } from './chart-parts.js'
 
-/** Fill + outline + shadow for one bubble series, from the palette colour and the line options. */
+/**
+ * Fill + outline + shadow for one bubble series, from the palette colour and the line options.
+ *
+ * Both the stroke fill and the cap read the same way as in `plot-scatter.ts` and
+ * `plot-cat-axis.ts`, which this used to differ from on both counts with nothing saying why.
+ * The colour went through `genXmlColorSelection` directly, so a `'transparent'` palette entry
+ * reached colour validation, warned, and painted the bubble outline black — the exact hole
+ * `chartColorLineFill` exists to close. The cap was hardcoded `flat`, so `lineCap` was accepted
+ * and silently dropped for bubble charts alone; it is visible here, because a bubble outline
+ * carries `lineDash` and a cap shapes the end of every dash.
+ */
 function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
 	const line =
 		opts.lineSize === 0
 			? el('a:ln', null, raw(voidEl('a:noFill')))
 			: opts.dataBorder
-				? createDataBorderLine(opts.dataBorder, 'flat')
-				: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: 'flat' }, [
-						raw(genXmlColorSelection(serColor)),
+				? createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
+				: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: createLineCap(opts.lineCap) }, [
+						raw(chartColorLineFill(serColor)),
 						raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
 						raw(voidEl('a:round')),
 					])

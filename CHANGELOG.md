@@ -198,6 +198,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the option's prose describes, because only the values PowerPoint reports as needing repair
   are worth moving. The two bounds are now documented as what they are.
 
+- **A bubble series' outline reads `chartColors` and `lineCap` the way every other plot
+  does.** `plot-bubble.ts` built its `<a:ln>` differently from `plot-scatter.ts` and
+  `plot-cat-axis.ts` in two ways that nothing explained, and both were omissions:
+
+  - The stroke colour went through `genXmlColorSelection` directly rather than
+    `chartColorLineFill`, so `chartColors: ['transparent']` — which means an invisible
+    series — passed the literal `'transparent'` into colour validation, warned "not a valid
+    scheme color or hex RGB", and painted the bubble outline **black**. That is precisely
+    the hole `chartColorLineFill` exists to close; it had been added to the other two plot
+    families and missed here.
+  - The cap was hardcoded `flat`, so `addChart('bubble', …, { lineCap: 'round' })` accepted
+    the option and silently dropped it — on both arms of the branch, the palette line and
+    the `dataBorder` one. It is not cosmetic: a bubble outline carries `lineDash`, and the
+    cap shapes the end of every dash in it.
+
+  Bytes move only for a chart that sets one of those two options; `lineCap` left unset still
+  resolves to the `flat` that was hardcoded, and every showcase deck emits byte-identically.
+
 - **A chart's embedded workbook stamps one time, not two.** Its `docProps/core.xml` read
   the clock separately for `created` and `modified`, so a build that crossed a millisecond
   gave the two different values — nondeterministic output for a difference no reader acts
