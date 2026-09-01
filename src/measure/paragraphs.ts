@@ -14,6 +14,7 @@ import type { FitBox, FitParagraph, FitRun } from './text-fit.js'
 import { TextAnchor } from '../enums.js'
 import type { ObjectOptions, TextProps, TextPropsOptions } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
+import { pickDefined } from '../options-internal.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
 const DEF_INS_LR_EMU = 91440
@@ -47,11 +48,15 @@ export function normalizeRuns(obj: RunSource): TextProps[] {
 	const text = obj.text
 	if (text == null) return []
 	if (typeof text === 'string' || typeof text === 'number') return [{ text: String(text), options: opts }]
+	// `pickDefined` for `text`: a run that carries none keeps the key off, which is what the
+	// `TextProps` the generator builds do — this list is handed straight to `extractParagraphs`
+	// and, from the table path, compared against runs that came from there.
 	if (!Array.isArray(text) && typeof text === 'object' && 'text' in text) {
 		const t = text as TextProps
-		return [{ text: t.text, options: t.options ?? opts }]
+		return [{ ...pickDefined(t, ['text']), options: t.options ?? opts }]
 	}
-	if (Array.isArray(text)) return (text as TextProps[]).map((t) => ({ text: t.text, options: t.options ?? opts }))
+	if (Array.isArray(text))
+		return (text as TextProps[]).map((t) => ({ ...pickDefined(t, ['text']), options: t.options ?? opts }))
 	return []
 }
 

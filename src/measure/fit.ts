@@ -39,22 +39,23 @@ import {
 	tableColCount,
 	walkTableGrid,
 } from './table-fit.js'
-import type { MeasureTextOptions, TextMeasurement, TextProps } from '../types/index.js'
+import type { MeasureTextOptions, TextFitShrinkProps, TextMeasurement, TextProps } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
+import { pickDefined } from '../options-internal.js'
 
 /** Map the public {@link MeasureTextOptions} onto the internal run-option shape. */
 function measureOptsToRunOpts(opts: MeasureTextOptions): RunOpts {
-	return {
-		fontSize: opts.fontSize,
-		fontFace: opts.fontFace,
-		bold: opts.bold,
-		italic: opts.italic,
-		charSpacing: opts.charSpacing,
-		lineSpacing: opts.lineSpacing,
-		lineSpacingMultiple: opts.lineSpacingMultiple,
-		paraSpaceBefore: opts.paraSpaceBefore,
-		paraSpaceAfter: opts.paraSpaceAfter,
-	}
+	return pickDefined(opts, [
+		'fontSize',
+		'fontFace',
+		'bold',
+		'italic',
+		'charSpacing',
+		'lineSpacing',
+		'lineSpacingMultiple',
+		'paraSpaceBefore',
+		'paraSpaceAfter',
+	])
 }
 
 /** A fresh result each call: the arrays are caller-owned, so they cannot be shared. */
@@ -287,11 +288,12 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			const outcome = solveShrink(paragraphs, box, resolve)
 			if (outcome.kind === 'shrink') {
 				const { fontScalePct, lnSpcReductionPct } = outcome.result
-				options.fit = {
-					type: 'shrink',
-					fontScale: fontScalePct,
-					lnSpcReduction: lnSpcReductionPct || undefined,
-				}
+				// `lnSpcReduction` is written only when the solver reduced line spacing: `options.fit`
+				// lands on a slide object's options, which the emitters spread, and `<a:normAutofit>`
+				// omits the attribute for an absent one.
+				const shrink: TextFitShrinkProps = { type: 'shrink', fontScale: fontScalePct }
+				if (lnSpcReductionPct) shrink.lnSpcReduction = lnSpcReductionPct
+				options.fit = shrink
 			} else if (outcome.kind === 'unmeasurable') {
 				collectUnmeasured(paragraphs, unmeasuredShrink)
 			}

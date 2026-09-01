@@ -49,18 +49,27 @@ export interface FitRun {
 	sizePt: number
 	bold?: boolean
 	italic?: boolean
-	fontFace?: string
+	fontFace?: string | undefined
 	/** Character spacing in points (PowerPoint `spc`/1200). */
-	charSpacingPt?: number
+	charSpacingPt?: number | undefined
 }
 
-/** One paragraph: its runs plus vertical-rhythm options. */
+/**
+ * One paragraph: its runs plus vertical-rhythm options.
+ *
+ * The three `| undefined` members here are deliberate, and the exception to the rule the
+ * generator's option bags follow (`options-internal.ts`): these are measurement records, built in
+ * one place by `paragraphs.ts` and read in one place by the solver below, with `??` and
+ * truthiness. Nothing spreads or enumerates them, so a key holding `undefined` cannot mean
+ * anything different from an absent one — and the builder does produce every key on every run.
+ * Saying so is more honest than making the builder omit keys nothing distinguishes.
+ */
 export interface FitParagraph {
 	runs: FitRun[]
 	/** Line spacing as a percent of single (100 = single). Ignored if `lineSpacingPts` set. */
 	lineSpacingPct?: number
 	/** Exact line spacing in points (overrides `lineSpacingPct`). */
-	lineSpacingPts?: number
+	lineSpacingPts?: number | undefined
 	spaceBeforePts?: number
 	spaceAfterPts?: number
 }
