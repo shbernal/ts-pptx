@@ -112,6 +112,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   codes to keep the old breadth. Nothing changes for two decks that both declare a size,
   which is every deck PowerPoint writes.
 
+- **The pptx→script converter carries a picture fill's source crop, instead of noting it
+  as lost.** `a:srcRect` on an `a:blipFill` was one of the things
+  `fill.picture.geometry` / `table.cell.fill.picture.geometry` declared uncarried, for the
+  good reason that the write path had no option to put it in. It does now, so the note was
+  claiming a loss that no longer happens — and a note that excuses a difference and a note
+  that never fires look identical to `script:census`, which is what makes a stale one worse
+  than none. The crop now comes back as `image.crop`, exact rather than to within a
+  rounding step: the reader's division by 100000 is undone by the same factor, so
+  `l="33333"` returns as `33.333` and re-serializes to the integer it came from.
+
+  The note stays for the two rects `image.crop` cannot hold, and now says which they are: a
+  **negative** inset — how a `contain`-style fill bleeds its source past the surface — and a
+  pair of opposite insets summing to 100% or more. Carrying either would emit a script that
+  throws when it is run. Tiling, the destination `a:fillRect` inset, a non-zero `@dpi` and
+  `rotWithShape="0"` are unchanged: still uncarried, still noted.
+
+  No published census figure moves — no corpus deck crops a *fill*, as opposed to a picture
+  — so this shows up as a note that no longer fires where a deck of your own uses one.
+
 ### Removed
 
 - **`image` is gone from `ShapeLineProps`: a picture stroke is not expressible in OOXML.**

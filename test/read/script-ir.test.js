@@ -764,6 +764,70 @@ describe('deck IR — picture fills', () => {
 		assertEqual('transparency' in fill, false, `an opaque fill states no transparency, got ${JSON.stringify(fill)}`)
 	})
 
+	test("an image fill's source crop carries as `image.crop`, in percent", async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('img', {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { type: 'image', image: { data: PNG_1X1, crop: { l: 12.5, t: 33.333, b: 25 } } },
+			})
+		})
+		const ir = readModelToIr(presentation)
+		const fill = allCalls(ir).find((call) => call.method === 'addText').args[1].fill
+
+		// The reader divides the source's thousandths of a percent by 100000; the trip back is
+		// the exact inverse, so 33333 → 0.33333 → 33.333 rather than to within a rounding step.
+		assertEqual(fill.image.crop.l, 12.5, 'l="12500" comes back as 12.5 %')
+		assertEqual(fill.image.crop.t, 33.333, 't="33333" survives its third decimal')
+		assertEqual(fill.image.crop.b, 25, 'b="25000" comes back as 25 %')
+		assertEqual('r' in fill.image.crop, false, 'an uncropped edge is the option default, not a spelled zero')
+		assertEqual(
+			ir.fidelity.filter((note) => note.construct === 'fill.picture.geometry').length,
+			0,
+			'and the crop is no longer reported as lost, because it is not'
+		)
+	})
+
+	test('an uncropped image fill states no crop at all', async () => {
+		// `<a:srcRect/>` is what the write path emits with no `crop`, so carrying four zeros
+		// would add an option that changes nothing and take the fill off its byte-identical path.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
+		})
+		const fill = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addText').args[1].fill
+		assertEqual('crop' in fill.image, false, `an explicit empty srcRect states no crop, got ${JSON.stringify(fill)}`)
+	})
+
+	test('a source crop the write path would refuse stays uncarried, with a note that says why', async () => {
+		// A negative inset is how a `contain`-style fill bleeds its source past the surface.
+		// `image.crop` takes 0–100 only, so carrying it would emit a script that throws when
+		// it is run — the note is the honest answer instead.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addText('img', {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { type: 'image', image: { data: PNG_1X1, crop: { t: 25, b: 25 } } },
+			})
+		})
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const bled = slideXml.replace('<a:srcRect l="0" t="25000" r="0" b="25000"/>', '<a:srcRect t="-25000" b="25000"/>')
+		assert(bled !== slideXml, 'the authored srcRect was found and made negative')
+		zip.file('ppt/slides/slide1.xml', bled)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		const fill = allCalls(ir).find((call) => call.method === 'addText').args[1].fill
+		assertEqual(fill.type, 'image', 'the bytes still carry — only the crop does not')
+		assertEqual('crop' in fill.image, false, 'and no crop is emitted for insets the option cannot hold')
+		const noted = ir.fidelity.filter((note) => note.construct === 'fill.picture.geometry')
+		assertEqual(noted.length, 1, 'the loss is declared')
+		assert(noted[0].detail.includes('a:srcRect'), `and names the source crop, got: ${noted[0].detail}`)
+	})
+
 	test('a fill whose blip embeds nothing is dropped with a note, not emitted unfilled in silence', async () => {
 		const { buf } = await authorRead((pres) => {
 			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
