@@ -204,6 +204,24 @@ export const PRESENTATION_AFTER_SLD_MASTER_ID_LST = successorsOf(PRESENTATION_SE
 export const PRESENTATION_AFTER_NOTES_MASTER_ID_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:notesMasterIdLst')
 /** Successors of `p:sldIdLst` inside `p:presentation`. */
 export const PRESENTATION_AFTER_SLD_ID_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:sldIdLst')
+/** Successors of `p:embeddedFontLst` inside `p:presentation`. */
+export const PRESENTATION_AFTER_EMBEDDED_FONT_LST = successorsOf(PRESENTATION_SEQUENCE, 'p:embeddedFontLst')
+
+/**
+ * `CT_EmbeddedFontListEntry` (`p:embeddedFont`), in declaration order: the typeface identity
+ * followed by one optional element per face slot. Every child is a single element, so the
+ * declaration is a plain string list.
+ * @see ECMA-376 Part 1 §19.2.1.9
+ */
+const EMBEDDED_FONT_ENTRY_SEQUENCE: readonly string[] = ['p:font', 'p:regular', 'p:bold', 'p:italic', 'p:boldItalic']
+
+/**
+ * For each `p:embeddedFont` child, the children that must follow it — i.e. what a new one is
+ * inserted *before*. Every child gets an entry, so a caller can look one up by qname.
+ */
+export const EMBEDDED_FONT_ENTRY_AFTER: Record<string, string[]> = Object.fromEntries(
+	EMBEDDED_FONT_ENTRY_SEQUENCE.map((qname, index) => [qname, EMBEDDED_FONT_ENTRY_SEQUENCE.slice(index + 1)])
+)
 
 // --- p:pic / a:blipFill ------------------------------------------------------
 

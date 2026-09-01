@@ -26,38 +26,12 @@ import {
 	type EmbeddedFont,
 	type EmbeddedFontSlot,
 } from '../../../embedded-fonts.js'
+import { EMBEDDED_FONT_ENTRY_AFTER, PRESENTATION_AFTER_EMBEDDED_FONT_LST } from '../../../ooxml/sequence.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import { PackageReadError } from '../../../errors.js'
 import { presentationRels } from './deck-target.js'
-
-/**
- * `p:embeddedFontLst`'s document-order successors in `CT_Presentation` (index 7,
- * after `smartTags`): everything that may legally follow it, so a created list
- * lands in the right slot when the deck has none yet.
- */
-const PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS = [
-	'p:custShowLst',
-	'p:photoAlbum',
-	'p:custDataLst',
-	'p:kinsoku',
-	'p:defaultTextStyle',
-	'p:modifyVerifier',
-	'p:extLst',
-]
-
-/**
- * A face slot's document-order successors in `CT_EmbeddedFontListEntry`
- * (`font`, `regular`, `bold`, `italic`, `boldItalic`), so a newly-inserted face
- * keeps the schema's child order regardless of which slots already exist.
- */
-const EMBEDDED_FONT_FACE_SUCCESSORS: Record<EmbeddedFontSlot, string[]> = {
-	regular: ['p:bold', 'p:italic', 'p:boldItalic'],
-	bold: ['p:italic', 'p:boldItalic'],
-	italic: ['p:boldItalic'],
-	boldItalic: [],
-}
 
 /**
  * One typeface's faces normalized for the embedded-font merge core (`#mergeEmbeddedFontEntries`):
@@ -211,7 +185,7 @@ function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedF
 		)
 	const presRels = presentationRels(dest)
 
-	const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
+	const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_AFTER_EMBEDDED_FONT_LST)
 	const targetByTypeface = new Map<string, Element>()
 	for (const entry of getElements(targetLst, 'p:embeddedFont')) {
 		const font = firstChild(entry, 'p:font')
@@ -245,7 +219,7 @@ function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedF
 
 			const targetFace = createElement(presPart.dom, `p:${face.slot}`)
 			setAttr(targetFace, 'r:id', relId)
-			insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_FACE_SUCCESSORS[face.slot])
+			insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_ENTRY_AFTER[`p:${face.slot}`] ?? [])
 			copiedAny = true
 		}
 	}
