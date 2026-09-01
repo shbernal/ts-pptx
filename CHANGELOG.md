@@ -184,6 +184,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `shadow.blur` and `shadow.offset` are deliberately not part of this: they are lenient by
   policy (a non-finite value collapses the feature to `0`) rather than clamped.
 
+- **A chart's embedded workbook stamps one time, not two.** Its `docProps/core.xml` read
+  the clock separately for `created` and `modified`, so a build that crossed a millisecond
+  gave the two different values — nondeterministic output for a difference no reader acts
+  on. Both now come from one reading, and it drops the milliseconds the deck's own
+  `docProps/core.xml` has always dropped, so the two parts agree on the precision Office
+  writes.
+
 - **A non-finite value no longer reaches the embedded workbook either, for any chart
   family.** The fix above cleaned the chart's own cache; the workbook the chart is backed by
   is written by a separate builder, and that one still wrote `<v>Infinity</v>` (or `NaN`) into

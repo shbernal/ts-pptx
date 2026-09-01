@@ -405,6 +405,11 @@ export type InternalErrorCode =
 	// rather than handing `NaN` to the append path's rel-graph rebuild.
 	| 'slide/link-target-not-a-number'
 	| 'animation/timing-scaffold-failed'
+	// A media item's three slide rels did not come out consecutive. `addMedia` allocates them
+	// with three separate `getNewRelId` calls and every reader of the triple (the body's
+	// `p14:media` and `a:blip`, the extraction's descriptors) derives the second and third from
+	// the first, so a gap would put a body's reference on the wrong rel.
+	| 'media/rel-ids-not-consecutive'
 	// A DOM node the read model was handed is detached. Reachable in principle through the
 	// documented `part.dom` / `element_` escape hatch, but never from the library's own paths.
 	| 'oxml/node-has-no-document'

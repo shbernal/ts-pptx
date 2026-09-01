@@ -13,6 +13,7 @@ import type { ShadowProps, TextGlowProps } from '../../types/index.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
 import { clampRangedInput, opacityToAlpha, ptsToEmuLenient } from '../../units-internal.js'
+import { stripHash } from '../../hex-color.js'
 import { createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
@@ -138,7 +139,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 		// INCORRECT FORMAT
 		if (corrected.color.startsWith('#')) {
 			warn('shadow/color-has-hash', 'shadow.color should not include hash (#) character, , e.g. "FF0000"')
-			corrected.color = corrected.color.replace('#', '')
+			corrected.color = stripHash(corrected.color)
 		}
 
 		// 8-char hex (RGBA) — derive `_alpha` from the alpha byte (only when `transparency`

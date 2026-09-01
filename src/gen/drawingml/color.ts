@@ -14,6 +14,7 @@
 
 import { SchemeColor, type SCHEME_COLORS } from '../../enums.js'
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../constants-internal.js'
+import { stripHash } from '../../hex-color.js'
 import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -48,7 +49,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		)
 		colorStr = DEF_FONT_COLOR
 	}
-	let colorVal = (colorStr || '').replace('#', '')
+	let colorVal = stripHash(colorStr || '')
 
 	// 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
 	// continue with the leading 6-char RGB through the existing validation. This keeps

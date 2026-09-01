@@ -19,6 +19,7 @@ import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { InternalError } from '../errors.js'
 import { isHyperlinkRel } from './utils.js'
+import { msMediaRid, previewRid } from './define/media.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { avContentType, imageContentType } from '../media/content-type.js'
 import { makeXmlCharts } from './chart/chart-xml.js'
@@ -60,7 +61,7 @@ function avMediaOf(slide: PresSlideInternal, relByRid: RelsByRid): ExtractedSlid
 			const mtype: 'audio' | 'video' = obj.mtype === 'audio' ? 'audio' : 'video'
 			const mediaRid = obj.mediaRid as number
 			const mediaRel = relByRid.get(mediaRid)
-			const previewRel = relByRid.get(mediaRid + 2)
+			const previewRel = relByRid.get(previewRid(mediaRid))
 			if (!mediaRel || !previewRel) return null
 			const mediaBytes = decodeBase64ToBytes(typeof mediaRel.data === 'string' ? mediaRel.data : '')
 			const previewBytes = decodeBase64ToBytes(typeof previewRel.data === 'string' ? previewRel.data : '')
@@ -70,8 +71,8 @@ function avMediaOf(slide: PresSlideInternal, relByRid: RelsByRid): ExtractedSlid
 			return {
 				mtype,
 				mediaRid,
-				msMediaRid: mediaRid + 1,
-				previewRid: mediaRid + 2,
+				msMediaRid: msMediaRid(mediaRid),
+				previewRid: previewRid(mediaRid),
 				mediaBytes,
 				mediaExtn,
 				mediaContentType: avContentType(mediaExtn, mtype),
@@ -120,7 +121,7 @@ function onlineMediaOf(slide: PresSlideInternal, relByRid: RelsByRid): Extracted
 			const mediaRid = obj.mediaRid as number
 			const videoRel = relByRid.get(mediaRid)
 			if (!videoRel || typeof videoRel.Target !== 'string' || !videoRel.Target) return null
-			return { mediaRid, msMediaRid: mediaRid + 1, link: videoRel.Target }
+			return { mediaRid, msMediaRid: msMediaRid(mediaRid), link: videoRel.Target }
 		})
 		.filter((m): m is NonNullable<typeof m> => m !== null)
 }

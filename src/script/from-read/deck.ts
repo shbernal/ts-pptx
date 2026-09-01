@@ -21,7 +21,7 @@ import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, Slid
 import { shapeCall, unwritableFramePayload, type AssetResolver } from './shape.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
-import { compact } from './values.js'
+import { compact, literalColor } from './values.js'
 import { assetFilenameExtension } from '../../media/content-type.js'
 
 /** Default slide size (10" × 7.5") for a deck whose `presentation.xml` declares none. */
@@ -230,9 +230,7 @@ function backgroundOf(slide: Slide, notes: NoteScope): { background?: Background
 
 	switch (background.type) {
 		case 'solid':
-			return background.color
-				? { background: compact({ color: background.color.effectiveHex.replace(/^#/, '').toUpperCase() }) }
-				: {}
+			return background.color ? { background: compact({ color: literalColor(background.color.effectiveHex) }) } : {}
 		case 'none':
 			return {}
 		default:

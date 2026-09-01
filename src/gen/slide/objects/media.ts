@@ -8,6 +8,7 @@
 
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
+import { msMediaRid, previewRid } from '../../define/media.js'
 import { P14_NS, type RenderContext, cNvPrOpen } from './shared.js'
 
 /**
@@ -83,7 +84,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 												raw(
 													voidEl(
 														'p14:media',
-														{ 'xmlns:p14': P14_NS, [p14MediaAttr]: `rId${mediaRid + 1}` },
+														{ 'xmlns:p14': P14_NS, [p14MediaAttr]: `rId${msMediaRid(mediaRid)}` },
 														{ openPrefix: '    ' }
 													)
 												),
@@ -107,7 +108,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 				'p:blipFill',
 				null,
 				[
-					raw(voidEl('a:blip', { 'r:embed': `rId${mediaRid + 2}` })),
+					raw(voidEl('a:blip', { 'r:embed': `rId${previewRid(mediaRid)}` })),
 					raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
 				],
 				{ openPrefix: ' ' }

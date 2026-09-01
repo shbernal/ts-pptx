@@ -19,6 +19,7 @@
 import type { IrValue } from '../ir.js'
 import type { GraphicFrame } from '../../read.js'
 import { EMU_PER_POINT } from '../../units.js'
+import { stripHash } from '../../hex-color.js'
 
 /** EMU per inch (ECMA-376 §20.1.2.1). */
 const EMU_PER_INCH = 914400
@@ -88,7 +89,7 @@ export function isWritableSchemeToken(token: string | null): boolean {
 
 /** Normalize a hex to the bare 6-digit uppercase form the write API expects. */
 export function literalColor(hex: string): string {
-	return hex.replace(/^#/, '').toUpperCase()
+	return stripHash(hex).toUpperCase()
 }
 
 /**

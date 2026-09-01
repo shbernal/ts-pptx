@@ -18,6 +18,7 @@ import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
+import { CORE_PROPS_NS, coreTimestamp } from '../opc/core.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
@@ -153,25 +154,19 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					) +
 					'\n'
 			)
+			// One reading of the clock for both stamps: two calls make `created` and `modified`
+			// disagree whenever the build crosses a millisecond, which no reader notices and
+			// every byte-diff does.
+			const now = coreTimestamp()
 			zipExcel.add(
 				'docProps/core.xml',
 				XML_DECL +
-					el(
-						'cp:coreProperties',
-						{
-							'xmlns:cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
-							'xmlns:dc': 'http://purl.org/dc/elements/1.1/',
-							'xmlns:dcterms': 'http://purl.org/dc/terms/',
-							'xmlns:dcmitype': 'http://purl.org/dc/dcmitype/',
-							'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
-						},
-						[
-							raw(el('dc:creator', null, 'TsPptx')),
-							raw(el('cp:lastModifiedBy', null, 'TsPptx')),
-							raw(el('dcterms:created', { 'xsi:type': 'dcterms:W3CDTF' }, new Date().toISOString())),
-							raw(el('dcterms:modified', { 'xsi:type': 'dcterms:W3CDTF' }, new Date().toISOString())),
-						]
-					)
+					el('cp:coreProperties', CORE_PROPS_NS, [
+						raw(el('dc:creator', null, 'TsPptx')),
+						raw(el('cp:lastModifiedBy', null, 'TsPptx')),
+						raw(el('dcterms:created', { 'xsi:type': 'dcterms:W3CDTF' }, now)),
+						raw(el('dcterms:modified', { 'xsi:type': 'dcterms:W3CDTF' }, now)),
+					])
 			)
 			zipExcel.add(
 				'xl/_rels/workbook.xml.rels',

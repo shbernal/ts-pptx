@@ -11,7 +11,36 @@ import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { nextObjectNameIdx } from './object-name.js'
-import { InvalidOptionError } from '../../errors.js'
+import { InternalError, InvalidOptionError } from '../../errors.js'
+
+/**
+ * One media item costs three consecutive slide rels, allocated together by {@link addMedia}:
+ * the ECMA `audio`/`video` rel (the id kept on the object as `mediaRid`), the MS-2007 `media`
+ * rel sharing its Target, and the preview/poster image.
+ *
+ * The two offsets used to be bare arithmetic wherever a body or a descriptor needed one of the
+ * other two rels, in three modules; `gen/anim/timing.ts` even carries a comment warning against
+ * writing `mediaRid + 2` in a place where it means something else entirely. Naming them puts
+ * the layout in one place, and {@link assertConsecutiveMediaRids} makes the assumption they
+ * rest on fail loudly instead of quietly emitting a body that points at the wrong rel.
+ */
+export const msMediaRid = (mediaRid: number): number => mediaRid + 1
+
+/** The preview/poster image rel's id; see {@link msMediaRid}. */
+export const previewRid = (mediaRid: number): number => mediaRid + 2
+
+/**
+ * Check that a media item's three rels really did come out consecutive. The ids come from
+ * three separate `getNewRelId` calls, so nothing but call order makes them so — and every
+ * reader of the triple assumes it.
+ */
+function assertConsecutiveMediaRids(base: number, second: number, third: number): void {
+	if (second !== msMediaRid(base) || third !== previewRid(base))
+		throw new InternalError(
+			'media/rel-ids-not-consecutive',
+			`addMedia expected rel ids ${base}, ${msMediaRid(base)}, ${previewRid(base)}; got ${base}, ${second}, ${third}`
+		)
+}
 
 /**
  * Adds a media object to a slide definition.
@@ -102,24 +131,27 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		// B: MS-2007 media rel — PowerPoint authors a second external rel sharing the
 		// same link Target; the body points at it via <p14:media r:link>. (Mirrors the
 		// embedded A/V pair, but External and with no media binary part.)
+		const relId2 = getNewRelId(target)
 		target._relsMedia.push({
 			path: strPath || 'preencoded' + strExtn,
 			data: 'dummy',
 			type: 'online',
 			extn: strExtn,
-			rId: getNewRelId(target),
+			rId: relId2,
 			Target: strLink,
 		})
 
 		// C: Add cover (preview/overlay) image
+		const relId3 = getNewRelId(target)
 		target._relsMedia.push({
 			path: 'preencoded.png',
 			data: strCover,
 			type: 'image/png',
 			extn: 'png',
-			rId: getNewRelId(target),
+			rId: relId3,
 			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
 		})
+		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	} else {
 		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
 		// Path-based media match by `path`; base64/`data` media (which share the `preencoded`
@@ -145,12 +177,13 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		slideData.mediaRid = relId1
 
 		// B: "relationships/media"
+		const relId2 = getNewRelId(target)
 		target._relsMedia.push({
 			path: strPath || 'preencoded' + strExtn,
 			type: strType + '/' + strExtn,
 			extn: strExtn,
 			data: strData || '',
-			rId: getNewRelId(target),
+			rId: relId2,
 			isDuplicate: !!dupeItem?.Target,
 			Target: dupeItem?.Target
 				? dupeItem.Target
@@ -158,14 +191,16 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		})
 
 		// C: Add cover (preview/overlay) image
+		const relId3 = getNewRelId(target)
 		target._relsMedia.push({
 			path: 'preencoded.png',
 			type: 'image/png',
 			extn: 'png',
 			data: strCover,
-			rId: getNewRelId(target),
+			rId: relId3,
 			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
 		})
+		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	}
 
 	// LAST

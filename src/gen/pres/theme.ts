@@ -6,6 +6,7 @@
  */
 
 import { REGEX_HEX_COLOR, XML_DECL } from '../../constants-internal.js'
+import { stripHash } from '../../hex-color.js'
 import type { ThemeColorScheme } from '../../types/index.js'
 import type { PresentationPropsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
@@ -48,7 +49,7 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
 			const override = scheme?.[slot]
 			let child = defaultChild
 			if (typeof override === 'string' && override.length > 0) {
-				const hex = override.replace('#', '')
+				const hex = stripHash(override)
 				if (REGEX_HEX_COLOR.test(hex)) child = raw(voidEl('a:srgbClr', { val: hex.toUpperCase() }))
 				else
 					warn(
