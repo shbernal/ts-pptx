@@ -29,6 +29,23 @@ type AutoPageCell = TableCell & {
 	text: TableCell[]
 }
 
+/**
+ * A cell for the pager's working grid, carrying the source cell's options only when it has some.
+ *
+ * Every one of these used to be an inline `{ …, options: cell.options }`, which put an `options`
+ * key holding `undefined` on a cell whose source had none. Readers cannot see the difference —
+ * they all go through `cell.options?.…` — but a `TableCellProps` bag *is* spread in
+ * `gen/define/table.ts` (`{ ...colDef, ...headerRow, ...cell.options }`), where the two states
+ * are not the same thing. So the model keeps one spelling of absent.
+ * @param text - the cell's content, a string or the run list the pager is accumulating
+ * @param options - the source cell's options, if it had any
+ */
+function workingCell(text: string | TableCell[], options: TableCellProps | undefined): TableCell {
+	return options === undefined
+		? { _type: SlideObjectType.tablecell, text }
+		: { _type: SlideObjectType.tablecell, text, options }
+}
+
 // ===== Cell text wrapping =====
 
 /**
@@ -115,7 +132,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 			parts.forEach((part, partIdx) => {
 				const isLastPart = partIdx === parts.length - 1
 				if (isLastPart) {
-					newLine.push({ _type: SlideObjectType.tablecell, text: part, options: cell.options })
+					newLine.push(workingCell(part, cell.options))
 				} else {
 					newLine.push({
 						_type: SlideObjectType.tablecell,
@@ -127,7 +144,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 				}
 			})
 		} else {
-			newLine.push({ _type: SlideObjectType.tablecell, text: cell.text.trim(), options: cell.options })
+			newLine.push(workingCell(cell.text.trim(), cell.options))
 		}
 
 		if (cell.options?.breakLine) {
@@ -433,11 +450,7 @@ export function getSlidesForTableRows(
 		// B: Create new row in data model, calc `maxCellMar*`
 		let currTableRow: TableRow = []
 		row.forEach((cell) => {
-			currTableRow.push({
-				_type: SlideObjectType.tablecell,
-				text: [],
-				options: cell.options,
-			})
+			currTableRow.push(workingCell([], cell.options))
 
 			// Cell margins are inches (see `marginToEmu`); prefer the cell's own top/bottom margin, else the table's.
 			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
@@ -483,7 +496,13 @@ export function getSlidesForTableRows(
 			if (newCellOptions.rowspan) newCell._lineHeight = 0
 
 			// E-2: The parseTextToLines method uses `autoPageCharWeight`, so inherit from table options
-			newCellOptions.autoPageCharWeight = tableProps.autoPageCharWeight || undefined
+			// The table's weight replaces whatever the cell carried, and a table that sets none
+			// leaves the cell with no key at all — `parseTextToLines` reads it with `||`, so absent
+			// and a written `undefined` are the same to it, and absent is the spelling this
+			// codebase keeps to. Note this writes onto the CALLER's cell options bag, which is
+			// pre-existing behaviour of `newCellOptions`.
+			if (tableProps.autoPageCharWeight) newCellOptions.autoPageCharWeight = tableProps.autoPageCharWeight
+			else delete newCellOptions.autoPageCharWeight
 
 			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc
 			const tableColW = Array.isArray(tableProps.colW) ? tableProps.colW : []
@@ -582,7 +601,7 @@ export function getSlidesForTableRows(
 
 				// D: reset working/curr row
 				currTableRow = []
-				row.forEach((cell) => currTableRow.push({ _type: SlideObjectType.tablecell, text: [], options: cell.options }))
+				row.forEach((cell) => currTableRow.push(workingCell([], cell.options)))
 
 				// E: Calc usable vertical space/table height now as we may still be in the same row and code above ("C: Calc usable vertical space/table height.") calc may now be invalid
 				calcSlideTabH()

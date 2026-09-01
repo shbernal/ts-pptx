@@ -169,9 +169,9 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				// filling in four no-fills erased the very thing the caller selected the style for
 				// (#23). Author `border: { type: 'none' }` to erase a styled table's grid anyway.
 				const authoredBorder = newCellOptions.border || opt.border
-				newCellOptions.border =
-					authoredBorder ||
-					(opt.tableStyle ? undefined : [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }])
+				if (authoredBorder) newCellOptions.border = authoredBorder
+				else if (opt.tableStyle) delete newCellOptions.border
+				else newCellOptions.border = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
 				let cellBorder = newCellOptions.border
 
 				// CASE 1: border interface is: BorderOptions | [BorderOptions, BorderOptions, BorderOptions, BorderOptions]
@@ -331,10 +331,12 @@ export function addTableDefinition(
 			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
 		)
 		if (placeHold?.options) {
-			if (opt.x === undefined) opt.x = placeHold.options.x
-			if (opt.y === undefined) opt.y = placeHold.options.y
-			if (opt.w === undefined) opt.w = placeHold.options.w
-			if (opt.h === undefined) opt.h = placeHold.options.h
+			// A placeholder that states none of its own leaves the gap open for the fallback
+			// below to fill, so the key stays absent rather than being written as `undefined`.
+			if (opt.x === undefined && placeHold.options.x !== undefined) opt.x = placeHold.options.x
+			if (opt.y === undefined && placeHold.options.y !== undefined) opt.y = placeHold.options.y
+			if (opt.w === undefined && placeHold.options.w !== undefined) opt.w = placeHold.options.w
+			if (opt.h === undefined && placeHold.options.h !== undefined) opt.h = placeHold.options.h
 		}
 	}
 
@@ -405,7 +407,7 @@ export function addTableDefinition(
 	}
 	if (typeof opt.border === 'string') {
 		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
-		opt.border = undefined
+		delete opt.border
 	} else if (Array.isArray(opt.border)) {
 		const border = opt.border
 		;([0, 1, 2, 3] as const).forEach((idx) => {
@@ -418,12 +420,14 @@ export function addTableDefinition(
 			'table/invalid-outer-border',
 			"addTable `outerBorder` option must be an object. Ex: `{outerBorder: {type:'solid'}}`"
 		)
-		opt.outerBorder = undefined
+		delete opt.outerBorder
 	}
 	// The perimeter is resolved here but applied at emit time: which cells sit on the table's
 	// outer edge is only knowable once the merge grid exists, and the serializer is what builds
 	// it — a colspan reaching the last column puts that column's rule on a *covered* cell.
-	opt.outerBorder = normalizeOuterBorder(opt.outerBorder)
+	const outerBorder = normalizeOuterBorder(opt.outerBorder)
+	if (outerBorder) opt.outerBorder = outerBorder
+	else delete opt.outerBorder
 
 	opt.autoPage = typeof opt.autoPage === 'boolean' ? opt.autoPage : false
 	opt.autoPagePlaceholder = typeof opt.autoPagePlaceholder === 'boolean' ? opt.autoPagePlaceholder : false
@@ -474,18 +478,18 @@ export function addTableDefinition(
 		if (typeof opt.colW === 'string' || typeof opt.colW === 'number') {
 			// Ex: `colW = 3` or `colW = '3'`
 			opt.w = Math.floor(Number(opt.colW) * firstRowColCnt)
-			opt.colW = undefined // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
+			delete opt.colW // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length === 1 && firstRowColCnt > 1) {
 			// Ex: `colW=[3]` but with >1 cols (same as above, user is saying "use this width for all")
 			opt.w = Math.floor(Number(opt.colW) * firstRowColCnt)
-			opt.colW = undefined // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
+			delete opt.colW // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length !== firstRowColCnt) {
 			// Err: Mismatched colW and cols count
 			warn(
 				'table/col-width-count-mismatch',
 				'addTable: mismatch: (colW.length != data.length) Therefore, defaulting to evenly distributed col widths.'
 			)
-			opt.colW = undefined
+			delete opt.colW
 		}
 	} else if (opt.w) {
 		// Keep raw user `Coord` — resolved to EMU once at emission. (No pre-conversion.)
@@ -570,10 +574,14 @@ export function addTableDefinition(
 		// `columns` (per-column TableCellProps[]) is consumed in STEP 1.5 and baked into cells;
 		// drop it here so it is not carried into `ObjectOptions`, where `columns` is the unrelated
 		// text-column *count* (`number`). Leaving it in would be both meaningless and a type clash.
+		// `columns` is destructured out rather than overwritten with `undefined`: `ObjectOptions`
+		// declares no such key, and a present one holding `undefined` would still be enumerated by
+		// anything that walks these options.
+		const { columns: _columns, ...tableObjectOptions } = opt
 		target._slideObjects.push({
 			_type: SlideObjectType.table,
 			arrTabRows: arrRows,
-			options: { ...opt, columns: undefined },
+			options: tableObjectOptions,
 		})
 	} else {
 		if (opt.autoPageRepeatHeader)
@@ -593,7 +601,7 @@ export function addTableDefinition(
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
 			let newSlide = getSlide(target._slideNum + idx)
 			if (!newSlide) {
-				newSlide = addSlide({ masterTitle: slideLayout?._name || undefined })
+				newSlide = addSlide(slideLayout?._name ? { masterTitle: slideLayout._name } : {})
 				slides.push(newSlide)
 			}
 
@@ -620,10 +628,11 @@ export function addTableDefinition(
 				// instead of inheriting whatever row lands at the same index.
 				// `slide.rowH` may contain `undefined` holes (auto-height rows); the table serializer
 				// treats a falsy per-row height as "auto", so the cast to number[] is safe.
-				newSlide.addTable(slide.rows, {
-					...opt,
-					rowH: Array.isArray(opt.rowH) && slide.rowH ? (slide.rowH as number[]) : opt.rowH,
-				})
+				// Overwritten only when there is a per-slide mapping to apply; otherwise `rowH` is left
+				// exactly as the caller spelled it, absent included.
+				const pagedOpt: TableProps = { ...opt }
+				if (Array.isArray(opt.rowH) && slide.rowH) pagedOpt.rowH = slide.rowH as number[]
+				newSlide.addTable(slide.rows, pagedOpt)
 
 				// Add reference to the new slide so it can be returned, but don't add the first one because the user already has a reference to that one.
 				if (idx > 0) newAutoPagedSlides.push(newSlide)

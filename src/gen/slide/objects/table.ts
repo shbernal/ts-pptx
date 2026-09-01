@@ -257,13 +257,15 @@ export function renderTableObject(ctx: RenderContext): string {
 			const colspan = cell.options?.colspan
 			const rowspan = cell.options?.rowspan
 			if (colspan && colspan > 1) {
-				const vMergeCells = new Array(colspan - 1).fill(undefined).map(() => {
+				const vMergeCells = new Array(colspan - 1).fill(undefined).map((): TableCell => {
+					// A dummy that inherits no rowspan carries no `rowspan` key, rather than one
+					// holding `undefined`: absent is the model's one spelling of "not spanning".
 					return {
 						_type: SlideObjectType.tablecell,
-						options: { rowspan },
+						options: rowspan === undefined ? {} : { rowspan },
 						_hmerge: true,
 						_spanOrigin: cell,
-					} as const
+					}
 				})
 				cells.splice(cIdx + 1, 0, ...vMergeCells)
 				cIdx += colspan
@@ -284,14 +286,14 @@ export function renderTableObject(ctx: RenderContext): string {
 				// Point back to the true origin cell: when `cell` is itself an `_hmerge` dummy
 				// (combined colspan+rowspan), use its origin rather than the dummy.
 				const _spanOrigin = cell._spanOrigin || cell
-				const hMergeCell = {
+				const hMergeCell: TableCell = {
 					_type: SlideObjectType.tablecell,
-					options: { colspan },
+					options: colspan === undefined ? {} : { colspan },
 					_rowContinue: rowspan - 1,
 					_vmerge: true,
-					_hmerge,
 					_spanOrigin,
-				} as const
+				}
+				if (_hmerge !== undefined) hMergeCell._hmerge = _hmerge
 				nextRow.splice(cIdx, 0, hMergeCell)
 			}
 		})

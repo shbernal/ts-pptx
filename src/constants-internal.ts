@@ -24,11 +24,13 @@ export const REGEX_HEX_COLOR = /^[0-9a-fA-F]{6}$/
 export const LINEH_MODIFIER = 1.67 // AKA: Golden Ratio Typography
 
 export const DEF_BULLET_MARGIN = 27
-export const DEF_CELL_BORDER: BorderProps = { type: 'solid', color: '666666', width: 1 }
+// `satisfies` rather than an annotation: callers read `.type`/`.color`/`.width` off these to *fill
+// in* a side that stated none, so the constant has to be known to state them itself. Annotated as
+// `BorderProps` all three are `T | undefined`, and the fallback is not assignable to the field it
+// is the fallback for.
+export const DEF_CELL_BORDER = { type: 'solid', color: '666666', width: 1 } as const satisfies BorderProps
 export const DEF_CELL_MARGIN_IN: [number, number, number, number] = [0.05, 0.1, 0.05, 0.1] // "Normal" margins in PPT-2021 ("Narrow" is `0.05` for all 4)
-// `satisfies` rather than an annotation: callers read `.color`/`.width` off this to *fill in* a
-// missing one, so the constant has to be known to state them. Annotated as `BorderProps` both are
-// `T | undefined`, and the fallback could not be assigned to the field it was the fallback for.
+// `satisfies` for the same reason as DEF_CELL_BORDER above.
 export const DEF_CHART_BORDER = { type: 'solid', color: '363636', width: 1 } as const satisfies BorderProps
 export const DEF_CHART_GRIDLINE: OptsChartGridLine = { color: '888888', style: 'solid', size: 1, cap: 'flat' }
 export const DEF_FONT_COLOR = '000000'

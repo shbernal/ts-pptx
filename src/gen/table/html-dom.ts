@@ -24,12 +24,16 @@ import { SlideObjectType } from '../../enums.js'
 import type {
 	AddSlideProps,
 	BorderProps,
+	HAlign,
+	PositionProps,
 	PresLayout,
 	TableCell,
+	TableProps,
 	TableToSlidesDocument,
 	TableToSlidesElement,
 	TableToSlidesProps,
 	TableCellProps,
+	VAlign,
 } from '../../types/index.js'
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
@@ -38,6 +42,21 @@ import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
 import { InvalidOptionError } from '../../errors.js'
+
+/**
+ * CSS `text-align` / `vertical-align` values this converter can express as a table cell's own
+ * alignment. The two logical values map onto the physical pair; everything else — `justify`,
+ * `initial`, a value the browser did not resolve — is absent here and so leaves the cell's
+ * alignment alone.
+ */
+const CSS_TEXT_ALIGN: Record<string, HAlign> = {
+	left: 'left',
+	center: 'center',
+	right: 'right',
+	start: 'left',
+	end: 'right',
+}
+const CSS_VERTICAL_ALIGN: Record<string, VAlign> = { top: 'top', middle: 'middle', bottom: 'bottom' }
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
@@ -757,16 +776,15 @@ export function genTableToSlides(
 			if (colspan > 1) cellOpts.colspan = colspan
 			if (rowspan > 1) cellOpts.rowspan = rowspan
 
-			if (['left', 'center', 'right', 'start', 'end'].includes(style.getPropertyValue('text-align'))) {
-				const align = style.getPropertyValue('text-align').replace('start', 'left').replace('end', 'right')
-				cellOpts.align =
-					align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : undefined
-			}
-			if (['top', 'middle', 'bottom'].includes(style.getPropertyValue('vertical-align'))) {
-				const valign = style.getPropertyValue('vertical-align')
-				cellOpts.valign =
-					valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : undefined
-			}
+			// A CSS value this table has no spelling for leaves the key off rather than writing an
+			// `undefined` into it, so the cell keeps whatever alignment it inherits. The guard and
+			// the ternary chain they replace could not disagree, but only because every value the
+			// guard admitted had an arm — the `: undefined` tail was unreachable, and a sixth CSS
+			// value added to one list and not the other would have made it reachable and silent.
+			const align = CSS_TEXT_ALIGN[style.getPropertyValue('text-align')]
+			if (align) cellOpts.align = align
+			const valign = CSS_VERTICAL_ALIGN[style.getPropertyValue('vertical-align')]
+			if (valign) cellOpts.valign = valign
 
 			// C: Add padding [margin] (if any)
 			// NOTE: `TableCellProps.margin` is INCHES, so computed px must be converted, not copied.
@@ -841,7 +859,7 @@ export function genTableToSlides(
 		masterSlide
 	).forEach((slide, idxTr) => {
 		// A: Create new Slide
-		const newSlide = pptx.addSlide({ masterTitle: opts.masterTitle || undefined })
+		const newSlide = pptx.addSlide(opts.masterTitle ? { masterTitle: opts.masterTitle } : {})
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
@@ -852,13 +870,17 @@ export function genTableToSlides(
 			)
 
 		// C: Add table to Slide
-		newSlide.addTable(slide.rows, {
+		const slideTableProps: TableProps = {
 			x: opts.x || arrInchMargins[3],
-			y: opts.y,
 			w: Number(emuSlideTabW) / EMU_PER_INCH,
 			colW: arrColW,
 			autoPage: false,
-		})
+		}
+		// `y` is set on `opts` a few lines up on every branch, but only where the caller stated one
+		// does it belong on the table's own props — an absent `y` is what lets `addTable` apply its
+		// own default.
+		if (opts.y !== undefined) slideTableProps.y = opts.y
+		newSlide.addTable(slide.rows, slideTableProps)
 
 		// D: Add any additional objects
 		if (opts.addImage) {
@@ -869,13 +891,15 @@ export function genTableToSlides(
 				const imageProps = opts.addImage.image.path
 					? { path: opts.addImage.image.path }
 					: { data: opts.addImage.image.data as string }
-				newSlide.addImage({
-					...imageProps,
-					x: opts.addImage.options.x,
-					y: opts.addImage.options.y,
-					w: opts.addImage.options.w,
-					h: opts.addImage.options.h,
-				})
+				// Geometry is copied only where the caller stated it, so an omitted axis keeps
+				// `addImage`'s own default rather than arriving as an explicit `undefined`.
+				const imageOptions = opts.addImage.options
+				const geometry: PositionProps = {}
+				if (imageOptions.x !== undefined) geometry.x = imageOptions.x
+				if (imageOptions.y !== undefined) geometry.y = imageOptions.y
+				if (imageOptions.w !== undefined) geometry.w = imageOptions.w
+				if (imageOptions.h !== undefined) geometry.h = imageOptions.h
+				newSlide.addImage({ ...imageProps, ...geometry })
 			}
 		}
 		if (opts.addShape) newSlide.addShape(opts.addShape.shapeName, opts.addShape.options || {})
