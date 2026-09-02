@@ -10,13 +10,14 @@ import { ChartType } from '../../enums.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
-import { dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { categoryRange, dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	chartColorLineFill,
 	createDataBorderLine,
-	dLblShowFlags,
 	dataLabelDefRPr,
+	dLblShowFlags,
+	labelTextProps,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
@@ -53,11 +54,7 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 /** The shared `<c:dLbls>` block: number format, label text style, and which parts are shown. */
 function bubbleDataLabels(opts: ChartOptsInternal): string {
 	const defRPr = dataLabelDefRPr(opts)
-	const txPr = el('c:txPr', null, [
-		raw(voidEl('a:bodyPr')),
-		raw(voidEl('a:lstStyle')),
-		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
-	])
+	const txPr = labelTextProps(defRPr)
 	// The 2012 chart extension carrying the leader-line toggle; it has no c: equivalent.
 	const extLst = el(
 		'c:extLst',
@@ -112,7 +109,7 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.
 			const yValues = dataValues(obj)
-			const xVal = numRefBlock('c:xVal', `Sheet1!$A$2:$A$${xValues.length + 1}`, valFmtCode, xValues)
+			const xVal = numRefBlock('c:xVal', categoryRange(xValues.length), valFmtCode, xValues)
 			const yVal = numRefBlock(
 				'c:yVal',
 				sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, xValues.length + 1),

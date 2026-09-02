@@ -14,7 +14,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { dataValues, firstLabelGroup } from './data-refs.js'
+import { categoryRange, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import {
 	catRefBlock,
@@ -24,6 +24,7 @@ import {
 	dLblShowFlags,
 	labelFontAttrs,
 	labelFontChildren,
+	labelTextProps,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
@@ -66,11 +67,7 @@ function pieDataPoint(
  */
 function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOptsInternal, chartType: ChartType) {
 	const numFmt = voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
-	const txPr = el('c:txPr', null, [
-		raw(voidEl('a:bodyPr', null)),
-		raw(voidEl('a:lstStyle')),
-		raw(el('a:p', null, raw(el('a:pPr', null, raw(labelDefRPr(opts)))))),
-	])
+	const txPr = labelTextProps(labelDefRPr(opts))
 	return el('c:dLbl', null, [
 		raw(voidEl('c:idx', { val: idx })),
 		// `c:tx` must precede `c:numFmt` per CT_DLbl / Group_DLbl / EG_DLblShared schema order.
@@ -132,7 +129,7 @@ function pieLabelFlags(opts: ChartOptsInternal, customLbl?: string): XmlChild[] 
 
 /** The `<c:cat>` slice-name reference, keyed on the label count. */
 function pieCategories(labels: string[]): string {
-	return el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${labels.length + 1}`, labels)))
+	return el('c:cat', null, raw(catRefBlock('str', categoryRange(labels.length), labels)))
 }
 
 /**
@@ -154,7 +151,7 @@ function pieCategories(labels: string[]): string {
  *   family where a non-finite value reached the deck instead of being warned about and dropped.
  */
 function pieValues(obj: OptsChartDataInternal, count: number, valFmtCode: string): string {
-	return numRefBlock('c:val', `Sheet1!$B$2:$B$${count + 1}`, valFmtCode, dataValues(obj), count)
+	return numRefBlock('c:val', sheetRangeRef(2, 2, 2, count + 1), valFmtCode, dataValues(obj), count)
 }
 
 /**
@@ -209,13 +206,7 @@ export function makePiePlot(
 			).join('')
 		),
 		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
-		raw(
-			el('c:txPr', null, [
-				raw(voidEl('a:bodyPr', null)),
-				raw(voidEl('a:lstStyle', null)),
-				raw(el('a:p', null, raw(el('a:pPr', null, raw(labelDefRPr(opts)))))),
-			])
-		),
+		raw(labelTextProps(labelDefRPr(opts))),
 		chartType === ChartType.pie ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' })) : null,
 		...pieLabelFlags(opts),
 		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })),
@@ -225,7 +216,7 @@ export function makePiePlot(
 	const ser = el('c:ser', null, [
 		raw(voidEl('c:idx', { val: 0 })),
 		raw(voidEl('c:order', { val: 0 })),
-		raw(strRefBlock('Sheet1!$B$1', optsChartData.name ?? '')),
+		raw(strRefBlock(sheetCellRef(2, 1), optsChartData.name ?? '')),
 		raw(spPr),
 		raw(
 			Array.from({ length: sliceCount }, (_unused, idx) =>

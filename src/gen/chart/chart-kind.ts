@@ -15,6 +15,7 @@
  */
 
 import { ChartType } from '../../enums.js'
+import type { ChartPropsChartStock } from '../../types/index.js'
 import type { ChartMultiInternal } from '../../types/internal.js'
 
 /** A `ChartOptsInternal._type`: one chart kind, or a combo chart's list of subcharts. */
@@ -36,4 +37,26 @@ export function isScatterChart(type: ChartTypeOrCombo): boolean {
  */
 export function isXyChart(type: ChartTypeOrCombo): boolean {
 	return isScatterChart(type) || isBubbleChart(type)
+}
+
+/**
+ * The stock-chart styles, keyed off the public option so the type is the source rather than a
+ * fourth transcription of the same four names.
+ */
+export type StockStyle = NonNullable<ChartPropsChartStock['stockStyle']>
+
+/**
+ * Per-style stock chart geometry: how many value series the style expects, whether the first
+ * series is a Volume column drawn as a bar (on its own axis pair), and whether the open-close
+ * `<c:upDownBars>` are drawn. HLC/VHLC are three-value (no open) and instead mark the close
+ * with a dot; OHLC/VOHLC are four-value and use up/down bars for the open-close body.
+ *
+ * Here rather than in the plot builder because `addChartDefinition` needs the series counts to
+ * warn on a mismatched series list, and had a second table of its own for exactly that.
+ */
+export const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolean; upDownBars: boolean }> = {
+	hlc: { seriesCount: 3, volume: false, upDownBars: false },
+	ohlc: { seriesCount: 4, volume: false, upDownBars: true },
+	vhlc: { seriesCount: 4, volume: true, upDownBars: false },
+	vohlc: { seriesCount: 5, volume: true, upDownBars: true },
 }

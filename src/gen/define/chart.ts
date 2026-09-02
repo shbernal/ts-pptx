@@ -31,7 +31,7 @@ import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js
 import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
-import { isBubbleChart } from '../chart/chart-kind.js'
+import { isBubbleChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -647,9 +647,10 @@ export function addChartDefinition(
 	// three-value High-Low-Close style and warn (rather than corrupt) when the number of data
 	// series doesn't match the style, since PowerPoint expects an exact count per style.
 	if (options._type === ChartType.stock) {
-		const STOCK_SERIES_COUNT: Record<string, number> = { hlc: 3, ohlc: 4, vhlc: 4, vohlc: 5 }
-		if (!Object.keys(STOCK_SERIES_COUNT).includes(options.stockStyle || '')) options.stockStyle = 'hlc'
-		const expected = STOCK_SERIES_COUNT[options.stockStyle as string]
+		// The same table the plot builder lays the series out from — a second copy here is how the
+		// warning and the emitted chart came to disagree about what a style expects.
+		if (!Object.keys(STOCK_STYLE_SPEC).includes(options.stockStyle || '')) options.stockStyle = 'hlc'
+		const expected = STOCK_STYLE_SPEC[options.stockStyle as StockStyle].seriesCount
 		if (tmpData.length !== expected) {
 			warn(
 				'chart/stock-series-count',

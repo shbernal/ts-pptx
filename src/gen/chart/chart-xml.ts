@@ -26,6 +26,7 @@ import {
 	XML_DECL,
 } from '../../constants-internal.js'
 import type {
+	ChartMultiInternal,
 	ChartOptsInternal,
 	ChartOptsOverrides,
 	OptsChartDataInternal,
@@ -165,19 +166,66 @@ function makePlotAreaLayoutXml(rel: SlideRelChart): string {
 	return el('c:layout', null, raw(manualLayout))
 }
 
+/** What one of a combo chart's two category axes has to be, decided by the subcharts using it. */
+interface ComboCatAxis {
+	/**
+	 * The scatter/bubble subchart type that owns this axis, or `null` when none does.
+	 *
+	 * A scatter/bubble subchart draws numbers on its category (X) axis, so that axis has to be
+	 * emitted as a `<c:valAx>` rather than a `<c:catAx>` or PowerPoint flags the file for repair.
+	 */
+	xyType: ChartType | null
+	/** Whether a category-based subchart also references this axis - unsatisfiable together with {@link xyType}. */
+	hasCategoryChart: boolean
+}
+
+/** Which axes a combo chart needs, and what each of its category axes has to be. */
+interface ComboAxisPlan {
+	secondaryVal: boolean
+	secondaryCat: boolean
+	cat: Record<'primary' | 'secondary', ComboCatAxis>
+}
+
+/**
+ * Read a combo chart's subcharts for what its axes have to be.
+ *
+ * Pure, and separate from the plot walk on purpose: these six facts used to be six `let`
+ * bindings the walk mutated as it emitted, so "build the plots" was also secretly computing the
+ * axis plan, and they then reached `makeChartAxesXml` as six positional parameters that it
+ * re-paired by hand into exactly this record.
+ * @param chartOptions - the chart-level options each subchart's overrides are merged over
+ * @param types - the combo's subcharts, or `undefined` for a single-type chart
+ */
+function planComboAxes(chartOptions: ChartOptsInternal, types: ChartMultiInternal[] | undefined): ComboAxisPlan {
+	const plan: ComboAxisPlan = {
+		secondaryVal: false,
+		secondaryCat: false,
+		cat: {
+			primary: { xyType: null, hasCategoryChart: false },
+			secondary: { xyType: null, hasCategoryChart: false },
+		},
+	}
+	for (const type of types ?? []) {
+		// The MERGED options, exactly as the plot walk resolves them: a subchart that states
+		// neither flag inherits the chart-level one, and the axis ids it plots against follow that.
+		const options = resolveSubchartOptions(chartOptions, type.options)
+		const secondaryVal = options.secondaryValAxis ?? false
+		const secondaryCat = options.secondaryCatAxis ?? false
+		plan.secondaryVal = plan.secondaryVal || secondaryVal
+		plan.secondaryCat = plan.secondaryCat || secondaryCat
+		const axis = plan.cat[secondaryCat ? 'secondary' : 'primary']
+		const subType = asChartType(type.type)
+		if (isXyChart(subType)) axis.xyType = subType
+		else axis.hasCategoryChart = true
+	}
+	return plan
+}
+
 /**
  * Build the category/value/series axis XML (empty for pie/doughnut). Resolves combo-chart
- * category axes to val axes when owned by a scatter/bubble subchart, per the tracked flags.
+ * category axes to val axes when owned by a scatter/bubble subchart, per {@link planComboAxes}.
  */
-function makeChartAxesXml(
-	rel: SlideRelChart,
-	usesSecondaryValAxis: boolean,
-	usesSecondaryCatAxis: boolean,
-	primaryCatAxisValType: ChartType | null,
-	secondaryCatAxisValType: ChartType | null,
-	primaryCatAxisHasCategoryChart: boolean,
-	secondaryCatAxisHasCategoryChart: boolean
-): string {
+function makeChartAxesXml(rel: SlideRelChart, plan: ComboAxisPlan): string {
 	let strXml = ''
 	// Stock charts drive their own (date/category)+value axis pair. The non-volume styles use just
 	// the primary pair (the generic path below would also produce it), but the volume styles add a
@@ -196,7 +244,7 @@ function makeChartAxesXml(
 	}
 	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
-		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !usesSecondaryValAxis) {
+		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !plan.secondaryVal) {
 			throw new InvalidOptionError(
 				'chart/secondary-axis-unused',
 				'Secondary axis must be used by one of the multiple charts'
@@ -207,8 +255,7 @@ function makeChartAxesXml(
 		// subcharts get a `<c:valAx>` X axis. Returns the scatter/bubble type when
 		// that axis is owned only by such a subchart, else null (category axis).
 		const comboCatAxisType = (isSecondary: boolean): { _type: ChartType } | Record<string, never> => {
-			const valType = isSecondary ? secondaryCatAxisValType : primaryCatAxisValType
-			const hasCategoryChart = isSecondary ? secondaryCatAxisHasCategoryChart : primaryCatAxisHasCategoryChart
+			const { xyType: valType, hasCategoryChart } = plan.cat[isSecondary ? 'secondary' : 'primary']
 			if (!valType) return {}
 			if (hasCategoryChart) {
 				// A category-based chart and a scatter/bubble chart cannot share one
@@ -260,7 +307,7 @@ function makeChartAxesXml(
 			// `secondaryValAxis: true` flag (without a `valAxes` array),
 			// auto-synthesise the missing secondary value axis def so that
 			// the axId references in <c:plotArea> all resolve.
-			if (usesSecondaryValAxis) {
+			if (plan.secondaryVal) {
 				strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_SECONDARY)
 			}
 		}
@@ -272,7 +319,7 @@ function makeChartAxesXml(
 				AXIS_ID_CATEGORY_SECONDARY,
 				AXIS_ID_VALUE_SECONDARY
 			)
-		} else if (usesSecondaryCatAxis && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
+		} else if (plan.secondaryCat && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
 			// Same as above for the secondary category axis.
 			strXml += makeCatAxis(
 				{ ...rel.opts, ...comboCatAxisType(true) },
@@ -438,56 +485,26 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	// `chartArea`/`plotArea` are always populated by addChartDefinition() but stay optional on the type.
 	const chartArea = rel.opts.chartArea ?? {}
 	const plotAreaOpts = rel.opts.plotArea ?? {}
-	let usesSecondaryValAxis = false
-	let usesSecondaryCatAxis = false
-	// Combo charts: a scatter/bubble subchart draws numbers on its category (X)
-	// axis, so that axis must be emitted as a `<c:valAx>` rather than a `<c:catAx>`
-	// or PowerPoint flags the file for repair. Track, per category axis,
-	// the scatter/bubble subchart type that owns it (if any) and whether a
-	// category-based subchart also references it (an unsatisfiable conflict).
-	let primaryCatAxisValType: ChartType | null = null
-	let secondaryCatAxisValType: ChartType | null = null
-	let primaryCatAxisHasCategoryChart = false
-	let secondaryCatAxisHasCategoryChart = false
+	// STEP 1: what the axes have to be, read off the subcharts before anything is emitted.
+	const plan = planComboAxes(rel.opts, Array.isArray(rel.opts._type) ? rel.opts._type : undefined)
 
-	// STEP 1: the plot for every subchart's series and points.
+	// STEP 2: the plot for every subchart's series and points.
 	let plots = ''
 	if (Array.isArray(rel.opts._type)) {
 		for (const type of rel.opts._type) {
 			const options = resolveSubchartOptions(rel.opts, type.options)
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
-			usesSecondaryValAxis = usesSecondaryValAxis || (options.secondaryValAxis ?? false)
-			usesSecondaryCatAxis = usesSecondaryCatAxis || (options.secondaryCatAxis ?? false)
-			const subType = asChartType(type.type)
-			// Record whether this subchart needs a value-based X axis (scatter/bubble)
-			// or a category-based X axis, keyed to the primary/secondary cat axis it uses.
-			const usesValueXAxis = isXyChart(subType)
-			if (options.secondaryCatAxis) {
-				if (usesValueXAxis) secondaryCatAxisValType = subType
-				else secondaryCatAxisHasCategoryChart = true
-			} else {
-				if (usesValueXAxis) primaryCatAxisValType = subType
-				else primaryCatAxisHasCategoryChart = true
-			}
-			plots += makeChartType(subType, type.data, options, valAxisId, catAxisId)
+			plots += makeChartType(asChartType(type.type), type.data, options, valAxisId, catAxisId)
 		}
 	} else if (rel.opts._type) {
 		plots = makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
 	}
 
-	// STEP 2: the axes the plots just referenced (the flags above decide how many).
-	const axes = makeChartAxesXml(
-		rel,
-		usesSecondaryValAxis,
-		usesSecondaryCatAxis,
-		primaryCatAxisValType,
-		secondaryCatAxisValType,
-		primaryCatAxisHasCategoryChart,
-		secondaryCatAxisHasCategoryChart
-	)
+	// STEP 3: the axes the plots just referenced.
+	const axes = makeChartAxesXml(rel, plan)
 
-	// STEP 3: the plot area, then the chart it sits in.
+	// STEP 4: the plot area, then the chart it sits in.
 	const plotArea = el('c:plotArea', null, [
 		raw(makePlotAreaLayoutXml(rel)),
 		raw(plots),
@@ -601,12 +618,12 @@ function makeChartType(
 	//
 	// PowerPoint and Google Slides render values using the cached *source* number format carried in
 	// each series' `<c:numCache><c:formatCode>` (mirroring the embedded workbook cell format), NOT the
-	// `<c:dLbls><c:numFmt>` mask — so when the value cache is left as "General" those engines display
-	// raw values (e.g. `0.1` instead of `10%`) even though LibreOffice honors the dLbls mask. Resolve a
-	// single effective value format and stamp it onto every value cache below so all three engines agree.
-	// Precedence keeps the historical `valLabelFormatCode` winner,
-	// then the data-table format, and finally falls back to `dataLabelFormatCode` (the most common knob).
-	const valFmtCode = opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || 'General'
+	// `<c:dLbls><c:numFmt>` mask, so one effective value format is resolved here and stamped onto
+	// every value cache below and every dLbls mask, and all three engines agree.
+	// Precedence keeps the historical `valLabelFormatCode` winner, then the data-table format, then
+	// `dataLabelFormatCode` — which `normalizeChartOptions` always assigns, defaulting it to `#,##0`,
+	// so there is no fourth arm: the cache is never left as `General` by this path.
+	const valFmtCode = opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || '#,##0'
 
 	switch (chartType) {
 		case ChartType.area:

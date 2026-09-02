@@ -14,24 +14,33 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import {
+	categoryRange,
+	dataLabels,
+	dataValues,
+	firstLabelGroup,
+	seriesColumn,
+	sheetCellRef,
+	sheetRangeRef,
+} from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
 	chartColorLineFill,
 	chartDataLabels,
-	dataLabelDefRPr,
 	createDataBorderLine,
 	createSerLinesElement,
+	dataLabelDefRPr,
 	dLblShowFlags,
+	labelTextProps,
 	makeChartErrorBarsXml,
 	makeCustomDLblXml,
 	makeSeriesDataPointsXml,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	serMarker,
 	seriesShapeProps,
+	serMarker,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -91,11 +100,7 @@ function serShapeProps(
 function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seriesColor: string): string {
 	const over = opts.seriesOptions?.[obj._dataIndex]
 	const defRPr = dataLabelDefRPr(opts, over)
-	const txPr = el('c:txPr', null, [
-		raw(voidEl('a:bodyPr')),
-		raw(voidEl('a:lstStyle')),
-		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
-	])
+	const txPr = labelTextProps(defRPr)
 	const lblFmtCode = over?.dataLabelFormatCode ?? opts.dataLabelFormatCode
 	return el('c:dLbls', null, [
 		// Per-point custom labels precede the aggregate settings (CT_DLbls order: dLbl* then Group_DLbls).
@@ -117,7 +122,7 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): string {
 	const groups = dataLabels(obj)
 	const cats = firstLabelGroup(obj)
-	const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
+	const catRef = categoryRange(cats.length)
 	if (opts.catLabelFormatCode) {
 		// A `catLabelFormatCode` implies numbers, so the cache is a numRef carrying that format.
 		return el('c:cat', null, raw(catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General')))
@@ -138,7 +143,7 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 
 /** The `<c:val>` numeric cache: the series' own sheet column, one point per category. */
 function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
-	const valCol = obj._dataIndex + dataLabels(obj).length + 1
+	const valCol = seriesColumn(obj)
 	const catCount = firstLabelGroup(obj).length
 	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, catCount + 1), valFmtCode, dataValues(obj), catCount)
 }
@@ -203,7 +208,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
-				raw(strRefBlock(sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1), obj.name ?? '')),
+				raw(strRefBlock(sheetCellRef(seriesColumn(obj), 1), obj.name ?? '')),
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, serIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,

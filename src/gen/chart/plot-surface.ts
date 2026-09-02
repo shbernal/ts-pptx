@@ -12,7 +12,7 @@
 import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { categoryRange, dataValues, firstLabelGroup, seriesColumn, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
@@ -29,16 +29,16 @@ const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== fal
 /** Emit the shared `<c:cat>` (strRef) + `<c:val>` (numRef) refs for a surface series. */
 function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
-	const valCol = obj._dataIndex + dataLabels(obj).length + 1
+	const valCol = seriesColumn(obj)
 	return (
-		el('c:cat', null, raw(catRefBlock('str', `Sheet1!$A$2:$A$${cats.length + 1}`, cats))) +
+		el('c:cat', null, raw(catRefBlock('str', categoryRange(cats.length), cats))) +
 		numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, cats.length + 1), valFmtCode, dataValues(obj), cats.length)
 	)
 }
 
 /** Emit a single surface series: name ref, 3-D shape props, and cat/val refs. */
 function makeSurfaceSer(obj: OptsChartDataInternal, valFmtCode: string, seriesColor: string): string {
-	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
+	const nameCol = seriesColumn(obj)
 	// A surface series carries 3-D shape props; the surface itself is colored by value band, but the
 	// per-series fill still styles the wireframe / legend key.
 	const spPr = el('c:spPr', null, [

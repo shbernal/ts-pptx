@@ -13,7 +13,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { getUuid } from '../utils.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { categoryRange, dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	chartColorLineFill,
@@ -216,7 +216,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.
 			const values =
-				numRefBlock('c:xVal', `Sheet1!$A$2:$A$${xValues.length + 1}`, valFmtCode, xValues) +
+				numRefBlock('c:xVal', categoryRange(xValues.length), valFmtCode, xValues) +
 				numRefBlock(
 					'c:yVal',
 					sheetRangeRef(idx + 2, 2, idx + 2, xValues.length + 1),

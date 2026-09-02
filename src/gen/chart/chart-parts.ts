@@ -39,21 +39,6 @@ import { dataValues } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 
 /**
- * The signature every axis-plot builder shares: `<c:areaChart>`, `<c:barChart>`,
- * `<c:lineChart>`, `<c:radarChart>`, `<c:scatterChart>`, `<c:bubbleChart>`,
- * `<c:stockChart>` and `<c:surfaceChart>` are all built from the same six inputs and
- * dispatched from one `switch` in {@link ./chart-xml}.
- *
- * Naming it makes adding an input one edit instead of six, and makes a builder that
- * disagrees with the dispatch a type error rather than an argument quietly dropped on the
- * floor. `makePiePlot` is deliberately not of this type: a pie has no axes, so it takes
- * neither axis id, and widening the contract to fit it would mean handing it two arguments
- * it must ignore.
- *
- * `chartType` is passed even to the builders that serve a single kind (`stock`, `surface`),
- * which spell it `_chartType`, so the dispatch stays uniform.
- */
-/**
  * The six `c:show*` flags every `<c:dLbls>` carries, in schema order, as `XmlChild`s for the
  * parent's child list. Eight `<c:dLbls>` builders across five modules wrote all six out by
  * hand; each cared about one or two of them and hard-coded the rest to `0`.
@@ -118,6 +103,24 @@ export function labelFontChildren(opts: ChartOptsInternal): XmlChild[] {
 }
 
 /**
+ * The `<c:txPr>` a data-label block wraps its run properties in: an empty `<a:bodyPr>`, an empty
+ * `<a:lstStyle>`, then one `<a:p>` carrying the `<a:pPr>` the caller built.
+ *
+ * Five sites spelled this out byte-identically — the shared `<c:dLbls>` builder, the bubble,
+ * category-axis and pie plots, and the pie's plot-level block. The axis one in `chart-axes.ts`
+ * is deliberately NOT this: it carries a rotation on the `bodyPr` and an `<a:endParaRPr>` after
+ * the `<a:pPr>`.
+ * @param defRPr - the already-built `<a:defRPr>`
+ */
+export function labelTextProps(defRPr: string): string {
+	return el('c:txPr', null, [
+		raw(voidEl('a:bodyPr', null)),
+		raw(voidEl('a:lstStyle', null)),
+		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
+	])
+}
+
+/**
  * The `<a:defRPr>` a `<c:dLbls>` text style carries, in the `b, i, strike, sz, u` ordering the
  * chart-level and bubble label blocks share. See {@link labelFontAttrs} for why there are two
  * orderings and why they stay apart.
@@ -148,6 +151,21 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts)
 	)
 }
 
+/**
+ * The signature every axis-plot builder shares: `<c:areaChart>`, `<c:barChart>`,
+ * `<c:lineChart>`, `<c:radarChart>`, `<c:scatterChart>`, `<c:bubbleChart>`,
+ * `<c:stockChart>` and `<c:surfaceChart>` are all built from the same six inputs and
+ * dispatched from one `switch` in {@link ./chart-xml}.
+ *
+ * Naming it makes adding an input one edit instead of six, and makes a builder that
+ * disagrees with the dispatch a type error rather than an argument quietly dropped on the
+ * floor. `makePiePlot` is deliberately not of this type: a pie has no axes, so it takes
+ * neither axis id, and widening the contract to fit it would mean handing it two arguments
+ * it must ignore.
+ *
+ * `chartType` is passed even to the builders that serve a single kind (`stock`, `surface`),
+ * which spell it `_chartType`, so the dispatch stays uniform.
+ */
 export type PlotBuilder = (
 	chartType: ChartType,
 	data: OptsChartDataInternal[],
@@ -230,12 +248,6 @@ export function axisCrossing(value: number | string | undefined, defaultRule: st
 }
 
 /**
- * The palette colour for series/point `idx`, cycling back to the start once the palette runs out.
- *
- * Every palette lookup in this directory goes through here so that a deck with more series or
- * data points than the palette has entries still emits the same bytes on every build.
- */
-/**
  * The built-in series palette for a chart type.
  *
  * Pie and doughnut colour their *data points* rather than their series, so they take the wider,
@@ -262,6 +274,12 @@ export function resolveChartPalette(opts: ChartOptsInternal): string[] {
 	return opts.chartColors?.length ? opts.chartColors : defaultChartPalette(opts._type)
 }
 
+/**
+ * The palette colour for series/point `idx`, cycling back to the start once the palette runs out.
+ *
+ * Every palette lookup in this directory goes through here so that a deck with more series or
+ * data points than the palette has entries still emits the same bytes on every build.
+ */
 export function paletteColor(palette: readonly string[], idx: number, fallback = '000000'): string {
 	if (palette.length === 0) return fallback
 	return palette[idx % palette.length] ?? fallback
@@ -522,11 +540,7 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
  */
 export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
 	const defRPr = dataLabelDefRPr(opts)
-	const txPr = el('c:txPr', null, [
-		raw(voidEl('a:bodyPr', null)),
-		raw(voidEl('a:lstStyle', null)),
-		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
-	])
+	const txPr = labelTextProps(defRPr)
 	return el('c:dLbls', null, [
 		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
 		raw(txPr),
@@ -762,10 +776,6 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
 }
 
 /**
- * Build an `<a:ln>` border element from a per-data-point `BorderProps`.
- * @param border - point border style (`type`, `color`, `pt`)
- */
-/**
  * The `<a:ln>` a chart-level `dataBorder` paints around every data point — the bubble, the
  * pie slice, the bar.
  *
@@ -788,6 +798,11 @@ export function createDataBorderLine(dataBorder: BorderProps, cap: string): stri
 	])
 }
 
+/**
+ * The `<a:ln>` a chart-area or plot-area `border` paints, or an explicit `<a:noFill>` when the
+ * caller asked for none. See {@link createDataBorderLine} for why the two are separate.
+ * @param border - the chart's `border` (`type`, `color`, `width`, `transparency`)
+ */
 export function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
 	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' }, [

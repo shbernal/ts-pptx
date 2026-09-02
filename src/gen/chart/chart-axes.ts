@@ -73,6 +73,58 @@ function axisTextProps(defRPr: string, lang: string, rot?: number): string {
 	])
 }
 
+/** One axis' label font, as the three axis builders each spelled it. */
+interface AxisLabelFont {
+	size: number | undefined
+	bold: boolean | undefined
+	italic: boolean | undefined
+	color: string | undefined
+	fontFace: string | undefined
+}
+
+/**
+ * The `<a:defRPr>` an axis' tick labels carry, in the `sz, b, i, u, strike` order all three
+ * axes emit.
+ *
+ * Three copies differed only in the `catAxis…`/`valAxis…`/`serAxis…` option prefix. The header
+ * of this module explains that the rest of the axis blocks stayed copied because the emitters
+ * took indentation arguments; the flatten removed that reason and left these behind.
+ */
+function axisLabelDefRPr(font: AxisLabelFont): string {
+	return el(
+		'a:defRPr',
+		{
+			sz: ptToHundredths(font.size || DEF_FONT_SIZE),
+			b: font.bold ? 1 : 0,
+			i: font.italic ? 1 : 0,
+			u: 'none',
+			strike: 'noStrike',
+		},
+		[raw(genXmlColorSelection(font.color || DEF_FONT_COLOR)), raw(createChartTextFonts(font.fontFace || 'Arial'))]
+	)
+}
+
+/** One axis' `<c:title>` as the three builders each spelled it, down to the shared default. */
+interface AxisTitle {
+	text: string | undefined
+	color: string | undefined
+	fontFace: string | undefined
+	fontSize: number | undefined
+	rotate: number | undefined
+}
+
+/** The axis `<c:title>`, or `''` when the caller asked for none. */
+function axisTitleXml(show: boolean | undefined, title: AxisTitle): string {
+	if (!show) return ''
+	return genXmlTitle({
+		color: title.color,
+		fontFace: title.fontFace,
+		fontSize: title.fontSize,
+		titleRotate: title.rotate,
+		title: title.text || 'Axis Title',
+	})
+}
+
 export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	const usesValueAxisForCategories = isXyChart(opts._type)
 	const usesCategoryAxis = !usesValueAxisForCategories && !opts.catLabelFormatCode
@@ -102,20 +154,13 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			voidEl('c:minorTickMark', { val: opts.catAxisMinorTickMark || 'none' }) +
 			voidEl('c:tickLblPos', { val: opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') })
 
-	const defRPr = el(
-		'a:defRPr',
-		{
-			sz: ptToHundredths(opts.catAxisLabelFontSize || DEF_FONT_SIZE),
-			b: opts.catAxisLabelFontBold ? 1 : 0,
-			i: opts.catAxisLabelFontItalic ? 1 : 0,
-			u: 'none',
-			strike: 'noStrike',
-		},
-		[
-			raw(genXmlColorSelection(opts.catAxisLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.catAxisLabelFontFace || 'Arial')),
-		]
-	)
+	const defRPr = axisLabelDefRPr({
+		size: opts.catAxisLabelFontSize,
+		bold: opts.catAxisLabelFontBold,
+		italic: opts.catAxisLabelFontItalic,
+		color: opts.catAxisLabelColor,
+		fontFace: opts.catAxisLabelFontFace,
+	})
 	const txPr = axisTextProps(
 		defRPr,
 		opts.lang || 'en-US',
@@ -150,17 +195,15 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
 		raw(opts.catGridLine && opts.catGridLine.style !== 'none' ? createGridLineElement(opts.catGridLine) : ''),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
-		opts.showCatAxisTitle
-			? raw(
-					genXmlTitle({
-						color: opts.catAxisTitleColor,
-						fontFace: opts.catAxisTitleFontFace,
-						fontSize: opts.catAxisTitleFontSize,
-						titleRotate: opts.catAxisTitleRotate,
-						title: opts.catAxisTitle || 'Axis Title',
-					})
-				)
-			: null,
+		raw(
+			axisTitleXml(opts.showCatAxisTitle, {
+				text: opts.catAxisTitle,
+				color: opts.catAxisTitleColor,
+				fontFace: opts.catAxisTitleFontFace,
+				fontSize: opts.catAxisTitleFontSize,
+				rotate: opts.catAxisTitleRotate,
+			})
+		),
 		raw(numFmt),
 		raw(ticks),
 		raw(
@@ -209,20 +252,13 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 			voidEl('c:minorTickMark', { val: opts.valAxisMinorTickMark || 'none' }) +
 			voidEl('c:tickLblPos', { val: opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low') })
 
-	const defRPr = el(
-		'a:defRPr',
-		{
-			sz: ptToHundredths(opts.valAxisLabelFontSize || DEF_FONT_SIZE),
-			b: opts.valAxisLabelFontBold ? 1 : 0,
-			i: opts.valAxisLabelFontItalic ? 1 : 0,
-			u: 'none',
-			strike: 'noStrike',
-		},
-		[
-			raw(genXmlColorSelection(opts.valAxisLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.valAxisLabelFontFace || 'Arial')),
-		]
-	)
+	const defRPr = axisLabelDefRPr({
+		size: opts.valAxisLabelFontSize,
+		bold: opts.valAxisLabelFontBold,
+		italic: opts.valAxisLabelFontItalic,
+		color: opts.valAxisLabelColor,
+		fontFace: opts.valAxisLabelFontFace,
+	})
 	const txPr = axisTextProps(
 		defRPr,
 		opts.lang || 'en-US',
@@ -250,17 +286,15 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		raw(voidEl('c:axPos', { val: axisPos })),
 		opts.valGridLine && opts.valGridLine.style !== 'none' ? raw(createGridLineElement(opts.valGridLine)) : null,
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
-		opts.showValAxisTitle
-			? raw(
-					genXmlTitle({
-						color: opts.valAxisTitleColor,
-						fontFace: opts.valAxisTitleFontFace,
-						fontSize: opts.valAxisTitleFontSize,
-						titleRotate: opts.valAxisTitleRotate,
-						title: opts.valAxisTitle || 'Axis Title',
-					})
-				)
-			: null,
+		raw(
+			axisTitleXml(opts.showValAxisTitle, {
+				text: opts.valAxisTitle,
+				color: opts.valAxisTitleColor,
+				fontFace: opts.valAxisTitleFontFace,
+				fontSize: opts.valAxisTitleFontSize,
+				rotate: opts.valAxisTitleRotate,
+			})
+		),
 		raw(voidEl('c:numFmt', { formatCode: opts.valAxisLabelFormatCode || 'General', sourceLinked: 0 })),
 		raw(ticks),
 		raw(
@@ -296,20 +330,13 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
  * @return {string} XML
  */
 export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
-	const defRPr = el(
-		'a:defRPr',
-		{
-			sz: ptToHundredths(opts.serAxisLabelFontSize || DEF_FONT_SIZE),
-			b: opts.serAxisLabelFontBold ? 1 : 0,
-			i: opts.serAxisLabelFontItalic ? 1 : 0,
-			u: 'none',
-			strike: 'noStrike',
-		},
-		[
-			raw(genXmlColorSelection(opts.serAxisLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.serAxisLabelFontFace || 'Arial')),
-		]
-	)
+	const defRPr = axisLabelDefRPr({
+		size: opts.serAxisLabelFontSize,
+		bold: opts.serAxisLabelFontBold,
+		italic: opts.serAxisLabelFontItalic,
+		color: opts.serAxisLabelColor,
+		fontFace: opts.serAxisLabelFontFace,
+	})
 	// No `serAxisLabelRotate` option exists, so the series axis always takes the auto rotation.
 	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
 	const serLabelSkip = positiveIntAttr(opts.serAxisLabelFrequency, 'serAxisLabelFrequency')
@@ -340,17 +367,15 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
 		raw(opts.serGridLine && opts.serGridLine.style !== 'none' ? createGridLineElement(opts.serGridLine) : ''),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
-		opts.showSerAxisTitle
-			? raw(
-					genXmlTitle({
-						color: opts.serAxisTitleColor,
-						fontFace: opts.serAxisTitleFontFace,
-						fontSize: opts.serAxisTitleFontSize,
-						titleRotate: opts.serAxisTitleRotate,
-						title: opts.serAxisTitle || 'Axis Title',
-					})
-				)
-			: null,
+		raw(
+			axisTitleXml(opts.showSerAxisTitle, {
+				text: opts.serAxisTitle,
+				color: opts.serAxisTitleColor,
+				fontFace: opts.serAxisTitleFontFace,
+				fontSize: opts.serAxisTitleFontSize,
+				rotate: opts.serAxisTitleRotate,
+			})
+		),
 		raw(voidEl('c:numFmt', { formatCode: (opts.serLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
 		raw(voidEl('c:majorTickMark', { val: 'out' })),
 		raw(voidEl('c:minorTickMark', { val: 'none' })),

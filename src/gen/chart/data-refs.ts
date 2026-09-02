@@ -73,3 +73,23 @@ export function sheetCellRef(colIndex: number, row: number): string {
 export function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, rowTo: number): string {
 	return `Sheet1!$${getExcelColName(colFrom)}$${rowFrom}:$${getExcelColName(colTo)}$${rowTo}`
 }
+
+/**
+ * The 1-based worksheet column a series' values occupy: the label groups come first, then one
+ * column per series in data order.
+ *
+ * This is the one number the chart XML and the embedded workbook have to agree on, and six
+ * emitters wrote the expression out. It belongs beside the reference builders for the same
+ * reason they do.
+ * @param d - the normalized series
+ */
+export const seriesColumn = (d: OptsChartDataInternal): number => d._dataIndex + dataLabels(d).length + 1
+
+/**
+ * The category-name range in column A, header row excluded: `Sheet1!$A$2:$A$<count + 1>`.
+ *
+ * Six plot families built this string by hand around the very module whose header says the
+ * mapping lives in one place so `$`-anchoring cannot drift between the two sides.
+ * @param count - how many categories the series carries
+ */
+export const categoryRange = (count: number): string => sheetRangeRef(1, 2, 1, count + 1)

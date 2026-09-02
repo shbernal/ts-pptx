@@ -17,7 +17,7 @@ import {
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { categoryRange, dataValues, firstLabelGroup, seriesColumn, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
@@ -30,21 +30,7 @@ import {
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
-
-type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
-
-/**
- * Per-style stock chart geometry: how many value series the style expects, whether the first
- * series is a Volume column drawn as a bar (on its own axis pair), and whether the open-close
- * `<c:upDownBars>` are drawn. HLC/VHLC are three-value (no open) and instead mark the close
- * with a dot; OHLC/VOHLC are four-value and use up/down bars for the open-close body.
- */
-const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolean; upDownBars: boolean }> = {
-	hlc: { seriesCount: 3, volume: false, upDownBars: false },
-	ohlc: { seriesCount: 4, volume: false, upDownBars: true },
-	vhlc: { seriesCount: 4, volume: true, upDownBars: false },
-	vohlc: { seriesCount: 5, volume: true, upDownBars: true },
-}
+import { STOCK_STYLE_SPEC, type StockStyle } from './chart-kind.js'
 
 /** True when the given (already-normalized) stock style leads with a Volume bar series. */
 export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!style && STOCK_STYLE_SPEC[style].volume
@@ -55,8 +41,8 @@ const STOCK_DLBLS = el('c:dLbls', null, [...dLblShowFlags({})])
 /** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
 function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {
 	const cats = firstLabelGroup(obj)
-	const valColRow = obj._dataIndex + dataLabels(obj).length + 1
-	const catRef = `Sheet1!$A$2:$A$${cats.length + 1}`
+	const valColRow = seriesColumn(obj)
+	const catRef = categoryRange(cats.length)
 	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
 	// them as dates rather than serial numbers; text ones take a plain `strRef`.
 	const cat = el(
@@ -82,7 +68,7 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
 function stockSeriesName(obj: OptsChartDataInternal): string {
-	const nameCol = obj._dataIndex + dataLabels(obj).length + 1
+	const nameCol = seriesColumn(obj)
 	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')
 }
 
