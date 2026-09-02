@@ -7,11 +7,10 @@
  * the columns it covers — which is what `walkTableGrid` exists to hand out.
  */
 
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from '../constants-internal.js'
+import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, autoPageLineHeightEmu } from '../constants-internal.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import {
 	getSmartParseNumber,
-	inch2Emu,
 	marginToEmu,
 	resolveTableColWidthsEmu,
 	resolveTableRowHeightEmu,
@@ -184,13 +183,13 @@ export function computeTableLayout(
 	// the same reading the writer bakes and the export-time fit pass measures against.
 	const explicitRowHEmu = (r: number): number | null => resolveTableRowHeightEmu(opts.rowH, r, tableHeightEmu, numRows)
 	const resolve = makeRegistryResolver(registry)
-	const defLineEmu = inch2Emu((DEF_FONT_SIZE * LINEH_MODIFIER) / 100)
+	const defLineEmu = autoPageLineHeightEmu(DEF_FONT_SIZE)
 
 	// Estimate a cell's content height (EMU) at its authored size, conservative/tall,
 	// with a one-line floor. Mirrors measureText's inflated wrap + height safety.
 	const estimateContentHeightEmu = (cell: TableCell, eff: RunOpts, innerWidthPt: number): number => {
 		const fontSizePt = Number(eff.fontSize ?? DEF_FONT_SIZE) || DEF_FONT_SIZE
-		const oneLineEmu = inch2Emu((fontSizePt * LINEH_MODIFIER) / 100)
+		const oneLineEmu = autoPageLineHeightEmu(fontSizePt)
 		if (!(innerWidthPt > 0)) return oneLineEmu
 		const paragraphs = extractParagraphs({ text: cell.text, options: eff })
 		if (!paragraphs) return oneLineEmu

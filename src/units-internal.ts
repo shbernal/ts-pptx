@@ -135,6 +135,29 @@ export function resolveTableColWidthsEmu(
 }
 
 /**
+ * The slide width a table may occupy, in EMU: the slide, less the table's own left
+ * edge and the right slide margin.
+ *
+ * The width twin of the auto-pager's `calcSlideTabH`, and the same reading
+ * `addTableDefinition` applies when a table states neither `w` nor `colW`. The pager
+ * used to *add* the two margins here instead of subtracting them, which made its
+ * fallback width about one inch however wide the slide was, and every column a sliver.
+ *
+ * @param presLayout - the presentation layout, for the slide width
+ * @param xEmu - the table's resolved left edge in EMU; `0`/absent falls back to the left slide margin
+ * @param marginsIn - the four slide margins in inches, as the pager holds them
+ * @returns the usable width in EMU, never below zero
+ */
+export function usableTableWidthEmu(
+	presLayout: PresLayout,
+	xEmu: number,
+	marginsIn: readonly [number, number, number, number]
+): number {
+	const startIn = xEmu ? xEmu / EMU_PER_INCH : marginsIn[1]
+	return Math.max(0, presLayout.width - inch2Emu(startIn) - inch2Emu(marginsIn[3]))
+}
+
+/**
  * The single rule for whether one `rowH` entry pins a table row, in inches.
  *
  * An entry pins its row when it reads as a **finite number greater than zero**. Everything

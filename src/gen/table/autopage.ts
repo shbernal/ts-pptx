@@ -8,7 +8,7 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from '../../constants-internal.js'
+import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, autoPageLineHeightEmu } from '../../constants-internal.js'
 import type {
 	PresLayout,
 	TableCell,
@@ -18,7 +18,14 @@ import type {
 	TableCellProps,
 } from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
-import { getSmartParseNumber, inch2Emu, marginToEmu, pinnedRowHeightInches } from '../../units-internal.js'
+import {
+	getSmartParseNumber,
+	inch2Emu,
+	marginToEmu,
+	pinnedRowHeightInches,
+	resolveTableColWidthsEmu,
+	usableTableWidthEmu,
+} from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
@@ -224,6 +231,16 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	return parsedLines
 }
 
+/**
+ * The font size in points one auto-paged cell is measured at: the cell's own `fontSize`,
+ * else the table's, else the library default. Pass `null` for the cell to ask the same
+ * question of the table alone.
+ */
+function resolveCellFontSize(cellOpts: TableCellProps | undefined | null, tableOpts: TableToSlidesProps): number {
+	const size = cellOpts?.fontSize ?? tableOpts.fontSize
+	return typeof size === 'number' ? size : DEF_FONT_SIZE
+}
+
 // ===== Auto-page engine =====
 // The in-memory core (fully Node-testable). Internally signposted by the
 // `// STEP 1..7` markers below: margins → column count → widths → the main
@@ -245,6 +262,7 @@ export function getSlidesForTableRows(
 ): TableRowSlide[] {
 	let arrInchMargins = DEF_SLIDE_MARGIN_IN
 	let emuSlideTabW: number
+	let colWidthsIn: number[] = []
 	let emuSlideTabH = EMU_PER_INCH * 1
 	let emuTabCurrH = 0
 	let numCols = 0
@@ -288,10 +306,9 @@ export function getSlidesForTableRows(
 		// which made the recursive addTable throw "Array expected", or — with `h` smaller than one
 		// line — placed one row per slide forever. Ignore the unusable height, fall back to the full
 		// slide area between margins, and warn once rather than emit a broken table.
-		const emuBaseLineH = inch2Emu(
-			((typeof tableProps.fontSize === 'number' ? tableProps.fontSize : DEF_FONT_SIZE) *
-				(LINEH_MODIFIER + (tableProps.autoPageLineWeight || 0))) /
-				100
+		const emuBaseLineH = autoPageLineHeightEmu(
+			resolveCellFontSize(null, tableProps),
+			tableProps.autoPageLineWeight || 0
 		)
 		if (emuSlideTabH < emuBaseLineH) {
 			const emuStartY =
@@ -403,31 +420,21 @@ export function getSlidesForTableRows(
 
 	// STEP 4: Calculate usable width now that total usable space is known (`emuSlideTabW`)
 	{
-		emuSlideTabW =
-			tableCalcW || inch2Emu((tablePropX ? tablePropX / EMU_PER_INCH : arrInchMargins[1]) + arrInchMargins[3])
+		emuSlideTabW = tableCalcW || usableTableWidthEmu(presLayout, tablePropX, arrInchMargins)
 		if (tableProps.verbose)
 			console.log(`| emuSlideTabW .................................... = ${(emuSlideTabW / EMU_PER_INCH).toFixed(1)}`)
 	}
 
-	// STEP 5: Calculate column widths if not provided (emuSlideTabW will be used below to determine lines-per-col)
-	if (!tableProps.colW || !Array.isArray(tableProps.colW)) {
-		if (tableProps.colW && Number.isFinite(Number(tableProps.colW))) {
-			const arrColW: number[] = []
-			const colW = Number(tableProps.colW)
-			const firstRow = tableRows[0] || []
-			firstRow.forEach(() => arrColW.push(colW))
-			tableProps.colW = []
-			arrColW.forEach((val) => {
-				if (Array.isArray(tableProps.colW)) tableProps.colW.push(val)
-			})
-		} else {
-			// No column widths provided? Then distribute cols.
-			tableProps.colW = []
-			for (let iCol = 0; iCol < numCols; iCol++) {
-				tableProps.colW.push(emuSlideTabW / EMU_PER_INCH / numCols)
-			}
-		}
-	}
+	// STEP 5: Resolve the column grid. `resolveTableColWidthsEmu` is the same resolver the
+	// table emitter and the measured-fit pass read, so the widths this pager wraps text
+	// against are the widths the emitted `<a:gridCol>`s carry. It also normalizes the array
+	// to `numCols`: a short `colW` used to leave the trailing columns measuring against a
+	// zero width. `colW` is written back in inches because that is what `addTableDefinition`
+	// carries into each paged table.
+	colWidthsIn = resolveTableColWidthsEmu(tableProps.colW, emuSlideTabW, numCols).map(
+		(emu: number) => emu / EMU_PER_INCH
+	)
+	tableProps.colW = colWidthsIn
 
 	// Resolve a row's explicit height (inches) from the original `rowH` *array*, keyed by original
 	// row index. A single-number `rowH` is left to propagate via table options (it applies uniformly,
@@ -474,19 +481,25 @@ export function getSlidesForTableRows(
 			)
 
 		// D: --==[[ BUILD DATA SET ]]==-- (iterate over cells: split text into lines[], set `lineHeight`)
-		row.forEach((cell, iCell) => {
+		// Cells are keyed to grid columns, not to their position in the row: a colspan earlier in
+		// the row shifts every later cell, and a rowspan opened above skips columns entirely. The
+		// cursor is the same placement rule G applies below and `walkTableGrid` applies in
+		// `src/measure/table-fit.ts`; measuring a cell against `colW[iCell]` wrapped its text to
+		// another column's width.
+		let colCursor = 0
+		row.forEach((cell) => {
+			while (colCursor < numCols && (colSpanDepths[colCursor] ?? 0) > 0) colCursor++
+			const cellColspan = Math.max(1, Number(cell.options?.colspan) || 1)
+			const colStart = colCursor
+			colCursor = Math.min(colCursor + cellColspan, numCols)
+
 			const newCellOptions = cell.options || {}
 			const newCell: AutoPageCell = {
 				_type: SlideObjectType.tablecell,
 				_lines: [],
-				_lineHeight: inch2Emu(
-					((cell.options?.fontSize
-						? cell.options.fontSize
-						: tableProps.fontSize
-							? tableProps.fontSize
-							: DEF_FONT_SIZE) *
-						(LINEH_MODIFIER + (tableProps.autoPageLineWeight ? tableProps.autoPageLineWeight : 0))) /
-						100
+				_lineHeight: autoPageLineHeightEmu(
+					resolveCellFontSize(cell.options, tableProps),
+					tableProps.autoPageLineWeight || 0
 				),
 				text: [],
 				options: newCellOptions,
@@ -504,15 +517,10 @@ export function getSlidesForTableRows(
 			if (tableProps.autoPageCharWeight) newCellOptions.autoPageCharWeight = tableProps.autoPageCharWeight
 			else delete newCellOptions.autoPageCharWeight
 
-			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc
-			const tableColW = Array.isArray(tableProps.colW) ? tableProps.colW : []
-			let totalColW = tableColW[iCell] ?? 0
-			const cellColspan = cell.options?.colspan
-			if (cellColspan) {
-				totalColW = tableColW
-					.filter((_cell, idx) => idx >= iCell && idx < idx + cellColspan)
-					.reduce((prev, curr) => prev + curr)
-			}
+			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc.
+			// A spanning cell is as wide as the columns it covers; the seed keeps a row longer
+			// than the grid from throwing on an empty slice.
+			const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
 
 			// E-4: Create lines based upon available column width
 			newCell._lines = parseTextToLines(cell, totalColW, tableProps.verbose)
@@ -678,17 +686,17 @@ export function getSlidesForTableRows(
 		// Snapshot occupied columns *before* adding new spans from this row so that
 		// cells in this row are placed correctly even when the row itself starts spans.
 		const occupiedBefore = [...colSpanDepths]
-		let colCursor = 0
+		let spanCursor = 0
 		row.forEach((cell) => {
-			while (colCursor < numCols && (occupiedBefore[colCursor] ?? 0) > 0) colCursor++
+			while (spanCursor < numCols && (occupiedBefore[spanCursor] ?? 0) > 0) spanCursor++
 			const cellColspan = cell.options?.colspan ?? 1
 			const cellRowspan = cell.options?.rowspan ?? 1
 			if (cellRowspan > 1) {
-				for (let c = 0; c < cellColspan && colCursor + c < numCols; c++) {
-					colSpanDepths[colCursor + c] = cellRowspan
+				for (let c = 0; c < cellColspan && spanCursor + c < numCols; c++) {
+					colSpanDepths[spanCursor + c] = cellRowspan
 				}
 			}
-			colCursor += cellColspan
+			spanCursor += cellColspan
 		})
 		// Consume one row from every active span (including ones just opened above).
 		for (let c = 0; c < numCols; c++) {

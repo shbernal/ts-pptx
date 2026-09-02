@@ -175,6 +175,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The auto-pager's width arithmetic.** Three defects in `getSlidesForTableRows`, all in
+  the same twenty lines, all producing wrong output rather than an error. No showcase deck
+  auto-pages, so the byte-identity harness says nothing about any of them; each is covered
+  by a case in `test/regression/table/table-autopage-width.test.js` that fails against the
+  old code.
+
+  - **Usable width was the sum of the slide margins, not the slide minus them.** The
+    fallback the pager reaches when a table states neither `w` nor `colW` *added* the left
+    and right margins, so a 10in slide gave about one inch of usable width and the pager
+    then divided that across the columns. It writes the result back onto `colW`, so the
+    number reached the emitted `<a:gridCol>`: a three-column table added with
+    `{ autoPage: true, colW: [1, 2] }` — the count mismatch drops `colW` and sets no `w` —
+    emitted three columns a third of an inch wide, against 3 inches each for the same table
+    without `autoPage`. The width is now the slide less the table's own left edge and the
+    right margin, which is what the height path and `addTableDefinition` already computed.
+  - **A spanning cell was measured against the wrong columns.** The colspan filter read
+    `idx >= iCell && idx < idx + cellColspan`, and the second half is true for every
+    positive span, so a colspan-2 cell in a five-column table was priced at the full width
+    of every column from its own position onward. Cells were also indexed by their position
+    in the row rather than by grid column, so every cell after a colspan measured against a
+    neighbour's width, and a rowspan opened in an earlier row shifted them again. Both are
+    now resolved through a column cursor with the same placement rule the rowspan
+    bookkeeping and `walkTableGrid` apply. A cell that wraps to fewer lines than it should
+    prices its row short, so the page over-fills.
+  - **A row longer than the first row threw.** The same sum used `Array.prototype.reduce`
+    with no seed, so a table whose later row has more cells than row 0 defines columns
+    failed with `Reduce of empty array with no initial value` instead of paging.
+
+  Column widths now come from `resolveTableColWidthsEmu`, the resolver the table emitter and
+  the measured-fit pass already share, so the widths the pager wraps text against are the
+  widths the package carries. That also normalizes a short `colW` array to the column count;
+  it used to leave the trailing columns measuring against a zero width.
+
+  **Migration:** an auto-paged table that was relying on the old fallback width — that is,
+  one with no `w` and no usable `colW` — will now be laid out across the full usable slide
+  width and may paginate differently. State `w` (or a `colW` whose length matches the column
+  count) to pin the old geometry.
+
 - **`shadow.transparency` and `shadow.angle` follow the project's own out-of-range rule.**
   Both were the third option `docs/diagnostics.md` names as the tempting wrong one: they
   reported a warning *and* discarded the request, so the caller read a diagnostic and got a

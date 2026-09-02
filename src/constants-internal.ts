@@ -13,6 +13,7 @@
 import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
 import { EMU_PER_INCH } from './units.js'
+import { inch2Emu } from './units-internal.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
@@ -22,6 +23,21 @@ export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
 export const LAYOUT_IDX_SERIES_BASE = 2147483649
 export const REGEX_HEX_COLOR = /^[0-9a-fA-F]{6}$/
 export const LINEH_MODIFIER = 1.67 // AKA: Golden Ratio Typography
+
+/**
+ * One line of table text, in EMU: `fontSizePt * (LINEH_MODIFIER + lineWeight) / 100`.
+ *
+ * The auto-pager prices a row by counting lines and multiplying by this, and the
+ * measured-fit pass estimates a cell's height with the same product. Three sites wrote
+ * the expression by hand and one of them left the caller's `autoPageLineWeight` out, so
+ * the pager guarded a row against a line it then measured at a different height.
+ *
+ * @param fontSizePt - the resolved font size in points
+ * @param lineWeight - the caller's `autoPageLineWeight`, an addend on the modifier
+ */
+export function autoPageLineHeightEmu(fontSizePt: number, lineWeight = 0): number {
+	return inch2Emu((fontSizePt * (LINEH_MODIFIER + lineWeight)) / 100)
+}
 
 export const DEF_BULLET_MARGIN = 27
 // `satisfies` rather than an annotation: callers read `.type`/`.color`/`.width` off these to *fill
