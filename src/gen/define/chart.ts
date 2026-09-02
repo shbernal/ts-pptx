@@ -15,6 +15,7 @@ import {
 	SlideObjectType,
 } from '../../enums.js'
 import { DEF_CHART_BORDER } from '../../constants-internal.js'
+import { isHexColor } from '../../hex-color.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -286,12 +287,9 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	if (!options.dataBorder || typeof options.dataBorder !== 'object') delete options.dataBorder
 	if (options.dataBorder && !isUsableBorderWidth(options.dataBorder.width)) options.dataBorder.width = 0.75
 	if (options.dataBorder && options.dataBorder.color) {
-		const isHexColor =
-			typeof options.dataBorder.color === 'string' &&
-			options.dataBorder.color.length === 6 &&
-			/^[0-9A-Fa-f]{6}$/.test(options.dataBorder.color)
+		const isHex = typeof options.dataBorder.color === 'string' && isHexColor(options.dataBorder.color)
 		const isSchemeColor = Object.values(SchemeColor).includes(options.dataBorder.color as SchemeColor)
-		if (!isHexColor && !isSchemeColor) {
+		if (!isHex && !isSchemeColor) {
 			options.dataBorder.color = 'F9F9F9' // Fallback if neither hex nor scheme color
 		}
 	}

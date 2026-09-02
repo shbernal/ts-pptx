@@ -9,6 +9,7 @@
 import { PlaceholderType, SlideObjectType, TextAnchor } from '../../enums.js'
 import { CRLF } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
+import { TEXT_ANCHORS } from '../../ooxml/st-enums.js'
 import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -110,7 +111,23 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
  * `center`. This table is the union of what they named; anything else is now a warning and an
  * omitted attribute rather than an invalid one.
  */
-const TEXT_ANCHOR_BY_VALIGN: Readonly<Record<string, TextAnchor>> = {
+/**
+ * The `a:bodyPr/@anchor` tokens this library writes: the {@link TextAnchor} enum, checked here
+ * against `ST_TextAnchoringType`.
+ *
+ * `TEXT_ANCHORS` (`ooxml/st-enums.ts`) is the schema's own list and no write-side site consulted
+ * it, so the enum the emitters actually write could drift out of the schema with nothing to say
+ * so. `Extract` is that check: an enum member outside `ST_TextAnchoringType` is dropped from this
+ * type and the map below stops compiling. It is deliberately compile-time rather than a
+ * `checkEnumOrWarn` on the result, because every value in that map is already an enum member, so
+ * a runtime check there could never fail -- and a check that cannot fail is worse than none.
+ *
+ * The library writes three of the schema's five; `just` and `dist` are anchoring modes no option
+ * surfaces.
+ */
+type TextAnchorToken = Extract<TextAnchor, (typeof TEXT_ANCHORS)[number]>
+
+const TEXT_ANCHOR_BY_VALIGN: Readonly<Record<string, TextAnchorToken>> = {
 	t: TextAnchor.t,
 	top: TextAnchor.t,
 	b: TextAnchor.b,
@@ -137,7 +154,7 @@ const TEXT_ANCHOR_BY_VALIGN: Readonly<Record<string, TextAnchor>> = {
  * diagnostic instead of an attribute the schema rejects.
  * @param valign - the caller's `valign`, in any of the spellings above
  */
-export function resolveTextAnchor(valign: string | null | undefined): TextAnchor | null {
+export function resolveTextAnchor(valign: string | null | undefined): TextAnchorToken | null {
 	if (valign === null || valign === undefined || valign === '') return null
 	const anchor = TEXT_ANCHOR_BY_VALIGN[String(valign).trim().toLowerCase()]
 	if (anchor) return anchor

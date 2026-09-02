@@ -161,6 +161,7 @@ export type DiagnosticCode =
 	| 'opacity/out-of-range'
 	| 'line/width-out-of-range'
 	| 'coord/bare-number-is-inches'
+	| 'layout/size-out-of-range'
 
 /**
  * Conditions carried by `InvalidOptionError`: the caller passed something the library cannot use.
@@ -226,6 +227,8 @@ export type InvalidOptionErrorCode =
 	| 'model3d/invalid-camera'
 	| 'model3d/invalid-fov'
 	| 'model3d/invalid-scale'
+	// Slide sizes
+	| 'layout/invalid-definition'
 	// Tables
 	| 'table/rows-not-an-array'
 	| 'table/rows-not-nested'

@@ -1,4 +1,5 @@
-import { escapeXmlAttribute, getElements, parseXml } from '../oxml/dom.js'
+import { getElements, parseXml } from '../oxml/dom.js'
+import { encodeXmlAttrValue } from '../../xml-escape.js'
 import { partNameExtension } from './partnames.js'
 import { PackageReadError } from '../../errors.js'
 
@@ -90,12 +91,12 @@ export class ContentTypes {
 		]
 		for (const [extension, contentType] of this.#defaults) {
 			lines.push(
-				`<Default Extension="${escapeXmlAttribute(extension)}" ContentType="${escapeXmlAttribute(contentType)}"/>`
+				`<Default Extension="${encodeXmlAttrValue(extension)}" ContentType="${encodeXmlAttrValue(contentType)}"/>`
 			)
 		}
 		for (const [partName, contentType] of this.#overrides) {
 			lines.push(
-				`<Override PartName="${escapeXmlAttribute(partName)}" ContentType="${escapeXmlAttribute(contentType)}"/>`
+				`<Override PartName="${encodeXmlAttrValue(partName)}" ContentType="${encodeXmlAttrValue(contentType)}"/>`
 			)
 		}
 		lines.push('</Types>')

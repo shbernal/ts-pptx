@@ -31,8 +31,7 @@ import { pickDefined } from '../../options-internal.js'
  * @returns `true` if the descriptor was recognized and added, else `false`
  */
 export function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject | GroupChildProps): boolean {
-	if ('chart' in object)
-		addChartDefinition(target, object.chart.type, object.chart.data, object.chart.opts || object.chart.options || {})
+	if ('chart' in object) addChartDefinition(target, object.chart.type, object.chart.data, object.chart.options || {})
 	else if ('image' in object) addImageDefinition(target, object.image)
 	else if ('line' in object) addShapeDefinition(target, ShapeType.line, object.line)
 	else if ('rect' in object) addShapeDefinition(target, ShapeType.rect, object.rect)

@@ -7,7 +7,7 @@
  * order. These helpers never mark a part dirty — callers own that.
  */
 import { InvalidOptionError } from '../../errors.js'
-import { stripHash } from '../../hex-color.js'
+import { isHexColor, stripHash } from '../../hex-color.js'
 import { FILL_CHOICES } from '../../ooxml/sequence.js'
 import {
 	attr,
@@ -29,7 +29,7 @@ export { FILL_CHOICES }
 /** Normalize a 6-hex RGB string (optional leading `#`) to upper-case, or throw. */
 export function normalizeHex(value: string): string {
 	const hex = stripHash(value)
-	if (!/^[0-9a-fA-F]{6}$/.test(hex))
+	if (!isHexColor(hex))
 		throw new InvalidOptionError(
 			'color/invalid-hex',
 			`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`

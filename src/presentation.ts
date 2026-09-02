@@ -52,8 +52,9 @@ import { isFontCollection } from './measure/font-collection.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
 import { measureText } from './measure/fit.js'
 import { computeTableLayout } from './measure/table-fit.js'
-import { decodeBase64ToBytes } from './media/base64.js'
+import { resolveFontBytes } from './font-source.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
+import { clampRangedInput } from './units-internal.js'
 import type { ExtractedSlides } from './read/api/presentation-types.js'
 
 import { addBackgroundDefinition } from './gen/define/background.js'
@@ -71,6 +72,34 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 		width: layout.widthEmu,
 		height: layout.heightEmu,
 	}
+}
+
+/**
+ * One side of a `defineLayout` definition, in inches, clamped to what `ST_SlideSizeCoordinate`
+ * allows.
+ *
+ * `p:sldSz/@cx` and `@cy` are bounded 914400 to 51206400 EMU -- 1 to 56 inches -- and nothing
+ * checked. Every arm of `defineLayout`'s guard chain is a `warn`, so
+ * `{ name: 'Badge', width: 0.5, height: 0.5 }` produced no diagnostic at all (both values are
+ * truthy and finite) and emitted a `sldSz` PowerPoint offers to repair; `width: -5` is truthy
+ * too, so it reached the file as `cx="-4572000"`.
+ *
+ * `Number()` first, because the guard chain above deliberately accepts a numeric string as
+ * advice rather than as an error, and `clampRangedInput` takes a number. A value with nothing
+ * to coerce from is `NaN`, which it throws on -- as `coord/non-finite`, the code the unit
+ * conversion used to raise one line later.
+ * @param value - the caller's `width` or `height`
+ * @param side - which one, for the diagnostic
+ */
+function layoutSideInches(value: number | undefined, side: 'width' | 'height'): number {
+	return clampRangedInput(
+		Number(value),
+		1,
+		56,
+		'layout/size-out-of-range',
+		`defineLayout ${side} (inches)`,
+		'coord/non-finite'
+	)
 }
 
 /**
@@ -334,8 +363,6 @@ export default class PresentationCore {
 		const defLayout = this.#requireDefaultLayout()
 		this._presLayout = {
 			name: defLayout.name,
-			_sizeW: defLayout.width,
-			_sizeH: defLayout.height,
 			width: defLayout.width,
 			height: defLayout.height,
 		}
@@ -485,7 +512,8 @@ export default class PresentationCore {
 	 * `font` when the deck-side name differs from the name inside the file, and use
 	 * `listFontFaces` from `ts-pptx/measure` to see what a file holds.
 	 * @param {string} face - font family name as used in `fontFace` (e.g. 'Aptos')
-	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF/TTC bytes
+	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF/TTC
+	 *   bytes. A string is always a path or URL here; base64 text is `embedFont`'s `data`, not this.
 	 * @param {object} [opts] - variant flags (advances differ per weight/style) and collection selection
 	 * @param {boolean} [opts.bold] - these are the bold advances
 	 * @param {boolean} [opts.italic] - these are the italic advances
@@ -500,10 +528,9 @@ export default class PresentationCore {
 		source: string | Uint8Array | ArrayBuffer,
 		opts?: { bold?: boolean; italic?: boolean; font?: number | string }
 	): Promise<void> {
-		let bytes: Uint8Array
-		if (typeof source === 'string') bytes = await this._runtime.loadFontData(source)
-		else if (source instanceof Uint8Array) bytes = source
-		else bytes = new Uint8Array(source)
+		// A `string` here is a path or URL, never base64 -- see `resolveFontBytes` for the two
+		// spellings and why `embedFont` reads its `data` string the other way.
+		const bytes = await resolveFontBytes(source, this._runtime, undefined, 'registerFontMetrics: `source`')
 		// Only a collection is name-selected. A plain TTF holds one font whose internal
 		// name need not match the deck-side family (registering Silkscreen's bytes under
 		// any `face` has always worked), so defaulting `font` there would break that.
@@ -528,7 +555,8 @@ export default class PresentationCore {
 	 * handed over; `OS/2.fsType` embedding-permission bits are not enforced.
 	 * @param {object} opts - font source + identity
 	 * @param {string} [opts.path] - font file path (Node) or URL (web) to a `.ttf`/`.otf`
-	 * @param {ArrayBuffer | Uint8Array | string} [opts.data] - raw font bytes, or a base64 string, in lieu of `path`
+	 * @param {ArrayBuffer | Uint8Array | string} [opts.data] - raw font bytes, or a base64 string (bare or a
+	 *   whole `data:` URL), in lieu of `path`. Unlike `registerFontMetrics`, a string here is never a path.
 	 * @param {string} opts.typeface - family name as referenced by run/`fontFace` typefaces
 	 * @param {EmbeddedFontSlot} [opts.style] - face slot; defaults to `'regular'`
 	 * @example await pptx.embedFont({ path: '/fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
@@ -554,24 +582,15 @@ export default class PresentationCore {
 			)
 		}
 
-		// Resolve bytes: a path/URL via the runtime loader, else in-memory data
-		// (Uint8Array / ArrayBuffer / base64 string).
-		let bytes: Uint8Array
-		if (typeof opts.path === 'string') {
-			bytes = await this._runtime.loadFontData(opts.path)
-		} else if (opts.data instanceof Uint8Array) {
-			bytes = opts.data
-		} else if (opts.data instanceof ArrayBuffer) {
-			bytes = new Uint8Array(opts.data)
-		} else if (typeof opts.data === 'string') {
-			const decoded = decodeBase64ToBytes(
-				opts.data.includes(',') ? opts.data : `application/x-fontdata;base64,${opts.data}`
-			)
-			if (!decoded) throw new InvalidOptionError('font/invalid-base64', 'embedFont: `data` string is not valid base64')
-			bytes = decoded
-		} else {
+		if (opts.path === undefined && opts.data === undefined)
 			throw new InvalidOptionError('font/missing-source', 'embedFont: provide either `path` or `data`')
-		}
+
+		// `path` is a path/URL; a `data` string is base64. That difference is the whole reason
+		// `resolveFontBytes` takes a flag rather than guessing from the value.
+		const bytes =
+			typeof opts.path === 'string'
+				? await resolveFontBytes(opts.path, this._runtime, undefined, 'embedFont: `path`')
+				: await resolveFontBytes(opts.data, this._runtime, { base64: true }, 'embedFont: `data` string')
 
 		// Accumulate faces of one family under a single embeddedFont entry; a repeat
 		// of the same typeface+style replaces the prior bytes (last call wins).
@@ -827,8 +846,18 @@ export default class PresentationCore {
 	 */
 	defineLayout(layout: PresLayout): void {
 		// @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
-		if (!layout) warn('layout/invalid-definition', 'defineLayout requires `{name, width, height}`')
-		else if (!layout.name) warn('layout/invalid-definition', 'defineLayout requires `name`')
+		//
+		// Every arm below is advice about a value the conversion can still recover -- a numeric
+		// string, a missing name -- so they warn and the definition lands. The one thing that
+		// cannot be recovered is a non-object, which used to warn and then throw a raw
+		// `TypeError` on the next line's `layout.name`, breaking the contract that every failure
+		// this library raises is a `TsPptxError`.
+		if (!layout || typeof layout !== 'object')
+			throw new InvalidOptionError(
+				'layout/invalid-definition',
+				'defineLayout requires an object `{ name, width, height }` with the dimensions in inches'
+			)
+		if (!layout.name) warn('layout/invalid-definition', 'defineLayout requires `name`')
 		else if (!layout.width) warn('layout/invalid-definition', 'defineLayout requires `width`')
 		else if (!layout.height) warn('layout/invalid-definition', 'defineLayout requires `height`')
 		else if (typeof layout.height !== 'number')
@@ -838,10 +867,8 @@ export default class PresentationCore {
 
 		this.LAYOUTS[layout.name] = {
 			name: layout.name,
-			_sizeW: inchesToEmu(Number(layout.width)),
-			_sizeH: inchesToEmu(Number(layout.height)),
-			width: inchesToEmu(Number(layout.width)),
-			height: inchesToEmu(Number(layout.height)),
+			width: inchesToEmu(layoutSideInches(layout.width, 'width')),
+			height: inchesToEmu(layoutSideInches(layout.height, 'height')),
 		}
 	}
 

@@ -456,7 +456,7 @@ export function addTableDefinition(
 	 */
 	/** The width a table with nothing to size it from gets: the slide between its margins, in inches. */
 	const defaultTableWidthIn = (): number =>
-		Math.floor((presLayout._sizeW || presLayout.width) / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
+		Math.floor(presLayout.width / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
 
 	if (opt.colW) {
 		const firstRowColCnt = (arrRows[0] ?? []).reduce((totalLen, c) => {
@@ -519,7 +519,7 @@ export function addTableDefinition(
 	// single `w`. Rewriting the widths here (the table definition) means both the emitter and
 	// the measured-fit pass inherit the fitted grid; shrink only, no minimum-width floor.
 	if (opt.fitColumns === 'shrink') {
-		const slideWin = (presLayout._sizeW || presLayout.width) / EMU_PER_INCH
+		const slideWin = presLayout.width / EMU_PER_INCH
 		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU_PER_INCH
 		// `arrTableMargin` is TRBL, so the margin to the RIGHT of the table is index 1. This
 		// read index 3 (the left margin) — invisible with the default symmetric [0.5 × 4], and

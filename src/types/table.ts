@@ -622,8 +622,6 @@ export interface TableCell {
 	_type?: SlideObjectType.tablecell
 	/** lines in this cell (autoPage) */
 	_lines?: TableCell[][]
-	/** `text` prop but guaranteed to hold "TableCell[]" */
-	_tableCells?: TableCell[]
 	/** height in EMU */
 	_lineHeight?: number
 	_hmerge?: boolean

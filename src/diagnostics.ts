@@ -24,8 +24,14 @@ export interface Diagnostic {
 	/** Human-readable explanation. Free to change in any release; do not parse it. */
 	readonly message: string
 	/**
-	 * Structured context for the condition, when a site has any to give. No site populates it
-	 * today; it exists so one can start to without a breaking signature change.
+	 * Structured context for the condition, when a site has any to give.
+	 *
+	 * Every rejection of an `ST_` enum value populates it: `checkEnumOrWarn` (`ooxml/check-enum.ts`)
+	 * carries `received` — the value the caller passed — and `valid`, the whole legal list, plus
+	 * whatever the call site adds. That reaches a handler for a line dash type, a table cell's 3-D
+	 * preset and a table's horizontal overflow, among others. Nothing else populates it yet, so a
+	 * handler must still treat the field as optional and must not assume a particular key is there
+	 * for a given code.
 	 */
 	readonly detail?: Readonly<Record<string, unknown>>
 }

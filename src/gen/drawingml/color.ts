@@ -13,8 +13,8 @@
  */
 
 import { SchemeColor, type SCHEME_COLORS } from '../../enums.js'
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../constants-internal.js'
-import { splitRgbaHex, stripHash } from '../../hex-color.js'
+import { DEF_FONT_COLOR } from '../../constants-internal.js'
+import { isHexColor, splitRgbaHex, stripHash } from '../../hex-color.js'
 import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -64,7 +64,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		colorVal = rgba.rgb
 	}
 
-	if (!REGEX_HEX_COLOR.test(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
+	if (!isHexColor(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
 		warn(
 			'color/invalid-value',
 			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'SchemeColor' values!`
@@ -72,7 +72,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		colorVal = DEF_FONT_COLOR
 	}
 
-	const isHex = REGEX_HEX_COLOR.test(colorVal)
+	const isHex = isHexColor(colorVal)
 	const name = isHex ? 'a:srgbClr' : 'a:schemeClr'
 	const attrs = { val: isHex ? colorVal.toUpperCase() : colorVal }
 

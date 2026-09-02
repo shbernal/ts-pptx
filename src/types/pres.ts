@@ -82,15 +82,23 @@ export interface SectionProps {
 	order?: number
 }
 export interface PresLayout {
-	_sizeW?: number
-	_sizeH?: number
-
 	/**
 	 * Layout Name
 	 * @example 'LAYOUT_WIDE'
 	 */
 	name: string
+	/**
+	 * Slide width.
+	 *
+	 * **The unit depends on which direction this shape is travelling.** `defineLayout` reads it
+	 * as INCHES -- that is what its own example passes -- while `pptx.presLayout` returns it in
+	 * EMU. So `defineLayout({ ...pptx.presLayout, name: 'Copy' })`, the obvious way to derive a
+	 * layout from the current one, states a width of nine million inches; `defineLayout` now
+	 * clamps it to the 56in maximum and says so rather than emitting a `sldSz` PowerPoint
+	 * refuses.
+	 */
 	width: number
+	/** Slide height; the same two units as {@link width}, in the same two directions. */
 	height: number
 }
 export type CustomPropertyValue = string | number | boolean | Date

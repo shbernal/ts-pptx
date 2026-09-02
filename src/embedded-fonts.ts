@@ -14,21 +14,32 @@
  *
  * This module owns only the OOXML-shape knowledge; rId allocation and part
  * placement stay with each caller (their packaging models differ).
+ *
+ * It must not import from `src/gen/`, because `read/api/ops/embedded-fonts.ts` imports it. Both
+ * things it needs from elsewhere -- the attribute escaper and the `font` relationship type --
+ * come from root modules that import nothing themselves.
  */
+
+import { encodeXmlAttrValue } from './xml-escape.js'
+import { OFFICE_REL } from './ooxml/rel-types.js'
 
 /** Extension for the binary font parts (`/ppt/fonts/fontN.fntdata`). */
 export const FONT_DATA_EXTENSION = 'fntdata'
 /** Content type for a `.fntdata` part — one `Default` covers every font part. */
 export const FONT_DATA_CONTENT_TYPE = 'application/x-fontdata'
 /** Relationship type from `presentation.xml` to a font part (one per face). */
-export const FONT_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/font'
+export const FONT_REL_TYPE = OFFICE_REL + 'font'
 
 /**
  * The four face slots of `CT_EmbeddedFontListEntry`, in schema child order
  * (`font` first, then these). Iterate in this order everywhere so the read- and
  * write-side emitters agree on element order.
+ *
+ * `ooxml/sequence.ts` derives `EMBEDDED_FONT_ENTRY_SEQUENCE` from this, so the order the
+ * serializer below writes and the order the insertion points are computed from are one fact.
  */
 export const EMBEDDED_FONT_SLOTS = ['regular', 'bold', 'italic', 'boldItalic'] as const
+
 export type EmbeddedFontSlot = (typeof EMBEDDED_FONT_SLOTS)[number]
 
 /** One embeddable face: a slot plus the raw font bytes (absent in pure read-side merges). */
@@ -81,11 +92,6 @@ export function flattenEmbeddedFaces(fonts: EmbeddedFont[], firstRId: number): F
 	return flat
 }
 
-/** Minimal XML attribute escaper (kept local so this module stays dependency-free). */
-function escapeAttr(value: string): string {
-	return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
 /**
  * Serialize a `<p:embeddedFontLst>` from `fonts` and a `(fontIndex, slot) → rId`
  * lookup (typically backed by {@link flattenEmbeddedFaces}). Returns `''` when no
@@ -106,8 +112,8 @@ export function serializeEmbeddedFontLst(
 			faceXml.push(`<p:${slot} r:id="rId${rId}"/>`)
 		}
 		if (faceXml.length === 0) return
-		let fontAttrs = `typeface="${escapeAttr(font.typeface)}"`
-		if (font.panose !== undefined) fontAttrs += ` panose="${escapeAttr(font.panose)}"`
+		let fontAttrs = `typeface="${encodeXmlAttrValue(font.typeface)}"`
+		if (font.panose !== undefined) fontAttrs += ` panose="${encodeXmlAttrValue(font.panose)}"`
 		if (font.pitchFamily !== undefined) fontAttrs += ` pitchFamily="${font.pitchFamily}"`
 		if (font.charset !== undefined) fontAttrs += ` charset="${font.charset}"`
 		entries.push(`<p:embeddedFont><p:font ${fontAttrs}/>${faceXml.join('')}</p:embeddedFont>`)

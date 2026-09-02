@@ -15,11 +15,17 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	 */
 	margin?: Margin
 }
+/**
+ * A chart on a slide master, as a key-tagged descriptor.
+ *
+ * `options` is the spelling every sibling descriptor uses (`shape.options`, `text.options`).
+ * A second, undocumented `opts` alias used to sit beside it and *win* when both were given,
+ * so a caller who set the documented one and left a stray `opts` behind got the stray.
+ */
 export interface SlideMasterChartProps {
 	type: CHART_NAME | ChartMulti[]
 	data: OptsChartData[]
 	options?: ChartOpts
-	opts?: ChartOpts
 }
 /**
  * One object on a slide master, as a key-tagged descriptor.

@@ -25,6 +25,11 @@ interface Diagnostic {
 }
 ```
 
+`detail` is optional and sparse: today it is populated by every rejection of an OOXML `ST_` enum
+value (a line dash type, a table cell's 3-D preset, a table's horizontal overflow), which carries
+`received` (what you passed) and `valid` (the whole legal list). Read it defensively; which codes
+carry which keys is not part of the contract, and most codes carry nothing.
+
 **The `code` is API. The `message` is not.**
 
 A code is a stable identifier of a *condition*, in `area/condition` form. You may branch on it, log

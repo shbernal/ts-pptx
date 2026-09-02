@@ -22,7 +22,8 @@ import { applyMeasuredFit } from '../../../src/measure/fit.ts'
 import { FontMetricsRegistry } from '../../../src/measure/font-metrics.ts'
 
 const EMU_PER_INCH = 914400
-const LAYOUT = { name: 'test', width: 10, height: 5.625, _sizeW: 9144000, _sizeH: 5143500 }
+// EMU, the unit the layout engine reads a `PresLayout` in: a 10 x 5.625in canvas.
+const LAYOUT = { name: 'test', width: 9144000, height: 5143500 }
 
 /** Monospace synthetic metrics, so the fit pass is reproducible without a font file. */
 const mono = () => ({

@@ -24,9 +24,10 @@ const regWith = (face = 'Mono') => {
 	r.set(face, mono())
 	return r
 }
-// Minimal layout — bare-number (inch) coords ignore the axis length, so only used
-// to satisfy the signature. width/height in inches.
-const LAYOUT = { name: 'test', width: 10, height: 5.625, _sizeW: 9144000, _sizeH: 5143500 }
+// Minimal layout — bare-number (inch) coords ignore the axis length, so this is only here to
+// satisfy the signature. `PresLayout.width`/`.height` are EMU on the way *out* of a deck, which
+// is the direction the layout engine reads them in, so a 10 x 5.625in canvas is spelled in EMU.
+const LAYOUT = { name: 'test', width: 9144000, height: 5143500 }
 const emptyReg = new FontMetricsRegistry()
 const cellAt = (res, row, col) => res.cells.find((c) => c.row === row && c.col === col)
 

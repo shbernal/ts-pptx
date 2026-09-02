@@ -3,7 +3,7 @@
  *
  * The small cross-cutting pieces the OOXML writers all need and that belong to
  * no single part:
- *   - XML text               encodeXmlEntities
+ *   - XML text                encodeXmlEntities (re-exported from `xml-escape.ts`)
  *   - Identifiers & naming    getUuid, validateObjectName, getDuplicateObjectNames
  *   - Slide relationships     getNewRelId, isHyperlinkRel, mediaSlideKey
  *
@@ -13,7 +13,13 @@
  */
 
 import { warn } from '../diagnostics.js'
+import { hasIllegalXmlChars } from '../xml-escape.js'
 import type { PresSlideInternal } from '../types/internal.js'
+
+// The two escapers this module used to define now live in `src/xml-escape.ts`, so the read side
+// and `embedded-fonts.ts` -- neither of which may import `gen/` -- can use the same ones. Every
+// write-side caller still reaches them through here.
+export { encodeXmlEntities, encodeXmlAttrValue } from '../xml-escape.js'
 
 /**
  * Fill the `x`/`y` placeholders of a hex pattern with random nibbles.
@@ -36,66 +42,6 @@ export function getUuid(uuidFormat: string): string {
 		const v = c === 'x' ? r : (r & 0x3) | 0x8
 		return v.toString(16)
 	})
-}
-
-/**
- * The XML 1.0 control characters no document may carry, as a character class.
- *
- * Built from `String.fromCharCode` so `no-control-regex` cannot flag it statically, and built
- * ONCE: it was constructed inside `encodeXmlEntities`, which runs for every attribute value and
- * text child in the package, and again inside `validateObjectName` under a comment saying it was
- * the same set.
- */
-const ILLEGAL_XML_CHARS_CLASS = ((cc: (n: number) => string) =>
-	`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)(String.fromCharCode)
-
-/** The stripping form. Separate from {@link ILLEGAL_XML_CHARS} because a `g` regex is stateful under `.test`. */
-const ILLEGAL_XML_CHARS_G = new RegExp(ILLEGAL_XML_CHARS_CLASS, 'g')
-
-/** The detecting form; see {@link ILLEGAL_XML_CHARS_G} for why the two are not one regex. */
-const ILLEGAL_XML_CHARS = new RegExp(ILLEGAL_XML_CHARS_CLASS)
-
-/**
- * Replace special XML characters with HTML-encoded strings.
- *
- * ELEMENT TEXT ONLY. A literal tab, carriage return or line feed is left alone here because in
- * character data it *is* the content (`<a:t>` line breaks depend on it). Inside an attribute value
- * the same three characters are destroyed by the parser rather than preserved — see
- * {@link encodeXmlAttrValue}, which every attribute-emitting path must use instead.
- * @param {string | number} xml - value to encode (numbers are stringified, as callers pass counts/sizes)
- * @returns {string} escaped XML
- */
-export function encodeXmlEntities(xml: string | number): string {
-	// NOTE: Dont use short-circuit eval here as value c/b "0" (zero) etc.!
-	if (typeof xml === 'undefined' || xml == null) return ''
-	// Strip XML 1.0 illegal control chars (e.g. \v) before escaping to prevent PowerPoint repair dialogs.
-	return xml
-		.toString()
-		.replace(ILLEGAL_XML_CHARS_G, '')
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;')
-		.replace(/'/g, '&apos;')
-}
-
-/**
- * Escape a value destined for an XML **attribute**.
- *
- * Everything {@link encodeXmlEntities} does, plus the three whitespace characters that survive in
- * element text but not in an attribute: XML 1.0 section 3.3.3 requires a parser to normalise a
- * literal tab, carriage return or line feed inside an attribute value to a single space *before any
- * consumer sees it*. Carrying one across therefore requires a character reference, so a caller's
- * `objectName: 'Abschnitts-\nuberschrift'` reads back with its line break rather than a space.
- *
- * Deliberately a separate function rather than a widening of `encodeXmlEntities`: that helper also
- * escapes element text, where a raw newline is meaningful content emitted as-is, and escaping it
- * there would change bytes across every text-bearing part in the package.
- * @param {string | number} xml - value to encode (numbers are stringified, as callers pass ids/sizes)
- * @returns {string} escaped XML, safe to place between attribute quotes
- */
-export function encodeXmlAttrValue(xml: string | number): string {
-	return encodeXmlEntities(xml).replace(/\t/g, '&#9;').replace(/\n/g, '&#10;').replace(/\r/g, '&#13;')
 }
 
 /**
@@ -158,7 +104,7 @@ export function validateObjectName(name: string, kind: string): string {
 		return name
 	}
 	// Same set `encodeXmlEntities` strips; detect so the caller knows the name will change.
-	if (ILLEGAL_XML_CHARS.test(name)) {
+	if (hasIllegalXmlChars(name)) {
 		warn(
 			'object-name/control-characters',
 			`${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`

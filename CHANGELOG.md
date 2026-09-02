@@ -66,6 +66,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`PresLayout.width` and `.height` say which unit they are in, because it depends on the
+  direction.** `defineLayout` reads them as INCHES — that is what its own example passes —
+  while `pptx.presLayout` returns them in EMU. Both are public and both are the same type,
+  so `defineLayout({ ...pptx.presLayout, name: 'Copy' })`, the obvious way to derive a
+  layout from the current one, states a width of nine million inches. Every value is
+  finite, so nothing used to warn.
+
+  The fields are documented rather than split into a separate `LayoutDefinition`. A split
+  would be a breaking change to the most-used type on the surface, and it is not what
+  actually stops the bad deck: the bound below is. What the doc does is tell a reader which
+  direction they are travelling in before they hit it.
+
+- **`AlignV` is deprecated.** It is the enum form of the `VAlign` string union, and no
+  option in the library is typed as it — unlike its sibling `AlignH`, which
+  `TextPropsOptions.align` really does take. It was a third public spelling of a
+  two-spelling fact.
+
+  **Migration:** use the `VAlign` union (`'top' | 'middle' | 'bottom'`) for a `valign`
+  option, or `TextAnchor` for a text body's own `a:bodyPr/@anchor`.
+
 - **`exactOptionalPropertyTypes` is on, and a few published types widen to say what they
   always did.** The flag distinguishes a missing key from one present and holding
   `undefined`; the library now draws that line deliberately rather than by accident, with
@@ -154,6 +174,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`PresLayout._sizeW` / `._sizeH` are gone.** Every writer set them equal to `width` /
+  `height`, and the only two readers were spelled `presLayout._sizeW || presLayout.width` —
+  two names for one fact, with the fallback proving the second was always enough. Because
+  they were public and optional, a caller *could* set them differently, and only the table
+  auto-width path would have honoured it. **Migration:** use `width` and `height`.
+
+- **`TableCell._tableCells` is gone.** Zero reads and zero writes anywhere in the library.
+
+- **`SlideMasterChartProps.opts` is gone; use `options`.** Both were declared, neither was
+  documented, and the definer read `chart.opts || chart.options`, so the undocumented alias
+  *won* when a caller had both — setting the documented one and leaving a stray `opts`
+  behind got the stray. `options` is the spelling every sibling descriptor uses.
+
+- **`CONNECTOR_PRESETS` is no longer exported.** Its only consumer was
+  `connectorPresetFor`, eleven lines below it in the same file, and
+  `docs/architecture.md` puts internal OOXML generators off the published surface unless
+  deliberately exposed. **Migration:** name a connector by its `ConnectorType`
+  (`'straight' | 'elbow' | 'curved'`), or by the `CONNECTOR_PRESET_NAME` union, which is
+  still public.
+
 - **`image` is gone from `ShapeLineProps`: a picture stroke is not expressible in OOXML.**
   `ShapeLineProps extends ShapeFillProps` carried `image` and `type: 'image'` along with
   everything else, and `<a:ln>`'s paint child is `EG_LineFillProperties` — `a:noFill`,
@@ -174,6 +214,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **No slide size was bounded, and `defineLayout` warned about everything and refused
+  nothing.** `p:sldSz/@cx` and `@cy` are `ST_SlideSizeCoordinate`, 914400 to 51206400 EMU —
+  one to fifty-six inches — and nothing checked. `defineLayout`'s guard chain was six arms
+  and every one a `warn`, so:
+
+  - `defineLayout({ name: 'Badge', width: 0.5, height: 0.5 })` produced **no diagnostic at
+    all** (both values are truthy and finite) and emitted a `sldSz` PowerPoint offers to
+    repair. `width: -5` is truthy too, so `cx="-4572000"` reached the file.
+  - `defineLayout(undefined)` warned `layout/invalid-definition` and then threw a raw
+    `TypeError` on the next line's `layout.name` — after a warning describing the very
+    input that could not survive, and against `docs/errors.md`'s statement that every
+    failure this library raises is a `TsPptxError`.
+
+  Both dimensions now go through the same clamp-and-warn the rest of the library's
+  out-of-range options use (`docs/diagnostics.md`), under the new diagnostic code
+  `layout/size-out-of-range`, and a non-object argument throws
+  `InvalidOptionError('layout/invalid-definition')`. A numeric string is still advice
+  rather than an error: it warns and the layout is defined, as before.
+
+- **An embedded font's `typeface` was escaped by the weakest of three escapers.**
+  `pptx.embedFont({ typeface })` takes a caller string straight to
+  `<p:font typeface="…">` in `presentation.xml`, and the local escaper it went through
+  handled `&`, `<`, `>` and `"` and nothing else. So a control character XML 1.0 forbids
+  outright — a vertical tab, say — was written verbatim into the package, which is what
+  every other emission site in the library strips; and a newline was silently normalised to
+  a space by any parser that read the file back, which is what the write side's
+  character-reference escaping exists to prevent.
+
+  The three escapers are now one, in a dependency-free `src/xml-escape.ts` that the write
+  side, the read/edit side and the shared embedded-font module all reach. The read/edit
+  path's `.rels` and `[Content_Types].xml` writers gain the control strip and `&apos;` with
+  it.
+
+- **A chart's `dataBorder.color` rejected the `#` spelling every other colour option
+  accepts.** The chart definer had a private copy of the six-hex test that also required
+  `length === 6`, so `'#4472C4'` was neither a hex colour nor a scheme colour and the
+  border silently became the `F9F9F9` fallback. The hex test is now one function
+  (`isHexColor`), which strips the hash first, as the rest of the library always has.
 
 - **Four converter policies were honoured by the shape mapper and skipped elsewhere.** Each
   produced a silently different deck with *no fidelity note*, which is why the round trip

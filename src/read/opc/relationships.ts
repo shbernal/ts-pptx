@@ -1,4 +1,5 @@
-import { escapeXmlAttribute, getElements, parseXml } from '../oxml/dom.js'
+import { getElements, parseXml } from '../oxml/dom.js'
+import { encodeXmlAttrValue } from '../../xml-escape.js'
 import { resolveRelativePartName } from './partnames.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
 
@@ -175,7 +176,7 @@ export class Relationships {
 		for (const { id, type, target, targetMode } of this.#byId.values()) {
 			const mode = targetMode ? ` TargetMode="${targetMode}"` : ''
 			lines.push(
-				`<Relationship Id="${escapeXmlAttribute(id)}" Type="${escapeXmlAttribute(type)}" Target="${escapeXmlAttribute(target)}"${mode}/>`
+				`<Relationship Id="${encodeXmlAttrValue(id)}" Type="${encodeXmlAttrValue(type)}" Target="${encodeXmlAttrValue(target)}"${mode}/>`
 			)
 		}
 		lines.push('</Relationships>')

@@ -20,7 +20,6 @@ export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
 // ECMA-376 ST_SlideLayoutId requires id >= 0x80000000, and PowerPoint conventionally
 // starts layout IDs one past that. See `makeXmlMaster` in `gen/slide/master.ts`.
 export const LAYOUT_IDX_SERIES_BASE = 2147483649
-export const REGEX_HEX_COLOR = /^[0-9a-fA-F]{6}$/
 export const LINEH_MODIFIER = 1.67 // AKA: Golden Ratio Typography
 
 export const DEF_BULLET_MARGIN = 27

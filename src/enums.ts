@@ -258,193 +258,31 @@ export enum AlignH {
 	right = 'right',
 	justify = 'justify',
 }
+/**
+ * @deprecated The enum form of `VAlign`, which no option actually takes. Use the `VAlign`
+ * string union (`'top' | 'middle' | 'bottom'`) or, for a text body's own anchoring,
+ * {@link TextAnchor}. Unlike its sibling {@link AlignH} — which `TextPropsOptions.align`
+ * really is typed as — nothing in the library reads this, so it is a third spelling of a
+ * two-spelling fact. It will be removed in the next major.
+ */
 export enum AlignV {
 	top = 'top',
 	middle = 'middle',
 	bottom = 'bottom',
 }
 
-export type SHAPE_NAME =
-	| 'accentBorderCallout1'
-	| 'accentBorderCallout2'
-	| 'accentBorderCallout3'
-	| 'accentCallout1'
-	| 'accentCallout2'
-	| 'accentCallout3'
-	| 'actionButtonBackPrevious'
-	| 'actionButtonBeginning'
-	| 'actionButtonBlank'
-	| 'actionButtonDocument'
-	| 'actionButtonEnd'
-	| 'actionButtonForwardNext'
-	| 'actionButtonHelp'
-	| 'actionButtonHome'
-	| 'actionButtonInformation'
-	| 'actionButtonMovie'
-	| 'actionButtonReturn'
-	| 'actionButtonSound'
-	| 'arc'
-	| 'bentArrow'
-	| 'bentUpArrow'
-	| 'bevel'
-	| 'blockArc'
-	| 'borderCallout1'
-	| 'borderCallout2'
-	| 'borderCallout3'
-	| 'bracePair'
-	| 'bracketPair'
-	| 'callout1'
-	| 'callout2'
-	| 'callout3'
-	| 'can'
-	| 'chartPlus'
-	| 'chartStar'
-	| 'chartX'
-	| 'chevron'
-	| 'chord'
-	| 'circularArrow'
-	| 'cloud'
-	| 'cloudCallout'
-	| 'corner'
-	| 'cornerTabs'
-	| 'cube'
-	| 'curvedDownArrow'
-	| 'curvedLeftArrow'
-	| 'curvedRightArrow'
-	| 'curvedUpArrow'
-	| 'custGeom'
-	| 'decagon'
-	| 'diagStripe'
-	| 'diamond'
-	| 'dodecagon'
-	| 'donut'
-	| 'doubleWave'
-	| 'downArrow'
-	| 'downArrowCallout'
-	| 'ellipse'
-	| 'ellipseRibbon'
-	| 'ellipseRibbon2'
-	| 'flowChartAlternateProcess'
-	| 'flowChartCollate'
-	| 'flowChartConnector'
-	| 'flowChartDecision'
-	| 'flowChartDelay'
-	| 'flowChartDisplay'
-	| 'flowChartDocument'
-	| 'flowChartExtract'
-	| 'flowChartInputOutput'
-	| 'flowChartInternalStorage'
-	| 'flowChartMagneticDisk'
-	| 'flowChartMagneticDrum'
-	| 'flowChartMagneticTape'
-	| 'flowChartManualInput'
-	| 'flowChartManualOperation'
-	| 'flowChartMerge'
-	| 'flowChartMultidocument'
-	| 'flowChartOfflineStorage'
-	| 'flowChartOffpageConnector'
-	| 'flowChartOnlineStorage'
-	| 'flowChartOr'
-	| 'flowChartPredefinedProcess'
-	| 'flowChartPreparation'
-	| 'flowChartProcess'
-	| 'flowChartPunchedCard'
-	| 'flowChartPunchedTape'
-	| 'flowChartSort'
-	| 'flowChartSummingJunction'
-	| 'flowChartTerminator'
-	| 'foldedCorner'
-	| 'frame'
-	| 'funnel'
-	| 'gear6'
-	| 'gear9'
-	| 'halfFrame'
-	| 'heart'
-	| 'heptagon'
-	| 'hexagon'
-	| 'homePlate'
-	| 'horizontalScroll'
-	| 'irregularSeal1'
-	| 'irregularSeal2'
-	| 'leftArrow'
-	| 'leftArrowCallout'
-	| 'leftBrace'
-	| 'leftBracket'
-	| 'leftCircularArrow'
-	| 'leftRightArrow'
-	| 'leftRightArrowCallout'
-	| 'leftRightCircularArrow'
-	| 'leftRightRibbon'
-	| 'leftRightUpArrow'
-	| 'leftUpArrow'
-	| 'lightningBolt'
-	| 'line'
-	| 'lineInv'
-	| 'mathDivide'
-	| 'mathEqual'
-	| 'mathMinus'
-	| 'mathMultiply'
-	| 'mathNotEqual'
-	| 'mathPlus'
-	| 'moon'
-	| 'noSmoking'
-	| 'nonIsoscelesTrapezoid'
-	| 'notchedRightArrow'
-	| 'octagon'
-	| 'parallelogram'
-	| 'pentagon'
-	| 'pie'
-	| 'pieWedge'
-	| 'plaque'
-	| 'plaqueTabs'
-	| 'plus'
-	| 'quadArrow'
-	| 'quadArrowCallout'
-	| 'rect'
-	| 'ribbon'
-	| 'ribbon2'
-	| 'rightArrow'
-	| 'rightArrowCallout'
-	| 'rightBrace'
-	| 'rightBracket'
-	| 'round1Rect'
-	| 'round2DiagRect'
-	| 'round2SameRect'
-	| 'roundRect'
-	| 'rtTriangle'
-	| 'smileyFace'
-	| 'snip1Rect'
-	| 'snip2DiagRect'
-	| 'snip2SameRect'
-	| 'snipRoundRect'
-	| 'squareTabs'
-	| 'star10'
-	| 'star12'
-	| 'star16'
-	| 'star24'
-	| 'star32'
-	| 'star4'
-	| 'star5'
-	| 'star6'
-	| 'star7'
-	| 'star8'
-	| 'stripedRightArrow'
-	| 'sun'
-	| 'swooshArrow'
-	| 'teardrop'
-	| 'trapezoid'
-	| 'triangle'
-	| 'upArrow'
-	| 'upArrowCallout'
-	| 'upDownArrow'
-	| 'upDownArrowCallout'
-	| 'uturnArrow'
-	| 'verticalScroll'
-	| 'wave'
-	| 'wedgeEllipseCallout'
-	| 'wedgeRectCallout'
-	| 'wedgeRoundRectCallout'
-	| CONNECTOR_PRESET_NAME
+/**
+ * Every shape geometry name `addShape` accepts: the friendly {@link ShapeType} names plus the
+ * connector presets that enum does not surface.
+ *
+ * Derived from `ShapeType` rather than spelled out, for the reason `CHART_NAME`, `SCHEME_COLORS`,
+ * `PLACEHOLDER_TYPE` and `CONNECTOR_PRESET_NAME` are each derived from their runtime source: the
+ * two cannot drift. The hand-written union this replaced had all 179 members in enum order, and
+ * the runtime `VALID_SHAPE_PRESETS` set was already built from `Object.values(ShapeType)`, so the
+ * type and the set it is supposed to describe could disagree on exactly the half nothing checked.
+ * The union this produces is character-for-character the one it replaces.
+ */
+export type SHAPE_NAME = `${ShapeType}` | CONNECTOR_PRESET_NAME
 
 /**
  * Valid ECMA-376 `ST_ShapeType` presets that are not surfaced with a friendly
@@ -563,8 +401,13 @@ export enum SlideObjectType {
  * Maps a friendly `ConnectorType` to its OOXML connector preset *family*. `straight`
  * has a single fixed preset; `elbow` and `curved` select a member by bend count
  * (`bentConnector{3,4,5}` / `curvedConnector{3,4,5}`) — see `connectorPresetFor`.
+ *
+ * Not exported: `connectorPresetFor`, eleven lines below, is its only reader, and
+ * `docs/architecture.md` puts internal OOXML generators off the published surface unless
+ * deliberately exposed. Callers name a connector by its `ConnectorType`, or by the
+ * {@link CONNECTOR_PRESET_NAME} the function returns.
  */
-export const CONNECTOR_PRESETS = {
+const CONNECTOR_PRESETS = {
 	straight: 'straightConnector1',
 	elbow: 'bentConnector',
 	curved: 'curvedConnector',

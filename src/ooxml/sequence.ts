@@ -21,6 +21,8 @@
  * both are bound by the same ECMA-376 sequence.
  */
 
+import { EMBEDDED_FONT_SLOTS } from '../embedded-fonts.js'
+
 /**
  * One step of a schema sequence: a single element, or a choice group whose members are mutually
  * exclusive. A group is spelled as an array so {@link successorsOf} can treat every member as
@@ -226,7 +228,7 @@ export const PRESENTATION_AFTER_EMBEDDED_FONT_LST = successorsOf(PRESENTATION_SE
  * declaration is a plain string list.
  * @see ECMA-376 Part 1 §19.2.1.9
  */
-const EMBEDDED_FONT_ENTRY_SEQUENCE: readonly string[] = ['p:font', 'p:regular', 'p:bold', 'p:italic', 'p:boldItalic']
+const EMBEDDED_FONT_ENTRY_SEQUENCE: readonly string[] = ['p:font', ...EMBEDDED_FONT_SLOTS.map((slot) => `p:${slot}`)]
 
 /**
  * For each `p:embeddedFont` child, the children that must follow it — i.e. what a new one is

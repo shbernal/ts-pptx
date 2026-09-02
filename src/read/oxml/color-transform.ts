@@ -31,7 +31,7 @@
  * (`100%` → `100000`), so a modifier's fraction is `val / PERCENT_SCALE`.
  */
 import { ANGLE_UNITS_PER_DEGREE } from '../../units.js'
-import { stripHash } from '../../hex-color.js'
+import { isHexColor, stripHash } from '../../hex-color.js'
 import { parsePercent } from './dom.js'
 
 /** A colour-transform modifier in its read-model form: tag local-name + raw `@val`. */
@@ -51,7 +51,7 @@ const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n)
 /** Parse a 6-hex string (`RRGGBB`, optional `#`) into 0–1 sRGB channels, or `null`. */
 function parseHex(hex: string): { r: number; g: number; b: number } | null {
 	const h = stripHash(hex)
-	if (!/^[0-9a-fA-F]{6}$/.test(h)) return null
+	if (!isHexColor(h)) return null
 	return {
 		r: parseInt(h.slice(0, 2), 16) / 255,
 		g: parseInt(h.slice(2, 4), 16) / 255,

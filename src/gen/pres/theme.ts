@@ -5,8 +5,8 @@
  * over the default Office scheme) plus the fixed font/format schemes.
  */
 
-import { REGEX_HEX_COLOR, XML_DECL } from '../../constants-internal.js'
-import { stripHash } from '../../hex-color.js'
+import { XML_DECL } from '../../constants-internal.js'
+import { isHexColor, stripHash } from '../../hex-color.js'
 import type { ThemeColorScheme } from '../../types/index.js'
 import type { PresentationPropsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
@@ -50,7 +50,7 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
 			let child = defaultChild
 			if (typeof override === 'string' && override.length > 0) {
 				const hex = stripHash(override)
-				if (REGEX_HEX_COLOR.test(hex)) child = raw(voidEl('a:srgbClr', { val: hex.toUpperCase() }))
+				if (isHexColor(hex)) child = raw(voidEl('a:srgbClr', { val: hex.toUpperCase() }))
 				else
 					warn(
 						'theme/invalid-color-override',
