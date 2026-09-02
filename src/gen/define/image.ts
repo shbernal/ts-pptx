@@ -10,13 +10,13 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { getNewRelId } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { resolveObjectName } from './object-name.js'
 import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
 import { registerHyperlinkRel } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -125,10 +125,12 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
 	const strImagePath = opt.path || ''
 	const imageRelId = getNewRelId(target)
-	const imageNameIdx = nextObjectNameIdx(target, SlideObjectType.image)
-	const objectName = opt.objectName
-		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'image'))
-		: `Image ${imageNameIdx}`
+	const objectName = resolveObjectName(target, SlideObjectType.image, {
+		label: 'Image',
+		base: 0,
+		kind: 'image',
+		supplied: opt.objectName,
+	})
 
 	// REALITY-CHECK: an unusable source has nothing to degrade to — there is no image to place —
 	// so these reject rather than warn. `addMedia()` already rejects the missing-source and

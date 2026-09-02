@@ -11,9 +11,8 @@ import { warn } from '../../diagnostics.js'
 import type { ConnectorProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { resolveObjectName } from './object-name.js'
 import { InvalidOptionError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
 
@@ -116,7 +115,12 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	}
 	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')
 	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')
-	const connectorNameIdx = nextObjectNameIdx(target, SlideObjectType.connector)
+	const objectName = resolveObjectName(target, SlideObjectType.connector, {
+		label: 'Connector',
+		base: 0,
+		kind: 'connector',
+		supplied: opts.objectName,
+	})
 
 	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
 	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
@@ -149,9 +153,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 				...pickDefined(opts, ['beginArrowType', 'endArrowType']),
 			},
 			...pickDefined(opts, ['altText']),
-			objectName: opts.objectName
-				? encodeXmlAttrValue(validateObjectName(opts.objectName, 'connector'))
-				: `Connector ${connectorNameIdx}`,
+			objectName,
 		},
 	}
 

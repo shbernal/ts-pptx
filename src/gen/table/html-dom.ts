@@ -37,7 +37,7 @@ import type {
 } from '../../types/index.js'
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
-import { inch2Emu } from '../../units-internal.js'
+import { inch2Emu, resolveSlideMarginsInches } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
@@ -636,7 +636,13 @@ export function genTableToSlides(
 	target: TableToSlidesElement | string,
 	options: TableToSlidesProps = {}
 ): void {
-	const opts = options || {}
+	// Own the options before touching them, the way `addTextDefinition`, `addShapeDefinition`
+	// and `addTableDefinition` each do. This function resolves the slide margin, the column
+	// widths, the head rows and the per-page `y` into its working bag; writing those into the
+	// caller's object made a reused bag change the next call's output — most visibly `y`, left
+	// holding the continuation start, so the second call's first table began where the first
+	// call's *second* page did.
+	const opts: TableToSlidesProps = { ...options }
 	const masterSlide = resolveMasterSlide(pptx, opts.masterTitle)
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
@@ -654,16 +660,7 @@ export function genTableToSlides(
 	const ctx = resolveDomContext(target, opts)
 
 	// STEP 1: Set margins
-	if (masterSlide?._margin) {
-		if (Array.isArray(masterSlide._margin)) arrInchMargins = masterSlide._margin
-		else if (Number.isFinite(masterSlide._margin))
-			arrInchMargins = [masterSlide._margin, masterSlide._margin, masterSlide._margin, masterSlide._margin]
-		opts.slideMargin = arrInchMargins
-	} else if (opts?.slideMargin) {
-		if (Array.isArray(opts.slideMargin)) arrInchMargins = opts.slideMargin
-		else if (Number.isFinite(opts.slideMargin))
-			arrInchMargins = [opts.slideMargin, opts.slideMargin, opts.slideMargin, opts.slideMargin]
-	}
+	arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, opts.slideMargin)
 	emuSlideTabW = (opts.w ? inch2Emu(opts.w) : pptx.presLayout.width) - inch2Emu(arrInchMargins[1] + arrInchMargins[3])
 
 	if (opts.verbose) {

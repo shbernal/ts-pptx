@@ -22,8 +22,8 @@
 import { SlideObjectType } from '../../enums.js'
 import type { Model3dProps, Model3dPoint, Model3dCameraProps } from '../../types/model3d.js'
 import type { PresSlideInternal, SlideObject, Model3dInternal } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { getNewRelId, mediaSlideKey } from '../utils.js'
+import { resolveObjectName } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
@@ -113,10 +113,12 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	// STEP 2: Resolve the camera before touching the rel table, so an invalid option throws without
 	// leaving a half-registered part behind.
 	const camera = resolveCamera(opt.camera, opt.meterPerModelUnit)
-	const nameIdx = nextObjectNameIdx(target, SlideObjectType.model3d)
-	const objectName = opt.objectName
-		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'model3d'))
-		: `3D Model ${nameIdx + 1}`
+	const objectName = resolveObjectName(target, SlideObjectType.model3d, {
+		label: '3D Model',
+		base: 1,
+		kind: 'model3d',
+		supplied: opt.objectName,
+	})
 
 	// STEP 3: Register the `.glb` payload rel. Every model gets its own rel and its own camera; the
 	// package-part de-dup in `package/assemble.ts` still collapses byte-identical payloads to one

@@ -9,11 +9,10 @@ import { type SHAPE_NAME, ShapeType, SlideObjectType } from '../../enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { assertKnownPreset } from '../drawingml/geometry.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { resolveObjectName } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -119,10 +118,12 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	options.h = options.h || (options.h === 0 ? 0 : 1)
 	// Shapes are `_type === text` objects, so they share the text-box name bucket (`Shape 0`,
 	// `Text 1`, …) — which is what stops a shape and a text box colliding on `0`.
-	const shapeNameIdx = nextObjectNameIdx(target, SlideObjectType.text)
-	options.objectName = options.objectName
-		? encodeXmlAttrValue(validateObjectName(options.objectName, 'shape'))
-		: `Shape ${shapeNameIdx}`
+	options.objectName = resolveObjectName(target, SlideObjectType.text, {
+		label: 'Shape',
+		base: 0,
+		kind: 'shape',
+		supplied: options.objectName,
+	})
 
 	// 3: Create hyperlink rels
 	createHyperlinkRels(target, newObject)

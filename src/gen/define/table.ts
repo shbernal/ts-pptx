@@ -6,13 +6,7 @@
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
 import { SlideObjectType } from '../../enums.js'
-import {
-	DEF_CELL_BORDER,
-	DEF_CELL_MARGIN_IN,
-	DEF_FONT_COLOR,
-	DEF_FONT_SIZE,
-	DEF_SLIDE_MARGIN_IN,
-} from '../../constants-internal.js'
+import { DEF_CELL_BORDER, DEF_CELL_MARGIN_IN, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type {
 	AddSlideProps,
@@ -26,8 +20,8 @@ import type {
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { tableHasHyperlink, withCheckedSpans } from '../table/spans.js'
-import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
-import { getSmartParseNumber } from '../../units-internal.js'
+import { getSmartParseNumber, resolveSlideMarginsInches } from '../../units-internal.js'
+import { resolveObjectName } from './object-name.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { resolveFillKind } from '../drawingml/fill.js'
@@ -318,9 +312,15 @@ export function addTableDefinition(
 	// are registered through them and read back at emit time.
 	const opt: TableProps = options && typeof options === 'object' ? { ...options } : {}
 	if (Array.isArray(opt.border)) opt.border = [...opt.border] as typeof opt.border
-	opt.objectName = opt.objectName
-		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'table'))
-		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
+	// Through `nextObjectNameIdx` like every other definer. This counted the tables already in
+	// `_slideObjects` instead — the derivation `object-name.ts` documents as having been replaced,
+	// because a splice into a group makes the count go backwards.
+	opt.objectName = resolveObjectName(target, SlideObjectType.table, {
+		label: 'Table',
+		base: 0,
+		kind: 'table',
+		supplied: opt.objectName,
+	})
 
 	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
 	// position/size for any of x/y/w/h the caller omits, mirroring the image and
@@ -447,19 +447,8 @@ export function addTableDefinition(
 
 	// Set/Calc table width
 	// Get slide margins - start with default values, then adjust if master or slide margins exist
-	let arrTableMargin = DEF_SLIDE_MARGIN_IN
-	// Master margins override the defaults, if present
-	if (slideLayout && typeof slideLayout._margin !== 'undefined') {
-		if (Array.isArray(slideLayout._margin)) arrTableMargin = slideLayout._margin
-		else if (Number.isFinite(Number(slideLayout._margin))) {
-			arrTableMargin = [
-				Number(slideLayout._margin),
-				Number(slideLayout._margin),
-				Number(slideLayout._margin),
-				Number(slideLayout._margin),
-			]
-		}
-	}
+	// Master margins override the defaults, if present.
+	const arrTableMargin = resolveSlideMarginsInches(slideLayout?._margin)
 
 	/**
 	 * Calc table width depending upon what data we have - several scenarios exist (including bad data, eg: colW doesnt match col count)
@@ -658,6 +647,9 @@ export function addTableDefinition(
 				// Overwritten only when there is a per-slide mapping to apply; otherwise `rowH` is left
 				// exactly as the caller spelled it, absent included.
 				const pagedOpt: TableProps = { ...opt }
+				// The pager resolves the column grid it wraps text against and hands it back on
+				// each page; the emitted table takes that grid rather than re-deriving one.
+				if (slide.colW) pagedOpt.colW = slide.colW
 				if (Array.isArray(opt.rowH) && slide.rowH) pagedOpt.rowH = slide.rowH as number[]
 				newSlide.addTable(slide.rows, pagedOpt)
 

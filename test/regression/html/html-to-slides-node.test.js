@@ -673,4 +673,34 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 			assert(!xml.includes('sz="NaN"'), 'no NaN reaches the attribute; got: ' + xml)
 		},
 	},
+	{
+		// Every definer copies its options bag before touching it, each with a comment saying why.
+		// `tableToSlides` did not, and resolved its slide margin, column widths, head rows and
+		// per-page `y` into the caller's object — so a reused bag changed the next call's output.
+		// `y` is the visible one: left holding the continuation start, the second call's FIRST
+		// table began where the first call's SECOND page did.
+		name: 'a reused options object gives the same result on the second call',
+		fn: async () => {
+			const html =
+				'<table id="t">' +
+				Array.from({ length: 40 }, (_unused, i) => `<tr><td>Row ${i} A</td><td>Row ${i} B</td></tr>`).join('') +
+				'</table>'
+			const opts = { autoPage: true, autoPageSlideStartY: 3 }
+			const before = JSON.stringify(opts)
+
+			const first = await build((pptx) => {
+				tableToSlides(pptx, tableOf(windowWith(html)), opts)
+			})
+			const second = await build((pptx) => {
+				tableToSlides(pptx, tableOf(windowWith(html)), opts)
+			})
+
+			assertEqual(JSON.stringify(opts), before, 'the caller-s options object is untouched')
+			assertEqual(
+				await readEntry(first.zip, 'ppt/slides/slide1.xml'),
+				await readEntry(second.zip, 'ppt/slides/slide1.xml'),
+				'the same call twice emits the same first slide'
+			)
+		},
+	},
 ])

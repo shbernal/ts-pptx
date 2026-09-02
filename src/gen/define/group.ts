@@ -10,8 +10,8 @@ import { ShapeType, SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { encodeXmlAttrValue } from '../utils.js'
+import { resolveObjectName } from './object-name.js'
 import { addChartDefinition } from './chart.js'
 import { addImageDefinition } from './image.js'
 import { addShapeDefinition } from './shape.js'
@@ -128,10 +128,12 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[], opts: GroupProps): SlideObject {
 	// Per slide rather than per process: a module-global counter made two identical presentations
 	// built in one process disagree on their group names. `Group N` is 1-based, matching PowerPoint.
-	const groupNameIdx = nextObjectNameIdx(target, SlideObjectType.group)
-	const objectName = opts.objectName
-		? encodeXmlAttrValue(validateObjectName(opts.objectName, 'group'))
-		: `Group ${groupNameIdx + 1}`
+	const objectName = resolveObjectName(target, SlideObjectType.group, {
+		label: 'Group',
+		base: 1,
+		kind: 'group',
+		supplied: opts.objectName,
+	})
 
 	return {
 		_type: SlideObjectType.group,

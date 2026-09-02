@@ -652,5 +652,15 @@ export interface TableRowSlide {
 	 * Entries are `undefined` where no explicit height was configured (auto-distributed height).
 	 */
 	rowH?: Array<number | undefined>
+	/**
+	 * The column grid (inches) the pager measured this page against, one entry per grid column.
+	 *
+	 * The pager resolves `colW` — normalizing a short array, and distributing the usable width
+	 * when the caller gave none — and the emitted table has to use the same grid, or the widths
+	 * the text was wrapped to are not the widths it is drawn in. This carried it by writing
+	 * back onto the options bag it was handed, which made a reused bag change the next call's
+	 * output; it rides out here instead.
+	 */
+	colW?: number[]
 }
 export type TableRow = TableCell[]

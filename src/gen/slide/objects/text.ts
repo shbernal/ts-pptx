@@ -15,7 +15,6 @@ import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
-import { marginToEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
@@ -40,23 +39,6 @@ export function renderTextObject(ctx: RenderContext): string {
 	// one call site, and a contract stated there beats a defensive re-assignment here.
 	// Lines can have zero cy, but text should not
 	if (!itemOpts.line && cy === 0) cy = EMU_PER_INCH * 0.3
-
-	// Margin/Padding/Inset for textboxes
-	if (!itemOpts._bodyProp) itemOpts._bodyProp = {}
-	if (itemOpts.margin && Array.isArray(itemOpts.margin)) {
-		// Margin arrays are documented as [Top, Right, Bottom, Left] (CSS order) and table cells /
-		// slide numbers already map them that way. Keep textboxes consistent: index 0=Top, 3=Left.
-		// Margins are inches (see `marginToEmu`), matching cell margins and the PowerPoint dialog.
-		itemOpts._bodyProp.tIns = marginToEmu(itemOpts.margin[0] || 0)
-		itemOpts._bodyProp.rIns = marginToEmu(itemOpts.margin[1] || 0)
-		itemOpts._bodyProp.bIns = marginToEmu(itemOpts.margin[2] || 0)
-		itemOpts._bodyProp.lIns = marginToEmu(itemOpts.margin[3] || 0)
-	} else if (typeof itemOpts.margin === 'number') {
-		itemOpts._bodyProp.lIns = marginToEmu(itemOpts.margin)
-		itemOpts._bodyProp.rIns = marginToEmu(itemOpts.margin)
-		itemOpts._bodyProp.bIns = marginToEmu(itemOpts.margin)
-		itemOpts._bodyProp.tIns = marginToEmu(itemOpts.margin)
-	}
 
 	// A: Start SHAPE =======================================================
 	strSlideXml += '<p:sp>'

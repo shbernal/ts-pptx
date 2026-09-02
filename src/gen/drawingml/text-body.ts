@@ -37,16 +37,19 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	// authored with insets or a vertical anchor silently degrades to the default.
 	// `_bodyProp`/`options` are optional on the type but present on text/placeholder objects that reach
 	// this branch; bind them once so the body reads a narrowed, non-undefined value.
-	const options = (slideObject as SlideObject).options
-	const bodyProp = options?._bodyProp
 	if (
 		!slideObject ||
-		(slideObject._type !== SlideObjectType.text && slideObject._type !== SlideObjectType.placeholder) ||
-		!bodyProp
+		(slideObject._type !== SlideObjectType.text && slideObject._type !== SlideObjectType.placeholder)
 	) {
 		// DEFAULT: paired, not self-closing — `<a:bodyPr .../>` would be a byte change.
 		return el('a:bodyPr', { wrap: 'square', rtlCol: '0' })
 	}
+	// A text/placeholder object with no `_bodyProp` still takes the full builder below, and its
+	// defaults. It reached that arm by way of the text serializer creating an empty bag on the
+	// authored object, which is the kind of write a serializer does not get to make; the empty
+	// bag is spelled here instead.
+	const options = slideObject.options
+	const bodyProp = options?._bodyProp ?? {}
 
 	// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
 	// NOTE: attribute ORDER is byte-significant; `rtlCol` sits after the margins and columns but

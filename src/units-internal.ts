@@ -13,6 +13,7 @@
  * from an entrypoint.
  */
 
+import { DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from './constants-internal.js'
 import { warn, warnOnce } from './diagnostics.js'
 import { InvalidOptionError } from './errors.js'
 import {
@@ -96,6 +97,88 @@ export function marginToEmu(inches: number): Emu {
 				'PowerPoint dialog); a value >= 1 is likely a legacy points value — divide by 72 to convert (e.g. 10pt => 0.139in).'
 		)
 	return inch2Emu(inches)
+}
+
+/**
+ * A `[Top, Right, Bottom, Left]` margin (inches) as the four text insets in EMU, or `null` when
+ * the caller stated no margin.
+ *
+ * A scalar broadcasts to all four sides. The index order is the whole point of naming this:
+ * the arrays are CSS order while `a:bodyPr`/`a:tcPr` name their insets left-first, so every
+ * site that mapped it by hand spelled the same 3/0/1/2 shuffle — the text box's `_bodyProp`,
+ * the slide-number placeholder's `a:bodyPr`, and a table cell's `marL/R/T/B`.
+ *
+ * Each component goes through {@link marginToEmu}, so the legacy-points warning still fires
+ * once for a value of an inch or more.
+ * @param margin - the caller's `margin`, a scalar or a `[T, R, B, L]` array of inches
+ */
+export function resolveInsetsEmu(margin: number | number[] | undefined | null): {
+	l: number
+	t: number
+	r: number
+	b: number
+} | null {
+	if (typeof margin === 'number') {
+		const all = marginToEmu(margin)
+		return { l: all, t: all, r: all, b: all }
+	}
+	if (!Array.isArray(margin)) return null
+	const at = (idx: number): number => marginToEmu(margin[idx] || 0)
+	return { l: at(3), t: at(0), r: at(1), b: at(2) }
+}
+
+/**
+ * One line of table text, in EMU: `fontSizePt * (LINEH_MODIFIER + lineWeight) / 100`.
+ *
+ * The auto-pager prices a row by counting lines and multiplying by this, and the measured-fit
+ * pass estimates a cell's height with the same product. Three sites wrote the expression by
+ * hand and one of them left the caller's `autoPageLineWeight` out, so the pager guarded a row
+ * against a line it then measured at a different height.
+ *
+ * @param fontSizePt - the resolved font size in points
+ * @param lineWeight - the caller's `autoPageLineWeight`, an addend on the modifier
+ */
+export function autoPageLineHeightEmu(fontSizePt: number, lineWeight = 0): number {
+	return inch2Emu((fontSizePt * (LINEH_MODIFIER + lineWeight)) / 100)
+}
+
+/**
+ * The four slide margins in inches, `[top, right, bottom, left]`, from the master's own margin
+ * and the caller's `slideMargin`.
+ *
+ * Precedence is master, then caller, then {@link DEF_SLIDE_MARGIN_IN}. A scalar broadcasts to
+ * all four sides; an array is taken as-is.
+ *
+ * Three sites derived this and they already disagreed. Two gated the master on
+ * `typeof !== 'undefined'` and coerced with `Number.isFinite(Number(m))`; the HTML path gated
+ * on truthiness and tested `Number.isFinite(m)` with no coercion. So a master with
+ * `_margin: 0` took the master branch in two of them and the caller branch in the third, and
+ * a master with `_margin: "0.25"` resolved in two and was ignored in the third.
+ *
+ * @param masterMargin - the master/layout's `_margin`, in inches
+ * @param slideMargin - the caller's `slideMargin`, in inches
+ */
+export function resolveSlideMarginsInches(
+	masterMargin: number | number[] | string | undefined | null,
+	slideMargin?: number | number[] | string | null
+): [number, number, number, number] {
+	const broadcast = (value: number | number[] | string): [number, number, number, number] | null => {
+		if (Array.isArray(value)) {
+			const [t = 0, r = 0, b = 0, l = 0] = value
+			return [t, r, b, l]
+		}
+		const n = Number(value)
+		return Number.isFinite(n) ? [n, n, n, n] : null
+	}
+	if (masterMargin !== undefined && masterMargin !== null) {
+		const resolved = broadcast(masterMargin)
+		if (resolved) return resolved
+	}
+	if (slideMargin !== undefined && slideMargin !== null) {
+		const resolved = broadcast(slideMargin)
+		if (resolved) return resolved
+	}
+	return [...DEF_SLIDE_MARGIN_IN]
 }
 
 /**

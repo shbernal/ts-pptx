@@ -134,11 +134,14 @@ defineRegressionSuite('EMU-exact geometry and scheme-colour passthrough', [
 			// TypeScript already rejects this at compile time — the first line of defence. The
 			// runtime guard is what a JS caller (or a converter building options dynamically)
 			// actually hits, and that is what this test covers.
+			//
+			// It throws from `addText`, not from `toBytes`: the insets are resolved when the text
+			// object is defined, so the throw names the call that carries the bad value.
 			const emuMargin = /** @type {any} */ (['91441emu', 0.1, 0.1, 0.1])
 			const pres = deck()
-			pres.addSlide().addText('inset', { x: 1, y: 1, w: 4, h: 1, margin: emuMargin })
 			let threw = null
 			try {
+				pres.addSlide().addText('inset', { x: 1, y: 1, w: 4, h: 1, margin: emuMargin })
 				await pres.toBytes()
 			} catch (err) {
 				threw = err

@@ -21,7 +21,7 @@ import type {
 } from '../../types/internal.js'
 import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../utils.js'
 import { fillNamesPaint, genXmlColorSelection } from '../drawingml/fill.js'
-import { convertRotationDegrees, getSmartParseNumber, marginToEmu } from '../../units-internal.js'
+import { convertRotationDegrees, getSmartParseNumber, resolveInsetsEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
@@ -224,8 +224,8 @@ function spTreeOpenXml(): string {
  * counter the walk has been advancing — the caller allocates it and passes it in.
  *
  * @param slide - the slide, layout or master being emitted
- * @param snProps - the part's slide-number properties; `align` is defaulted here, in place,
- *   because the same object is read again downstream
+ * @param snProps - the part's slide-number properties, read but never written: a serializer
+ *   does not normalize the authored model (see the contract on `RenderContext.itemOpts`)
  * @param slideNumberId - the `<p:cNvPr>` id to use, already allocated by the caller
  */
 function slideNumberPlaceholderXml(
@@ -233,9 +233,6 @@ function slideNumberPlaceholderXml(
 	snProps: SlideNumberProps,
 	slideNumberId: number
 ): string {
-	// Set some defaults (done here b/c SlideNumber canbe added to masters or slides and has numerous entry points)
-	if (!snProps.align) snProps.align = 'left'
-
 	let strSlideXml = ''
 	strSlideXml += '<p:sp>'
 	strSlideXml += ' <p:nvSpPr>'
@@ -283,20 +280,14 @@ function slideNumberPlaceholderXml(
 		'</p:spPr>'
 	strSlideXml += '<p:txBody>'
 	// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
-	// NOTE: attribute ORDER is byte-significant, and note the margin order is lIns/tIns/rIns/bIns
-	// while the source array is [Top, Right, Bottom, Left] — hence the 3/0/1/2 indexing.
-	const snMargin = snProps.margin
-	const snMarginAt = (arrIdx: number): number | null =>
-		Array.isArray(snMargin)
-			? marginToEmu(snMargin[arrIdx] || 0)
-			: typeof snMargin === 'number'
-				? marginToEmu(snMargin || 0)
-				: null
+	// NOTE: attribute ORDER is byte-significant; `resolveInsetsEmu` owns the array's own
+	// [Top, Right, Bottom, Left] order.
+	const snInsets = resolveInsetsEmu(snProps.margin)
 	strSlideXml += voidEl('a:bodyPr', {
-		lIns: snMarginAt(3),
-		tIns: snMarginAt(0),
-		rIns: snMarginAt(1),
-		bIns: snMarginAt(2),
+		lIns: snInsets?.l ?? null,
+		tIns: snInsets?.t ?? null,
+		rIns: snInsets?.r ?? null,
+		bIns: snInsets?.b ?? null,
 		anchor: resolveTextAnchor(snProps.valign),
 	})
 	let defRPr = ''
@@ -313,9 +304,9 @@ function slideNumberPlaceholderXml(
 	}
 	strSlideXml += el('a:lstStyle', null, raw(el('a:lvl1pPr', null, raw(defRPr))), { openPrefix: '  ' })
 
-	// `align` is normalized to 'left' above when unset; anything not starting c/r falls back to 'l'.
-	// `align` is defaulted to 'left' on the props object above; read it through a local so the
-	// narrowing survives (the mutation is kept — other readers rely on it).
+	// Anything not starting c/r falls back to 'l'. This used to be preceded by a write of
+	// `'left'` back onto `snProps`, justified as "other readers rely on it" — the only other
+	// reader is this line, and it already defaults.
 	const snAlignRaw = snProps.align ?? 'left'
 	const snAlign = snAlignRaw.startsWith('c') ? 'ctr' : snAlignRaw.startsWith('r') ? 'r' : 'l'
 	strSlideXml += el('a:p', null, [

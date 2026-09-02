@@ -175,6 +175,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`tableToSlides` wrote its working state into the caller's options object.** Every definer
+  copies its options bag before touching it, each with a comment saying why; this path did
+  not, and resolved its slide margin, column widths, head rows and per-page `y` into the
+  object it was handed. So a reused bag changed the next call's output — most visibly `y`,
+  left holding the continuation start, which put the second call's *first* table where the
+  first call's *second* page began. The auto-pager likewise wrote its resolved `colW` back
+  onto the bag and its `autoPageCharWeight` onto the caller's *cell* options; the grid rides
+  out on each `TableRowSlide` now (a new optional `colW`), and the weight is projected onto
+  the cell the pager measures rather than written onto the one the caller owns.
+
+- **Two serializers normalized the authored model.** `RenderContext.itemOpts` states the
+  opposite contract. The text serializer computed `_bodyProp`'s four insets during render,
+  although `addTextDefinition` already owns `_bodyProp`; it does now, which also means an
+  unusable `margin` throws from `addText` rather than from `toBytes`, naming the call that
+  carries it. The slide-number placeholder wrote `align: 'left'` back onto its props with the
+  note "other readers rely on it" — the only other reader already defaulted with `??`.
+
+- **Slide-margin resolution had three spellings that already disagreed.** The auto-pager, the
+  HTML path and `addTableDefinition` each turned a master or slide margin into `[T,R,B,L]`
+  inches. Two gated the master on `typeof !== 'undefined'` and coerced with
+  `Number.isFinite(Number(m))`; the HTML one gated on truthiness and tested `Number.isFinite(m)`
+  without the coercion. So a master with `_margin: 0` took the master branch in two of them
+  and the caller branch in the third, and a master with `_margin: "0.25"` resolved in two and
+  was ignored in the third. All three read `resolveSlideMarginsInches` now.
+
+### Fixed
+
 - **Four read getters gave a different answer for the same OOXML depending on which
   accessor reached it.** All four change additively: values that were `null` or wrong become
   right.

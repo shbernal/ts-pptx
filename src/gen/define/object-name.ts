@@ -7,6 +7,7 @@
  */
 import { SlideObjectType } from '../../enums.js'
 import type { PresSlideInternal } from '../../types/internal.js'
+import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 
 /**
  * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,
@@ -32,4 +33,48 @@ export function nextObjectNameIdx(target: PresSlideInternal, type: SlideObjectTy
 	const idx = counts[type] ?? 0
 	counts[type] = idx + 1
 	return idx
+}
+
+/**
+ * The Selection Pane name an object takes: the caller's, validated and attribute-encoded, or the
+ * next default for its kind.
+ *
+ * Ten definers wrote this out, and the index base they append is not the same in all of them:
+ *
+ * | Definer | Default | Base |
+ * | --- | --- | --- |
+ * | `addShape` | `Shape N` | 0 |
+ * | `addText` | `Text N` | 0 |
+ * | `addImage` | `Image N` | 0 |
+ * | `addConnector` | `Connector N` | 0 |
+ * | `addMedia` | `Media N` | 0 |
+ * | `addTable` | `Table N` | 0 |
+ * | `addGroup` | `Group N` | 1 |
+ * | `addOleObject` | `Object N` | 1 |
+ * | `addModel3d` | `3D Model N` | 1 |
+ * | Zoom tiles | `Slide Zoom N`, … | 1 |
+ *
+ * `addGroup` documents 1-based as the one matching PowerPoint. Unifying them would rename every
+ * defaulted object in half the definers, so the split stays as it is and is stated here rather
+ * than being spread across ten files where nobody can see it at once.
+ *
+ * The index is taken unconditionally — including when the caller supplied a name — so an object's
+ * index is its ordinal among its kind. See {@link nextObjectNameIdx}.
+ *
+ * @param target - slide (or master) the object is being added to
+ * @param type - the object's `_type`, which selects the counter bucket
+ * @param spec - `label` opens the default name, `base` is the first index it uses, `kind` names
+ *   the API in a validation warning, and `supplied` is the caller's own name when they gave one.
+ *   `fallback` replaces the `label N` default for a kind that has a better one to offer — a
+ *   placeholder is named after the placeholder it fills — and is used as given, since it is the
+ *   library's own string rather than the caller's and has nothing to validate.
+ */
+export function resolveObjectName(
+	target: PresSlideInternal,
+	type: SlideObjectType,
+	spec: { label: string; base: 0 | 1; kind: string; supplied: string | undefined; fallback?: string }
+): string {
+	const idx = nextObjectNameIdx(target, type)
+	if (spec.supplied) return encodeXmlAttrValue(validateObjectName(spec.supplied, spec.kind))
+	return spec.fallback ?? `${spec.label} ${idx + spec.base}`
 }

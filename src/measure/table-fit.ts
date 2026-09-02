@@ -7,9 +7,10 @@
  * the columns it covers — which is what `walkTableGrid` exists to hand out.
  */
 
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, autoPageLineHeightEmu } from '../constants-internal.js'
+import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE } from '../constants-internal.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import {
+	autoPageLineHeightEmu,
 	getSmartParseNumber,
 	marginToEmu,
 	resolveTableColWidthsEmu,

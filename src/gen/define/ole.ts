@@ -15,8 +15,8 @@
 import { SlideObjectType } from '../../enums.js'
 import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { getNewRelId, mediaSlideKey } from '../utils.js'
+import { resolveObjectName } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { OFFICE_REL, PACKAGE_REL } from '../../ooxml/rel-types.js'
@@ -127,10 +127,12 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId.
 	const extn = resolvePartExtn(opt)
 	const format = OLE_FORMATS[extn] ?? BIN_FORMAT
-	const nameIdx = nextObjectNameIdx(target, SlideObjectType.oleObject)
-	const objectName = opt.objectName
-		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'oleObject'))
-		: `Object ${nameIdx + 1}`
+	const objectName = resolveObjectName(target, SlideObjectType.oleObject, {
+		label: 'Object',
+		base: 1,
+		kind: 'oleObject',
+		supplied: opt.objectName,
+	})
 
 	// STEP 3: Register the payload part rel. Deliberately NOT deduped against an identical payload
 	// elsewhere in the deck: PowerPoint gives every OLE object its own embedding part, and sharing

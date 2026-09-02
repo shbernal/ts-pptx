@@ -9,8 +9,8 @@ import { SlideObjectType } from '../../enums.js'
 import { IMG_PLAYBTN } from '../../media/placeholders.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { getNewRelId } from '../utils.js'
+import { resolveObjectName } from './object-name.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /**
@@ -58,10 +58,12 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strType = opt.type || 'audio'
 	let strExtn = ''
 	const strCover = opt.cover || IMG_PLAYBTN
-	const mediaNameIdx = nextObjectNameIdx(target, SlideObjectType.media)
-	const objectName = opt.objectName
-		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'media'))
-		: `Media ${mediaNameIdx}`
+	const objectName = resolveObjectName(target, SlideObjectType.media, {
+		label: 'Media',
+		base: 0,
+		kind: 'media',
+		supplied: opt.objectName,
+	})
 	const slideData: SlideObject = { _type: SlideObjectType.media }
 
 	// STEP 1: REALITY-CHECK

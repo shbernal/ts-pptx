@@ -16,9 +16,9 @@ import type {
 	ZoomInternal,
 	ZoomTileInternal,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, getUuid, validateObjectName } from '../utils.js'
+import { getNewRelId, getUuid } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { resolveObjectName } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 
 const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
@@ -42,10 +42,12 @@ function pushZoomObject(
 	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps,
 	zoom: Omit<ZoomInternal, 'variant'>
 ): void {
-	const nameIdx = nextObjectNameIdx(target, SlideObjectType.zoom)
-	const objectName = opts.objectName
-		? encodeXmlAttrValue(validateObjectName(opts.objectName, 'zoom'))
-		: `${ZOOM_LABEL[variant]} ${nameIdx + 1}`
+	const objectName = resolveObjectName(target, SlideObjectType.zoom, {
+		label: ZOOM_LABEL[variant],
+		base: 1,
+		kind: 'zoom',
+		supplied: opts.objectName,
+	})
 	const newObject: SlideObject = {
 		_type: SlideObjectType.zoom,
 		options: {

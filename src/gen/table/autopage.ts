@@ -8,7 +8,7 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, autoPageLineHeightEmu } from '../../constants-internal.js'
+import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN } from '../../constants-internal.js'
 import type {
 	PresLayout,
 	TableCell,
@@ -19,10 +19,12 @@ import type {
 } from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import {
+	autoPageLineHeightEmu,
 	getSmartParseNumber,
 	inch2Emu,
 	marginToEmu,
 	pinnedRowHeightInches,
+	resolveSlideMarginsInches,
 	resolveTableColWidthsEmu,
 	usableTableWidthEmu,
 } from '../../units-internal.js'
@@ -364,28 +366,8 @@ export function getSlidesForTableRows(
 	// STEP 1: Calculate margins
 	{
 		// Important: Use default size as zero cell margin is causing our tables to be too large and touch bottom of slide!
-		if (!tableProps.slideMargin && tableProps.slideMargin !== 0) tableProps.slideMargin = DEF_SLIDE_MARGIN_IN[0]
-
-		if (masterSlide && typeof masterSlide._margin !== 'undefined') {
-			if (Array.isArray(masterSlide._margin)) arrInchMargins = masterSlide._margin
-			else if (Number.isFinite(Number(masterSlide._margin))) {
-				arrInchMargins = [
-					Number(masterSlide._margin),
-					Number(masterSlide._margin),
-					Number(masterSlide._margin),
-					Number(masterSlide._margin),
-				]
-			}
-		} else if (tableProps.slideMargin || tableProps.slideMargin === 0) {
-			if (Array.isArray(tableProps.slideMargin)) arrInchMargins = tableProps.slideMargin
-			else if (Number.isFinite(tableProps.slideMargin))
-				arrInchMargins = [
-					tableProps.slideMargin,
-					tableProps.slideMargin,
-					tableProps.slideMargin,
-					tableProps.slideMargin,
-				]
-		}
+		const slideMargin = tableProps.slideMargin ?? DEF_SLIDE_MARGIN_IN[0]
+		arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, slideMargin)
 
 		if (tableProps.verbose)
 			console.log(`| arrInchMargins .................................. = [${arrInchMargins.join(', ')}]`)
@@ -429,12 +411,11 @@ export function getSlidesForTableRows(
 	// table emitter and the measured-fit pass read, so the widths this pager wraps text
 	// against are the widths the emitted `<a:gridCol>`s carry. It also normalizes the array
 	// to `numCols`: a short `colW` used to leave the trailing columns measuring against a
-	// zero width. `colW` is written back in inches because that is what `addTableDefinition`
-	// carries into each paged table.
+	// zero width. Inches, because that is the unit each paged table's `colW` takes; the grid
+	// rides out on every `TableRowSlide` rather than being written back onto the caller's bag.
 	colWidthsIn = resolveTableColWidthsEmu(tableProps.colW, emuSlideTabW, numCols).map(
 		(emu: number) => emu / EMU_PER_INCH
 	)
-	tableProps.colW = colWidthsIn
 
 	// Resolve a row's explicit height (inches) from the original `rowH` *array*, keyed by original
 	// row index. A single-number `rowH` is left to propagate via table options (it applies uniformly,
@@ -445,7 +426,11 @@ export function getSlidesForTableRows(
 		Array.isArray(tableProps.rowH) ? (pinnedRowHeightInches(tableProps.rowH[origRowIdx]) ?? undefined) : undefined
 
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
-	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[], rowH: [] as Array<number | undefined> }
+	let newTableRowSlide: TableRowSlide = {
+		rows: [] as TableRow[],
+		rowH: [] as Array<number | undefined>,
+		colW: colWidthsIn,
+	}
 	tableRows.forEach((row, iRow) => {
 		// A: Row variables — detect active rowspan at the start of this row so we can
 		// suppress page breaks that would split a rowspan group across slides.
@@ -605,7 +590,7 @@ export function getSlidesForTableRows(
 
 				// C: reset working/curr slide to hold rows as they're created
 				const newRows: TableRow[] = []
-				newTableRowSlide = { rows: newRows, rowH: [] as Array<number | undefined> }
+				newTableRowSlide = { rows: newRows, rowH: [] as Array<number | undefined>, colW: colWidthsIn }
 
 				// D: reset working/curr row
 				currTableRow = []

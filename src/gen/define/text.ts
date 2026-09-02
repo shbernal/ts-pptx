@@ -11,15 +11,15 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.j
 import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, mediaSlideKey } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
-import { nextObjectNameIdx } from './object-name.js'
+import { ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
+import { resolveObjectName } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 
@@ -84,7 +84,6 @@ export function addTextDefinition(
 	}
 	// One index for the whole text object, taken here rather than inside `cleanOpts` — that runs once
 	// for the object and again for every run, so naming from inside it would burn an index per run.
-	const textNameIdx = nextObjectNameIdx(target, newObject._type)
 
 	function cleanOpts(itemOpts: ObjectOptions): TextPropsOptions {
 		// STEP 1: Set some options
@@ -168,6 +167,14 @@ export function addTextDefinition(
 			// Both map directly to the `<a:bodyPr vert="…">` attribute, so prefer the documented one.
 			setOrClear(itemOpts._bodyProp, 'vert', itemOpts.textDirection ?? itemOpts.vert) // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true
+			// The four text insets. This used to be computed by the text serializer, which owns no
+			// options and says so: `_bodyProp` is normalized here, and normalizing half of it in
+			// one place and half in another is how the two readings drift.
+			const insets = resolveInsetsEmu(itemOpts.margin)
+			setOrClear(itemOpts._bodyProp, 'lIns', insets?.l)
+			setOrClear(itemOpts._bodyProp, 'tIns', insets?.t)
+			setOrClear(itemOpts._bodyProp, 'rIns', insets?.r)
+			setOrClear(itemOpts._bodyProp, 'bIns', insets?.b)
 			setOrClear(itemOpts._bodyProp, 'prstTxWarp', itemOpts.textWarp) // preset text warp (`<a:prstTxWarp>`), e.g. 'textArchUp'
 
 			// D.1: Text columns (`numCol` range is 1-16 per ECMA-376 ST_TextColumnCount)
@@ -227,17 +234,25 @@ export function addTextDefinition(
 	// default identity is its declared name (falling back to its type, then its idx). Placeholders
 	// are `placeholder`-typed objects and so take their name index from their own bucket; naming
 	// them `Text N` off the text-box bucket would collide with the slide's real text boxes.
-	newObject.options.objectName = newObject.options.objectName
-		? encodeXmlAttrValue(validateObjectName(newObject.options.objectName, 'text'))
-		: isPlaceholder
-			? encodeXmlAttrValue(
-					String(
-						newObject.options.placeholder ||
-							newObject.options._placeholderType ||
-							`Placeholder ${newObject.options._placeholderIdx ?? target._slideObjects.length}`
-					)
+	// A placeholder's default identity is its declared name (falling back to its type, then its
+	// idx), so it does not take the `Text N` default — but it still takes an index from its own
+	// bucket, which is what keeps a slide's real text boxes from colliding with it.
+	const placeholderName = isPlaceholder
+		? encodeXmlAttrValue(
+				String(
+					newObject.options.placeholder ||
+						newObject.options._placeholderType ||
+						`Placeholder ${newObject.options._placeholderIdx ?? target._slideObjects.length}`
 				)
-			: `Text ${textNameIdx}`
+			)
+		: undefined
+	newObject.options.objectName = resolveObjectName(target, newObject._type, {
+		label: 'Text',
+		base: 0,
+		kind: 'text',
+		supplied: newObject.options.objectName,
+		...(placeholderName === undefined ? {} : { fallback: placeholderName }),
+	})
 
 	// STEP 1b: Standalone placeholder type (accessibility "Missing Slide Title")
 	// `placeholder` is documented as a placeholder *type* ('title', 'body', et. al.). When it
