@@ -1,5 +1,13 @@
 import TsPptx, { ChartType, InvalidOptionError } from '../../../dist/node.js'
-import { defineRegressionSuite, build, assert, assertEqual, assertIncludes, assertNotIncludes } from '../../helpers.js'
+import {
+	defineRegressionSuite,
+	build,
+	assert,
+	assertEqual,
+	assertIncludes,
+	assertNotIncludes,
+	captureDiagnostics,
+} from '../../helpers.js'
 import { chartXml } from './chart-parts.js'
 
 // addChart normalizes/validates several numeric and enum options before emitting.
@@ -175,6 +183,121 @@ defineRegressionSuite('Chart option validation', [
 			})
 			const xml = await chartXml(zip)
 			assert(xml.length > 0, 'chart still builds after dropping the invalid gridLine size')
+		},
+	},
+	{
+		// `typeof x === 'number'` is the one numeric guard `NaN` passes, and it was the guard on
+		// both axis-crossing decisions while every other numeric axis option used truthiness.
+		name: 'a non-finite axis crossing falls back to the rule instead of emitting NaN',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.bar,
+						valAxisCrossesAt: NaN,
+						catAxisCrossesAt: NaN,
+					})
+				})
+				return chartXml(zip)
+			})
+			assertNotIncludes(xml, 'val="NaN"', 'ST_Double has no NaN')
+			assertIncludes(xml, '<c:crosses val="autoZero"/>', 'the axis falls back to its default rule')
+			assertEqual(
+				codes.filter((c) => c === 'chart/option-out-of-range').length,
+				2,
+				'both axes say so; got ' + JSON.stringify(codes)
+			)
+		},
+	},
+	{
+		name: 'a finite axis crossing still emits crossesAt',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, valAxisCrossesAt: 2 })
+			})
+			assertIncludes(await chartXml(zip), '<c:crossesAt val="2"/>', 'an explicit position is honoured')
+		},
+	},
+	{
+		// `ChartOpts.x` is a `Coord`, and the title builder took it through an `as number` cast,
+		// so a string reached the layout arithmetic and `+` concatenated instead of adding.
+		name: 'a non-numeric chart `x` does not put NaN in the title layout',
+		fn: async () => {
+			// A percentage needs the slide axis and the chart part is built without a layout, so
+			// the chart's own offset is left out of the fold and the caller is told. What must not
+			// happen is the old outcome: string concatenation, then `<c:x val="NaN"/>`.
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						x: '10%',
+						type: ChartType.bar,
+						showTitle: true,
+						title: 'T',
+						titlePos: { x: 0.5, y: 0.5 },
+					})
+				})
+				return chartXml(zip)
+			})
+			assertNotIncludes(xml, 'val="NaN"', 'no axis of the manual layout is NaN')
+			assertIncludes(xml, '<c:xMode val="edge"/>', 'the caller still gets the manual layout they asked for')
+			assert(codes.includes('chart/option-out-of-range'), 'and is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'a unit-bearing chart `x` folds into the title layout',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					x: '2in',
+					type: ChartType.bar,
+					showTitle: true,
+					title: 'T',
+					titlePos: { x: 0.5, y: 0.5 },
+				})
+			})
+			const inches = await chartXml(zip)
+			const { zip: zip2 } = await build((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					x: 2,
+					type: ChartType.bar,
+					showTitle: true,
+					title: 'T',
+					titlePos: { x: 0.5, y: 0.5 },
+				})
+			})
+			assertEqual(
+				/<c:x val="([^"]+)"/.exec(inches)?.[1],
+				/<c:x val="([^"]+)"/.exec(await chartXml(zip2))?.[1],
+				'"2in" and 2 are the same coordinate'
+			)
+		},
+	},
+	{
+		// `ST_Skip` is an `xsd:unsignedInt` of at least 1; the option was typed as a free-form
+		// string and emitted verbatim, and the type also rejected the natural `2`.
+		name: 'a tick-label frequency that is not a positive integer is dropped with a warning',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, catAxisLabelFrequency: 'every other' })
+				})
+				return chartXml(zip)
+			})
+			assertNotIncludes(xml, '<c:tickLblSkip', 'nothing outside ST_Skip reaches the attribute')
+			assert(codes.includes('chart/option-out-of-range'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'a numeric tick-label frequency is emitted',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, catAxisLabelFrequency: 2 })
+			})
+			assertIncludes(await chartXml(zip), '<c:tickLblSkip val="2"/>', 'every other label')
 		},
 	},
 ])

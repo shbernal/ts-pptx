@@ -6,6 +6,7 @@ import {
 	assert,
 	assertIncludes,
 	assertXmlOrder,
+	captureDiagnostics,
 	firstXmlBlock,
 } from '../../helpers.js'
 
@@ -185,6 +186,62 @@ defineRegressionSuite('Gradient fills', [
 					},
 				}
 			}, 'finite number')
+		},
+	},
+	{
+		// The stops on the same object already threw on a non-number; the radial focus was a bare
+		// `Math.max(0, Math.min(100, …))`, which propagates NaN into `<a:fillToRect l="NaN">`.
+		name: 'a radial gradient centre rejects a non-finite value',
+		fn: async () => {
+			await expectBuildError((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, {
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					fill: {
+						type: 'gradient',
+						gradient: {
+							kind: 'radial',
+							center: { x: NaN, y: 50 },
+							stops: [
+								{ position: 0, color: '000000' },
+								{ position: 100, color: 'FFFFFF' },
+							],
+						},
+					},
+				})
+			}, 'gradient.center.x')
+		},
+	},
+	{
+		name: 'a radial gradient centre out of range clamps and warns',
+		fn: async () => {
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addShape(ShapeType.rect, {
+						x: 1,
+						y: 1,
+						w: 2,
+						h: 2,
+						fill: {
+							type: 'gradient',
+							gradient: {
+								kind: 'radial',
+								center: { x: 150, y: 50 },
+								stops: [
+									{ position: 0, color: '000000' },
+									{ position: 100, color: 'FFFFFF' },
+								],
+							},
+						},
+					})
+				})
+			)
+			const xml = await readEntry(result.zip, 'ppt/slides/slide1.xml')
+			assertIncludes(xml, '<a:fillToRect l="100000" t="50000" r="0" b="50000"/>', 'clamped to the 100 bound')
+			assert(codes.includes('gradient/center-out-of-range'), 'and the caller is told; got ' + JSON.stringify(codes))
 		},
 	},
 ])

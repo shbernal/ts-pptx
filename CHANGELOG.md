@@ -175,6 +175,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Six options reached an OOXML attribute unchecked.** `ST_Double`, `ST_Percentage`,
+  `ST_Skip` and `ST_TextAnchoringType` all reject a `NaN` or an out-of-vocabulary string, so
+  each of these was a package PowerPoint reports as needing repair. All six now follow the
+  project's stated rule — warn or throw rather than emit a degenerate result — and none of
+  them changes anything for input that was already valid.
+
+  - A **radial gradient's `center`** was a bare `Math.max(0, Math.min(100, …))`, which
+    propagates `NaN` into `<a:fillToRect l="NaN"/>` while the stops on the same object already
+    threw. It goes through `clampRangedInput` now: a non-number throws `percent/non-finite`,
+    an out-of-range one clamps and warns under the new `gradient/center-out-of-range`.
+  - **Chart axis crossings** were guarded by `typeof x === 'number'`, the one numeric guard
+    `NaN` passes, so `valAxisCrossesAt: NaN` emitted `<c:crossesAt val="NaN"/>`. Both axes now
+    share one `axisCrossing` helper that falls back to the axis' default rule and warns.
+  - **A chart's `x`/`y` were cast from `Coord` to `number`** on the way into the title layout,
+    so `x: '10%'` made `+` concatenate instead of add and `<c:x val="NaN"/>` came out. The
+    cast is gone. A percentage still cannot be resolved there — the chart part is built
+    without a `PresLayout` — so the chart's own offset is left out of the fold with a warning,
+    and the `titlePos` the caller stated is still honoured.
+  - **`catAxisLabelFrequency` / `serAxisLabelFrequency`** were typed as free-form strings and
+    emitted verbatim into `<c:tickLblSkip val>`, which is an `xsd:unsignedInt` of at least 1,
+    so `'every other'` reached the part. Both are now `number | string`, so the natural `2`
+    typechecks (it did not before), and anything that is not a whole number of at least 1
+    warns and emits nothing. Pass a number; the `string` half is a compatibility hangover.
+  - **`valign` had three acceptors that disagreed**, and one of them let any unrecognised
+    string through verbatim into `anchor=`. One `resolveTextAnchor` now serves all three,
+    covering every spelling they accepted between them (`t`/`top`, `b`/`btm`/`bottom`,
+    `c`/`ctr`/`center`/`m`/`middle`) and warning under the new `text/invalid-valign`
+    otherwise. Typed callers are unaffected: `VAlign` is `'top' | 'middle' | 'bottom'`.
+  - **`tableToSlides` read a cell's CSS `font-size` in px and wrote it as points**, so a
+    default `16px` cell emitted `sz="1600"` — 16pt, a third larger than the 12pt the browser
+    rendered. The sibling padding read a few lines below had already been corrected to
+    `DEFAULT_PX_PER_INCH` and left a note saying the same stale "px to pt 1:1" assumption had
+    been there; the font size was not corrected with it. It now converts at the same density,
+    and a size with no absolute magnitude (`em`, `%`, a keyword) leaves the key off the cell
+    rather than writing `NaN`.
+
+    **Migration:** this changes every HTML-converted table. Text comes out at the size the
+    browser rendered rather than a third larger, and because the auto-pager prices rows off
+    `fontSize`, a paged table's break positions move with it. To keep the old sizes, set the
+    cell font sizes explicitly on the table options rather than relying on the CSS read.
+
 - **Three inheritance paths tested truthiness where they meant "the caller said nothing".**
   An explicit `false`, `0` or `''` counted as unset and was replaced by the value it was
   written to override. All three now test `=== undefined`.

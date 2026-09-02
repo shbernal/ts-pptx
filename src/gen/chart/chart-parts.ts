@@ -20,6 +20,7 @@ import {
 } from '../../constants-internal.js'
 import type {
 	BorderProps,
+	Coord,
 	ChartErrorBarOptions,
 	ChartPropsTitle,
 	ChartSeriesOpts,
@@ -33,7 +34,7 @@ import { genXmlColorSelection, genXmlPatternFill, solidPaint } from '../drawingm
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertAngleUnits, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
-import { ptToHundredths } from '../../units.js'
+import { coordToEmu, EMU_PER_INCH, ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 
@@ -184,6 +185,51 @@ export function validTimeUnit(value: string | undefined, optionName: string): st
 }
 
 /**
+ * A count attribute that `ST_Skip` (an `xsd:unsignedInt` of at least 1) will accept, or
+ * `undefined` when the caller's value is not one.
+ *
+ * `catAxisLabelFrequency` and `serAxisLabelFrequency` were typed as free-form strings and
+ * emitted verbatim, so `'every other'` reached `<c:tickLblSkip val="every other"/>` — and the
+ * type also rejected the natural `2`. Same shape as {@link validTimeUnit} beside it: warn and
+ * emit nothing rather than write a value outside the attribute's own type.
+ * @param value - the caller's value, a number or a numeric string
+ * @param optionName - option name as the caller spells it, for the warning
+ */
+export function positiveIntAttr(value: number | string | undefined, optionName: string): number | undefined {
+	if (value === undefined || value === null || value === '') return undefined
+	const n = Number(value)
+	if (!Number.isInteger(n) || n < 1) {
+		warn(
+			'chart/option-out-of-range',
+			`"${optionName}" must be a whole number of at least 1; ignoring ${String(value)}.`
+		)
+		return undefined
+	}
+	return n
+}
+
+/**
+ * Where one axis meets the other: `<c:crossesAt val>` for an explicit position, `<c:crosses val>`
+ * for a rule, and `defaultRule` when the caller stated neither.
+ *
+ * The two axis builders each spelled this decision out, and both opened it with
+ * `typeof value === 'number'` — the one numeric guard in the file that `NaN` passes, since every
+ * other numeric axis option is guarded by truthiness. `{ valAxisCrossesAt: NaN }` therefore
+ * emitted `<c:crossesAt val="NaN"/>`, and `ST_Double` has no such value.
+ * @param value - the caller's `*AxisCrossesAt`: a position, a `ST_Crosses` rule, or nothing
+ * @param defaultRule - the `ST_Crosses` rule to fall back on
+ * @param optionName - option name as the caller spells it, for the warning
+ */
+export function axisCrossing(value: number | string | undefined, defaultRule: string, optionName: string): string {
+	if (typeof value === 'number') {
+		if (Number.isFinite(value)) return voidEl('c:crossesAt', { val: value })
+		warn('chart/option-out-of-range', `${optionName} must be a finite number; using "${defaultRule}" instead.`)
+		return voidEl('c:crosses', { val: defaultRule })
+	}
+	return voidEl('c:crosses', { val: value || defaultRule })
+}
+
+/**
  * The palette colour for series/point `idx`, cycling back to the start once the palette runs out.
  *
  * Every palette lookup in this directory goes through here so that a deck with more series or
@@ -327,7 +373,30 @@ export function createChartTextFonts(typeface: string): string {
 	return voidEl('a:latin', { typeface }) + voidEl('a:ea', { typeface }) + voidEl('a:cs', { typeface })
 }
 
-export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: number, chartY?: number): string {
+/**
+ * A chart's own `x`/`y` as inches, for folding into a manual title layout.
+ *
+ * `ChartOpts.x`/`y` are `Coord`, so `'10%'`, `'2in'` and `'50px'` are all legal and documented.
+ * The title builder used to take them through an `as number` cast, so a string reached the
+ * arithmetic below, `+` concatenated instead of adding, and `<c:x val="NaN"/>` came out. The
+ * cast was both the cause and what hid it.
+ *
+ * A percentage is the one form that cannot be resolved here: it needs the slide axis, and the
+ * chart part is built without a `PresLayout`. It returns `undefined` like an absent coordinate,
+ * which leaves that axis on automatic layout rather than on a wrong number.
+ * @param value - the chart's `x` or `y` as the caller spelled it
+ */
+export function chartCoordInches(value: Coord | undefined): number | undefined {
+	if (value === undefined || value === null) return undefined
+	// A bare number is inches by definition. Taking it directly also keeps `coordToEmu` from
+	// re-raising `coord/bare-number-is-inches`, which the graphic frame already reports for it.
+	if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+	if (value.trim().endsWith('%')) return undefined
+	const emu = coordToEmu(value, 0)
+	return Number.isFinite(emu) ? emu / EMU_PER_INCH : undefined
+}
+
+export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coord, chartY?: Coord): string {
 	// `sizeAttr` is empty when the caller set no font size — PowerPoint then picks the default —
 	// and interpolating it empty leaves TWO spaces between the tag name and `b=`. Those are
 	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
@@ -347,21 +416,51 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: numb
 	// CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that axis on automatic layout, so a
 	// caller can center horizontally while still applying a manual vertical offset (and vice-versa).
 	// Schema order is xMode, yMode, x, y.
-	const hasX = opts.titlePos && typeof opts.titlePos.x === 'number'
-	const hasY = opts.titlePos && typeof opts.titlePos.y === 'number'
-	/** Fold a slide-relative offset into the fraction-of-chart value `c:x`/`c:y` want. */
-	const edgeFraction = (offset: number): number => {
+	/**
+	 * Fold a slide-relative offset into the fraction-of-chart value `c:x`/`c:y` want, or
+	 * `undefined` when it does not read as a finite number — `ST_Double` has no `NaN`, and
+	 * omitting the axis is what CT_ManualLayout already means by "leave this one automatic".
+	 */
+	const edgeFraction = (offset: number): number | undefined => {
+		if (!Number.isFinite(offset)) return undefined
 		let val = offset === 0 ? 0 : (offset * (offset / 5)) / 10
 		if (val >= 1) val = val / 10
 		if (val >= 0.1) val = val / 10
 		return val
 	}
+	/**
+	 * The chart's own offset along one axis, in inches, to fold into the caller's `titlePos`.
+	 *
+	 * Resolved here rather than by the caller so the warning fires only where the value is
+	 * actually used — a chart with `showTitle` and no `titlePos` folds nothing and says nothing.
+	 */
+	const chartOffset = (value: Coord | undefined, axis: 'x' | 'y'): number => {
+		const inches = chartCoordInches(value)
+		if (inches !== undefined) return inches
+		if (value !== undefined && value !== null)
+			warn(
+				'chart/option-out-of-range',
+				`chart ${axis} "${String(value)}" needs a slide layout to resolve and the chart part is built without one; ` +
+					`titlePos.${axis} is placed without it.`
+			)
+		return 0
+	}
+	// `Number.isFinite`, not `typeof === 'number'`: the latter is the one numeric guard `NaN`
+	// passes, and a `titlePos: { x: NaN }` used to reach the attribute as written.
+	const xVal = Number.isFinite(opts.titlePos?.x)
+		? edgeFraction((opts.titlePos?.x ?? 0) + chartOffset(chartX, 'x'))
+		: undefined
+	const yVal = Number.isFinite(opts.titlePos?.y)
+		? edgeFraction((opts.titlePos?.y ?? 0) + chartOffset(chartY, 'y'))
+		: undefined
 	let layout = voidEl('c:layout')
-	if (hasX || hasY) {
-		const modes = (hasX ? voidEl('c:xMode', { val: 'edge' }) : '') + (hasY ? voidEl('c:yMode', { val: 'edge' }) : '')
+	if (xVal !== undefined || yVal !== undefined) {
+		const modes =
+			(xVal !== undefined ? voidEl('c:xMode', { val: 'edge' }) : '') +
+			(yVal !== undefined ? voidEl('c:yMode', { val: 'edge' }) : '')
 		const vals =
-			(hasX ? voidEl('c:x', { val: edgeFraction((opts.titlePos?.x ?? 0) + (chartX ?? 0)) }) : '') +
-			(hasY ? voidEl('c:y', { val: edgeFraction((opts.titlePos?.y ?? 0) + (chartY ?? 0)) }) : '')
+			(xVal !== undefined ? voidEl('c:x', { val: xVal }) : '') +
+			(yVal !== undefined ? voidEl('c:y', { val: yVal }) : '')
 		layout = el('c:layout', null, raw(el('c:manualLayout', null, raw(modes + vals))))
 	}
 

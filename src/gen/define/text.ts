@@ -16,6 +16,7 @@ import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
+import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
@@ -201,15 +202,13 @@ export function addTextDefinition(
 		// STEP 2: Transform `align`/`valign` to XML values, store in _bodyProp for XML gen
 		{
 			const align = (itemOpts.align || '').toLowerCase()
-			const valign = (itemOpts.valign || '').toLowerCase()
 			if (align.startsWith('c')) itemOpts._bodyProp.align = AlignH.center
 			else if (align.startsWith('l')) itemOpts._bodyProp.align = AlignH.left
 			else if (align.startsWith('r')) itemOpts._bodyProp.align = AlignH.right
 			else if (align.startsWith('j')) itemOpts._bodyProp.align = AlignH.justify
 
-			if (valign.startsWith('b')) itemOpts._bodyProp.anchor = TextAnchor.b
-			else if (valign.startsWith('m')) itemOpts._bodyProp.anchor = TextAnchor.ctr
-			else if (valign.startsWith('t')) itemOpts._bodyProp.anchor = TextAnchor.t
+			const anchor = resolveTextAnchor(itemOpts.valign)
+			if (anchor) itemOpts._bodyProp.anchor = anchor
 		}
 
 		// STEP 3: ROBUST: Set rational values for some shadow props if needed

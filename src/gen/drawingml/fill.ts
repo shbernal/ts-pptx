@@ -17,7 +17,7 @@ import type {
 	ShapeLineProps,
 } from '../../types/index.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
+import { clampRangedInput, convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { createColorElement } from './color.js'
 import { genXmlImageCropRect } from './src-rect.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
@@ -104,8 +104,13 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 		// `<a:path path="circle">` radiates the first stop from a focus rectangle out
 		// to the edges. `fillToRect` insets place that focus: equal insets center it,
 		// and the `center` percentage shifts it (l/t = center, r/b = 100 - center).
-		const cx = Math.max(0, Math.min(100, gradient.center?.x ?? 50))
-		const cy = Math.max(0, Math.min(100, gradient.center?.y ?? 50))
+		// `clampRangedInput`, not a bare `Math.min`/`Math.max`: those propagate `NaN` straight
+		// through to `l="NaN"`, and every other percentage option on this object already throws
+		// on a non-number and warns on a clamp. The stops a few lines above always did.
+		const centerPct = (value: number | undefined, axis: 'x' | 'y'): number =>
+			clampRangedInput(value ?? 50, 0, 100, 'gradient/center-out-of-range', `gradient.center.${axis}`)
+		const cx = centerPct(gradient.center?.x, 'x')
+		const cy = centerPct(gradient.center?.y, 'y')
 		const fillToRect = voidEl('a:fillToRect', {
 			l: Math.round(cx * FIXED_PCT_PER_PERCENT),
 			t: Math.round(cy * FIXED_PCT_PER_PERCENT),

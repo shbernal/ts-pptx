@@ -643,4 +643,34 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 			)
 		},
 	},
+	{
+		// The computed `font-size` is px, and `TableCellProps.fontSize` is points. The magnitude
+		// used to be copied straight across, so a `16px` cell emitted `sz="1600"` — 16pt, a third
+		// larger than the 12pt the browser rendered. CSS defines the reference pixel as 1/96in,
+		// which is the same density the `"<n>px"` coordinate unit already resolves at.
+		name: 'a px font-size is converted to points, not copied',
+		fn: async () => {
+			const html = '<table id="t"><tr><td style="font-size:16px">A</td></tr></table>'
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(windowWith(html)))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// 16px / 96 px-per-inch * 72 pt-per-inch = 12pt.
+			assert(xml.includes('sz="1200"'), 'a 16px cell is 12pt; got: ' + (/<a:rPr[^>]*>/.exec(xml) ?? [''])[0])
+			assert(!xml.includes('sz="1600"'), 'and not the px magnitude read as points')
+		},
+	},
+	{
+		name: 'a font-size with no absolute magnitude leaves the size to inherit',
+		fn: async () => {
+			// `em`, `%` and the keywords are meaningful only against something else, so there is
+			// nothing to write; the alternative was `sz="NaN"`.
+			const html = '<table id="t"><tr><td style="font-size:1.5em">A</td></tr></table>'
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(windowWith(html)))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(!xml.includes('sz="NaN"'), 'no NaN reaches the attribute; got: ' + xml)
+		},
+	},
 ])

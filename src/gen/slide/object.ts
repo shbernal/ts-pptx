@@ -24,6 +24,7 @@ import { fillNamesPaint, genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, getSmartParseNumber, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
+import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { type RenderContext, cNvPrOpen } from './objects/shared.js'
@@ -296,7 +297,7 @@ function slideNumberPlaceholderXml(
 		tIns: snMarginAt(0),
 		rIns: snMarginAt(1),
 		bIns: snMarginAt(2),
-		anchor: snProps.valign ? snProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b') : null,
+		anchor: resolveTextAnchor(snProps.valign),
 	})
 	let defRPr = ''
 	if (snProps.fontFace || snProps.fontSize || snProps.color) {

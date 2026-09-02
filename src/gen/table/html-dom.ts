@@ -39,7 +39,7 @@ import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
-import { DEFAULT_PX_PER_INCH, EMU_PER_INCH } from '../../units.js'
+import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -283,6 +283,25 @@ export function parseCssPx(value: string): number {
 	const match = CSS_LENGTH.exec(String(value ?? ''))
 	if (!match || match[2] === '%') return NaN
 	return Number(match[1])
+}
+
+/**
+ * A computed CSS `font-size` in px as the points `TableCellProps.fontSize` is measured in, or
+ * `NaN` when the value is not an absolute px length.
+ *
+ * The magnitude used to be copied straight across under a "px to pt 1:1" reading, so a default
+ * `16px` cell emitted `sz="1600"` — 16pt, a third larger than the 12pt the browser rendered.
+ * The sibling padding read a few lines below was corrected to `DEFAULT_PX_PER_INCH` and left a
+ * note saying the same stale assumption had been there; the font size was not corrected with it.
+ *
+ * CSS defines the reference pixel as 1/96in, so the conversion is the same density the `"<n>px"`
+ * coordinate unit uses. An `em`, a `%` or a keyword has no absolute size here and comes back
+ * `NaN`, which the caller leaves off the cell rather than writing.
+ * @param value - computed CSS value, e.g. `"16px"`
+ * @returns the size in points, or `NaN` when the value is not an absolute px length
+ */
+export function htmlCssPxToPoints(value: string): number {
+	return (parseCssPx(value) * POINTS_PER_INCH) / DEFAULT_PX_PER_INCH
 }
 
 /**
@@ -761,8 +780,11 @@ export function genTableToSlides(
 				),
 				color: textColor,
 				fill: { color: fillColor },
-				fontSize: Number(style.getPropertyValue('font-size').replace(/[a-z]/gi, '')),
 			}
+			// A relative or keyword font size has no absolute magnitude here, so the key stays off
+			// the cell and the size inherits, rather than arriving as `NaN` in `sz`.
+			const fontSizePt = htmlCssPxToPoints(style.getPropertyValue('font-size'))
+			if (Number.isFinite(fontSizePt)) cellOpts.fontSize = fontSizePt
 			const fontFace = ((style.getPropertyValue('font-family') || '').split(',')[0] ?? '')
 				.replace(/"/g, '')
 				.replace('inherit', '')

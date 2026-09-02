@@ -90,6 +90,7 @@ export type DiagnosticCode =
 	| 'table/invalid-row-height'
 	| 'table/invalid-header-row-count'
 	// Text and bullets
+	| 'text/invalid-valign'
 	| 'text/invalid-columns'
 	| 'text/invalid-column-spacing'
 	| 'text/invalid-indent-level'
@@ -155,6 +156,7 @@ export type DiagnosticCode =
 	| 'measure/uncovered-codepoints'
 	// Units and coordinates
 	| 'margin/legacy-points'
+	| 'gradient/center-out-of-range'
 	| 'transparency/out-of-range'
 	| 'opacity/out-of-range'
 	| 'line/width-out-of-range'

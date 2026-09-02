@@ -6,8 +6,9 @@
  * predicate, and the placeholder `<p:ph>` element.
  */
 
-import { PlaceholderType, SlideObjectType } from '../../enums.js'
+import { PlaceholderType, SlideObjectType, TextAnchor } from '../../enums.js'
 import { CRLF } from '../../constants-internal.js'
+import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -96,6 +97,54 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 }
 
 /** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items. */
+/**
+ * Every spelling of `valign` the three definers between them accepted, mapped to the one
+ * `ST_TextAnchoringType` token it means.
+ *
+ * The three read it three ways: `startsWith('b'|'m'|'t')` in `gen/define/text.ts`, a chain of
+ * `.replace('top','t')…` in `gen/slide/object.ts` that let any other string through *verbatim*
+ * into `anchor=`, and a longer chain in `gen/slide/objects/table.ts` that also took `btm` and
+ * `center`. This table is the union of what they named; anything else is now a warning and an
+ * omitted attribute rather than an invalid one.
+ */
+const TEXT_ANCHOR_BY_VALIGN: Readonly<Record<string, TextAnchor>> = {
+	t: TextAnchor.t,
+	top: TextAnchor.t,
+	b: TextAnchor.b,
+	btm: TextAnchor.b,
+	bottom: TextAnchor.b,
+	c: TextAnchor.ctr,
+	ctr: TextAnchor.ctr,
+	center: TextAnchor.ctr,
+	m: TextAnchor.ctr,
+	middle: TextAnchor.ctr,
+}
+
+/**
+ * Resolve a caller's `valign` to the `a:bodyPr/@anchor` token, or `null` when they stated
+ * nothing usable.
+ *
+ * `null` means "no answer here", not "omit the attribute": each call site then applies its own
+ * default — the text definer's is `ctr`, while a table cell and the slide-number placeholder
+ * leave the attribute off and inherit.
+ *
+ * `ST_TextAnchoringType` is an enumeration, so a string outside it makes PowerPoint report the
+ * package as needing repair. Typed callers are unaffected — `VAlign` is
+ * `'top' | 'middle' | 'bottom'` — and a JavaScript caller passing something else now gets a
+ * diagnostic instead of an attribute the schema rejects.
+ * @param valign - the caller's `valign`, in any of the spellings above
+ */
+export function resolveTextAnchor(valign: string | null | undefined): TextAnchor | null {
+	if (valign === null || valign === undefined || valign === '') return null
+	const anchor = TEXT_ANCHOR_BY_VALIGN[String(valign).trim().toLowerCase()]
+	if (anchor) return anchor
+	warn(
+		'text/invalid-valign',
+		`valign "${String(valign)}" is not one of top/middle/bottom; leaving the text anchor to inherit.`
+	)
+	return null
+}
+
 export function objectHasMath(slideObj: SlideObject): boolean {
 	const text = slideObj.text as TextProps | TextProps[] | string | number | undefined
 	if (Array.isArray(text)) return text.some((item) => item && typeof item === 'object' && !!item.math)

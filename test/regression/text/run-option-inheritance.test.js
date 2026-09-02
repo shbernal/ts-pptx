@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
 
 // What a run inherits from its shape, and what it does not.
 //
@@ -81,6 +81,38 @@ defineRegressionSuite('Run options inherited from the shape', [
 			assertEqual(ends.length, 2, `two paragraphs, two endParaRPr; got ${JSON.stringify(ends)}`)
 			assert(/\bsz="4000"/.test(ends[0]), 'the first closes on 40pt; got: ' + ends[0])
 			assert(/\bsz="1000"/.test(ends[1]), 'and the second on its own 10pt; got: ' + ends[1])
+		},
+	},
+	{
+		// `valign` reached `a:bodyPr/@anchor` three ways, and one of them (`gen/slide/object.ts`)
+		// let any unrecognised string through verbatim into the attribute.
+		// `ST_TextAnchoringType` is an enumeration, so that is a repair prompt.
+		name: 'an unrecognised valign warns and takes the default anchor, not the caller-s string',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(() => slideFor('hi', { valign: 'sideways' }))
+			const bodyPr = (/<a:bodyPr[^>]*>/.exec(xml) ?? [''])[0]
+			assert(!bodyPr.includes('sideways'), 'the string never reaches the attribute; got: ' + bodyPr)
+			assert(bodyPr.includes('anchor="ctr"'), 'the text definer-s own default applies; got: ' + bodyPr)
+			assert(codes.includes('text/invalid-valign'), 'the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'the valign spellings the three definers accepted still resolve',
+		fn: async () => {
+			for (const [valign, anchor] of [
+				['top', 't'],
+				['middle', 'ctr'],
+				['bottom', 'b'],
+				['ctr', 'ctr'],
+				['btm', 'b'],
+				['MIDDLE', 'ctr'],
+			]) {
+				const xml = await slideFor('hi', { valign })
+				assert(
+					new RegExp(`<a:bodyPr[^>]*\\banchor="${anchor}"`).test(xml),
+					`valign "${valign}" anchors ${anchor}; got: ` + (/<a:bodyPr[^>]*>/.exec(xml) ?? [''])[0]
+				)
+			}
 		},
 	},
 ])

@@ -16,7 +16,7 @@ import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/lock
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
 import { withCheckedSpans } from '../../table/spans.js'
 import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
-import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
+import { genXmlPlaceholder, genXmlTextBody, resolveTextAnchor } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
@@ -396,16 +396,7 @@ export function renderTableObject(ctx: RenderContext): string {
 					inheritedCellOpts[name] = inheritedTableOpts[name]
 			})
 
-			const cellValign = cellOpts.valign
-				? cellOpts.valign
-						.replace(/^c$/i, 'ctr')
-						.replace(/^m$/i, 'ctr')
-						.replace('center', 'ctr')
-						.replace('middle', 'ctr')
-						.replace('top', 't')
-						.replace('btm', 'b')
-						.replace('bottom', 'b')
-				: null
+			const cellValign = resolveTextAnchor(cellOpts.valign)
 			const cellTextDir = cellOpts.textDirection && cellOpts.textDirection !== 'horz' ? cellOpts.textDirection : null
 
 			const fillColor = cellOpts.fill || ''

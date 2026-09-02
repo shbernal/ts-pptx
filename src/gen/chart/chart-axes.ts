@@ -28,10 +28,12 @@ import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
+	axisCrossing,
 	createChartTextFonts,
 	createGridLineElement,
 	DEF_GRIDLINE_COLOR,
 	genXmlTitle,
+	positiveIntAttr,
 	validTimeUnit,
 } from './chart-parts.js'
 import { isScatterChart, isXyChart } from './chart-kind.js'
@@ -120,9 +122,8 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		opts.catAxisLabelRotate ? convertAngleUnits(opts.catAxisLabelRotate, 'catAxisLabelRotate') : undefined
 	)
 
-	const valAxisCrossTag = typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'
-	const valAxisCrossValue =
-		typeof opts.valAxisCrossesAt === 'number' ? opts.valAxisCrossesAt : opts.valAxisCrossesAt || 'autoZero'
+	const catLabelSkip = positiveIntAttr(opts.catAxisLabelFrequency, 'catAxisLabelFrequency')
+	const valAxisCrossing = axisCrossing(opts.valAxisCrossesAt, 'autoZero', 'valAxisCrossesAt')
 
 	// PPT auto-adjusts these once it has calculated the date bounds, so they are emitted only when
 	// the caller asked for them. Major/minor units are also allowed on a double value axis.
@@ -171,12 +172,10 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		),
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: valAxisId })),
-		raw(voidEl(`c:${valAxisCrossTag}`, { val: valAxisCrossValue })),
+		raw(valAxisCrossing),
 		usesValueAxisForCategories ? null : raw(voidEl('c:auto', { val: 1 })),
 		usesCategoryAxis ? raw(voidEl('c:lblAlgn', { val: 'ctr' })) : null,
-		usesCategoryAxis && opts.catAxisLabelFrequency
-			? raw(voidEl('c:tickLblSkip', { val: opts.catAxisLabelFrequency }))
-			: null,
+		usesCategoryAxis && catLabelSkip !== undefined ? raw(voidEl('c:tickLblSkip', { val: catLabelSkip })) : null,
 		usesCategoryAxis ? raw(voidEl('c:noMultiLvlLbl', { val: opts.catAxisMultiLevelLabels ? 0 : 1 })) : null,
 		raw(units),
 	])
@@ -231,12 +230,11 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 
 	// Where this axis meets its category axis: an explicit position, an explicit rule, or the
 	// default — a right/top axis crosses at the maximum, everything else at zero.
-	const crosses =
-		typeof opts.catAxisCrossesAt === 'number'
-			? voidEl('c:crossesAt', { val: opts.catAxisCrossesAt })
-			: typeof opts.catAxisCrossesAt === 'string'
-				? voidEl('c:crosses', { val: opts.catAxisCrossesAt })
-				: voidEl('c:crosses', { val: axisPos === 'r' || axisPos === 't' ? 'max' : 'autoZero' })
+	const crosses = axisCrossing(
+		opts.catAxisCrossesAt,
+		axisPos === 'r' || axisPos === 't' ? 'max' : 'autoZero',
+		'catAxisCrossesAt'
+	)
 	const crossBetween =
 		opts.valAxisCrossBetween ||
 		(isScatterChart(opts._type) ||
@@ -312,6 +310,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	)
 	// No `serAxisLabelRotate` option exists, so the series axis always takes the auto rotation.
 	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
+	const serLabelSkip = positiveIntAttr(opts.serAxisLabelFrequency, 'serAxisLabelFrequency')
 
 	// PPT auto-adjusts these once it has calculated the date bounds, so they are emitted only when
 	// the caller asked for them.
@@ -358,7 +357,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: valAxisId })),
 		raw(voidEl('c:crosses', { val: 'autoZero' })),
-		opts.serAxisLabelFrequency ? raw(voidEl('c:tickLblSkip', { val: opts.serAxisLabelFrequency })) : null,
+		serLabelSkip !== undefined ? raw(voidEl('c:tickLblSkip', { val: serLabelSkip })) : null,
 		raw(units),
 	])
 }

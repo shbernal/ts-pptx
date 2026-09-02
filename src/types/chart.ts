@@ -351,7 +351,15 @@ export interface ChartPropsAxisCat {
 	 * - PowerPoint: Format Axis > Number > Format Code
 	 */
 	catAxisLabelFormatCode?: string
-	catAxisLabelFrequency?: string
+	/**
+	 * Show every Nth category label (`c:tickLblSkip`, `ST_Skip`), e.g. `2` for every other one.
+	 * - a whole number of at least 1; anything else warns and leaves the element off
+	 *
+	 * Pass a number. The `string` half is a compatibility hangover — this was typed as a
+	 * free-form string and emitted verbatim, which both rejected the natural `2` and let
+	 * `'every other'` reach the attribute — and is read with `Number()` like any other.
+	 */
+	catAxisLabelFrequency?: number | string
 	catAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	catAxisLabelRotate?: number
 	catAxisLineColor?: string
@@ -390,7 +398,13 @@ export interface ChartPropsAxisSer {
 	serAxisLabelFontFace?: string
 	serAxisLabelFontItalic?: boolean
 	serAxisLabelFontSize?: number
-	serAxisLabelFrequency?: string
+	/**
+	 * Show every Nth series-axis label (`c:tickLblSkip`, `ST_Skip`) on a 3-D chart.
+	 * - a whole number of at least 1; anything else warns and leaves the element off
+	 *
+	 * Pass a number; see {@link ChartPropsAxisCat.catAxisLabelFrequency} for the `string` half.
+	 */
+	serAxisLabelFrequency?: number | string
 	serAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	serAxisLineColor?: string
 	serAxisLineShow?: boolean
