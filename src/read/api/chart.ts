@@ -15,7 +15,7 @@ import {
 	boolValue,
 	firstChild,
 	getElements,
-	intValue,
+	numberValue,
 	type Element,
 } from '../oxml/dom.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
@@ -263,7 +263,7 @@ export class ChartAxis {
 	/** Axis id (`c:axId/@val`). */
 	get id(): number | null {
 		const el = firstChild(this.ax, 'c:axId')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Scaling orientation (`c:scaling/c:orientation/@val`): `minMax`/`maxMin`. */
@@ -275,19 +275,19 @@ export class ChartAxis {
 	/** Scale minimum (`c:scaling/c:min/@val`), or `null` when auto. */
 	get min(): number | null {
 		const el = this.#scaling('c:min')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Scale maximum (`c:scaling/c:max/@val`), or `null` when auto. */
 	get max(): number | null {
 		const el = this.#scaling('c:max')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Logarithmic scale base (`c:scaling/c:logBase/@val`), or `null` when linear. */
 	get logBase(): number | null {
 		const el = this.#scaling('c:logBase')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Whether the axis is hidden (`c:delete/@val` = 1). */
@@ -343,13 +343,13 @@ export class ChartAxis {
 	/** Major unit (`c:majorUnit/@val`), or `null` when auto. */
 	get majorUnit(): number | null {
 		const el = firstChild(this.ax, 'c:majorUnit')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Minor unit (`c:minorUnit/@val`), or `null` when auto. */
 	get minorUnit(): number | null {
 		const el = firstChild(this.ax, 'c:minorUnit')
-		return el ? intValue(attr(el, 'val')) : null
+		return el ? numberValue(attr(el, 'val')) : null
 	}
 
 	/** Escape hatch: the underlying axis element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -397,7 +397,7 @@ export class ChartSeries {
 		const spPr = firstChild(this.ser, 'c:spPr')
 		const ln = spPr && firstChild(spPr, 'a:ln')
 		if (!ln) return null
-		const w = intValue(attr(ln, 'w'))
+		const w = numberValue(attr(ln, 'w'))
 		const dash = firstChild(ln, 'a:prstDash')
 		const solid = readSolid(ln)
 		return {
@@ -412,7 +412,7 @@ export class ChartSeries {
 	/** Series index (`c:idx/@val`), or `null` if absent. */
 	get index(): number | null {
 		const idx = firstChild(this.ser, 'c:idx')
-		return idx ? intValue(attr(idx, 'val')) : null
+		return idx ? numberValue(attr(idx, 'val')) : null
 	}
 
 	/** Series name from the cached `c:tx`, or `null` when unnamed. */
@@ -428,7 +428,7 @@ export class ChartSeries {
 	/** Cached numeric values (`c:val`); non-numeric or missing points are `null`. */
 	get values(): (number | null)[] {
 		const val = firstChild(this.ser, 'c:val')
-		return readPoints(val && findCache(val)).map(intValue)
+		return readPoints(val && findCache(val)).map(numberValue)
 	}
 
 	/** Cached category labels for this series (`c:cat`), as written. */
@@ -505,7 +505,7 @@ function readPoints(cache: Element | null): (string | null)[] {
 	const ptCount = firstChild(cache, 'c:ptCount')
 	return readIndexedPoints(
 		getElements(cache, 'c:pt'),
-		ptCount ? intValue(attr(ptCount, 'val')) : null,
+		ptCount ? numberValue(attr(ptCount, 'val')) : null,
 		(pt) => firstChild(pt, 'c:v')?.textContent ?? null,
 		'c:ptCount'
 	)

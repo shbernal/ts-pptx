@@ -60,7 +60,7 @@ import {
 	firstChild,
 	firstChildElement,
 	getElements,
-	intValue,
+	numberValue,
 	type Element,
 } from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
@@ -183,8 +183,8 @@ class DrawingIndex {
 			if (!srcId || !destId) continue
 			const arm: PresentationArm = {
 				destId,
-				destinationOrder: intValue(attr(cxn, 'destOrd')) ?? 0,
-				sourceOrder: intValue(attr(cxn, 'srcOrd')) ?? 0,
+				destinationOrder: numberValue(attr(cxn, 'destOrd')) ?? 0,
+				sourceOrder: numberValue(attr(cxn, 'srcOrd')) ?? 0,
 			}
 			const list = this.#arms.get(srcId)
 			if (list) list.push(arm)
@@ -567,8 +567,8 @@ export class Diagram {
 				type: rawType !== null && CONNECTION_TYPES.includes(rawType) ? (rawType as DiagramConnectionType) : 'parOf',
 				sourceId: attr(cxn, 'srcId'),
 				destinationId: attr(cxn, 'destId'),
-				sourceOrder: intValue(attr(cxn, 'srcOrd')),
-				destinationOrder: intValue(attr(cxn, 'destOrd')),
+				sourceOrder: numberValue(attr(cxn, 'srcOrd')),
+				destinationOrder: numberValue(attr(cxn, 'destOrd')),
 				parentTransitionId: idAttr(cxn, 'parTransId'),
 				siblingTransitionId: idAttr(cxn, 'sibTransId'),
 				presentationId: attr(cxn, 'presId') || null,

@@ -9,9 +9,8 @@
  * (`AutoShape.resolvedFill`, `TableCell.resolvedFill`) report `null` for one and
  * a surface filled with an image reads as unfilled without this.
  */
-import { attr, firstChild, intValue, boolValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, numberValue, pctAttr, type Element } from '../oxml/dom.js'
 import type { Relationships } from '../opc/relationships.js'
-import { PERCENT_SCALE } from '../../units.js'
 
 /** A rectangle expressed as per-edge fractions (`a:srcRect`/`a:fillRect`), `0.1` = 10 %. */
 export interface FillRect {
@@ -75,22 +74,16 @@ export interface PictureFill {
 
 /** Per-edge fractions of a rect element, absent attributes reading as `0`. */
 function readRect(rect: Element): FillRect {
-	const edge = (name: string): number => {
-		const v = intValue(attr(rect, name))
-		return v === null ? 0 : v / PERCENT_SCALE
-	}
+	const edge = (name: string): number => pctAttr(rect, name) ?? 0
 	return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 }
 
 /** Decode an `a:tile`: offsets stay in EMU, scales become fractions defaulting to `1`. */
 function readTile(tile: Element): PictureFillTile {
-	const scale = (name: string): number => {
-		const v = intValue(attr(tile, name))
-		return v === null ? 1 : v / PERCENT_SCALE
-	}
+	const scale = (name: string): number => pctAttr(tile, name) ?? 1
 	return {
-		offsetXEmu: intValue(attr(tile, 'tx')) ?? 0,
-		offsetYEmu: intValue(attr(tile, 'ty')) ?? 0,
+		offsetXEmu: numberValue(attr(tile, 'tx')) ?? 0,
+		offsetYEmu: numberValue(attr(tile, 'ty')) ?? 0,
 		scaleX: scale('sx'),
 		scaleY: scale('sy'),
 		flip: attr(tile, 'flip'),
@@ -120,7 +113,7 @@ export function readPictureFill(container: Element, rels: Relationships | null =
 	const blip = firstChild(blipFill, 'a:blip')
 	const relId = blip ? attr(blip, 'r:embed') : null
 	const alphaMod = blip && firstChild(blip, 'a:alphaModFix')
-	const amt = alphaMod ? intValue(attr(alphaMod, 'amt')) : null
+	const amt = alphaMod ? pctAttr(alphaMod, 'amt') : null
 
 	const srcRect = firstChild(blipFill, 'a:srcRect')
 	const stretch = firstChild(blipFill, 'a:stretch')
@@ -135,8 +128,8 @@ export function readPictureFill(container: Element, rels: Relationships | null =
 		fillRect: fillRect ? readRect(fillRect) : null,
 		tile: tile ? readTile(tile) : null,
 		// `a:alphaModFix` omits `amt` to mean fully opaque (the schema default).
-		alpha: alphaMod ? (amt === null ? 1 : amt / PERCENT_SCALE) : null,
-		dpi: intValue(attr(blipFill, 'dpi')),
+		alpha: alphaMod ? (amt ?? 1) : null,
+		dpi: numberValue(attr(blipFill, 'dpi')),
 		rotWithShape: boolValue(attr(blipFill, 'rotWithShape')),
 	}
 }

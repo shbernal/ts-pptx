@@ -28,7 +28,7 @@ import { Presentation } from './read/api/presentation.js'
 import type { AnyShape } from './read/api/shapes.js'
 import type { GraphicFrame } from './read/api/shapes/graphic-frame.js'
 import type { Run, TextFrame } from './read/api/text.js'
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, intValue, type Element } from './read/oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, firstChild, numberValue, type Element } from './read/oxml/dom.js'
 import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 
 /**
@@ -574,10 +574,10 @@ function hasBox(xfrm: Element | null, offName: string, extName: string): boolean
 	const ext = firstChild(xfrm, extName)
 	if (!off || !ext) return false
 	return (
-		intValue(attr(off, 'x')) !== null &&
-		intValue(attr(off, 'y')) !== null &&
-		intValue(attr(ext, 'cx')) !== null &&
-		intValue(attr(ext, 'cy')) !== null
+		numberValue(attr(off, 'x')) !== null &&
+		numberValue(attr(off, 'y')) !== null &&
+		numberValue(attr(ext, 'cx')) !== null &&
+		numberValue(attr(ext, 'cy')) !== null
 	)
 }
 

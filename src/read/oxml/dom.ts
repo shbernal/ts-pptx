@@ -19,6 +19,7 @@ import {
 export type { Document, Element, Node } from '@xmldom/xmldom'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { PERCENT_SCALE } from '../../units.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
 export const ELEMENT_NODE = 1
@@ -258,11 +259,22 @@ export function attr(element: Element, qname: string): string | null {
 	return element.getAttributeNS(uri, local)
 }
 
-/** Parse an integer-valued OOXML attribute; `null`/empty/non-finite → `null`. */
-export function intValue(value: string | null): number | null {
+/**
+ * Parse a numeric OOXML attribute; `null`/empty/non-finite → `null`.
+ *
+ * Not an integer parser: the schema types it reads span `xsd:int`, `xsd:double`
+ * and the fractional scales chartEx writes, and every one of them goes through
+ * the same `Number()`.
+ */
+export function numberValue(value: string | null): number | null {
 	if (value === null || value === '') return null
 	const number = Number(value)
 	return Number.isFinite(number) ? number : null
+}
+
+/** {@link numberValue} over an attribute read by qname. */
+export function numberAttr(element: Element, qname: string): number | null {
+	return numberValue(attr(element, qname))
 }
 
 /** Parse an `xsd:boolean` OOXML attribute (`1`/`0`/`true`/`false`); else `null`. */
@@ -270,6 +282,35 @@ export function boolValue(value: string | null): boolean | null {
 	if (value === '1' || value === 'true') return true
 	if (value === '0' || value === 'false') return false
 	return null
+}
+
+/** {@link boolValue} over an attribute read by qname. */
+export function boolAttr(element: Element, qname: string): boolean | null {
+	return boolValue(attr(element, qname))
+}
+
+/**
+ * DrawingML percentage → fraction, or `null` when unparseable.
+ *
+ * `a:ST_Percentage` is a *union* in the Transitional profile: the fixed-point integer form
+ * Office writes (`100%` → `100000`) and a decimal string with a literal `%` (`-?[0-9]+(\.[0-9]+)?%`),
+ * which is the only form the Strict profile has. Both are read here — a reader that took only the
+ * first dropped a schema-legal value silently, and the two are one `endsWith` apart.
+ * @param value - the raw attribute value, or `null` when the attribute is absent
+ */
+export function parsePercent(value: string | null): number | null {
+	if (value === null || value === '') return null
+	if (value.endsWith('%')) {
+		const n = Number(value.slice(0, -1))
+		return Number.isFinite(n) ? n / 100 : null
+	}
+	const n = Number(value)
+	return Number.isFinite(n) ? n / PERCENT_SCALE : null
+}
+
+/** {@link parsePercent} over an attribute read by qname. */
+export function pctAttr(element: Element, qname: string): number | null {
+	return parsePercent(attr(element, qname))
 }
 
 /**

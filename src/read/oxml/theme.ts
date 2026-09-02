@@ -31,6 +31,7 @@ import {
 	descendantsByTag,
 	firstChild,
 	firstChildElement,
+	numberAttr,
 	ownerDocumentOf,
 	replaceInParent,
 	setAttr,
@@ -189,7 +190,7 @@ function colorElementHex(color: Element | null): string | null {
 }
 
 /** A colour reference resolved to a literal base RGB plus its transform children. */
-export interface ResolvedColor {
+export interface ResolvedColorRef {
 	hex: string
 	transforms: Element[]
 }
@@ -203,7 +204,7 @@ export interface ResolvedColor {
  * `a:prstClr` (through the {@link presetColorHex} table) and `a:hslClr`. `a:scrgbClr` does not —
  * see {@link colorElementHex} for why that one is a `null` rather than a guess.
  */
-export function resolveColor(color: Element | null, ctx: ColorContext): ResolvedColor | null {
+export function resolveColor(color: Element | null, ctx: ColorContext): ResolvedColorRef | null {
 	if (!color) return null
 	const transforms = childElements(color)
 	if (isA(color, 'srgbClr')) {
@@ -243,7 +244,7 @@ export function resolveThemeFont(typeface: string | null, fontScheme: Element | 
 }
 
 /** Replace every `phClr` under `el` with the ref colour (ref transforms first, then the `phClr`'s own). */
-export function substitutePhClr(el: Element, ref: ResolvedColor): void {
+export function substitutePhClr(el: Element, ref: ResolvedColorRef): void {
 	const doc = ownerDocumentOf(el)
 	for (const phClr of descendantsByTag(el, OOXML_NS.a, 'schemeClr')) {
 		if (attr(phClr, 'val') !== 'phClr') continue
@@ -273,7 +274,7 @@ export function fmtEntry(ctx: ThemeContext, listName: string, idx: number): Elem
  */
 export function styleRefFill(fillRef: Element | null, ctx: ThemeContext): Element | null {
 	if (!fillRef) return null
-	const idx = intAttr(fillRef, 'idx')
+	const idx = numberAttr(fillRef, 'idx')
 	if (idx === null || idx <= 0) return null
 	// idx >= 1000 selects bgFillStyleLst (offset by 1000); otherwise fillStyleLst.
 	const fill = idx >= 1000 ? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000) : fmtEntry(ctx, 'a:fillStyleLst', idx)
@@ -290,19 +291,11 @@ export function styleRefFill(fillRef: Element | null, ctx: ThemeContext): Elemen
  */
 export function styleRefLine(lnRef: Element | null, ctx: ThemeContext): Element | null {
 	if (!lnRef) return null
-	const idx = intAttr(lnRef, 'idx')
+	const idx = numberAttr(lnRef, 'idx')
 	if (idx === null || idx <= 0) return null
 	const ln = fmtEntry(ctx, 'a:lnStyleLst', idx)
 	const ref = resolveColor(firstChildElement(lnRef), ctx)
 	if (!ln || !ref) return null
 	substitutePhClr(ln, ref)
 	return ln
-}
-
-/** Read an integer attribute; `null`/empty/non-finite → `null`. */
-export function intAttr(el: Element, name: string): number | null {
-	const value = attr(el, name)
-	if (value === null || value === '') return null
-	const n = Number(value)
-	return Number.isFinite(n) ? n : null
 }

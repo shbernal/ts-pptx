@@ -13,7 +13,7 @@ import {
 	firstChildElement,
 	getElements,
 	getOrAddChild,
-	intValue,
+	pctAttr,
 	removeChildrenByQName,
 	setAttr,
 	OOXML_NS,
@@ -29,7 +29,6 @@ import { childElements } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
-import { PERCENT_SCALE } from '../../../units.js'
 import { BLIPFILL_BLIP_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
 
 /**
@@ -162,10 +161,7 @@ export class Picture extends Shape {
 		const blipFill = firstChild(this.element, 'p:blipFill')
 		const srcRect = blipFill && firstChild(blipFill, 'a:srcRect')
 		if (!srcRect) return null
-		const edge = (name: string): number => {
-			const v = intValue(attr(srcRect, name))
-			return v === null ? 0 : v / PERCENT_SCALE
-		}
+		const edge = (name: string): number => pctAttr(srcRect, name) ?? 0
 		return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 	}
 
@@ -206,12 +202,10 @@ export class Picture extends Shape {
 				case 'grayscl':
 					return { kind: 'grayscale' }
 				case 'biLevel': {
-					const thresh = intValue(attr(child, 'thresh'))
-					return { kind: 'biLevel', threshold: thresh === null ? null : thresh / PERCENT_SCALE }
+					return { kind: 'biLevel', threshold: pctAttr(child, 'thresh') }
 				}
 				case 'alphaModFix': {
-					const amt = intValue(attr(child, 'amt'))
-					return { kind: 'alphaModFix', amount: amt === null ? 1 : amt / PERCENT_SCALE }
+					return { kind: 'alphaModFix', amount: pctAttr(child, 'amt') ?? 1 }
 				}
 			}
 		}

@@ -21,7 +21,7 @@ import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { attr, createElement, firstChild, getElements, getOrAddChild, intValue, setAttr } from '../oxml/dom.js'
+import { attr, createElement, firstChild, getElements, getOrAddChild, numberValue, setAttr } from '../oxml/dom.js'
 import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
 import { PRESENTATION_AFTER_SLD_ID_LST } from '../../ooxml/sequence.js'
 import { Slide } from './slide.js'
@@ -197,7 +197,7 @@ export class Presentation {
 					'package/relationship-target-missing',
 					`Slide relationship ${relId} targets a missing part: ${partName}`
 				)
-			slides.push(new Slide(this, part, intValue(attr(sldId, 'id')) ?? 0, index++))
+			slides.push(new Slide(this, part, numberValue(attr(sldId, 'id')) ?? 0, index++))
 		}
 		return slides
 	}
@@ -207,8 +207,8 @@ export class Presentation {
 		const root = this.presentationPart.dom.documentElement
 		const sldSz = root && firstChild(root, 'p:sldSz')
 		if (!sldSz) return null
-		const widthEmu = intValue(attr(sldSz, 'cx'))
-		const heightEmu = intValue(attr(sldSz, 'cy'))
+		const widthEmu = numberValue(attr(sldSz, 'cx'))
+		const heightEmu = numberValue(attr(sldSz, 'cy'))
 		if (widthEmu === null || heightEmu === null) return null
 		return { widthEmu, heightEmu, widthIn: emuToInches(widthEmu), heightIn: emuToInches(heightEmu) }
 	}
@@ -746,7 +746,7 @@ export class Presentation {
 	#nextSlideId(sldIds: ReturnType<typeof getElements>): number {
 		let max = MIN_SLIDE_ID - 1
 		for (const sldId of sldIds) {
-			const id = intValue(attr(sldId, 'id'))
+			const id = numberValue(attr(sldId, 'id'))
 			if (id !== null && id > max) max = id
 		}
 		return max + 1

@@ -24,10 +24,11 @@ import { InvalidOptionError } from '../../errors.js'
 import { EMU_PER_INCH } from '../../units.js'
 import {
 	attr,
+	boolAttr,
 	createElement,
 	firstChild,
 	getElements,
-	intValue,
+	numberValue,
 	ownerDocumentOf,
 	removeAttr,
 	setAttr,
@@ -58,22 +59,22 @@ function gridOf(tbl: Element): Element {
 
 /** A cell's `@gridSpan`, defaulting to 1. */
 function gridSpanOf(tc: Element): number {
-	return intValue(attr(tc, 'gridSpan')) ?? 1
+	return numberValue(attr(tc, 'gridSpan')) ?? 1
 }
 
 /** A cell's `@rowSpan`, defaulting to 1. */
 function rowSpanOf(tc: Element): number {
-	return intValue(attr(tc, 'rowSpan')) ?? 1
+	return numberValue(attr(tc, 'rowSpan')) ?? 1
 }
 
 /** Whether a cell is the covered half of a horizontal merge. */
-function isHMerge(tc: Element): boolean {
-	return attr(tc, 'hMerge') === '1' || attr(tc, 'hMerge') === 'true'
+export function isHMerge(tc: Element): boolean {
+	return boolAttr(tc, 'hMerge') === true
 }
 
 /** Whether a cell is the covered half of a vertical merge. */
-function isVMerge(tc: Element): boolean {
-	return attr(tc, 'vMerge') === '1' || attr(tc, 'vMerge') === 'true'
+export function isVMerge(tc: Element): boolean {
+	return boolAttr(tc, 'vMerge') === true
 }
 
 /**

@@ -21,7 +21,7 @@
  */
 
 import type { OpcPackage } from '../opc/package.js'
-import { OOXML_NS, attr, createElement, firstChild, intValue, setAttr } from '../oxml/dom.js'
+import { OOXML_NS, attr, createElement, firstChild, numberValue, setAttr } from '../oxml/dom.js'
 import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 import { NOTES_MASTER_REL } from '../../ooxml/rel-types.js'
@@ -498,7 +498,7 @@ export function importShapes(
 		let nextId = target.nextShapeId()
 		const spidMap = new Map<number, number>()
 		for (const cNvPr of imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
-			const oldId = intValue(attr(cNvPr, 'id'))
+			const oldId = numberValue(attr(cNvPr, 'id'))
 			if (oldId !== null) spidMap.set(oldId, nextId)
 			setAttr(cNvPr, 'id', String(nextId++))
 		}

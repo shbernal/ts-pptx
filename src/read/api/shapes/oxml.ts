@@ -16,7 +16,7 @@ import {
 	childElements,
 	firstChild,
 	getOrAddChild,
-	intValue,
+	numberValue,
 	type Element,
 } from '../../oxml/dom.js'
 import { SHAPE_AFTER_SPPR, SPPR_AFTER_XFRM } from '../../../ooxml/sequence.js'
@@ -56,7 +56,7 @@ export function nonVisualCNvPr(element: Element): Element | null {
 
 export function emuFrom(parent: Element | null, qname: string, attribute: string): number | null {
 	const element = parent && firstChild(parent, qname)
-	return element ? intValue(attr(element, attribute)) : null
+	return element ? numberValue(attr(element, attribute)) : null
 }
 
 /**
@@ -69,7 +69,7 @@ export function spPrXfrmEmu(sp: Element, container: 'a:off' | 'a:ext', axis: str
 	const spPr = firstChild(sp, 'p:spPr')
 	const xfrm = spPr && firstChild(spPr, 'a:xfrm')
 	const el = xfrm && firstChild(xfrm, container)
-	return el ? intValue(attr(el, axis)) : null
+	return el ? numberValue(attr(el, axis)) : null
 }
 
 export { childElements }

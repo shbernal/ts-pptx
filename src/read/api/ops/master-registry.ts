@@ -17,7 +17,7 @@ import {
 	firstChild,
 	getElements,
 	getOrAddChild,
-	intValue,
+	numberValue,
 	removeChildrenByQName,
 	setAttr,
 	type Element,
@@ -109,7 +109,7 @@ function nextMasterLayoutId(dest: DeckTarget): number {
 	const masterLst = root && firstChild(root, 'p:sldMasterIdLst')
 	if (masterLst) {
 		for (const entry of getElements(masterLst, 'p:sldMasterId')) {
-			const id = intValue(attr(entry, 'id'))
+			const id = numberValue(attr(entry, 'id'))
 			if (id !== null && id > max) max = id
 		}
 	}
@@ -121,7 +121,7 @@ function nextMasterLayoutId(dest: DeckTarget): number {
 		const layoutLst = masterRoot && firstChild(masterRoot, 'p:sldLayoutIdLst')
 		if (!layoutLst) continue
 		for (const entry of getElements(layoutLst, 'p:sldLayoutId')) {
-			const id = intValue(attr(entry, 'id'))
+			const id = numberValue(attr(entry, 'id'))
 			if (id !== null && id > max) max = id
 		}
 	}

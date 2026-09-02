@@ -20,7 +20,7 @@
 
 import { attr, descendantsByTag, firstChild, firstChildElement, OOXML_NS, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
-import { resolveColor, type ResolvedColor, type ThemeContext } from './theme.js'
+import { resolveColor, type ResolvedColorRef, type ThemeContext } from './theme.js'
 import { nvPrOf } from './slide-dom.js'
 
 /** The master `p:txStyles` style element name for a placeholder category. */
@@ -231,7 +231,7 @@ export function placeholderInheritedColor(
 	idx: string,
 	level: number,
 	ctx: ThemeContext
-): ResolvedColor | null {
+): ResolvedColorRef | null {
 	const colorEl = placeholderInheritedFill(type, idx, level, ctx)
 	return colorEl ? resolveColor(colorEl, ctx) : null
 }

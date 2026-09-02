@@ -21,7 +21,7 @@ import {
 	childElements,
 	createElement,
 	firstChild,
-	intValue,
+	numberValue,
 	setAttr,
 	type Document,
 	type Element,
@@ -142,13 +142,13 @@ export function parseTransition(root: Element): TransitionInfo | null {
 	if (!type) return null
 
 	const advClick = boolValue(attr(transition, 'advClick'))
-	const advTm = intValue(attr(transition, 'advTm'))
+	const advTm = numberValue(attr(transition, 'advTm'))
 	const spd = attr(transition, 'spd')
 	return {
 		type: type.localName ?? '',
 		namespace: prefixFor(type.namespaceURI),
 		speed: spd === 'slow' || spd === 'med' || spd === 'fast' ? spd : 'fast',
-		durationMs: intValue(attr(transition, 'p14:dur')),
+		durationMs: numberValue(attr(transition, 'p14:dur')),
 		advanceOnClick: advClick ?? true,
 		advanceAfterMs: advTm,
 		variant: variantAttrs(type),

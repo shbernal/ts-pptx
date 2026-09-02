@@ -12,7 +12,7 @@ import {
 	createElement,
 	firstChild,
 	insertInOrder,
-	intValue,
+	numberValue,
 	ownerDocumentOf,
 	removeAttr,
 	setAttr,
@@ -182,8 +182,7 @@ export class Slide implements ShapeHost {
 	 */
 	get hidden(): boolean {
 		const root = this.part.dom.documentElement
-		const show = root ? attr(root, 'show') : null
-		return show === '0' || show === 'false'
+		return boolValue(root && attr(root, 'show')) === false
 	}
 
 	/**
@@ -709,7 +708,7 @@ export class Slide implements ShapeHost {
 		let max = 1
 		if (root) {
 			for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
-				const id = intValue(attr(cNvPr, 'id'))
+				const id = numberValue(attr(cNvPr, 'id'))
 				if (id !== null && id > max) max = id
 			}
 		}

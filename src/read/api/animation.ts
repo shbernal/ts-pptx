@@ -17,7 +17,7 @@ import {
 	createElement,
 	firstChild,
 	insertInOrder,
-	intValue,
+	numberValue,
 	parseXml,
 	setAttr,
 	type Document,
@@ -52,7 +52,7 @@ export function hasAnimations(root: Element): boolean {
 export function enumerateSpids(root: Element): number[] {
 	const seen = new Set<number>()
 	for (const element of spidElements(root)) {
-		const spid = intValue(attr(element, 'spid'))
+		const spid = numberValue(attr(element, 'spid'))
 		if (spid !== null) seen.add(spid)
 	}
 	return [...seen].sort((a, b) => a - b)
@@ -66,7 +66,7 @@ export function enumerateSpids(root: Element): number[] {
 export function remapSpids(root: Element, mapping: Map<number, number>): boolean {
 	let changed = false
 	for (const element of spidElements(root)) {
-		const spid = intValue(attr(element, 'spid'))
+		const spid = numberValue(attr(element, 'spid'))
 		if (spid === null) continue
 		const next = mapping.get(spid)
 		if (next !== undefined && next !== spid) {
@@ -116,7 +116,7 @@ export function pruneSpids(root: Element, spids: Iterable<number>): boolean {
 	const spTgts = Array.from(root.getElementsByTagNameNS(OOXML_NS.p, 'spTgt'))
 	const effectPars = new Set<Element>()
 	for (const spTgt of spTgts) {
-		const spid = intValue(attr(spTgt, 'spid'))
+		const spid = numberValue(attr(spTgt, 'spid'))
 		if (spid === null || !drop.has(spid)) continue
 		const effectPar = effectParFor(spTgt)
 		if (effectPar) effectPars.add(effectPar)
@@ -154,7 +154,7 @@ export function pruneSpids(root: Element, spids: Iterable<number>): boolean {
 	// Remove the build-list entries.
 	const bldPs = Array.from(root.getElementsByTagNameNS(OOXML_NS.p, 'bldP'))
 	for (const bldP of bldPs) {
-		const spid = intValue(attr(bldP, 'spid'))
+		const spid = numberValue(attr(bldP, 'spid'))
 		if (spid !== null && drop.has(spid)) {
 			bldP.parentNode?.removeChild(bldP)
 			changed = true
@@ -207,7 +207,7 @@ const MAIN_SEQ_SCAFFOLD =
 function maxCTnId(scope: Element): number {
 	let max = 0
 	for (const cTn of scope.getElementsByTagNameNS(P_NS, 'cTn')) {
-		const id = intValue(attr(cTn, 'id'))
+		const id = numberValue(attr(cTn, 'id'))
 		if (id !== null && id > max) max = id
 	}
 	return max
@@ -223,7 +223,7 @@ function renumberCTnIds(node: Element, start: number): number {
 /** Whether `par`'s subtree targets any of `spids` via a `<p:spTgt>`. */
 function targetsAnySpid(par: Element, spids: Set<number>): boolean {
 	for (const spTgt of par.getElementsByTagNameNS(P_NS, 'spTgt')) {
-		const spid = intValue(attr(spTgt, 'spid'))
+		const spid = numberValue(attr(spTgt, 'spid'))
 		if (spid !== null && spids.has(spid)) return true
 	}
 	return false
@@ -316,7 +316,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 	const bldPs: Element[] = []
 	if (sourceBldLst) {
 		for (const bldP of childElements(sourceBldLst)) {
-			const spid = intValue(attr(bldP, 'spid'))
+			const spid = numberValue(attr(bldP, 'spid'))
 			if (spid !== null && carriedSpids.has(spid)) bldPs.push(bldP)
 		}
 	}
@@ -337,7 +337,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 		const destBldLst = getOrCreateBldLst(destTiming, doc)
 		for (const bldP of bldPs) {
 			const clone = doc.importNode(bldP, true)
-			const spid = intValue(attr(clone, 'spid'))
+			const spid = numberValue(attr(clone, 'spid'))
 			if (spid !== null && spidMap.has(spid)) setAttr(clone, 'spid', String(spidMap.get(spid)))
 			destBldLst.appendChild(clone)
 		}

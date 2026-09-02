@@ -20,7 +20,8 @@ import {
 	firstChildElement,
 	getElements,
 	getOrAddChild,
-	intValue,
+	numberValue,
+	pctAttr,
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
@@ -68,7 +69,7 @@ import type {
 	SoftEdge,
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
-import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../../units.js'
+import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT } from '../../../units.js'
 import { ptFromEmu } from '../coords.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
@@ -120,7 +121,7 @@ export abstract class Shape {
 	/** Drawing id (`p:cNvPr/@id`), or `null` if absent. */
 	get id(): number | null {
 		const cNvPr = nonVisualCNvPr(this.element)
-		return cNvPr ? intValue(attr(cNvPr, 'id')) : null
+		return cNvPr ? numberValue(attr(cNvPr, 'id')) : null
 	}
 
 	/** Shape name (`p:cNvPr/@name`), or `''` if unnamed. */
@@ -463,7 +464,7 @@ export abstract class Shape {
 	/** Line/border width in points (`spPr/a:ln/@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
 	get lineWidthPt(): number | null {
 		const ln = this.#line()
-		const w = ln ? intValue(attr(ln, 'w')) : null
+		const w = ln ? numberValue(attr(ln, 'w')) : null
 		return ptFromEmu(w)
 	}
 
@@ -656,7 +657,7 @@ export abstract class Shape {
 		if (!glow) return null
 		const out: Glow = { color: null }
 		this.#applyEffectColor(out, firstChildElement(glow))
-		const rad = intValue(attr(glow, 'rad'))
+		const rad = numberValue(attr(glow, 'rad'))
 		if (rad !== null) out.radiusPt = rad / EMU_PER_POINT
 		return out
 	}
@@ -671,17 +672,21 @@ export abstract class Shape {
 		if (!refl) return null
 		const out: Reflection = {}
 		const put = (target: keyof Reflection, name: string, div: number): void => {
-			const v = intValue(attr(refl, name))
+			const v = numberValue(attr(refl, name))
 			if (v !== null) out[target] = v / div
+		}
+		const putPct = (target: keyof Reflection, name: string): void => {
+			const v = pctAttr(refl, name)
+			if (v !== null) out[target] = v
 		}
 		put('blurPt', 'blurRad', EMU_PER_POINT)
 		put('offsetPt', 'dist', EMU_PER_POINT)
 		put('angleDeg', 'dir', ANGLE_UNITS_PER_DEGREE)
 		put('fadeAngleDeg', 'fadeDir', ANGLE_UNITS_PER_DEGREE)
-		put('startAlpha', 'stA', PERCENT_SCALE)
-		put('startPos', 'stPos', PERCENT_SCALE)
-		put('endAlpha', 'endA', PERCENT_SCALE)
-		put('endPos', 'endPos', PERCENT_SCALE)
+		putPct('startAlpha', 'stA')
+		putPct('startPos', 'stPos')
+		putPct('endAlpha', 'endA')
+		putPct('endPos', 'endPos')
 		return out
 	}
 
@@ -692,7 +697,7 @@ export abstract class Shape {
 	get softEdge(): SoftEdge | null {
 		const soft = this.#effect('a:softEdge')
 		if (!soft) return null
-		const rad = intValue(attr(soft, 'rad'))
+		const rad = numberValue(attr(soft, 'rad'))
 		return { radiusPt: rad === null ? 0 : rad / EMU_PER_POINT }
 	}
 
@@ -752,9 +757,9 @@ export abstract class Shape {
 		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` now answers for five of the six
 		// (`a:scrgbClr` is the exception, and reports no colour rather than a guessed one).
 		this.#applyEffectColor(out, firstChildElement(shdw))
-		const blur = intValue(attr(shdw, 'blurRad'))
-		const dist = intValue(attr(shdw, 'dist'))
-		const dir = intValue(attr(shdw, 'dir'))
+		const blur = numberValue(attr(shdw, 'blurRad'))
+		const dist = numberValue(attr(shdw, 'dist'))
+		const dir = numberValue(attr(shdw, 'dir'))
 		if (blur !== null) out.blurPt = blur / EMU_PER_POINT
 		if (dist !== null) out.offsetPt = dist / EMU_PER_POINT
 		if (dir !== null) out.angleDeg = dir / ANGLE_UNITS_PER_DEGREE

@@ -2,7 +2,7 @@
  * A connector / line (`p:cxnSp`).
  */
 
-import { attr, firstChild, intValue } from '../../oxml/dom.js'
+import { attr, firstChild, numberValue } from '../../oxml/dom.js'
 import { Shape } from './base.js'
 import type { ConnectionSite } from './types.js'
 
@@ -34,8 +34,8 @@ export class Connector extends Shape {
 		const cNvCxnSpPr = nvCxnSpPr && firstChild(nvCxnSpPr, 'p:cNvCxnSpPr')
 		const cxn = cNvCxnSpPr && firstChild(cNvCxnSpPr, qname)
 		if (!cxn) return null
-		const shapeId = intValue(attr(cxn, 'id'))
-		const siteIndex = intValue(attr(cxn, 'idx'))
+		const shapeId = numberValue(attr(cxn, 'id'))
+		const siteIndex = numberValue(attr(cxn, 'idx'))
 		// CT_Connection requires both @id and @idx; an unparseable pair degrades to null
 		// rather than a half-populated site.
 		if (shapeId === null || siteIndex === null) return null

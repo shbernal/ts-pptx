@@ -30,8 +30,9 @@
  * All DrawingML percentage values are stored in thousandths of a percent
  * (`100%` → `100000`), so a modifier's fraction is `val / PERCENT_SCALE`.
  */
-import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
+import { ANGLE_UNITS_PER_DEGREE } from '../../units.js'
 import { stripHash } from '../../hex-color.js'
+import { parsePercent } from './dom.js'
 
 /** A colour-transform modifier in its read-model form: tag local-name + raw `@val`. */
 export interface ColorTransform {
@@ -43,25 +44,6 @@ export interface ColorTransform {
 export interface EffectiveColor {
 	hex: string
 	alpha?: number
-}
-
-/**
- * DrawingML percentage → fraction, or `null` when unparseable.
- *
- * `a:ST_Percentage` is a *union* in the Transitional profile: the fixed-point integer form
- * Office writes (`100%` → `100000`) and a decimal string with a literal `%` (`-?[0-9]+(\.[0-9]+)?%`),
- * which is the only form the Strict profile has. Both are read here — a reader that took only the
- * first dropped a schema-legal value silently, and the two are one `endsWith` apart.
- * @param value - the raw attribute value, or `null` when the attribute is absent
- */
-export function parsePercent(value: string | null): number | null {
-	if (value === null || value === '') return null
-	if (value.endsWith('%')) {
-		const n = Number(value.slice(0, -1))
-		return Number.isFinite(n) ? n / 100 : null
-	}
-	const n = Number(value)
-	return Number.isFinite(n) ? n / PERCENT_SCALE : null
 }
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n)

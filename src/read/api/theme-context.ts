@@ -10,7 +10,7 @@
  * identically whether it is read or baked.
  */
 import { applyColorTransforms, type ColorTransform } from '../oxml/color-transform.js'
-import { attr, boolValue, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
 import {
 	parseClrMap,
 	parseClrScheme,
@@ -312,7 +312,7 @@ export function resolveInheritedRunSize(
 	ctx: ThemeContext
 ): number | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
-		const sz = intValue(attr(defRPr, 'sz'))
+		const sz = numberValue(attr(defRPr, 'sz'))
 		if (sz !== null) return ptFromHundredths(sz)
 	}
 	return null
@@ -440,10 +440,10 @@ export function resolveInheritedFrame(ph: PlaceholderRef, ctx: ThemeContext): Re
 	if (!found) return null
 	const off = firstChild(found.xfrm, 'a:off')
 	const ext = firstChild(found.xfrm, 'a:ext')
-	const left = off && intValue(attr(off, 'x'))
-	const top = off && intValue(attr(off, 'y'))
-	const width = ext && intValue(attr(ext, 'cx'))
-	const height = ext && intValue(attr(ext, 'cy'))
+	const left = off && numberValue(attr(off, 'x'))
+	const top = off && numberValue(attr(off, 'y'))
+	const width = ext && numberValue(attr(ext, 'cx'))
+	const height = ext && numberValue(attr(ext, 'cy'))
 	if (left === null || left === undefined) return null
 	if (top === null || top === undefined) return null
 	if (width === null || width === undefined) return null

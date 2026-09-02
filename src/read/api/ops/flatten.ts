@@ -48,7 +48,8 @@ import {
 	getElements,
 	getOrAddChild,
 	insertInOrder,
-	intValue,
+	numberAttr,
+	numberValue,
 	ownerDocumentOf,
 	removeChildrenByQName,
 	replaceInParent,
@@ -72,7 +73,6 @@ import {
 import {
 	SCHEME_SLOTS,
 	fmtEntry,
-	intAttr,
 	isA,
 	resolveColor,
 	resolveSchemeToken,
@@ -80,7 +80,7 @@ import {
 	styleRefLine,
 	substitutePhClr,
 	type ColorContext,
-	type ResolvedColor,
+	type ResolvedColorRef,
 	type ThemeContext,
 } from '../../oxml/theme.js'
 import {
@@ -365,7 +365,7 @@ function bakePlaceholderRunProperty<T>(
 		const byLevel = new Map<number, T | null>()
 		for (const p of getElements(txBody, 'a:p')) {
 			const pPr = firstChild(p, 'a:pPr')
-			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
+			const level = (pPr && numberValue(attr(pPr, 'lvl'))) ?? 0
 			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
 			if (runs.length === 0) continue
 			let value = byLevel.get(level)
@@ -380,7 +380,7 @@ function bakePlaceholderRunProperty<T>(
 }
 
 /** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
-function writeRunColor(run: Element, color: ResolvedColor): void {
+function writeRunColor(run: Element, color: ResolvedColorRef): void {
 	const doc = ownerDocumentOf(run)
 	const rPr = getOrAddChild(run, 'a:rPr', ['a:t'])
 	const fill = createElement(doc, 'a:solidFill')
@@ -564,7 +564,7 @@ function materializeLine(spPr: Element, lnRef: Element | null, ctx: FlattenConte
 
 function materializeEffect(spPr: Element, effectRef: Element | null, ctx: FlattenContext): void {
 	if (!effectRef) return
-	const idx = intAttr(effectRef, 'idx')
+	const idx = numberAttr(effectRef, 'idx')
 	if (idx !== null && idx > 0 && !firstChild(spPr, 'a:effectLst') && !firstChild(spPr, 'a:effectDag')) {
 		const style = fmtEntry(ctx, 'a:effectStyleLst', idx) // a:effectStyle (effectLst?, scene3d?, sp3d?)
 		const ref = resolveColor(firstChildElement(effectRef), ctx)

@@ -12,7 +12,7 @@
  */
 import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
-import { attr, childElements, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
+import { attr, childElements, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
 import { CORE_PROPS_REL, CUSTOM_PROPS_REL } from '../../ooxml/rel-types.js'
 
 // The two content types below are the fallback lookup for when the rel is absent, and this is
@@ -125,7 +125,7 @@ function decodeValue(vt: Element): CustomPropertyValue {
 		case 'ui4':
 		case 'ui8':
 		case 'uint':
-			return intValue(text) ?? text
+			return numberValue(text) ?? text
 		case 'r4':
 		case 'r8':
 		case 'decimal': {

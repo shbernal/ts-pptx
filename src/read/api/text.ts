@@ -18,7 +18,7 @@ import {
 	firstChildElement,
 	getElements,
 	getOrAddChild,
-	intValue,
+	numberValue,
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
@@ -40,7 +40,7 @@ import {
 	type StyleFontRef,
 } from './theme-context.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
-import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
+import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../ooxml/sequence.js'
 import { pctFromThousandths, ptFromEmu, ptFromHundredths } from './coords.js'
 
@@ -233,7 +233,7 @@ export class Run {
 		}
 		if (!Number.isFinite(value) || value <= 0)
 			throw new InvalidOptionError('font/size-not-positive', `fontSizePt must be a positive number, got ${value}`)
-		setAttr(this.#getOrAddRPr(), 'sz', String(Math.round(value * 100)))
+		setAttr(this.#getOrAddRPr(), 'sz', String(ptToHundredths(value)))
 		this.part.markDirty()
 	}
 
@@ -486,7 +486,7 @@ export class Run {
 	}
 
 	#rPrAttr(name: string): number | null {
-		return intValue(this.#rPrAttrRaw(name))
+		return numberValue(this.#rPrAttrRaw(name))
 	}
 
 	#removeRPrAttr(name: string): void {
@@ -609,7 +609,7 @@ export class Paragraph {
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
 	get level(): number {
 		const pPr = firstChild(this.element, 'a:pPr')
-		return (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
+		return (pPr && numberValue(attr(pPr, 'lvl'))) ?? 0
 	}
 
 	/**
@@ -646,12 +646,12 @@ export class Paragraph {
 		if (!lnSpc) return null
 		const pts = firstChild(lnSpc, 'a:spcPts')
 		if (pts) {
-			const val = intValue(attr(pts, 'val'))
+			const val = numberValue(attr(pts, 'val'))
 			return val === null ? null : { type: 'points', valuePt: val / HUNDREDTHS_PER_POINT }
 		}
 		const pct = firstChild(lnSpc, 'a:spcPct')
 		if (pct) {
-			const val = intValue(attr(pct, 'val'))
+			const val = numberValue(attr(pct, 'val'))
 			return val === null ? null : { type: 'percent', percent: val / FIXED_PCT_PER_PERCENT }
 		}
 		return null
@@ -693,7 +693,7 @@ export class Paragraph {
 			return {
 				kind: 'autoNum',
 				scheme: attr(buAutoNum, 'type') ?? '',
-				startAt: intValue(attr(buAutoNum, 'startAt')),
+				startAt: numberValue(attr(buAutoNum, 'startAt')),
 				...style,
 			}
 		}
@@ -713,8 +713,8 @@ export class Paragraph {
 		// `a:buClr` holds the colour element directly (CT_Color), not wrapped in an
 		// `a:solidFill` the way a run or a shape fill does.
 		const colorEl = buClr ? firstChildElement(buClr) : null
-		const pctVal = buSzPct ? intValue(attr(buSzPct, 'val')) : null
-		const ptVal = buSzPts ? intValue(attr(buSzPts, 'val')) : null
+		const pctVal = buSzPct ? numberValue(attr(buSzPct, 'val')) : null
+		const ptVal = buSzPts ? numberValue(attr(buSzPts, 'val')) : null
 		return {
 			font: buFont ? (attr(buFont, 'typeface') ?? null) : null,
 			sizePct: pctFromThousandths(pctVal),
@@ -738,14 +738,14 @@ export class Paragraph {
 		const pPr = firstChild(this.element, 'a:pPr')
 		const spc = pPr && firstChild(pPr, qname)
 		const pts = spc && firstChild(spc, 'a:spcPts')
-		const val = pts ? intValue(attr(pts, 'val')) : null
+		const val = pts ? numberValue(attr(pts, 'val')) : null
 		return ptFromHundredths(val)
 	}
 
 	/** Points from an EMU-valued `a:pPr` attribute (`marL` / `indent`), or `null`. */
 	#emuAttrPt(name: string): number | null {
 		const pPr = firstChild(this.element, 'a:pPr')
-		const emu = pPr ? intValue(attr(pPr, name)) : null
+		const emu = pPr ? numberValue(attr(pPr, name)) : null
 		return ptFromEmu(emu)
 	}
 
@@ -855,7 +855,7 @@ export class TextFrame {
 		if (!bodyPr) return null
 		const insetsPt: BodyProperties['insetsPt'] = {}
 		const inset = (qn: string, key: keyof BodyProperties['insetsPt']): void => {
-			const v = intValue(attr(bodyPr, qn))
+			const v = numberValue(attr(bodyPr, qn))
 			if (v !== null) insetsPt[key] = v / EMU_PER_POINT
 		}
 		inset('lIns', 'left')
@@ -927,7 +927,7 @@ export class TextFrame {
 	#normAutofitPct(name: string): number | null {
 		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
 		const norm = bodyPr && firstChild(bodyPr, 'a:normAutofit')
-		const raw = norm ? intValue(attr(norm, name)) : null
+		const raw = norm ? numberValue(attr(norm, name)) : null
 		return pctFromThousandths(raw)
 	}
 

@@ -15,7 +15,7 @@ import {
 	createElement,
 	firstChild,
 	firstChildElement,
-	intValue,
+	numberValue,
 	ownerDocumentOf,
 	type Element,
 } from '../oxml/dom.js'
@@ -154,7 +154,7 @@ export function readSlideBackground(
 		return {
 			type: 'themeRef',
 			source,
-			idx: intValue(attr(bgRef, 'idx')),
+			idx: numberValue(attr(bgRef, 'idx')),
 			color: resolveColorElement(firstChildElement(bgRef), ctx),
 			resolvedFill: resolveThemeRefFill(bgRef, ctx, themeRels),
 		}

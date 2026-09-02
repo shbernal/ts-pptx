@@ -12,7 +12,7 @@ import {
 	boolValue,
 	firstChild,
 	getElements,
-	intValue,
+	numberValue,
 	type Element,
 } from '../../oxml/dom.js'
 import type { CustomGeometryPath, GeometryCommand } from './types.js'
@@ -25,7 +25,7 @@ import { ANGLE_UNITS_PER_DEGREE } from '../../../units.js'
  * a non-numeric value degrades to `0` rather than crashing (documented edge).
  */
 function ptAxis(pt: Element | undefined, axis: 'x' | 'y'): number {
-	return (pt ? intValue(attr(pt, axis)) : null) ?? 0
+	return (pt ? numberValue(attr(pt, axis)) : null) ?? 0
 }
 
 /** Parse one `<a:path>` into its viewport attrs (with schema defaults) and ordered segments. */
@@ -66,10 +66,10 @@ export function readGeometryPath(path: Element): CustomGeometryPath {
 			case 'arcTo':
 				commands.push({
 					cmd: 'arcTo',
-					wR: intValue(attr(seg, 'wR')) ?? 0,
-					hR: intValue(attr(seg, 'hR')) ?? 0,
-					stAng: (intValue(attr(seg, 'stAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
-					swAng: (intValue(attr(seg, 'swAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
+					wR: numberValue(attr(seg, 'wR')) ?? 0,
+					hR: numberValue(attr(seg, 'hR')) ?? 0,
+					stAng: (numberValue(attr(seg, 'stAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
+					swAng: (numberValue(attr(seg, 'swAng')) ?? 0) / ANGLE_UNITS_PER_DEGREE,
 				})
 				break
 			case 'close':
@@ -78,8 +78,8 @@ export function readGeometryPath(path: Element): CustomGeometryPath {
 		}
 	}
 	return {
-		w: intValue(attr(path, 'w')) ?? 0,
-		h: intValue(attr(path, 'h')) ?? 0,
+		w: numberValue(attr(path, 'w')) ?? 0,
+		h: numberValue(attr(path, 'h')) ?? 0,
 		fill: attr(path, 'fill') ?? 'norm',
 		stroke: boolValue(attr(path, 'stroke')) ?? true,
 		commands,
@@ -103,16 +103,16 @@ export function readBox(
 ): { x: number; y: number; cx: number; cy: number } | null {
 	const off = firstChild(xfrm, offName)
 	const ext = firstChild(xfrm, extName)
-	const x = off && intValue(attr(off, 'x'))
-	const y = off && intValue(attr(off, 'y'))
-	const cx = ext && intValue(attr(ext, 'cx'))
-	const cy = ext && intValue(attr(ext, 'cy'))
+	const x = off && numberValue(attr(off, 'x'))
+	const y = off && numberValue(attr(off, 'y'))
+	const cx = ext && numberValue(attr(ext, 'cx'))
+	const cy = ext && numberValue(attr(ext, 'cy'))
 	if (x === null || y === null || cx === null || cy === null) return null
 	return { x, y, cx, cy }
 }
 
 export function rotationDegrees(xfrm: Element): number {
-	const rot = intValue(attr(xfrm, 'rot'))
+	const rot = numberValue(attr(xfrm, 'rot'))
 	return rot === null ? 0 : rot / ANGLE_UNITS_PER_DEGREE
 }
 

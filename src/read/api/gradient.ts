@@ -4,10 +4,10 @@
  * into its stops (colour + position) plus the linear/path geometry, resolving each
  * stop's colour against the slide theme.
  */
-import { attr, firstChild, firstChildElement, getElements, intValue, type Element } from '../oxml/dom.js'
+import { attr, firstChild, firstChildElement, getElements, numberValue, pctAttr, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
-import { ANGLE_UNITS_PER_DEGREE, PERCENT_SCALE } from '../../units.js'
+import { ANGLE_UNITS_PER_DEGREE } from '../../units.js'
 
 /** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
 export interface GradientStop {
@@ -96,11 +96,11 @@ export function readGradientStops(container: Element, ctx: ColorContext): Gradie
 		// everywhere else.
 		const colorEl = firstChildElement(gs)
 		const model = colorEl?.localName ?? null
-		const pos = intValue(attr(gs, 'pos'))
+		const pos = pctAttr(gs, 'pos')
 		const resolved = resolveColorElement(colorEl, ctx)
 		const rawOf = (local: string) => (colorEl && model === local ? attr(colorEl, 'val') : null)
 		return {
-			position: pos === null ? null : pos / PERCENT_SCALE,
+			position: pos,
 			color: rawOf('srgbClr'),
 			schemeColor: rawOf('schemeClr'),
 			presetColor: rawOf('prstClr'),
@@ -121,7 +121,7 @@ export function readGradientFill(container: Element, ctx: ColorContext): Gradien
 	if (!grad) return null
 	const lin = firstChild(grad, 'a:lin')
 	const path = firstChild(grad, 'a:path')
-	const ang = lin ? intValue(attr(lin, 'ang')) : null
+	const ang = lin ? numberValue(attr(lin, 'ang')) : null
 	return {
 		kind: lin ? 'linear' : path ? 'path' : null,
 		angleDeg: ang === null ? null : ang / ANGLE_UNITS_PER_DEGREE,

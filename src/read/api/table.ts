@@ -11,11 +11,12 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import {
 	attr,
+	boolAttr,
 	createElement,
 	firstChild,
 	getElements,
 	getOrAddChild,
-	intValue,
+	numberValue,
 	ownerDocumentOf,
 	removeAttr,
 	removeChildrenByQName,
@@ -35,7 +36,17 @@ import {
 	type TableCellEdge,
 } from './table-edit.js'
 import { checkFiniteEmu, ptFromEmu } from './coords.js'
-import { insertColumn, insertRow, mergeCells, removeColumn, removeRow, rowsOf, unmergeCell } from './table-structure.js'
+import {
+	insertColumn,
+	insertRow,
+	isHMerge,
+	isVMerge,
+	mergeCells,
+	removeColumn,
+	removeRow,
+	rowsOf,
+	unmergeCell,
+} from './table-structure.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
 import type { ThemeContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
@@ -231,7 +242,7 @@ export class Table {
 	get columnWidths(): (number | null)[] {
 		const grid = firstChild(this.tbl, 'a:tblGrid')
 		if (!grid) return []
-		return getElements(grid, 'a:gridCol').map((col) => intValue(attr(col, 'w')))
+		return getElements(grid, 'a:gridCol').map((col) => numberValue(attr(col, 'w')))
 	}
 
 	/**
@@ -425,7 +436,7 @@ export class Table {
 
 	#tblPrFlag(name: string): boolean {
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		return tblPr ? attr(tblPr, name) === '1' : false
+		return tblPr ? boolAttr(tblPr, name) === true : false
 	}
 }
 
@@ -453,7 +464,7 @@ export class TableRow {
 
 	/** Row height in EMU (`a:tr/@h`), or `null` if unset. */
 	get heightEmu(): number | null {
-		return intValue(attr(this.tr, 'h'))
+		return numberValue(attr(this.tr, 'h'))
 	}
 
 	/** Escape hatch: the underlying `a:tr` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -852,7 +863,7 @@ export class TableCell {
 		const decode = (qname: string): CellBorder | null => {
 			const ln = firstChild(tcPr, qname)
 			if (!ln) return null
-			const w = intValue(attr(ln, 'w'))
+			const w = numberValue(attr(ln, 'w'))
 			const dash = firstChild(ln, 'a:prstDash')
 			const scheme = this.#fillSchemeColorOf(ln)
 			const resolved = this.themeColors ? resolveSolidFillColor(ln, this.themeColors) : null
@@ -928,7 +939,7 @@ export class TableCell {
 		const bevel = firstChild(cell3D, 'a:bevel')
 		const rig = firstChild(cell3D, 'a:lightRig')
 		const pts = (value: string | null): number | null => {
-			const emu = intValue(value)
+			const emu = numberValue(value)
 			return ptFromEmu(emu)
 		}
 		return {
@@ -994,27 +1005,27 @@ export class TableCell {
 	get marginsEmu(): { left: number | null; right: number | null; top: number | null; bottom: number | null } | null {
 		const tcPr = this.#tcPr()
 		if (!tcPr) return null
-		const left = intValue(attr(tcPr, 'marL'))
-		const right = intValue(attr(tcPr, 'marR'))
-		const top = intValue(attr(tcPr, 'marT'))
-		const bottom = intValue(attr(tcPr, 'marB'))
+		const left = numberValue(attr(tcPr, 'marL'))
+		const right = numberValue(attr(tcPr, 'marR'))
+		const top = numberValue(attr(tcPr, 'marT'))
+		const bottom = numberValue(attr(tcPr, 'marB'))
 		if (left === null && right === null && top === null && bottom === null) return null
 		return { left, right, top, bottom }
 	}
 
 	/** Number of grid columns this cell spans (`a:tc/@gridSpan`), default 1. */
 	get gridSpan(): number {
-		return intValue(attr(this.tc, 'gridSpan')) ?? 1
+		return numberValue(attr(this.tc, 'gridSpan')) ?? 1
 	}
 
 	/** Number of rows this cell spans (`a:tc/@rowSpan`), default 1. */
 	get rowSpan(): number {
-		return intValue(attr(this.tc, 'rowSpan')) ?? 1
+		return numberValue(attr(this.tc, 'rowSpan')) ?? 1
 	}
 
 	/** Whether this cell is a continuation of a merge (`@hMerge` or `@vMerge`), i.e. not the merge origin. */
 	get isMergeContinuation(): boolean {
-		return attr(this.tc, 'hMerge') === '1' || attr(this.tc, 'vMerge') === '1'
+		return isHMerge(this.tc) || isVMerge(this.tc)
 	}
 
 	/** Escape hatch: the underlying `a:tc` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */

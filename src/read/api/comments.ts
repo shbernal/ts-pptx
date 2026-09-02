@@ -14,7 +14,7 @@
  */
 import { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { attr, firstChild, getElements, numberValue, type Element } from '../oxml/dom.js'
 
 /** The slide → comments-part relationship type (legacy comments). */
 const COMMENTS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments'
@@ -68,11 +68,11 @@ export interface Comment {
 function parseCommentAuthors(root: Element | null): CommentAuthor[] {
 	if (!root) return []
 	return getElements(root, 'p:cmAuthor').map((el) => ({
-		id: intValue(attr(el, 'id')),
+		id: numberValue(attr(el, 'id')),
 		name: attr(el, 'name') ?? '',
 		initials: attr(el, 'initials') ?? '',
-		lastIdx: intValue(attr(el, 'lastIdx')),
-		clrIdx: intValue(attr(el, 'clrIdx')),
+		lastIdx: numberValue(attr(el, 'lastIdx')),
+		clrIdx: numberValue(attr(el, 'clrIdx')),
 	}))
 }
 
@@ -104,7 +104,7 @@ export function readSlideComments(opc: OpcPackage, slidePart: Part, authors: Com
 
 	const byId = new Map(authors.map((a) => [a.id, a]))
 	return getElements(root, 'p:cm').map((cm) => {
-		const authorId = intValue(attr(cm, 'authorId'))
+		const authorId = numberValue(attr(cm, 'authorId'))
 		const author = authorId !== null ? (byId.get(authorId) ?? null) : null
 		const pos = firstChild(cm, 'p:pos')
 		const textEl = firstChild(cm, 'p:text')
@@ -112,10 +112,10 @@ export function readSlideComments(opc: OpcPackage, slidePart: Part, authors: Com
 			author: author ? author.name : null,
 			authorInitials: author ? author.initials : null,
 			authorId,
-			idx: intValue(attr(cm, 'idx')),
+			idx: numberValue(attr(cm, 'idx')),
 			text: textEl?.textContent ?? '',
-			x: pos ? intValue(attr(pos, 'x')) : null,
-			y: pos ? intValue(attr(pos, 'y')) : null,
+			x: pos ? numberValue(attr(pos, 'x')) : null,
+			y: pos ? numberValue(attr(pos, 'y')) : null,
 			date: attr(cm, 'dt') ?? null,
 		}
 	})
@@ -199,8 +199,8 @@ function parseModernComment(
 		authorId,
 		created: attr(el, 'created'),
 		text: modernCommentText(el),
-		x: pos ? intValue(attr(pos, 'x')) : null,
-		y: pos ? intValue(attr(pos, 'y')) : null,
+		x: pos ? numberValue(attr(pos, 'x')) : null,
+		y: pos ? numberValue(attr(pos, 'y')) : null,
 		replies: replyLst ? getElements(replyLst, 'p188:reply').map((r) => parseModernComment(r, byId, false)) : [],
 	}
 }

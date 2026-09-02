@@ -14,7 +14,7 @@ import {
 	attr,
 	firstChild,
 	getElements,
-	intValue,
+	numberValue,
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
@@ -82,15 +82,15 @@ function rescaleXfrm(xfrm: Element | null, t: RescaleTransform): void {
 	if (!xfrm) return
 	const off = firstChild(xfrm, 'a:off')
 	if (off) {
-		const x = intValue(attr(off, 'x'))
-		const y = intValue(attr(off, 'y'))
+		const x = numberValue(attr(off, 'x'))
+		const y = numberValue(attr(off, 'y'))
 		if (x !== null) setAttr(off, 'x', String(Math.round(x * t.sx + t.dx)))
 		if (y !== null) setAttr(off, 'y', String(Math.round(y * t.sy + t.dy)))
 	}
 	const ext = firstChild(xfrm, 'a:ext')
 	if (ext) {
-		const cx = intValue(attr(ext, 'cx'))
-		const cy = intValue(attr(ext, 'cy'))
+		const cx = numberValue(attr(ext, 'cx'))
+		const cy = numberValue(attr(ext, 'cy'))
 		if (cx !== null) setAttr(ext, 'cx', String(Math.max(0, Math.round(cx * t.sx))))
 		if (cy !== null) setAttr(ext, 'cy', String(Math.max(0, Math.round(cy * t.sy))))
 	}
@@ -109,12 +109,12 @@ function rescaleTableGrid(graphicFrame: Element, t: RescaleTransform): void {
 	const grid = firstChild(tbl, 'a:tblGrid')
 	if (grid) {
 		for (const col of getElements(grid, 'a:gridCol')) {
-			const w = intValue(attr(col, 'w'))
+			const w = numberValue(attr(col, 'w'))
 			if (w !== null) setAttr(col, 'w', String(Math.max(0, Math.round(w * t.sx))))
 		}
 	}
 	for (const tr of getElements(tbl, 'a:tr')) {
-		const h = intValue(attr(tr, 'h'))
+		const h = numberValue(attr(tr, 'h'))
 		if (h !== null) setAttr(tr, 'h', String(Math.max(0, Math.round(h * t.sy))))
 	}
 }

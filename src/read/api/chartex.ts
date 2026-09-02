@@ -18,7 +18,16 @@
  * geo-cache are out of scope.
  */
 import type { Part } from '../opc/part.js'
-import { OOXML_NS, attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import {
+	OOXML_NS,
+	attr,
+	boolAttr,
+	firstChild,
+	getElements,
+	numberAttr,
+	numberValue,
+	type Element,
+} from '../oxml/dom.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
 
 /** A chartEx legend (`cx:legend`) — a leaf element carrying position/alignment attributes. */
@@ -135,7 +144,7 @@ export class ChartEx {
 		if (id === null) return null
 		const chartData = this.#chartData()
 		if (!chartData) return null
-		return getElements(chartData, 'cx:data').find((data) => intValue(attr(data, 'id')) === id) ?? null
+		return getElements(chartData, 'cx:data').find((data) => numberValue(attr(data, 'id')) === id) ?? null
 	}
 
 	#root(): Element | null {
@@ -186,7 +195,7 @@ export class ChartExSeries {
 	 * derives its data from series 0), or `null` for a self-contained series.
 	 */
 	get ownerIndex(): number | null {
-		return intValue(attr(this.ser, 'ownerIdx'))
+		return numberValue(attr(this.ser, 'ownerIdx'))
 	}
 
 	/** Series name from the cached `cx:tx/cx:txData/cx:v`, or `null` when unnamed. */
@@ -200,14 +209,14 @@ export class ChartExSeries {
 	/** The data-block id this series plots (`cx:dataId/@val`), or `null`. */
 	get dataId(): number | null {
 		const dataId = firstChild(this.ser, 'cx:dataId')
-		return dataId ? intValue(attr(dataId, 'val')) : null
+		return dataId ? numberValue(attr(dataId, 'val')) : null
 	}
 
 	/** Cached numeric values (`cx:numDim`); non-numeric or missing points are `null`. */
 	get values(): (number | null)[] {
 		const data = this.chart.dataElementById(this.dataId)
 		const numDim = data && firstChild(data, 'cx:numDim')
-		return readLevelPoints(numDim && firstChild(numDim, 'cx:lvl')).map(intValue)
+		return readLevelPoints(numDim && firstChild(numDim, 'cx:lvl')).map(numberValue)
 	}
 
 	/**
@@ -258,7 +267,7 @@ export class ChartExAxis {
 
 	/** Axis id (`@id`), the value a series' `cx:axisId` binds to. */
 	get id(): number | null {
-		return intValue(attr(this.ax, 'id'))
+		return numberValue(attr(this.ax, 'id'))
 	}
 
 	/** Axis kind from its scaling child: `cat` (`cx:catScaling`) / `val` (`cx:valScaling`). */
@@ -274,19 +283,19 @@ export class ChartExAxis {
 	 */
 	get gapWidth(): number | null {
 		const cat = firstChild(this.ax, 'cx:catScaling')
-		return cat ? floatValue(attr(cat, 'gapWidth')) : null
+		return cat ? numberAttr(cat, 'gapWidth') : null
 	}
 
 	/** Value-axis scale minimum (`cx:valScaling/@min`), or `null` when auto. */
 	get min(): number | null {
 		const val = firstChild(this.ax, 'cx:valScaling')
-		return val ? floatValue(attr(val, 'min')) : null
+		return val ? numberAttr(val, 'min') : null
 	}
 
 	/** Value-axis scale maximum (`cx:valScaling/@max`), or `null` when auto. */
 	get max(): number | null {
 		const val = firstChild(this.ax, 'cx:valScaling')
-		return val ? floatValue(attr(val, 'max')) : null
+		return val ? numberAttr(val, 'max') : null
 	}
 
 	/** Whether the axis draws major gridlines (`cx:majorGridlines`). */
@@ -315,22 +324,8 @@ function readLevelPoints(lvl: Element | null): (string | null)[] {
 	if (!lvl) return []
 	return readIndexedPoints(
 		getElements(lvl, 'cx:pt'),
-		intValue(attr(lvl, 'ptCount')),
+		numberValue(attr(lvl, 'ptCount')),
 		(pt) => pt.textContent ?? null,
 		'cx:lvl/@ptCount'
 	)
-}
-
-/** Parse an attribute as a boolean (`1`/`true` → true, `0`/`false` → false), or `null` when absent. */
-function boolAttr(element: Element, name: string): boolean | null {
-	const value = attr(element, name)
-	if (value === null) return null
-	return value === '1' || value === 'true'
-}
-
-/** Parse an attribute as a float (chartEx uses fractional `gapWidth`/scale values), or `null`. */
-function floatValue(value: string | null): number | null {
-	if (value === null || value === '') return null
-	const number = Number(value)
-	return Number.isFinite(number) ? number : null
 }

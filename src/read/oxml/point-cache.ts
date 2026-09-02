@@ -22,7 +22,7 @@
  * cell blank) reads three long rather than four. No value is lost — the dropped slots are the
  * ones that would have been `null` — and the disagreement is warned about either way.
  */
-import { attr, intValue, type Element } from './dom.js'
+import { attr, numberValue, type Element } from './dom.js'
 import { warn } from '../../diagnostics.js'
 
 /**
@@ -60,7 +60,7 @@ export function readIndexedPoints(
 	let count = 0
 	let dropped = 0
 	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
+		const idx = numberValue(attr(pt, 'idx')) ?? 0
 		if (idx < 0 || idx >= MAX_POINT_INDEX) {
 			dropped++
 			continue
@@ -81,7 +81,7 @@ export function readIndexedPoints(
 	}
 	const points: (string | null)[] = new Array<string | null>(count).fill(null)
 	for (const pt of pts) {
-		const idx = intValue(attr(pt, 'idx')) ?? 0
+		const idx = numberValue(attr(pt, 'idx')) ?? 0
 		if (idx < 0 || idx >= count) continue
 		points[idx] = valueOf(pt)
 	}

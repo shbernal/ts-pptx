@@ -29,7 +29,7 @@
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
-import { attr, boolValue, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, getElements, numberValue, type Element } from '../oxml/dom.js'
 import { parseClrMap, parseClrScheme, type ThemeContext } from '../oxml/theme.js'
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
 import { placeholderOf } from '../oxml/placeholder-inherit.js'
@@ -222,7 +222,7 @@ export class Placeholder {
 	/** Drawing id (`p:cNvPr/@id`), or `null` when absent. */
 	get id(): number | null {
 		const cNvPr = this.#cNvPr()
-		return cNvPr ? intValue(attr(cNvPr, 'id')) : null
+		return cNvPr ? numberValue(attr(cNvPr, 'id')) : null
 	}
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when the placeholder carries no own `a:xfrm`. */
