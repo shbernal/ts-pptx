@@ -18,8 +18,8 @@ import type {
 } from '../../types/index.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { clampRangedInput, convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
-import { createColorElement } from './color.js'
-import { genXmlImageCropRect } from './src-rect.js'
+import { alphaEl, createColorElement } from './color.js'
+import { genXmlImageCropRect, STRETCH_FILL_RECT } from './src-rect.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -38,7 +38,7 @@ function normalizeGradientAngle(angle: number | undefined): number {
 }
 
 function alphaFromTransparency(transparency: number | undefined): string {
-	return transparency ? voidEl('a:alpha', { val: transparencyToAlpha(transparency) }) : ''
+	return transparency ? alphaEl(transparencyToAlpha(transparency)) : ''
 }
 
 function normalizeGradientStops(stops: GradientStopProps[] | undefined): GradientStopProps[] {
@@ -171,7 +171,7 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 		// `<a:blip>` stays paired even with no `alphaModFix` child — the arity rule.
 		raw(el('a:blip', { 'r:embed': `rId${props._imgRid}` }, raw(blipInner))),
 		raw(srcRect),
-		raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+		raw(STRETCH_FILL_RECT),
 	])
 }
 

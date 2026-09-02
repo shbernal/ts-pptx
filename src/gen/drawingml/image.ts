@@ -7,12 +7,13 @@
  */
 
 import { fitSrcRectPercents } from '../../media/image-size.js'
-import { el, raw, voidEl } from '../oxml/el.js'
-import { genXmlImageCropRect, type ImageCrop } from './src-rect.js'
+import { PERCENT_SCALE } from '../../units.js'
+import { voidEl } from '../oxml/el.js'
+import { genXmlImageCropRect, STRETCH_FILL_RECT, type ImageCrop } from './src-rect.js'
 import { InvalidOptionError } from '../../errors.js'
 
 /** Every `<a:srcRect>` below is followed by this same fill directive. */
-const STRETCH = el('a:stretch', null, raw(voidEl('a:fillRect')))
+const STRETCH = STRETCH_FILL_RECT
 
 /** The `<a:srcRect>` fitting `imgSize` into `boxDim`, followed by the fill directive. */
 function fitSrcRect(
@@ -54,10 +55,10 @@ export const ImageSizingXml = {
 				`addImage sizing.type 'crop': crop window overflows image bounds — ${over}. Ensure x≥0, y≥0, x+w≤w, y+h≤h.`
 			)
 		}
-		const lPerc = Math.round(1e5 * (l / imgSize.w))
-		const rPerc = Math.round(1e5 * (r / imgSize.w))
-		const tPerc = Math.round(1e5 * (t / imgSize.h))
-		const bPerc = Math.round(1e5 * (b / imgSize.h))
+		const lPerc = Math.round(PERCENT_SCALE * (l / imgSize.w))
+		const rPerc = Math.round(PERCENT_SCALE * (r / imgSize.w))
+		const tPerc = Math.round(PERCENT_SCALE * (t / imgSize.h))
+		const bPerc = Math.round(PERCENT_SCALE * (b / imgSize.h))
 		return voidEl('a:srcRect', { l: lPerc, r: rPerc, t: tPerc, b: bPerc }) + STRETCH
 	},
 }

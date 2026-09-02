@@ -6,10 +6,11 @@
  * Office master, with any `MasterTextStyleProps` overrides layered on top.
  */
 
-import { CRLF, LAYOUT_IDX_SERIES_BASE, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, XML_DECL } from '../../constants-internal.js'
+import { CRLF, LAYOUT_IDX_SERIES_BASE, LEVEL_MARGINS_EMU, XML_DECL } from '../../constants-internal.js'
 import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
+import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { inch2Emu } from '../../units-internal.js'
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -203,18 +204,18 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 		? voidEl('a:latin', { typeface: levelOverride.fontFace })
 		: voidEl('a:latin', { typeface: `+${base.font}-lt` })
 
-	return el(`a:lvl${levelNum}pPr`, { marL, indent: indentEmu, algn, ...LEVEL_PPR_TAIL }, [
+	return lvlPPr(levelNum, { marL, indent: indentEmu, algn }, [
 		typeof base.spcBefPct === 'number'
 			? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: base.spcBefPct }))))
 			: null,
 		raw(masterBulletXml(levelOverride.bullet, base.bu)),
 		raw(
-			el('a:defRPr', { sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 }, [
-				raw(el('a:solidFill', null, raw(colorXml))),
-				raw(latinXml),
-				raw(voidEl('a:ea', { typeface: `+${base.font}-ea` })),
-				raw(voidEl('a:cs', { typeface: `+${base.font}-cs` })),
-			])
+			themeFontDefRPr(
+				base.font,
+				{ sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 },
+				colorXml,
+				latinXml
+			)
 		),
 	])
 }
@@ -264,17 +265,10 @@ function makeXmlMasterDefaultTxStyles(): string {
 		font: 'mj' | 'mn',
 		spcBefPct?: number
 	): string =>
-		el(`a:lvl${n}pPr`, { ...attrs, ...LEVEL_PPR_TAIL }, [
+		lvlPPr(n, attrs, [
 			typeof spcBefPct === 'number' ? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: spcBefPct })))) : null,
 			raw(bullet),
-			raw(
-				el('a:defRPr', { sz, kern: 1200 }, [
-					raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
-					raw(voidEl('a:latin', { typeface: `+${font}-lt` })),
-					raw(voidEl('a:ea', { typeface: `+${font}-ea` })),
-					raw(voidEl('a:cs', { typeface: `+${font}-cs` })),
-				])
-			),
+			raw(themeFontDefRPr(font, { sz, kern: 1200 })),
 		])
 
 	const title = defaultLevel(1, { algn: 'ctr' }, voidEl('a:buNone'), 4400, 'mj', 0)

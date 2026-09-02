@@ -13,6 +13,7 @@
  */
 
 import type { Model3dInternal } from '../../../types/internal.js'
+import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import {
 	FALLBACK_PICTURE_LOCKS,
@@ -147,7 +148,7 @@ function fallbackPic(
 export function renderModel3dObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 	} = ctx
 	const model = slideItemObj.model3d
@@ -157,10 +158,7 @@ export function renderModel3dObject(ctx: RenderContext): string {
 
 	// `am3d:spPr`'s xfrm is FRAME-LOCAL: origin 0,0 with the graphic frame's own extent. The
 	// slide-absolute position lives on `p:xfrm` below (and on the fallback picture's `p:spPr`).
-	const spPr = el('am3d:spPr', null, [
-		raw(xfrmEl('a:xfrm', { x: 0, y: 0, cx, cy })),
-		raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
-	])
+	const spPr = el('am3d:spPr', null, [raw(xfrmEl('a:xfrm', { x: 0, y: 0, cx, cy })), raw(prstGeomRect())])
 
 	const model3d = el('am3d:model3d', { 'r:embed': `rId${model.modelRid}` }, [
 		raw(spPr),
@@ -173,7 +171,7 @@ export function renderModel3dObject(ctx: RenderContext): string {
 	])
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(idx + 2, opts.objectName, altText) + '/>'),
+		raw(cNvPrOpen(shapeId, opts.objectName, altText) + '/>'),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',
@@ -198,6 +196,6 @@ export function renderModel3dObject(ctx: RenderContext): string {
 
 	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
 		raw(el('mc:Choice', { 'xmlns:am3d': AM3D_NS, Requires: 'am3d' }, raw(graphicFrame))),
-		raw(el('mc:Fallback', null, raw(fallbackPic(idx + 2, opts.objectName, altText, model, { x, y, cx, cy })))),
+		raw(el('mc:Fallback', null, raw(fallbackPic(shapeId, opts.objectName, altText, model, { x, y, cx, cy })))),
 	])
 }

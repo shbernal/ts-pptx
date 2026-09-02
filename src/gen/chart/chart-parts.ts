@@ -28,7 +28,7 @@ import type {
 } from '../../types/index.js'
 import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
-import { createColorElement } from '../drawingml/color.js'
+import { alphaEl, createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill, solidPaint } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
@@ -301,9 +301,9 @@ export function chartColorLineFill(color: string): string {
 export function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 	if (serColor === 'transparent') return voidEl('a:noFill')
 	if (!opts.chartColorsOpacity) return genXmlColorSelection(serColor)
-	const alpha = voidEl('a:alpha', {
-		val: percentToFixedPercent(opts.chartColorsOpacity, 'chart/option-out-of-range', 'chartColorsOpacity'),
-	})
+	const alpha = alphaEl(
+		percentToFixedPercent(opts.chartColorsOpacity, 'chart/option-out-of-range', 'chartColorsOpacity')
+	)
 	return el('a:solidFill', null, raw(createColorElement(serColor, alpha)))
 }
 

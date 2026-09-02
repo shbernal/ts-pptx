@@ -13,8 +13,8 @@ import type { ShadowProps, TextGlowProps } from '../../types/index.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
 import { clampRangedInput, opacityToAlpha, shadowLengthToEmu } from '../../units-internal.js'
-import { stripHash } from '../../hex-color.js'
-import { createColorElement } from './color.js'
+import { splitRgbaHex, stripHash } from '../../hex-color.js'
+import { alphaEl, createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /**
@@ -30,12 +30,7 @@ export function createGlowElement(options: TextGlowProps, defaults: TextGlowProp
 	const color = opts.color || DEF_FONT_COLOR
 	const opacity = opacityToAlpha(opts.opacity ?? 0)
 
-	return el('a:glow', { rad: size }, raw(createColorElement(color, alpha(opacity))))
-}
-
-/** The `<a:alpha>` child both effects hang off their color element. */
-function alpha(value: number): string {
-	return voidEl('a:alpha', { val: value })
+	return el('a:glow', { rad: size }, raw(createColorElement(color, alphaEl(opacity))))
 }
 
 /**
@@ -72,7 +67,7 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 			: {}
 	const attrs = { ...outerAttrs, blurRad: blur, dist: offset, dir: angle }
 
-	return el(`a:${type}Shdw`, attrs, raw(createColorElement(color, alpha(opacity))))
+	return el(`a:${type}Shdw`, attrs, raw(createColorElement(color, alphaEl(opacity))))
 }
 
 /**
@@ -145,12 +140,10 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 		// 8-char hex (RGBA) — derive `_alpha` from the alpha byte (only when `transparency`
 		// didn't already set one), then strip the alpha byte from the color so emit sites
 		// produce valid 6-char `<a:srgbClr val="…"/>`.
-		if (/^[0-9a-fA-F]{8}$/.test(corrected.color)) {
-			const alphaHex = corrected.color.slice(6, 8)
-			if (corrected._alpha === undefined) {
-				corrected._alpha = parseInt(alphaHex, 16) / 255
-			}
-			corrected.color = corrected.color.slice(0, 6)
+		const rgba = splitRgbaHex(corrected.color)
+		if (rgba.alpha !== undefined) {
+			if (corrected._alpha === undefined) corrected._alpha = rgba.alpha
+			corrected.color = rgba.rgb
 		}
 	}
 

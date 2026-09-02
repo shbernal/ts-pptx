@@ -9,6 +9,8 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
+import { STRETCH_FILL_RECT } from '../drawingml/src-rect.js'
+import { prstGeomRect } from '../drawingml/geometry.js'
 import { DEF_PRES_LAYOUT_NAME, SLDNUM_PLACEHOLDER_TEXT, SLDNUMFLDID } from '../../constants-internal.js'
 import type { ObjectOptions, SlideNumberProps } from '../../types/index.js'
 import type {
@@ -161,7 +163,7 @@ function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal): str
 						el('a:blipFill', { dpi: '0', rotWithShape: '1' }, [
 							raw(el('a:blip', { 'r:embed': `rId${slide._bkgdImgRid}` }, raw(voidEl('a:lum')))),
 							raw(voidEl('a:srcRect')),
-							raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+							raw(STRETCH_FILL_RECT),
 						])
 					),
 					raw(voidEl('a:effectLst')),
@@ -259,7 +261,7 @@ function slideNumberPlaceholderXml(
 				})
 			),
 		]) +
-		el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: ' ' }) +
+		prstGeomRect({ openPrefix: ' ' }) +
 		el(
 			'a:extLst',
 			null,
@@ -358,16 +360,11 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	// STEP 2: Continue slide by starting spTree node
 	strSlideXml += spTreeOpenXml()
 
-	// Every object's <p:cNvPr> id, up front, for the references that cannot wait for the walk below
-	// to reach their target (connector shape bindings, animation spids). `collectSlideShapeIds`
-	// mirrors the allocation performed here — keep the two in step.
+	// Every object's <p:cNvPr> id, allocated once, up front. It has to be up front for the
+	// references that cannot wait for the walk below to reach their target (connector shape
+	// bindings, animation spids), and it is the ONLY allocation: the walk reads this map rather
+	// than recomputing the same arithmetic, so there is nothing left to keep in step.
 	const shapeIds = collectSlideShapeIds(slide._slideObjects)
-
-	// STEP 3: Loop over all Slide.data objects and add them to this slide.
-	// Allocates <p:cNvPr id> values for group children, which are not in `slide._slideObjects`
-	// and so cannot reuse the top-level `idx + 2` scheme without colliding. Seeded past the last
-	// top-level object id so child ids stay unique slide-wide.
-	let childIdxAlloc = slide._slideObjects.length
 
 	// Resolve an object's bounds in EMU. For an auto-sized group (a `group` object with no explicit
 	// x/y/w/h) this recurses into `_groupObjects` and returns their bounding box — so a parent group
@@ -404,7 +401,11 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	// Closes over `slide` and `childIdxAlloc`. Uses a local
 	// `strSlideXml` accumulator (shadowing the slide-level one) so the existing per-object
 	// `strSlideXml +=` appends compose into the returned fragment unchanged.
-	const renderSlideObjectXml = (slideItemObj: SlideObject, idx: number): string => {
+	const renderSlideObjectXml = (slideItemObj: SlideObject): string => {
+		// The one allocator's answer. Every renderer used to recompute `idx + 2` and the group walk
+		// kept a second counter; a `p:cNvPr` id is now read from the same map the forward
+		// references resolve through, so the two cannot drift.
+		const shapeId = shapeIds.get(slideItemObj) ?? 2
 		let strSlideXml = ''
 		let x = 0
 		let y = 0
@@ -482,7 +483,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// boundary beats a defensive copy of it in every callee.
 		const ctx: RenderContext = {
 			obj: slideItemObj,
-			idx,
+			shapeId,
 			slide,
 			frame: { x, y, cx, cy },
 			placeholder: placeholderObj,
@@ -529,7 +530,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				let innerXml = ''
 				groupChildren.forEach((child) => {
 					child.options = child.options || {}
-					innerXml += renderSlideObjectXml(child, childIdxAlloc++)
+					innerXml += renderSlideObjectXml(child)
 				})
 
 				// Identity child coordinate space (chOff/chExt == off/ext) at every depth, so children
@@ -559,7 +560,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				)
 				strSlideXml += '<p:grpSp>'
 				strSlideXml += el('p:nvGrpSpPr', null, [
-					raw(cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'),
+					raw(cNvPrOpen(shapeId, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'),
 					// Paired only when there are locks to carry; otherwise self-closing.
 					raw(grpLockXml ? el('p:cNvGrpSpPr', null, raw(grpLockXml)) : voidEl('p:cNvGrpSpPr')),
 					raw(voidEl('p:nvPr')),
@@ -610,18 +611,17 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		return strSlideXml
 	}
 
-	slide._slideObjects.forEach((slideItemObj: SlideObject, idx: number) => {
-		strSlideXml += renderSlideObjectXml(slideItemObj, idx)
+	slide._slideObjects.forEach((slideItemObj: SlideObject) => {
+		strSlideXml += renderSlideObjectXml(slideItemObj)
 	})
 
 	// STEP 4: Add slide numbers (if any) last.
-	// The id comes from the same monotonic counter as every other shape on the slide (top-level
-	// objects took `idx + 2`; group children advanced `childIdxAlloc` past that). A hardcoded id
-	// here (formerly 25) aliases a shape or group-child id once a slide holds enough objects — a
-	// duplicate `<p:cNvPr>` id PowerPoint repairs — so take the next free slot instead. Allocated
-	// here rather than inside the emitter so a part with no slide number does not consume an id.
+	// One past the highest id the allocator handed out — the same slot the group-child counter
+	// used to reach. A hardcoded id here (formerly 25) aliases a shape or group-child id once a
+	// slide holds enough objects, which PowerPoint repairs. Resolved here rather than inside the
+	// emitter so a part with no slide number does not consume an id.
 	if (slide._slideNumberProps)
-		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, childIdxAlloc++ + 2)
+		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, Math.max(1, ...shapeIds.values()) + 1)
 
 	// STEP 5: Close spTree and finalize slide XML
 	strSlideXml += '</p:spTree>'

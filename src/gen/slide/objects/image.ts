@@ -26,7 +26,7 @@ import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from '
  * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
  */
 export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: number; imgHeight: number }): string {
-	const { obj: slideItemObj, idx, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
+	const { obj: slideItemObj, shapeId, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
 	const { x, y } = ctx.frame
 	// Both pairs are reassigned below: `_szAuto` backfills an omitted dimension from the image's
 	// natural ratio, and `sizing` then picks the box actually drawn.
@@ -69,7 +69,7 @@ export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: numbe
 	strSlideXml += '<p:pic>'
 	strSlideXml += '  <p:nvPicPr>'
 	strSlideXml +=
-		cNvPrOpen(idx + 2, imgOpts.objectName, imgOpts.altText || slideItemObj.image || '') + '>' + cNvPrHyperlink(imgLink)
+		cNvPrOpen(shapeId, imgOpts.objectName, imgOpts.altText || slideItemObj.image || '') + '>' + cNvPrHyperlink(imgLink)
 	strSlideXml += '    </p:cNvPr>'
 	// Default to locking aspect ratio (PowerPoint's own behavior); user `objectLock` overrides any flag, incl. noChangeAspect.
 	strSlideXml += el(

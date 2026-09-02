@@ -7,6 +7,8 @@
  */
 
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
+import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
+import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { msMediaRid, previewRid } from '../../define/media.js'
 import { type RenderContext, cNvPrOpen } from './shared.js'
@@ -18,7 +20,7 @@ import { OOXML_NS } from '../../../ooxml/namespaces.js'
 export function renderMediaObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 		locationAttrs,
 		itemOpts,
@@ -48,7 +50,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
 					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
 					raw(
-						cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') +
+						cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') +
 							'>' +
 							voidEl('a:hlinkClick', { 'r:id': '', action: 'ppaction://media' }) +
 							'</p:cNvPr>'
@@ -108,10 +110,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 			el(
 				'p:blipFill',
 				null,
-				[
-					raw(voidEl('a:blip', { 'r:embed': `rId${previewRid(mediaRid)}` })),
-					raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
-				],
+				[raw(voidEl('a:blip', { 'r:embed': `rId${previewRid(mediaRid)}` })), raw(STRETCH_FILL_RECT)],
 				{ openPrefix: ' ' }
 			)
 		),
@@ -125,7 +124,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 							openPrefix: '  ',
 						})
 					),
-					raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: '  ' })),
+					raw(prstGeomRect({ openPrefix: '  ' })),
 				],
 				{ openPrefix: ' ', closePrefix: ' ' }
 			)

@@ -25,37 +25,67 @@ import {
  * @returns XML
  */
 /**
- * The first relationship id free for embedded-font rels in `presentation.xml.rels`,
- * i.e. one past the last fixed rel {@link makeXmlPresentationRels} emits. Shared by
- * the rels writer and {@link makeXmlPresentation} so the `embeddedFontLst` face
- * `r:id`s match the relationships that back them.
+ * The relationship ids `presentation.xml.rels` gives its fixed parts, and the first id free
+ * after them.
  *
- * Layout: rId1 = slideMaster, rId2..(N+1) = N slides, then notesMaster/presProps/
- * viewProps/theme1/tableStyles (5), then commentAuthors (1, only with comments).
+ * Layout: rId1 = slideMaster, rId2..(N+1) = N slides, then notesMaster/presProps/viewProps/
+ * theme1/tableStyles, then commentAuthors when the deck has any comment, then the embedded
+ * fonts.
+ *
+ * The rels writer and `makeXmlPresentation` both need these numbers — the presentation part
+ * names the notesMaster and each embedded face by `r:id` — and each derived them separately,
+ * one as `slides.length + 2` under a comment saying it copied the other's logic. Inserting a
+ * relationship before `notesMaster` then broke the presentation's own reference with no
+ * signal.
+ * @param slides - the deck's slides, whose count and comments decide the layout
+ */
+export function presentationFixedRelIds(slides: PresSlideInternal[]): {
+	notesMaster: number
+	presProps: number
+	viewProps: number
+	theme: number
+	tableStyles: number
+	commentAuthors: number | null
+	fontStart: number
+} {
+	const first = (slides?.length ?? 0) + 2
+	const hasComments = (slides || []).some((slide) => (slide._comments || []).length > 0)
+	return {
+		notesMaster: first,
+		presProps: first + 1,
+		viewProps: first + 2,
+		theme: first + 3,
+		tableStyles: first + 4,
+		commentAuthors: hasComments ? first + 5 : null,
+		fontStart: first + (hasComments ? 6 : 5),
+	}
+}
+
+/**
+ * The first relationship id free for embedded-font rels — {@link presentationFixedRelIds}'
+ * `fontStart`, kept as its own name because that is what the two font walks ask for.
  */
 export function presentationFontRelStart(slides: PresSlideInternal[]): number {
-	const hasComments = (slides || []).some((slide) => (slide._comments || []).length > 0)
-	return slides.length + 7 + (hasComments ? 1 : 0)
+	return presentationFixedRelIds(slides).fontStart
 }
 
 export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFonts?: EmbeddedFont[]): string {
-	let intRelNum = 1
+	const fixed = presentationFixedRelIds(slides)
 	const rels: string[] = [relationshipEl(1, SLIDE_MASTER_REL, 'slideMasters/slideMaster1.xml')]
 	for (let idx = 1; idx <= slides.length; idx++) {
-		rels.push(relationshipEl(++intRelNum, SLIDE_REL, `slides/slide${idx}.xml`))
+		rels.push(relationshipEl(idx + 1, SLIDE_REL, `slides/slide${idx}.xml`))
 	}
-	intRelNum++
 	rels.push(
-		relationshipEl(intRelNum + 0, NOTES_MASTER_REL, 'notesMasters/notesMaster1.xml'),
-		relationshipEl(intRelNum + 1, OFFICE_REL + 'presProps', 'presProps.xml'),
-		relationshipEl(intRelNum + 2, OFFICE_REL + 'viewProps', 'viewProps.xml'),
-		relationshipEl(intRelNum + 3, THEME_REL, 'theme/theme1.xml'),
-		relationshipEl(intRelNum + 4, TABLE_STYLES_REL, 'tableStyles.xml')
+		relationshipEl(fixed.notesMaster, NOTES_MASTER_REL, 'notesMasters/notesMaster1.xml'),
+		relationshipEl(fixed.presProps, OFFICE_REL + 'presProps', 'presProps.xml'),
+		relationshipEl(fixed.viewProps, OFFICE_REL + 'viewProps', 'viewProps.xml'),
+		relationshipEl(fixed.theme, THEME_REL, 'theme/theme1.xml'),
+		relationshipEl(fixed.tableStyles, TABLE_STYLES_REL, 'tableStyles.xml')
 	)
 	// The presentation-level commentAuthors part is shared by every slide's comments, so it is
 	// related once from the presentation (only when the deck has at least one comment).
-	if ((slides || []).some((slide) => (slide._comments || []).length > 0)) {
-		rels.push(relationshipEl(intRelNum + 5, OFFICE_REL + 'commentAuthors', 'commentAuthors.xml'))
+	if (fixed.commentAuthors !== null) {
+		rels.push(relationshipEl(fixed.commentAuthors, OFFICE_REL + 'commentAuthors', 'commentAuthors.xml'))
 	}
 	// Embedded fonts: one `font` rel per face, ids continuing past the fixed rels above.
 	for (const face of flattenEmbeddedFaces(embeddedFonts || [], presentationFontRelStart(slides))) {

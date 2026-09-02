@@ -26,7 +26,7 @@ const OLE_NS = 'http://schemas.openxmlformats.org/presentationml/2006/ole'
 export function renderOleObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 	} = ctx
 	const ole = slideItemObj.ole
@@ -64,7 +64,7 @@ export function renderOleObject(ctx: RenderContext): string {
 	])
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') + '/>'),
+		raw(cNvPrOpen(shapeId, opts.objectName, opts.altText || '') + '/>'),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',

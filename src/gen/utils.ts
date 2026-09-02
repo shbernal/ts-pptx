@@ -39,6 +39,23 @@ export function getUuid(uuidFormat: string): string {
 }
 
 /**
+ * The XML 1.0 control characters no document may carry, as a character class.
+ *
+ * Built from `String.fromCharCode` so `no-control-regex` cannot flag it statically, and built
+ * ONCE: it was constructed inside `encodeXmlEntities`, which runs for every attribute value and
+ * text child in the package, and again inside `validateObjectName` under a comment saying it was
+ * the same set.
+ */
+const ILLEGAL_XML_CHARS_CLASS = ((cc: (n: number) => string) =>
+	`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)(String.fromCharCode)
+
+/** The stripping form. Separate from {@link ILLEGAL_XML_CHARS} because a `g` regex is stateful under `.test`. */
+const ILLEGAL_XML_CHARS_G = new RegExp(ILLEGAL_XML_CHARS_CLASS, 'g')
+
+/** The detecting form; see {@link ILLEGAL_XML_CHARS_G} for why the two are not one regex. */
+const ILLEGAL_XML_CHARS = new RegExp(ILLEGAL_XML_CHARS_CLASS)
+
+/**
  * Replace special XML characters with HTML-encoded strings.
  *
  * ELEMENT TEXT ONLY. A literal tab, carriage return or line feed is left alone here because in
@@ -52,12 +69,9 @@ export function encodeXmlEntities(xml: string | number): string {
 	// NOTE: Dont use short-circuit eval here as value c/b "0" (zero) etc.!
 	if (typeof xml === 'undefined' || xml == null) return ''
 	// Strip XML 1.0 illegal control chars (e.g. \v) before escaping to prevent PowerPoint repair dialogs.
-	// Pattern built from String.fromCharCode so no-control-regex cannot flag it statically.
-	const cc = String.fromCharCode
-	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`, 'g')
 	return xml
 		.toString()
-		.replace(illegalXmlCharsRe, '')
+		.replace(ILLEGAL_XML_CHARS_G, '')
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;')
@@ -143,10 +157,8 @@ export function validateObjectName(name: string, kind: string): string {
 		)
 		return name
 	}
-	// Same illegal-XML-char set that `encodeXmlEntities` strips; detect so the caller knows the name will change.
-	const cc = String.fromCharCode
-	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)
-	if (illegalXmlCharsRe.test(name)) {
+	// Same set `encodeXmlEntities` strips; detect so the caller knows the name will change.
+	if (ILLEGAL_XML_CHARS.test(name)) {
 		warn(
 			'object-name/control-characters',
 			`${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`

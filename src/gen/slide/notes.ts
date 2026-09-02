@@ -7,7 +7,9 @@
  */
 
 import { SlideObjectType } from '../../enums.js'
-import { CRLF, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import { prstGeomRect } from '../drawingml/geometry.js'
+import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
+import { CRLF, LEVEL_MARGINS_EMU, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
 import type { TextProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
@@ -170,7 +172,7 @@ function notesExtLst(): string {
 export function makeXmlNotesMaster(): string {
 	const xfrmOffExt = (x: number, y: number, cx: number, cy: number): string =>
 		el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
-	const prstGeomRect = el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))
+	const rectGeom = prstGeomRect()
 	const spLocks = (attrs: Record<string, number>): string => el('p:cNvSpPr', null, raw(voidEl('a:spLocks', attrs)))
 	const nvPr = (phAttrs: Record<string, string | number>): string => el('p:nvPr', null, raw(voidEl('p:ph', phAttrs)))
 	const bodyPr = (attrs: Record<string, string | number>): string => voidEl('a:bodyPr', attrs)
@@ -186,7 +188,7 @@ export function makeXmlNotesMaster(): string {
 				raw(nvPr({ type: 'hdr', sz: 'quarter' })),
 			])
 		),
-		raw(el('p:spPr', null, [raw(xfrmOffExt(0, 0, 2971800, 458788)), raw(prstGeomRect)])),
+		raw(el('p:spPr', null, [raw(xfrmOffExt(0, 0, 2971800, 458788)), raw(rectGeom)])),
 		raw(
 			el('p:txBody', null, [
 				raw(bodyPr({ vert: 'horz', lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, rtlCol: 0 })),
@@ -204,7 +206,7 @@ export function makeXmlNotesMaster(): string {
 				raw(nvPr({ type: 'dt', idx: 1 })),
 			])
 		),
-		raw(el('p:spPr', null, [raw(xfrmOffExt(3884613, 0, 2971800, 458788)), raw(prstGeomRect)])),
+		raw(el('p:spPr', null, [raw(xfrmOffExt(3884613, 0, 2971800, 458788)), raw(rectGeom)])),
 		raw(
 			el('p:txBody', null, [
 				raw(bodyPr({ vert: 'horz', lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, rtlCol: 0 })),
@@ -235,7 +237,7 @@ export function makeXmlNotesMaster(): string {
 		raw(
 			el('p:spPr', null, [
 				raw(xfrmOffExt(685800, 1143000, 5486400, 3086100)),
-				raw(prstGeomRect),
+				raw(rectGeom),
 				raw(voidEl('a:noFill')),
 				raw(el('a:ln', { w: 12700 }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'black' })))))),
 			])
@@ -257,7 +259,7 @@ export function makeXmlNotesMaster(): string {
 				raw(nvPr({ type: 'body', sz: 'quarter', idx: 3 })),
 			])
 		),
-		raw(el('p:spPr', null, [raw(xfrmOffExt(685800, 4400550, 5486400, 3600450)), raw(prstGeomRect)])),
+		raw(el('p:spPr', null, [raw(xfrmOffExt(685800, 4400550, 5486400, 3600450)), raw(rectGeom)])),
 		raw(
 			el('p:txBody', null, [
 				raw(bodyPr({ vert: 'horz', lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, rtlCol: 0 })),
@@ -284,7 +286,7 @@ export function makeXmlNotesMaster(): string {
 				raw(nvPr({ type: 'ftr', sz: 'quarter', idx: 4 })),
 			])
 		),
-		raw(el('p:spPr', null, [raw(xfrmOffExt(0, 8685213, 2971800, 458787)), raw(prstGeomRect)])),
+		raw(el('p:spPr', null, [raw(xfrmOffExt(0, 8685213, 2971800, 458787)), raw(rectGeom)])),
 		raw(
 			el('p:txBody', null, [
 				raw(bodyPr({ vert: 'horz', lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, rtlCol: 0, anchor: 'b' })),
@@ -302,7 +304,7 @@ export function makeXmlNotesMaster(): string {
 				raw(nvPr({ type: 'sldNum', sz: 'quarter', idx: 5 })),
 			])
 		),
-		raw(el('p:spPr', null, [raw(xfrmOffExt(3884613, 8685213, 2971800, 458787)), raw(prstGeomRect)])),
+		raw(el('p:spPr', null, [raw(xfrmOffExt(3884613, 8685213, 2971800, 458787)), raw(rectGeom)])),
 		raw(
 			el('p:txBody', null, [
 				raw(bodyPr({ vert: 'horz', lIns: 91440, tIns: 45720, rIns: 91440, bIns: 45720, rtlCol: 0, anchor: 'b' })),
@@ -335,18 +337,7 @@ export function makeXmlNotesMaster(): string {
 	const clrMap = voidEl('p:clrMap', DEFAULT_COLOR_MAP)
 
 	const notesStyleLevel = (n: number, marL: number): string =>
-		el(
-			`a:lvl${n}pPr`,
-			{ marL, algn: 'l', ...LEVEL_PPR_TAIL },
-			raw(
-				el('a:defRPr', { sz: 1200, kern: 1200 }, [
-					raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
-					raw(voidEl('a:latin', { typeface: '+mn-lt' })),
-					raw(voidEl('a:ea', { typeface: '+mn-ea' })),
-					raw(voidEl('a:cs', { typeface: '+mn-cs' })),
-				])
-			)
-		)
+		lvlPPr(n, { marL, algn: 'l' }, [raw(themeFontDefRPr('mn', { sz: 1200, kern: 1200 }))])
 	const notesStyle = el(
 		'p:notesStyle',
 		null,

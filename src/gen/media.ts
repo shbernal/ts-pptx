@@ -51,10 +51,12 @@ export function encodeSlideMediaRels(
 		.forEach((rel) => {
 			imageProms.push(
 				(async () => {
+					// The rels that point at this one's package part. Resolved before the load so both
+					// the success and the placeholder arm below hand them the same bytes.
+					const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
 					try {
 						const data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
 						rel.data = data
-						const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
 						dupes.forEach((dupe) => (dupe.data = data))
 						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)
 						// A path-deduped rel can itself be an SVG-PNG preview (the same SVG *file*
@@ -71,9 +73,7 @@ export function encodeSlideMediaRels(
 								`Failed to load media "${rel.path}"; embedding a broken-image placeholder. (${String(ex)})`
 							)
 							rel.data = IMG_BROKEN
-							candidateRels
-								.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
-								.forEach((dupe) => (dupe.data = IMG_BROKEN))
+							dupes.forEach((dupe) => (dupe.data = IMG_BROKEN))
 							return 'done'
 						}
 						// Default: fail-fast with an actionable error that names the failing asset and

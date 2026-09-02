@@ -12,6 +12,8 @@ import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill } from '../../drawingml/line.js'
 import { lineWidthToEmu } from '../../../units-internal.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlFmt } from '../../oxml/el.js'
+import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
+import { prstGeomRect } from '../../drawingml/geometry.js'
 
 /**
  * Everything the dispatch in `gen/slide/object.ts` has already resolved for one slide object,
@@ -31,8 +33,15 @@ import { el, raw, voidEl, type XmlAttrs, type XmlFmt } from '../../oxml/el.js'
 export interface RenderContext {
 	/** The slide object being emitted. */
 	obj: SlideObject
-	/** Its index in the walk, which seeds the `<p:cNvPr>` id. */
-	idx: number
+	/**
+	 * Its `<p:cNvPr>` id, from the one allocator (`collectSlideShapeIds`).
+	 *
+	 * Every renderer used to recompute it as `idx + 2` off the walk index, and the group walk
+	 * kept a second counter for children — so the map that answers a forward reference (a
+	 * connector's `a:stCxn`, an animation's `p:spTgt spid`) and the ids actually emitted were two
+	 * derivations that had to be kept in step by hand.
+	 */
+	shapeId: number
 	/** The page it belongs to — a slide or a layout. */
 	slide: PresSlideInternal | SlideLayoutInternal
 	/** The resolved box in EMU: normalized for negative extents, then overridden by a placeholder. */
@@ -223,13 +232,10 @@ export function previewPicBody(
 	outline = false
 ): string {
 	return (
-		el('p:blipFill', null, [
-			raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })),
-			raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
-		]) +
+		el('p:blipFill', null, [raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })), raw(STRETCH_FILL_RECT)]) +
 		el('p:spPr', null, [
 			raw(xfrmEl('a:xfrm', frame)),
-			raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
+			raw(prstGeomRect()),
 			outline
 				? raw(el('a:ln', { w: '3175' }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'ltGray' }))))))
 				: null,

@@ -11,7 +11,7 @@
  */
 
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { voidEl } from '../oxml/el.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { InvalidOptionError } from '../../errors.js'
 
 /** Percentage edge insets trimmed from the source image; an omitted edge is `0`. */
@@ -71,3 +71,12 @@ export function genXmlImageCropRect(crop: ImageCrop, label: string, where: strin
 	// than unified.
 	return voidEl('a:srcRect', { l: v(edges.l), t: v(edges.t), r: v(edges.r), b: v(edges.b) })
 }
+
+/**
+ * `<a:stretch><a:fillRect/></a:stretch>` — the blipFill child that scales the source to the
+ * shape's box, which every picture-bearing emitter writes and none parameterizes.
+ *
+ * Here rather than in `image.ts` for the same bundling reason the crop is: `fill.ts` reaches
+ * it from every shape, table and chart emitter, and must not pull the image-format tables in.
+ */
+export const STRETCH_FILL_RECT = el('a:stretch', null, raw(voidEl('a:fillRect')))

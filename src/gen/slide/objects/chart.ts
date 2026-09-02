@@ -7,6 +7,7 @@
  */
 
 import { ChartType, isChartExType } from '../../../enums.js'
+import { prstGeomRect } from '../../drawingml/geometry.js'
 import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
@@ -35,7 +36,7 @@ const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: strin
 export function renderChartObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 		placeholder: placeholderObj,
 		itemOpts,
@@ -58,7 +59,7 @@ export function renderChartObject(ctx: RenderContext): string {
 				'p:nvGraphicFramePr',
 				null,
 				[
-					raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
+					raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
 					raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
 					raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
 				],
@@ -86,7 +87,7 @@ export function renderChartObject(ctx: RenderContext): string {
 		{ [`xmlns:${feature?.prefix ?? 'cx1'}`]: feature?.uri, Requires: feature?.prefix ?? 'cx1' },
 		raw(graphicFrame)
 	)
-	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(idx, itemOpts, x, y, cx, cy)))
+	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(shapeId, itemOpts, x, y, cx, cy)))
 	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [raw(choice), raw(fallback)])
 }
 
@@ -97,7 +98,7 @@ export function renderChartObject(ctx: RenderContext): string {
  * showing a void where the chart would be.
  */
 function renderChartExFallback(
-	idx: number,
+	shapeId: number,
 	itemOpts: ObjectOptions,
 	x: number,
 	y: number,
@@ -107,7 +108,7 @@ function renderChartExFallback(
 	return el('p:sp', null, [
 		raw(
 			el('p:nvSpPr', null, [
-				raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+				raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
 				raw(voidEl('p:cNvSpPr')),
 				raw(voidEl('p:nvPr')),
 			])
@@ -115,7 +116,7 @@ function renderChartExFallback(
 		raw(
 			el('p:spPr', null, [
 				raw(el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
-				raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
+				raw(prstGeomRect()),
 				raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: 'F2F2F2' })))),
 				raw(el('a:ln', null, raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: 'BFBFBF' })))))),
 			])

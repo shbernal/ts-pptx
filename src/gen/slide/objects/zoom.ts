@@ -8,6 +8,8 @@
  */
 
 import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
+import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
+import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { FALLBACK_PICTURE_LOCKS, type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
@@ -42,13 +44,13 @@ function zoomBlipSpPr(previewRid: number, xf: { x: number; y: number; cx: number
 	return (
 		el('p166:blipFill', { 'xmlns:p166': P166_NS }, [
 			raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })),
-			raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+			raw(STRETCH_FILL_RECT),
 		]) +
 		el('p166:spPr', { 'xmlns:p166': P166_NS }, [
 			raw(
 				el('a:xfrm', null, [raw(voidEl('a:off', { x: xf.x, y: xf.y })), raw(voidEl('a:ext', { cx: xf.cx, cy: xf.cy }))])
 			),
-			raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
+			raw(prstGeomRect()),
 			raw(el('a:ln', { w: '3175' }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'ltGray' })))))),
 		])
 	)
@@ -122,7 +124,7 @@ function zoomFallbackPic(
 export function renderZoomObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 	} = ctx
 	const zoom = slideItemObj.zoom
@@ -145,7 +147,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 			: [raw(zoomObjEl(zoom.variant, firstTile, zoom.returnToParent, zoom.transitionDur, { x: 0, y: 0, cx, cy }))]
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(idx + 2, objectName, '') + '/>'),
+		raw(cNvPrOpen(shapeId, objectName, '') + '/>'),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',
@@ -178,12 +180,12 @@ export function renderZoomObject(ctx: RenderContext): string {
 	if (zoom.variant === 'summary') {
 		const pics = zoom.tiles.map((t, k) => {
 			const g = t.grid ?? { x: 0, y: 0, cx, cy }
-			return raw(zoomFallbackPic(idx + 3 + k, objectName, t, { x: x + g.x, y: y + g.y, cx: g.cx, cy: g.cy }))
+			return raw(zoomFallbackPic(shapeId + 1 + k, objectName, t, { x: x + g.x, y: y + g.y, cx: g.cx, cy: g.cy }))
 		})
 		fallbackInner = el('p:grpSp', null, [
 			raw(
 				el('p:nvGrpSpPr', null, [
-					raw(cNvPrOpen(idx + 2, objectName, '') + '/>'),
+					raw(cNvPrOpen(shapeId, objectName, '') + '/>'),
 					raw(voidEl('p:cNvGrpSpPr')),
 					raw(voidEl('p:nvPr')),
 				])
@@ -205,7 +207,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 			...pics,
 		])
 	} else {
-		fallbackInner = zoomFallbackPic(idx + 2, objectName, firstTile, { x, y, cx, cy })
+		fallbackInner = zoomFallbackPic(shapeId, objectName, firstTile, { x, y, cx, cy })
 	}
 
 	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [

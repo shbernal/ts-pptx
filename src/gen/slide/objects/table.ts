@@ -99,7 +99,7 @@ function applyOuterBorder(
 export function renderTableObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 		placeholder: placeholderObj,
 		itemOpts,
@@ -137,7 +137,7 @@ export function renderTableObject(ctx: RenderContext): string {
 	// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
 	// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+		raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',

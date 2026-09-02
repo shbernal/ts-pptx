@@ -367,3 +367,14 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 		].map(raw)
 	)
 }
+
+/**
+ * `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` — the unadjusted rectangle every emitter
+ * that draws a plain box writes, seven of them by hand.
+ *
+ * `fmt` carries the caller's `openPrefix`, because indentation before this element is
+ * byte-significant on two of those paths.
+ */
+export function prstGeomRect(fmt?: Parameters<typeof el>[3]): string {
+	return el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), fmt)
+}

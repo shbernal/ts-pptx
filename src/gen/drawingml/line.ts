@@ -13,8 +13,21 @@ import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 
-/** Every key `BorderProps` defines. Keep in step with the interface in `types/style.ts`. */
-const BORDER_KEYS: readonly string[] = ['type', 'dashType', 'color', 'width', 'transparency', 'cap']
+/**
+ * Every key `BorderProps` defines.
+ *
+ * Derived from the interface rather than transcribed from it: the `satisfies` makes a key added
+ * to `BorderProps` and not to this list a compile error, where the old `readonly string[]` and a
+ * "keep in step" comment made it a silent omission.
+ */
+const BORDER_KEYS: readonly string[] = Object.keys({
+	type: 0,
+	dashType: 0,
+	color: 0,
+	width: 0,
+	transparency: 0,
+	cap: 0,
+} satisfies Record<keyof Required<BorderProps>, 0>)
 
 /**
  * Resolve the `a:prstDash/@val` a border should emit.

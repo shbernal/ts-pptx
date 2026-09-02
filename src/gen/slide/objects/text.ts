@@ -24,7 +24,7 @@ import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from '
 export function renderTextObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		slide,
 		frame: { x, y, cx },
 		placeholder: placeholderObj,
@@ -47,7 +47,7 @@ export function renderTextObject(ctx: RenderContext): string {
 	const txtOpts = itemOpts
 	strSlideXml +=
 		'<p:nvSpPr>' +
-		cNvPrOpen(idx + 2, txtOpts.objectName, txtOpts.altText || '') +
+		cNvPrOpen(shapeId, txtOpts.objectName, txtOpts.altText || '') +
 		'>' +
 		cNvPrHyperlink(txtOpts.hyperlink) +
 		'</p:cNvPr>'

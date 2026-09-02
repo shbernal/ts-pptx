@@ -17,3 +17,19 @@
 export function stripHash(value: string): string {
 	return value.startsWith('#') ? value.slice(1) : value
 }
+
+/**
+ * Split an 8-hex RGBA colour into its 6-hex RGB and a 0–1 alpha; anything else passes through
+ * unchanged with no alpha.
+ *
+ * `#` is stripped first, so both spellings reach the same answer. Two sites parsed this by
+ * hand — `createColorElement`, which turns the alpha into an `<a:alpha>` sibling, and
+ * `correctShadowOptions`, which turns it into a shadow's `_alpha` — and they divided by 255 at
+ * different points in their arithmetic.
+ * @param value - the caller's colour, with or without a leading `#`
+ */
+export function splitRgbaHex(value: string): { rgb: string; alpha?: number } {
+	const hex = stripHash(value)
+	if (!/^[0-9a-fA-F]{8}$/.test(hex)) return { rgb: hex }
+	return { rgb: hex.slice(0, 6), alpha: parseInt(hex.slice(6, 8), 16) / 255 }
+}

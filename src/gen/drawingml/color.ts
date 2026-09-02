@@ -14,7 +14,7 @@
 
 import { SchemeColor, type SCHEME_COLORS } from '../../enums.js'
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../constants-internal.js'
-import { stripHash } from '../../hex-color.js'
+import { splitRgbaHex, stripHash } from '../../hex-color.js'
 import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -54,16 +54,14 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	// 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
 	// continue with the leading 6-char RGB through the existing validation. This keeps
 	// fill/text/line/glow paths from silently falling back to DEF_FONT_COLOR on RGBA input.
-	if (/^[0-9a-fA-F]{8}$/.test(colorVal)) {
+	const rgba = splitRgbaHex(colorVal)
+	if (rgba.alpha !== undefined) {
 		// If the caller already supplied an explicit <a:alpha> (e.g. shadow/glow `opacity`),
 		// it wins — do NOT add a second alpha from the RGBA byte, which would emit two
 		// <a:alpha> children and produce schema-invalid OOXML (CT_SRgbColor allows one).
-		if (!innerElements?.includes(ALPHA_TAG)) {
-			const alphaHex = colorVal.slice(6, 8)
-			const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * PERCENT_SCALE)
-			innerElements = voidEl('a:alpha', { val: alphaVal }) + (innerElements || '')
-		}
-		colorVal = colorVal.slice(0, 6)
+		if (!innerElements?.includes(ALPHA_TAG))
+			innerElements = alphaEl(Math.round(rgba.alpha * PERCENT_SCALE)) + (innerElements || '')
+		colorVal = rgba.rgb
 	}
 
 	if (!REGEX_HEX_COLOR.test(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
@@ -81,4 +79,16 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	// Paired vs self-closing is decided by whether there is anything to nest, so this
 	// is one of the few places `el`/`voidEl` are chosen at runtime rather than by tag.
 	return innerElements ? el(name, attrs, raw(innerElements)) : voidEl(name, attrs)
+}
+
+/**
+ * The `<a:alpha val>` child a colour element carries.
+ *
+ * Four sites built it: the RGBA split above, the gradient stop's `transparency`, the glow and
+ * shadow `opacity`, and the chart's `chartColorsOpacity`. Each converts to the fixed
+ * percentage its own option speaks first; this is only the element.
+ * @param fixedPct - the alpha in `ST_PositiveFixedPercentage` units (`100%` is `100000`)
+ */
+export function alphaEl(fixedPct: number): string {
+	return voidEl('a:alpha', { val: fixedPct })
 }

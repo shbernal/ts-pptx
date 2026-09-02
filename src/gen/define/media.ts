@@ -9,7 +9,7 @@ import { SlideObjectType } from '../../enums.js'
 import { IMG_PLAYBTN } from '../../media/placeholders.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { getNewRelId } from '../utils.js'
+import { getNewRelId, mediaSlideKey } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 
@@ -151,7 +151,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			type: 'image/png',
 			extn: 'png',
 			rId: relId3,
-			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
+			Target: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.png`,
 		})
 		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	} else {
@@ -174,7 +174,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			isDuplicate: !!dupeItem?.Target,
 			Target: dupeItem?.Target
 				? dupeItem.Target
-				: `../media/media-${target._slideNum}-${target._relsMedia.length + 1}.${strExtn}`,
+				: `../media/media-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${strExtn}`,
 		})
 		slideData.mediaRid = relId1
 
@@ -189,7 +189,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			isDuplicate: !!dupeItem?.Target,
 			Target: dupeItem?.Target
 				? dupeItem.Target
-				: `../media/media-${target._slideNum}-${target._relsMedia.length + 0}.${strExtn}`,
+				: `../media/media-${mediaSlideKey(target)}-${target._relsMedia.length + 0}.${strExtn}`,
 		})
 
 		// C: Add cover (preview/overlay) image
@@ -200,7 +200,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			extn: 'png',
 			data: strCover,
 			rId: relId3,
-			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
+			Target: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.png`,
 		})
 		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	}

@@ -37,14 +37,14 @@ export function slideTimingToXml(slide: PresSlideInternal): string {
 	// children as well as top-level objects, so `objectName` addresses any shape on the slide.
 	const shapeIds = collectSlideShapeIds(slide._slideObjects)
 	const animations = (slide._animations ?? [])
-		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, slide._slideObjects.length, anim) }))
+		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, slide._slideObjects, anim) }))
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 
 	const mediaNode = (obj: SlideObject, nodeId: number): string => {
-		// spid must equal the picture's <p:cNvPr> id, which is the slide-object index + 2
-		// (same basis as animation spids). Using mediaRid + 2 here desyncs from the shape id
-		// and targets the wrong/nonexistent shape => PowerPoint reports the file corrupt.
-		const spid = slide._slideObjects.indexOf(obj) + 2
+		// spid must equal the picture's own `<p:cNvPr>` id, so it comes from the same map the
+		// animation spids above do. Using `mediaRid + 2` here desyncs from the shape id and
+		// targets the wrong/nonexistent shape => PowerPoint reports the file corrupt.
+		const spid = shapeIds.get(obj) ?? 2
 		const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
 		// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
 		const mediaTag = obj.mtype === 'audio' ? 'p:audio' : 'p:video'

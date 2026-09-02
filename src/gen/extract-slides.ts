@@ -66,8 +66,8 @@ function avMediaOf(slide: PresSlideInternal, relByRid: RelsByRid): ExtractedSlid
 			const mediaBytes = decodeBase64ToBytes(typeof mediaRel.data === 'string' ? mediaRel.data : '')
 			const previewBytes = decodeBase64ToBytes(typeof previewRel.data === 'string' ? previewRel.data : '')
 			if (!mediaBytes || !previewBytes) return null
-			const mediaExtn = (mediaRel.extn || mediaRel.Target.split('.').pop() || 'mp4').toLowerCase()
-			const previewExtn = (previewRel.extn || previewRel.Target.split('.').pop() || 'png').toLowerCase()
+			const mediaExtn = relExtension(mediaRel, 'mp4')
+			const previewExtn = relExtension(previewRel, 'png')
 			return {
 				mtype,
 				mediaRid,
@@ -82,6 +82,16 @@ function avMediaOf(slide: PresSlideInternal, relByRid: RelsByRid): ExtractedSlid
 			}
 		})
 		.filter((m): m is NonNullable<typeof m> => m !== null)
+}
+
+/**
+ * A media rel's lowercased file extension: its own `extn` when it has one, else the suffix of
+ * its `Target`, else `fallback`.
+ * @param rel - the media relationship
+ * @param fallback - the extension to assume when neither source names one
+ */
+function relExtension(rel: { extn?: string; Target: string }, fallback: string): string {
+	return (rel.extn || rel.Target.split('.').pop() || fallback).toLowerCase()
 }
 
 /**
@@ -101,7 +111,7 @@ function imageMediaOf(slide: PresSlideInternal, avPreviewRids: ReadonlySet<numbe
 			if (!data.includes(',')) data = 'image/png;base64,' + data
 			else if (!data.includes(';')) data = 'image/png;' + data
 			const bytes = decodeBase64ToBytes(data)
-			const extn = (rel.extn || rel.Target.split('.').pop() || 'png').toLowerCase()
+			const extn = relExtension(rel, 'png')
 			return bytes ? { rId: rel.rId, bytes, extn, contentType: imageContentType(extn) } : null
 		})
 		.filter((m): m is NonNullable<typeof m> => m !== null)

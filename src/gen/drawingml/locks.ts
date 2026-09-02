@@ -11,7 +11,8 @@ import { voidEl } from '../oxml/el.js'
 import { warn } from '../../diagnostics.js'
 
 // Object lock attributes valid for each DrawingML locking element, in emit order (ECMA-376 §20.1.2.2.x / §20.1.2.2.34).
-// Object keys in `ObjectLockProps` mirror these attribute names 1:1, so serialization is a filtered lookup.
+// Every name is a key of `ObjectLockProps`, so serialization is a filtered lookup; the assertion
+// below the four tables is what keeps that true.
 export const SHAPE_LOCK_ATTRS = [
 	'noGrp',
 	'noSelect',
@@ -47,6 +48,27 @@ export const GRAPHIC_FRAME_LOCK_ATTRS = [
 	'noResize',
 ] as const
 export const GROUP_SHAPE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize'] as const
+
+/** Every attribute name the four tables between them list. */
+type LockAttrName =
+	| (typeof SHAPE_LOCK_ATTRS)[number]
+	| (typeof PICTURE_LOCK_ATTRS)[number]
+	| (typeof GRAPHIC_FRAME_LOCK_ATTRS)[number]
+	| (typeof GROUP_SHAPE_LOCK_ATTRS)[number]
+
+/**
+ * Both halves of "the tables mirror `ObjectLockProps`", checked rather than asserted in a comment.
+ *
+ * No single table can be exhaustive — the four locking elements accept different attribute
+ * subsets, and each table's order is byte-significant — so the claim is about their union. A key
+ * added to the interface and to no table makes the second entry `never`, and a name in a table
+ * that is not a key of the interface makes the first one `never`; either way `true` stops being
+ * assignable and this fails to compile.
+ */
+export const LOCK_ATTRS_MATCH_OBJECT_LOCK_PROPS: [
+	LockAttrName extends keyof ObjectLockProps ? true : never,
+	keyof Required<ObjectLockProps> extends LockAttrName ? true : never,
+] = [true, true]
 
 /**
  * Serialize an object-lock element (`a:spLocks` / `a:picLocks` / `a:graphicFrameLocks`).

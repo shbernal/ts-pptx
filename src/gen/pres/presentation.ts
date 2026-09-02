@@ -5,26 +5,16 @@
  * list, default text styles, sections) and the small presProps/viewProps parts.
  */
 
-import { CRLF, LEVEL_MARGINS_EMU, LEVEL_PPR_TAIL, XML_DECL } from '../../constants-internal.js'
+import { CRLF, LEVEL_MARGINS_EMU, XML_DECL } from '../../constants-internal.js'
 import type { PresentationPropsInternal, SectionInternalProps } from '../../types/internal.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
-import { presentationFontRelStart } from './presentation-rels.js'
+import { presentationFixedRelIds, presentationFontRelStart } from './presentation-rels.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 
 function defaultTextStyleLevel(idy: number, marL: number): string {
-	return el(
-		`a:lvl${idy}pPr`,
-		{ marL, algn: 'l', ...LEVEL_PPR_TAIL },
-		raw(
-			el('a:defRPr', { sz: 1800, kern: 1200 }, [
-				raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
-				raw(voidEl('a:latin', { typeface: '+mn-lt' })),
-				raw(voidEl('a:ea', { typeface: '+mn-ea' })),
-				raw(voidEl('a:cs', { typeface: '+mn-cs' })),
-			])
-		)
-	)
+	return lvlPPr(idy, { marL, algn: 'l' }, [raw(themeFontDefRPr('mn', { sz: 1800, kern: 1200 }))])
 }
 
 function sectionsExtLst(sections: SectionInternalProps[]): string {
@@ -97,7 +87,7 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 	const notesMasterIdLst = el(
 		'p:notesMasterIdLst',
 		null,
-		raw(voidEl('p:notesMasterId', { 'r:id': `rId${pres.slides.length + 2}` }))
+		raw(voidEl('p:notesMasterId', { 'r:id': `rId${presentationFixedRelIds(pres.slides).notesMaster}` }))
 	)
 
 	const sldIdLst = el(

@@ -8,6 +8,7 @@
  */
 
 import { decodeBase64ToBytes } from './base64.js'
+import { PERCENT_SCALE } from '../units.js'
 import { IMAGE_FORMATS } from './image-formats.js'
 
 /**
@@ -192,8 +193,8 @@ export function fitSrcRectPercents(
 		width = widthBased ? box.w : box.h / imgRatio
 		height = widthBased ? box.w * imgRatio : box.h
 	}
-	const hz = Math.round(1e5 * 0.5 * (1 - box.w / width))
-	const vz = Math.round(1e5 * 0.5 * (1 - box.h / height))
+	const hz = Math.round(PERCENT_SCALE * 0.5 * (1 - box.w / width))
+	const vz = Math.round(PERCENT_SCALE * 0.5 * (1 - box.h / height))
 	return { l: hz, r: hz, t: vz, b: vz }
 }
 

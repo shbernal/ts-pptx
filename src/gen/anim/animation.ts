@@ -29,17 +29,20 @@ import { resolveObjectNameToId } from '../slide/shape-ids.js'
  * the slide — a dangling spid PowerPoint reports as a repair (0x80070570) — so it warns and drops,
  * exactly like an unresolvable `objectName` does.
  * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds`
- * @param topLevelCount - number of top-level slide objects a `shapeIndex` may address
+ * @param slideObjects - the slide's top-level objects, which a `shapeIndex` addresses
  * @param anim - the animation to resolve
  * @returns the target's `<p:cNvPr>` id, or `null`
  */
 export function resolveAnimationSpid(
 	shapeIds: Map<SlideObject, number>,
-	topLevelCount: number,
+	slideObjects: SlideObject[],
 	anim: AnimationProps
 ): number | null {
+	const topLevelCount = slideObjects.length
 	if (typeof anim.shapeIndex === 'number') {
-		if (anim.shapeIndex >= 0 && anim.shapeIndex < topLevelCount) return anim.shapeIndex + 2
+		// Through the map, not `shapeIndex + 2`: the id basis belongs to one allocator.
+		const target = slideObjects[anim.shapeIndex]
+		if (target) return shapeIds.get(target) ?? null
 		warn(
 			'animation/target-index-out-of-range',
 			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${topLevelCount} top-level object(s)), so its "${anim.preset}" effect was dropped.`

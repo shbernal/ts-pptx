@@ -18,7 +18,7 @@ import { type RenderContext, cNvPrOpen, genXmlShapeLine } from './shared.js'
 export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObject, number>): string {
 	const {
 		obj: slideItemObj,
-		idx,
+		shapeId,
 		frame: { x, y, cx, cy },
 		locationAttrs,
 		itemOpts,
@@ -31,7 +31,7 @@ export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObj
 	// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
 	// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
 	strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
-	strSlideXml += cNvPrOpen(idx + 2, itemOpts.objectName, itemOpts.altText || '') + '/>'
+	strSlideXml += cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'
 	{
 		// Shape binding: resolve each bound target's objectName to its cNvPr id and emit
 		// <a:stCxn>/<a:endCxn> in schema order. Resolution goes through `shapeIds`, so a shape
