@@ -16,7 +16,7 @@
 import type { FillRect, PictureFill } from '../../read/api/picture-fill.js'
 import type { NoteScope } from '../fidelity.js'
 import type { AssetRef, IrValue } from '../ir.js'
-import type { AssetResolver } from './shape.js'
+import type { AssetResolver } from './context.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE } from '../../units.js'
 import { alphaToTransparency, compact, compactRequired } from './values.js'
 

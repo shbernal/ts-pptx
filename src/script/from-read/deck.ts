@@ -18,7 +18,8 @@ import type { Slide } from '../../read/api/slide.js'
 import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
 import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
-import { shapeCall, unwritableFramePayload, type AssetResolver } from './shape.js'
+import { shapeCall, unwritableFramePayload } from './shape.js'
+import type { AssetResolver, MapContext } from './context.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
 import { compact, compactRequired, inches, literalColor } from './values.js'
@@ -97,7 +98,7 @@ export function readModelToIr(pres: Presentation): DeckIr {
 	// Before the slides, so the chrome's deck-level notes lead the list the way the chrome
 	// leads the deck. Assets are shared: a layout background image and a slide image that are
 	// the same part resolve to one asset.
-	const chrome = chromeToIr(pres, deckScope, assets)
+	const chrome = chromeToIr(pres, { notes: deckScope, assets })
 	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets, layouts))
 
 	return {
@@ -166,6 +167,7 @@ function slideToIr(
 	layouts: Map<string, SlideLayoutIr>
 ): SlideIr {
 	const notes = scopeNotes(collector, number)
+	const ctx: MapContext = { notes, assets }
 	const layoutPartName = slide.layout?.partName
 	const base = {
 		number,
@@ -176,7 +178,7 @@ function slideToIr(
 		...notesOf(slide, notes),
 	}
 
-	const transition = transitionToIr(slide, notes, assets)
+	const transition = transitionToIr(slide, ctx)
 	const carried = hasUnwritableContent(slide)
 	if (carried) {
 		notes.note(
@@ -192,7 +194,7 @@ function slideToIr(
 	// records its own note, so that loss is declared either way.
 	const calls: CallIr[] = []
 	for (const shape of slide.shapes) {
-		const call = shapeCall(shape, notes, assets)
+		const call = shapeCall(shape, ctx)
 		if (call) calls.push(call)
 	}
 

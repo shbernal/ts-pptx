@@ -19,7 +19,7 @@ import type { CellBorder, Table, TableCell } from '../../read/api/table.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
-import type { AssetResolver } from './shape.js'
+import type { MapContext } from './context.js'
 import {
 	ANCHOR_TO_VALIGN,
 	compact,
@@ -49,7 +49,8 @@ const TABLE_PICTURE_FILL: PictureFillSubject = {
 	element: 'a:tblPr/a:blipFill',
 }
 
-export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, assets: AssetResolver): CallIr {
+export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): CallIr {
+	const { notes } = ctx
 	const styleId = table.styleId
 	const hasStyle = table.resolvedStyle !== null
 	const rows: IrValue[] = []
@@ -62,7 +63,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 			// exists only so the grid stays rectangular. The write path derives those from
 			// colspan/rowspan, so emitting them would double-count the span.
 			if (cell.isMergeContinuation) continue
-			cells.push(cellIr(cell, hasStyle, notes, assets))
+			cells.push(cellIr(cell, hasStyle, ctx))
 		}
 		rows.push(cells)
 		rowHeights.push(row.heightEmu ?? 0)
@@ -114,7 +115,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 		// `tableFill`, not `fill`: the source has one fill on `a:tblPr`, and `fill` would
 		// flatten it into a copy on every cell, which is a different package for the same
 		// picture. See `TableProps.tableFill`.
-		tableFill: tableFill(table, notes, assets),
+		tableFill: tableFill(table, ctx),
 		hasHeader: table.firstRowHeader ? true : undefined,
 		hasBandedRows: table.bandedRows ? true : undefined,
 		colW: columnWidths.every((w) => w === null) ? undefined : columnWidths.map((w) => inches(w ?? 0)),
@@ -133,7 +134,8 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
  * directly. A scheme token still wins over the literal when there is one, so the replica
  * keeps tracking its theme.
  */
-function tableFill(table: Table, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
+function tableFill(table: Table, ctx: MapContext): IrValue | undefined {
+	const { notes, assets } = ctx
 	const gradient = table.gradientFill
 	if (gradient) {
 		const stops = gradientStops(gradient, notes, 'table.fill')
@@ -166,7 +168,8 @@ function tableFill(table: Table, notes: NoteScope, assets: AssetResolver): IrVal
  * identically to one on a shape — the read model already shares `TextFrame` between the
  * two, and diverging here would be a difference with no cause.
  */
-function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue {
+function cellIr(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue {
+	const { notes } = ctx
 	const frame = cell.textFrame
 	const anchor = cell.anchor
 	const margins = cell.marginsEmu
@@ -186,7 +189,7 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 	}
 
 	const options = compact({
-		fill: cellFill(cell, hasStyle, notes, assets),
+		fill: cellFill(cell, hasStyle, ctx),
 		border: cellBorders(cell, notes),
 		diagonal: cellDiagonals(cell, notes),
 		anchorCtr: cell.anchorCtr ? true : undefined,
@@ -294,7 +297,8 @@ function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefin
  * banding exactly rather than approximately. Neither case loses anything, which is why
  * neither records a note.
  */
-function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
+function cellFill(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue | undefined {
+	const { notes, assets } = ctx
 	// An explicit `a:noFill` is a statement, and the one `EG_FillProperties` member whose
 	// loss is invisible further down: a suppressed cell reports `null` from every colour
 	// accessor, so without this it falls out of the bottom as "no fill option" and the copy

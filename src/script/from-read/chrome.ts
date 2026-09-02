@@ -42,13 +42,15 @@ import type { SlideBackground } from '../../read/api/slide-background.js'
 import { isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import type { ChromeIr, IrValue, MasterIr, ThemeIr } from '../ir.js'
 import { layoutShapeScope, type NoteScope } from '../fidelity.js'
-import { masterObject, type AssetResolver } from './shape.js'
+import { masterObject } from './shape.js'
+import type { AssetResolver, MapContext } from './context.js'
 import { hasDecorativeShapes, hasFormatScheme, hasTextStyles, isPlaceholderShape } from './detect.js'
 import { compact, literalColor, orUndefined } from './values.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 /** Build the chrome IR for a deck. */
-export function chromeToIr(pres: Presentation, notes: NoteScope, assets: AssetResolver): ChromeIr {
+export function chromeToIr(pres: Presentation, ctx: MapContext): ChromeIr {
+	const { notes } = ctx
 	const masters = pres.masters()
 
 	if (masters.length > 1) {
@@ -64,7 +66,7 @@ export function chromeToIr(pres: Presentation, notes: NoteScope, assets: AssetRe
 	const theme = first?.theme ?? null
 	recordMasterLosses(masters, theme, notes)
 
-	return { theme: themeToIr(theme), masters: layoutsToIr(masters, notes, assets) }
+	return { theme: themeToIr(theme), masters: layoutsToIr(masters, ctx) }
 }
 
 /** The theme's colour scheme and font faces, in `ThemeProps` spelling. */
@@ -143,7 +145,8 @@ function recordMasterLosses(masters: SlideMaster[], theme: Theme | null, notes: 
  * called "Title and Content", and two `defineSlideMaster` calls sharing a title would make
  * every slide bind to whichever won.
  */
-function layoutsToIr(masters: SlideMaster[], notes: NoteScope, assets: AssetResolver): MasterIr[] {
+function layoutsToIr(masters: SlideMaster[], ctx: MapContext): MasterIr[] {
+	const { notes, assets } = ctx
 	const out: MasterIr[] = []
 	const used = new Set<string>()
 	// Rolled up rather than noted per layout: a 12-layout deck loses the placeholder definitions
@@ -175,7 +178,7 @@ function layoutsToIr(masters: SlideMaster[], notes: NoteScope, assets: AssetReso
 			// The layout's own background if it has one, else the master's — which is what a slide
 			// bound to that layout actually shows, and the only tier the write API can set it at.
 			const background = backgroundProps(layout.background ?? master.background, notes, assets)
-			const objects = layoutObjects(layout, notes, assets)
+			const objects = layoutObjects(layout, ctx)
 			out.push({
 				layoutIndex: index,
 				props: compact({
@@ -236,14 +239,17 @@ function layoutsToIr(masters: SlideMaster[], notes: NoteScope, assets: AssetReso
  * mapper speaks lands under `layout.` and stays attributable to the layout tier. Constructs
  * written below are therefore relative to that prefix.
  */
-function layoutObjects(layout: SlideLayout, notes: NoteScope, assets: AssetResolver): IrValue[] {
+function layoutObjects(layout: SlideLayout, ctx: MapContext): IrValue[] {
 	const out: IrValue[] = []
-	collectObjects(layout.shapes, out, layoutShapeScope(notes), assets)
+	// A layout's own shapes are noted under the `layout.` prefix, so the loss reads as one in
+	// re-authoring the layout rather than as one on a slide.
+	collectObjects(layout.shapes, out, { notes: layoutShapeScope(ctx.notes), assets: ctx.assets })
 	return out
 }
 
 /** {@link layoutObjects}'s walk, recursing through groups. */
-function collectObjects(shapes: AnyShape[], out: IrValue[], notes: NoteScope, assets: AssetResolver): void {
+function collectObjects(shapes: AnyShape[], out: IrValue[], ctx: MapContext): void {
+	const { notes } = ctx
 	for (const shape of shapes) {
 		if (isPlaceholderShape(shape.element_)) continue
 
@@ -256,13 +262,13 @@ function collectObjects(shapes: AnyShape[], out: IrValue[], notes: NoteScope, as
 					'unwritable',
 					"defineSlideMaster({ objects }) has no group variant, so this group's children are emitted as loose objects; they land in the same places — the group's offset, rotation, flips and child-space scaling are composed into each child's coordinates — but the layout no longer offers them as one selectable object"
 				)
-			collectObjects(shape.shapes, out, notes, assets)
+			collectObjects(shape.shapes, out, ctx)
 			continue
 		}
 
 		// `null` is always already noted, either by the shared mapper (a hidden shape, a picture
 		// with no bytes) or by `masterObject` itself (a kind with no variant in the union).
-		const object = masterObject(shape, notes, assets)
+		const object = masterObject(shape, ctx)
 		if (object !== null) out.push(object)
 	}
 }

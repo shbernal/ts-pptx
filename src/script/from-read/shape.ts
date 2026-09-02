@@ -36,7 +36,7 @@ import {
 	type Picture,
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
-import { isAssetRef, type AssetRef, type CallIr, type IrValue } from '../ir.js'
+import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
 import {
 	alphaToTransparency,
 	compact,
@@ -53,24 +53,12 @@ import { gradientStops, patternOption } from './surface-fill.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
+import type { TextFrame } from '../../read/api/text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
+import { forShape, type MapContext } from './context.js'
+export type { AssetResolver } from './context.js'
 import { PERCENT_SCALE } from '../../units.js'
-
-/** Resolves an image/media part name to bytes the deck-level walk has registered. */
-export interface AssetResolver {
-	/** Register a part's bytes and hand back the reference that stands in for them. */
-	assetFor(partName: string): AssetRef | null
-	/**
-	 * The part's content type, or `null` when it is not in the package.
-	 *
-	 * Separate from {@link assetFor} because it has to be answerable *without* registering
-	 * anything: a caller that rejects a part on its type (a picture fill's SVG blip, which
-	 * the write path refuses) would otherwise leave bytes in the asset list that no call
-	 * references, and those bytes are emitted as a file next to the script.
-	 */
-	contentTypeOf(partName: string): string | null
-}
 
 /** How {@link pictureFillOption}'s notes name a shape's surface. */
 const SHAPE_PICTURE_FILL: PictureFillSubject = {
@@ -98,19 +86,19 @@ const CAP_TOKENS: Record<string, 'flat' | 'square' | 'round'> = {
  * Map one shape. Returns `null` when the shape produces no call at all — a note is always
  * recorded in that case, so a dropped shape is never silent.
  */
-export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolver): CallIr | null {
-	const scoped = notes.forShape(shape.name || null)
+export function shapeCall(shape: AnyShape, ctx: MapContext): CallIr | null {
+	const scoped = forShape(ctx, shape)
 
 	if (shape.hidden) {
-		noteHidden(scoped)
+		noteHidden(scoped.notes)
 		return null
 	}
 
-	if (isGroupShape(shape)) return groupCall(shape, scoped, assets)
-	if (isPicture(shape)) return pictureCall(shape, scoped, assets)
-	if (isConnector(shape)) return connectorCall(shape, scoped)
-	if (isGraphicFrame(shape)) return graphicFrameCall(shape, scoped, assets)
-	if (isAutoShape(shape)) return autoShapeCall(shape, scoped, assets)
+	if (isGroupShape(shape)) return groupCall(shape, scoped)
+	if (isPicture(shape)) return pictureCall(shape, scoped)
+	if (isConnector(shape)) return connectorCall(shape, scoped.notes)
+	if (isGraphicFrame(shape)) return graphicFrameCall(shape, scoped)
+	if (isAutoShape(shape)) return autoShapeCall(shape, scoped)
 
 	// Unreachable: the five guards above exhaust `AnyShape`, which is why `shape` narrows to
 	// `never` here. Left as a floor so a sixth shape kind fails to compile at the call sites
@@ -156,7 +144,8 @@ function transformOptions(shape: AnyShape): Record<string, IrValue | undefined> 
  * the only accessor that sees a `p:style/a:fillRef` — a shape styled entirely from the
  * theme has no `a:solidFill` of its own, so without it the shape would come out unfilled.
  */
-function fillOption(shape: AnyShape, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
+function fillOption(shape: AnyShape, ctx: MapContext): IrValue | undefined {
+	const { notes, assets } = ctx
 	const gradient = shape.gradientFill
 	if (gradient) {
 		const stops = gradientStops(gradient, notes, 'fill')
@@ -188,6 +177,60 @@ function fillOption(shape: AnyShape, notes: NoteScope, assets: AssetResolver): I
 }
 
 /**
+ * Everything about an outline that does not survive, noted.
+ *
+ * Three independent conditions, none of which decides any of `lineOption`'s emitted values --
+ * they were interleaved with the option build, which is what made that function four
+ * decisions wearing one name.
+ *
+ * @param values - the outline's already-read parts, so this does not re-read the DOM
+ */
+function noteLineLosses(
+	shape: AnyShape,
+	values: {
+		widthPt: number | null
+		dash: string | null
+		scheme: string | null
+		resolved: { effectiveHex: string } | null
+	},
+	notes: NoteScope
+): void {
+	const { widthPt, dash, scheme, resolved } = values
+
+	// A colour only `resolvedLine` could supply means the stroke came from the theme style
+	// list, whose width and dash are unreadable.
+	if (resolved !== null && shape.lineColor === null && scheme === null && widthPt === null) {
+		notes.note(
+			'line.width',
+			'dropped',
+			'unread',
+			'this outline comes from the theme style list (p:style/a:lnRef); its width and dash live in the theme fmtScheme a:lnStyleLst, which has no accessor, so only the colour carries'
+		)
+	}
+	if (dash !== null && !WRITABLE_DASHES.has(dash)) {
+		notes.note(
+			'line.dash',
+			'approximated',
+			'unwritable',
+			`dash style "${dash}" is outside the eight the write API accepts, so the outline falls back to solid`
+		)
+	}
+	// `@algn` is the one outline attribute both sides can see and neither can carry: the read
+	// model reports it (`lineAlign`) and `ShapeLineProps` has no option for it. Only `in` is
+	// noted -- it insets the stroke by half its width, so it moves the border. `ctr` is what an
+	// omitted `@algn` already renders as, so noting that would fire on most PowerPoint-authored
+	// shapes while describing no loss at all.
+	if (shape.lineAlign === 'in') {
+		notes.note(
+			'line.align',
+			'dropped',
+			'unwritable',
+			'this outline is inset (a:ln/@algn="in", drawn wholly inside the shape); ShapeLineProps has no alignment option, so it comes back centred on the edge and sits half its width further out'
+		)
+	}
+}
+
+/**
  * A shape's outline as `ShapeLineProps`.
  *
  * This is where the measured silent loss lives. When a shape takes its outline from
@@ -216,37 +259,7 @@ function lineOption(shape: AnyShape, notes: NoteScope): Record<string, IrValue> 
 	else if (shape.lineColor !== null) color = literalColor(shape.lineColor)
 	else if (resolved) color = literalColor(resolved.effectiveHex)
 
-	// A colour only `resolvedLine` could supply means the stroke came from the theme style
-	// list, whose width and dash are unreadable.
-	if (resolved !== null && shape.lineColor === null && scheme === null && widthPt === null) {
-		notes.note(
-			'line.width',
-			'dropped',
-			'unread',
-			'this outline comes from the theme style list (p:style/a:lnRef); its width and dash live in the theme fmtScheme a:lnStyleLst, which has no accessor, so only the colour carries'
-		)
-	}
-	if (dash !== null && !WRITABLE_DASHES.has(dash)) {
-		notes.note(
-			'line.dash',
-			'approximated',
-			'unwritable',
-			`dash style "${dash}" is outside the eight the write API accepts, so the outline falls back to solid`
-		)
-	}
-	// `@algn` is the one outline attribute both sides can see and neither can carry: the read
-	// model reports it (`lineAlign`) and `ShapeLineProps` has no option for it. Only `in` is
-	// noted — it insets the stroke by half its width, so it moves the border. `ctr` is what an
-	// omitted `@algn` already renders as, so noting that would fire on most PowerPoint-authored
-	// shapes while describing no loss at all.
-	if (shape.lineAlign === 'in') {
-		notes.note(
-			'line.align',
-			'dropped',
-			'unwritable',
-			'this outline is inset (a:ln/@algn="in", drawn wholly inside the shape); ShapeLineProps has no alignment option, so it comes back centred on the edge and sits half its width further out'
-		)
-	}
+	noteLineLosses(shape, { widthPt, dash, scheme, resolved }, notes)
 
 	const options = compact({
 		color,
@@ -315,9 +328,10 @@ function glowOption(shape: AnyShape): IrValue | undefined {
 }
 
 /** The style block every shape kind shares. */
-function styleOptions(shape: AnyShape, notes: NoteScope, assets: AssetResolver): Record<string, IrValue | undefined> {
+function styleOptions(shape: AnyShape, ctx: MapContext): Record<string, IrValue | undefined> {
+	const { notes } = ctx
 	return {
-		fill: fillOption(shape, notes, assets),
+		fill: fillOption(shape, ctx),
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),
 		glow: glowOption(shape),
@@ -331,38 +345,53 @@ function styleOptions(shape: AnyShape, notes: NoteScope, assets: AssetResolver):
  * carries text. A shape with both takes the `addText` form, because `addShape` has no text
  * argument while `addText` accepts a `shape` option — so only that form expresses both.
  */
-function autoShapeCall(shape: AutoShape, notes: NoteScope, assets: AssetResolver): CallIr | null {
-	const preset = shape.presetGeometry
-	const custom = shape.customGeometry
+/**
+ * The shape's authorable text, and the notes for what it holds that cannot be authored.
+ *
+ * "Has text" means text this converter can author, which is *runs*. `TextFrame.text` also
+ * counts `a:fld` field text -- a slide number, date or footer placeholder -- and there is no
+ * run behind it, so measuring by `text` made every field placeholder emit an `addText`
+ * carrying a single empty string: an invisible empty box where a number used to be.
+ *
+ * Extracted from `autoShapeCall`, which inlined this alongside the placeholder note, the
+ * common-option assembly and three mutually exclusive emission arms.
+ * @returns the frame when it holds authorable runs, else `null`
+ */
+function autoShapeText(shape: AutoShape, notes: NoteScope): TextFrame | null {
 	const frame = shape.hasTextFrame ? shape.textFrame : null
+	if (frame === null) return null
 
-	// "Has text" means text this converter can author, which is *runs*. `TextFrame.text` also
-	// counts `a:fld` field text — a slide number, date or footer placeholder — and there is no
-	// run behind it, so measuring by `text` made every field placeholder emit an `addText`
-	// carrying a single empty string: an invisible empty box where a number used to be.
-	const runText = frame === null ? '' : frame.paragraphs.flatMap((p) => p.runs.map((run) => run.text)).join('')
-	const hasText = runText.length > 0
+	const runText = frame.paragraphs.flatMap((p) => p.runs.map((run) => run.text)).join('')
 
 	// Run text is a subsequence of the frame's text, so anything longer came from a field.
-	if (frame !== null && frame.text.replaceAll('\n', '').length > runText.length) {
+	if (frame.text.replaceAll('\n', '').length > runText.length) {
 		notes.note(
 			'text.field',
 			'dropped',
 			'unread',
-			'this shape holds an automatic field (a:fld — a slide number, date or footer), which has no accessor and no addText expression, so its text is not reproduced'
+			'this shape holds an automatic field (a:fld - a slide number, date or footer), which has no accessor and no addText expression, so its text is not reproduced'
 		)
 	}
 
 	// An OMML equation contributes nothing to `TextFrame.text`, so an equation-only shape
 	// looks like an empty box and would otherwise emit as bare geometry.
-	if (frame !== null && hasEquation(shape.element_)) {
+	if (hasEquation(shape.element_)) {
 		notes.note(
 			'text.equation',
 			'dropped',
 			'unread',
-			'this shape holds an OMML equation, which no accessor exposes, so the shape is emitted without it — even though TextProps.math (and the ts-pptx/math subpath) could author one'
+			'this shape holds an OMML equation, which no accessor exposes, so the shape is emitted without it - even though TextProps.math (and the ts-pptx/math subpath) could author one'
 		)
 	}
+
+	return runText.length > 0 ? frame : null
+}
+
+function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
+	const { notes } = ctx
+	const preset = shape.presetGeometry
+	const custom = shape.customGeometry
+	const frame = autoShapeText(shape, notes)
 
 	if (shape.placeholder) {
 		notes.note(
@@ -376,7 +405,7 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope, assets: AssetResolver
 	const common = {
 		...positionOptions(shape, notes),
 		...transformOptions(shape),
-		...styleOptions(shape, notes, assets),
+		...styleOptions(shape, ctx),
 		objectName: shape.name || undefined,
 	}
 
@@ -391,7 +420,7 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope, assets: AssetResolver
 		return { method: 'addShape', args: ['custGeom', options ?? {}], ...nameOf(shape) }
 	}
 
-	if (hasText && frame !== null) {
+	if (frame !== null) {
 		// `isTextBox` and `shape` are independent, not alternatives: a PowerPoint text box
 		// carries `txBox="1"` *and* an explicit `prstGeom rect`, so reading text-box-ness off
 		// the absence of geometry misclassified every one of them as an auto shape.
@@ -506,7 +535,8 @@ function customGeometryPoints(shape: AutoShape, custom: CustomGeometry): IrValue
  * ever moved. The write API has `addMedia`, so this is a read-side gap, and it is declared
  * rather than silently flattened.
  */
-function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): CallIr | null {
+function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
+	const { notes, assets } = ctx
 	if (isAudioVideo(shape.element_)) {
 		notes.note(
 			'media.audioVideo',
@@ -665,9 +695,10 @@ export function unwritableFramePayload(shape: GraphicFrame): 'chartEx' | 'diagra
 }
 
 /** A `GraphicFrame` hosts a table or a chart; both have their own mapper. */
-function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetResolver): CallIr | null {
+function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
+	const { notes } = ctx
 	const table = shape.table
-	if (table) return tableCall(shape, table, notes, assets)
+	if (table) return tableCall(shape, table, ctx)
 
 	const chart = shape.chart
 	if (chart) return chartCall(shape, chart, notes)
@@ -720,10 +751,11 @@ function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetRe
  * Charts, tables, media and placeholders are excluded from groups by the write API, so a
  * group holding one loses that child.
  */
-function groupCall(shape: GroupShape, notes: NoteScope, assets: AssetResolver): CallIr | null {
+function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
+	const { notes } = ctx
 	const children: IrValue[] = []
 	for (const child of shape.shapes) {
-		const call = shapeCall(child, notes, assets)
+		const call = shapeCall(child, ctx)
 		if (!call) continue
 		const tagged = asGroupChild(call)
 		if (!tagged) {
@@ -839,7 +871,8 @@ function commonShapeVariant(call: CallIr): IrValue | null {
  * coordinates. `addTable` genuinely has nowhere to go, and is the one kind this reports as
  * lost.
  */
-export function masterObject(shape: AnyShape, notes: NoteScope, assets: AssetResolver): IrValue | null {
+export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
+	const { notes } = ctx
 	// The connector arm bypasses `shapeCall`, so it carries the hidden check with it.
 	if (isConnector(shape)) {
 		const scoped = notes.forShape(shape.name || null)
@@ -850,7 +883,7 @@ export function masterObject(shape: AnyShape, notes: NoteScope, assets: AssetRes
 		return connectorObject(shape, scoped)
 	}
 
-	const call = shapeCall(shape, notes, assets)
+	const call = shapeCall(shape, ctx)
 	if (!call) return null
 
 	const shared = commonShapeVariant(call)

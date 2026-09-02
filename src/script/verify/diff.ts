@@ -378,7 +378,12 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 		differences.push(scalarDifference(0, null, [], 'slideSize.heightEmu', 'heightEmu', expected.slideSize.heightEmu, actual.slideSize.heightEmu)) // prettier-ignore
 	}
 
-	diffValue(expected.props, actual.props, 'props', 'props', 0, null, [], differences)
+	diffValue(expected.props, actual.props, 'props', 'props', {
+		slideNumber: 0,
+		shapeName: null,
+		nestedNames: [],
+		out: differences,
+	})
 	diffChrome(expected.chrome, actual.chrome, differences)
 
 	const slideCount = Math.max(expected.slides.length, actual.slides.length)
@@ -437,7 +442,12 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
  * key repeats costs nothing when the invariant holds and catches it when it does not.
  */
 function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrDifference[]): void {
-	diffValue(expected.theme, actual.theme, 'chrome.theme', 'theme', 0, null, [], out)
+	diffValue(expected.theme, actual.theme, 'chrome.theme', 'theme', {
+		slideNumber: 0,
+		shapeName: null,
+		nestedNames: [],
+		out,
+	})
 
 	// A whole master appearing or disappearing is reported *scoped to its title*, using the
 	// same `shapeName` channel a shape-scoped note uses. Without that, one note declaring the
@@ -487,7 +497,12 @@ function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrD
 		// A layout's decoration rides inside this one value, so a note scoped to one of those
 		// shapes has no call of its own to be matched against — the same problem a group's child
 		// has on a slide, and the same answer.
-		diffValue(before, after, `chrome.masters[${index}]`, 'master', 0, null, decorationNames(before, after), out)
+		diffValue(before, after, `chrome.masters[${index}]`, 'master', {
+			slideNumber: 0,
+			shapeName: null,
+			nestedNames: decorationNames(before, after),
+			out,
+		})
 	})
 
 	actual.masters.forEach((after, index) => {
@@ -540,7 +555,12 @@ function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDiff
 	// whose parts are lost independently — the append path drops an embedded sound while
 	// keeping the effect — and a whole-value compare would force the note that declares the
 	// sound to carry `field: 'transition'`, which would then excuse a wrong type or duration too.
-	diffValue(expected.transition, actual.transition, 'transition', 'transition', number, null, [], out)
+	diffValue(expected.transition, actual.transition, 'transition', 'transition', {
+		slideNumber: number,
+		shapeName: null,
+		nestedNames: [],
+		out,
+	})
 
 	for (const [before, after] of alignCalls(expected.calls, actual.calls)) {
 		const name = before?.shapeName ?? after?.shapeName ?? null
@@ -564,7 +584,12 @@ function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDiff
 		if (before.method !== after.method) {
 			out.push(scalarDifference(number, name, nested, `${path}.method`, 'method', before.method, after.method))
 		}
-		diffValue(before.args, after.args, `${path}.args`, 'args', number, name, nested, out)
+		diffValue(before.args, after.args, `${path}.args`, 'args', {
+			slideNumber: number,
+			shapeName: name,
+			nestedNames: nested,
+			out,
+		})
 	}
 }
 
@@ -623,16 +648,22 @@ function alignCalls(
 	return pairs
 }
 
-function diffValue(
-	expected: IrValue,
-	actual: IrValue,
-	path: string,
-	field: string,
-	slideNumber: number,
-	shapeName: string | null,
-	nestedNames: string[],
+/**
+ * Where in the deck a difference is being reported, and where the report goes.
+ *
+ * Four of `diffValue`'s eight positional parameters were this, threaded unchanged through
+ * every recursion; only `path` and `field` move as it walks. Bundling them is what makes the
+ * recursive calls read as "same site, deeper path".
+ */
+interface DiffSite {
+	slideNumber: number
+	shapeName: string | null
+	nestedNames: string[]
 	out: IrDifference[]
-): void {
+}
+
+function diffValue(expected: IrValue, actual: IrValue, path: string, field: string, site: DiffSite): void {
+	const { slideNumber, shapeName, nestedNames, out } = site
 	if (expected === actual) return
 	const kindOf = (value: IrValue): string => (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value)
 	if (kindOf(expected) !== kindOf(actual)) {
@@ -659,7 +690,7 @@ function diffValue(
 				})
 				continue
 			}
-			diffValue(before, after, `${path}[${index}]`, field, slideNumber, shapeName, nestedNames, out)
+			diffValue(before, after, `${path}[${index}]`, field, site)
 		}
 		return
 	}
@@ -684,7 +715,7 @@ function diffValue(
 				})
 				continue
 			}
-			diffValue(before, after, `${path}.${key}`, key, slideNumber, shapeName, nestedNames, out)
+			diffValue(before, after, `${path}.${key}`, key, site)
 		}
 		return
 	}

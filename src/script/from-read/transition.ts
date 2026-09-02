@@ -26,7 +26,7 @@ import type { TransitionInfo } from '../../read/api/transition.js'
 import type { TransitionType } from '../../types/animation.js'
 import type { NoteScope } from '../fidelity.js'
 import type { TransitionIr, TransitionSoundIr } from '../ir.js'
-import type { AssetResolver } from './shape.js'
+import type { AssetResolver, MapContext } from './context.js'
 
 /**
  * The transitions the write API can author, as a lookup.
@@ -84,7 +84,8 @@ function isWritable(info: TransitionInfo): boolean {
  * Returns `undefined` both when the slide has no transition and when it has one this
  * library cannot author — the difference between those two is what the note carries.
  */
-export function transitionToIr(slide: Slide, notes: NoteScope, assets: AssetResolver): TransitionIr | undefined {
+export function transitionToIr(slide: Slide, ctx: MapContext): TransitionIr | undefined {
+	const { notes, assets } = ctx
 	const info = slide.transition
 	if (!info) return undefined
 
