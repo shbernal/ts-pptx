@@ -175,6 +175,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three inheritance paths tested truthiness where they meant "the caller said nothing".**
+  An explicit `false`, `0` or `''` counted as unset and was replaced by the value it was
+  written to override. All three now test `=== undefined`.
+
+  - **Run options.** `genXmlTextRun` is handed a run's own options and never the shape's, so
+    what the caller stated on the shape is copied down onto each run. That copy walked every
+    key of the shape's bag and took it whenever the run's value was falsy, so
+    `addText([{ text: 'a', options: { bold: false } }], { bold: true })` emitted `b="1"`, and
+    a run's `transparency: 0` took the shape's. The copy is now an explicit list of the keys
+    `<a:rPr>` actually reads, each applied with `??`.
+  - **Table cell options.** The guard was `table[name] && !cell[name] && cell[name] !== 0` —
+    the `!== 0` arm rescued zero and nothing else, so a cell's `bold: false` was still
+    overwritten by the table's `bold: true`.
+  - **Chart data-label text.** `<c:dLbls>`' `<a:defRPr>` had two builders, identical but for
+    the operator: `||` at the chart level against `??` per series. One chart could therefore
+    carry both readings of one option — `dataLabelFontSize: 0` emitted `sz="0"` beside
+    `sz="1200"`. There is now one builder, on `??`, and the size goes through the same
+    `ST_TextFontSize` clamp every other font size does, so an explicit `0` is corrected to
+    the 1pt minimum with a `font/size-out-of-range` warning instead of reaching the part
+    outside its own type.
+
+- **One run's font size no longer leaks onto the runs after it.** The `endParaRPr` bookkeeping
+  wrote the first sized run's size back onto the *shape's* options bag, and the inheritance
+  above then handed it to every later run and every later paragraph:
+  `addText([{ text: 'big', options: { fontSize: 40 } }, { text: 'normal' }], {})` emitted
+  `sz="4000"` on both runs. The size is now a paragraph-local. Two showcase decks change:
+  five paragraphs whose `<a:endParaRPr>` carried an earlier paragraph's size now carry their
+  own.
+
+  A related question is deliberately left open. For string text (`addText('hi', opts)`) a
+  run's `options` *is* the shape's object rather than a copy, which is why a shape-level
+  `shadow` also becomes a glyph shadow. Naming the run-inheritable keys makes the array-text
+  path agree with that path rather than diverge from it; whether `shadow` on an `addText` bag
+  should mean the shape, the glyphs, or both is an API decision and is not made here.
+
 - **An SVG image with a hyperlink emitted two relationships with the same id.** An SVG
   picture consumes two rels — the PNG fallback and the SVG itself — and `addImage`'s
   hyperlink then took the second of those ids a third time by incrementing the image's own.

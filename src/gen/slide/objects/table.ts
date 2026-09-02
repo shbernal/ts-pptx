@@ -388,7 +388,11 @@ export function renderTableObject(ctx: RenderContext): string {
 					'valign',
 				] as const
 			).forEach((name) => {
-				if (inheritedTableOpts[name] && !inheritedCellOpts[name] && inheritedCellOpts[name] !== 0)
+				// `=== undefined`, not a falsy test: the question is whether the CELL said anything,
+				// and `false`/`0`/`''` are things it said. The old guard rescued `0` with an explicit
+				// `!== 0` arm and nothing else, so a cell's `bold: false` was still overwritten by the
+				// table's `bold: true`.
+				if (inheritedCellOpts[name] === undefined && inheritedTableOpts[name] !== undefined)
 					inheritedCellOpts[name] = inheritedTableOpts[name]
 			})
 

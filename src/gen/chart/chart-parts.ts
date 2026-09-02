@@ -18,12 +18,19 @@ import {
 	DEF_SHAPE_SHADOW,
 	PIECHART_COLORS,
 } from '../../constants-internal.js'
-import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../types/index.js'
+import type {
+	BorderProps,
+	ChartErrorBarOptions,
+	ChartPropsTitle,
+	ChartSeriesOpts,
+	OptsChartGridLine,
+} from '../../types/index.js'
 import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill, solidPaint } from '../drawingml/fill.js'
+import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertAngleUnits, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { ptToHundredths } from '../../units.js'
@@ -113,21 +120,29 @@ export function labelFontChildren(opts: ChartOptsInternal): XmlChild[] {
  * The `<a:defRPr>` a `<c:dLbls>` text style carries, in the `b, i, strike, sz, u` ordering the
  * chart-level and bubble label blocks share. See {@link labelFontAttrs} for why there are two
  * orderings and why they stay apart.
+ *
+ * The per-series `<c:dLbls>` builder had a second copy of this, identical but for the operator:
+ * `||` here against `??` there, so one chart could carry both readings of the same option and
+ * `dataLabelFontSize: 0` emitted `sz="0"` beside `sz="1200"`. `??` is the reading kept — the
+ * caller stating a value and the caller saying nothing are different — and the size goes through
+ * {@link clampFontSizeSz}, so an explicit `0` is corrected to the `ST_TextFontSize` minimum with
+ * a warning instead of reaching the part outside its own type.
  * @param opts - the chart's normalized options
+ * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
-export function dataLabelDefRPr(opts: ChartOptsInternal): string {
+export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts): string {
 	return el(
 		'a:defRPr',
 		{
-			b: opts.dataLabelFontBold ? 1 : 0,
-			i: opts.dataLabelFontItalic ? 1 : 0,
+			b: (over?.dataLabelFontBold ?? opts.dataLabelFontBold) ? 1 : 0,
+			i: (over?.dataLabelFontItalic ?? opts.dataLabelFontItalic) ? 1 : 0,
 			strike: 'noStrike',
-			sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
+			sz: clampFontSizeSz(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE),
 			u: 'none',
 		},
 		[
-			raw(genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)),
-			raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+			raw(genXmlColorSelection(over?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR)),
+			raw(createChartTextFonts(over?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial')),
 		]
 	)
 }

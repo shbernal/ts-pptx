@@ -9,19 +9,18 @@
  */
 
 import { ChartType } from '../../enums.js'
-import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
+import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
-import { ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
 	chartColorLineFill,
 	chartDataLabels,
-	createChartTextFonts,
+	dataLabelDefRPr,
 	createDataBorderLine,
 	createSerLinesElement,
 	dLblShowFlags,
@@ -91,20 +90,7 @@ function serShapeProps(
 /** Per-series `<c:dLbls>`: number format, an optional label background, text style, show flags. */
 function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seriesColor: string): string {
 	const over = opts.seriesOptions?.[obj._dataIndex]
-	const defRPr = el(
-		'a:defRPr',
-		{
-			b: (over?.dataLabelFontBold ?? opts.dataLabelFontBold ?? false) ? 1 : 0,
-			i: (over?.dataLabelFontItalic ?? opts.dataLabelFontItalic ?? false) ? 1 : 0,
-			strike: 'noStrike',
-			sz: ptToHundredths(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE),
-			u: 'none',
-		},
-		[
-			raw(genXmlColorSelection(over?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR)),
-			raw(createChartTextFonts(over?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial')),
-		]
-	)
+	const defRPr = dataLabelDefRPr(opts, over)
 	const txPr = el('c:txPr', null, [
 		raw(voidEl('a:bodyPr')),
 		raw(voidEl('a:lstStyle')),

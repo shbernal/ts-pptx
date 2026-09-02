@@ -607,6 +607,44 @@ export function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptio
 }
 
 /**
+ * The options a run inherits from its shape — exactly the keys `genXmlTextRunProperties`
+ * reads off a run's bag, in the order it reads them.
+ *
+ * This used to be `Object.entries(opts)` filtered on `!textOptions[key]`, which had two
+ * consequences beyond copying keys (`x`, `w`, …) that mean nothing to an `<a:rPr>`. The
+ * falsy test made an explicit `false`/`0` on the run indistinguishable from silence, so
+ * `addText([{ text: 'a', options: { bold: false } }], { bold: true })` emitted `b="1"` and a
+ * run's `transparency: 0` took the shape's; and because it copied *whatever* was on the
+ * shape's bag, the font-size write-back in step E below leaked one run's size onto every
+ * later run. Naming the keys fixes the first and confines the second.
+ *
+ * Paragraph-level options (`align`, `lineSpacing`, the two margins, …) are inherited
+ * separately in step B, before the `<a:pPr>` is emitted; they are deliberately not here.
+ */
+const RUN_INHERITABLE_OPTIONS = [
+	'lang',
+	'fontSize',
+	'bold',
+	'italic',
+	'strike',
+	'caps',
+	'underline',
+	'baseline',
+	'subscript',
+	'superscript',
+	'charSpacing',
+	'color',
+	'transparency',
+	'fontFace',
+	'fontFaceEA',
+	'outline',
+	'glow',
+	'shadow',
+	'highlight',
+	'hyperlink',
+] as const
+
+/**
  * Render each grouped line to an `<a:p>` paragraph: paragraph props, inherited run options,
  * text runs (and inline/display math), and the closing endParaRPr.
  */
@@ -626,6 +664,8 @@ export function renderTextParagraphsXml(
 		}
 
 		let reqsClosingFontSize = false
+		// The size the paragraph's `endParaRPr` closes on: the shape's, else the first run that states one.
+		let closingFontSize = opts.fontSize
 
 		// A: Accumulate the paragraph's children; the `<a:p>` wrapper closes over them at the end.
 		let paraXml = ''
@@ -680,17 +720,16 @@ export function renderTextParagraphsXml(
 				// IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
 				paraXml += genXmlParagraphProperties(textObj, false).replace('<a:pPr></a:pPr>', '')
 			}
-			// C: Inherit any main options (color, fontSize, etc.)
-			// NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
-			// so the run building function cant just fallback to Slide.color, therefore, we need to do that here before passing options below.
+			// C: Inherit the run-level options from the shape's bag.
+			// `genXmlTextRun` is handed the run's options only, never the shape's, so anything the
+			// caller stated once on the shape has to be copied down here to reach `<a:rPr>`.
 			// FILTER RULE: Hyperlinks should not inherit `color` from main options (let PPT default to local color, eg: blue on MacOS)
 			const textOptions = textObj.options as TextPropsOptions & Record<string, unknown>
-			Object.entries(opts)
-				.filter(([key]) => !(textObj.options.hyperlink && key === 'color'))
-				.forEach(([key, val]) => {
-					// NOTE: This loop will pick up unecessary keys (`x`, etc.), but it doesnt hurt anything
-					if (key !== 'bullet' && !textOptions[key]) textOptions[key] = val
-				})
+			const shapeOptions = opts as ObjectOptions & Record<string, unknown>
+			RUN_INHERITABLE_OPTIONS.forEach((key) => {
+				if (key === 'color' && textObj.options.hyperlink) return
+				setOrClear(textOptions, key, textOptions[key] ?? shapeOptions[key])
+			})
 
 			// D: Add formatted textrun
 			// When this paragraph emits bullet markup (`bullet:true` or any object
@@ -720,10 +759,14 @@ export function renderTextParagraphsXml(
 				paraXml += genXmlTextRun(_textRunObj)
 			}
 
-			// E: Flag close fontSize for empty [lineBreak] elements
+			// E: Flag close fontSize for empty [lineBreak] elements.
+			// The size is tracked in a paragraph-local, NOT written back onto the shape's `opts`:
+			// doing that made the first sized run's size the shape's size for every run after it,
+			// so `[{ text: 'big', options: { fontSize: 40 } }, { text: 'normal' }]` emitted
+			// `sz="4000"` on both.
 			if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {
 				reqsClosingFontSize = true
-				setOrClear(opts, 'fontSize', opts.fontSize || textObj.options.fontSize)
+				closingFontSize = closingFontSize ?? textObj.options.fontSize
 			}
 		})
 
@@ -734,10 +777,10 @@ export function renderTextParagraphsXml(
 		// `opts.fontSize` is set, which is why the attribute set is built per-branch.
 		const sizedAttrs = (): XmlAttrs => ({
 			lang: opts.lang || 'en-US',
-			sz: opts.fontSize ? clampFontSizeSz(opts.fontSize) : null,
+			sz: closingFontSize ? clampFontSizeSz(closingFontSize) : null,
 			dirty: '0',
 		})
-		if (slideObj._type === SlideObjectType.tablecell && (opts.fontSize || opts.fontFace)) {
+		if (slideObj._type === SlideObjectType.tablecell && (closingFontSize || opts.fontFace)) {
 			if (opts.fontFace) {
 				// Mirror genXmlTextRunProperties: Latin + complex-script slots carry the face; East Asian slot
 				// inherits the theme unless `fontFaceEA` is set. Escaping is the builder's job now.

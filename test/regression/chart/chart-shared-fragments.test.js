@@ -265,4 +265,27 @@ defineRegressionSuite('Shared chart fragments', [
 			)
 		},
 	},
+	{
+		// `dataLabelDefRPr` had two copies — the chart-level one on `||`, the per-series one on
+		// `??` — so a chart with per-series labels carried both readings of one option. An
+		// explicit `dataLabelFontSize: 0` reached the part as `sz="0"` from one and `sz="1200"`
+		// from the other, and `0` is outside `ST_TextFontSize` (100..400000).
+		name: 'dataLabelFontSize is read the same way by both dLbls builders, and clamped',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(() =>
+				chartFor(ChartType.bar, [{ name: 'Series', labels: ['a', 'b'], values: [1, 2] }], {
+					dataLabelFontSize: 0,
+					showValue: true,
+				})
+			)
+			// The `b, i, strike, sz, u` ordering is the dLbls one; the axis/legend text styles use
+			// the other ordering and read a different option (see `labelFontAttrs`).
+			const sizes = [
+				...new Set([...xml.matchAll(/<a:defRPr b="[01]" i="[01]" strike="noStrike" sz="(\d+)"/g)].map((m) => m[1])),
+			]
+			assertEqual(sizes.length, 1, `every dLbls defRPr agrees on one size; got ${JSON.stringify(sizes)}`)
+			assertEqual(sizes[0], '100', 'and it is the ST_TextFontSize minimum, not sz="0"')
+			assert(codes.includes('font/size-out-of-range'), 'the clamp says so; got: ' + JSON.stringify(codes))
+		},
+	},
 ])

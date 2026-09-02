@@ -159,6 +159,19 @@ defineRegressionSuite('Table styling: built-in styles and the direct-formatting 
 		},
 	},
 	{
+		name: "a cell's explicit `bold: false` is not overwritten by the table's `bold: true`",
+		fn: async () => {
+			// The guard asked whether the CELL's value was falsy, with an `!== 0` arm bolted on to
+			// rescue zero and nothing else, so `false` still counted as "the cell said nothing".
+			const { slide } = await tableParts({ hasHeader: false, bold: true }, [
+				[{ text: 'A', options: { bold: false } }, { text: 'B' }],
+			])
+			const runs = slide.match(/<a:rPr[^>]*(?:\/>|>[\s\S]*?<\/a:rPr>)/g) || []
+			assert(!/\bb="1"/.test(runs[0]), 'the cell said not bold; got: ' + runs[0])
+			assert(/\bb="1"/.test(runs[1]), 'and the cell that said nothing still inherits; got: ' + runs[1])
+		},
+	},
+	{
 		name: 'a hyperlink anywhere in the grid stands the black default down',
 		fn: async () => {
 			// Long-standing carve-out, unrelated to table styles: the default paints the whole run,
