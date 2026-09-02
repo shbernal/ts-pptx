@@ -179,3 +179,29 @@ describe('TableCell.id / .headerIds — a:tc/@id and a:tcPr/a:headers', () => {
 		assertEqual(table.cell(2, 1).headerIds.length, 0, 'a cell with no association reports an empty list')
 	})
 })
+
+describe('TableCell.textFrame carries the owning part-s relationships', () => {
+	test('a cell run resolves its hyperlink url, like the same run in a text box', async () => {
+		// The cell's frame was built with no relationships, although `TableCell` receives them
+		// and uses them for `pictureFill`. So `Run.hyperlink` reported the raw `r:id` and left
+		// `url` null, while the identical run in a text box on the same slide resolved it.
+		const URL = 'https://example.com/cell'
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.addTable([[{ text: [{ text: 'docs', options: { hyperlink: { url: URL } } }] }]], {
+				x: 0.5,
+				y: 0.5,
+				w: 4,
+				h: 1,
+			})
+			slide.addText([{ text: 'docs', options: { hyperlink: { url: URL } } }], { x: 0.5, y: 2, w: 4, h: 1 })
+		})
+
+		const cellRun = firstTable(presentation).cell(0, 0).textFrame.paragraphs[0].runs[0]
+		assertEqual(cellRun.hyperlink.url, URL, 'the cell run resolves its url')
+
+		const box = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'autoShape' && shape.textFrame)
+		const boxRun = box.textFrame.paragraphs[0].runs[0]
+		assertEqual(cellRun.hyperlink.url, boxRun.hyperlink.url, 'both runs on the slide agree')
+	})
+})

@@ -192,8 +192,9 @@ export class Run {
 		private readonly inheritedItalic?: () => boolean | null,
 		/**
 		 * The owning part's relationships, used to resolve a run hyperlink's `@r:id`
-		 * to its external URL or internal target partname. Absent when the run was
-		 * reached without them (e.g. table-cell or notes text), in which case
+		 * to its external URL or internal target partname. Every frame the read model builds
+		 * now carries them — a table cell's and a notes placeholder's included — but the
+		 * parameter stays optional for a frame constructed by hand, in which case
 		 * {@link hyperlink} still reports the raw `@r:id`/`@action`/`@tooltip`.
 		 */
 		private readonly relationships?: Relationships,

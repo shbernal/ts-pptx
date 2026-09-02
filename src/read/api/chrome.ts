@@ -29,13 +29,12 @@
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
-import { attr, boolValue, firstChild, getElements, numberValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, getElements, type Element } from '../oxml/dom.js'
 import { parseClrMap, parseClrScheme, type ThemeContext } from '../oxml/theme.js'
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
 import { placeholderOf } from '../oxml/placeholder-inherit.js'
-import { spPrXfrmEmu } from './shapes/oxml.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
-import { buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from './shapes.js'
+import { AutoShape, buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from './shapes.js'
 import { TextFrame } from './text.js'
 import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
@@ -185,20 +184,28 @@ function placeholderShapes(spTree: Element | null): Element[] {
  * *draw* it.
  */
 export class Placeholder {
+	/**
+	 * The same `p:sp` as an {@link AutoShape}. Identity, geometry and the text frame are
+	 * forwarded to it rather than re-derived here.
+	 *
+	 * They used to be re-derived, and the two answers had drifted apart. `#cNvPr()` hard-coded
+	 * `p:nvSpPr` where `nonVisualCNvPr` finds any `p:nv*Pr`; the four geometry getters read the
+	 * `p:spPr/a:xfrm` chain through a helper no other caller used, against `Shape`'s own
+	 * `xfrm()` + `emuFrom`; and,
+	 * the one that showed, the text frame was built with **no** inheritance context, so
+	 * `Run.resolvedSizePt`, `resolvedFontFace`, `resolvedColor` and `resolvedBold` resolved
+	 * through `SlideMaster.shapes` and came back `null` through `SlideMaster.placeholders` —
+	 * two views of one element disagreeing about the same run.
+	 */
+	protected readonly shape: AutoShape
+
 	constructor(
 		/** The placeholder's `p:sp`. `protected` so {@link NotesPlaceholder} can read it. */
 		protected readonly sp: Element,
 		/** The part the `p:sp` lives in — a master, a layout, or a notes slide. */
-		protected readonly part: Part,
-		/** The owning part's theme context, threaded to {@link textFrame}. */
-		protected readonly themeContext: ThemeContext,
-		/** The owning part's relationships, threaded to {@link textFrame} for hyperlink resolution. */
-		protected readonly relationships: Relationships
-	) {}
-
-	#cNvPr(): Element | null {
-		const nvSpPr = firstChild(this.sp, 'p:nvSpPr')
-		return nvSpPr ? firstChild(nvSpPr, 'p:cNvPr') : null
+		protected readonly host: ShapeHost
+	) {
+		this.shape = new AutoShape(sp, host)
 	}
 
 	/** Placeholder type (`p:ph/@type`: `title` | `body` | `sldNum` | …), or `null` when absent (a body placeholder). */
@@ -207,7 +214,13 @@ export class Placeholder {
 		return ph ? attr(ph, 'type') : null
 	}
 
-	/** Placeholder index (`p:ph/@idx`), or `null` when unset. */
+	/**
+	 * Placeholder index (`p:ph/@idx`), or `null` when unset.
+	 *
+	 * Not forwarded to {@link AutoShape.placeholder}, whose `idx` defaults to `'0'` the way
+	 * PowerPoint resolves it. Here the absence is the contract: this view reports what the
+	 * part says.
+	 */
 	get idx(): string | null {
 		const ph = placeholderOf(this.sp)
 		return ph ? attr(ph, 'idx') : null
@@ -215,44 +228,42 @@ export class Placeholder {
 
 	/** Shape name (`p:cNvPr/@name`), or `''` when unnamed. */
 	get name(): string {
-		const cNvPr = this.#cNvPr()
-		return (cNvPr && attr(cNvPr, 'name')) ?? ''
+		return this.shape.name
 	}
 
 	/** Drawing id (`p:cNvPr/@id`), or `null` when absent. */
 	get id(): number | null {
-		const cNvPr = this.#cNvPr()
-		return cNvPr ? numberValue(attr(cNvPr, 'id')) : null
+		return this.shape.id
 	}
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get left(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:off', 'x')
+		return this.shape.left
 	}
 
 	/** Top edge in EMU (`a:off/@y`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get top(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:off', 'y')
+		return this.shape.top
 	}
 
 	/** Width in EMU (`a:ext/@cx`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get width(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:ext', 'cx')
+		return this.shape.width
 	}
 
 	/** Height in EMU (`a:ext/@cy`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get height(): number | null {
-		return spPrXfrmEmu(this.sp, 'a:ext', 'cy')
+		return this.shape.height
 	}
 
 	/**
 	 * The placeholder's text as a navigable {@link TextFrame} (`p:txBody`), or `null`
-	 * when it carries no text body. Threaded with the owning master/layout theme
-	 * context so a run's own `schemeClr` resolves through `Run.resolvedColor`.
+	 * when it carries no text body. Threaded with the owning tier's theme context and
+	 * placeholder identity, so a run's `resolved*` getters walk the same inheritance chain
+	 * they walk through {@link SlideMaster.shapes}.
 	 */
 	get textFrame(): TextFrame | null {
-		const txBody = firstChild(this.sp, 'p:txBody')
-		return txBody ? new TextFrame(txBody, this.part, this.themeContext, undefined, this.relationships) : null
+		return this.shape.textFrame
 	}
 
 	/** Escape hatch: the underlying `p:sp` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -262,7 +273,7 @@ export class Placeholder {
 
 	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
 	markDirty(): void {
-		this.part.markDirty()
+		this.host.part.markDirty()
 	}
 }
 
@@ -332,9 +343,7 @@ abstract class TemplatePart implements ShapeHost {
 
 	/** This tier's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
 	get placeholders(): Placeholder[] {
-		const ctx = this.themeContext()
-		const rels = this.relationships
-		return placeholderShapes(this.spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
+		return placeholderShapes(this.spTree()).map((sp) => new Placeholder(sp, this))
 	}
 
 	/** This tier's colour/font context, resolved once and cached. Backs each {@link Placeholder}'s text frame. */

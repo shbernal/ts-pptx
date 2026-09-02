@@ -19,8 +19,9 @@
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
+import { TableStyle } from '../../dist/node.js'
 import { PNG_1X1, assert, assertEqual } from '../helpers.js'
-import { authorRead, firstTable } from './authored.js'
+import { authorRead, authorReadWithFixtureStyles, firstTable } from './authored.js'
 
 /** Apply `rewrite` to every slide part of `buf` and reload the result. */
 async function reloadWithSlideXml(buf, rewrite) {
@@ -43,7 +44,7 @@ function authorSpellingDeck() {
 			h: 2,
 			hasHeader: true,
 		})
-		slide.addImage({ data: PNG_1X1, x: 0.5, y: 3, w: 2, h: 2, crop: { l: 0.2, t: 0, r: 0, b: 0 } })
+		slide.addImage({ data: PNG_1X1, x: 0.5, y: 3, w: 2, h: 2, crop: { l: 20, t: 0, r: 0, b: 0 } })
 		slide.addShape('rect', {
 			x: 4,
 			y: 3,
@@ -115,5 +116,40 @@ describe('a:ST_Percentage spelled with a literal %', () => {
 		const shape = reopened.slides[0].shapes.find((s) => s.gradientFill)
 		const positions = shape.gradientFill.stops.map((stop) => stop.position)
 		assert(positions.includes(0.5), `a 50% stop reads as 0.5, got ${JSON.stringify(positions)}`)
+	})
+})
+
+describe('what the digit-only readings cost downstream', () => {
+	test('a table style resolves its header shading through firstRow="true"', async () => {
+		// `#tblPrFlag` read `=== '1'`, so a producer that spells the flag `true` (LibreOffice
+		// does) read `firstRowHeader` as false. The style context's flags then came back all
+		// false, `cellStyleParts` never emitted `a:firstRow`, and a header cell reported the
+		// `wholeTbl` shading for a row PowerPoint paints in the accent colour.
+		const { buf } = await authorReadWithFixtureStyles((pres) => {
+			pres.addSlide().addTable(
+				[
+					[{ text: 'H1' }, { text: 'H2' }],
+					[{ text: 'a' }, { text: 'b' }],
+				],
+				{ x: 0.5, y: 0.5, w: 6, h: 2, hasHeader: true, tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1 }
+			)
+		})
+		const digits = await Presentation.load(buf)
+		const words = await reloadWithSlideXml(buf, (xml) => xml.replaceAll('firstRow="1"', 'firstRow="true"'))
+		const fillOf = (presentation) => firstTable(presentation).cell(0, 0).resolvedFill?.effectiveHex ?? null
+		assert(fillOf(digits), 'the digit spelling resolves a header fill')
+		assertEqual(fillOf(words), fillOf(digits), 'and so does the word spelling')
+	})
+
+	test('a cropped picture spelled in percent reports the same crop as the fixed-point form', async () => {
+		// `intValue('10%')` was `null`, so `Picture.crop` reported zeros and the script converter
+		// wrote a crop of nothing.
+		const { buf } = await authorSpellingDeck()
+		const fixed = await Presentation.load(buf)
+		const percent = await reloadWithSlideXml(buf, (xml) => xml.replace(/<a:srcRect l="\d+"/, '<a:srcRect l="20%"'))
+		const cropOf = (presentation) =>
+			presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture').crop.left
+		assertEqual(cropOf(fixed), 0.2, 'the authored deck crops a fifth off the left')
+		assertEqual(cropOf(percent), cropOf(fixed), 'and `20%` is the same fifth')
 	})
 })

@@ -175,6 +175,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four read getters gave a different answer for the same OOXML depending on which
+  accessor reached it.** All four change additively: values that were `null` or wrong become
+  right.
+
+  - **A master's or layout's placeholder resolved its runs differently from the same shape
+    read as an `AutoShape`.** `Placeholder` built its text frame with no inheritance context,
+    so `Run.resolvedSizePt`, `resolvedFontFace`, `resolvedColor` and `resolvedBold` came back
+    `null` through `SlideMaster.placeholders` while resolving correctly through
+    `SlideMaster.shapes` — two views of one `p:sp` disagreeing about the same run. It also
+    re-derived identity from a hard-coded `p:nvSpPr` where `nonVisualCNvPr` accepts any
+    `p:nv*Pr`, and geometry through a helper no other caller used. `Placeholder` is now a view
+    over an `AutoShape` and forwards all of those. `type` and `idx` stay its own: `idx`
+    reports the absent attribute as `null`, where `AutoShape.placeholder.idx` defaults to
+    `'0'` as PowerPoint resolves it.
+  - **Table style flags accepted only `"1"`.** The `a:tblPr` flags are `xsd:boolean`, so a
+    deck writing `<a:tblPr firstRow="true">` (LibreOffice and other producers do) read
+    `firstRowHeader` as `false`. The style context's flags then came back all false,
+    `cellStyleParts` emitted no `a:firstRow`, and `TableCell.resolvedFill` reported the
+    `wholeTbl` shading for a header row PowerPoint paints in the accent colour.
+  - **Eight percentage readers dropped the decimal form.** `a:ST_Percentage` is a union, and
+    the `-?[0-9]+(\.[0-9]+)?%` member is the only one the Strict profile has, so
+    `<a:srcRect l="10%"/>` made `Picture.crop` and `PictureFill.srcRect` report zero — and,
+    since picture-fill crop carries into the script IR, made the converter write a crop of
+    nothing.
+  - **A table cell's text frame could not resolve a hyperlink.** It was built with no
+    relationships, although `TableCell` receives them and uses them for `pictureFill`, so a
+    cell run carrying `<a:hlinkClick r:id="rId5"/>` reported `url: null` while the identical
+    run in a text box on the same slide resolved it.
+
+  The two attribute-decoding fixes above are the read-side half of the shared parsers; the
+  substrate landed earlier and this is the behaviour it changes.
+
+### Fixed
+
 - **Four chart options the emitters dropped or inverted.** None is reachable from the
   showcase decks, so the byte-identity harness had nothing to say about any of them; each
   carries its own test instead.

@@ -24,12 +24,14 @@
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
+import type { Relationships } from '../opc/relationships.js'
 import { firstChild, getElements, type Element } from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
 import { resolveNotesColorContext } from './theme-context.js'
 import { TextFrame } from './text.js'
 import { spTreeOf } from '../oxml/slide-dom.js'
 import { Placeholder } from './chrome.js'
+import { buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from './shapes.js'
 
 /**
  * One placeholder shape (`p:sp`) of a notes slide. A notes slide holds a fixed set:
@@ -60,9 +62,10 @@ export class NotesPlaceholder extends Placeholder {
 		// (and colour) from the notesMaster's `p:notesStyle`, carried on the notes theme
 		// context (`resolveNotesColorContext`). Give the body frame a placeholder context
 		// so `Run.resolved*` walks that chain; the `sldNum` field frame needs none.
+		const ctx = this.host.themeContext()
 		const placeholder =
-			this.type === 'body' ? { ph: { type: this.type, idx: this.idx ?? '0' }, flatten: this.themeContext } : undefined
-		return new TextFrame(txBody, this.part, this.themeContext, placeholder, this.relationships)
+			this.type === 'body' ? { ph: { type: this.type, idx: this.idx ?? '0' }, flatten: ctx } : undefined
+		return new TextFrame(txBody, this.host.part, ctx, placeholder, this.host.relationships)
 	}
 
 	/** The placeholder's flattened text (paragraphs joined by `\n`), or `''` when it has no text body. */
@@ -80,11 +83,12 @@ export class NotesPlaceholder extends Placeholder {
  * The theme context (notesMaster → `theme2.xml`) is resolved once and shared across
  * every placeholder's text frame.
  */
-export class NotesSlide {
+export class NotesSlide implements ShapeHost {
 	#themeContext?: ThemeContext
 
 	constructor(
-		private readonly opc: OpcPackage,
+		/** The package the notes slide belongs to, for reaching the notesMaster and its theme. */
+		readonly opc: OpcPackage,
 		/** The notes slide's OPC part (`/ppt/notesSlides/notesSlideN.xml`). */
 		readonly part: Part
 	) {}
@@ -92,6 +96,29 @@ export class NotesSlide {
 	/** Partname of the notes slide part. */
 	get partName(): string {
 		return this.part.partName
+	}
+
+	/** The notes part's own relationships — a notes hyperlink resolves through these. */
+	get relationships(): Relationships {
+		return this.opc.relationshipsFor(this.partName)
+	}
+
+	/**
+	 * The notes shape tree as full shapes, in document order.
+	 *
+	 * A notes slide holds nothing but its three placeholders, so {@link placeholders} is the
+	 * view to read. This one exists because a notes slide is a {@link ShapeHost} — which is
+	 * what lets a {@link NotesPlaceholder} be the same {@link AutoShape} view of its `p:sp`
+	 * that a master or layout placeholder is, rather than a second reading of one.
+	 */
+	get shapes(): AnyShape[] {
+		const spTree = this.#spTree()
+		return spTree ? buildShapes(spTree, this) : []
+	}
+
+	/** The shape anywhere in the notes tree with the given drawing id, or `undefined`. */
+	shapeByIdDeep(id: number): AnyShape | undefined {
+		return findShapeByIdDeep(this.shapes, id)
 	}
 
 	/**
@@ -106,9 +133,7 @@ export class NotesSlide {
 	get placeholders(): NotesPlaceholder[] {
 		const spTree = this.#spTree()
 		if (!spTree) return []
-		const ctx = this.themeContext()
-		const rels = this.opc.relationshipsFor(this.partName)
-		return getElements(spTree, 'p:sp').map((sp) => new NotesPlaceholder(sp, this.part, ctx, rels))
+		return getElements(spTree, 'p:sp').map((sp) => new NotesPlaceholder(sp, this))
 	}
 
 	/** The notes body placeholder (`p:ph type="body"`), or `null` when the notes slide has none. */

@@ -59,19 +59,6 @@ export function emuFrom(parent: Element | null, qname: string, attribute: string
 	return element ? numberValue(attr(element, attribute)) : null
 }
 
-/**
- * One EMU coordinate from a shape's own `p:spPr/a:xfrm`, or `null` when any link in that chain
- * is absent — which is how an inheriting placeholder (one with no `a:xfrm` of its own) reports
- * that its geometry comes from the layout/master instead. See `placeholderInheritedXfrm` for
- * resolving what it would inherit.
- */
-export function spPrXfrmEmu(sp: Element, container: 'a:off' | 'a:ext', axis: string): number | null {
-	const spPr = firstChild(sp, 'p:spPr')
-	const xfrm = spPr && firstChild(spPr, 'a:xfrm')
-	const el = xfrm && firstChild(xfrm, container)
-	return el ? numberValue(attr(el, axis)) : null
-}
-
 export { childElements }
 
 /** Get-or-add `p:spPr/a:xfrm` for shapes whose transform lives in `p:spPr` (`p:sp`, `p:pic`, `p:cxnSp`). */

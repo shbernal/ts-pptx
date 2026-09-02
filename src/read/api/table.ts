@@ -179,7 +179,7 @@ export class Table {
 		private readonly tbl: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: ThemeContext,
+		private readonly themeContext?: ThemeContext,
 		/** The deck package, for resolving `a:tableStyleId` against `tableStyles.xml` (style-graph cell fills). */
 		private readonly opc?: OpcPackage,
 		/** The owning slide's relationships, for resolving a cell picture fill's `r:embed` to a partname. */
@@ -190,7 +190,7 @@ export class Table {
 	get rows(): TableRow[] {
 		const style = this.#styleContext()
 		return getElements(this.tbl, 'a:tr').map(
-			(tr, rowIndex) => new TableRow(tr, this.part, this.themeColors, style, rowIndex, this.rels)
+			(tr, rowIndex) => new TableRow(tr, this.part, this.themeContext, style, rowIndex, this.rels)
 		)
 	}
 
@@ -208,7 +208,7 @@ export class Table {
 
 	/** The per-cell style-resolution context, or `null` when no style resolves or there is no theme context. */
 	#styleContext(): TableCellStyleContext | null {
-		if (!this.opc || !this.themeColors) return null
+		if (!this.opc || !this.themeContext) return null
 		const style = resolveTableStyle(this.opc, this.styleId)
 		if (!style) return null
 		return {
@@ -223,7 +223,7 @@ export class Table {
 			},
 			rowCount: this.rowCount,
 			colCount: this.columnCount,
-			ctx: this.themeColors,
+			ctx: this.themeContext,
 		}
 	}
 
@@ -271,10 +271,10 @@ export class Table {
 	 * image background — and `null` with no theme context.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		if (!this.themeColors) return null
+		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
 		if (!tblPr || !FILL_CHOICES.some((q) => firstChild(tblPr, q))) return null
-		return resolveSolidFillColor(tblPr, this.themeColors)
+		return resolveSolidFillColor(tblPr, this.themeContext)
 	}
 
 	/**
@@ -294,9 +294,9 @@ export class Table {
 	 * {@link resolvedFill} decodes only solid colours.
 	 */
 	get gradientFill(): GradientFill | null {
-		if (!this.themeColors) return null
+		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		return tblPr ? readGradientFill(tblPr, this.themeColors) : null
+		return tblPr ? readGradientFill(tblPr, this.themeContext) : null
 	}
 
 	/**
@@ -304,9 +304,9 @@ export class Table {
 	 * pattern-filled.
 	 */
 	get patternFill(): PatternFill | null {
-		if (!this.themeColors) return null
+		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		return tblPr ? readPatternFill(tblPr, this.themeColors) : null
+		return tblPr ? readPatternFill(tblPr, this.themeContext) : null
 	}
 
 	/**
@@ -354,7 +354,7 @@ export class Table {
 	addRow(index?: number): TableRow {
 		const tr = insertRow(this.tbl, index)
 		this.part.markDirty()
-		return new TableRow(tr, this.part, this.themeColors, this.#styleContext(), rowsOf(this.tbl).indexOf(tr), this.rels)
+		return new TableRow(tr, this.part, this.themeContext, this.#styleContext(), rowsOf(this.tbl).indexOf(tr), this.rels)
 	}
 
 	/**
@@ -446,7 +446,7 @@ export class TableRow {
 		private readonly tr: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
-		private readonly themeColors?: ThemeContext,
+		private readonly themeContext?: ThemeContext,
 		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}. */
 		private readonly style?: TableCellStyleContext | null,
 		/** This row's zero-based index in the table, for style-graph banding/edge conditions. */
@@ -458,7 +458,7 @@ export class TableRow {
 	/** The row's cells (`a:tc`) in left-to-right order. */
 	get cells(): TableCell[] {
 		return getElements(this.tr, 'a:tc').map(
-			(tc, colIndex) => new TableCell(tc, this.part, this.themeColors, this.style, this.rowIndex, colIndex, this.rels)
+			(tc, colIndex) => new TableCell(tc, this.part, this.themeContext, this.style, this.rowIndex, colIndex, this.rels)
 		)
 	}
 
@@ -484,7 +484,7 @@ export class TableCell {
 		private readonly tc: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: ThemeContext,
+		private readonly themeContext?: ThemeContext,
 		/** The table's style-resolution context, for the {@link resolvedFill} style-graph fallback. */
 		private readonly style?: TableCellStyleContext | null,
 		/** This cell's zero-based row index in the table. */
@@ -498,7 +498,10 @@ export class TableCell {
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
 	get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.tc, 'a:txBody')
-		return txBody ? new TextFrame(txBody, this.part, this.themeColors) : null
+		// The cell's own relationships, so a run's `<a:hlinkClick r:id>` resolves to a url the same
+		// way the identical run in a text box on this slide does. `GraphicFrame.table` has passed
+		// them since it started forwarding `this.host.relationships`; only this frame was not given them.
+		return txBody ? new TextFrame(txBody, this.part, this.themeContext, undefined, this.rels) : null
 	}
 
 	/** The cell's text, paragraphs joined by `\n`. */
@@ -746,8 +749,8 @@ export class TableCell {
 	 * `lumMod`/`lumOff`/… transforms applied) — read that for the final colour.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		if (!this.themeColors) return null
-		if (this.hasOwnFill) return resolveSolidFillColor(this.#tcPr(), this.themeColors)
+		if (!this.themeContext) return null
+		if (this.hasOwnFill) return resolveSolidFillColor(this.#tcPr(), this.themeContext)
 		return this.style ? this.#styleFill() : null
 	}
 
@@ -827,7 +830,7 @@ export class TableCell {
 	 */
 	get gradientFill(): GradientFill | null {
 		const tcPr = this.#tcPr()
-		return tcPr && this.themeColors ? readGradientFill(tcPr, this.themeColors) : null
+		return tcPr && this.themeContext ? readGradientFill(tcPr, this.themeContext) : null
 	}
 
 	/**
@@ -836,7 +839,7 @@ export class TableCell {
 	 */
 	get patternFill(): PatternFill | null {
 		const tcPr = this.#tcPr()
-		return tcPr && this.themeColors ? readPatternFill(tcPr, this.themeColors) : null
+		return tcPr && this.themeContext ? readPatternFill(tcPr, this.themeContext) : null
 	}
 
 	/**
@@ -866,7 +869,7 @@ export class TableCell {
 			const w = numberValue(attr(ln, 'w'))
 			const dash = firstChild(ln, 'a:prstDash')
 			const scheme = this.#fillSchemeColorOf(ln)
-			const resolved = this.themeColors ? resolveSolidFillColor(ln, this.themeColors) : null
+			const resolved = this.themeContext ? resolveSolidFillColor(ln, this.themeContext) : null
 			return {
 				widthPt: ptFromEmu(w),
 				dash: dash ? (attr(dash, 'val') ?? null) : null,
