@@ -20,7 +20,8 @@ import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { P14_NS, type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
+import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
+import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 
 type TableInheritableOption =
 	| 'align'
@@ -168,7 +169,7 @@ export function renderTableObject(ctx: RenderContext): string {
 								el(
 									'p:ext',
 									{ uri: '{D42A27DB-BD31-4B8C-83A1-F6EECF244321}' },
-									raw(voidEl('p14:modId', { 'xmlns:p14': P14_NS, val: '1579011935' }))
+									raw(voidEl('p14:modId', { 'xmlns:p14': OOXML_NS.p14, val: '1579011935' }))
 								)
 							)
 						)
@@ -484,7 +485,7 @@ export function renderTableObject(ctx: RenderContext): string {
 	return graphicFrameEl({
 		nvGraphicFramePr,
 		frame,
-		uri: 'http://schemas.openxmlformats.org/drawingml/2006/table',
+		uri: TABLE_GRAPHIC_DATA_URI,
 		payload: el('a:tbl', null, raw(tblInner), { closePrefix: '      ' }),
 		fmt: { graphic: { closePrefix: '  ' }, graphicData: { closePrefix: '    ' } },
 	})

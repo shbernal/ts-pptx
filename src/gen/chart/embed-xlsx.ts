@@ -16,7 +16,18 @@ import { XML_DECL } from '../../constants-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import {
+	CHART_COLOR_STYLE_REL,
+	CHART_STYLE_REL,
+	CORE_PROPS_REL,
+	EXTENDED_PROPS_REL,
+	OFFICE_DOCUMENT_REL,
+	OFFICE_REL,
+	PACKAGE_REL,
+	RELATIONSHIPS_CONTENT_TYPE,
+	THEME_REL,
+} from '../../ooxml/rel-types.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
 import { CORE_PROPS_NS, coreTimestamp } from '../opc/core.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
@@ -27,7 +38,6 @@ import { isBubbleChart, isScatterChart } from './chart-kind.js'
 import { FMT_SCHEME_XML } from '../oxml/fmt-scheme.js'
 
 /** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
-const MS_CHART_REL = 'http://schemas.microsoft.com/office/2011/relationships/'
 
 /** The SpreadsheetML namespace every part of the embedded workbook is written in. */
 const SML_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
@@ -92,11 +102,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 				XML_DECL +
 					el('Types', { xmlns: CT_NS }, [
 						raw(
-							voidEl(
-								'Default',
-								{ Extension: 'rels', ContentType: 'application/vnd.openxmlformats-package.relationships+xml' },
-								{ openPrefix: '  ' }
-							)
+							voidEl('Default', { Extension: 'rels', ContentType: RELATIONSHIPS_CONTENT_TYPE }, { openPrefix: '  ' })
 						),
 						raw(voidEl('Default', { Extension: 'xml', ContentType: 'application/xml' }, { openPrefix: '  ' })),
 						raw(override('/xl/workbook.xml', SML_CT + 'sheet.main+xml')),
@@ -114,9 +120,9 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 				'_rels/.rels',
 				XML_DECL +
 					relationshipsEl([
-						relationshipEl('rId1', PACKAGE_REL_NS + '/metadata/core-properties', 'docProps/core.xml'),
-						relationshipEl('rId2', OFFICE_REL + 'extended-properties', 'docProps/app.xml'),
-						relationshipEl('rId3', OFFICE_REL + 'officeDocument', 'xl/workbook.xml'),
+						relationshipEl('rId1', CORE_PROPS_REL, 'docProps/core.xml'),
+						relationshipEl('rId2', EXTENDED_PROPS_REL, 'docProps/app.xml'),
+						relationshipEl('rId3', OFFICE_DOCUMENT_REL, 'xl/workbook.xml'),
 					]) +
 					'\n'
 			)
@@ -175,7 +181,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					// always been emitted, and rel order is byte-significant.
 					relationshipsEl([
 						relationshipEl('rId3', OFFICE_REL + 'styles', 'styles.xml'),
-						relationshipEl('rId2', OFFICE_REL + 'theme', 'theme/theme1.xml'),
+						relationshipEl('rId2', THEME_REL, 'theme/theme1.xml'),
 						relationshipEl('rId1', OFFICE_REL + 'worksheet', 'worksheets/sheet1.xml'),
 						relationshipEl('rId4', OFFICE_REL + 'sharedStrings', 'sharedStrings.xml'),
 					])
@@ -189,8 +195,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 						'workbook',
 						{
 							xmlns: SML_NS,
-							'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-							'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+							'xmlns:r': OOXML_NS.r,
+							'xmlns:mc': OOXML_NS.mc,
 							'mc:Ignorable': 'x15',
 							'xmlns:x15': 'http://schemas.microsoft.com/office/spreadsheetml/2010/11/main',
 						},
@@ -535,8 +541,8 @@ function buildXlsxSheet(
 			'worksheet',
 			{
 				xmlns: SML_NS,
-				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-				'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006',
+				'xmlns:r': OOXML_NS.r,
+				'xmlns:mc': OOXML_NS.mc,
 				'mc:Ignorable': 'x14ac',
 				'xmlns:x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
 			},
@@ -566,7 +572,7 @@ function buildChartRelsXml(embeddingTarget: string): string {
 	// `voidEl` escapes the Target. The one in-tree caller passes an internally built
 	// `../embeddings/Microsoft_Excel_WorksheetN.xlsx`, so that is a no-op on bytes;
 	// it matters only for the read-side injection path, which supplies its own target.
-	return XML_DECL + relationshipsEl([relationshipEl('rId1', OFFICE_REL + 'package', embeddingTarget)])
+	return XML_DECL + relationshipsEl([relationshipEl('rId1', PACKAGE_REL, embeddingTarget)])
 }
 
 /**
@@ -581,9 +587,9 @@ function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styl
 	return (
 		XML_DECL +
 		relationshipsEl([
-			relationshipEl('rId1', OFFICE_REL + 'package', embeddingTarget),
-			relationshipEl('rId2', MS_CHART_REL + 'chartColorStyle', colorsTarget),
-			relationshipEl('rId3', MS_CHART_REL + 'chartStyle', styleTarget),
+			relationshipEl('rId1', PACKAGE_REL, embeddingTarget),
+			relationshipEl('rId2', CHART_COLOR_STYLE_REL, colorsTarget),
+			relationshipEl('rId3', CHART_STYLE_REL, styleTarget),
 		])
 	)
 }

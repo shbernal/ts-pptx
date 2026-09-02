@@ -9,7 +9,8 @@
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { msMediaRid, previewRid } from '../../define/media.js'
-import { P14_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import { type RenderContext, cNvPrOpen } from './shared.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
  * Render a `media` (audio/video/online) slide object to its `<p:pic>` XML.
@@ -84,7 +85,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 												raw(
 													voidEl(
 														'p14:media',
-														{ 'xmlns:p14': P14_NS, [p14MediaAttr]: `rId${msMediaRid(mediaRid)}` },
+														{ 'xmlns:p14': OOXML_NS.p14, [p14MediaAttr]: `rId${msMediaRid(mediaRid)}` },
 														{ openPrefix: '    ' }
 													)
 												),

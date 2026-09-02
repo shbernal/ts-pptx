@@ -16,8 +16,7 @@ import type { OpcPackage } from '../opc/package.js'
 import { attr, firstChild, firstChildElement, getElements, type Element } from '../oxml/dom.js'
 import { styleRefFill, type ThemeContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
-
-const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'
+import { TABLE_STYLES_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
 /**
  * The `a:tblPr` condition flags that gate which style parts apply to a table.

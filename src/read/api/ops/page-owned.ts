@@ -35,13 +35,18 @@
 import type { OpcPackage } from '../../opc/package.js'
 import { relativePartName } from '../../opc/partnames.js'
 import {
+	AUDIO_REL,
+	HYPERLINK_REL,
 	IMAGE_REL,
+	MS_MEDIA_REL,
 	NOTES_MASTER_REL,
 	OFFICE_REL,
 	SLIDE_LAYOUT_REL,
 	SLIDE_MASTER_REL,
 	SLIDE_REL,
+	TABLE_STYLES_REL,
 	THEME_REL,
+	VIDEO_REL,
 } from '../../../ooxml/rel-types.js'
 
 /** Relationship types whose target two copies of one page may point at together. */
@@ -55,7 +60,7 @@ const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set([
 	OFFICE_REL + 'handoutMaster',
 	OFFICE_REL + 'presProps',
 	OFFICE_REL + 'viewProps',
-	OFFICE_REL + 'tableStyles',
+	TABLE_STYLES_REL,
 	// Package singletons that a page's own parts point back at — a comments part
 	// names the deck's author list, which is one list for the whole package.
 	OFFICE_REL + 'commentAuthors',
@@ -63,16 +68,16 @@ const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set([
 	// Media blobs. PowerPoint stores one copy and points every shape that shows it
 	// at that copy, so sharing here is what the application does itself.
 	IMAGE_REL,
-	OFFICE_REL + 'audio',
-	OFFICE_REL + 'video',
-	'http://schemas.microsoft.com/office/2007/relationships/media',
+	AUDIO_REL,
+	VIDEO_REL,
+	MS_MEDIA_REL,
 	'http://schemas.microsoft.com/office/2017/06/relationships/model3d',
 	OFFICE_REL + 'font',
 	// Another page is its own page, never a part this one owns: a jump link points
 	// at whatever copy of the target page the import decided on.
 	SLIDE_REL,
 	// External by nature; an internal one resolves to a page, handled above.
-	OFFICE_REL + 'hyperlink',
+	HYPERLINK_REL,
 ])
 
 /**

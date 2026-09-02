@@ -22,13 +22,22 @@ import type { Part } from '../../opc/part.js'
 import type { Relationships } from '../../opc/relationships.js'
 import { InvalidOptionError } from '../../../errors.js'
 import {
+	AUDIO_REL,
+	CHART_COLOR_STYLE_REL,
+	CHART_REL,
+	CHART_STYLE_REL,
+	CHARTEX_REL,
+	HYPERLINK_REL,
 	IMAGE_REL,
+	MS_MEDIA_REL,
 	NOTES_MASTER_REL,
 	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
+	PACKAGE_REL,
 	SLIDE_CONTENT_TYPE,
 	SLIDE_LAYOUT_REL,
 	SLIDE_REL,
+	VIDEO_REL,
 } from '../../../ooxml/rel-types.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
@@ -38,20 +47,8 @@ import { ensureNotesMasterFromXml } from './notes-master.js'
 import { requireEqualSlideSize } from './slide-size.js'
 import { pickDefined } from '../../../options-internal.js'
 
-const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
-const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
-// chartEx (Office 2016) charts are reached through a Microsoft rel, not the ECMA `chart` one,
-// and their two mandatory style sidecars through a third pair — see `gen/chart/chartex-style.ts`.
-const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/chartEx'
-const CHART_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartStyle'
-const CHART_COLOR_STYLE_REL = 'http://schemas.microsoft.com/office/2011/relationships/chartColorStyle'
-const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
-const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
-const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
-// Microsoft 2007 `media` rel: paired with the ECMA audio/video rel (same Target),
-// referenced by the slide body's <p14:media r:embed>.
-const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
-
+// The chart part content types stay here: this is the only module that matches on them, and the
+// write side spells its own out next to the part it declares (`gen/opc/content-types.ts`).
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 // chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
 const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'

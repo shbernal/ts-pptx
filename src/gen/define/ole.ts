@@ -19,11 +19,9 @@ import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } fr
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
-import { OFFICE_REL } from '../../ooxml/rel-types.js'
+import { OFFICE_REL, PACKAGE_REL } from '../../ooxml/rel-types.js'
 
 const OD = 'application/vnd.openxmlformats-officedocument.'
-/** Rel type for an embedded OPC package (an Office file, itself a zip). */
-const PACKAGE_REL = OFFICE_REL + 'package'
 /** Rel type for a generic OLE-server blob — a compound-file `.bin` (ECMA-376 Part 1 §15.2.10). */
 const OLE_OBJECT_REL = OFFICE_REL + 'oleObject'
 

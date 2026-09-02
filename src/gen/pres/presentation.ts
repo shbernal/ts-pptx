@@ -36,7 +36,7 @@ function sectionsExtLst(sections: SectionInternalProps[]): string {
 				raw(
 					el(
 						'p14:sectionLst',
-						{ 'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main' },
+						{ 'xmlns:p14': OOXML_NS.p14 },
 						sections.map((sect) =>
 							raw(
 								el(
@@ -60,7 +60,7 @@ function sectionsExtLst(sections: SectionInternalProps[]): string {
 			el(
 				'p:ext',
 				{ uri: '{EFAFB233-063F-42B5-8137-9DF3F51BA10A}' },
-				raw(voidEl('p15:sldGuideLst', { 'xmlns:p15': 'http://schemas.microsoft.com/office/powerpoint/2012/main' }))
+				raw(voidEl('p15:sldGuideLst', { 'xmlns:p15': OOXML_NS.p15 }))
 			)
 		),
 	])

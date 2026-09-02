@@ -9,7 +9,8 @@
  * frame holds a chart with nothing in it", since every predicate answers `false` for both.
  */
 
-import { attr, firstChild, getOrAddChild, type Element } from '../../oxml/dom.js'
+import { OOXML_NS, attr, firstChild, getOrAddChild, type Element } from '../../oxml/dom.js'
+import { TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 import { Chart } from '../chart.js'
 import { ChartEx } from '../chartex.js'
 import { Diagram } from '../diagram.js'
@@ -17,13 +18,6 @@ import { Table } from '../table.js'
 import { Shape } from './base.js'
 import type { ShapeProperties } from './oxml.js'
 import { UnsupportedFeatureError } from '../../../errors.js'
-
-const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
-const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
-// chartEx (Office-2016 chart family) graphicData URI + `cx:chart` reference child namespace.
-const A_CHARTEX_URI = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
-// SmartArt: the DrawingML diagram namespace, whose payload is a `dgm:relIds` reference.
-const A_DIAGRAM_URI = 'http://schemas.openxmlformats.org/drawingml/2006/diagram'
 
 /** A graphic frame (`p:graphicFrame`) — host for tables, charts and SmartArt diagrams. */
 export class GraphicFrame extends Shape {
@@ -50,22 +44,28 @@ export class GraphicFrame extends Shape {
 
 	/** Whether this frame hosts a table (`a:graphicData/@uri` is the table URI). */
 	get hasTable(): boolean {
-		return this.#graphicDataUri() === A_TABLE_URI
+		return this.#graphicDataUri() === TABLE_GRAPHIC_DATA_URI
 	}
 
 	/** Whether this frame hosts a classic chart (`a:graphicData/@uri` is the chart URI). */
 	get hasChart(): boolean {
-		return this.#graphicDataUri() === A_CHART_URI
+		return this.#graphicDataUri() === OOXML_NS.c
 	}
 
-	/** Whether this frame hosts a chartEx chart (`a:graphicData/@uri` is the chartEx URI). */
+	/**
+	 * Whether this frame hosts a chartEx chart. Its `a:graphicData/@uri` is the `cx` namespace,
+	 * which the reference child (`cx:chart`) is also in.
+	 */
 	get hasChartEx(): boolean {
-		return this.#graphicDataUri() === A_CHARTEX_URI
+		return this.#graphicDataUri() === OOXML_NS.cx
 	}
 
-	/** Whether this frame hosts a SmartArt diagram (`a:graphicData/@uri` is the diagram URI). */
+	/**
+	 * Whether this frame hosts a SmartArt diagram. Its `a:graphicData/@uri` is the `dgm`
+	 * namespace, and the payload under it is a `dgm:relIds` reference rather than the drawing.
+	 */
 	get hasDiagram(): boolean {
-		return this.#graphicDataUri() === A_DIAGRAM_URI
+		return this.#graphicDataUri() === OOXML_NS.dgm
 	}
 
 	/**

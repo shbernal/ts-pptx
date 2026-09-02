@@ -9,6 +9,7 @@
 import type { TransitionProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */
 function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast' {
@@ -68,11 +69,11 @@ export function slideTransitionToXml(slide: PresSlideInternal): string {
 	if (!hasDuration) return el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)])
 
 	const dur = Math.round(transition.durationMs as number)
-	return el('mc:AlternateContent', { 'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006' }, [
+	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
 		raw(
 			el(
 				'mc:Choice',
-				{ 'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main', Requires: 'p14' },
+				{ 'xmlns:p14': OOXML_NS.p14, Requires: 'p14' },
 				raw(el('p:transition', { ...baseAttrs, 'p14:dur': dur }, [raw(typeEl), raw(sndAc)]))
 			)
 		),

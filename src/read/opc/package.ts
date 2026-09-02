@@ -4,6 +4,7 @@ import { Part } from './part.js'
 import { Relationships } from './relationships.js'
 import { partNameToZipPath, relsPartNameFor, zipPathToPartName } from './partnames.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
+import { RELATIONSHIPS_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
 /**
  * Input to {@link OpcPackage.load}. A `string` is a **filesystem path** (Node)
@@ -13,7 +14,6 @@ import { InvalidOptionError, PackageReadError } from '../../errors.js'
 export type OpcInput = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 const CONTENT_TYPES_ZIP_PATH = '[Content_Types].xml'
-const RELATIONSHIPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.relationships+xml'
 
 const textDecoder = new TextDecoder('utf-8')
 const textEncoder = new TextEncoder()

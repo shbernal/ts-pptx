@@ -37,13 +37,16 @@ import { renderTableObject } from './objects/table.js'
 import { renderTextObject } from './objects/text.js'
 import { renderZoomObject } from './objects/zoom.js'
 import { collectSlideShapeIds } from './shape-ids.js'
-import { OFFICE_REL } from '../../ooxml/rel-types.js'
+import {
+	AUDIO_REL,
+	CHART_REL,
+	CHARTEX_REL,
+	IMAGE_REL,
+	MS_MEDIA_REL,
+	SLIDE_REL,
+	VIDEO_REL,
+} from '../../ooxml/rel-types.js'
 import { externalHyperlinkRel, relationshipEl, relationshipsPart } from '../opc/rels.js'
-
-/** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
-const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
-/** Slide→chartEx-part relationship type (MS, not the ECMA `.../relationships/chart`). */
-const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/chartEx'
 
 /** The four axes that make up an explicit group frame. All or nothing — see `givenGroupFrameAxes`. */
 const GROUP_FRAME_AXES = ['x', 'y', 'w', 'h'] as const
@@ -665,7 +668,7 @@ export function slideObjectRelationsToXml(
 		lastRid = Math.max(lastRid, rel.rId)
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
-				rels.push(relationshipEl(rel.rId, OFFICE_REL + 'slide', `slide${rel.Target}.xml`))
+				rels.push(relationshipEl(rel.rId, SLIDE_REL, `slide${rel.Target}.xml`))
 			} else {
 				rels.push(externalHyperlinkRel(rel.rId, rel.Target))
 			}
@@ -678,7 +681,7 @@ export function slideObjectRelationsToXml(
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
 		// chartEx parts use the MS chartEx rel type; classic charts use the ECMA `chart` rel.
-		rels.push(relationshipEl(rel.rId, rel.isChartEx ? CHARTEX_REL : OFFICE_REL + 'chart', rel.Target))
+		rels.push(relationshipEl(rel.rId, rel.isChartEx ? CHARTEX_REL : CHART_REL, rel.Target))
 	})
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relType = rel.type.toLowerCase()
@@ -699,16 +702,16 @@ export function slideObjectRelationsToXml(
 			// silently dropped and the slide would carry a dangling `r:embed`.
 			rels.push(media(rel.model3dRelType))
 		} else if (relType.includes('image')) {
-			rels.push(media(OFFICE_REL + 'image'))
+			rels.push(media(IMAGE_REL))
 		} else if (relType.includes('audio')) {
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(OFFICE_REL + 'audio'))
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(AUDIO_REL))
 		} else if (relType.includes('video')) {
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(OFFICE_REL + 'video'))
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(VIDEO_REL))
 		} else if (relType.includes('online')) {
 			// Online video has *TWO* external rels sharing the link Target: the ECMA video
 			// rel (first) and the MS-2007 media rel (second). Both TargetMode="External",
 			// no media binary part.
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL, 'External') : media(OFFICE_REL + 'video', 'External'))
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL, 'External') : media(VIDEO_REL, 'External'))
 		}
 	})
 

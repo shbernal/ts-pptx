@@ -49,11 +49,6 @@ export interface RenderContext {
 	itemOpts: ObjectOptions
 }
 
-/** PowerPoint 2010 (`p14`) namespace — carries `<p14:modId>` and `<p14:media>`. */
-export const P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
-/** Markup-compatibility namespace, declared by every `<mc:AlternateContent>` this module's callers emit. */
-export const MC_NS = 'http://schemas.openxmlformats.org/markup-compatibility/2006'
-
 /**
  * The `<p:cNvPr>` OPEN tag shared by every shape renderer. Callers append `/>` or
  * `>`+children+`</p:cNvPr>` — the element is self-closing for some shape kinds and paired

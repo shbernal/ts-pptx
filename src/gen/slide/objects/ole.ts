@@ -4,7 +4,8 @@
 
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
-import { MC_NS, type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
+import { type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
 const VML_NS = 'urn:schemas-microsoft-com:vml'
@@ -57,7 +58,7 @@ export function renderOleObject(ctx: RenderContext): string {
 		raw(previewPicBody(ole.previewRid, { x, y, cx, cy })),
 	])
 
-	const alternateContent = el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [
+	const alternateContent = el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
 		raw(el('mc:Choice', { 'xmlns:v': VML_NS, Requires: 'v' }, raw(oleObj([raw(voidEl('p:embed'))])))),
 		raw(el('mc:Fallback', null, raw(oleObj([raw(voidEl('p:embed')), raw(previewPic)])))),
 	])

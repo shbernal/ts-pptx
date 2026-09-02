@@ -65,7 +65,7 @@ import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { duplicateOwnedTargets } from './ops/page-owned.js'
 import { pruneIfOrphan } from './ops/prune.js'
-import { OFFICE_DOCUMENT_REL, SLIDE_REL } from '../../ooxml/rel-types.js'
+import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 import { presentationRels } from './ops/deck-target.js'
 import {
@@ -76,9 +76,6 @@ import {
 	importSlides as importSlidesInto,
 } from './presentation-imports.js'
 
-/** Content type of the main part in an editable `.pptx` package. */
-const PRESENTATION_MAIN_CONTENT_TYPE =
-	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 /** Content type of the main part in a `.potx` template package — flipped to {@link PRESENTATION_MAIN_CONTENT_TYPE} by {@link Presentation.fromTemplate}. */
 const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'

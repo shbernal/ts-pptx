@@ -10,7 +10,7 @@
 
 import { el, raw, voidEl, type XmlFmt } from '../oxml/el.js'
 import { CRLF, XML_DECL } from '../../constants-internal.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { HYPERLINK_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 /**
  * One `Relationship` entry.
@@ -76,5 +76,5 @@ export function relationshipsPart(rels: readonly string[], fmt?: XmlFmt): string
  * @returns {string} the `Relationship` element
  */
 export function externalHyperlinkRel(rId: number, target: string): string {
-	return relationshipEl(rId, OFFICE_REL + 'hyperlink', target, { targetMode: 'External' })
+	return relationshipEl(rId, HYPERLINK_REL, target, { targetMode: 'External' })
 }

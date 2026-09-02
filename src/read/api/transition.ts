@@ -95,9 +95,6 @@ function prefixFor(uri: string | null): string {
 	for (const [prefix, ns] of Object.entries(OOXML_NS)) {
 		if (ns === uri) return prefix
 	}
-	// Modern transition namespaces not in the canonical registry.
-	if (uri === 'http://schemas.microsoft.com/office/powerpoint/2012/main') return 'p15'
-	if (uri === 'http://schemas.microsoft.com/office/powerpoint/2015/9/main') return 'p159'
 	return 'p'
 }
 

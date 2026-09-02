@@ -48,12 +48,13 @@ import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { isScatterChart, isXyChart } from './chart-kind.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** The three namespaces every `<c:chartSpace>` declares, in the order PowerPoint writes them. */
 const CHART_SPACE_NS = {
-	'xmlns:c': 'http://schemas.openxmlformats.org/drawingml/2006/chart',
-	'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
-	'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+	'xmlns:c': OOXML_NS.c,
+	'xmlns:a': OOXML_NS.a,
+	'xmlns:r': OOXML_NS.r,
 }
 
 /**

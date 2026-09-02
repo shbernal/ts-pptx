@@ -12,13 +12,12 @@ import { relsPartNameFor } from '../../opc/partnames.js'
 import type { Presentation } from '../presentation.js'
 import {
 	NOTES_MASTER_CONTENT_TYPE,
+	PRESENTATION_MAIN_CONTENT_TYPE,
 	SLIDE_LAYOUT_CONTENT_TYPE,
 	SLIDE_MASTER_CONTENT_TYPE,
+	TABLE_STYLES_CONTENT_TYPE,
 	THEME_CONTENT_TYPE,
 } from '../../../ooxml/rel-types.js'
-
-const PRESENTATION_MAIN_CONTENT_TYPE =
-	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 
 /**
  * Content types that are shared deck chrome: reachable through the
@@ -35,7 +34,7 @@ const SHARED_CHROME_CONTENT_TYPES = new Set([
 	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml',
+	TABLE_STYLES_CONTENT_TYPE,
 	PRESENTATION_MAIN_CONTENT_TYPE,
 ])
 

@@ -49,10 +49,11 @@ export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObj
 				)
 				return ''
 			}
-			return `<${tag} id="${id}" idx="${binding.idx}"/>`
+			return voidEl(tag, { id, idx: binding.idx })
 		}
 		const cxnSpPr = cxnTag(itemOpts._startCxn, 'a:stCxn') + cxnTag(itemOpts._endCxn, 'a:endCxn')
-		strSlideXml += cxnSpPr ? `<p:cNvCxnSpPr>${cxnSpPr}</p:cNvCxnSpPr>` : '<p:cNvCxnSpPr/>'
+		// Arity, not value: paired only when a binding resolved, self-closing otherwise.
+		strSlideXml += cxnSpPr ? el('p:cNvCxnSpPr', null, raw(cxnSpPr)) : voidEl('p:cNvCxnSpPr')
 	}
 	strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
 	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])

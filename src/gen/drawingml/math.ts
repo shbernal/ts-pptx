@@ -7,13 +7,14 @@
  */
 
 import { el, raw, voidEl } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
+/** The OMML namespace. One module writes it, so it stays here rather than in the registry. */
 const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
 
 /** The `<a14:m>` marker, carrying both namespace declarations so the supplied OMML needs none. */
 function a14Math(mathXml: string): string {
-	return el('a14:m', { 'xmlns:a14': A14_NS, 'xmlns:m': M_NS }, raw(mathXml))
+	return el('a14:m', { 'xmlns:a14': OOXML_NS.a14, 'xmlns:m': M_NS }, raw(mathXml))
 }
 
 /**

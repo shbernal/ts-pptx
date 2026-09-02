@@ -15,9 +15,8 @@ import type { Part } from '../../opc/part.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { OOXML_NS, attr, getElements, ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
+import { TABLE_STYLES_CONTENT_TYPE, TABLE_STYLES_REL } from '../../../ooxml/rel-types.js'
 
-const TABLE_STYLES_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles'
-const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'
 // The well-known "no style / table grid" GUID PowerPoint uses as a tblStyleLst @def.
 const TABLE_STYLES_DEFAULT_GUID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
 

@@ -19,6 +19,7 @@ import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from
 import { ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 import {
 	clampCharSpacingSpc,
 	clampFontSizeSz,
@@ -247,7 +248,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 										{ uri: '{96DAC541-7B7A-43D3-8B79-37D633B846F1}' },
 										raw(
 											voidEl('asvg:svgBlip', {
-												'xmlns:asvg': 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
+												'xmlns:asvg': OOXML_NS.asvg,
 												'r:embed': `rId${opts.bullet._rIdSvg}`,
 											})
 										)

@@ -16,6 +16,7 @@ import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { getImageSizeFromBase64 } from '../../../media/image-size.js'
 import { el, raw, voidEl, type XmlChild } from '../../oxml/el.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
 import { pixelsToEmu } from '../../../units.js'
 import { warn } from '../../../diagnostics.js'
@@ -144,7 +145,7 @@ export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: numbe
 								voidEl(
 									'asvg:svgBlip',
 									{
-										'xmlns:asvg': 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
+										'xmlns:asvg': OOXML_NS.asvg,
 										'r:embed': `rId${slideItemObj.imageRid}`,
 									},
 									{ openPrefix: '   ' }

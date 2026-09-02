@@ -13,9 +13,9 @@ import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL } from '../../ooxml/rel-types.js'
+import { NOTES_MASTER_REL, SLIDE_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { externalHyperlinkRel, relationshipEl, relationshipsEl, relationshipsPart } from '../opc/rels.js'
-import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 /**
@@ -162,12 +162,7 @@ function notesExtLst(): string {
 			el(
 				'p:ext',
 				{ uri: '{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}' },
-				raw(
-					voidEl('p14:creationId', {
-						'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main',
-						val: NOTES_CREATION_ID,
-					})
-				)
+				raw(voidEl('p14:creationId', { 'xmlns:p14': OOXML_NS.p14, val: NOTES_CREATION_ID }))
 			)
 		)
 	)
@@ -489,8 +484,8 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
 		XML_DECL +
 		relationshipsEl(
 			[
-				relationshipEl(1, OFFICE_REL + 'notesMaster', '../notesMasters/notesMaster1.xml'),
-				relationshipEl(2, OFFICE_REL + 'slide', `../slides/slide${slideNumber}.xml`),
+				relationshipEl(1, NOTES_MASTER_REL, '../notesMasters/notesMaster1.xml'),
+				relationshipEl(2, SLIDE_REL, `../slides/slide${slideNumber}.xml`),
 				// Always a child, even when empty, so its `childPrefix` indent is still emitted.
 				hlinkRels,
 			],
@@ -507,7 +502,7 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
  */
 export function makeXmlNotesMasterRel(): string {
 	return relationshipsPart(
-		[relationshipEl(1, OFFICE_REL + 'theme', '../theme/theme2.xml')],
+		[relationshipEl(1, THEME_REL, '../theme/theme2.xml')],
 		// The closing tag is indented to child depth, not parent depth — as emitted today.
 		{ childPrefix: '\n\t\t', closePrefix: '\n\t\t' }
 	)

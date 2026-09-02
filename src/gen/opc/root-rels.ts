@@ -6,7 +6,7 @@
  */
 
 import { relationshipEl, relationshipsPart } from './rels.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
+import { CORE_PROPS_REL, CUSTOM_PROPS_REL, EXTENDED_PROPS_REL, OFFICE_DOCUMENT_REL } from '../../ooxml/rel-types.js'
 
 /** Each entry carries its own indent; the `<Relationships>` wrapper adds none of its own. */
 const INDENTED = { fmt: { openPrefix: '\n\t\t' } }
@@ -17,12 +17,12 @@ const INDENTED = { fmt: { openPrefix: '\n\t\t' } }
  */
 export function makeXmlRootRels(hasCustomProps?: boolean): string {
 	const rels = [
-		relationshipEl('rId1', OFFICE_REL + 'extended-properties', 'docProps/app.xml', INDENTED),
-		relationshipEl('rId2', PACKAGE_REL_NS + '/metadata/core-properties', 'docProps/core.xml', INDENTED),
-		relationshipEl('rId3', OFFICE_REL + 'officeDocument', 'ppt/presentation.xml', INDENTED),
+		relationshipEl('rId1', EXTENDED_PROPS_REL, 'docProps/app.xml', INDENTED),
+		relationshipEl('rId2', CORE_PROPS_REL, 'docProps/core.xml', INDENTED),
+		relationshipEl('rId3', OFFICE_DOCUMENT_REL, 'ppt/presentation.xml', INDENTED),
 	]
 	if (hasCustomProps) {
-		rels.push(relationshipEl('rId4', OFFICE_REL + 'custom-properties', 'docProps/custom.xml', INDENTED))
+		rels.push(relationshipEl('rId4', CUSTOM_PROPS_REL, 'docProps/custom.xml', INDENTED))
 	}
 	// The closing tag is indented to child depth, not parent depth. That is
 	// how this part has always been emitted; kept verbatim for byte-identity.

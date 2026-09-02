@@ -13,6 +13,7 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { InternalError } from '../../errors.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { NOTES_SLIDE_REL, OFFICE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
@@ -55,7 +56,7 @@ export function makeXmlSlideLayoutRel(layoutNumber: number, slideLayouts: SlideL
 	return slideObjectRelationsToXml(slideLayout, [
 		{
 			target: '../slideMasters/slideMaster1.xml',
-			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster',
+			type: SLIDE_MASTER_REL,
 		},
 	])
 }
@@ -78,11 +79,11 @@ export function makeXmlSlideRel(
 	const defaultRels = [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
-			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
+			type: SLIDE_LAYOUT_REL,
 		},
 		{
 			target: `../notesSlides/notesSlide${slideNumber}.xml`,
-			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide',
+			type: NOTES_SLIDE_REL,
 		},
 	]
 	// Only emit the comments rel for slides that actually carry comments (the comment part
@@ -90,7 +91,8 @@ export function makeXmlSlideRel(
 	if ((slide._comments || []).length > 0) {
 		defaultRels.push({
 			target: `../comments/comment${slideNumber}.xml`,
-			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments',
+			// Only this module emits a comments rel, so it is built here rather than hoisted.
+			type: OFFICE_REL + 'comments',
 		})
 	}
 	return slideObjectRelationsToXml(slide, defaultRels)

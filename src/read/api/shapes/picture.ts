@@ -32,9 +32,6 @@ import { InvalidOptionError } from '../../../errors.js'
 import { PERCENT_SCALE } from '../../../units.js'
 import { BLIPFILL_BLIP_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
 
-// Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
-const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
-
 /**
  * Default a media-part file extension from a content type. A format the registry in
  * `media/image-formats.ts` names uses its canonical extension; otherwise fall back to the
@@ -231,7 +228,7 @@ export class Picture extends Shape {
 			for (let node = ext.firstChild; node; node = node.nextSibling) {
 				if (node.nodeType !== ELEMENT_NODE) continue
 				const el = node as Element
-				if (el.localName === 'svgBlip' && el.namespaceURI === ASVG_NS) return el
+				if (el.localName === 'svgBlip' && el.namespaceURI === OOXML_NS.asvg) return el
 			}
 		}
 		return null

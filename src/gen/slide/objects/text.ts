@@ -14,6 +14,7 @@ import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
 import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { marginToEmu } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
@@ -58,13 +59,6 @@ export function renderTextObject(ctx: RenderContext): string {
 	}
 
 	// A: Start SHAPE =======================================================
-	// A native equation uses the `a14` (drawing-2010) markup-compatibility extension.
-	// PowerPoint wraps the whole shape in <mc:AlternateContent><mc:Choice Requires="a14"> so
-	// non-a14 consumers (and schema validators) treat the a14:m subtree as a known extension.
-	if (objectHasMath(slideItemObj)) {
-		strSlideXml += '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
-		strSlideXml += '<mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14">'
-	}
 	strSlideXml += '<p:sp>'
 
 	// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
@@ -129,7 +123,15 @@ export function renderTextObject(ctx: RenderContext): string {
 	// LAST: Close SHAPE =======================================================
 	strSlideXml += '</p:sp>'
 
-	// Close the a14 markup-compatibility envelope for an equation-bearing shape.
-	if (objectHasMath(slideItemObj)) strSlideXml += '</mc:Choice></mc:AlternateContent>'
+	// A native equation uses the `a14` (drawing-2010) markup-compatibility extension. PowerPoint
+	// wraps the whole shape in <mc:AlternateContent><mc:Choice Requires="a14"> so non-a14
+	// consumers (and schema validators) treat the a14:m subtree as a known extension.
+	if (objectHasMath(slideItemObj)) {
+		return el(
+			'mc:AlternateContent',
+			{ 'xmlns:mc': OOXML_NS.mc },
+			raw(el('mc:Choice', { 'xmlns:a14': OOXML_NS.a14, Requires: 'a14' }, raw(strSlideXml)))
+		)
+	}
 	return strSlideXml
 }

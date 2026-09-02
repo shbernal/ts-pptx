@@ -9,15 +9,9 @@
 
 import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import {
-	FALLBACK_PICTURE_LOCKS,
-	MC_NS,
-	type RenderContext,
-	cNvPrOpen,
-	graphicFrameEl,
-	previewPicBody,
-} from './shared.js'
+import { FALLBACK_PICTURE_LOCKS, type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
 const ZOOM_VARIANTS = {
@@ -214,7 +208,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 		fallbackInner = zoomFallbackPic(idx + 2, objectName, firstTile, { x, y, cx, cy })
 	}
 
-	return el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [
+	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
 		raw(choice),
 		raw(el('mc:Fallback', null, raw(fallbackInner))),
 	])

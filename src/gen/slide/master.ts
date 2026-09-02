@@ -16,6 +16,7 @@ import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
@@ -367,11 +368,11 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 export function makeXmlMasterRel(masterSlide: PresSlideInternal, slideLayouts: SlideLayoutInternal[]): string {
 	const defaultRels = slideLayouts.map((_layoutDef, idx) => ({
 		target: `../slideLayouts/slideLayout${idx + 1}.xml`,
-		type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
+		type: SLIDE_LAYOUT_REL,
 	}))
 	defaultRels.push({
 		target: '../theme/theme1.xml',
-		type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
+		type: THEME_REL,
 	})
 
 	return slideObjectRelationsToXml(masterSlide, defaultRels)

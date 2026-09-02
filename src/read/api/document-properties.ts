@@ -13,14 +13,14 @@
 import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
 import { attr, childElements, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
+import { CORE_PROPS_REL, CUSTOM_PROPS_REL } from '../../ooxml/rel-types.js'
 
-/** Package-root rel to `/docProps/core.xml`. */
-const CORE_PROPS_REL_TYPE = 'http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties'
-/** Content type of the core-properties part (fallback lookup when the rel is absent). */
+// The two content types below are the fallback lookup for when the rel is absent, and this is
+// the only module that matches on them — the write side spells its own out next to the part it
+// declares (`gen/opc/content-types.ts`). The rel types themselves are shared with that side.
+/** Content type of the core-properties part. */
 const CORE_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.core-properties+xml'
-/** Package-root rel to `/docProps/custom.xml`. */
-const CUSTOM_PROPS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties'
-/** Content type of the custom-properties part (fallback lookup when the rel is absent). */
+/** Content type of the custom-properties part. */
 const CUSTOM_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.custom-properties+xml'
 
 /**
@@ -88,7 +88,7 @@ const CORE_FIELDS: ReadonlyArray<[keyof CoreProperties, string]> = [
  */
 export function readCoreProperties(opc: OpcPackage): CoreProperties {
 	const rels = opc.relationshipsFor('/')
-	const rel = rels.byType(CORE_PROPS_REL_TYPE)[0]
+	const rel = rels.byType(CORE_PROPS_REL)[0]
 	const part = rel ? opc.part(rels.resolveTarget(rel.id)) : opc.partsByContentType(CORE_PROPS_CONTENT_TYPE)[0]
 	const root = part?.dom.documentElement
 	if (!root) return {}
@@ -156,7 +156,7 @@ function decodeValue(vt: Element): CustomPropertyValue {
  */
 export function readCustomProperties(opc: OpcPackage): CustomProperty[] {
 	const rels = opc.relationshipsFor('/')
-	const rel = rels.byType(CUSTOM_PROPS_REL_TYPE)[0]
+	const rel = rels.byType(CUSTOM_PROPS_REL)[0]
 	const part = rel ? opc.part(rels.resolveTarget(rel.id)) : opc.partsByContentType(CUSTOM_PROPS_CONTENT_TYPE)[0]
 	const root = part?.dom.documentElement
 	if (!root) return []

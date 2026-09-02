@@ -10,7 +10,7 @@ import { ChartType, isChartExType } from '../../../enums.js'
 import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { MC_NS, type RenderContext, cNvPrOpen } from './shared.js'
+import { type RenderContext, cNvPrOpen } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -87,7 +87,7 @@ export function renderChartObject(ctx: RenderContext): string {
 		raw(graphicFrame)
 	)
 	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(idx, itemOpts, x, y, cx, cy)))
-	return el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [raw(choice), raw(fallback)])
+	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [raw(choice), raw(fallback)])
 }
 
 /**
