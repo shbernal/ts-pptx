@@ -149,6 +149,16 @@ describe('Shape geometry editing', () => {
 			throws(() => (shape.width = -10)),
 			'negative width should throw'
 		)
+		// `ST_PositiveCoordinate` has no room for zero either, and a zero-size shape is a
+		// degenerate result rather than a small one — the rule every other read-side extent
+		// setter already applied. The private guard these two used accepted it.
+		assert(
+			throws(() => (shape.width = 0)),
+			'zero width should throw'
+		)
+		// An OFFSET may be negative: a shape can sit off the left or top edge.
+		shape.left = -10
+		assertEqual(shape.left, -10, 'a negative offset is accepted')
 	})
 
 	test('sets geometry on a graphic frame (p:xfrm)', async () => {

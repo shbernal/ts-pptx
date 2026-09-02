@@ -3,7 +3,7 @@
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import { relativePartName } from '../opc/partnames.js'
+import { relativePartName, singleRelPart } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
 import {
 	OOXML_NS,
@@ -408,11 +408,8 @@ export class Slide implements ShapeHost {
 	 * slide-number field round-trip either way.
 	 */
 	get notesSlide(): NotesSlide | null {
-		const notesRel = this.relationships.byType(NOTES_SLIDE_REL)[0]
-		if (!notesRel) return null
-		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
-		if (!notesPart) return null
-		return new NotesSlide(this.presentation.opc, notesPart)
+		const notesPart = singleRelPart(this.presentation.opc, this.partName, NOTES_SLIDE_REL)
+		return notesPart ? new NotesSlide(this.presentation.opc, notesPart) : null
 	}
 
 	/**
@@ -422,9 +419,7 @@ export class Slide implements ShapeHost {
 	 * {@link master} and {@link theme} through it (`slide.layout.master.theme`).
 	 */
 	get layout(): SlideLayout | null {
-		const rel = this.relationships.byType(SLIDE_LAYOUT_REL)[0]
-		if (!rel) return null
-		const part = this.presentation.opc.part(this.relationships.resolveTarget(rel.id))
+		const part = singleRelPart(this.presentation.opc, this.partName, SLIDE_LAYOUT_REL)
 		return part ? new SlideLayout(this.presentation.opc, part) : null
 	}
 

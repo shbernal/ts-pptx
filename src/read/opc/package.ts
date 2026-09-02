@@ -134,13 +134,10 @@ export class OpcPackage {
 	 */
 	reserveMediaPartName(extension: string, base = 'image'): string {
 		const ext = extension.toLowerCase().replace(/^\./, '')
-		const re = new RegExp(`^/ppt/media/${base}(\\d+)\\.${ext}$`, 'i')
-		let max = 0
-		for (const partName of this.#parts.keys()) {
-			const match = re.exec(partName)
-			if (match) max = Math.max(max, Number(match[1]))
-		}
-		return `/ppt/media/${base}${max + 1}.${ext}`
+		// Case-insensitive, unlike `reservePartNameLike`: a package holding `image1.PNG` must not
+		// hand out `image1.png` as free.
+		const next = this.#nextPartIndex(new RegExp(`^/ppt/media/${base}(\\d+)\\.${ext}$`, 'i'))
+		return `/ppt/media/${base}${next}.${ext}`
 	}
 
 	/**
@@ -161,13 +158,21 @@ export class OpcPackage {
 		const stem = dot > 0 ? fileName.slice(0, dot) : fileName
 		const base = stem.replace(/\d+$/, '')
 		const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		const re = new RegExp(`^${escape(`${dir}/${base}`)}(\\d+)${escape(ext)}$`)
+		const next = this.#nextPartIndex(new RegExp(`^${escape(`${dir}/${base}`)}(\\d+)${escape(ext)}$`))
+		return `${dir}/${base}${next}${ext}`
+	}
+
+	/**
+	 * One past the highest numeric index any existing partname matches, or `1` when none does.
+	 * `re` must capture the index as its first group.
+	 */
+	#nextPartIndex(re: RegExp): number {
 		let max = 0
 		for (const partName of this.#parts.keys()) {
 			const match = re.exec(partName)
 			if (match) max = Math.max(max, Number(match[1]))
 		}
-		return `${dir}/${base}${max + 1}${ext}`
+		return max + 1
 	}
 
 	/**

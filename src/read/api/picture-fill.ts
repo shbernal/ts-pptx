@@ -73,7 +73,7 @@ export interface PictureFill {
 }
 
 /** Per-edge fractions of a rect element, absent attributes reading as `0`. */
-function readRect(rect: Element): FillRect {
+export function readRect(rect: Element): FillRect {
 	const edge = (name: string): number => pctAttr(rect, name) ?? 0
 	return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 }

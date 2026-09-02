@@ -24,6 +24,7 @@ import { imageFormatForContentType } from '../../../media/image-formats.js'
 import { warn } from '../../../diagnostics.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { colorValueIf } from '../../oxml/fill.js'
+import { readRect, type FillRect } from '../picture-fill.js'
 import { Shape } from './base.js'
 import { childElements } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
@@ -74,8 +75,7 @@ export class Picture extends Shape {
 
 	/** Relationship id of the embedded image (`p:blipFill/a:blip/@r:embed`), or `null`. */
 	get imageRelId(): string | null {
-		const blipFill = firstChild(this.element, 'p:blipFill')
-		const blip = blipFill && firstChild(blipFill, 'a:blip')
+		const blip = this.#blip()
 		return blip ? attr(blip, 'r:embed') : null
 	}
 
@@ -157,12 +157,10 @@ export class Picture extends Shape {
 	 * match the fraction convention used elsewhere in the read API (see
 	 * {@link recolor}).
 	 */
-	get crop(): { left: number; top: number; right: number; bottom: number } | null {
+	get crop(): FillRect | null {
 		const blipFill = firstChild(this.element, 'p:blipFill')
 		const srcRect = blipFill && firstChild(blipFill, 'a:srcRect')
-		if (!srcRect) return null
-		const edge = (name: string): number => pctAttr(srcRect, name) ?? 0
-		return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
+		return srcRect ? readRect(srcRect) : null
 	}
 
 	/**
@@ -177,8 +175,7 @@ export class Picture extends Shape {
 	 * *visibility* of a recolour source; this reports the *tint* itself.
 	 */
 	get recolor(): Recolor | null {
-		const blipFill = firstChild(this.element, 'p:blipFill')
-		const blip = blipFill && firstChild(blipFill, 'a:blip')
+		const blip = this.#blip()
 		if (!blip) return null
 		for (const child of childElements(blip)) {
 			if (child.namespaceURI !== OOXML_NS.a) continue
@@ -212,10 +209,18 @@ export class Picture extends Shape {
 		return null
 	}
 
+	/**
+	 * The `p:blipFill/a:blip` this picture draws, or `null` when it has none. Three getters and
+	 * the SVG lookup each walked the pair.
+	 */
+	#blip(): Element | null {
+		const blipFill = firstChild(this.element, 'p:blipFill')
+		return blipFill ? firstChild(blipFill, 'a:blip') : null
+	}
+
 	/** The `<asvg:svgBlip>` element inside the blip's extLst, or `null` when the picture carries no SVG. */
 	#svgBlip(): Element | null {
-		const blipFill = firstChild(this.element, 'p:blipFill')
-		const blip = blipFill && firstChild(blipFill, 'a:blip')
+		const blip = this.#blip()
 		const extLst = blip && firstChild(blip, 'a:extLst')
 		if (!extLst) return null
 		for (const ext of getElements(extLst, 'a:ext')) {

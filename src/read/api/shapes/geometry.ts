@@ -16,7 +16,6 @@ import {
 	type Element,
 } from '../../oxml/dom.js'
 import type { CustomGeometryPath, GeometryCommand } from './types.js'
-import { InvalidOptionError } from '../../../errors.js'
 import { ANGLE_UNITS_PER_DEGREE } from '../../../units.js'
 
 /**
@@ -84,15 +83,6 @@ export function readGeometryPath(path: Element): CustomGeometryPath {
 		stroke: boolValue(attr(path, 'stroke')) ?? true,
 		commands,
 	}
-}
-
-/** Validate and round an EMU geometry value; extents (`cx`/`cy`) must be non-negative. */
-export function toEmu(value: number, attribute: string, allowNegative: boolean): number {
-	if (!Number.isFinite(value))
-		throw new InvalidOptionError('coord/non-finite', `${attribute} must be a finite number of EMU, got ${value}`)
-	if (!allowNegative && value < 0)
-		throw new InvalidOptionError('coord/negative', `${attribute} must be non-negative, got ${value}`)
-	return Math.round(value)
 }
 
 /** A point + extent pair (`a:off`/`a:ext` or `a:chOff`/`a:chExt`) from a transform, or `null` if either is incomplete. */

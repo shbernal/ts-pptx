@@ -93,12 +93,7 @@ export class Relationships {
 			const match = /^rId(\d+)$/.exec(id)
 			if (match) max = Math.max(max, Number(match[1]))
 		}
-		const id = `rId${max + 1}`
-		const relationship: Relationship = { id, type, target }
-		if (targetMode) relationship.targetMode = targetMode
-		this.#byId.set(id, relationship)
-		this.#dirty = true
-		return relationship
+		return this.#put(`rId${max + 1}`, type, target, targetMode)
 	}
 
 	/**
@@ -114,6 +109,17 @@ export class Relationships {
 				'relationship/duplicate-id',
 				`Relationships of ${this.sourcePartName}: duplicate relationship id ${id}`
 			)
+		return this.#put(id, type, target, targetMode)
+	}
+
+	/**
+	 * Build the relationship record, store it under `id`, and mark the set dirty.
+	 *
+	 * `targetMode` is written only when stated: `Internal` is the schema default, and a key
+	 * holding `undefined` is not the same as an absent one to the serializer. {@link add} and
+	 * {@link addWithId} differ only in where the id comes from.
+	 */
+	#put(id: string, type: string, target: string, targetMode?: 'Internal' | 'External'): Relationship {
 		const relationship: Relationship = { id, type, target }
 		if (targetMode) relationship.targetMode = targetMode
 		this.#byId.set(id, relationship)

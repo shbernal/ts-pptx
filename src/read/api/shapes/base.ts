@@ -55,7 +55,7 @@ import {
 	SPPR_LN_AFTER,
 	type ShapeProperties,
 } from './oxml.js'
-import { readBox, rotationDegrees, toEmu, transformFlipH, transformFlipV } from './geometry.js'
+import { readBox, rotationDegrees, transformFlipH, transformFlipV } from './geometry.js'
 import type {
 	AbsoluteFrame,
 	Glow,
@@ -70,7 +70,7 @@ import type {
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT } from '../../../units.js'
-import { ptFromEmu } from '../coords.js'
+import { checkFiniteEmu, checkPositiveEmu, ptFromEmu } from '../coords.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -206,7 +206,7 @@ export abstract class Shape {
 	}
 
 	set left(value: number) {
-		this.#setOffset('x', value, true)
+		this.#setOffset('x', value)
 	}
 
 	/** Top edge in EMU (`a:off/@y`), or `null` when the shape has no own transform. */
@@ -215,7 +215,7 @@ export abstract class Shape {
 	}
 
 	set top(value: number) {
-		this.#setOffset('y', value, true)
+		this.#setOffset('y', value)
 	}
 
 	/** Width in EMU (`a:ext/@cx`), or `null` when the shape has no own transform. */
@@ -362,15 +362,20 @@ export abstract class Shape {
 		}
 	}
 
-	#setOffset(axis: 'x' | 'y', value: number, allowNegative: boolean): void {
-		const emu = toEmu(value, axis, allowNegative)
+	#setOffset(axis: 'x' | 'y', value: number): void {
+		// An offset may be negative — a shape can sit off the left or top edge — so it needs the
+		// finite check and nothing more. Both setters used a private `toEmu` that also rejected a
+		// negative *extent* under its own `coord/negative`; `checkPositiveEmu` is the rule the
+		// rest of the read model's setters already apply, and `ST_PositiveCoordinate` has no room
+		// for zero either.
+		const emu = checkFiniteEmu(value, axis)
 		const off = getOrAddChild(this.getOrAddXfrm(), 'a:off', ['a:ext'])
 		setAttr(off, axis, String(emu))
 		this.markDirty()
 	}
 
 	#setExtent(axis: 'cx' | 'cy', value: number): void {
-		const emu = toEmu(value, axis, false)
+		const emu = checkPositiveEmu(value, axis)
 		const ext = getOrAddChild(this.getOrAddXfrm(), 'a:ext')
 		setAttr(ext, axis, String(emu))
 		this.markDirty()

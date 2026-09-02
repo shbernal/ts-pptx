@@ -23,7 +23,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
-import { FILL_CHOICES, normalizeHex, setSolidFill } from '../oxml/fill.js'
+import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import {
 	ANCHOR_VALUES,
 	checkEnum,
@@ -316,10 +316,7 @@ export class Table {
 	 * which is what a replica should carry so the copy still tracks its theme.
 	 */
 	get fillSchemeColor(): string | null {
-		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		const fill = tblPr && firstChild(tblPr, 'a:solidFill')
-		const scheme = fill && firstChild(fill, 'a:schemeClr')
-		return scheme ? attr(scheme, 'val') : null
+		return solidFillColor(firstChild(this.tbl, 'a:tblPr'), 'a:schemeClr')
 	}
 
 	/** Whether the first row is styled as a header (`a:tblPr/@firstRow`). */
@@ -848,7 +845,7 @@ export class TableCell {
 	 * The resolved literal is {@link resolvedFill}; this is the unresolved reference.
 	 */
 	get fillSchemeColor(): string | null {
-		return this.#fillSchemeColorOf(this.#tcPr() ?? this.tc)
+		return solidFillColor(this.#tcPr() ?? this.tc, 'a:schemeClr')
 	}
 
 	/**
@@ -868,7 +865,7 @@ export class TableCell {
 			if (!ln) return null
 			const w = numberValue(attr(ln, 'w'))
 			const dash = firstChild(ln, 'a:prstDash')
-			const scheme = this.#fillSchemeColorOf(ln)
+			const scheme = solidFillColor(ln, 'a:schemeClr')
 			const resolved = this.themeContext ? resolveSolidFillColor(ln, this.themeContext) : null
 			return {
 				widthPt: ptFromEmu(w),
@@ -888,13 +885,6 @@ export class TableCell {
 			blToTr: decode('a:lnBlToTr'),
 		}
 		return Object.values(borders).some((b) => b !== null) ? borders : null
-	}
-
-	/** The `schemeClr` token of a container's solid fill (`a:solidFill/a:schemeClr/@val`), or `null`. */
-	#fillSchemeColorOf(container: Element): string | null {
-		const fill = firstChild(container, 'a:solidFill')
-		const scheme = fill && firstChild(fill, 'a:schemeClr')
-		return scheme ? attr(scheme, 'val') : null
 	}
 
 	/**

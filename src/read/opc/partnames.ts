@@ -6,6 +6,8 @@
  */
 import { PackageReadError } from '../../errors.js'
 import type { OpcPackage } from './package.js'
+import type { Part } from './part.js'
+import type { Relationships } from './relationships.js'
 
 /**
  * Resolve the single relationship of `type` owned by `partName` to its target partname, or
@@ -20,6 +22,31 @@ export function resolveSingleRel(opc: OpcPackage, partName: string, type: string
 	const rels = opc.relationshipsFor(partName)
 	const rel = rels.byType(type)[0]
 	return rel ? rels.resolveTarget(rel.id) : null
+}
+
+/**
+ * The part `relId` names in `rels`, or `null` when the package holds no such part.
+ *
+ * Ten sites in the API layer wrote the `resolveTarget` + `opc.part` pair out; two more wrote
+ * the `byType(T)[0]` that precedes it (see {@link singleRelPart}). `resolveTarget` keeps its
+ * throw on an id the part does not declare — a dangling `r:id` is a malformed package, not a
+ * missing part, and the graphic-frame accessors rely on the distinction.
+ */
+export function relPart(opc: OpcPackage, rels: Relationships, relId: string): Part | null {
+	return opc.part(rels.resolveTarget(relId)) ?? null
+}
+
+/**
+ * {@link resolveSingleRel}, resolved the rest of the way to the {@link Part}.
+ *
+ * For the one-of-a-kind links in a deck's spine, where the caller wants the part rather than
+ * its name — a slide to its notes slide or its layout, a layout to its master, a part to its
+ * `core.xml` or `app.xml`.
+ */
+export function singleRelPart(opc: OpcPackage, partName: string, type: string): Part | null {
+	const rels = opc.relationshipsFor(partName)
+	const rel = rels.byType(type)[0]
+	return rel ? relPart(opc, rels, rel.id) : null
 }
 
 export function zipPathToPartName(zipPath: string): string {

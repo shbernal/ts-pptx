@@ -173,6 +173,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Migration:** use `fill: { image }` for a picture interior. A stroke can still be
   `solid`, `gradient` or `pattern`.
 
+### Changed
+
+- **A shape's `width`/`height` setters reject `0`.** They went through a private EMU guard that
+  accepted a zero extent and rejected a negative one under its own `coord/negative`; every other
+  read-side extent setter already applied `checkPositiveEmu`, whose rule is
+  `ST_PositiveCoordinate` — no room for zero or below, and a zero-size shape is a degenerate
+  result rather than a small one. `shape.width = 0` now throws `coord/not-positive`.
+  `coord/negative` is retired; nothing else raised it. **Migration:** an intentional zero-size
+  shape has to be spelled some other way; the `left`/`top` setters are unaffected, since a shape
+  may legitimately sit off the left or top edge.
+
 ### Fixed
 
 - **`tableToSlides` wrote its working state into the caller's options object.** Every definer

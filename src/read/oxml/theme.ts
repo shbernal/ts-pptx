@@ -189,6 +189,16 @@ function colorElementHex(color: Element | null): string | null {
 	return null
 }
 
+/**
+ * The `a:themeElements` of a theme part's root, or `null` when either is absent.
+ *
+ * Three walks read it: the `Theme` accessor, the by-partname `themeElementsOf` the context
+ * builders share, and `resolveSlideThemeParts`.
+ */
+export function themeElementsOfRoot(themeRoot: Element | null): Element | null {
+	return themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+}
+
 /** A colour reference resolved to a literal base RGB plus its transform children. */
 export interface ResolvedColorRef {
 	hex: string

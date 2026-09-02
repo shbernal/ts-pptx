@@ -14,6 +14,7 @@
  */
 import { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
+import { singleRelPart } from '../opc/partnames.js'
 import { attr, firstChild, getElements, numberValue, type Element } from '../oxml/dom.js'
 
 /** The slide → comments-part relationship type (legacy comments). */
@@ -81,10 +82,7 @@ function parseCommentAuthors(root: Element | null): CommentAuthor[] {
  * presentation part's `commentAuthors` relationship. `[]` when the deck has no comments.
  */
 export function readCommentAuthors(opc: OpcPackage, presentationPartName: string): CommentAuthor[] {
-	const rels = opc.relationshipsFor(presentationPartName)
-	const rel = rels.byType(COMMENT_AUTHORS_REL_TYPE)[0]
-	if (!rel) return []
-	const part = opc.part(rels.resolveTarget(rel.id))
+	const part = singleRelPart(opc, presentationPartName, COMMENT_AUTHORS_REL_TYPE)
 	return parseCommentAuthors(part?.dom.documentElement ?? null)
 }
 
@@ -95,11 +93,7 @@ export function readCommentAuthors(opc: OpcPackage, presentationPartName: string
  * no comments part.
  */
 export function readSlideComments(opc: OpcPackage, slidePart: Part, authors: CommentAuthor[]): Comment[] {
-	const rels = opc.relationshipsFor(slidePart.partName)
-	const rel = rels.byType(COMMENTS_REL_TYPE)[0]
-	if (!rel) return []
-	const part = opc.part(rels.resolveTarget(rel.id))
-	const root = part?.dom.documentElement
+	const root = singleRelPart(opc, slidePart.partName, COMMENTS_REL_TYPE)?.dom.documentElement
 	if (!root) return []
 
 	const byId = new Map(authors.map((a) => [a.id, a]))
@@ -211,11 +205,7 @@ function parseModernComment(
  * modern authors part.
  */
 export function readModernCommentAuthors(opc: OpcPackage, presentationPartName: string): ModernCommentAuthor[] {
-	const rels = opc.relationshipsFor(presentationPartName)
-	const rel = rels.byType(MODERN_AUTHORS_REL_TYPE)[0]
-	if (!rel) return []
-	const part = opc.part(rels.resolveTarget(rel.id))
-	const root = part?.dom.documentElement
+	const root = singleRelPart(opc, presentationPartName, MODERN_AUTHORS_REL_TYPE)?.dom.documentElement
 	if (!root) return []
 	return getElements(root, 'p188:author').map((el) => ({
 		id: attr(el, 'id'),
@@ -238,10 +228,7 @@ export function readModernSlideComments(
 	slidePart: Part,
 	authors: ModernCommentAuthor[]
 ): ModernComment[] {
-	const rels = opc.relationshipsFor(slidePart.partName)
-	const rel = rels.byType(MODERN_COMMENTS_REL_TYPE)[0]
-	if (!rel) return []
-	const root = opc.part(rels.resolveTarget(rel.id))?.dom.documentElement
+	const root = singleRelPart(opc, slidePart.partName, MODERN_COMMENTS_REL_TYPE)?.dom.documentElement
 	if (!root) return []
 	const byId = new Map(authors.map((a) => [a.id, a]))
 	return getElements(root, 'p188:cm').map((cm) => parseModernComment(cm, byId, true))

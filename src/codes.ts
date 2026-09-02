@@ -173,7 +173,6 @@ export type InvalidOptionErrorCode =
 	| 'coord/non-finite'
 	| 'percent/non-finite'
 	| 'coord/not-positive'
-	| 'coord/negative'
 	| 'coord/invalid-format'
 	// Geometry
 	| 'geometry/arc-angle-non-finite'

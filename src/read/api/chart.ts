@@ -18,6 +18,7 @@ import {
 	numberValue,
 	type Element,
 } from '../oxml/dom.js'
+import { solidFillColor } from '../oxml/fill.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
 import { ptFromEmu } from './coords.js'
 
@@ -473,12 +474,9 @@ function readNumberFormat(parent: Element): AxisNumberFormat | null {
  * so scheme tokens are surfaced raw (unresolved) rather than flattened to hex.
  */
 function readSolid(container: Element): { color: string | null; schemeColor: string | null; noFill: boolean } {
-	const solidFill = firstChild(container, 'a:solidFill')
-	const srgb = solidFill && firstChild(solidFill, 'a:srgbClr')
-	const scheme = solidFill && firstChild(solidFill, 'a:schemeClr')
 	return {
-		color: srgb ? (attr(srgb, 'val') ?? null) : null,
-		schemeColor: scheme ? (attr(scheme, 'val') ?? null) : null,
+		color: solidFillColor(container, 'a:srgbClr'),
+		schemeColor: solidFillColor(container, 'a:schemeClr'),
 		noFill: !!firstChild(container, 'a:noFill'),
 	}
 }

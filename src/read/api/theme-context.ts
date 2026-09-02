@@ -18,6 +18,7 @@ import {
 	resolveThemeFont,
 	styleRefFill,
 	styleRefLine,
+	themeElementsOfRoot,
 	type ColorContext,
 	type ThemeContext,
 } from '../oxml/theme.js'
@@ -31,6 +32,7 @@ import {
 } from '../oxml/placeholder-inherit.js'
 import type { OpcPackage } from '../opc/package.js'
 import { ptFromHundredths } from './coords.js'
+import { readBox } from './shapes/geometry.js'
 import { resolveSingleRel } from '../opc/partnames.js'
 import {
 	NOTES_MASTER_REL,
@@ -89,11 +91,7 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
 	const masterRoot = documentElement(opc, masterPartName)
 	const themeRoot = documentElement(opc, themePartName)
 
-	// A slide's clrMapOvr/overrideClrMapping (if present) wins over the master map.
-	const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
-	const clrMapOvr = slideRoot ? firstChild(slideRoot, 'p:clrMapOvr') : null
-	const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
-	const themeElements = themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+	const themeElements = themeElementsOfRoot(themeRoot)
 
 	return {
 		slideRoot,
@@ -103,8 +101,8 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
 		masterRoot,
 		themePartName,
 		themeElements,
-		clrMap: parseClrMap(override ?? masterClrMap),
-		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+		clrMap: parseClrMap(effectiveClrMap(slideRoot, masterRoot)),
+		clrScheme: themeTier(themeElements).clrScheme,
 	}
 }
 
@@ -116,14 +114,12 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
  * slide's theme is missing.
  */
 export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): ThemeContext {
-	const { clrMap, clrScheme, themeElements, layoutRoot, masterRoot } = resolveSlideThemeParts(opc, slidePartName)
+	const { clrMap, themeElements, layoutRoot, masterRoot } = resolveSlideThemeParts(opc, slidePartName)
 	return {
 		clrMap,
-		clrScheme,
-		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-		// The fontScheme lets the run font getters resolve a +mj-*/+mn-* token (the
+		// `fontScheme` is what lets the run font getters resolve a +mj-*/+mn-* token (the
 		// placeholder-inherited typeface chain bottoms out in one) to a literal face.
-		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		...themeTier(themeElements),
 		// layout/master roots let the read-model run-colour/size/face getters resolve
 		// a placeholder-inherited value the same way the flatten path does.
 		layoutRoot,
@@ -157,15 +153,13 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
 	const themePartName = masterPartName ? resolveSingleRel(opc, masterPartName, THEME_REL) : null
 	const masterRoot = documentElement(opc, masterPartName)
 	const themeRoot = documentElement(opc, themePartName)
-	const themeElements = themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+	const themeElements = themeElementsOfRoot(themeRoot)
 	return {
-		clrMap: parseClrMap(masterRoot ? firstChild(masterRoot, 'p:clrMap') : null),
-		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
-		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-		// The fontScheme lets a notes run resolve a +mj-*/+mn-* theme-font token to a
-		// literal face; the writer's notesStyle uses +mn-lt, so an authored notes run
-		// that omits its own face resolves through here.
-		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		clrMap: parseClrMap(effectiveClrMap(masterRoot, masterRoot)),
+		// `fontScheme` is what lets a notes run resolve a +mj-*/+mn-* theme-font token to a
+		// literal face; the writer's notesStyle uses +mn-lt, so an authored notes run that
+		// omits its own face resolves through here.
+		...themeTier(themeElements),
 		// The notesMaster's text style — the tier a notes-body run's inherited
 		// size/face/bold/colour resolves against (see `ThemeContext.notesStyle`).
 		notesStyle: masterRoot ? firstChild(masterRoot, 'p:notesStyle') : null,
@@ -186,10 +180,8 @@ export function resolveMasterColorContext(opc: OpcPackage, masterPartName: strin
 	const masterRoot = documentElement(opc, masterPartName)
 	const themeElements = themeElementsOf(opc, themePartName)
 	return {
-		clrMap: parseClrMap(masterRoot ? firstChild(masterRoot, 'p:clrMap') : null),
-		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
-		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		clrMap: parseClrMap(effectiveClrMap(masterRoot, masterRoot)),
+		...themeTier(themeElements),
 		masterRoot,
 	}
 }
@@ -209,23 +201,46 @@ export function resolveLayoutColorContext(opc: OpcPackage, layoutPartName: strin
 	const layoutRoot = documentElement(opc, layoutPartName)
 	const masterRoot = documentElement(opc, masterPartName)
 	const themeElements = themeElementsOf(opc, themePartName)
-	const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
-	const clrMapOvr = layoutRoot ? firstChild(layoutRoot, 'p:clrMapOvr') : null
-	const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
 	return {
-		clrMap: parseClrMap(override ?? masterClrMap),
-		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
-		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		clrMap: parseClrMap(effectiveClrMap(layoutRoot, masterRoot)),
+		...themeTier(themeElements),
 		layoutRoot,
 		masterRoot,
 	}
 }
 
+/**
+ * The three theme tiers every colour context carries, read off one `a:themeElements`.
+ *
+ * `clrScheme` is parsed into the token map the resolvers read; `fmtScheme` and `fontScheme`
+ * ride as elements, because a style ref and a `+mj-*`/`+mn-*` token are resolved against the
+ * live DOM rather than a snapshot. Four builders spelled these three lookups out.
+ */
+function themeTier(themeElements: Element | null): Pick<ThemeContext, 'clrScheme' | 'fmtScheme' | 'fontScheme'> {
+	return {
+		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+	}
+}
+
+/**
+ * The colour map in force for `ownerRoot`: its own `p:clrMapOvr/a:overrideClrMapping` when it
+ * has one, else the master's `p:clrMap`.
+ *
+ * A slide's and a layout's usual `a:masterClrMapping` means "inherit the master map", which is
+ * why an absent override falls through rather than mapping nothing. A master is its own owner
+ * and has no override, so it passes its root as both.
+ */
+function effectiveClrMap(ownerRoot: Element | null, masterRoot: Element | null): Element | null {
+	const clrMapOvr = ownerRoot ? firstChild(ownerRoot, 'p:clrMapOvr') : null
+	const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
+	return override ?? (masterRoot ? firstChild(masterRoot, 'p:clrMap') : null)
+}
+
 /** The `a:themeElements` of a theme part (by partname), or `null` when the part/element is absent. */
 function themeElementsOf(opc: OpcPackage, themePartName: string | null): Element | null {
-	const themeRoot = documentElement(opc, themePartName)
-	return themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+	return themeElementsOfRoot(documentElement(opc, themePartName))
 }
 
 /** Identifies a placeholder by its `p:ph` `type`/`idx` for inheritance lookups. */
@@ -438,17 +453,12 @@ export interface ResolvedFrame {
 export function resolveInheritedFrame(ph: PlaceholderRef, ctx: ThemeContext): ResolvedFrame | null {
 	const found = placeholderInheritedXfrm(ph.type, ph.idx, ctx)
 	if (!found) return null
-	const off = firstChild(found.xfrm, 'a:off')
-	const ext = firstChild(found.xfrm, 'a:ext')
-	const left = off && numberValue(attr(off, 'x'))
-	const top = off && numberValue(attr(off, 'y'))
-	const width = ext && numberValue(attr(ext, 'cx'))
-	const height = ext && numberValue(attr(ext, 'cy'))
-	if (left === null || left === undefined) return null
-	if (top === null || top === undefined) return null
-	if (width === null || width === undefined) return null
-	if (height === null || height === undefined) return null
-	return { left, top, width, height, source: found.source }
+	// `readBox` is the same read `absoluteFrame` and `GroupShape.childFrame` already use, and it
+	// returns `null` for an incomplete box, which is what the four unreachable `=== undefined`
+	// arms here were guarding against.
+	const box = readBox(found.xfrm, 'a:off', 'a:ext')
+	if (!box) return null
+	return { left: box.x, top: box.y, width: box.cx, height: box.cy, source: found.source }
 }
 
 /**

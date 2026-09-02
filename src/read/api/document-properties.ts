@@ -12,6 +12,7 @@
  */
 import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
+import { singleRelPart } from '../opc/partnames.js'
 import { attr, childElements, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
 import { CORE_PROPS_REL, CUSTOM_PROPS_REL } from '../../ooxml/rel-types.js'
 
@@ -87,9 +88,7 @@ const CORE_FIELDS: ReadonlyArray<[keyof CoreProperties, string]> = [
  * elements decode to the empty string.
  */
 export function readCoreProperties(opc: OpcPackage): CoreProperties {
-	const rels = opc.relationshipsFor('/')
-	const rel = rels.byType(CORE_PROPS_REL)[0]
-	const part = rel ? opc.part(rels.resolveTarget(rel.id)) : opc.partsByContentType(CORE_PROPS_CONTENT_TYPE)[0]
+	const part = singleRelPart(opc, '/', CORE_PROPS_REL) ?? opc.partsByContentType(CORE_PROPS_CONTENT_TYPE)[0]
 	const root = part?.dom.documentElement
 	if (!root) return {}
 	const out: CoreProperties = {}
@@ -155,9 +154,7 @@ function decodeValue(vt: Element): CustomPropertyValue {
  * `firstChild`/`getElements` helpers.
  */
 export function readCustomProperties(opc: OpcPackage): CustomProperty[] {
-	const rels = opc.relationshipsFor('/')
-	const rel = rels.byType(CUSTOM_PROPS_REL)[0]
-	const part = rel ? opc.part(rels.resolveTarget(rel.id)) : opc.partsByContentType(CUSTOM_PROPS_CONTENT_TYPE)[0]
+	const part = singleRelPart(opc, '/', CUSTOM_PROPS_REL) ?? opc.partsByContentType(CUSTOM_PROPS_CONTENT_TYPE)[0]
 	const root = part?.dom.documentElement
 	if (!root) return []
 	const out: CustomProperty[] = []

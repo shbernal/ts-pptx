@@ -28,9 +28,10 @@
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
+import { singleRelPart } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
 import { attr, boolValue, firstChild, getElements, type Element } from '../oxml/dom.js'
-import { parseClrMap, parseClrScheme, type ThemeContext } from '../oxml/theme.js'
+import { parseClrMap, parseClrScheme, themeElementsOfRoot, type ThemeContext } from '../oxml/theme.js'
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
 import { placeholderOf } from '../oxml/placeholder-inherit.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
@@ -153,8 +154,7 @@ export class Theme {
 	}
 
 	#themeElements(): Element | null {
-		const root = this.part.dom.documentElement
-		return root ? firstChild(root, 'a:themeElements') : null
+		return themeElementsOfRoot(this.part.dom.documentElement)
 	}
 
 	#clrScheme(): Element | null {
@@ -372,9 +372,7 @@ abstract class TemplatePart implements ShapeHost {
 
 	/** The part this one's first relationship of `type` points at, or `null`. */
 	protected relTarget(type: string): Part | null {
-		const rels = this.relationships
-		const rel = rels.byType(type)[0]
-		return rel ? (this.opc.part(rels.resolveTarget(rel.id)) ?? null) : null
+		return singleRelPart(this.opc, this.partName, type)
 	}
 }
 
@@ -486,9 +484,7 @@ export class SlideLayout extends TemplatePart {
 
 	/** The master this layout is built on (via its `slideMaster` relationship), or `null` when absent. */
 	get master(): SlideMaster | null {
-		const rels = this.relationships
-		const rel = rels.byType(SLIDE_MASTER_REL)[0]
-		const part = rel ? this.opc.part(rels.resolveTarget(rel.id)) : null
+		const part = this.relTarget(SLIDE_MASTER_REL)
 		return part ? new SlideMaster(this.opc, part) : null
 	}
 

@@ -11,6 +11,7 @@
 
 import { OOXML_NS, attr, firstChild, getOrAddChild, type Element } from '../../oxml/dom.js'
 import { TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
+import { relPart } from '../../opc/partnames.js'
 import { Chart } from '../chart.js'
 import { ChartEx } from '../chartex.js'
 import { Diagram } from '../diagram.js'
@@ -97,8 +98,7 @@ export class GraphicFrame extends Shape {
 		const chartRef = graphicData && firstChild(graphicData, 'c:chart')
 		const relId = chartRef && attr(chartRef, 'r:id')
 		if (!relId) return null
-		const partName = this.host.relationships.resolveTarget(relId)
-		const part = this.host.opc.part(partName)
+		const part = relPart(this.host.opc, this.host.relationships, relId)
 		return part ? new Chart(part) : null
 	}
 
@@ -113,8 +113,7 @@ export class GraphicFrame extends Shape {
 		const chartRef = graphicData && firstChild(graphicData, 'cx:chart')
 		const relId = chartRef && attr(chartRef, 'r:id')
 		if (!relId) return null
-		const partName = this.host.relationships.resolveTarget(relId)
-		const part = this.host.opc.part(partName)
+		const part = relPart(this.host.opc, this.host.relationships, relId)
 		return part ? new ChartEx(part) : null
 	}
 
@@ -130,8 +129,7 @@ export class GraphicFrame extends Shape {
 		if (!relIds) return null
 		const relId = attr(relIds, 'r:dm')
 		if (!relId) return null
-		const partName = this.host.relationships.resolveTarget(relId)
-		const part = this.host.opc.part(partName)
+		const part = relPart(this.host.opc, this.host.relationships, relId)
 		return part ? new Diagram(part, relIds, this.host.opc, this.host.relationships, this.host.themeContext()) : null
 	}
 
