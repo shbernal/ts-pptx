@@ -8,7 +8,7 @@
  * explaining the path-versus-data match below.
  */
 import type { PresSlideInternal } from '../../types/internal.js'
-import { mediaSlideKey } from '../utils.js'
+import { getNewRelId, mediaSlideKey } from '../utils.js'
 import { imageContentType } from '../../media/content-type.js'
 
 /**
@@ -52,4 +52,62 @@ export function registerImageMediaRel(
 			? dupe.Target
 			: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${source.extn}`,
 	})
+}
+
+/**
+ * Push the *pair* of media rels an SVG source consumes: a rasterized PNG fallback (what a
+ * renderer without SVG support paints, and what `<a:blip r:embed>` points at) and the SVG
+ * itself (`asvg:svgBlip`).
+ *
+ * `addImage` and the picture-bullet definer both need this, and both used to take the SVG's
+ * id as `pngRid + 1` on faith. That held only while nothing else allocated in between, and
+ * `addImage`'s own hyperlink then took the same number a third time. Both ids now come from
+ * {@link getNewRelId}, which skips every id the slide already holds.
+ *
+ * Neither push goes through {@link registerImageMediaRel} and neither needs to. The PNG
+ * fallback is rasterized per call from a per-call `svgSize`, so two uses at different sizes
+ * are genuinely two different images; the SVG source has no such excuse, but the deck-wide
+ * collapse in `package/assemble.ts` keys on extension + bytes and merges them, so the same
+ * SVG placed twice measures as a single `ppt/media/*.svg` part.
+ *
+ * @param target - slide (or layout/master) the rels are registered on
+ * @param source - the resolved SVG source: a `path`, a base64 `data` payload, or both, plus
+ *   the display size the PNG fallback is rasterized at when the caller knows it
+ * @param pinned - ids to reuse rather than allocate. Auto-paging re-registers the same bullet
+ *   on each overflow slide while sharing one options object by reference, so the pair has to
+ *   keep the ids that object already carries.
+ * @returns the two allocated relationship ids
+ */
+export function registerSvgImageRels(
+	target: PresSlideInternal,
+	source: { path: string; data: string; svgSize?: { w: number; h: number } },
+	pinned?: { pngRid: number; svgRid: number }
+): { pngRid: number; svgRid: number } {
+	const { path, data } = source
+	const mediaKey = mediaSlideKey(target)
+
+	const pngRid = pinned ? pinned.pngRid : getNewRelId(target)
+	target._relsMedia.push({
+		path: path || data + 'png',
+		type: 'image/png',
+		extn: 'png',
+		data,
+		rId: pngRid,
+		// `_relsMedia.length + 1` is read BEFORE each push, so the pair lands on consecutive names.
+		Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
+		isSvgPng: true,
+		...(source.svgSize ? { svgSize: source.svgSize } : {}),
+	})
+
+	const svgRid = pinned ? pinned.svgRid : getNewRelId(target)
+	target._relsMedia.push({
+		path: path || data || 'preencoded.svg',
+		type: 'image/svg+xml',
+		extn: 'svg',
+		data,
+		rId: svgRid,
+		Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.svg`,
+	})
+
+	return { pngRid, svgRid }
 }

@@ -84,6 +84,7 @@ export type DiagnosticCode =
 	| 'table/invalid-horz-overflow'
 	| 'table/invalid-cell3d'
 	| 'table/col-width-count-mismatch'
+	| 'table/invalid-col-width'
 	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
 	| 'table/invalid-row-height'

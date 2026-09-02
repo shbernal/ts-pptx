@@ -2522,6 +2522,20 @@ export default [
 		},
 	},
 	{
+		name: 'SVG image with a hyperlink (three distinct relationship ids)',
+		fn: async () => {
+			// An SVG picture takes two rels and its hyperlink takes a third. The hyperlink used to
+			// re-use the SVG's id, and the oracle rejects that package outright — `PackageOpenError`
+			// ("'rId2' ID conflicts with the ID of an existing relationship for the specified
+			// source"), which is why this belongs here and not only in the regression suite.
+			const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>'
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({ svg, x: 1, y: 1, w: 1, h: 1, hyperlink: { url: 'https://example.com/' } })
+			})
+			await expectNoSchemaErrors(buf, 'svg-image-hyperlink')
+		},
+	},
+	{
 		name: 'shrink-text fit with explicit fontScale/lnSpcReduction',
 		fn: async () => {
 			const { buf } = await build((p) => {

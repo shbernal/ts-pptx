@@ -175,6 +175,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An SVG image with a hyperlink emitted two relationships with the same id.** An SVG
+  picture consumes two rels — the PNG fallback and the SVG itself — and `addImage`'s
+  hyperlink then took the second of those ids a third time by incrementing the image's own.
+  Both land in one `slideN.xml.rels`, so the part carried a duplicate `Relationship Id` and
+  the picture's `r:embed` resolved to the hyperlink. PowerPoint reports the package as
+  needing repair, and the OOXML oracle rejects it outright with `PackageOpenError`. Every
+  hyperlink rel now allocates through `getNewRelId`, which skips every id the slide already
+  holds.
+
+- **A table's black text default was decided by a substring search.** A hyperlink anywhere
+  in the grid stands the default down, because the default is direct formatting and would
+  paint the words *after* a link black. The test was
+  `JSON.stringify({ arrRows }).includes('hyperlink')`, so a cell reading "see the hyperlink
+  docs" suppressed the default for the whole table and its text fell through to the theme's
+  `tx1` — and every `addTable` serialized its entire grid to ask. It is now a walk over the
+  cells, testing the cell's own `hyperlink` and the runs of a cell whose `text` is a run
+  array.
+
+- **A scalar `colW` is no longer floored to whole inches.** `colW: 2.4` on a three-column
+  table emitted 7 inches of grid rather than 7.2, discarding up to a full inch; `colW` is
+  documented as inches with no rounding rule, and the only rounding a length needs already
+  happens in `inch2Emu`. The one-element `colW: [3]` form read its width by coercing the
+  whole array rather than reading `colW[0]`, which is correct only by accident of
+  array-to-primitive coercion. A `colW` that is not a positive number now warns under the new
+  `table/invalid-col-width` and falls back to the default table width; it used to become
+  `w: NaN` and surface far downstream as `coord/non-finite`, whose message describes a
+  missing layout dimension and names nothing the caller wrote.
+
+  **Migration:** a table sized by a fractional scalar `colW` gets slightly wider — the width
+  you asked for. Pass the floored value explicitly to keep the old geometry.
+
 - **The auto-pager's width arithmetic.** Three defects in `getSlidesForTableRows`, all in
   the same twenty lines, all producing wrong output rather than an error. No showcase deck
   auto-pages, so the byte-identity harness says nothing about any of them; each is covered

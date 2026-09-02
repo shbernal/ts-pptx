@@ -15,6 +15,7 @@ import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { NOTES_MASTER_REL, SLIDE_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { externalHyperlinkRel, relationshipEl, relationshipsEl, relationshipsPart } from '../opc/rels.js'
+import { hyperlinkRel } from '../define/hyperlinks.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
@@ -65,13 +66,7 @@ export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 
 		lastRid++
 		hyperlink._rId = lastRid
-		rels.push({
-			type: SlideObjectType.hyperlink,
-			data: 'dummy',
-			rId: lastRid,
-			// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
-			Target: hyperlink.url,
-		})
+		rels.push(hyperlinkRel(lastRid, hyperlink))
 	})
 
 	slide._relsNotes = rels

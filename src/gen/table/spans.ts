@@ -87,3 +87,26 @@ export function withCheckedSpans(rows: TableCell[][]): TableCell[][] {
 		})
 	)
 }
+
+/**
+ * Whether any cell in the grid carries a hyperlink — on the cell itself, or on any run of a
+ * cell whose `text` is a run array.
+ *
+ * `addTable` uses this to decide whether to stand its black text default down: the default is
+ * direct formatting on the table, so it would paint the words *after* a link black rather than
+ * letting them follow the link colour. The test used to be
+ * `JSON.stringify({ arrRows }).includes('hyperlink')`, which matched the literal word anywhere
+ * in the grid's *content* — a cell reading "see the hyperlink docs" suppressed the default for
+ * the whole table — and serialized every cell on every `addTable` to ask.
+ * @param rows - the table's rows
+ */
+export function tableHasHyperlink(rows: TableCell[][]): boolean {
+	return rows.some((cells) =>
+		cells.some((cell) => {
+			if (!cell) return false
+			if (cell.options?.hyperlink) return true
+			if (!Array.isArray(cell.text)) return false
+			return cell.text.some((run) => !!run?.options?.hyperlink)
+		})
+	)
+}

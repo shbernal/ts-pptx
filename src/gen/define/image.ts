@@ -10,14 +10,15 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
-import { registerImageMediaRel } from './image-rel.js'
+import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
+import { registerHyperlinkRel } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
 
@@ -123,7 +124,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// `data`/`path` win when also supplied, matching the documented precedence.
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
 	const strImagePath = opt.path || ''
-	let imageRelId = getNewRelId(target)
+	const imageRelId = getNewRelId(target)
 	const imageNameIdx = nextObjectNameIdx(target, SlideObjectType.image)
 	const objectName = opt.objectName
 		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'image'))
@@ -235,41 +236,17 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	newObject.options = objectOptions
 
 	// STEP 5: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
-	const mediaKey = mediaSlideKey(target)
 	if (strImgExtn === 'svg') {
-		// SVG files consume *TWO* rId's: (a png version and the svg image)
-		// <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
-		// <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image2.svg"/>
-		//
-		// Neither push goes through `registerImageMediaRel`, and neither needs to. The PNG
-		// fallback is rasterized per call from a per-call `svgSize`, so two uses at different
-		// sizes are genuinely two different images. The SVG source has no such excuse, but the
-		// deck-wide collapse in `package/assemble.ts` already keys on extension + bytes and
-		// merges them: the same SVG placed twice — on one slide or two, by path or by data —
-		// measures as a single `ppt/media/*.svg` part in the emitted package.
-		target._relsMedia.push({
-			path: strImagePath || strImageData + 'png',
-			type: 'image/png',
-			extn: 'png',
-			data: strImageData || '',
-			rId: imageRelId,
-			Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
-			isSvgPng: true,
+		// An SVG consumes *TWO* rels — the PNG fallback and the SVG itself — allocated and
+		// pushed by `registerSvgImageRels`, which the picture-bullet definer shares.
+		newObject.imageRid = registerSvgImageRels(target, {
+			path: strImagePath ?? '',
+			data: strImageData ?? '',
 			svgSize: {
 				w: getSmartParseNumber(objectOptions.w, 'X', target._presLayout),
 				h: getSmartParseNumber(objectOptions.h, 'Y', target._presLayout),
 			},
-		})
-		newObject.imageRid = imageRelId
-		target._relsMedia.push({
-			path: strImagePath || strImageData,
-			type: 'image/svg+xml',
-			extn: strImgExtn,
-			data: strImageData || '',
-			rId: imageRelId + 1,
-			Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
-		})
-		newObject.imageRid = imageRelId + 1
+		}).svgRid
 	} else {
 		registerImageMediaRel(target, { path: strImagePath, data: strImageData, extn: strImgExtn }, imageRelId)
 		newObject.imageRid = imageRelId
@@ -280,17 +257,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		if (!objHyperlink.url && !objHyperlink.slide)
 			throw new InvalidOptionError('hyperlink/missing-target', 'addImage: `hyperlink` requires either `url` or `slide`')
 		else {
-			imageRelId++
-
-			target._rels.push({
-				type: SlideObjectType.hyperlink,
-				data: objHyperlink.slide ? 'slide' : 'dummy',
-				rId: imageRelId,
-				// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
-				Target: objHyperlink.url ? objHyperlink.url : String(objHyperlink.slide),
-			})
-
-			objHyperlink._rId = imageRelId
+			registerHyperlinkRel(target, objHyperlink)
 			newObject.hyperlink = objHyperlink
 		}
 	}

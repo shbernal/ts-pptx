@@ -83,6 +83,32 @@ defineRegressionSuite('Image svg source', [
 		},
 	},
 	{
+		// The SVG pair takes two ids and the hyperlink used to take the second of them
+		// again, so the slide's `.rels` carried the same `Id` twice and the picture's
+		// `r:embed` resolved to the hyperlink. PowerPoint reports the package as needing
+		// repair; the schema validator does not, because each relationship is well-formed
+		// on its own.
+		name: 'addImage({ svg, hyperlink }) mints a distinct id for every relationship',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({ svg: SVG_MARKUP, x: 1, y: 1, w: 1, h: 1, hyperlink: { url: 'https://example.com/' } })
+			})
+			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			const ids = [...rels.matchAll(/Id="([^"]+)"/g)].map((m) => m[1])
+			assert(new Set(ids).size === ids.length, `duplicate relationship id in ${JSON.stringify(ids)}`)
+
+			// The picture must still point at the SVG's own rel, not at the hyperlink's.
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const svgRid = /<asvg:svgBlip[^>]*r:embed="([^"]+)"/.exec(xml)[1]
+			const svgTarget = new RegExp(`Id="${svgRid}"[^>]*Target="([^"]+)"`).exec(rels)[1]
+			assert(svgTarget.endsWith('.svg'), `svgBlip ${svgRid} must resolve to the svg part; got ${svgTarget}`)
+
+			const hlinkRid = /<a:hlinkClick[^>]*r:id="([^"]+)"/.exec(xml)[1]
+			assert(hlinkRid !== svgRid, `the hyperlink took the svg's id (${hlinkRid})`)
+		},
+	},
+	{
 		name: 'data wins over svg when both are supplied',
 		fn: async () => {
 			const { zip } = await build((p) => {

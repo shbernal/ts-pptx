@@ -25,7 +25,7 @@ import type {
 } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
-import { withCheckedSpans } from '../table/spans.js'
+import { tableHasHyperlink, withCheckedSpans } from '../table/spans.js'
 import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
@@ -402,7 +402,7 @@ export function addTableDefinition(
 	// hyperlink anywhere in the grid, because the default paints the whole run, so the words
 	// *after* a link come out black instead of following the link colour. That run is then
 	// emitted with no `<a:solidFill>` and PowerPoint resolves the text from the theme's `tx1`.
-	if (!JSON.stringify({ arrRows }).includes('hyperlink')) {
+	if (!tableHasHyperlink(arrRows)) {
 		if (!opt.color) opt.color = DEF_FONT_COLOR // table option > inherit from Slide > default to black
 	}
 	if (typeof opt.border === 'string') {
@@ -465,6 +465,10 @@ export function addTableDefinition(
 	 * Calc table width depending upon what data we have - several scenarios exist (including bad data, eg: colW doesnt match col count)
 	 * The API does not require a `w` value, but XML generation does, hence, code to calc a width below using colW value(s)
 	 */
+	/** The width a table with nothing to size it from gets: the slide between its margins, in inches. */
+	const defaultTableWidthIn = (): number =>
+		Math.floor((presLayout._sizeW || presLayout.width) / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
+
 	if (opt.colW) {
 		const firstRowColCnt = (arrRows[0] ?? []).reduce((totalLen, c) => {
 			if (c?.options?.colspan && typeof c.options.colspan === 'number') {
@@ -475,14 +479,37 @@ export function addTableDefinition(
 			return totalLen
 		}, 0)
 
+		/**
+		 * One column width, in inches, spread across every column: `opt.w` becomes the total and
+		 * `colW` is unset, so the emitter divides `w` evenly and lands back on the same number.
+		 *
+		 * The width is NOT floored. `colW` is documented as inches with no rounding rule, and the
+		 * only rounding a length needs happens once in `inch2Emu`; flooring here threw away up to
+		 * a full inch per table (`colW: 2.4` on three columns emitted 7in, not 7.2in). A value
+		 * that is not a usable number warns here rather than reaching `getSmartParseNumber` as
+		 * `NaN`, whose `coord/non-finite` message describes a missing layout dimension and names
+		 * nothing the caller wrote.
+		 */
+		const spreadUniformColW = (raw: unknown): void => {
+			const inches = Number(raw)
+			if (!Number.isFinite(inches) || inches <= 0) {
+				warn(
+					'table/invalid-col-width',
+					`addTable: \`colW\` must be a positive number of inches, got ${String(raw)}; using the default table width instead.`
+				)
+				opt.w = defaultTableWidthIn()
+			} else {
+				opt.w = inches * firstRowColCnt
+			}
+			delete opt.colW // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
+		}
+
 		if (typeof opt.colW === 'string' || typeof opt.colW === 'number') {
 			// Ex: `colW = 3` or `colW = '3'`
-			opt.w = Math.floor(Number(opt.colW) * firstRowColCnt)
-			delete opt.colW // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
+			spreadUniformColW(opt.colW)
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length === 1 && firstRowColCnt > 1) {
 			// Ex: `colW=[3]` but with >1 cols (same as above, user is saying "use this width for all")
-			opt.w = Math.floor(Number(opt.colW) * firstRowColCnt)
-			delete opt.colW // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
+			spreadUniformColW(opt.colW[0])
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length !== firstRowColCnt) {
 			// Err: Mismatched colW and cols count
 			warn(
@@ -494,7 +521,7 @@ export function addTableDefinition(
 	} else if (opt.w) {
 		// Keep raw user `Coord` — resolved to EMU once at emission. (No pre-conversion.)
 	} else {
-		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
+		opt.w = defaultTableWidthIn()
 	}
 
 	// Shrink-to-fit (`fitColumns: 'shrink'`): proportionally scale columns down so a

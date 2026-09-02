@@ -12,6 +12,7 @@ import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, mediaSlideKey, validateObjectName } from '../utils.js'
+import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
@@ -314,40 +315,24 @@ function createBulletImageRels(
 		// Determine extension: the `data:` mime wins, else parse the path (mirror addImageDefinition())
 		const strImgExtn = imageExtensionForSource(img.path || '', img.data || '')
 
-		const relId = bullet._rId || getNewRelId(target)
-		const mediaKey = mediaSlideKey(target)
-
 		if (strImgExtn === 'svg') {
 			// SVG bullets consume *TWO* rels, mirroring addImage(): a PNG preview (referenced by the
 			// `<a:buBlip><a:blip r:embed>`) plus the SVG itself (referenced by the `asvg:svgBlip` ext).
-			// The preview rel is flagged `isSvgPng` so the media pipeline generates its PNG fallback.
-			target._relsMedia.push({
-				path: img.path || img.data + 'png',
-				type: 'image/png',
-				extn: 'png',
-				data: img.data || '',
-				rId: relId,
-				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
-				isSvgPng: true,
-			})
-			target._relsMedia.push({
-				path: img.path || img.data || 'preencoded.svg',
-				type: 'image/svg+xml',
-				extn: 'svg',
-				data: img.data || '',
-				rId: relId + 1,
-				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.svg`,
-			})
-			bullet._rId = relId
-			bullet._rIdSvg = relId + 1
+			// Auto-paging shares one bullet options object across the overflow slides, so a re-registration
+			// has to keep the pair of ids that object already carries rather than mint a new one.
+			const pinned = bullet._rId && bullet._rIdSvg ? { pngRid: bullet._rId, svgRid: bullet._rIdSvg } : undefined
+			const { pngRid, svgRid } = registerSvgImageRels(target, { path: img.path ?? '', data: img.data ?? '' }, pinned)
+			bullet._rId = pngRid
+			bullet._rIdSvg = svgRid
 		} else {
+			const relId = bullet._rId || getNewRelId(target)
 			target._relsMedia.push({
 				path: img.path || 'preencoded.' + strImgExtn,
 				type: imageContentType(strImgExtn),
 				extn: strImgExtn,
 				data: img.data || '',
 				rId: relId,
-				Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+				Target: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${strImgExtn}`,
 			})
 			bullet._rId = relId
 		}

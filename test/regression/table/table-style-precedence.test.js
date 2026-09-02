@@ -57,7 +57,10 @@ function allTcPr(xml) {
 	return blocks
 }
 
-/** Build one table and return the slide part alongside `tableStyles.xml`. */
+/**
+ * Build one table and return the slide part alongside `tableStyles.xml`.
+ * @param {import('../../../dist/node.js').TableRow[]} [rows]
+ */
 async function tableParts(tableOpts = {}, rows = [[{ text: 'H1' }]]) {
 	const { zip } = await build((p) => {
 		p.addSlide().addTable(rows, { ...AT, hasHeader: true, ...tableOpts })
@@ -162,6 +165,33 @@ defineRegressionSuite('Table styling: built-in styles and the direct-formatting 
 			// so the words *after* a link would come out black instead of following the link colour.
 			const { slide } = await tableParts({}, [
 				[{ text: 'H1' }, { text: 'docs', options: { hyperlink: { url: 'https://example.com' } } }],
+			])
+			assert(slide.includes('<a:hlinkClick'), 'the hyperlink is emitted; got: ' + slide)
+			assert(!slide.includes('<a:srgbClr val="000000"/>'), 'and nothing is painted black; got: ' + slide)
+		},
+	},
+	{
+		name: 'the word "hyperlink" in a cell is text, not a hyperlink',
+		fn: async () => {
+			// The carve-out above used to be spelled `JSON.stringify({ arrRows }).includes('hyperlink')`,
+			// so a cell that merely *mentions* the word stood the black default down for the whole
+			// table and its text fell through to the theme's tx1.
+			const { slide } = await tableParts({}, [[{ text: 'H1' }, { text: 'see the hyperlink docs' }]])
+			assert(!slide.includes('<a:hlinkClick'), 'no hyperlink is emitted; got: ' + slide)
+			assert(slide.includes('<a:srgbClr val="000000"/>'), 'the black default still lands; got: ' + slide)
+		},
+	},
+	{
+		name: 'a hyperlink on a run inside a cell also stands the default down',
+		fn: async () => {
+			// The cell's own `options.hyperlink` is one of two places a link can sit; the other is a
+			// run of a cell whose `text` is a run array, which is the shape `createHyperlinkRels`
+			// recurses into.
+			const { slide } = await tableParts({}, [
+				[
+					{ text: 'H1' },
+					{ text: [{ text: 'docs', options: { hyperlink: { url: 'https://example.com' } } }, { text: ' and more' }] },
+				],
 			])
 			assert(slide.includes('<a:hlinkClick'), 'the hyperlink is emitted; got: ' + slide)
 			assert(!slide.includes('<a:srgbClr val="000000"/>'), 'and nothing is painted black; got: ' + slide)

@@ -6,9 +6,48 @@
  * each hyperlink so serialization can emit `r:id`. Shared by the shape, text and table layers.
  */
 import { SlideObjectType } from '../../enums.js'
-import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
+import type { HyperlinkProps, ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
+import type { PresSlideInternal, SlideObject, SlideRel } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
+
+/**
+ * The relationship record one hyperlink serializes to.
+ *
+ * `data` distinguishes the two targets a hyperlink rel can have — `'slide'` for an internal
+ * slide-to-slide link, `'dummy'` for an external URL — and `Target` is stored RAW, because
+ * every emitter escapes it on the way out (see the note on `SlideRel.Target`).
+ *
+ * Four sites built this record by hand: the two below, `addImage`'s own hyperlink, and the
+ * notes-part rels, which allocate from their own reserved id space and so cannot share the
+ * registration below but can share this.
+ * @param rId - the relationship id already allocated for this hyperlink
+ * @param hyperlink - the caller's hyperlink; only `url`/`slide` are read
+ */
+export function hyperlinkRel(rId: number, hyperlink: HyperlinkProps): SlideRel {
+	return {
+		type: SlideObjectType.hyperlink,
+		data: hyperlink.slide ? 'slide' : 'dummy',
+		rId,
+		Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
+	}
+}
+
+/**
+ * Mint a fresh rel id for `hyperlink`, register it on `target`, and stamp the id back onto
+ * the hyperlink so the emitter can write `r:id`.
+ *
+ * The id comes from {@link getNewRelId}, which skips every id already held on the slide.
+ * `addImage` used to increment the image's own id instead, which is how an SVG picture — a
+ * pair that already consumes two ids — ended up sharing the second of them with its
+ * hyperlink and emitting a duplicate `Relationship Id`.
+ * @returns the allocated relationship id
+ */
+export function registerHyperlinkRel(target: PresSlideInternal, hyperlink: HyperlinkProps): number {
+	const relId = getNewRelId(target)
+	target._rels.push(hyperlinkRel(relId, hyperlink))
+	hyperlink._rId = relId
+	return relId
+}
 
 type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 	options?: TextPropsOptions | ObjectOptions
@@ -67,17 +106,7 @@ export function createHyperlinkRels(
 			//     `hyperlink/missing-target` when the deck is written; a console line ahead of that
 			//     throw was one fault reported twice, the first time unroutably.
 			if (typeof hyperlink === 'object' && (hyperlink.url || hyperlink.slide)) {
-				const relId = getNewRelId(target)
-
-				target._rels.push({
-					type: SlideObjectType.hyperlink,
-					data: hyperlink.slide ? 'slide' : 'dummy',
-					rId: relId,
-					// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
-					Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
-				})
-
-				hyperlink._rId = relId
+				registerHyperlinkRel(target, hyperlink)
 			}
 		} else if (
 			text &&
@@ -90,13 +119,7 @@ export function createHyperlinkRels(
 			const hyperlinkRelId = hyperlink._rId
 			// NOTE: auto-paging will create new slides, but skip above as _rId exists, BUT this is a new slide, so add rels!
 			if (hyperlinkRelId && !target._rels.some((rel) => rel.rId === hyperlinkRelId)) {
-				target._rels.push({
-					type: SlideObjectType.hyperlink,
-					data: hyperlink.slide ? 'slide' : 'dummy',
-					rId: hyperlinkRelId,
-					// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
-					Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
-				})
+				target._rels.push(hyperlinkRel(hyperlinkRelId, hyperlink))
 			}
 		}
 	})
