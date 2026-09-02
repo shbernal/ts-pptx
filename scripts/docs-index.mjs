@@ -15,6 +15,19 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
+import { parseCliOrExit } from './script-utils.mjs'
+
+// No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
+// line -- and both have to happen BEFORE the generator writes anything.
+parseCliOrExit(process.argv.slice(2), {
+	usage: `Generate docs/doc-index.md: the read_when discovery index.
+
+  pnpm run docs:index
+
+Options:
+  -h, --help   show this message`,
+	options: {},
+})
 
 const OUTPUT_NAME = 'doc-index.md'
 

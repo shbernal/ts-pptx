@@ -5,9 +5,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { parseArgs } from 'node:util'
-
 import { ALLOWED_DOC_TYPES } from './docs-frontmatter.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 
 /**
  * `guides/my-page.md`, `/docs/guides/my-page`, … → `guides/my-page`.
@@ -80,7 +79,21 @@ function addToNav(docsJsonPath, key, groupName) {
 	writeFileSync(docsJsonPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
 }
 
-const { values, positionals } = parseArgs({
+const USAGE = `Create a docs page with the standard frontmatter, optionally wiring it into docs.json nav.
+
+  pnpm run docs:new -- guides/setup --title "Setup" --read-when "Setting the repo up"
+
+Options:
+  --title <text>       page title (default: derived from the slug)
+  --summary <text>     one-line summary for the frontmatter
+  --type <type>        one of ${ALLOWED_DOC_TYPES.join(', ')} (default: guide)
+  --read-when <hint>   a read_when hint; repeat for more than one
+  --nav-group <name>   docs.json nav group to add the page to
+  --force              overwrite an existing page
+  -h, --help           show this message`
+
+const { values, positionals } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
 	allowPositionals: true,
 	options: {
 		title: { type: 'string' },
@@ -94,9 +107,8 @@ const { values, positionals } = parseArgs({
 
 const slug = positionals[0]
 if (!slug) {
-	console.error(
-		'usage: node scripts/docs-new.mjs <slug> [--title T] [--summary S] [--type T] [--read-when H]... [--nav-group G] [--force]'
-	)
+	console.error('docs:new: a page slug is required\n')
+	console.error(USAGE)
 	process.exit(2)
 }
 if (!ALLOWED_DOC_TYPES.includes(values.type)) {
@@ -104,12 +116,18 @@ if (!ALLOWED_DOC_TYPES.includes(values.type)) {
 	process.exit(2)
 }
 
-const docsDir = path.resolve('docs')
+// Resolved from the repo root, not the caller's cwd: `pnpm run` happens to set the cwd to the
+// package root, but `node scripts/docs-new.mjs` from a subdirectory would otherwise scaffold a
+// second `docs/` tree there.
+const docsDir = path.resolve(ROOT, 'docs')
 mkdirSync(docsDir, { recursive: true })
 
 const key = pageKey(slug)
 const title = values.title || titleFromSlug(key)
 const summary = values.summary || `Documentation page for ${title}.`
+// `parseCli` types its `values` loosely (see its doc), so the `multiple: true` flag arrives
+// without its element type; the annotation is what the template literal below needs.
+/** @type {string[]} */
 const readWhen = values['read-when'].length > 0 ? values['read-when'] : [`Working on ${title}`]
 
 const target = path.resolve(docsDir, `${key}.md`)

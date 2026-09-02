@@ -14,7 +14,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { parseArgs } from 'node:util'
+
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 
 const PROJECT_NAME = 'ts-pptx'
 
@@ -299,7 +300,18 @@ function addPackageScripts(root, dryRun) {
 	return 'write: package.json docs scripts'
 }
 
-const { values } = parseArgs({
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: `Scaffold the small-project documentation kit: the docs skill, docs.json nav, the four
+starter pages, and the \`docs:*\` scripts in package.json.
+
+  pnpm run docs:init -- --dry-run
+
+Options:
+  --project-name <name>   name to substitute into the templates (default: from package.json)
+  --force                 overwrite files that already exist
+  --dry-run               report what would be written, write nothing
+  --no-package-scripts    leave package.json alone
+  -h, --help              show this message`,
 	options: {
 		'project-name': { type: 'string' },
 		force: { type: 'boolean', default: false },
@@ -308,7 +320,9 @@ const { values } = parseArgs({
 	},
 })
 
-const root = process.cwd()
+// The repo root, not the caller's cwd. This scaffolds a whole docs kit and rewrites
+// package.json's scripts, so running it from a subdirectory used to plant a second one there.
+const root = ROOT
 const name = projectName(root, values['project-name'])
 for (const [relativePath, template] of Object.entries(TEMPLATES)) {
 	console.log(writeFile(root, relativePath, template.replaceAll('ts-pptx', name), values.force, values['dry-run']))

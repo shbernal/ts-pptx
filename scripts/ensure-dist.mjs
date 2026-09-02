@@ -74,16 +74,22 @@ async function mtimeOf(file) {
 	}
 }
 
-/** @returns {Promise<string[]>} the `OUTPUT_FILES` that are not on disk at all. */
-async function missingOutputs() {
-	const outputs = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))))
-	return OUTPUT_FILES.filter((_, i) => outputs[i] === 0)
+/**
+ * Every `OUTPUT_FILES` mtime, and which of them are absent.
+ *
+ * One walk of the list rather than two: `missingOutputs` and `stale` each stat the whole set
+ * and each derive the missing list from it, so the two answers came from two passes that could
+ * see a different `dist/` if a build landed between them.
+ * @returns {Promise<{mtimes: number[], missing: string[]}>}
+ */
+async function outputState() {
+	const mtimes = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))))
+	return { mtimes, missing: OUTPUT_FILES.filter((_, i) => mtimes[i] === 0) }
 }
 
 /** @returns {Promise<string | null>} why `dist/` is stale, or null if it is current. */
 async function stale() {
-	const outputs = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))))
-	const missing = OUTPUT_FILES.filter((_, i) => outputs[i] === 0)
+	const { mtimes: outputs, missing } = await outputState()
 	if (missing.length > 0) return 'missing build output: ' + missing.join(', ')
 
 	const oldestOutput = Math.min(...outputs)
@@ -141,7 +147,7 @@ Options:
 // it is the only build that will ever run: `dist/` is gitignored, so the checkout npm packs
 // has no build output at all unless `prepare` produces one. Absent means build; stale is
 // somebody else's question.
-if (values['if-missing'] && (await missingOutputs()).length === 0) process.exit(0)
+if (values['if-missing'] && (await outputState()).missing.length === 0) process.exit(0)
 
 const reason = await stale()
 if (reason === null) process.exit(0)

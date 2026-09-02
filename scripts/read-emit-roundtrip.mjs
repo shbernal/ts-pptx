@@ -10,8 +10,7 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { ROOT, parseCliOrExit } from './script-utils.mjs'
+import { FIXTURES_DIR, ROOT, corpusDecks, parseCliOrExit, requireDist } from './script-utils.mjs'
 
 const { positionals } = parseCliOrExit(process.argv.slice(2), {
 	usage: `Emit load() -> save() output for each read fixture, for the manual PowerPoint check.
@@ -31,30 +30,15 @@ Options:
 	options: {},
 })
 
-const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
 const outDir = positionals[0] || process.env.TSPPTX_READ_EMIT_DIR || path.join(ROOT, '.tmp', 'roundtrip')
 
-const readEntry = path.join(ROOT, 'dist', 'read.js')
-try {
-	await fs.access(readEntry)
-} catch {
-	console.error(
-		`Missing ${path.relative(ROOT, readEntry)}. Run \`pnpm run build\` first (or use \`pnpm run test:read:emit\`).`
-	)
-	process.exit(1)
-}
-const { OpcPackage } = await import(pathToFileURL(readEntry).href)
+const { OpcPackage } = await requireDist('read.js', 'test:read:emit')
 
-const entries = await fs.readdir(fixturesDir)
-const fixtures = entries.filter((name) => name.endsWith('.pptx')).sort()
-if (fixtures.length === 0) {
-	console.error(`No .pptx fixtures found in ${path.relative(ROOT, fixturesDir)}`)
-	process.exit(1)
-}
+const fixtures = await corpusDecks()
 
 await fs.mkdir(outDir, { recursive: true })
 for (const fixture of fixtures) {
-	const input = await fs.readFile(path.join(fixturesDir, fixture))
+	const input = await fs.readFile(path.join(FIXTURES_DIR, fixture))
 	const pkg = await OpcPackage.load(input)
 	const output = await pkg.save()
 	const outName = fixture.replace(/\.pptx$/, '.roundtrip.pptx')

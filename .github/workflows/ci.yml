@@ -18,12 +18,12 @@ jobs:
   # read the same sources and the same tsconfig on every leg, so running them per
   # matrix entry was pure duplication. One run, newest supported Node.
   #
-  # `check:static` also carries `docs:build`, which is the dead-link gate. That gate
-  # used to live only in docs.yml, so a broken link failed the *deploy* rather than
-  # the change that introduced it — the Pages site went three days stale that way.
-  # docs.yml still builds, because it is what uploads the Pages artifact; here the
-  # same build is a merge gate, and it also runs on the `workflow_call` path that
-  # publish.yml uses, which docs.yml never covered.
+  # `check:static` carries `docs:check`, which validates the docs *sources*: frontmatter,
+  # code fences, nav entries and internal links. It does NOT carry `docs:build` — that
+  # was tried and deliberately removed (AGENTS.md records why), so the VitePress build
+  # and the `--dist` pass over the generated llms URLs belong to docs.yml, which is also
+  # what uploads the Pages artifact. A link that only the built site can see therefore
+  # still fails the deploy rather than the change; that is the accepted trade.
   static:
     name: Static checks
     runs-on: ubuntu-latest

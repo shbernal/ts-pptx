@@ -2,10 +2,82 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * The read-side fixture corpus: the PowerPoint-authored decks every read, round-trip and
+ * census gate runs over.
+ *
+ * `test/read/corpus.js`'s header states the problem this closes -- "a glob is a claim about
+ * how many decks are under test, and a claim spelled four times is one that can quietly become
+ * false in one of them" -- and then five more copies lived in `scripts/`, two of them with no
+ * empty-corpus guard and one with a different filter (`.pptx` **or** `.potx`, so `template.potx`
+ * was in the inspect snapshot's corpus and nobody else's). The enumerator is here rather than in
+ * `test/read/corpus.js` because the scripts must not import out of `test/`, and not in
+ * `pack-utils.mjs` because that module's header deliberately scopes it to the two package gates.
+ */
+export const FIXTURES_DIR = path.join(ROOT, 'test', 'read', 'fixtures')
+
+/**
+ * Where a `--dir` flag points, defaulting to {@link FIXTURES_DIR}.
+ *
+ * `resolve`, not `join`: an absolute `--dir` must win outright, so a corpus of real decks can
+ * live outside the repo rather than under a gitignore rule inside the working tree.
+ * @param {string | undefined} dirFlag - the flag's value, or `undefined` for the default
+ * @returns {string} an absolute directory
+ */
+export function resolveCorpusDir(dirFlag) {
+	return path.resolve(ROOT, dirFlag ?? FIXTURES_DIR)
+}
+
+/**
+ * Every deck in a corpus directory, by file name, in a stable order.
+ *
+ * Throws rather than returning `[]` on an empty corpus, and names the directory when it does.
+ * An enumerator that quietly yields nothing turns every invariant built on it into a loop that
+ * iterates nothing and passes, which is indistinguishable from success in a reporter.
+ * @param {object} [opts]
+ * @param {string} [opts.dir] - the corpus directory; defaults to {@link FIXTURES_DIR}
+ * @param {string | null} [opts.only] - restrict to one file name, as a `--fixture` flag does
+ * @param {readonly string[]} [opts.extensions] - which extensions count as a deck
+ * @returns {Promise<string[]>}
+ */
+export async function corpusDecks({ dir = FIXTURES_DIR, only = null, extensions = ['.pptx'] } = {}) {
+	const names = (await fs.promises.readdir(dir))
+		.filter((name) => extensions.some((ext) => name.endsWith(ext)))
+		.filter((name) => !only || name === only)
+		.sort()
+	if (names.length === 0)
+		throw new Error(`no ${extensions.join('/')} file(s) in ${dir}${only ? ` matching ${only}` : ''}`)
+	return names
+}
+
+/**
+ * Import a built entry point, with a build-first message instead of an unresolved-specifier
+ * stack when `dist/` is not there.
+ *
+ * The two `read-emit-*` scripts each spelled this preflight out, the second a verbatim copy of
+ * the first down to the `try`/`catch` around `fs.access`.
+ *
+ * Prints and exits rather than throwing, unlike {@link corpusDecks}: a missing `dist/` is only
+ * ever a CLI's problem, while the corpus enumerator is shared with `test/read/corpus.js`, where
+ * exiting the process would take the whole test run with it.
+ * @param {string} entry - a file name under `dist/`, e.g. `read.js`
+ * @param {string} [scriptName] - the package script that builds first, named in the message
+ * @returns {Promise<any>} the module
+ */
+export async function requireDist(entry, scriptName) {
+	const file = path.join(ROOT, 'dist', entry)
+	if (!fs.existsSync(file)) {
+		const alternative = scriptName ? ` (or use \`pnpm run ${scriptName}\`)` : ''
+		console.error(`Missing ${path.relative(ROOT, file)}. Run \`pnpm run build\` first${alternative}.`)
+		process.exit(1)
+	}
+	return import(pathToFileURL(file).href)
+}
 
 /**
  * Was this module run directly, rather than imported?
@@ -14,7 +86,8 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
  * so a test can import the parsing and scanning without the script measuring `dist/`,
  * writing a budget file, or calling `process.exit` out from under the test runner.
  * `gen-inspect-snapshot.mjs` open-coded this first; it is shared now that it has
- * more than two callers.
+ * more than two callers -- including, at last, `gen-inspect-snapshot.mjs` itself, which went on
+ * open-coding it for long enough that this sentence was the only place the sharing had happened.
  * @param {string} metaUrl the caller's `import.meta.url`
  * @returns {boolean}
  */
@@ -88,6 +161,30 @@ export function parseCliOrExit(argv, config) {
 		if (error instanceof CliExit) process.exit(error.code)
 		throw error
 	}
+}
+
+/**
+ * A machine-dependent oracle is missing: SKIP on a workstation, fail under `<envVar>=required`.
+ *
+ * The three desktop oracles are all in the same bind. Not every workstation has LibreOffice or
+ * PowerPoint, so a missing tool has to be a SKIP or nobody can run `verify` — but in CI a SKIP
+ * is the worst possible outcome: a lane that installs the tools, fails to find them, and
+ * reports green while proving nothing. `required` makes their absence the failure instead,
+ * which is the bargain `FONT_ORACLES: required` already strikes for the measurement oracles.
+ *
+ * Returns the exit code to adopt rather than exiting, so a caller that has already collected
+ * failures can print them first.
+ * @param {string} envVar - the environment variable that opts into the strict mode
+ * @param {string} message - what is missing, as a sentence
+ * @returns {number} 0 to carry on skipping, 1 to fail
+ */
+export function skipOrFail(envVar, message) {
+	if (process.env[envVar] === 'required') {
+		console.error(`${envVar}=required, but ${message}`)
+		return 1
+	}
+	console.log('SKIP: ' + message)
+	return 0
 }
 
 /**

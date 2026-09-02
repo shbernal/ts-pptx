@@ -41,13 +41,23 @@
 import os from 'node:os'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import zlib from 'node:zlib'
 import { spawn, spawnSync } from 'node:child_process'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { parseCliOrExit } from './script-utils.mjs'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.resolve(__dirname, '..')
+import { decodePng } from './png-utils.mjs'
+import { parseCliOrExit, skipOrFail } from './script-utils.mjs'
+import {
+	EXPECTED_ACTION,
+	EXPECTED_OLE_PROGID,
+	GEOM_EXPECTED_SITE,
+	GEOM_START_IDX,
+	GEOM_TARGET_NAME,
+	MODEL3D_EXPECTED_CAMERA_Z,
+	MODEL3D_FRAME_IN,
+	MODEL3D_LAYOUT_IN,
+	MODEL3D_SHAPE_NAME,
+	MODEL3D_SHAPE_TYPE,
+} from './com/contract.mjs'
+import { generateGeomDeck, generateModel3dDeck, generateNavDeck, generateOleDeck } from './com/decks.mjs'
+import { buildGeomVbs, buildModel3dVbs, buildNavVbs, buildOleVbs, vbsFooter, vbsOpenHeader } from './com/vbs.mjs'
 
 // --- args -------------------------------------------------------------------
 const USAGE = `PowerPoint COM smoke — open generated decks in desktop PowerPoint (Windows only).
@@ -59,7 +69,10 @@ const USAGE = `PowerPoint COM smoke — open generated decks in desktop PowerPoi
 Options:
   --keep          leave the generated decks on disk for inspection
   --file <path>   open an existing deck instead of generating the corpus
-  -h, --help      show this message`
+  -h, --help      show this message
+
+Environment:
+  TSPPTX_COM_SMOKE   set to "required" to fail, not SKIP, when PowerPoint is unavailable`
 
 const { values } = parseCliOrExit(process.argv.slice(2), {
 	usage: USAGE,
@@ -69,328 +82,10 @@ const KEEP = values.keep
 const EXISTING_FILE = values.file ?? null
 
 if (os.platform() !== 'win32') {
-	console.log('SKIP: PowerPoint COM smoke is Windows-only (platform: ' + os.platform() + ').')
-	process.exit(0)
+	process.exit(
+		skipOrFail('TSPPTX_COM_SMOKE', 'the PowerPoint COM smoke is Windows-only (platform: ' + os.platform() + ').')
+	)
 }
-
-// PpActionType enum values PowerPoint resolves `ppaction://hlinkshowjump?jump=<x>` into.
-// The whole point of the read-back: prove the jump became a live navigation action, not a
-// dead ppActionHyperlink (7) / ppActionNone (0).
-const EXPECTED_ACTION = {
-	nextslide: 1, // ppActionNextSlide
-	previousslide: 2, // ppActionPreviousSlide
-	firstslide: 3, // ppActionFirstSlide
-	lastslide: 4, // ppActionLastSlide
-	lastslideviewed: 5, // ppActionLastSlideViewed
-	endshow: 6, // ppActionEndShow
-}
-
-// The custGeom deck binds the connector's start to connection site index 1 (0-based, OOXML
-// `<a:stCxn idx="1">`) of the shape named `freeform`. PowerPoint numbers connection sites
-// 1-based, so the resolved `BeginConnectionSite` is idx+1 = 2.
-const GEOM_TARGET_NAME = 'freeform'
-const GEOM_START_IDX = 1
-const GEOM_EXPECTED_SITE = GEOM_START_IDX + 1
-
-// The OLE deck's objects, by `objectName` → the ProgID PowerPoint must resolve each back to.
-// A schema-valid `<p:oleObj>` that PowerPoint quietly discards enumerates as *no shape at all*,
-// so the read-back is the only thing proving the embedded object survived the round trip.
-const EXPECTED_OLE_PROGID = {
-	OlePackage: 'Excel.Sheet.12', // embedded OPC package → `.../package` rel
-	OleBlob: 'Package', // generic OLE blob → `.../oleObject` rel, `.bin` part
-}
-/** An empty (but structurally valid) ZIP — enough of an "xlsx" for PowerPoint to bind the OLE server. */
-const EMPTY_ZIP_B64 = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
-
-// The 3D-model deck. `msoShape3DModel` = 30 — a shape PowerPoint bound as a live model rather
-// than leaving as an inert graphicFrame or collapsing to the fallback picture. The camera is the
-// library's default, in metres, and PowerPoint exposes it as `Model3DFormat.CameraPositionZ`; a
-// reading that far off means the `am3d:camera` subtree did not parse.
-const MODEL3D_SHAPE_NAME = 'Cube3D'
-const MODEL3D_SHAPE_TYPE = 30
-const MODEL3D_EXPECTED_CAMERA_Z = 2.2630334
-/**
- * The model deck's preview picture is solid magenta, which no lit gray model can produce. Type 30
- * plus a good camera still only proves PowerPoint resolved the *model*, not that it drew one — an
- * unreadable payload renders as the fallback or as nothing. So the deck is exported to PNG and the
- * pixels are read: any magenta means we are looking at the fallback, and an all-white frame means
- * nothing was drawn at all. Both absent ⇒ the `.glb` really rasterized.
- */
-const MODEL3D_PREVIEW_RGB = [255, 0, 255]
-/** Export size, and the frame's slide-relative rect (inches) — see `generateModel3dDeck`. */
-const MODEL3D_EXPORT = { w: 960, h: 540 }
-const MODEL3D_FRAME_IN = { x: 2, y: 1, w: 4, h: 3 }
-
-async function loadTsPptx() {
-	const { default: TsPptx, ShapeType } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
-	return { TsPptx, ShapeType }
-}
-
-// --- 1a. navigation deck ----------------------------------------------------
-/** Build a focused nav deck from the built dist and return its path. */
-async function generateNavDeck() {
-	const { TsPptx } = await loadTsPptx()
-	const pptx = new TsPptx()
-	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
-	pptx.layout = 'SMOKE'
-
-	// A few content slides so every jump has somewhere to land.
-	for (let i = 1; i <= 3; i++) {
-		const s = pptx.addSlide()
-		s.addText(`Content slide ${i}`, { x: 0.5, y: 0.4, w: 9, h: 0.8, fontSize: 28, bold: true })
-	}
-
-	// One button per navigation jump. `objectName` == the jump value, so the COM read-back
-	// can map each shape's resolved Action back to what we asked for.
-	const nav = pptx.addSlide()
-	nav.addText('Navigation buttons', { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true })
-	const buttons = [
-		['actionButtonBeginning', 'firstslide', 'Home'],
-		['actionButtonBackPrevious', 'previousslide', 'Back'],
-		['actionButtonForwardNext', 'nextslide', 'Next'],
-		['actionButtonEnd', 'lastslide', 'End'],
-		['actionButtonReturn', 'lastslideviewed', 'Return'],
-		['actionButtonEnd', 'endshow', 'Stop'],
-	]
-	buttons.forEach(([shape, action, tooltip], i) => {
-		nav.addShape(shape, {
-			x: 0.5 + i * 1.5,
-			y: 2,
-			w: 1.1,
-			h: 1.1,
-			objectName: action,
-			hyperlink: { action, tooltip },
-		})
-	})
-
-	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-nav-${process.pid}.pptx`)
-	await pptx.writeFile({ fileName: outFile })
-	return outFile
-}
-
-// --- 1b. custGeom connection-site deck --------------------------------------
-/** Build a custGeom deck whose connector binds to the custom shape's connection site. */
-async function generateGeomDeck() {
-	const { TsPptx, ShapeType } = await loadTsPptx()
-	const pptx = new TsPptx()
-	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
-	pptx.layout = 'SMOKE'
-
-	const s = pptx.addSlide()
-	s.addText('custGeom connection sites', { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true })
-
-	// A freeform rectangle carrying real guides / connection sites / adjust handles — the same
-	// shape the schema fixture `custGeom-connection-sites` builds.
-	s.addShape(ShapeType.custGeom, {
-		x: 1,
-		y: 1.5,
-		w: 3,
-		h: 2,
-		objectName: GEOM_TARGET_NAME,
-		fill: { color: '4472C4' },
-		line: { color: '2F528F', width: 1 },
-		points: [
-			{ x: 0, y: 0 },
-			{ x: 3, y: 0 },
-			{ x: 3, y: 2 },
-			{ x: 0, y: 2, close: true },
-		],
-		guides: [{ name: 'w2', formula: '*/ w 1 2' }],
-		connectionSites: [
-			{ ang: 0, x: 3, y: 1 }, // idx 0: right-middle
-			{ ang: 90, x: 'w2', y: 0 }, // idx 1: top, at the guide-driven x
-			{ ang: 180, x: 0, y: 1 }, // idx 2: left-middle
-		],
-		adjustHandles: [
-			{ x: 'w2', y: 0, gdRefX: 'w2', minX: 0, maxX: 3 },
-			{ x: 3, y: 2, gdRefAng: 'w2', minAng: 0, maxAng: 90 },
-		],
-	})
-
-	// Bind an elbow connector's start to connection site #1 of the freeform shape.
-	s.addConnector({
-		type: 'elbow',
-		x1: 4,
-		y1: 2.5,
-		x2: 7,
-		y2: 4,
-		color: 'FF0000',
-		width: 2,
-		startShape: GEOM_TARGET_NAME,
-		startShapeIdx: GEOM_START_IDX,
-	})
-
-	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-geom-${process.pid}.pptx`)
-	await pptx.writeFile({ fileName: outFile })
-	return outFile
-}
-
-// --- 1c. OLE / embedded-object deck -----------------------------------------
-/** Build a deck with one embedded-package and one generic-blob OLE object. */
-async function generateOleDeck() {
-	const { TsPptx } = await loadTsPptx()
-	const pptx = new TsPptx()
-	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
-	pptx.layout = 'SMOKE'
-
-	const s = pptx.addSlide()
-	s.addText('Embedded OLE objects', { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true })
-	// Embedded OPC package (xlsx): `.../package` rel + an `xlsx` content-type Default.
-	s.addOleObject({ data: EMPTY_ZIP_B64, extn: 'xlsx', objectName: 'OlePackage', x: 0.5, y: 1.5, w: 3, h: 2 })
-	// Generic OLE-server blob: `.../oleObject` rel + a `.bin` part.
-	s.addOleObject({ data: 'AAECAwQFBgc=', objectName: 'OleBlob', x: 4.5, y: 1.5, w: 2, h: 2 })
-
-	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-ole-${process.pid}.pptx`)
-	await pptx.writeFile({ fileName: outFile })
-	return outFile
-}
-
-// --- 1d. 3D-model deck ------------------------------------------------------
-/**
- * A 1x1 solid-colour PNG, built here so nothing about the preview can be mistaken for model pixels.
- * @param {readonly number[]} rgb - the fill colour
- */
-function solidPngBase64(rgb) {
-	const raw = Buffer.from([0, rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])
-	const crcTable = Int32Array.from({ length: 256 }, (_, n) => {
-		let c = n
-		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-		return c
-	})
-	/** @param {Uint8Array} buf */
-	const crc = (buf) => {
-		let c = -1
-		for (const byte of buf) c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8)
-		return (c ^ -1) >>> 0
-	}
-	/**
-	 * @param {string} type four-character PNG chunk type
-	 * @param {Buffer} data
-	 */
-	const chunk = (type, data) => {
-		const len = Buffer.alloc(4)
-		len.writeUInt32BE(data.length)
-		const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
-		const crcBuf = Buffer.alloc(4)
-		crcBuf.writeUInt32BE(crc(body))
-		return Buffer.concat([len, body, crcBuf])
-	}
-	const ihdr = Buffer.alloc(13)
-	ihdr.writeUInt32BE(1, 0)
-	ihdr.writeUInt32BE(1, 4)
-	ihdr[8] = 8 // bit depth
-	ihdr[9] = 2 // colour type: truecolour
-	return Buffer.concat([
-		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-		chunk('IHDR', ihdr),
-		chunk('IDAT', zlib.deflateSync(raw)),
-		chunk('IEND', Buffer.alloc(0)),
-	]).toString('base64')
-}
-
-/** Build a deck with one embedded 3D model over a magenta preview. */
-async function generateModel3dDeck() {
-	const { TsPptx } = await loadTsPptx()
-	const pptx = new TsPptx()
-	pptx.defineLayout({ name: 'SMOKE3D', width: 10, height: 5.625 })
-	pptx.layout = 'SMOKE3D'
-
-	const cube = await fs.readFile(path.join(ROOT, 'test', 'read', 'fixtures', 'authoring', 'assets', 'cube.glb'))
-	pptx.addSlide().addModel3d({
-		data: cube.toString('base64'),
-		preview: { data: 'image/png;base64,' + solidPngBase64(MODEL3D_PREVIEW_RGB) },
-		objectName: MODEL3D_SHAPE_NAME,
-		...MODEL3D_FRAME_IN,
-	})
-
-	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-model3d-${process.pid}.pptx`)
-	await pptx.writeFile({ fileName: outFile })
-	return outFile
-}
-
-/**
- * Decode an 8-bit PNG (truecolour, palette, or grey, +/- alpha) into `{w, h, rgb(x,y)}`.
- *
- * Hand-rolled rather than pulled in as a dependency: this script is the only consumer, PowerPoint
- * writes whichever of those colour types suits the slide (truecolour for the rendered model, an
- * indexed palette for a blank one), and `node:zlib` already does the hard part.
- * @param {Buffer} bytes - the PNG file
- */
-function decodePng(bytes) {
-	/** Indexed read that satisfies `noUncheckedIndexedAccess`; out-of-range is 0, as for a `Buffer`. */
-	const at = (/** @type {Uint8Array} */ buf, /** @type {number} */ i) => buf[i] ?? 0
-	let off = 8
-	let w = 0
-	let h = 0
-	let colour = 0
-	/** @type {Buffer | null} */
-	let palette = null
-	/** @type {Buffer[]} */
-	const idat = []
-	while (off + 8 <= bytes.length) {
-		const len = bytes.readUInt32BE(off)
-		const type = bytes.toString('ascii', off + 4, off + 8)
-		const data = bytes.subarray(off + 8, off + 8 + len)
-		if (type === 'IHDR') {
-			w = data.readUInt32BE(0)
-			h = data.readUInt32BE(4)
-			if (at(data, 8) !== 8) throw new Error(`unsupported PNG bit depth ${at(data, 8)}`)
-			colour = at(data, 9)
-			if (at(data, 12) !== 0) throw new Error('interlaced PNG not supported')
-		} else if (type === 'PLTE') palette = Buffer.from(data)
-		else if (type === 'IDAT') idat.push(data)
-		else if (type === 'IEND') break
-		off += 12 + len
-	}
-	const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[colour]
-	if (!channels) throw new Error(`unsupported PNG colour type ${colour}`)
-	if (colour === 3 && !palette) throw new Error('indexed PNG with no PLTE chunk')
-	const pal = palette ?? Buffer.alloc(0)
-	const raw = zlib.inflateSync(Buffer.concat(idat))
-	const stride = w * channels
-	const out = Buffer.alloc(h * stride)
-	let pos = 0
-	for (let y = 0; y < h; y++) {
-		const filter = at(raw, pos++)
-		const line = raw.subarray(pos, pos + stride)
-		pos += stride
-		const cur = out.subarray(y * stride, (y + 1) * stride)
-		const prior = y > 0 ? out.subarray((y - 1) * stride, y * stride) : Buffer.alloc(stride)
-		for (let i = 0; i < stride; i++) {
-			const a = i >= channels ? at(cur, i - channels) : 0
-			const b = at(prior, i)
-			const c = i >= channels ? at(prior, i - channels) : 0
-			let v = at(line, i)
-			if (filter === 1) v += a
-			else if (filter === 2) v += b
-			else if (filter === 3) v += (a + b) >> 1
-			else if (filter === 4) {
-				const p = a + b - c
-				const pa = Math.abs(p - a)
-				const pb = Math.abs(p - b)
-				const pc = Math.abs(p - c)
-				v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c
-			}
-			cur[i] = v & 0xff
-		}
-	}
-	/**
-	 * @param {number} x
-	 * @param {number} y
-	 * @returns {[number, number, number]}
-	 */
-	const rgb = (x, y) => {
-		const i = y * stride + x * channels
-		if (colour === 3) {
-			const p = at(out, i) * 3
-			return [at(pal, p), at(pal, p + 1), at(pal, p + 2)]
-		}
-		if (colour === 0 || colour === 4) return [at(out, i), at(out, i), at(out, i)]
-		return [at(out, i), at(out, i + 1), at(out, i + 2)]
-	}
-	return { w, h, rgb }
-}
-
 // --- 2. clear the PowerPoint Resiliency key ---------------------------------
 // A prior crash can leave the file in the Disabled/Resiliency list, so PowerPoint refuses
 // to open it (or opens in reduced-functionality mode) and the smoke gives a false failure.
@@ -400,144 +95,6 @@ function clearResiliency() {
 			stdio: 'ignore',
 		})
 	}
-}
-
-// --- 3. the VBScripts that drive PowerPoint ---------------------------------
-/**
- * Shared header: create the app, open the deck, emit OPEN_OK/OPEN_ERR.
- *
- * Default is headless + read-only. Pass `withWindow` for checks that read OLE objects back:
- * a windowless PowerPoint does not instantiate embedded objects, so `Shapes` comes back without
- * them — indistinguishable from PowerPoint having discarded them. (A deck PowerPoint authored
- * itself enumerates zero shapes under a headless open too, which is how that was pinned down.)
- */
-/**
- * @param {string} pptxFile
- * @param {boolean} [withWindow] open with a window, for the features a headless open will not instantiate
- * @returns {string}
- */
-function vbsOpenHeader(pptxFile, withWindow = false) {
-	// WithWindow:=msoFalse (0) keeps it headless; ReadOnly avoids touching the file.
-	const openArgs = withWindow ? '0, 0, -1' : '-1, 0, 0'
-	return `Option Explicit
-Dim ppt, pres, sld, shp
-On Error Resume Next
-Set ppt = CreateObject("PowerPoint.Application")
-If Err.Number <> 0 Then
-  WScript.StdOut.WriteLine "NO_POWERPOINT\t" & Err.Description
-  WScript.Quit 3
-End If
-Err.Clear
-Set pres = ppt.Presentations.Open("${pptxFile.replace(/\\/g, '\\\\')}", ${openArgs})
-If Err.Number <> 0 Then
-  WScript.StdOut.WriteLine "OPEN_ERR\t" & Hex(Err.Number) & "\t" & Err.Description
-  ppt.Quit
-  WScript.Quit 2
-End If
-WScript.StdOut.WriteLine "OPEN_OK\t" & pres.Slides.Count
-`
-}
-
-function vbsFooter() {
-	return `pres.Close
-ppt.Quit
-WScript.StdOut.WriteLine "DONE"
-WScript.Quit 0
-`
-}
-
-/** @param {string} pptxFile @returns {string} */
-function buildNavVbs(pptxFile) {
-	// Emits tab-separated `ACTION` lines (slideIdx, objectName, resolvedActionNum).
-	return (
-		vbsOpenHeader(pptxFile) +
-		`Dim act
-For Each sld In pres.Slides
-  For Each shp In sld.Shapes
-    Set act = shp.ActionSettings(1) ' ppMouseClick = 1
-    If Not act Is Nothing Then
-      If act.Action <> 0 Then
-        WScript.StdOut.WriteLine "ACTION\t" & sld.SlideIndex & "\t" & shp.Name & "\t" & act.Action
-      End If
-    End If
-  Next
-Next
-` +
-		vbsFooter()
-	)
-}
-
-/** @param {string} pptxFile @returns {string} */
-function buildGeomVbs(pptxFile) {
-	// Emits one tab-separated `CONN` line per connector shape:
-	//   CONN <name> <beginConnected(-1/0)> <beginConnectedShapeName> <beginConnectionSite>
-	return (
-		vbsOpenHeader(pptxFile) +
-		`Dim cf, tgt
-For Each sld In pres.Slides
-  For Each shp In sld.Shapes
-    If shp.Connector Then
-      Set cf = shp.ConnectorFormat
-      tgt = ""
-      If cf.BeginConnected Then tgt = cf.BeginConnectedShape.Name
-      WScript.StdOut.WriteLine "CONN\t" & shp.Name & "\t" & cf.BeginConnected & "\t" & tgt & "\t" & cf.BeginConnectionSite
-    End If
-  Next
-Next
-` +
-		vbsFooter()
-	)
-}
-
-/** @param {string} pptxFile @returns {string} */
-function buildOleVbs(pptxFile) {
-	// Emits one tab-separated `OLE` line per embedded-object shape: name, resolved ProgID.
-	// msoEmbeddedOLEObject = 7, msoLinkedOLEObject = 10.
-	return (
-		vbsOpenHeader(pptxFile, true) +
-		`Dim i, j
-For i = 1 To pres.Slides.Count
-  Set sld = pres.Slides(i)
-  For j = 1 To sld.Shapes.Count
-    Set shp = sld.Shapes(j)
-    If shp.Type = 7 Or shp.Type = 10 Then
-      WScript.StdOut.WriteLine "OLE\t" & shp.Name & "\t" & shp.OLEFormat.ProgID
-    End If
-  Next
-Next
-` +
-		vbsFooter()
-	)
-}
-
-/** @param {string} pptxFile @returns {string} */
-function buildModel3dVbs(pptxFile) {
-	// Emits `M3D <name> <Shape.Type> <Model3D.CameraPositionZ>` per shape, then exports slide 1 to
-	// PNG so the caller can prove the model actually rasterized. A window is needed here for the
-	// same reason as OLE: a headless PowerPoint does not instantiate the 3D renderer.
-	const png = pptxFile.replace(/\.pptx$/i, '.png').replace(/\\/g, '\\\\')
-	return (
-		vbsOpenHeader(pptxFile, true) +
-		`Dim j, camZ
-Set sld = pres.Slides(1)
-For j = 1 To sld.Shapes.Count
-  Set shp = sld.Shapes(j)
-  camZ = ""
-  On Error Resume Next
-  camZ = shp.Model3D.CameraPositionZ
-  On Error Goto 0
-  WScript.StdOut.WriteLine "M3D" & vbTab & shp.Name & vbTab & shp.Type & vbTab & camZ
-Next
-Err.Clear
-sld.Export "${png}", "PNG", ${MODEL3D_EXPORT.w}, ${MODEL3D_EXPORT.h}
-If Err.Number <> 0 Then
-  WScript.StdOut.WriteLine "EXPORT_ERR" & vbTab & Hex(Err.Number) & vbTab & Err.Description
-Else
-  WScript.StdOut.WriteLine "EXPORT" & vbTab & "${png}"
-End If
-` +
-		vbsFooter()
-	)
 }
 
 /**
@@ -736,9 +293,9 @@ async function verifyModel3d(lines) {
 		if (!KEEP) await fs.rm(pngPath, { force: true })
 	}
 
-	// The frame, in exported pixels. The deck's layout is 10 x 5.625 in, exported at 960 x 540.
-	const sx = img.w / 10
-	const sy = img.h / 5.625
+	// The frame, in exported pixels, from the layout the deck was built at.
+	const sx = img.w / MODEL3D_LAYOUT_IN.w
+	const sy = img.h / MODEL3D_LAYOUT_IN.h
 	const x0 = Math.round(MODEL3D_FRAME_IN.x * sx)
 	const y0 = Math.round(MODEL3D_FRAME_IN.y * sy)
 	const x1 = Math.min(img.w - 1, Math.round((MODEL3D_FRAME_IN.x + MODEL3D_FRAME_IN.w) * sx))
@@ -748,6 +305,8 @@ async function verifyModel3d(lines) {
 	for (let y = y0; y <= y1; y++) {
 		for (let x = x0; x <= x1; x++) {
 			const [r, g, b] = img.rgb(x, y)
+			// A tolerance band around `MODEL3D_PREVIEW_RGB`, not the exact value: PowerPoint's PNG
+			// export resamples the preview, so an exact match would miss an edge-antialiased one.
 			if (r > 200 && g < 60 && b > 200) fallbackPx++
 			if (r < 250 || g < 250 || b < 250) drawnPx++
 		}
@@ -818,7 +377,7 @@ async function main() {
 	}
 
 	const failures = []
-	for (const spec of specs) {
+	for (const [index, spec] of specs.entries()) {
 		const result = await driveDeck(spec.label, spec.file, spec.buildVbs)
 		if (spec.generated && !KEEP) await fs.rm(spec.file, { force: true })
 		else if (spec.generated) console.log('Kept deck: ' + spec.file)
@@ -826,8 +385,22 @@ async function main() {
 		const lines = result.out.split(/\r?\n/).filter(Boolean)
 		const open = checkOpen(spec.label, lines, result.out)
 		if (open.skip) {
-			console.log('SKIP: PowerPoint is not installed / not COM-registered on this machine.')
-			process.exit(0)
+			// `NO_POWERPOINT` on the FIRST deck means this machine has no PowerPoint, which is the
+			// SKIP this script is allowed to report. On any later deck it means something else --
+			// a transient COM failure of the kind `driveDeck` already retries once for, or
+			// PowerPoint dying part-way through -- and `process.exit(0)` inside the loop threw away
+			// every failure the decks before it had already collected. The run reported SKIP and
+			// passed, which is the one thing a gate must never do.
+			if (index === 0) {
+				process.exit(
+					skipOrFail('TSPPTX_COM_SMOKE', 'PowerPoint is not installed / not COM-registered on this machine.')
+				)
+			}
+			failures.push(
+				`[${spec.label}] PowerPoint stopped answering COM part-way through the run ` +
+					`(after ${index} deck(s) had been driven); the checks below it did not run.`
+			)
+			break
 		}
 		failures.push(...open.failures)
 		if (!open.failures.length) failures.push(...(await spec.verify(lines)))

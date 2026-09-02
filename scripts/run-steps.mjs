@@ -31,6 +31,27 @@ const scripts = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf
 const SELF = /^node\s+scripts\/run-steps\.mjs\s+(.*)$/
 
 /**
+ * Leaf commands that WRITE what a later step reads, so the de-duplication below has to stop at
+ * them.
+ *
+ * All three generate into `docs/`, which is `docs-check.mjs`'s input, and `docs:build` places a
+ * second `docs:check` after them deliberately -- `docs-index.mjs`'s own header says the index
+ * "is validated by `scripts/docs-check.mjs` ... which runs after generation in `docs:build`".
+ * That second run has the same command string as the one inside `verify`, so it was skipped as
+ * a repeat and `verify:full` never validated the generated index at all: `docs/doc-index.md` is
+ * gitignored, so on a fresh clone the first `docs:check` walks a `docs/` the file is not in yet,
+ * reports ok, and the run that would have seen it never happens.
+ *
+ * Keyed by command rather than by step name, because that is what the de-duplication is keyed
+ * by; two script names sharing a command are the same work.
+ */
+const GENERATORS = new Set([
+	'node scripts/docs-api.mjs',
+	'node scripts/generate-llms-docs.mjs',
+	'node scripts/docs-index.mjs',
+])
+
+/**
  * Flatten a script name into the leaf shell commands it ultimately runs.
  *
  * Two forms are followed rather than executed, because both are indirection this
@@ -115,12 +136,14 @@ await runCli(async () => {
 	// Composites overlap: `verify:full` is `verify` plus `docs:build`, and both
 	// reach `docs:api` (6.5s) and `ensure-dist`. Every step in these gates is a
 	// check or a regenerator whose second consecutive run cannot say anything the
-	// first did not, so an exact command repeat inside ONE invocation is skipped.
+	// first did not, so an exact command repeat inside ONE invocation is skipped —
+	// UNLESS something has written into its inputs since. `GENERATORS` is which
+	// steps do that, and passing one resets the record of what has run.
 	//
-	// The assumption is that no step here mutates another's inputs — true today,
-	// and the skip is logged rather than silent so that a step which starts doing
-	// so is visible at the point it would be wrongly elided. Order is otherwise
-	// untouched: this drops repeats, it never reorders or parallelises.
+	// Both the skip and the reset are logged rather than silent, so a step that
+	// starts mutating another's inputs is visible at the point it would otherwise
+	// be wrongly elided. Order is untouched either way: this drops repeats, it
+	// never reorders or parallelises.
 	const alreadyRun = new Set()
 	for (const { step, command } of steps) {
 		if (alreadyRun.has(command)) {
@@ -135,6 +158,11 @@ await runCli(async () => {
 		if (code !== 0) {
 			console.error(`\n✗ ${step} failed (exit ${code})\n  ${command}`)
 			return code
+		}
+		if (GENERATORS.has(command)) {
+			alreadyRun.clear()
+			alreadyRun.add(command)
+			console.log(`· ${step} — wrote into docs/; earlier checks of it may run again`)
 		}
 	}
 

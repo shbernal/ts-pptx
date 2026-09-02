@@ -46,21 +46,29 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT, parseCliOrExit } from './script-utils.mjs'
+import { FIXTURES_DIR, ROOT, corpusDecks, parseCliOrExit, resolveCorpusDir } from './script-utils.mjs'
 import { Presentation } from '../dist/read.js'
 
 /** The parsed-XML element type the read model exposes — xmldom's, not the DOM's. */
 /** @typedef {import('@xmldom/xmldom').Element} XmlElement */
 
-const DEFAULT_DIR = path.join('test', 'read', 'fixtures')
 const READ_SRC = path.join(ROOT, 'src', 'read')
 const ELEMENT_NODE = 1
 
-/** Parse the read path's own namespace map so this script cannot drift from it. */
+/**
+ * Parse the library's own namespace map so this script cannot drift from it.
+ *
+ * The registry moved from `src/read/oxml/dom.ts` (which now re-exports it) to
+ * `src/ooxml/namespaces.ts`, so that both halves of the library could reach it. Nothing runs
+ * this census in a gate, so the throw below went unseen: read it as the reason the source path
+ * is named once, here.
+ */
+const NAMESPACES_SRC = path.join(ROOT, 'src', 'ooxml', 'namespaces.ts')
+
 async function readNamespaceMap() {
-	const source = await fs.readFile(path.join(READ_SRC, 'oxml', 'dom.ts'), 'utf8')
+	const source = await fs.readFile(NAMESPACES_SRC, 'utf8')
 	const block = /export const OOXML_NS = Object\.freeze\(\{([\s\S]*?)\}\)/.exec(source)
-	if (!block?.[1]) throw new Error('could not locate OOXML_NS in src/read/oxml/dom.ts')
+	if (!block?.[1]) throw new Error(`could not locate OOXML_NS in ${path.relative(ROOT, NAMESPACES_SRC)}`)
 	const uriToPrefix = new Map()
 	for (const m of block[1].matchAll(/^\s*([A-Za-z][\w]*)\s*:\s*'([^']+)'/gm)) {
 		uriToPrefix.set(m[2], m[1])
@@ -175,7 +183,7 @@ const USAGE = `Read-blindness census — which OOXML the read model never looks 
 Options:
   --all              include chrome elements, not just the content surface
   --fixture <name>   restrict the census to one .pptx by file name
-  --dir <path>       corpus directory (default ${DEFAULT_DIR})
+  --dir <path>       corpus directory (default ${path.relative(ROOT, FIXTURES_DIR)})
   --json             machine-readable report on stdout
   -h, --help         show this message`
 
@@ -194,16 +202,13 @@ async function main() {
 	const includeChrome = values.all
 	const asJson = values.json
 	const only = values.fixture
-	const corpusDir = path.resolve(ROOT, values.dir ?? DEFAULT_DIR)
+	const corpusDir = resolveCorpusDir(values.dir)
 
 	const uriToPrefix = await readNamespaceMap()
 	const knownPrefixes = new Set(uriToPrefix.values())
 	const { qnames: consumed, locals: consumedLocals, uris: consumedUris } = await readConsumedNames(knownPrefixes)
 
-	const fixtures = (await fs.readdir(corpusDir))
-		.filter((f) => f.endsWith('.pptx'))
-		.filter((f) => !only || f === only)
-		.sort()
+	const fixtures = await corpusDecks({ dir: corpusDir, only })
 
 	const totals = new Map() // qname -> { count, fixtures:Set }
 	const failures = []

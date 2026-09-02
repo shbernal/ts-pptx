@@ -78,7 +78,6 @@
 	"types": "./dist/index.d.ts",
 	"scripts": {
 		"build": "tsdown",
-		"build:dev": "tsdown --config tsdown.dev.config.ts",
 		"prepare": "node scripts/install-hooks.mjs && node scripts/ensure-dist.mjs --if-missing",
 		"start": "pnpm run watch",
 		"watch": "tsdown --watch",
@@ -118,7 +117,6 @@
 		"typecheck:test": "tsc -p tsconfig.test.json --noEmit",
 		"typecheck:site": "tsc -p docs/tsconfig.json --noEmit",
 		"lint": "oxlint . --deny-warnings --report-unused-disable-directives",
-		"lint:fix": "pnpm run lint --fix",
 		"lint:chars": "charcheck --max-warnings 0",
 		"lint:chars:fix": "charcheck --fix --max-warnings 0",
 		"format:run": "oxfmt \"src/**/*.ts\" package.json tools/api-docs/package.json .oxfmtrc.jsonc pnpm-workspace.yaml typedoc.docs.json tsconfig.base.json tsconfig.json tsconfig.scripts.json tsconfig.test.json docs/tsconfig.json docs/.vitepress/config.mts \"docs/.vitepress/theme/**/*.ts\" \"www/**/*.ts\" .oxlintrc.jsonc charcheck.config.js tsdown.config.ts tsdown.dev.config.ts vitest.config.ts playwright.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\"",

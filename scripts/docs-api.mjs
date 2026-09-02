@@ -3,6 +3,20 @@ import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { parseCliOrExit } from './script-utils.mjs'
+
+// No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
+// line -- and both have to happen BEFORE the generator writes anything.
+parseCliOrExit(process.argv.slice(2), {
+	usage: `Generate the TypeDoc markdown reference into docs/reference/api.
+
+  pnpm run docs:api
+
+Options:
+  -h, --help   show this message`,
+	options: {},
+})
+
 const root = process.cwd()
 const outDir = path.join(root, 'docs', 'reference', 'api')
 // TypeDoc lives in the tools/api-docs workspace package, not at the root, because it needs

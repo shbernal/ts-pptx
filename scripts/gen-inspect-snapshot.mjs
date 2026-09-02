@@ -10,21 +10,24 @@
 //
 // Formatting is deliberate — one element per line — so `git diff` names the
 // element that moved rather than reflowing a pretty-printed block around it.
-import { readdirSync, writeFileSync } from 'node:fs'
-import { resolve, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { FIXTURES_DIR, corpusDecks, isMain } from './script-utils.mjs'
 import { inspectPptx } from '../dist/inspect.js'
 import { setDiagnosticHandler } from '../dist/node.js'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const FIXTURES = join(ROOT, 'test', 'read', 'fixtures')
-export const SNAPSHOT_PATH = join(FIXTURES, 'inspect-surface.snapshot.json')
+export const SNAPSHOT_PATH = join(FIXTURES_DIR, 'inspect-surface.snapshot.json')
 
-/** Every fixture deck, by filename, in a stable order. */
+/**
+ * Every fixture deck, by filename, in a stable order.
+ *
+ * `.potx` as well as `.pptx`, which is this corpus's one real divergence from every other
+ * enumeration of it: `template.potx` is in the inspect snapshot and nobody else's corpus. That
+ * is deliberate -- a template is a deck `inspectPptx` should describe -- so it is spelled as an
+ * argument rather than as a private filter.
+ */
 export function fixtureDecks() {
-	return readdirSync(FIXTURES)
-		.filter((name) => name.endsWith('.pptx') || name.endsWith('.potx'))
-		.sort()
+	return corpusDecks({ extensions: ['.pptx', '.potx'] })
 }
 
 /**
@@ -46,7 +49,7 @@ export async function inspectForSnapshot(deck) {
 	const diagnostics = []
 	setDiagnosticHandler((d) => diagnostics.push(d.code))
 	try {
-		const { slideSize, slides } = await inspectPptx(join(FIXTURES, deck))
+		const { slideSize, slides } = await inspectPptx(join(FIXTURES_DIR, deck))
 		return { slideSize, slides, diagnostics }
 	} catch (err) {
 		// A deck inspect cannot read at all is itself part of the contract. Record the
@@ -106,13 +109,13 @@ export function formatSnapshot(byDeck) {
 export async function buildSnapshot() {
 	/** @type {Record<string, DeckRecord>} */
 	const byDeck = {}
-	for (const deck of fixtureDecks()) byDeck[deck] = await inspectForSnapshot(deck)
+	for (const deck of await fixtureDecks()) byDeck[deck] = await inspectForSnapshot(deck)
 	return byDeck
 }
 
 // Only write when run directly; the test imports the helpers above to rebuild
 // the same structure in memory and compare.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
 	const byDeck = await buildSnapshot()
 	writeFileSync(SNAPSHOT_PATH, formatSnapshot(byDeck))
 	const elements = Object.values(byDeck)

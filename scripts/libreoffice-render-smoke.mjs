@@ -68,11 +68,8 @@ import os from 'node:os'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { parseCliOrExit } from './script-utils.mjs'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.resolve(__dirname, '..')
+import { pathToFileURL } from 'node:url'
+import { ROOT, parseCliOrExit, skipOrFail } from './script-utils.mjs'
 
 // --- args -------------------------------------------------------------------
 const USAGE = `LibreOffice render smoke — paint decks in a renderer with no SmartArt engine.
@@ -580,20 +577,12 @@ function verify(testCase, text) {
 
 // --- orchestrate ------------------------------------------------------------
 async function main() {
-	// On a workstation a missing tool is a SKIP: this is a machine-dependent check and not
-	// everyone has LibreOffice. In CI that would be the worst possible outcome — a lane that
-	// installs the tools, fails to find them, and reports green while proving nothing. The
-	// `required` mode makes their absence the failure instead, the same bargain
-	// `FONT_ORACLES: required` strikes for the measurement oracles.
-	const required = process.env.TSPPTX_RENDER_ORACLE === 'required'
+	// The skip-or-fail bargain is `skipOrFail`'s, shared with the PowerPoint COM smoke; see it
+	// for why a missing oracle cannot simply be an error.
 	/** @param {string} message */
 	const missing = (message) => {
-		if (!required) {
-			console.log('SKIP: ' + message)
-			return
-		}
-		console.error('TSPPTX_RENDER_ORACLE=required, but ' + message)
-		process.exitCode = 1
+		const code = skipOrFail('TSPPTX_RENDER_ORACLE', message)
+		if (code !== 0) process.exitCode = code
 	}
 
 	const soffice = await findSoffice()

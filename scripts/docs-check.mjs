@@ -10,11 +10,11 @@
 // must name a page VitePress actually emitted. That is a separate pass because it can only run
 // *after* `vitepress build`, and the source checks above only need the markdown tree.
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { ALLOWED_DOC_TYPES, compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
-import { isMain, runCli } from './script-utils.mjs'
+import { ROOT, isMain, parseCliOrExit, runCli } from './script-utils.mjs'
 
 const REQUIRED_FIELDS = ['doc-schema-version', 'doc_type', 'read_when', 'summary', 'title']
 
@@ -325,11 +325,46 @@ function checkGeneratedUrls(docsDir) {
 	return errors
 }
 
+const USAGE = `Validate the docs tree: frontmatter, code fences, nav entries and internal links.
+
+  pnpm run docs:check
+  node scripts/docs-check.mjs --dist    # check the built output instead
+
+Options:
+  --dist       check that every URL in the generated llms.txt files names a built page
+  -h, --help   show this message`
+
+/**
+ * Every `scripts/*.mjs` must have a row in `scripts/README.md`'s table.
+ *
+ * That table's own premise is that "the single most useful fact about a script here is not what
+ * it does but whether anything runs it", which is worth nothing if a script can be added without
+ * anyone answering the question. Four were missing when this was written, two of them
+ * (`path-refs.mjs`, `run-steps.mjs`) in every aggregate the repo has.
+ *
+ * `path-refs.mjs` does not catch this: it checks that cited paths resolve, not that every file
+ * is cited. The test is deliberately just "the basename appears in a backticked cell" -- what
+ * the row *says* is a human's job; that there is one is not.
+ * @returns {string[]} one error per script with no row
+ */
+function checkScriptsTable() {
+	const dir = path.join(ROOT, 'scripts')
+	const readme = path.join(dir, 'README.md')
+	if (!existsSync(readme)) return ['scripts/README.md: missing']
+	const text = readFileSync(readme, 'utf8')
+	const documented = new Set([...text.matchAll(/\|\s*`([^`]+)`\s*\|/g)].map((m) => m[1]))
+	return readdirSync(dir)
+		.filter((name) => name.endsWith('.mjs'))
+		.filter((name) => !documented.has(name))
+		.map((name) => `scripts/README.md: no table row for \`${name}\` — say what it does and what runs it`)
+}
+
 /** @param {string[]} argv */
 function main(argv) {
+	const { values } = parseCliOrExit(argv, { usage: USAGE, options: { dist: { type: 'boolean', default: false } } })
 	const docsDir = requireDocsDir('docs:check')
 
-	if (argv.includes('--dist')) {
+	if (values.dist) {
 		const errors = checkGeneratedUrls(docsDir)
 		if (errors.length > 0) {
 			for (const error of errors) console.error(`docs:check: ${error}`)
@@ -344,7 +379,7 @@ function main(argv) {
 	const routes = new Set()
 	for (const rel of relPaths) for (const route of routesFor(rel)) routes.add(route)
 
-	const errors = [...checkDocsJson(docsDir, relPaths)]
+	const errors = [...checkDocsJson(docsDir, relPaths), ...checkScriptsTable()]
 	for (const rel of relPaths) {
 		errors.push(
 			...checkFrontmatter(docsDir, rel),

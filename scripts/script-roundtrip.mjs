@@ -31,7 +31,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { ROOT, parseCliOrExit } from './script-utils.mjs'
+import { ROOT, corpusDecks, parseCliOrExit, resolveCorpusDir } from './script-utils.mjs'
 import { Presentation } from '../dist/read.js'
 import { canonicalDeckIr, diffDeckIr, printScript, printStandaloneScript, readModelToIr } from '../dist/script.js'
 
@@ -71,20 +71,14 @@ if (tier !== 'a' && tier !== 'b') {
 	console.error('\n' + USAGE)
 	process.exit(2)
 }
-// `resolve`, not `join`: an absolute `--dir` must win outright, so a corpus of real decks
-// can live outside the repo rather than under a gitignore rule inside the working tree.
-const DIR = path.resolve(ROOT, values.dir ?? path.join('test', 'read', 'fixtures'))
+const DIR = resolveCorpusDir(values.dir)
 
 // Inside the repo rather than the OS temp directory, and required to be: the emitted script
 // imports this package by its published name, which Node resolves by the self-reference rule
 // only from a path underneath the package root. `/.tmp/` is gitignored.
 const SCRATCH = path.join(ROOT, '.tmp')
 
-const names = (await fs.readdir(DIR)).filter((name) => name.endsWith('.pptx') && (!only || name === only)).sort()
-if (names.length === 0) {
-	console.error(`no .pptx files in ${DIR}${only ? ` matching ${only}` : ''}`)
-	process.exit(1)
-}
+const names = await corpusDecks({ dir: DIR, only })
 
 await fs.mkdir(SCRATCH, { recursive: true })
 

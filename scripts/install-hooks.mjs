@@ -26,10 +26,9 @@
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+import { ROOT } from './script-utils.mjs'
 
 /**
  * A `git` query, or undefined when git declines to answer — no repo, or the key is unset.

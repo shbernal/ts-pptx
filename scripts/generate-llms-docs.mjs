@@ -2,6 +2,23 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { parseCliOrExit } from './script-utils.mjs'
+
+// No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
+// line -- and both have to happen BEFORE the generator writes anything.
+parseCliOrExit(process.argv.slice(2), {
+	usage: `Generate docs/public/llms.txt and llms-full.txt from the docs tree.
+
+  pnpm run docs:llms
+
+Environment:
+  DOCS_BASE_URL   site base URL for the emitted links
+
+Options:
+  -h, --help      show this message`,
+	options: {},
+})
+
 const root = process.cwd()
 const docsDir = path.join(root, 'docs')
 const publicDir = path.join(docsDir, 'public')

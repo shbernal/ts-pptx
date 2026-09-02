@@ -28,8 +28,15 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 
 ## The scripts
 
+Every `*.mjs` in this directory has a row, and `docs-check.mjs` fails when one does not: the
+premise above -- that the most useful fact about a script here is whether anything runs it --
+is worth nothing if a script can be added without answering the question. Four were missing
+when the check was written, including `path-refs.mjs` and `run-steps.mjs`, which between them
+are in every aggregate the repo has.
+
 | Script | Kind | What it does | Runs in |
 |---|---|---|---|
+| `alias-package.mjs` | Library | Repacks the tarball under the alias package name for the dual publish | `publish.yml` |
 | `append-ceiling.mjs` | Diagnostic | What survives appending an authored slide to a template deck | manual (`read:append-ceiling`) |
 | `browser-harness-server.mjs` | Library | Static server for the Playwright harness | started by `playwright.config.ts` |
 | `bundle-size-ratchet.mjs` | Gate | Gzipped size of the browser entry's closure vs `bundle-size-budget.json` | `verify:full`, `check:package` |
@@ -37,7 +44,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
-| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`; `docs:build` twice — once on the source tree, once on the build — and `docs:build` is in `verify` and `check:static`, so it gates CI too |
+| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `verify` and `check:static`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
 | `docs-init.mjs` | Generator | Scaffolds the docs kit; inert in this repo | manual (`docs:init`) |
@@ -49,20 +56,26 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
 | `libreoffice-render-smoke.mjs` | Gate | Renders decks in LibreOffice, the one renderer here with no SmartArt layout engine, and reads the painted text back | manual, needs LibreOffice + `pdftotext` (`test:lo`) |
+| `note-census.mjs` | Diagnostic | How many fixtures raise each declared fidelity note, per tier | manual (`script:census`) |
 | `ooxml-version-probe.mjs` | Diagnostic | Validator error counts across Office versions | manual (`schema:versions`) |
 | `pack-utils.mjs` | Library | `pnpm pack` helpers for the two package gates | — |
 | `package-lint.mjs` | Gate | `publint` + `attw` on the packed tarball | `verify:full`, `check:package` |
 | `package-smoke.mjs` | Gate | Installs the tarball and exercises every subpath | `verify:full`, `check:package` |
-| `pptx-parts.mjs` | Library | Explode/diff `.pptx` packages | — |
+| `path-refs.mjs` | Gate | Every backticked repo path in the tree must name a file that exists | `verify`, `check:static` |
+| `png-utils.mjs` | Library | Minimal PNG encode/decode, for the gates that read pixels | `powerpoint-com-smoke.mjs`; unit-tested |
 | `powerpoint-com-smoke.mjs` | Gate | Opens decks in desktop PowerPoint over COM | manual, Windows only (`test:com`) |
+| `pptx-parts.mjs` | Library | Explode/diff `.pptx` packages | — |
 | `raw-xml-ratchet.mjs` | Gate | Hand-built XML per file vs `raw-xml-budget.json` | `verify`, `check:static` |
 | `read-blindness-census.mjs` | Diagnostic | Which OOXML the read model never looks at | manual (`read:census`) |
 | `read-emit-edits.mjs` | Generator | Edited decks for the manual PowerPoint check | manual |
 | `read-emit-roundtrip.mjs` | Generator | `load()`→`save()` decks for the manual PowerPoint check | manual |
+| `run-steps.mjs` | Library | Runs a list of package scripts as one sequence; assembles all four aggregates | `verify`, `verify:full`, `check:static`, `check:package` |
 | `script-roundtrip.mjs` | Gate | Generated script must rebuild the deck it came from | `verify:full`, CI |
 | `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
 | `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
 | `xml-equivalence.mjs` | Library | Proves two XML parts differ only in inert inter-element whitespace | `byte-identity.mjs prove-whitespace`; unit-tested |
+| `com/` | Library | The COM smoke's four deck builders, its VBScript templates, and the contract the verifiers share with them | `powerpoint-com-smoke.mjs` |
+| `gate-decks/` | Library | The four showcase decks the byte-identity harness builds, as one module per deck | `byte-identity.mjs` |
 
 ### Why four of these are manual on purpose
 

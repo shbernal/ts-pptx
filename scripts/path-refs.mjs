@@ -63,7 +63,7 @@ const ROOT_FILES = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 
  * and held three of the seven dead ones. The binary decks beside it are skipped by extension,
  * not by directory, so there is nothing to gain by excluding the tree.
  */
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', '.vitepress', 'output'])
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', 'output'])
 
 /**
  * Generated trees that sit *inside* a scan root, so they cannot be excluded by directory name:
@@ -80,8 +80,15 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', '
  * Nothing is lost by not walking them: TypeDoc copies its citations out of TSDoc comments in
  * `src/`, where this gate already reads them at the source. Every one of the ten citations the
  * generated tree contributed was such a duplicate.
+ *
+ * `docs/.vitepress/cache` is Vite's dependency pre-bundle, on the same grounds. Its siblings
+ * are not generated -- `config.mts` and `theme/index.ts` are hand-written and are cited by
+ * name from `docs/development.md` and `www/README.md` -- so the whole of `.vitepress` used to
+ * be excluded by directory name and those two citations resolved only because `resolves()`
+ * consulted the filesystem behind the walk's back. `.vitepress/dist` needs no entry: `dist` is
+ * excluded by name wherever it appears.
  */
-const SKIP_PATHS = new Set(['docs/reference/api'])
+const SKIP_PATHS = new Set(['docs/reference/api', 'docs/.vitepress/cache'])
 
 /** Only these carry citations worth resolving; a `.png` or `.pptx` is an asset, not a claim. */
 const CITED_EXT = /\.(ts|mts|tsx|js|mjs|cjs|jsx|vue|md|json|jsonc|yml|yaml|html|css|tsv)$/
@@ -180,7 +187,21 @@ function rel(file) {
 }
 
 /**
- * Does `token` name a real file? Three ways, plus the ESM `.js` → `.ts` swap.
+ * Does `token` name a real file? Three ways, plus the ESM `.js` -> `.ts` swap.
+ *
+ * All three read the `known` set that {@link collect} builds by walking the scan roots, and
+ * none of them touches the filesystem. That is the point: `existsSync` is case-INSENSITIVE on
+ * NTFS and case-SENSITIVE on ext4, so the root- and file-relative arms used to answer one way
+ * on Windows and another on Linux while the suffix arm was case-exact everywhere -- the two
+ * halves of this function disagreeing with each other on the same machine. An author here
+ * could write `src/gen/Chart/plot-bar.ts`, watch `verify` pass, and have `check:static` fail
+ * on `ubuntu-latest`; a citation whose case is right today could survive a future rename that
+ * only changed case. Both are the header's own complaint one paragraph up: a verdict that is a
+ * property of the machine rather than of the repo.
+ *
+ * The walk is case-exact on every platform because it reads the names the directory reports,
+ * so comparing against it removes the difference. It also drops two `stat` syscalls per
+ * candidate.
  * @param {string} token the cited path
  * @param {string} from the citing file, absolute
  * @param {Set<string>} known every repo-relative path in the scanned trees
@@ -190,12 +211,15 @@ function resolves(token, from, known) {
 	// A comment citing `./pattern-fill.js` means the module whose source is `pattern-fill.ts`.
 	if (/\.m?js$/.test(token)) candidates.push(token.replace(/\.js$/, '.ts').replace(/\.mjs$/, '.mts'))
 
+	const fromDir = path.posix.dirname(rel(from))
 	for (const candidate of candidates) {
-		if (existsSync(path.resolve(ROOT, candidate))) return true
-		if (existsSync(path.resolve(path.dirname(from), candidate))) return true
-		// Suffix match, on a `/` boundary so `types.ts` cannot satisfy `shapes/types.ts`.
 		const bare = candidate.replace(/^(\.{1,2}\/)+/, '')
+		// Relative to the repo root.
 		if (known.has(bare)) return true
+		// Relative to the citing file: `posix.join` collapses the `../` segments the same way
+		// `path.resolve` did, but into a repo-relative key rather than an absolute one.
+		if (known.has(path.posix.normalize(path.posix.join(fromDir, candidate)))) return true
+		// Suffix match, on a `/` boundary so `types.ts` cannot satisfy `shapes/types.ts`.
 		for (const file of known) if (file.endsWith(`/${bare}`)) return true
 	}
 	return false

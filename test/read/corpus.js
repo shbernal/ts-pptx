@@ -17,9 +17,10 @@
 //
 // Not a test file (no `.test.` in the name) — vitest's default glob skips it.
 
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { corpusDecks } from '../../scripts/script-utils.mjs'
 
 export const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures')
 
@@ -69,8 +70,14 @@ export async function readOracle(name) {
 	return JSON.parse(await readFile(fixturePath(`${name}.oracle.json`), 'utf8'))
 }
 
-/** Every `.pptx` in the corpus, in a stable order. */
-export const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
+/**
+ * Every `.pptx` in the corpus, in a stable order.
+ *
+ * Enumerated by `scripts/script-utils.mjs`, which is also what the round trip, the two censuses
+ * and the snapshot generator call, so this list and theirs cannot disagree about what the corpus
+ * is. The floor below is this module's own addition on top of it.
+ */
+export const fixtureNames = await corpusDecks({ dir: FIXTURES })
 
 // A floor, not a pin: fixtures are added often and pinning the count would fail on every
 // addition, which trains people to edit the number without reading it. Raise it when the

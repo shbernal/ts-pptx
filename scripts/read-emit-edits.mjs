@@ -14,8 +14,7 @@
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
-import { ROOT, parseCliOrExit } from './script-utils.mjs'
+import { FIXTURES_DIR, ROOT, parseCliOrExit, requireDist } from './script-utils.mjs'
 
 const { positionals } = parseCliOrExit(process.argv.slice(2), {
 	usage: `Emit *edited* decks from the read fixtures, for the manual PowerPoint check.
@@ -35,22 +34,10 @@ Options:
 	options: {},
 })
 
-const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
 const outDir = positionals[0] || process.env.TSPPTX_READ_EDITS_DIR || path.join(ROOT, '.tmp', 'read-edits')
 
-const readEntry = path.join(ROOT, 'dist', 'read.js')
-try {
-	await fs.access(readEntry)
-} catch {
-	console.error(
-		`Missing ${path.relative(ROOT, readEntry)}. Run \`pnpm run build\` first (or use \`pnpm run test:read:emit:edits\`).`
-	)
-	process.exit(1)
-}
-// `readEntry` is always `dist/read.js`; the import is dynamic only so the check above can
-// print a build-first message instead of an unresolved-specifier stack.
 const { Presentation, isGraphicFrame } = /** @type {typeof import('../dist/read.js')} */ (
-	await import(pathToFileURL(readEntry).href)
+	await requireDist('read.js', 'test:read:emit:edits')
 )
 
 /**
@@ -59,7 +46,7 @@ const { Presentation, isGraphicFrame } = /** @type {typeof import('../dist/read.
  * @returns {Promise<import('../dist/read.js').Presentation>}
  */
 async function open(name) {
-	return Presentation.load(await fs.readFile(path.join(fixturesDir, `${name}.pptx`)))
+	return Presentation.load(await fs.readFile(path.join(FIXTURES_DIR, `${name}.pptx`)))
 }
 
 /**

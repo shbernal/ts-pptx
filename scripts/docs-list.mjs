@@ -7,6 +7,19 @@
 import path from 'node:path'
 
 import { compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
+import { parseCliOrExit } from './script-utils.mjs'
+
+// No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
+// line -- and both have to happen BEFORE the generator writes anything.
+parseCliOrExit(process.argv.slice(2), {
+	usage: `Print every docs page with its summary and read_when hints.
+
+  pnpm run docs:list
+
+Options:
+  -h, --help   show this message`,
+	options: {},
+})
 
 const docsDir = requireDocsDir('docs:list')
 
