@@ -144,4 +144,52 @@ defineRegressionSuite('Chart embedding parts [legacy bug-17]', [
 			assertIncludes(sheet, '<c r="B3"><v></v></c>', 'a null value is an empty cell')
 		},
 	},
+	{
+		// `table1.xml`'s bubble range used the *column* count where a row count belongs, so one
+		// workbook stated two different extents for the same sheet. `<tableParts>` is deliberately
+		// never emitted, so Excel does not read the part today — but it is relationship-linked
+		// from `sheet1.xml.rels`, and the formula was wrong on its face.
+		name: "a bubble workbook's table range matches its own sheet dimension",
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ name: 'X-Axis', values: [10, 11, 12, 13] },
+						{ name: 'Y1', values: [1, 6, 7, 8], sizes: [4, 5, 6, 7] },
+					],
+					{ type: ChartType.bubble, x: 1, y: 1, w: 6, h: 4 }
+				)
+			})
+			const xlsx = await JSZip.loadAsync(
+				await (await JSZip.loadAsync(buf)).file('ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx').async('arraybuffer')
+			)
+			const table = await xlsx.file('xl/tables/table1.xml').async('string')
+			const sheet = await xlsx.file('xl/worksheets/sheet1.xml').async('string')
+			const tableRef = /<table[^>]*\bref="([^"]+)"/.exec(table)?.[1]
+			const sheetRef = /<dimension ref="([^"]+)"/.exec(sheet)?.[1]
+			assert(tableRef === sheetRef, `one workbook, one extent; table says ${tableRef}, sheet says ${sheetRef}`)
+			// Four X values plus the header row, across 1 + 2 columns.
+			assert(tableRef === 'A1:C5', `expected A1:C5; got ${tableRef}`)
+		},
+	},
+	{
+		name: 'a bubble series with no name still writes the required tableColumn name',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart([{ values: [10, 11] }, { values: [1, 6], sizes: [4, 5] }], {
+					type: ChartType.bubble,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 4,
+				})
+			})
+			const xlsx = await JSZip.loadAsync(
+				await (await JSZip.loadAsync(buf)).file('ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx').async('arraybuffer')
+			)
+			const table = await xlsx.file('xl/tables/table1.xml').async('string')
+			const columns = [...table.matchAll(/<tableColumn [^>]*\/>/g)].map((m) => m[0])
+			columns.forEach((col) => assert(col.includes('name='), '`name` is required on a tableColumn; got: ' + col))
+		},
+	},
 ])

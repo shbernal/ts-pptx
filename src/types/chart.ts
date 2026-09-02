@@ -214,10 +214,6 @@ export interface ChartAreaProps extends ChartPropsFillLine {
 }
 export interface ChartPropsBase {
 	/**
-	 * Axis position
-	 */
-	axisPos?: 'b' | 'l' | 'r' | 't'
-	/**
 	 * Series colours, cycled: series (or, on a pie/doughnut, data point) `n` takes
 	 * `chartColors[n % chartColors.length]`, so a shorter list repeats rather than running out.
 	 *
@@ -471,9 +467,19 @@ export interface ChartPropsAxisVal {
 	 */
 	valAxisLogScaleBase?: number
 	valAxisMajorTickMark?: ChartAxisTickMark
+	/**
+	 * Spacing between major tick marks on the value axis (`c:majorUnit`).
+	 * - PowerPoint: Format Axis > Axis Options > Units > Major
+	 */
 	valAxisMajorUnit?: number
 	valAxisMaxVal?: number
 	valAxisMinorTickMark?: ChartAxisTickMark
+	/**
+	 * Spacing between minor tick marks on the value axis (`c:minorUnit`) — the sibling
+	 * `valAxisMajorUnit` had had for years, while the category and series axes carried both.
+	 * - PowerPoint: Format Axis > Axis Options > Units > Minor
+	 */
+	valAxisMinorUnit?: number
 	valAxisMinVal?: number
 	valAxisOrientation?: 'minMax' | 'maxMin'
 	valAxisTitle?: string

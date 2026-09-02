@@ -310,6 +310,7 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	//
 	options.lineSize = typeof options.lineSize === 'number' ? options.lineSize : 2
 	if (typeof options.valAxisMajorUnit !== 'number') delete options.valAxisMajorUnit
+	if (typeof options.valAxisMinorUnit !== 'number') delete options.valAxisMinorUnit
 
 	if (
 		options._type === ChartType.area ||

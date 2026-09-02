@@ -175,6 +175,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four chart options the emitters dropped or inverted.** None is reachable from the
+  showcase decks, so the byte-identity harness had nothing to say about any of them; each
+  carries its own test instead.
+
+  - **Category and series axis units needed a format code to be emitted.** Three sibling
+    axes had three rules for the same pair of options: the value axis emitted `majorUnit`
+    unconditionally, the category axis only behind `catLabelFormatCode` or an XY chart, and
+    the series axis only behind `serLabelFormatCode`. So
+    `{ type: 'bar3d', catAxisMajorUnit: 3, serAxisMajorUnit: 2, valAxisMajorUnit: 4 }` emitted
+    exactly one element. The *time* units keep that gate — they describe a date axis and
+    PowerPoint recomputes them from the date bounds — and the numeric ones no longer share it.
+  - **A pie's plot-level label flags were constants.** The per-point `<c:dLbl>` honoured
+    `showLabel`/`showPercent`/`showValue`/`showSerName` while the plot-level `<c:dLbls>` wrote
+    `showCatName="1" showPercent="1"` whatever the caller said. The constants were masked
+    while every point carried its own override, which holds only while the pie has labels — so
+    a pie with no `labels` and `{ showPercent: false, showLabel: false }` came back with both
+    of those `false`s inverted. Both blocks read one builder now.
+
+    An unlabelled pie was broken in two more ways by the same assumption: it keyed the slice
+    count on the label count, so it emitted no `<c:dPt>` at all and both sheet ranges ran
+    backwards (`Sheet1!$A$2:$A$1`). The slice count now comes from the values, `<c:cat>` is
+    omitted rather than pointed at an empty range, and a series with neither labels nor values
+    warns and plots nothing.
+  - **The bubble workbook's table range used the column count as a row count.** One embedded
+    workbook stated two different extents for the same sheet — `ref="A1:C3"` in
+    `xl/tables/table1.xml` against `<dimension ref="A1:C5"/>` in `xl/worksheets/sheet1.xml`.
+    Those two and the sheet's own column count now come from one `sheetExtent`. Impact is
+    bounded because `<tableParts>` is deliberately never emitted, so Excel does not read the
+    part; it is still relationship-linked, and the formula was wrong on its face. A bubble
+    series with no name also omitted the schema-required `tableColumn/@name` where the
+    category branch wrote `''`.
+
+- **Added `valAxisMinorUnit`.** `c:minorUnit` is legal on a `c:valAx` and both sibling axes
+  already took a minor unit; only the value axis was missing one.
+
+### Removed
+
+- **`ChartPropsBase.axisPos`.** It was declared and read by nothing — the only `axisPos` in
+  the emitters is a local in `makeValAxis` computed from `barDir` and the axis id, and the
+  category and series axes hardcode their own placement — so `{ axisPos: 't' }` still emitted
+  `<c:axPos val="b"/>`. It was the one fully dead option in a sweep of all 213 names in the
+  chart types. **Migration:** delete the option; it never placed anything. Per-axis placement
+  would want `catAxisLabelPos`-style naming rather than one key shared across three axes.
+
+### Fixed
+
 - **Six options reached an OOXML attribute unchecked.** `ST_Double`, `ST_Percentage`,
   `ST_Skip` and `ST_TextAnchoringType` all reject a `NaN` or an out-of-vocabulary string, so
   each of these was a package PowerPoint reports as needing repair. All six now follow the

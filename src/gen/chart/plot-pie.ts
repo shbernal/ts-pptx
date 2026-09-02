@@ -11,10 +11,11 @@ import { ChartType } from '../../enums.js'
 import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartDataPointStyle } from '../../types/chart.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
+import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { dataValues, firstLabelGroup } from './data-refs.js'
-import { el, raw, voidEl } from '../oxml/el.js'
+import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import {
 	catRefBlock,
 	createChartBorderLine,
@@ -105,13 +106,28 @@ function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOpt
 		chartType === ChartType.pie && opts.dataLabelPosition
 			? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }))
 			: null,
-		...dLblShowFlags({
-			val: customLbl ? 0 : opts.showValue ? 1 : 0,
-			catName: opts.showLabel ? 1 : 0,
-			serName: opts.showSerName ? 1 : 0,
-			percent: opts.showPercent ? 1 : 0,
-		}),
+		...pieLabelFlags(opts, customLbl),
 	])
+}
+
+/**
+ * The four `<c:show*>` flags a pie's data labels carry.
+ *
+ * The per-point `<c:dLbl>` read the caller's options; the plot-level `<c:dLbls>` wrote
+ * `catName: 1, percent: 1` as constants, so a caller's `showLabel: false` and
+ * `showPercent: false` both came back inverted. The constants were masked while every point
+ * carried its own `<c:dLbl>` to override them, which holds only while the pie has labels.
+ * @param opts - the chart's normalized options
+ * @param customLbl - this point's literal label text, which replaces the value and so forces
+ *   `<c:showVal>` off. Absent at the plot level, which states no text of its own.
+ */
+function pieLabelFlags(opts: ChartOptsInternal, customLbl?: string): XmlChild[] {
+	return dLblShowFlags({
+		val: customLbl ? 0 : opts.showValue ? 1 : 0,
+		catName: opts.showLabel ? 1 : 0,
+		serName: opts.showSerName ? 1 : 0,
+		percent: opts.showPercent ? 1 : 0,
+	})
 }
 
 /** The `<c:cat>` slice-name reference, keyed on the label count. */
@@ -163,6 +179,14 @@ export function makePiePlot(
 	if (!optsChartData) return ''
 	const chartColors = resolveChartPalette(opts)
 	const labels = firstLabelGroup(optsChartData)
+	// A pie slices its values, so the values are what decide how many slices there are. Keying
+	// everything on `labels.length` meant an unlabelled pie emitted no `<c:dPt>` at all and
+	// reversed both sheet ranges (`Sheet1!$A$2:$A$1`), because the end row is `count + 1`.
+	const sliceCount = labels.length || dataValues(optsChartData).length
+	if (sliceCount === 0) {
+		warn('chart/point-count-mismatch', 'addChart: a pie/doughnut series with no values plots nothing; skipping it.')
+		return ''
+	}
 
 	// The series' own shape props are a placeholder — every slice overrides them in its `<c:dPt>`.
 	const spPr = el('c:spPr', null, [
@@ -179,7 +203,11 @@ export function makePiePlot(
 
 	// The plot-level `<c:dLbls>` carries the defaults; the per-point ones above it carry the overrides.
 	const dLbls = el('c:dLbls', null, [
-		raw(labels.map((_label, idx) => pieDataLabel(idx, optsChartData.customLabels?.[idx], opts, chartType)).join('')),
+		raw(
+			Array.from({ length: sliceCount }, (_unused, idx) =>
+				pieDataLabel(idx, optsChartData.customLabels?.[idx], opts, chartType)
+			).join('')
+		),
 		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
 		raw(
 			el('c:txPr', null, [
@@ -189,7 +217,7 @@ export function makePiePlot(
 			])
 		),
 		chartType === ChartType.pie ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' })) : null,
-		...dLblShowFlags({ catName: 1, percent: 1 }),
+		...pieLabelFlags(opts),
 		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })),
 		raw(createLeaderLinesElement(opts)),
 	])
@@ -200,13 +228,15 @@ export function makePiePlot(
 		raw(strRefBlock('Sheet1!$B$1', optsChartData.name ?? '')),
 		raw(spPr),
 		raw(
-			labels
-				.map((_label, idx) => pieDataPoint(idx, optsChartData.pointStyles?.[idx], opts, paletteColor(chartColors, idx)))
-				.join('')
+			Array.from({ length: sliceCount }, (_unused, idx) =>
+				pieDataPoint(idx, optsChartData.pointStyles?.[idx], opts, paletteColor(chartColors, idx))
+			).join('')
 		),
 		raw(dLbls),
-		raw(pieCategories(labels)),
-		raw(pieValues(optsChartData, labels.length, valFmtCode)),
+		// `<c:cat>` is optional on a `CT_PieSer`; an unlabelled pie states no category names
+		// rather than referencing an empty range.
+		labels.length > 0 ? raw(pieCategories(labels)) : null,
+		raw(pieValues(optsChartData, sliceCount, valFmtCode)),
 	])
 
 	return el(`c:${chartType}Chart`, null, [

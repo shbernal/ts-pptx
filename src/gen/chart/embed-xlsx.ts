@@ -302,30 +302,60 @@ function buildXlsxSharedStrings(
 }
 
 /**
+ * The embedded worksheet's extent: how many columns and how many rows (header included) the
+ * sheet builder actually writes for this chart kind.
+ *
+ * Three sites derived these two numbers three ways, and one of them was wrong on its face:
+ * `table1.xml`'s bubble range used the *column* count as its row count, so the gate deck's own
+ * bubble chart said `ref="A1:C3"` in one part and `<dimension ref="A1:C5"/>` in the other. The
+ * `<dimension>` in turn always used the first series' value count, which is not how the
+ * category branch decides its rows.
+ *
+ * @param chartObject - the chart rel, for its normalized type
+ * @param data - the chart's series
+ * @param intBubbleCols - the bubble column count (`1 + 2 per Y series`), computed once by the caller
+ */
+function sheetExtent(
+	chartObject: SlideRelChart,
+	data: OptsChartDataInternal[],
+	intBubbleCols: number
+): { colCount: number; rowCount: number } {
+	const first = data[0]
+	const valueRows = dataValues(first).length + 1
+	if (isBubbleChart(chartObject.opts._type)) return { colCount: intBubbleCols, rowCount: valueRows }
+	if (isScatterChart(chartObject.opts._type)) return { colCount: data.length, rowCount: valueRows }
+	// A category-less chartEx layout (a histogram feeds PowerPoint raw observations with no
+	// labels) has no label groups, so the row count falls back to the longest value series --
+	// the same rule the category branch of `buildXlsxSheet` applies when it writes those rows.
+	const categoryRows = firstLabelGroup(first).length || Math.max(0, ...data.map((series) => dataValues(series).length))
+	return { colCount: data.length + dataLabels(first).length, rowCount: categoryRows + 1 }
+}
+
+/**
  * Build the embedded workbook's `xl/tables/table1.xml` (the data table over the sheet range).
  */
 function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], intBubbleCols: number): string {
 	const labelCols = dataLabels(data[0]).length
-	let ref: string
+	const { colCount, rowCount } = sheetExtent(chartObject, data, intBubbleCols)
+	const ref = `A1:${getExcelColName(colCount)}${rowCount}`
 	let columns: string
 	if (isBubbleChart(chartObject.opts._type)) {
-		ref = `A1:${getExcelColName(intBubbleCols)}${intBubbleCols}`
 		let idxColLtr = 1
 		columns = data
 			.map((obj, idx) => {
 				if (idx === 0) return voidEl('tableColumn', { id: idx + 1, name: 'X-Values' })
-				const nameCol = voidEl('tableColumn', { id: idx + idxColLtr, name: obj.name })
+				// `?? ''`, like the category branch below: `name` is required on a `tableColumn`,
+				// so an absent one omitted the attribute rather than writing an empty string.
+				const nameCol = voidEl('tableColumn', { id: idx + idxColLtr, name: obj.name ?? '' })
 				idxColLtr++
 				return nameCol + voidEl('tableColumn', { id: idx + idxColLtr, name: `Size${idx}` })
 			})
 			.join('')
 	} else if (isScatterChart(chartObject.opts._type)) {
-		ref = `A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}`
 		columns = data
 			.map((_obj, idx) => voidEl('tableColumn', { id: idx + 1, name: `${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}` }))
 			.join('')
 	} else {
-		ref = `A1:${getExcelColName(data.length + labelCols)}${firstLabelGroup(data[0]).length + 1}`
 		// The leading columns are the label groups; the series follow them.
 		columns =
 			dataLabels(data[0])
@@ -333,15 +363,10 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 				.join('') +
 			data.map((obj, idx) => voidEl('tableColumn', { id: idx + labelCols + 1, name: obj.name ?? '' })).join('')
 	}
-	const columnCount = isBubbleChart(chartObject.opts._type)
-		? intBubbleCols
-		: isScatterChart(chartObject.opts._type)
-			? data.length
-			: data.length + labelCols
 	return (
 		XML_DECL +
 		el('table', { xmlns: SML_NS, id: 1, name: 'Table1', displayName: 'Table1', ref, totalsRowShown: 0 }, [
-			raw(el('tableColumns', { count: columnCount }, raw(columns))),
+			raw(el('tableColumns', { count: colCount }, raw(columns))),
 			raw(
 				voidEl('tableStyleInfo', {
 					showFirstColumn: 0,
@@ -388,7 +413,7 @@ function buildXlsxSheet(
 	const sheetRow = (row: number, span: number, cells: string): string =>
 		el('row', { r: row, spans: `1:${span}` }, raw(cells))
 
-	const colCount = isBubble ? intBubbleCols : isScatter ? data.length : data.length + labelCols
+	const { colCount, rowCount } = sheetExtent(chartObject, data, intBubbleCols)
 	let rows = ''
 
 	if (isBubble) {
@@ -547,7 +572,7 @@ function buildXlsxSheet(
 				'xmlns:x14ac': 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac',
 			},
 			[
-				raw(voidEl('dimension', { ref: `A1:${getExcelColName(colCount)}${dataValues(data[0]).length + 1}` })),
+				raw(voidEl('dimension', { ref: `A1:${getExcelColName(colCount)}${rowCount}` })),
 				raw(sheetView),
 				raw(voidEl('sheetFormatPr', { baseColWidth: 10, defaultRowHeight: 16 })),
 				raw(el('sheetData', null, raw(rows))),

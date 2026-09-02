@@ -125,22 +125,23 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	const catLabelSkip = positiveIntAttr(opts.catAxisLabelFrequency, 'catAxisLabelFrequency')
 	const valAxisCrossing = axisCrossing(opts.valAxisCrossesAt, 'autoZero', 'valAxisCrossesAt')
 
-	// PPT auto-adjusts these once it has calculated the date bounds, so they are emitted only when
-	// the caller asked for them. Major/minor units are also allowed on a double value axis.
+	// The TIME units are gated on a format code because they describe a date axis and PowerPoint
+	// auto-adjusts them once it has calculated the date bounds. The numeric major/minor units are
+	// not: they are an `xsd:double` spacing that applies to any category axis, and the value axis
+	// below has always emitted its own with no gate at all. Gating them here meant
+	// `{ type: 'bar3d', catAxisMajorUnit: 3, valAxisMajorUnit: 4 }` emitted exactly one element.
 	let units = ''
-	if (opts.catLabelFormatCode || usesValueAxisForCategories) {
-		if (opts.catLabelFormatCode) {
-			// All three resolved before any is emitted, so the warnings still arrive in option order.
-			const baseTimeUnit = validTimeUnit(opts.catAxisBaseTimeUnit, 'catAxisBaseTimeUnit')
-			const majorTimeUnit = validTimeUnit(opts.catAxisMajorTimeUnit, 'catAxisMajorTimeUnit')
-			const minorTimeUnit = validTimeUnit(opts.catAxisMinorTimeUnit, 'catAxisMinorTimeUnit')
-			if (baseTimeUnit) units += voidEl('c:baseTimeUnit', { val: baseTimeUnit })
-			if (majorTimeUnit) units += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
-			if (minorTimeUnit) units += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
-		}
-		if (opts.catAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.catAxisMajorUnit })
-		if (opts.catAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.catAxisMinorUnit })
+	if (opts.catLabelFormatCode) {
+		// All three resolved before any is emitted, so the warnings still arrive in option order.
+		const baseTimeUnit = validTimeUnit(opts.catAxisBaseTimeUnit, 'catAxisBaseTimeUnit')
+		const majorTimeUnit = validTimeUnit(opts.catAxisMajorTimeUnit, 'catAxisMajorTimeUnit')
+		const minorTimeUnit = validTimeUnit(opts.catAxisMinorTimeUnit, 'catAxisMinorTimeUnit')
+		if (baseTimeUnit) units += voidEl('c:baseTimeUnit', { val: baseTimeUnit })
+		if (majorTimeUnit) units += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
+		if (minorTimeUnit) units += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
 	}
+	if (opts.catAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.catAxisMajorUnit })
+	if (opts.catAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.catAxisMinorUnit })
 
 	return el(tag, null, [
 		raw(voidEl('c:axId', { val: axisId })),
@@ -275,6 +276,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		raw(crosses),
 		raw(voidEl('c:crossBetween', { val: crossBetween })),
 		opts.valAxisMajorUnit ? raw(voidEl('c:majorUnit', { val: opts.valAxisMajorUnit })) : null,
+		opts.valAxisMinorUnit ? raw(voidEl('c:minorUnit', { val: opts.valAxisMinorUnit })) : null,
 		opts.valAxisDisplayUnit
 			? raw(
 					el('c:dispUnits', null, [
@@ -312,8 +314,8 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
 	const serLabelSkip = positiveIntAttr(opts.serAxisLabelFrequency, 'serAxisLabelFrequency')
 
-	// PPT auto-adjusts these once it has calculated the date bounds, so they are emitted only when
-	// the caller asked for them.
+	// Time units on a format code, numeric units unconditionally — the same split as the
+	// category axis above and the value axis below. See the note there.
 	let units = ''
 	if (opts.serLabelFormatCode) {
 		// All three resolved before any is emitted, so the warnings still arrive in option order.
@@ -327,9 +329,9 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		if (baseTimeUnit) units += ` <c:baseTimeUnit  val="${baseTimeUnit}"/>`
 		if (majorTimeUnit) units += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
 		if (minorTimeUnit) units += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
-		if (opts.serAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.serAxisMajorUnit })
-		if (opts.serAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.serAxisMinorUnit })
 	}
+	if (opts.serAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.serAxisMajorUnit })
+	if (opts.serAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.serAxisMinorUnit })
 
 	return el('c:serAx', null, [
 		raw(voidEl('c:axId', { val: axisId })),

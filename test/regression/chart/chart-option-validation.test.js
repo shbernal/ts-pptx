@@ -300,4 +300,56 @@ defineRegressionSuite('Chart option validation', [
 			assertIncludes(await chartXml(zip), '<c:tickLblSkip val="2"/>', 'every other label')
 		},
 	},
+	{
+		// Three sibling axes had three rules for the same pair of options: the value axis emitted
+		// them unconditionally, the category axis only behind a format code or an XY chart, and the
+		// series axis only behind a format code. So this deck used to emit exactly one element.
+		name: 'all three axes emit their numeric major/minor units',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					type: ChartType.bar3d,
+					catAxisMajorUnit: 3,
+					catAxisMinorUnit: 1,
+					serAxisMajorUnit: 2,
+					valAxisMajorUnit: 4,
+					valAxisMinorUnit: 2,
+				})
+			})
+			const xml = await chartXml(zip)
+			const units = [...xml.matchAll(/<c:(major|minor)Unit val="(\d+)"\/>/g)].map((m) => `${m[1]}:${m[2]}`)
+			assertEqual(
+				JSON.stringify(units.sort()),
+				JSON.stringify(['major:2', 'major:3', 'major:4', 'minor:1', 'minor:2'].sort()),
+				'every axis unit reaches the part; got ' + JSON.stringify(units)
+			)
+		},
+	},
+	{
+		name: 'the time units stay behind their format code',
+		fn: async () => {
+			// Their gate is real: PowerPoint auto-adjusts them once it has the date bounds, and
+			// they belong to a `c:dateAx`. Only the numeric siblings came out from behind it.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, catAxisMajorTimeUnit: 'months' })
+			})
+			assertNotIncludes(await chartXml(zip), '<c:majorTimeUnit', 'no format code, no date axis, no time unit')
+		},
+	},
+	{
+		// `axisPos` was declared on `ChartPropsBase` and read by nothing: the only `axisPos` in
+		// `src/` is a local in `makeValAxis` computed from `barDir` and the axis id. Per-axis
+		// placement wants `catAxisLabelPos`-style naming, not one key shared across three axes.
+		name: 'axisPos placed nothing, which is why it could be removed',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, axisPos: 't' })
+			})
+			const xml = await chartXml(zip)
+			assertIncludes(xml, '<c:axPos val="b"/>', 'the category axis is still placed from barDir')
+			assertIncludes(xml, '<c:axPos val="l"/>', 'and so is the value axis')
+			assertNotIncludes(xml, '<c:axPos val="t"/>', 'the option never placed anything')
+		},
+	},
 ])
