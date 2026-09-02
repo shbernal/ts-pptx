@@ -208,6 +208,7 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// would excuse an image fill that failed to come back at all, which is the thing the
 	// round trip is here to catch.
 	'fill.picture.geometry': [],
+	'fill.gradient.schemeToken': ['gradient', 'fill'],
 	'fill.schemeToken': ['fill', 'color'],
 	'graphicFrame.unknown': ['*'],
 	'group.child': ['*'],
@@ -290,8 +291,15 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// same reasons.
 	'table.cell.fill.picture': ['fill'],
 	'table.cell.fill.picture.geometry': [],
+	// The table-side twins of `fill.schemeToken` / `text.color.schemeToken`: one of the seven
+	// `ST_SchemeColorVal` tokens the write path's `clrMap` does not carry, baked to the literal
+	// it resolves to. Three sites used to pass one through RAW, so the generated script warned
+	// `color/invalid-value` and painted the default text colour instead.
+	'table.cell.fill.schemeToken': ['fill', 'color'],
+	'table.cell.borders.schemeToken': ['border', 'diagonal'],
 	// The table-background twins. Scoped to `tableFill` rather than `fill`, because those are
 	// two different options: one lands on `a:tblPr`, the other is stamped onto every cell.
+	'table.fill.schemeToken': ['tableFill', 'color'],
 	'table.fill.picture': ['tableFill'],
 	'table.fill.picture.geometry': [],
 	// A gradient that cannot be expressed falls back to no gradient, so the difference lands
@@ -401,7 +409,7 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 		difference.declaredBy !== null || (difference.kind === 'added' && difference.field in WRITER_DEFAULTS)
 
 	return {
-		slideCount: expected.slides.length,
+		slideCount: Math.max(expected.slides.length, actual.slides.length),
 		differences,
 		undeclared: differences.filter((difference) => !accounted(difference)),
 		declared: differences.filter((difference) => difference.declaredBy !== null),

@@ -21,11 +21,15 @@ import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, Slid
 import { shapeCall, unwritableFramePayload, type AssetResolver } from './shape.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
-import { compact, compactRequired, literalColor } from './values.js'
+import { compact, compactRequired, inches, literalColor } from './values.js'
+import { STANDARD_LAYOUTS } from '../../units.js'
 import { assetFilenameExtension } from '../../media/content-type.js'
 
-/** Default slide size (10" × 7.5") for a deck whose `presentation.xml` declares none. */
-const DEFAULT_SLIDE_SIZE = { widthEmu: 9144000, heightEmu: 6858000 }
+/** Default slide size for a deck whose `presentation.xml` declares none: the 10in × 7.5in 4:3 layout. */
+const DEFAULT_SLIDE_SIZE = {
+	widthEmu: STANDARD_LAYOUTS.LAYOUT_4x3.widthEmu,
+	heightEmu: STANDARD_LAYOUTS.LAYOUT_4x3.heightEmu,
+}
 
 /**
  * Collects media as shapes reference it, assigning each part a stable sequential name.
@@ -85,7 +89,7 @@ export function readModelToIr(pres: Presentation): DeckIr {
 			'deck.slideSize',
 			'approximated',
 			'unsupported',
-			`this deck declares no slide size, so the output uses the ${DEFAULT_SLIDE_SIZE.widthEmu / 914400}in × ${DEFAULT_SLIDE_SIZE.heightEmu / 914400}in default`
+			`this deck declares no slide size, so the output uses the ${inches(DEFAULT_SLIDE_SIZE.widthEmu)}in × ${inches(DEFAULT_SLIDE_SIZE.heightEmu)}in default`
 		)
 	}
 

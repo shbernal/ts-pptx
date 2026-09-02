@@ -49,8 +49,7 @@ export function pictureFillOption(
 	return compactRequired({
 		type: 'image',
 		image: compactRequired({ crop, data: asset }),
-		// Fully opaque passes as `undefined` rather than `0`; see `alphaToTransparency`.
-		transparency: picture.alpha === 1 ? undefined : alphaToTransparency(picture.alpha),
+		transparency: alphaToTransparency(picture.alpha),
 	})
 }
 

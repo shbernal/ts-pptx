@@ -175,6 +175,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four converter policies were honoured by the shape mapper and skipped elsewhere.** Each
+  produced a silently different deck with *no fidelity note*, which is why the round trip
+  could not see them: it excludes exactly the declared losses, and an undeclared one is
+  invisible when both IRs come from the same reader.
+
+  - **An unwritable `schemeClr` token reached the script raw** from the table fill, the cell
+    fill and the cell border. Only ten of the seventeen `ST_SchemeColorVal` values survive
+    the write path's `clrMap`; the other seven degrade to a hex literal there anyway, so a
+    cell filled `<a:schemeClr val="dk1"/>` emitted `fill: { color: 'dk1' }` and the generated
+    script warned `color/invalid-value` and painted the cell the default text colour. A
+    gradient stop degraded in the other direction — baked correctly, but with no note. All
+    seven sites share one ladder now, and `table.fill.schemeToken`,
+    `table.cell.fill.schemeToken`, `table.cell.borders.schemeToken` and
+    `fill.gradient.schemeToken` join the note vocabulary.
+  - **A graphic frame with no resolvable absolute frame emitted no geometry at all.** The
+    shape mapper falls back to `resolvedFrame` and says so, because omitting geometry
+    produces `x=0 y=0 w=<slide width> h=0` — broken output rather than lossy output. Graphic
+    frames had a second mapper that returned `{}` in exactly that case, so a table or chart
+    inside a group with an unusable transform was an undeclared loss. Both go through one
+    mapper now, and the note's prose no longer reads "takes its geometry from the own" when
+    the shape's own transform was the part that survived.
+  - **A fully opaque source emitted `transparency: 0`.** `alphaToTransparency` documents
+    that fully opaque is `undefined` — the write path emits no `a:alphaModFix` for a zero
+    transparency, so the key cannot come back — and one of its five callers implemented it.
+    The rule is the function's now. It was invisible only because the round-trip
+    canonicaliser drops `transparency: 0` as an implied default, masking it.
+  - **One `masterObject` arm returned `null` with no note**, against the invariant its caller
+    states. It is unreachable today, so the note is defensive rather than a behaviour change.
+
+- **A diff report on an output with extra slides understated its own slide count**: it
+  reported the expected deck's slide count while the loop above it walked the longer of the
+  two.
+
+### Fixed
+
 - **`pptx.tableLayout()` and the file disagreed about `cy`.** `cy` is the already-resolved
   EMU table height the auto-pager and the measured-fit pass stamp onto a table's options, and
   only the fit pass read it. So `addTable(rows, { cy })` with no `h` produced a file whose

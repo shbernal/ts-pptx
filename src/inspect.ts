@@ -29,7 +29,8 @@ import type { AnyShape } from './read/api/shapes.js'
 import type { GraphicFrame } from './read/api/shapes/graphic-frame.js'
 import type { Run, TextFrame } from './read/api/text.js'
 import { ELEMENT_NODE, OOXML_NS, attr, firstChild, numberValue, type Element } from './read/oxml/dom.js'
-import { STANDARD_LAYOUTS, emuToInches } from './units.js'
+import { POINTS_PER_INCH, STANDARD_LAYOUTS, emuToInches } from './units.js'
+import { BODY_INSET_DEFAULTS_PT } from './ooxml/body-insets.js'
 
 /**
  * Input to the inspect surface. A `string` is a **filesystem path** (Node) read
@@ -499,23 +500,18 @@ function toRun(run: Run): PptxTextRun {
 	}
 }
 
-// PowerPoint body-inset defaults (ECMA-376 §21.1.2.1.1 prose; the XSD leaves
-// lIns/tIns/rIns/bIns optional with no schema default): 0.1in left/right,
-// 0.05in top/bottom. The read model reports only the explicitly-set sides.
-const DEFAULT_INSET_LR_IN = 0.1
-const DEFAULT_INSET_TB_IN = 0.05
-const POINTS_PER_INCH = 72
-
 function readBodyInsets(textFrame: TextFrame | null): PptxBodyInsets | null {
 	const insets = textFrame?.bodyProperties?.insetsPt
 	if (!insets) return null
-	const inches = (pt: number | undefined, fallback: number): number =>
-		pt === undefined ? fallback : pt / POINTS_PER_INCH
+	// The read model reports only the explicitly-set sides; an omitted one takes PowerPoint's
+	// own default rather than zero.
+	const inches = (pt: number | undefined, fallbackPt: number): number =>
+		(pt === undefined ? fallbackPt : pt) / POINTS_PER_INCH
 	return {
-		left: inches(insets.left, DEFAULT_INSET_LR_IN),
-		top: inches(insets.top, DEFAULT_INSET_TB_IN),
-		right: inches(insets.right, DEFAULT_INSET_LR_IN),
-		bottom: inches(insets.bottom, DEFAULT_INSET_TB_IN),
+		left: inches(insets.left, BODY_INSET_DEFAULTS_PT.left),
+		top: inches(insets.top, BODY_INSET_DEFAULTS_PT.top),
+		right: inches(insets.right, BODY_INSET_DEFAULTS_PT.right),
+		bottom: inches(insets.bottom, BODY_INSET_DEFAULTS_PT.bottom),
 	}
 }
 

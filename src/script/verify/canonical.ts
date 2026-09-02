@@ -19,6 +19,7 @@
  * as a normalisation.
  */
 import { asIrValue, isAssetRef, type AssetIr, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
+import { BODY_INSET_DEFAULTS_IN } from '../../ooxml/body-insets.js'
 
 /** One write-API call, with the source shape name lifted out as an address rather than data. */
 export interface CanonicalCall {
@@ -132,13 +133,6 @@ const IMPLIED_DEFAULTS: Record<string, IrValue> = {
 	textDirection: 'horz',
 }
 
-/**
- * `a:bodyPr`'s default insets in inches, in the write API's `[top, right, bottom, left]`
- * order: 45720 EMU (0.05in, 3.6pt) top and bottom, 91440 EMU (0.1in, 7.2pt) left and right.
- * A body that spells them out is inset exactly as one that omits them.
- */
-const DEFAULT_MARGIN: readonly number[] = [0.05, 0.1, 0.05, 0.1]
-
 /** Reduce a deck IR to the comparable form. */
 export function canonicalDeckIr(ir: DeckIr): CanonicalDeck {
 	const digests = assetDigests(ir.assets)
@@ -229,8 +223,8 @@ function canonicalValue(value: IrValue, digests: Map<string, string>): IrValue {
 function isDefaultMargin(value: IrValue): boolean {
 	return (
 		Array.isArray(value) &&
-		value.length === DEFAULT_MARGIN.length &&
-		value.every((item, index) => item === DEFAULT_MARGIN[index])
+		value.length === BODY_INSET_DEFAULTS_IN.length &&
+		value.every((item, index) => item === BODY_INSET_DEFAULTS_IN[index])
 	)
 }
 

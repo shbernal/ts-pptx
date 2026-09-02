@@ -30,13 +30,13 @@
  */
 import type { DeckIr, SlideIr } from '../ir.js'
 import { LAYOUT_NOTE_PREFIX, NoteCollector, scopeNotes } from '../fidelity.js'
-import { inches } from '../from-read/values.js'
 import { printString, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
 	assetPrinter,
 	header,
 	printAssetBindings,
+	printLayoutSetup,
 	printSlide,
 	printedScript,
 	resolvePrintOptions,
@@ -181,9 +181,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 		' * throws when they differ, so the inches here must round-trip to the source EMU.',
 		' */',
 		'function generator(): TsPptx {',
-		'\tconst pptx = new TsPptx()',
-		`\tpptx.defineLayout({ name: 'source', width: ${inches(ir.slideSize.widthEmu)}, height: ${inches(ir.slideSize.heightEmu)} })`,
-		"\tpptx.layout = 'source'",
+		...printLayoutSetup(ir.slideSize, '\t'),
 		'\treturn pptx',
 		'}',
 		...body,

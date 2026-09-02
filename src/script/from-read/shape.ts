@@ -37,7 +37,18 @@ import {
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type AssetRef, type CallIr, type IrValue } from '../ir.js'
-import { alphaToTransparency, compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
+import {
+	alphaToTransparency,
+	compact,
+	emu,
+	isWritableSchemeToken,
+	literalColor,
+	nameOf,
+	orUndefined,
+	positionOptions,
+	schemeColorOption,
+	WRITABLE_DASHES,
+} from './values.js'
 import { gradientStops, patternOption } from './surface-fill.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
@@ -45,7 +56,6 @@ import { textFrameOptions, textRuns } from './text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
 import { PERCENT_SCALE } from '../../units.js'
-import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 
 /** Resolves an image/media part name to bytes the deck-level walk has registered. */
 export interface AssetResolver {
@@ -71,9 +81,6 @@ const SHAPE_PICTURE_FILL: PictureFillSubject = {
 
 /** Arrowhead types `ShapeLineProps` accepts; `a:headEnd/@type` uses the same tokens. */
 const WRITABLE_ARROWS = new Set(['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'])
-
-/** Dash tokens `ShapeLineProps.dashType` accepts — the whole `ST_PresetLineDashVal` set. */
-const WRITABLE_DASHES = new Set<string>(PRESET_LINE_DASHES)
 
 /**
  * `a:ln/@cap` tokens → the `ShapeLineProps.cap` spelling that authors them. The read side
@@ -128,33 +135,6 @@ function noteHidden(notes: NoteScope): void {
 /* ===== position, fill, line, effects — shared by every shape kind ===== */
 
 /**
- * Position as `Coord`-typed EMU strings, so the source geometry survives exactly.
- *
- * `absoluteFrame` rather than the raw `left`/`top`: a shape inside a group is positioned in
- * its group's child coordinate space, which a flattened call list cannot express, so the
- * group transform has to be composed in here. For a top-level shape the two are identical.
- */
-function positionOptions(shape: AnyShape, notes?: NoteScope): Record<string, IrValue> {
-	const frame = shape.absoluteFrame
-	if (frame) return { x: emu(frame.left), y: emu(frame.top), w: emu(frame.width), h: emu(frame.height) }
-
-	// No transform of its own — a placeholder taking its geometry from the layout or master.
-	// `resolvedFrame` walks that chain, and using it is not optional: omitting the geometry
-	// does *not* leave it to be inherited, because a regenerated slide's placeholder inherits
-	// nothing. It produces `x=0 y=0 w=<slide width> h=0` — a zero-height box in the corner,
-	// which is broken output rather than lossy output.
-	const resolved = shape.resolvedFrame
-	if (!resolved) return {}
-	notes?.note(
-		'shape.frameInherited',
-		'flattened',
-		'unsupported',
-		`this shape has no transform of its own and takes its geometry from the ${resolved.source}; a regenerated slide inherits nothing, so the resolved position is baked in and stops tracking later edits to that ${resolved.source}`
-	)
-	return { x: emu(resolved.left), y: emu(resolved.top), w: emu(resolved.width), h: emu(resolved.height) }
-}
-
-/**
  * Rotation and flips. Taken from `absoluteFrame`, which composes enclosing group rotations
  * and XOR-composes group flips — the same reason position is absolute.
  */
@@ -199,18 +179,12 @@ function fillOption(shape: AnyShape, notes: NoteScope, assets: AssetResolver): I
 
 	const resolved = shape.resolvedFill
 	if (!resolved) return undefined
-	if (scheme !== null) {
-		notes.note(
-			'fill.schemeToken',
-			'approximated',
-			'unwritable',
-			`fill scheme colour "${scheme}" is outside the ten tokens the write path maps, so it is baked to a literal hex and stops tracking the theme`
-		)
-	}
-	return compact({
-		color: literalColor(resolved.effectiveHex),
-		transparency: alphaToTransparency(resolved.alpha),
-	})
+	// The note-and-bake half of the ladder, shared with the six other sites that make this
+	// decision; `??` covers the no-token case, where nothing was noted and the literal stands.
+	const color =
+		schemeColorOption(scheme, resolved.effectiveHex, notes, 'fill.schemeToken', 'fill') ??
+		literalColor(resolved.effectiveHex)
+	return compact({ color, transparency: alphaToTransparency(resolved.alpha) })
 }
 
 /**
@@ -845,11 +819,6 @@ function commonShapeVariant(call: CallIr): IrValue | null {
 	}
 }
 
-/** Attach the source name to a call, when the shape had one. */
-function nameOf(shape: AnyShape): { sourceName?: string } {
-	return shape.name ? { sourceName: shape.name } : {}
-}
-
 /* ===== a layout's own shapes ===== */
 
 /**
@@ -896,7 +865,21 @@ export function masterObject(shape: AnyShape, notes: NoteScope, assets: AssetRes
 			// chart's `type` is read from in the first place.
 			const options = second !== null && typeof second === 'object' && !Array.isArray(second) && !isAssetRef(second) ? second : null // prettier-ignore
 			const type = options?.['type']
-			if (type === undefined || first === undefined) return null
+			// Unreachable today - `chartCall` returns `null` for a chart with no type or no data,
+			// so this arm never sees one - but `collectObjects` states that a `null` from here is
+			// always already noted, and a silent `return null` is the one thing that could break
+			// that invariant if `chartCall` ever loosens.
+			if (type === undefined || first === undefined) {
+				notes
+					.forShape(shape.name || null)
+					.note(
+						'decoration',
+						'dropped',
+						'unwritable',
+						'a chart on a slide layout that names no type or carries no series has no defineSlideMaster({ objects }) variant, so it is dropped from the layout the output rebuilds'
+					)
+				return null
+			}
 			return { chart: compact({ type, data: first, opts: options }) ?? {} }
 		}
 		default:

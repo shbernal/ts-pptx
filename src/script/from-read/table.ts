@@ -20,11 +20,20 @@ import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
 import type { AssetResolver } from './shape.js'
-import { compact, inches, literalColor, orUndefined, positionOfFrame } from './values.js'
+import {
+	ANCHOR_TO_VALIGN,
+	compact,
+	inches,
+	literalColor,
+	nameOf,
+	orUndefined,
+	positionOptions,
+	schemeColorOption,
+	WRITABLE_DASHES,
+} from './values.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { gradientStops, patternOption } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
-import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 
 /** How {@link pictureFillOption}'s notes name a cell. */
 const CELL_PICTURE_FILL: PictureFillSubject = {
@@ -39,9 +48,6 @@ const TABLE_PICTURE_FILL: PictureFillSubject = {
 	subject: 'this table',
 	element: 'a:tblPr/a:blipFill',
 }
-
-/** `a:tcPr/@anchor` → the write API's `valign`. */
-const ANCHOR: Record<string, string> = { t: 'top', ctr: 'middle', b: 'bottom' }
 
 export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, assets: AssetResolver): CallIr {
 	const styleId = table.styleId
@@ -100,7 +106,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 
 	const columnWidths = table.columnWidths
 	const options = compact({
-		...positionOfFrame(frame),
+		...positionOptions(frame, notes),
 		objectName: frame.name || undefined,
 		// The source GUID resolves against the destination's own tableStyles.xml, which a
 		// template-anchored output carries over intact.
@@ -115,7 +121,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 		rowH: rowHeights.every((h) => h === 0) ? undefined : rowHeights.map(inches),
 	})
 
-	return { method: 'addTable', args: [rows, options ?? {}], ...(frame.name ? { sourceName: frame.name } : {}) }
+	return { method: 'addTable', args: [rows, options ?? {}], ...nameOf(frame) }
 }
 
 /**
@@ -140,10 +146,16 @@ function tableFill(table: Table, notes: NoteScope, assets: AssetResolver): IrVal
 	const picture = table.pictureFill
 	if (picture) return pictureFillOption(picture, assets, notes, TABLE_PICTURE_FILL)
 
-	const scheme = table.fillSchemeColor
-	if (scheme !== null) return { color: scheme }
-
 	const resolved = table.resolvedFill
+	const scheme = schemeColorOption(
+		table.fillSchemeColor,
+		resolved?.effectiveHex ?? null,
+		notes,
+		'table.fill.schemeToken',
+		'table fill'
+	)
+	if (scheme !== undefined) return { color: scheme }
+
 	return resolved ? { color: literalColor(resolved.effectiveHex) } : undefined
 }
 
@@ -179,7 +191,7 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 		diagonal: cellDiagonals(cell, notes),
 		anchorCtr: cell.anchorCtr ? true : undefined,
 		cell3D: cellThreeD(cell),
-		valign: anchor === null ? undefined : ANCHOR[anchor],
+		valign: anchor === null ? undefined : ANCHOR_TO_VALIGN[anchor],
 		// `textDirection` reaches `a:tcPr/@vert` through the same table-cell inheritance list every
 		// other cell option uses, so a vertical label survives the round trip. Anything outside the
 		// option's own union would be written back out verbatim as an invalid attribute.
@@ -306,8 +318,14 @@ function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: 
 	const picture = cell.pictureFill
 	if (picture) return pictureFillOption(picture, assets, notes, CELL_PICTURE_FILL)
 
-	const scheme = cell.fillSchemeColor
-	if (scheme !== null) return { color: scheme }
+	const scheme = schemeColorOption(
+		cell.fillSchemeColor,
+		cell.resolvedFill?.effectiveHex ?? null,
+		notes,
+		'table.cell.fill.schemeToken',
+		'cell fill'
+	)
+	if (scheme !== undefined) return { color: scheme }
 
 	// A styled cell with no fill of its own takes the style's banding, and the style GUID
 	// travels with the table — so emitting nothing here is not a loss, it is what keeps the
@@ -340,9 +358,6 @@ function cellBorders(cell: TableCell, notes: NoteScope): IrValue | undefined {
 	return edges.map((edge) => borderIr(edge, notes))
 }
 
-/** The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts — the whole set. */
-const WRITABLE_DASHES = new Set<string>(PRESET_LINE_DASHES)
-
 /**
  * One decoded edge (or diagonal) as `BorderProps`.
  *
@@ -369,7 +384,14 @@ function borderIr(edge: CellBorder | null, notes: NoteScope): IrValue {
 			type: dash === null || dash === 'solid' ? 'solid' : 'dash',
 			// `solid` is what an absent/solid dash already implies, so emitting it would be noise.
 			dashType: known && dash !== null && dash !== 'solid' ? dash : undefined,
-			color: edge.schemeColor ?? (edge.color === null ? undefined : literalColor(edge.color)),
+			color:
+				schemeColorOption(
+					edge.schemeColor,
+					edge.resolvedColor?.effectiveHex ?? null,
+					notes,
+					'table.cell.borders.schemeToken',
+					'cell border'
+				) ?? (edge.color === null ? undefined : literalColor(edge.color)),
 			width: orUndefined(edge.widthPt),
 		}) ?? {}
 	)

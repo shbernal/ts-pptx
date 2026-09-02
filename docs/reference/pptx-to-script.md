@@ -495,6 +495,7 @@ layout, and the round trip would let one excuse the same difference on a *slide*
 | `layout.text.color.inherited` | 4/46 | an inherited run colour on a decorative text box, resolved and baked in |
 | `layout.group` | 2/46 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
 | `layout.fill.schemeToken` | 1/46 | a token outside the ten the write path maps is baked to hex |
+| `layout.fill.gradient.schemeToken` | 1/46 | the same, for a gradient stop's token |
 | `layout.shape.custGeom.guides` | 1/46 | a freeform's guides and adjust handles, as on a slide |
 | `layout.decoration` | 0/46 | a table on a layout: no `SlideMasterObject` variant at all |
 
@@ -502,7 +503,7 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 2 to 13 notes, not fifty (across the corpus: 733
+on. Per deck the tier adds 2 to 13 notes, not fifty (across the corpus: 735
 notes against the template-anchored tier's 433).
 
 ### The read path is the binding constraint

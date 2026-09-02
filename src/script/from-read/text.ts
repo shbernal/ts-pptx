@@ -25,9 +25,10 @@
  * renders correctly, in preference to staying faithful in the IR and wrong on the slide.
  */
 import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
+import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
-import { compact, isWritableSchemeToken, literalColor, orUndefined, pointsToInches } from './values.js'
+import { ANCHOR_TO_VALIGN, compact, literalColor, orUndefined, pointsToInches, schemeColorOption } from './values.js'
 
 /**
  * `a:pPr/@algn` → `HAlign`. `dist` and `thaiDist` (distributed justification) are
@@ -35,9 +36,6 @@ import { compact, isWritableSchemeToken, literalColor, orUndefined, pointsToInch
  * `justify` would be a silent visual change rather than a declared loss.
  */
 const ALIGN: Record<string, string> = { l: 'left', ctr: 'center', r: 'right', just: 'justify' }
-
-/** `a:bodyPr/@anchor` → `VAlign`. */
-const ANCHOR: Record<string, string> = { t: 'top', ctr: 'middle', b: 'bottom' }
 
 /** `AutofitMode` → the write API's `fit`. */
 const FIT: Record<string, string> = { none: 'none', normAutofit: 'shrink', spAutoFit: 'resize' }
@@ -210,19 +208,16 @@ function bulletStyle(bullet: BulletStyle, notes: NoteScope): Record<string, IrVa
  */
 function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined {
 	const scheme = bullet.schemeColor
-	if (isWritableSchemeToken(scheme)) return scheme as string
-	if (bullet.color !== null) return literalColor(bullet.color)
-	const resolved = bullet.resolvedColor
-	if (!resolved) return undefined
-	if (scheme !== null) {
-		notes.note(
+	if (scheme !== null)
+		return schemeColorOption(
+			scheme,
+			bullet.resolvedColor?.effectiveHex ?? null,
+			notes,
 			'text.bullet.schemeToken',
-			'approximated',
-			'unwritable',
-			`bullet scheme colour "${scheme}" is outside the ten tokens the write path maps, so it is baked to a literal hex and stops tracking the theme`
+			'bullet'
 		)
-	}
-	return literalColor(resolved.effectiveHex)
+	if (bullet.color !== null) return literalColor(bullet.color)
+	return bullet.resolvedColor ? literalColor(bullet.resolvedColor.effectiveHex) : undefined
 }
 
 /**
@@ -265,17 +260,8 @@ export function runOptions(run: Run, notes: NoteScope): Record<string, IrValue> 
  */
 function runColor(run: Run, notes: NoteScope): string | undefined {
 	const scheme = run.schemeColor
-	if (isWritableSchemeToken(scheme)) return scheme as string
-	if (scheme !== null) {
-		notes.note(
-			'text.color.schemeToken',
-			'approximated',
-			'unwritable',
-			`scheme colour "${scheme}" is outside the ten tokens the write path maps, so it is baked to a literal hex and stops tracking the theme`
-		)
-		const resolved = run.resolvedColor
-		return resolved ? literalColor(resolved.effectiveHex) : undefined
-	}
+	if (scheme !== null)
+		return schemeColorOption(scheme, run.resolvedColor?.effectiveHex ?? null, notes, 'text.color.schemeToken', 'run')
 	if (run.color !== null) return literalColor(run.color)
 
 	// A run with no colour of its own inherits one, and leaving the option out does *not* pass
@@ -435,7 +421,7 @@ export function textFrameOptions(frame: TextFrame, notes: NoteScope): Record<str
 			// Spelled out even when nothing in the source set it. `resolvedAnchor` returning
 			// null means PowerPoint would default the body to top — but `addText` defaults a
 			// non-placeholder body to *centre*, so leaving the option out re-anchors the text.
-			valign: anchor === null ? 'top' : ANCHOR[anchor],
+			valign: anchor === null ? 'top' : ANCHOR_TO_VALIGN[anchor],
 			// `@wrap` is `square`/`none` in OOXML and a boolean in the write API.
 			wrap: body?.wrap === null || body?.wrap === undefined ? undefined : body.wrap !== 'none',
 			vert: vert !== null && WRITABLE_VERT.has(vert) ? vert : undefined,
@@ -497,7 +483,6 @@ function bakedPct(value: number | null, name: string, notes: NoteScope): number 
  * expressible; an unset side takes PowerPoint's own default rather than zero, so those are
  * spelled out — defaulting them to 0 would visibly reflow every body that sets one side.
  */
-const DEFAULT_INSETS_PT = { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 }
 
 function marginOption(body: BodyProperties | null): IrValue | undefined {
 	const insets = body?.insetsPt
@@ -505,9 +490,9 @@ function marginOption(body: BodyProperties | null): IrValue | undefined {
 	const { left, right, top, bottom } = insets
 	if (left === undefined && right === undefined && top === undefined && bottom === undefined) return undefined
 	return [
-		pointsToInches(top ?? DEFAULT_INSETS_PT.top),
-		pointsToInches(right ?? DEFAULT_INSETS_PT.right),
-		pointsToInches(bottom ?? DEFAULT_INSETS_PT.bottom),
-		pointsToInches(left ?? DEFAULT_INSETS_PT.left),
+		pointsToInches(top ?? BODY_INSET_DEFAULTS_PT.top),
+		pointsToInches(right ?? BODY_INSET_DEFAULTS_PT.right),
+		pointsToInches(bottom ?? BODY_INSET_DEFAULTS_PT.bottom),
+		pointsToInches(left ?? BODY_INSET_DEFAULTS_PT.left),
 	]
 }

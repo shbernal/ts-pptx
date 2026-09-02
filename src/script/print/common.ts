@@ -9,6 +9,7 @@
  * only resembles a check on the other, and the drift would be invisible in review.
  */
 import { asIrValue, type AssetRef, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
+import { inches } from '../units.js'
 import { scopeNotes, type FidelityNote, type NoteCollector } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -301,4 +302,26 @@ export function printedScript(lines: string[], ir: DeckIr, assetMode: AssetMode,
 		),
 		notes,
 	}
+}
+
+/**
+ * The three lines that construct a generator and size it to the source deck.
+ *
+ * Both tiers print them, and both used to convert the EMU slide size themselves — reaching
+ * across the seam into `from-read/values.ts` to do it. `ir.ts` keeps `slideSize` in EMU
+ * deliberately, because converting there "would introduce a rounding decision at the wrong
+ * layer"; the printer is not that layer either, so the conversion lives in `script/units.ts`
+ * and the two-line preamble lives here.
+ *
+ * `appendSlides` compares slide sizes exactly and throws when they differ, so a change to the
+ * printed inches fails loudly rather than quietly.
+ * @param size - the deck's slide size, in EMU
+ * @param indent - the prefix each line takes; the tier-B generator emits them inside a function
+ */
+export function printLayoutSetup(size: { widthEmu: number; heightEmu: number }, indent = ''): string[] {
+	return [
+		`${indent}const pptx = new TsPptx()`,
+		`${indent}pptx.defineLayout({ name: 'source', width: ${inches(size.widthEmu)}, height: ${inches(size.heightEmu)} })`,
+		`${indent}pptx.layout = 'source'`,
+	]
 }

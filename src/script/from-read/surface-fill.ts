@@ -12,7 +12,7 @@ import type { GradientFill } from '../../read/api/gradient.js'
 import type { PatternFill } from '../../read/api/pattern-fill.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
-import { alphaToTransparency, compact, isWritableSchemeToken, literalColor } from './values.js'
+import { alphaToTransparency, compact, literalColor, schemeColorOption } from './values.js'
 
 /** How a note names the surface a gradient sits on: `fill.gradient`, `table.fill.gradient`, … */
 type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
@@ -25,12 +25,10 @@ type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
 export function gradientStops(gradient: GradientFill, notes: NoteScope, where: FillNoteScope): IrValue | undefined {
 	const stops = gradient.stops
 		.map((stop) => {
-			const color = isWritableSchemeToken(stop.schemeColor)
-				? (stop.schemeColor as string)
-				: stop.effectiveHex === null
-					? null
-					: literalColor(stop.effectiveHex)
-			if (color === null) return null
+			const color =
+				schemeColorOption(stop.schemeColor, stop.effectiveHex, notes, 'fill.gradient.schemeToken', 'gradient stop') ??
+				(stop.effectiveHex === null ? undefined : literalColor(stop.effectiveHex))
+			if (color === undefined) return null
 			return compact({
 				color,
 				position: Math.round((stop.position ?? 0) * 100),

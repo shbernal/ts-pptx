@@ -27,13 +27,13 @@
  */
 import type { DeckIr, IrValue, MasterIr } from '../ir.js'
 import { NoteCollector, scopeNotes } from '../fidelity.js'
-import { inches } from '../from-read/values.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
 	assetPrinter,
 	header,
 	printAssetBindings,
+	printLayoutSetup,
 	printSlide,
 	printedScript,
 	resolvePrintOptions,
@@ -107,9 +107,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 		'/** Resolve a path against this script rather than against the working directory. */',
 		'const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))',
 		'',
-		'const pptx = new TsPptx()',
-		`pptx.defineLayout({ name: 'source', width: ${inches(ir.slideSize.widthEmu)}, height: ${inches(ir.slideSize.heightEmu)} })`,
-		"pptx.layout = 'source'",
+		...printLayoutSetup(ir.slideSize),
 	]
 
 	const theme = ir.chrome.theme as IrValue
