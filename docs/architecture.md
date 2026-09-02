@@ -78,7 +78,13 @@ exports and let this repository own the internal OOXML generation details.
   import entry points, whose contracts stay on the class as the doc comments a caller
   reads. It is not an `ops/` module because it is not independent of its caller -- it
   reaches back into the deck for three `@internal` members the methods that stayed
-  behind share with it.
+  behind share with it. Two `ops/` modules also import from `src/gen/`:
+  `notes-master.ts` and `notes-author.ts` reach for `makeXmlNotesMaster`,
+  `makeXmlNotesSlideSkeleton` and the element builder. That is deliberate, and it is
+  the one place the read half depends on the write emitters: carrying notes into a
+  deck that has no notesMaster means *authoring* one, and an ops-local second copy of
+  those two parts would be a second answer to what a notesMaster is. Everything else
+  under `ops/` moves parts that already exist.
 - `src/measure/` holds the calibrated text-measurement engine behind the
   `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
   (advance widths + the registry), `text-fit.ts` (the wrap simulator and the

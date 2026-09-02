@@ -101,6 +101,11 @@ export function promoteMasters(dest: DeckTarget, masterPartNames: string[]): voi
  * tolerates it — so an imported master AND each of its layouts must take an id past
  * the max of both the master-id list and every layout-id list. Recomputed per
  * allocation so ids appended earlier in the same import are counted.
+ *
+ * Deliberately not routed through `part-index.ts`'s spine walkers: those resolve each entry's
+ * `@r:id` to a partname, this reads each entry's `@id`, and this scans every master the
+ * presentation *relates* to rather than only the ones its id list registers -- an id in an
+ * unregistered master's layout list still occupies the shared space.
  */
 function nextMasterLayoutId(dest: DeckTarget): number {
 	let max = MIN_SLIDE_MASTER_ID - 1

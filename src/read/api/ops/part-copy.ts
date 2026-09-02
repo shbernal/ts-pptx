@@ -18,12 +18,12 @@ import {
 	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
 	SLIDE_LAYOUT_CONTENT_TYPE,
-	SLIDE_LAYOUT_REL,
 	SLIDE_CONTENT_TYPE,
 	SLIDE_MASTER_CONTENT_TYPE,
 	SLIDE_MASTER_REL,
 	SLIDE_REL,
 } from '../../../ooxml/rel-types.js'
+import { copyTraversalStep } from './copy-traversal.js'
 import { isSharedByPageCopies } from './page-owned.js'
 import { destinationAlreadyHolds } from './part-reuse.js'
 import { InvalidOptionError, PackageReadError } from '../../../errors.js'
@@ -203,11 +203,9 @@ export function copyPart(
 	const sourceRels = ctx.source.relationshipsFor(sourcePartName)
 	const targetRels = ctx.dest.opc.relationshipsFor(newPartName)
 	for (const rel of sourceRels) {
-		// Notes pull in a notesMaster + its own theme; an imported slide does not need them.
-		if (rel.type === NOTES_SLIDE_REL) continue
-		// Lean master: skip its layout rels; copied layouts re-link themselves.
-		if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
-		if (rel.targetMode === 'External') {
+		const step = copyTraversalStep(sourcePart, rel)
+		if (step === 'skip') continue
+		if (step === 'external') {
 			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
@@ -331,8 +329,9 @@ export function checkSelectionCopyable(
 				// would have accepted.
 				if (rel.type === NOTES_MASTER_REL && !notes.copyMaster) continue
 			}
-			if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
-			if (rel.targetMode === 'External') continue
+			// The rest of the rule is `copyPart`'s own, so the dry run cannot reach a part the
+			// copy would not, or stop short of one it would.
+			if (copyTraversalStep(part, rel) !== 'recurse') continue
 			const targetPartName = rels.resolveTarget(rel.id)
 			// A jump link must land on another selected page, or on one an earlier
 			// import from this source already brought across. Anything else would

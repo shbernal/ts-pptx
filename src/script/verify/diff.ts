@@ -33,6 +33,7 @@
  * A clean report means "nothing the converter can distinguish was lost", never "nothing was
  * lost".
  */
+import { alignByKey } from './align.js'
 import { LAYOUT_NOTE_PREFIX, type FidelityNote } from '../fidelity.js'
 import {
 	collectObjectNames,
@@ -472,28 +473,17 @@ function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrD
 		})
 	}
 
-	const byTitle = uniqueByTitle(actual.masters)
-	const expectedTitles = uniqueByTitle(expected.masters)
-	const claimed = new Set<IrValue>()
-	let cursor = 0
-	const nextUnclaimed = (): IrValue | undefined => {
-		while (cursor < actual.masters.length) {
-			const candidate = actual.masters[cursor++]
-			if (candidate !== undefined && !claimed.has(candidate)) return candidate
+	// Titles align the masters where a title names exactly one on each side; `alignByKey` owns
+	// that rule, and the call aligner reads the same one.
+	alignByKey(expected.masters, actual.masters, titleOf).forEach(([before, after], index) => {
+		if (before === null) {
+			report(`chrome.masters[${index}]`, 'added', undefined, after ?? undefined)
+			return
 		}
-		return undefined
-	}
-
-	expected.masters.forEach((before, index) => {
-		const title = titleOf(before)
-		// Usable only where the title identifies exactly one master on each side.
-		const named = title !== null && expectedTitles.has(title) ? byTitle.get(title) : undefined
-		const after = named !== undefined && !claimed.has(named) ? named : nextUnclaimed()
-		if (after === undefined) {
+		if (after === null) {
 			report(`chrome.masters[${index}]`, 'lost', before, undefined)
 			return
 		}
-		claimed.add(after)
 		// A layout's decoration rides inside this one value, so a note scoped to one of those
 		// shapes has no call of its own to be matched against — the same problem a group's child
 		// has on a slide, and the same answer.
@@ -504,25 +494,6 @@ function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrD
 			out,
 		})
 	})
-
-	actual.masters.forEach((after, index) => {
-		if (!claimed.has(after)) report(`chrome.masters[${index}]`, 'added', undefined, after)
-	})
-}
-
-/** Masters keyed by title, keeping only titles that identify exactly one of them. */
-function uniqueByTitle(masters: IrValue[]): Map<string, IrValue> {
-	const counts = new Map<string, number>()
-	for (const master of masters) {
-		const title = titleOf(master)
-		if (title !== null) counts.set(title, (counts.get(title) ?? 0) + 1)
-	}
-	const out = new Map<string, IrValue>()
-	for (const master of masters) {
-		const title = titleOf(master)
-		if (title !== null && counts.get(title) === 1) out.set(title, master)
-	}
-	return out
 }
 
 /**
@@ -562,7 +533,7 @@ function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDiff
 		out,
 	})
 
-	for (const [before, after] of alignCalls(expected.calls, actual.calls)) {
+	for (const [before, after] of alignByKey(expected.calls, actual.calls, (call) => call.shapeName)) {
 		const name = before?.shapeName ?? after?.shapeName ?? null
 		// Union of both sides: a child that dropped out is named only by the source's call.
 		const nested = [...new Set([...(before?.containedNames ?? []), ...(after?.containedNames ?? [])])]
@@ -591,61 +562,6 @@ function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDiff
 			out,
 		})
 	}
-}
-
-/**
- * Pair up the two slides' calls.
- *
- * Position alone is wrong the moment one shape drops out: every later call shifts by one
- * and the report fills with mismatches that are really one missing shape. Shape names
- * survive the round trip (the converter passes `objectName` through), so they are the
- * alignment key wherever they are present and unambiguous, with position as the fallback
- * for unnamed or duplicate-named shapes.
- */
-function alignCalls(
-	expected: CanonicalCall[],
-	actual: CanonicalCall[]
-): Array<[CanonicalCall | null, CanonicalCall | null]> {
-	const usable = (calls: CanonicalCall[]): Map<string, CanonicalCall> => {
-		const counts = new Map<string, number>()
-		for (const call of calls) {
-			if (call.shapeName === null) continue
-			counts.set(call.shapeName, (counts.get(call.shapeName) ?? 0) + 1)
-		}
-		const out = new Map<string, CanonicalCall>()
-		for (const call of calls) {
-			if (call.shapeName !== null && counts.get(call.shapeName) === 1) out.set(call.shapeName, call)
-		}
-		return out
-	}
-
-	const byName = usable(actual)
-	const claimed = new Set<CanonicalCall>()
-	const pairs: Array<[CanonicalCall | null, CanonicalCall | null]> = []
-	// Positional cursor for calls that names cannot align, advanced only past claimed calls
-	// so a named match does not consume an unnamed call's slot.
-	let cursor = 0
-	const nextUnclaimed = (): CanonicalCall | null => {
-		while (cursor < actual.length) {
-			const candidate = actual[cursor++]
-			if (candidate && !claimed.has(candidate)) return candidate
-		}
-		return null
-	}
-
-	for (const call of expected) {
-		const named = call.shapeName === null ? undefined : byName.get(call.shapeName)
-		if (named && !claimed.has(named)) {
-			claimed.add(named)
-			pairs.push([call, named])
-			continue
-		}
-		const positional = nextUnclaimed()
-		if (positional) claimed.add(positional)
-		pairs.push([call, positional])
-	}
-	for (const call of actual) if (!claimed.has(call)) pairs.push([null, call])
-	return pairs
 }
 
 /**

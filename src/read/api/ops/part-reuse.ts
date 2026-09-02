@@ -33,16 +33,11 @@
  * as the first one did.
  */
 
-import { attr, firstChild, getElements, type Element } from '../../oxml/dom.js'
 import type { OpcPackage } from '../../opc/package.js'
-import { presentationRels, type DeckTarget } from './deck-target.js'
-import {
-	NOTES_SLIDE_REL,
-	SLIDE_CONTENT_TYPE,
-	SLIDE_LAYOUT_CONTENT_TYPE,
-	SLIDE_LAYOUT_REL,
-	SLIDE_MASTER_CONTENT_TYPE,
-} from '../../../ooxml/rel-types.js'
+import type { DeckTarget } from './deck-target.js'
+import { SLIDE_CONTENT_TYPE, SLIDE_LAYOUT_CONTENT_TYPE, SLIDE_MASTER_CONTENT_TYPE } from '../../../ooxml/rel-types.js'
+import { copyTraversalStep } from './copy-traversal.js'
+import { layoutPartNamesOf, slideMasterPartNames } from './part-index.js'
 
 /**
  * Whether the destination already holds `sourcePartName`'s subgraph, part for part and
@@ -71,10 +66,9 @@ export function destinationAlreadyHolds(dest: DeckTarget, source: OpcPackage, so
  * the edit was a no-op. Under-reusing costs a duplicated part; over-reusing binds a slide
  * to something else's chrome.
  *
- * The traversal skips exactly what `copyPart` skips — the notes relationship, and a
- * master's relationships to its layouts — so it asks about the subgraph the copy would
- * actually have made. Skipping the master's layout list is what keeps one edited layout
- * from disqualifying every *other* layout that shares its master.
+ * The traversal skips exactly what `copyPart` skips, because it asks `copyTraversalStep` --
+ * so it is about the subgraph the copy would actually have made rather than about a rule
+ * transcribed from it.
  */
 function identicalSubgraph(dest: OpcPackage, source: OpcPackage, partName: string, visited: Set<string>): boolean {
 	if (visited.has(partName)) return true
@@ -90,7 +84,6 @@ function identicalSubgraph(dest: OpcPackage, source: OpcPackage, partName: strin
 	const destRels = [...dest.relationshipsFor(partName)]
 	if (sourceRels.length !== destRels.length) return false
 
-	const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
 	const destById = new Map(destRels.map((rel) => [rel.id, rel]))
 	for (const rel of sourceRels) {
 		const counterpart = destById.get(rel.id)
@@ -102,8 +95,7 @@ function identicalSubgraph(dest: OpcPackage, source: OpcPackage, partName: strin
 		}
 		const target = source.relationshipsFor(partName).resolveTarget(rel.id)
 		if (dest.relationshipsFor(partName).resolveTarget(rel.id) !== target) return false
-		if (rel.type === NOTES_SLIDE_REL) continue
-		if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
+		if (copyTraversalStep(sourcePart, rel) !== 'recurse') continue
 		if (!identicalSubgraph(dest, source, target, visited)) return false
 	}
 	return true
@@ -121,39 +113,11 @@ function identicalSubgraph(dest: OpcPackage, source: OpcPackage, partName: strin
  */
 function wiredIntoDeck(dest: DeckTarget, partName: string): boolean {
 	const contentType = dest.opc.part(partName)?.contentType
-	if (contentType === SLIDE_MASTER_CONTENT_TYPE) return registeredMasters(dest).includes(partName)
+	if (contentType === SLIDE_MASTER_CONTENT_TYPE) return slideMasterPartNames(dest).includes(partName)
 	if (contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
-		return registeredMasters(dest).some((master) => galleryOf(dest, master).includes(partName))
+		return slideMasterPartNames(dest).some((master) => layoutPartNamesOf(dest, master).includes(partName))
 	}
 	return true
-}
-
-/** The destination's masters in `p:sldMasterIdLst` order — the ones renderers treat as active. */
-function registeredMasters(dest: DeckTarget): string[] {
-	const root = dest.presentationPart.dom.documentElement
-	const lst = root && firstChild(root, 'p:sldMasterIdLst')
-	if (!lst) return []
-	const rels = presentationRels(dest)
-	return idListTargets(lst, 'p:sldMasterId', (relId) => rels.resolveTarget(relId))
-}
-
-/** One master's layouts in `p:sldLayoutIdLst` order — its slice of the deck's gallery. */
-function galleryOf(dest: DeckTarget, masterPartName: string): string[] {
-	const root = dest.opc.part(masterPartName)?.dom.documentElement
-	const lst = root && firstChild(root, 'p:sldLayoutIdLst')
-	if (!lst) return []
-	const rels = dest.opc.relationshipsFor(masterPartName)
-	return idListTargets(lst, 'p:sldLayoutId', (relId) => rels.resolveTarget(relId))
-}
-
-/** Resolve every `@r:id` in an id list to its partname, skipping entries that carry none. */
-function idListTargets(lst: Element, qname: string, resolve: (relId: string) => string): string[] {
-	const out: string[] = []
-	for (const entry of getElements(lst, qname)) {
-		const relId = attr(entry, 'r:id')
-		if (relId) out.push(resolve(relId))
-	}
-	return out
 }
 
 /** Byte-for-byte equality of two part bodies. */
