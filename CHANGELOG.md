@@ -173,6 +173,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Migration:** use `fill: { image }` for a picture interior. A stroke can still be
   `solid`, `gradient` or `pattern`.
 
+### Fixed
+
+- **`pptx.tableLayout()` and the file disagreed about `cy`.** `cy` is the already-resolved
+  EMU table height the auto-pager and the measured-fit pass stamp onto a table's options, and
+  only the fit pass read it. So `addTable(rows, { cy })` with no `h` produced a file whose
+  rows are pinned and a `tableLayout()` that reported every row auto-height with
+  `heightExact: false`. That is the drift the one reading of `rowH` closed, arriving through a
+  second option, so the fix is the shared `resolveTableGridEmu` that both measure paths now
+  read rather than a third correction. The emitter deliberately keeps its own height: it
+  resolves against the *placed* frame, which a layout placeholder can override, and the other
+  two only ever see the options.
+
+- **A `colW` entry that is not a width now says so.** `resolveTableColWidthsEmu` fell back to
+  the even-distribution width for an unusable slot with no diagnostic, while the analogous
+  `rowH` entry has warned for a while under the reasoning that an entry present but unusable
+  is something the caller wrote on purpose. `{ colW: [2, NaN] }` now warns
+  `table/invalid-col-width`; a *missing* slot stays silent, which is the same line `rowH`
+  draws.
+
 ### Changed
 
 - **A shape's `width`/`height` setters reject `0`.** They went through a private EMU guard that

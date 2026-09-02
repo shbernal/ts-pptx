@@ -210,11 +210,3 @@ export function anchorTopShareOfDelta(opts: RunOpts): number {
 	if (anchor === TextAnchor.b) return 1 // grow upward — bottom fixed
 	return 0.5 // centered growth (default)
 }
-
-// --- Table cells -----------------------------------------------------------
-// PowerPoint has no text-autofit for table cells (`a:tcPr` carries no autofit and
-// the app ignores `normAutofit` inside a cell — rows auto-grow instead). So a cell's
-// `fit:'shrink'` is honored by baking a *reduced literal font size* onto its runs,
-// which both PowerPoint and LibreOffice render identically with no edit/resize.
-
-/** Text/format options that a cell inherits from the table when it sets none itself (mirrors `gen/slide/objects/table.ts`). */

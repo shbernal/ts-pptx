@@ -303,8 +303,10 @@ export function renderTableObject(ctx: RenderContext): string {
 	// STEP 4: Build table rows/cells
 	arrTabRows.forEach((cells, rIdx) => {
 		// A: `rowH` pins the row; a table height provided without one is split evenly.
-		// `cy` already holds the table height resolved to EMU (line ~276), correctly handling
-		// inches/percent/unit-string inputs — reuse it rather than re-parsing options.h.
+		// The height comes from the PLACED frame, not from `options.h`, which is why this does not
+		// go through `resolveTableGridEmu` the way `pptx.tableLayout()` and the measured-fit pass
+		// do: only the emitter knows the frame, and a layout placeholder overrides `h` there. The
+		// row split itself is the same `resolveTableRowHeightEmu` all three read.
 		// IMPORTANT: `null` (auto-height) must reach the attribute as zero for auto-sizing to work.
 		const tableHeightEmu = itemOpts.h ? cy : typeof itemOpts.cy === 'number' ? itemOpts.cy : 0
 		const intRowH = resolveTableRowHeightEmu(objTabOpts.rowH, rIdx, tableHeightEmu, arrTabRows.length) ?? 0

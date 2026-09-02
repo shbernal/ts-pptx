@@ -20,6 +20,7 @@ import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
 import type {
+	Coord,
 	Margin,
 	PresLayout,
 	TableCell,
@@ -29,6 +30,16 @@ import type {
 	TableProps,
 } from '../types/index.js'
 
+/**
+ * The text/format options a cell inherits from its table when it sets none itself; mirrors the
+ * list `gen/slide/objects/table.ts` inherits.
+ *
+ * PowerPoint has no text-autofit for a table cell — `a:tcPr` carries no autofit, and the app
+ * ignores a `normAutofit` inside one; rows auto-grow instead. So a cell's `fit: 'shrink'` is
+ * honoured by baking a *reduced literal font size* onto its runs, which both PowerPoint and
+ * LibreOffice render identically with no edit or resize. That is what makes these options worth
+ * resolving here: the shrink is computed against the cell's effective text, not the table's.
+ */
 const CELL_INHERIT_KEYS = [
 	'fontFace',
 	'fontSize',
@@ -143,6 +154,60 @@ export function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<
 }
 
 /**
+ * The options {@link resolveTableGridEmu} reads.
+ *
+ * `cy` is on `ObjectOptions` rather than `TableProps` — it is the already-resolved EMU height
+ * the auto-pager and the measured-fit pass stamp on — so the parameter is the intersection
+ * rather than either type, and every caller's own bag satisfies it structurally.
+ */
+export type TableGridOpts = Pick<TableProps, 'w' | 'h' | 'colW' | 'rowH'> & { cy?: Coord }
+
+/** A table's resolved grid: how many columns, how wide each is, and how tall each row is. */
+export interface TableGridEmu {
+	/** Grid columns, counting colspans. */
+	numCols: number
+	/** Per-column width in EMU, length {@link numCols}. */
+	colWidthsEmu: number[]
+	/** The table's own height in EMU, or `0` when it has none and every row is auto-height. */
+	tableHeightEmu: number
+	/** One row's pinned height in EMU, or `null` when the row grows to fit its content. */
+	rowHeightEmu: (rowIndex: number) => number | null
+}
+
+/**
+ * Resolve a table's grid the one way every consumer has to see it.
+ *
+ * Three sites derived these four things: `pptx.tableLayout()`, the export-time measured-fit
+ * pass, and the table emitter (the height alone). They already disagreed — only the fit pass
+ * read `cy`, the EMU height the auto-pager and the fit pass itself stamp onto the options, so
+ * `addTable(rows, { cy })` with no `h` gave a file whose rows are pinned and a
+ * `pptx.tableLayout()` that reported every row auto-height. That is the same drift the one
+ * reading of `rowH` closed, arriving through a second option, which is why the answer is a
+ * shared resolver rather than a third correction.
+ *
+ * `w` defaults to `75%` of the slide, matching what the emitter falls back to.
+ * @param rows - the table's authored rows
+ * @param opts - the table's options
+ * @param presLayout - the presentation layout, for resolving percentages
+ */
+export function resolveTableGridEmu(rows: TableCell[][], opts: TableGridOpts, presLayout: PresLayout): TableGridEmu {
+	const numRows = rows.length
+	const numCols = tableColCount(rows)
+	const cxEmu =
+		opts.w != null ? getSmartParseNumber(opts.w, 'X', presLayout) : getSmartParseNumber('75%', 'X', presLayout)
+	// `cy` is the already-resolved EMU height the auto-pager and `applyMeasuredFit` stamp on;
+	// it is the table's height just as much as `h` is, and only one of the three readings had it.
+	const tableHeightEmu =
+		opts.h != null ? getSmartParseNumber(opts.h, 'Y', presLayout) : typeof opts.cy === 'number' ? opts.cy : 0
+	return {
+		numCols,
+		colWidthsEmu: resolveTableColWidthsEmu(opts.colW, cxEmu, numCols),
+		tableHeightEmu,
+		rowHeightEmu: (rowIndex: number) => resolveTableRowHeightEmu(opts.rowH, rowIndex, tableHeightEmu, numRows),
+	}
+}
+
+/**
  * Compute per-cell geometry (inches) for a table laid out at `opts.x`/`y`/`w` — the
  * engine behind `pptx.tableLayout()`. Column widths come from the same
  * {@link resolveTableColWidthsEmu} the writer uses, so cell x/width are exact. Row
@@ -161,7 +226,8 @@ export function computeTableLayout(
 	const empty: TableLayoutResult = { cells: [], widthIn: 0, heightIn: 0, heightExact: true }
 	if (!rows || rows.length === 0 || !rows[0]) return empty
 	const numRows = rows.length
-	const numCols = tableColCount(rows)
+	const grid = resolveTableGridEmu(rows, opts, presLayout)
+	const numCols = grid.numCols
 	if (!(numCols > 0)) return empty
 	// Reuse TableProps as a bag of inheritable text props; only CELL_INHERIT_KEYS are
 	// read from it. Route through `unknown` because TableProps.columns (per-column cell
@@ -171,18 +237,15 @@ export function computeTableLayout(
 
 	const tableXEmu = opts.x != null ? getSmartParseNumber(opts.x, 'X', presLayout) : 0
 	const tableYEmu = opts.y != null ? getSmartParseNumber(opts.y, 'Y', presLayout) : 0
-	const cxEmu =
-		opts.w != null ? getSmartParseNumber(opts.w, 'X', presLayout) : getSmartParseNumber('75%', 'X', presLayout)
-	const colWidthsEmu = resolveTableColWidthsEmu(opts.colW, cxEmu, numCols)
+	const colWidthsEmu = grid.colWidthsEmu
 
 	// Prefix-sum column x offsets (length numCols+1): colXEmu[c] = left edge of column c.
 	const colXEmu = new Array<number>(numCols + 1).fill(0)
 	for (let c = 0; c < numCols; c++) colXEmu[c + 1] = (colXEmu[c] ?? 0) + (colWidthsEmu[c] ?? 0)
 
-	const tableHeightEmu = opts.h != null ? getSmartParseNumber(opts.h, 'Y', presLayout) : 0
-	// Explicit row height (EMU) or null when the row is auto-height — `resolveTableRowHeightEmu`,
-	// the same reading the writer bakes and the export-time fit pass measures against.
-	const explicitRowHEmu = (r: number): number | null => resolveTableRowHeightEmu(opts.rowH, r, tableHeightEmu, numRows)
+	// Explicit row height (EMU) or null when the row is auto-height — the same reading the writer
+	// bakes and the export-time fit pass measures against.
+	const explicitRowHEmu = grid.rowHeightEmu
 	const resolve = makeRegistryResolver(registry)
 	const defLineEmu = autoPageLineHeightEmu(DEF_FONT_SIZE)
 

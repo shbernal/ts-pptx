@@ -208,10 +208,20 @@ export function resolveTableColWidthsEmu(
 	const even = totalWidthEmu > 0 ? Math.round(totalWidthEmu / colCount) : EMU_PER_INCH
 	if (Array.isArray(colW)) {
 		return Array.from({ length: colCount }, (_, i) => {
-			// Guard before inch2Emu: it throws on non-finite input. A missing/NaN slot
-			// falls back to the even-distribution width.
+			// Guard before inch2Emu: it throws on non-finite input. A slot that is present but
+			// unusable falls back to the even-distribution width AND says so, for the reason
+			// `pinnedRowHeightInches` gives about the analogous `rowH` entry: it is something the
+			// caller wrote on purpose and the even split is not what they meant. An absent slot is
+			// not that — a sparse array is how a caller spells "distribute this one" — so it is
+			// silent, which is the same line that helper draws.
 			const n = colW[i]
-			return typeof n === 'number' && Number.isFinite(n) ? Math.round(inch2Emu(n)) : even
+			if (typeof n === 'number' && Number.isFinite(n)) return Math.round(inch2Emu(n))
+			if (n !== undefined && n !== null)
+				warnOnce(
+					'table/invalid-col-width',
+					`colW entry ${String(n)} is not a number of inches; that column takes an even share of the table width instead.`
+				)
+			return even
 		})
 	}
 	return new Array<number>(colCount).fill(even)

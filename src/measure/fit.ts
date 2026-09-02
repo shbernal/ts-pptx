@@ -12,7 +12,7 @@
 
 import { SlideObjectType } from '../enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
-import { getSmartParseNumber, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../units-internal.js'
+import { getSmartParseNumber } from '../units-internal.js'
 import { warn } from '../diagnostics.js'
 import { collectUncoveredCodepoints, makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import {
@@ -35,8 +35,8 @@ import {
 import {
 	effectiveCellOpts,
 	resolveCellInsetsEmu,
+	resolveTableGridEmu,
 	scaleCellFontSizes,
-	tableColCount,
 	walkTableGrid,
 } from './table-fit.js'
 import type { MeasureTextOptions, TextFitShrinkProps, TextMeasurement, TextProps } from '../types/index.js'
@@ -200,22 +200,10 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 		const rows = tableObj.arrTabRows
 		if (!rows || rows.length === 0 || !rows[0]) return
 		const tableOpts = (tableObj.options ?? {}) as RunOpts
-		const numRows = rows.length
-		const numCols = tableColCount(rows)
+		const { numCols, colWidthsEmu, rowHeightEmu: pinnedRowHeightEmu } = resolveTableGridEmu(rows, tableOpts, layout)
 		if (!(numCols > 0)) return
-
-		const cxEmu =
-			tableOpts.w != null ? getSmartParseNumber(tableOpts.w, 'X', layout) : getSmartParseNumber('75%', 'X', layout)
-		const colWidthsEmu = resolveTableColWidthsEmu(tableOpts.colW, cxEmu, numCols)
-		const tableHeightEmu =
-			tableOpts.h != null
-				? getSmartParseNumber(tableOpts.h, 'Y', layout)
-				: typeof tableOpts.cy === 'number'
-					? tableOpts.cy
-					: 0
 		// `null` is an auto-height row — it grows to fit, so there is nothing to shrink into.
-		const rowHeightEmu = (rIdx: number): number =>
-			resolveTableRowHeightEmu(tableOpts.rowH, rIdx, tableHeightEmu, numRows) ?? 0
+		const rowHeightEmu = (rIdx: number): number => pinnedRowHeightEmu(rIdx) ?? 0
 
 		for (const { cell, row: r, col: colStart, colSpan, rowSpan } of walkTableGrid(rows, numCols)) {
 			const colEnd = colStart + colSpan

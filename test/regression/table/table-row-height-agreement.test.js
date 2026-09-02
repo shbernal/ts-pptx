@@ -116,6 +116,58 @@ describe('rowH is read the same way by the writer, the layout API and the fit pa
 	})
 })
 
+describe('`cy` is the table height to all three, not to one of them', () => {
+	// `cy` is the already-resolved EMU height the auto-pager and the fit pass stamp onto a
+	// table's options. Only the fit pass read it, so `addTable(rows, { cy })` with no `h` gave a
+	// file whose rows are pinned and a `pptx.tableLayout()` that reported every row auto-height —
+	// the same drift the one reading of `rowH` closed, arriving through a second option.
+	const CY_OPTS = { x: 0.5, y: 0.5, w: 2, cy: 4 * EMU_PER_INCH }
+
+	test('the layout API pins the rows the writer pins', async () => {
+		expect(await writerRowHeightsIn(CY_OPTS)).toEqual([2, 2])
+		expect(layoutRows(CY_OPTS)).toEqual([
+			{ hIn: 2, exact: true },
+			{ hIn: 2, exact: true },
+		])
+	})
+
+	test('and the fit pass shrinks into the same box', () => {
+		expect(fitShrankRow0(CY_OPTS)).toBe(true)
+	})
+})
+
+describe('a colW entry that is not a width is reported', () => {
+	// Two columns, so a two-entry `colW` matches the column count and survives
+	// `addTableDefinition`'s mismatch check to reach the resolver.
+	const TWO_COL = () => [[{ text: 'a' }, { text: 'b' }]]
+
+	/** Codes reported while building a deck whose one table carries `colW`. */
+	async function codesForColW(colW) {
+		const codes = []
+		setDiagnosticHandler((d) => codes.push(d.code))
+		try {
+			const pres = new TsPptx()
+			pres.addSlide().addTable(TWO_COL(), { x: 0.5, y: 0.5, w: 4, h: 4, colW })
+			await pres.write({ outputType: 'nodebuffer' })
+		} finally {
+			setDiagnosticHandler(null)
+		}
+		return codes
+	}
+
+	test('a non-numeric entry warns, like the analogous rowH entry', async () => {
+		// The even split is not what a caller writing `NaN` meant, and `rowH` has said so for a
+		// while; `colW` fell back silently.
+		expect(await codesForColW([2, Number.NaN])).toContain('table/invalid-col-width')
+	})
+
+	test('a missing slot is silent — a sparse array distributes that column', async () => {
+		const sparse = [2]
+		sparse.length = 2
+		expect(await codesForColW(sparse)).not.toContain('table/invalid-col-width')
+	})
+})
+
 describe('rowH entries that are not heights are reported', () => {
 	/** Codes reported while building a deck whose one table carries `rowH`. */
 	async function codesForRowH(rowH) {

@@ -358,28 +358,11 @@ export function measureHeightPt(
 	return result === null ? null : result.heightPt
 }
 
-/**
- * Largest `fontScale` (on PowerPoint's 2.5% grid) at which the text fits the box.
- * Width and height both re-measured per scale. Conservative: because the model
- * over-estimates, the returned scale is ≤ PowerPoint's and the text never overflows.
- *
- * `lnSpcReduction` is left at 0 in P1 — dropping `fontScale` alone is provably
- * conservative (PowerPoint trades line-spacing reduction to keep the font *larger*,
- * so a reduction-free fit is always ≤ PowerPoint's scale). The calibration data for
- * the reduction ramp (Findings #4) is recorded for a future refinement.
- */
+/** What the resize solver concluded: it could not measure, or the inner height the text needs. */
 export type ResizeOutcome =
 	| { kind: 'unmeasurable' } // a run's face has no registered metrics — caller degrades
 	| { kind: 'resize'; neededInnerHeightPt: number }
 
-/**
- * Inner height (points) the text needs at full size — the value to bake into the
- * shape's `a:ext/@cy` for `fit: 'resize'` (`spAutoFit`). Unlike shrink, resize has
- * **no safety net**: an under-estimate overflows (there is no text scaling
- * fallback), so this errs **tall** — width is inflated (earlier wrap ⇒ more lines)
- * and the laid-out height by the calibrated height factor, so the computed `cy` is
- * ≥ PowerPoint's and ≥ the LibreOffice-rendered height across the resize oracle.
- */
 /**
  * Width used for wrap layout: the inner box width when wrapping, or unbounded for a
  * non-wrapping frame (`wrap:false`) so each paragraph lays out as a single line. A
@@ -390,12 +373,30 @@ function layoutWidthPt(box: FitBox): number {
 	return box.wrap === false ? Infinity : box.innerWidthPt
 }
 
+/**
+ * Inner height (points) the text needs at full size — the value to bake into the
+ * shape's `a:ext/@cy` for `fit: 'resize'` (`spAutoFit`). Unlike shrink, resize has
+ * **no safety net**: an under-estimate overflows (there is no text scaling
+ * fallback), so this errs **tall** — width is inflated (earlier wrap ⇒ more lines)
+ * and the laid-out height by the calibrated height factor, so the computed `cy` is
+ * ≥ PowerPoint's and ≥ the LibreOffice-rendered height across the resize oracle.
+ */
 export function solveResize(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ResizeOutcome {
 	const h = measureHeightPt(paragraphs, layoutWidthPt(box), resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 	if (h === null) return { kind: 'unmeasurable' }
 	return { kind: 'resize', neededInnerHeightPt: h * HEIGHT_SAFETY_FACTOR }
 }
 
+/**
+ * Largest `fontScale` (on PowerPoint's 2.5% grid) at which the text fits the box.
+ * Width and height both re-measured per scale. Conservative: because the model
+ * over-estimates, the returned scale is ≤ PowerPoint's and the text never overflows.
+ *
+ * `lnSpcReduction` is left at 0 in P1 — dropping `fontScale` alone is provably
+ * conservative (PowerPoint trades line-spacing reduction to keep the font *larger*,
+ * so a reduction-free fit is always ≤ PowerPoint's scale). The calibration data for
+ * the reduction ramp (Findings #4) is recorded for a future refinement.
+ */
 export function solveShrink(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
 	const width = layoutWidthPt(box)
 	const noWrap = box.wrap === false
