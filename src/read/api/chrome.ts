@@ -126,10 +126,18 @@ export class Theme {
 		return out
 	}
 
-	/** The 6-hex RGB of one colour-scheme slot, or `null` when the theme does not define it. */
+	/**
+	 * The 6-hex RGB of one colour-scheme slot, or `null` when the theme does not define it.
+	 *
+	 * Parsed once per proxy: the whole `a:clrScheme` is read to answer for one slot, and a
+	 * caller asking for several -- which is the normal way to ask -- re-read it each time.
+	 */
 	color(slot: ThemeColorSlot): string | null {
-		return parseClrScheme(this.#clrScheme()).get(slot) ?? null
+		this.#parsedClrScheme ??= parseClrScheme(this.#clrScheme())
+		return this.#parsedClrScheme.get(slot) ?? null
 	}
+
+	#parsedClrScheme?: Map<string, string>
 
 	/** The theme's `a:fontScheme` (major/minor font families), or `null` when the theme declares none. */
 	get fontScheme(): ThemeFontScheme | null {

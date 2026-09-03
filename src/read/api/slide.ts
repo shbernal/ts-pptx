@@ -20,7 +20,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
-import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
+import { resolveSlideColorContext, resolveSlideThemeParts, type SlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
 import {
@@ -165,6 +165,19 @@ export class Slide implements ShapeHost {
 	 */
 	themeContext(): ThemeContext {
 		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.partName))
+	}
+
+	#themeParts?: SlideThemeParts
+
+	/**
+	 * The slide's layout, master and theme parts, walked once and cached on this proxy.
+	 *
+	 * {@link background} needs the part *names* as well as the roots, which the colour context
+	 * does not carry, so it walked the chain a second time on the same read. One walk, one
+	 * cache, both readers.
+	 */
+	#slideThemeParts(): SlideThemeParts {
+		return (this.#themeParts ??= resolveSlideThemeParts(this.presentation.opc, this.partName))
 	}
 
 	/** Authoring name of the slide (`p:cSld/@name`), or `null` if unnamed. */
@@ -494,8 +507,11 @@ export class Slide implements ShapeHost {
 	 */
 	get background(): SlideBackground | null {
 		const opc = this.presentation.opc
-		const parts = resolveSlideThemeParts(opc, this.partName)
+		// `themeContext()` walks slide -> layout -> master -> theme and caches the result on
+		// this proxy; taking the parts from it rather than resolving them a second time here
+		// is what makes that cache do its job on the first read too.
 		const ctx = this.themeContext()
+		const parts = this.#slideThemeParts()
 		const candidates: { root: Element | null; source: 'slide' | 'layout' | 'master'; partName: string | null }[] = [
 			{ root: parts.slideRoot, source: 'slide', partName: this.partName },
 			{ root: parts.layoutRoot, source: 'layout', partName: parts.layoutPartName },

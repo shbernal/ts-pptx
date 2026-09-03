@@ -115,6 +115,22 @@ export interface ThemeContext extends ColorContext {
 	 * Read-only — never mutated.
 	 */
 	defaultTextStyle?: Element | null
+	/**
+	 * Memo for the placeholder lookups {@link findPlaceholder} performs against
+	 * {@link layoutRoot} and {@link masterRoot}, keyed by tier, placeholder type and `idx`.
+	 *
+	 * The lookup is a full subtree scan, and reading one run's five inherited properties used
+	 * to perform ten of them: each property walks the tier chain, and each tier walk scans a
+	 * layout and a master. The answer depends only on the roots and the `(type, idx)` asked
+	 * for, and the roots on a context never change — so it is computed once per context.
+	 *
+	 * The memo lives here rather than in a module-level cache keyed by the root element
+	 * because that is what scopes it correctly: a context is built per `Slide`/`TemplatePart`
+	 * proxy, so the memo lasts exactly as long as the captured roots it agrees with, and a
+	 * caller who mutates the deck and reads again gets a fresh context along with a fresh
+	 * everything else. Written by `placeholder-inherit.ts` and read by nothing else.
+	 */
+	placeholderMemo?: Map<string, Element | null>
 }
 
 /** Parse an `a:clrScheme` into slot → 6-hex RGB, reading `srgbClr`/`sysClr`. */

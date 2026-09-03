@@ -206,10 +206,30 @@ export class Table {
 		return this.opc ? resolveTableStyle(this.opc, this.styleId) : null
 	}
 
+	/**
+	 * The table's entry in the deck's `tableStyles.xml`, resolved once per instance.
+	 *
+	 * Resolving it means scanning the package for the table-styles part and then its
+	 * `a:tblStyle` list, and every cell needs the answer -- so reading a 20x8 table cell by
+	 * cell did it 160 times for one unchanging answer. The memo is scoped to this instance,
+	 * which is rebuilt on every `GraphicFrame.table` access, so it cannot outlive the deck
+	 * state it was resolved against.
+	 *
+	 * A flag rather than a `??=` on a nullable field: "this table names no style" is the
+	 * common answer and the expensive one to recompute, and `??=` would memoize every answer
+	 * except that one.
+	 */
+	#resolvedStyle: ResolvedTableStyle | null = null
+	#styleAsked = false
+
 	/** The per-cell style-resolution context, or `null` when no style resolves or there is no theme context. */
 	#styleContext(): TableCellStyleContext | null {
 		if (!this.opc || !this.themeContext) return null
-		const style = resolveTableStyle(this.opc, this.styleId)
+		if (!this.#styleAsked) {
+			this.#resolvedStyle = resolveTableStyle(this.opc, this.styleId)
+			this.#styleAsked = true
+		}
+		const style = this.#resolvedStyle
 		if (!style) return null
 		return {
 			style,
@@ -335,7 +355,14 @@ export class Table {
 	 * spans columns (`gridSpan`) occupies a single index here.
 	 */
 	cell(rowIndex: number, columnIndex: number): TableCell | null {
-		return this.rows[rowIndex]?.cells[columnIndex] ?? null
+		// Indexed rather than `this.rows[r]?.cells[c]`: that built a `TableRow` for every row
+		// and a `TableCell` for every cell of the one row asked for, so the natural
+		// `for (r) for (c) cell(r, c)` loop over a 20x8 table allocated 3,000 objects and
+		// resolved the table's style 160 times to hand back 160 cells.
+		const tr = getElements(this.tbl, 'a:tr')[rowIndex]
+		const tc = tr && getElements(tr, 'a:tc')[columnIndex]
+		if (!tc) return null
+		return new TableCell(tc, this.part, this.themeContext, this.#styleContext(), rowIndex, columnIndex, this.rels)
 	}
 
 	/**

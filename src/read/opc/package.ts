@@ -33,6 +33,16 @@ export class OpcPackage {
 	readonly contentTypes: ContentTypes
 	#contentTypesBytes: Uint8Array
 	#relationshipsCache = new Map<string, Relationships>()
+	/**
+	 * Parts grouped by content type, built on first ask and dropped whenever the part set
+	 * changes.
+	 *
+	 * {@link partsByContentType} answers a question the read model asks constantly -- every
+	 * table style resolution, every theme lookup, every comment-schema check -- and answering
+	 * it by materialising and filtering the whole part list made those linear in the size of
+	 * the deck each time. A 20x8 table read cell by cell asked it 160 times.
+	 */
+	#partsByContentType: Map<string, Part[]> | null = null
 
 	private constructor(parts: Map<string, Part>, contentTypes: ContentTypes, contentTypesBytes: Uint8Array) {
 		this.#parts = parts
@@ -78,7 +88,19 @@ export class OpcPackage {
 	}
 
 	partsByContentType(contentType: string): Part[] {
-		return [...this.parts.values()].filter((part) => part.contentType === contentType)
+		if (!this.#partsByContentType) {
+			const index = new Map<string, Part[]>()
+			for (const part of this.#parts.values()) {
+				const group = index.get(part.contentType)
+				if (group) group.push(part)
+				else index.set(part.contentType, [part])
+			}
+			this.#partsByContentType = index
+		}
+		// A fresh array per call: the group is the index's own, and a caller that sorted or
+		// spliced the result would corrupt every later answer.
+		const found = this.#partsByContentType.get(contentType)
+		return found ? [...found] : []
 	}
 
 	/**
@@ -109,6 +131,7 @@ export class OpcPackage {
 		this.contentTypes.ensureRegistered(partName, contentType)
 		const part = new Part(partName, contentType, bytes)
 		this.#parts.set(partName, part)
+		this.#partsByContentType = null
 		return part
 	}
 
@@ -122,6 +145,7 @@ export class OpcPackage {
 	 */
 	removePart(partName: string): boolean {
 		if (!this.#parts.delete(partName)) return false
+		this.#partsByContentType = null
 		this.contentTypes.removeOverride(partName)
 		// Cache is keyed by owning part; clearing it stops a stale set being flushed.
 		this.#relationshipsCache.delete(partName)
@@ -198,6 +222,7 @@ export class OpcPackage {
 			const bytes = textEncoder.encode(relationships.serialize())
 			// Overwriting an existing key preserves its position in the Map.
 			this.#parts.set(relsPartName, new Part(relsPartName, RELATIONSHIPS_CONTENT_TYPE, bytes))
+			this.#partsByContentType = null
 		}
 	}
 }

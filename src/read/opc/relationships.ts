@@ -124,6 +124,7 @@ export class Relationships {
 		const relationship: Relationship = { id, type, target }
 		if (targetMode) relationship.targetMode = targetMode
 		this.#byId.set(id, relationship)
+		this.#resolvedTargets.clear()
 		this.#dirty = true
 		return relationship
 	}
@@ -135,7 +136,10 @@ export class Relationships {
 	 */
 	remove(id: string): boolean {
 		const removed = this.#byId.delete(id)
-		if (removed) this.#dirty = true
+		if (removed) {
+			this.#resolvedTargets.clear()
+			this.#dirty = true
+		}
 		return removed
 	}
 
@@ -151,8 +155,22 @@ export class Relationships {
 		return this.#byId.values()
 	}
 
+	/**
+	 * Partnames already resolved, keyed by relationship id.
+	 *
+	 * A target resolves to the same partname every time -- it is a pure function of this set's
+	 * source part and the relationship's `Target` -- and the orphan prune asks for every
+	 * relationship of every remaining part once per candidate part, so stripping a 60-slide
+	 * template resolved the same few hundred targets tens of thousands of times. Dropped
+	 * whenever a relationship is added or removed, which are the only two ways a target here
+	 * can change.
+	 */
+	#resolvedTargets = new Map<string, string>()
+
 	/** Resolve an internal relationship's target to an absolute partname. */
 	resolveTarget(id: string): string {
+		const memo = this.#resolvedTargets.get(id)
+		if (memo !== undefined) return memo
 		const relationship = this.#byId.get(id)
 		if (!relationship)
 			throw new InvalidOptionError(
@@ -165,7 +183,9 @@ export class Relationships {
 				`Relationships of ${this.sourcePartName}: ${id} is External (${relationship.target}) and has no partname`
 			)
 		}
-		return resolveRelativePartName(this.sourcePartName, relationship.target)
+		const resolved = resolveRelativePartName(this.sourcePartName, relationship.target)
+		this.#resolvedTargets.set(id, resolved)
+		return resolved
 	}
 
 	serialize(): string {
