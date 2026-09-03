@@ -11,14 +11,12 @@
 import { BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
-import { createLineCap } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
 import { categoryRange, dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
-	chartColorLineFill,
 	chartDataLabels,
+	dLblsBlock,
 	dLblShowFlags,
 	labelFontAttrs,
 	labelFontChildren,
@@ -26,13 +24,23 @@ import {
 	makeSeriesDataPointsXml,
 	numRefBlock,
 	paletteColor,
+	type PlotBuilder,
 	resolveChartPalette,
-	seriesDash,
 	seriesShapeProps,
+	seriesStroke,
 	serMarker,
 	strRefBlock,
-	type PlotBuilder,
 } from './chart-parts.js'
+
+/**
+ * The `<c:spPr>` a scatter data label carries: no fill, no outline, no effects — the label is
+ * text on the plot rather than a box. Both label builders in this file spelled it out.
+ */
+const TRANSPARENT_LABEL_SPPR = el('c:spPr', null, [
+	raw(voidEl('a:noFill', null)),
+	raw(el('a:ln', null, raw(voidEl('a:noFill', null)))),
+	raw(voidEl('a:effectLst', null)),
+])
 
 /**
  * The `(x, y)` runs appended to a `customXY` label: a literal `" ("`, an `XVALUE` field, a
@@ -95,11 +103,6 @@ function scatterCustomLabel(
 			])
 		),
 	])
-	const spPr = el('c:spPr', null, [
-		raw(voidEl('a:noFill', null)),
-		raw(el('a:ln', null, raw(voidEl('a:noFill', null)))),
-		raw(voidEl('a:effectLst', null)),
-	])
 	const extLst = el('c:extLst', null, [
 		raw(
 			voidEl('c:ext', {
@@ -118,24 +121,24 @@ function scatterCustomLabel(
 			)
 		),
 	])
-	return el('c:dLbl', null, [
-		raw(voidEl('c:idx', { val: idx })),
-		raw(el('c:tx', null, raw(rich))),
-		raw(spPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({}),
-		raw(voidEl('c:showLeaderLines', { val: 1 })),
-		raw(extLst),
-	])
+	return dLblsBlock(
+		{
+			lead: voidEl('c:idx', { val: idx }) + el('c:tx', null, raw(rich)),
+			spPr: TRANSPARENT_LABEL_SPPR,
+			dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+			flags: dLblShowFlags({}),
+			// Hard-coded on, unlike the four sites that read `showLeaderLines`. Left as it was: a
+			// moved custom label with no leader line is a different chart, and settling which of the
+			// two readings is right is a change of behaviour rather than of shape.
+			showLeaderLines: voidEl('c:showLeaderLines', { val: 1 }),
+			extLst,
+		},
+		'c:dLbl'
+	)
 }
 
 /** The single chart-level `<c:dLbls>` of the `XY` label format: PowerPoint composes the text. */
 function scatterXYLabels(opts: ChartOptsInternal): string {
-	const spPr = el('c:spPr', null, [
-		raw(voidEl('a:noFill', null)),
-		raw(el('a:ln', null, raw(voidEl('a:noFill', null)))),
-		raw(voidEl('a:effectLst', null)),
-	])
 	const txPr = el('c:txPr', null, [
 		raw(el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null)))),
 		raw(voidEl('a:lstStyle', null)),
@@ -160,30 +163,22 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 			)
 		)
 	)
-	return el('c:dLbls', null, [
-		raw(spPr),
-		raw(txPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({
+	return dLblsBlock({
+		spPr: TRANSPARENT_LABEL_SPPR,
+		txPr,
+		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		flags: dLblShowFlags({
 			val: xsdBool(opts.showLabel),
 			catName: xsdBool(opts.showLabel),
 			serName: xsdBool(opts.showSerName),
 		}),
-		raw(extLst),
-	])
+		extLst,
+	})
 }
 
 /** Fill, outline and shadow for one scatter series. */
 function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	const line =
-		opts.lineSize === 0
-			? el('a:ln', null, raw(voidEl('a:noFill')))
-			: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: createLineCap(opts.lineCap) }, [
-					raw(chartColorLineFill(serColor)),
-					raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
-					raw(voidEl('a:round')),
-				])
-	return seriesShapeProps(opts, serColor, line)
+	return seriesShapeProps(opts, serColor, seriesStroke(opts, serColor, serIndex))
 }
 
 /**

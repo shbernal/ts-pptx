@@ -13,7 +13,6 @@ import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-interna
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
 import {
 	categoryRange,
 	dataLabels,
@@ -28,11 +27,12 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	catRefBlock,
-	chartColorLineFill,
 	chartDataLabels,
 	createDataBorderLine,
 	createSerLinesElement,
 	dataLabelDefRPr,
+	dLblNumFmt,
+	dLblsBlock,
 	dLblShowFlags,
 	labelTextProps,
 	makeChartErrorBarsXml,
@@ -40,12 +40,12 @@ import {
 	makeSeriesDataPointsXml,
 	numRefBlock,
 	paletteColor,
+	type PlotBuilder,
 	resolveChartPalette,
-	seriesDash,
 	seriesShapeProps,
+	seriesStroke,
 	serMarker,
 	strRefBlock,
-	type PlotBuilder,
 } from './chart-parts.js'
 
 /** The chart types drawn as a line (a marker per point, an optional smooth) rather than as a body. */
@@ -84,15 +84,7 @@ function serShapeProps(
 ): string {
 	let line = ''
 	if (isLineLike(chartType)) {
-		const effectiveLineSize = lineSize ?? opts.lineSize ?? 2
-		line =
-			effectiveLineSize === 0
-				? el('a:ln', null, raw(voidEl('a:noFill')))
-				: el('a:ln', { w: ptsToEmuLenient(effectiveLineSize), cap: createLineCap(opts.lineCap) }, [
-						raw(chartColorLineFill(seriesColor)),
-						raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
-						raw(voidEl('a:round')),
-					])
+		line = seriesStroke(opts, seriesColor, serIndex, lineSize)
 	} else if (opts.dataBorder) {
 		line = createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
 	}
@@ -105,16 +97,16 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 	const defRPr = dataLabelDefRPr(opts, over)
 	const txPr = labelTextProps(defRPr)
 	const lblFmtCode = over?.dataLabelFormatCode ?? opts.dataLabelFormatCode
-	return el('c:dLbls', null, [
+	return dLblsBlock({
 		// Per-point custom labels precede the aggregate settings (CT_DLbls order: dLbl* then Group_DLbls).
-		raw((obj.customLabels ?? []).map((lbl, idx) => (lbl ? makeCustomDLblXml(idx, lbl, opts) : '')).join('')),
-		raw(voidEl('c:numFmt', { formatCode: (lblFmtCode ?? '') || 'General', sourceLinked: 0 })),
-		opts.dataLabelBkgrdColors ? raw(el('c:spPr', null, raw(genXmlColorSelection(seriesColor)))) : null,
-		raw(txPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
-		raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })),
-	])
+		lead: (obj.customLabels ?? []).map((lbl, idx) => (lbl ? makeCustomDLblXml(idx, lbl, opts) : '')).join(''),
+		numFmt: dLblNumFmt(lblFmtCode),
+		spPr: opts.dataLabelBkgrdColors ? el('c:spPr', null, raw(genXmlColorSelection(seriesColor))) : undefined,
+		txPr,
+		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		flags: dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
+		showLeaderLines: voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }),
+	})
 }
 
 /**

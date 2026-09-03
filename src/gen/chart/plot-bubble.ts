@@ -9,23 +9,23 @@
 import { ChartType } from '../../enums.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { createLineCap } from '../drawingml/line.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
 import { categoryRange, dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
-	chartColorLineFill,
 	createDataBorderLine,
 	dataLabelDefRPr,
+	dLblNumFmt,
+	dLblsBlock,
 	dLblShowFlags,
 	labelTextProps,
 	numRefBlock,
 	paletteColor,
-	resolveChartPalette,
-	seriesDash,
-	seriesShapeProps,
-	strRefBlock,
 	type PlotBuilder,
+	resolveChartPalette,
+	seriesShapeProps,
+	seriesStroke,
+	strRefBlock,
 } from './chart-parts.js'
 
 /**
@@ -41,15 +41,9 @@ import {
  */
 function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
 	const line =
-		opts.lineSize === 0
-			? el('a:ln', null, raw(voidEl('a:noFill')))
-			: opts.dataBorder
-				? createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
-				: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: createLineCap(opts.lineCap) }, [
-						raw(chartColorLineFill(serColor)),
-						raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
-						raw(voidEl('a:round')),
-					])
+		opts.lineSize !== 0 && opts.dataBorder
+			? createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
+			: seriesStroke(opts, serColor, serIndex)
 	return seriesShapeProps(opts, serColor, line)
 }
 
@@ -72,17 +66,17 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 			)
 		)
 	)
-	return el('c:dLbls', null, [
-		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
-		raw(txPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({
+	return dLblsBlock({
+		numFmt: dLblNumFmt(opts.dataLabelFormatCode),
+		txPr,
+		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		flags: dLblShowFlags({
 			val: xsdBool(opts.showValue),
 			serName: xsdBool(opts.showSerName),
 			bubbleSize: xsdBool(opts.showBubbleSize),
 		}),
-		raw(extLst),
-	])
+		extLst,
+	})
 }
 
 /**

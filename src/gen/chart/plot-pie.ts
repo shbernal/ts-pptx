@@ -22,6 +22,8 @@ import {
 	createChartBorderLine,
 	createDataBorderLine,
 	createLeaderLinesElement,
+	dLblNumFmt,
+	dLblsBlock,
 	dLblShowFlags,
 	labelFontAttrs,
 	labelFontChildren,
@@ -67,45 +69,46 @@ function pieDataPoint(
  * literal rich text, which is why it also forces `<c:showVal>` off.
  */
 function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOptsInternal, chartType: ChartType) {
-	const numFmt = voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
-	const txPr = labelTextProps(labelDefRPr(opts))
-	return el('c:dLbl', null, [
-		raw(voidEl('c:idx', { val: idx })),
-		// `c:tx` must precede `c:numFmt` per CT_DLbl / Group_DLbl / EG_DLblShared schema order.
-		customLbl
-			? raw(
-					el(
-						'c:tx',
-						null,
+	// `c:idx` and `c:tx` both precede `c:numFmt` per CT_DLbl / Group_DLbl / EG_DLblShared order,
+	// which is what `lead` is for.
+	const tx = customLbl
+		? el(
+				'c:tx',
+				null,
+				raw(
+					el('c:rich', null, [
+						raw(voidEl('a:bodyPr')),
+						raw(voidEl('a:lstStyle')),
 						raw(
-							el('c:rich', null, [
-								raw(voidEl('a:bodyPr')),
-								raw(voidEl('a:lstStyle')),
+							el(
+								'a:p',
+								null,
 								raw(
-									el(
-										'a:p',
-										null,
-										raw(
-											el('a:r', null, [
-												raw(voidEl('a:rPr', { lang: opts.lang || 'en-US', dirty: 0 })),
-												raw(el('a:t', null, customLbl)),
-											])
-										)
-									)
-								),
-							])
-						)
-					)
+									el('a:r', null, [
+										raw(voidEl('a:rPr', { lang: opts.lang || 'en-US', dirty: 0 })),
+										raw(el('a:t', null, customLbl)),
+									])
+								)
+							)
+						),
+					])
 				)
-			: null,
-		raw(numFmt),
-		raw(voidEl('c:spPr', null)),
-		raw(txPr),
-		chartType === ChartType.pie && opts.dataLabelPosition
-			? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition }))
-			: null,
-		...pieLabelFlags(opts, customLbl),
-	])
+			)
+		: ''
+	return dLblsBlock(
+		{
+			lead: voidEl('c:idx', { val: idx }) + tx,
+			numFmt: dLblNumFmt(opts.dataLabelFormatCode),
+			spPr: voidEl('c:spPr', null),
+			txPr: labelTextProps(labelDefRPr(opts)),
+			dLblPos:
+				chartType === ChartType.pie && opts.dataLabelPosition
+					? voidEl('c:dLblPos', { val: opts.dataLabelPosition })
+					: undefined,
+			flags: pieLabelFlags(opts, customLbl),
+		},
+		'c:dLbl'
+	)
 }
 
 /**
@@ -200,19 +203,17 @@ export function makePiePlot(
 	])
 
 	// The plot-level `<c:dLbls>` carries the defaults; the per-point ones above it carry the overrides.
-	const dLbls = el('c:dLbls', null, [
-		raw(
-			Array.from({ length: sliceCount }, (_unused, idx) =>
-				pieDataLabel(idx, optsChartData.customLabels?.[idx], opts, chartType)
-			).join('')
-		),
-		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
-		raw(labelTextProps(labelDefRPr(opts))),
-		chartType === ChartType.pie ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' })) : null,
-		...pieLabelFlags(opts),
-		raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })),
-		raw(createLeaderLinesElement(opts)),
-	])
+	const dLbls = dLblsBlock({
+		lead: Array.from({ length: sliceCount }, (_unused, idx) =>
+			pieDataLabel(idx, optsChartData.customLabels?.[idx], opts, chartType)
+		).join(''),
+		numFmt: dLblNumFmt(opts.dataLabelFormatCode),
+		txPr: labelTextProps(labelDefRPr(opts)),
+		dLblPos: chartType === ChartType.pie ? voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' }) : undefined,
+		flags: pieLabelFlags(opts),
+		showLeaderLines: voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }),
+		leaderLines: createLeaderLinesElement(opts),
+	})
 
 	const ser = el('c:ser', null, [
 		raw(voidEl('c:idx', { val: 0 })),

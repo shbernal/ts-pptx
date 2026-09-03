@@ -19,14 +19,14 @@
  */
 import type { Part } from '../opc/part.js'
 import {
-	OOXML_NS,
 	attr,
 	boolAttr,
+	concatDrawingMLText,
+	type Element,
 	firstChild,
 	getElements,
 	numberAttr,
 	numberValue,
-	type Element,
 } from '../oxml/dom.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
 
@@ -88,11 +88,7 @@ export class ChartEx {
 		const title = chart && firstChild(chart, 'cx:title')
 		if (!title) return null
 		const tx = firstChild(title, 'cx:tx')
-		const rich = tx && firstChild(tx, 'cx:rich')
-		if (!rich) return null
-		let out = ''
-		for (const t of rich.getElementsByTagNameNS(OOXML_NS.a, 't')) out += t.textContent ?? ''
-		return out === '' ? null : out
+		return concatDrawingMLText(tx && firstChild(tx, 'cx:rich'))
 	}
 
 	/** The legend (`cx:chart/cx:legend`) position/alignment, or `null` when hidden. */

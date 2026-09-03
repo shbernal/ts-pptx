@@ -52,7 +52,6 @@ import {
 	numberValue,
 	ownerDocumentOf,
 	removeChildrenByQName,
-	replaceInParent,
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
@@ -71,16 +70,17 @@ import {
 	type RunProps,
 } from '../../oxml/placeholder-inherit.js'
 import {
-	SCHEME_SLOTS,
+	type ColorContext,
 	fmtEntry,
 	isA,
+	replaceColorElement,
 	resolveColor,
+	type ResolvedColorRef,
 	resolveSchemeToken,
+	SCHEME_SLOTS,
 	styleRefFill,
 	styleRefLine,
 	substitutePhClr,
-	type ColorContext,
-	type ResolvedColorRef,
 	type ThemeContext,
 } from '../../oxml/theme.js'
 import {
@@ -214,15 +214,12 @@ export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void 
 	const slotByHex = reverseClrScheme(ctx.clrScheme)
 	if (slotByHex.size === 0) return
 	const tokenBySlot = reverseClrMap(ctx.clrMap)
-	const doc = ownerDocumentOf(slideRoot)
 	for (const srgb of descendantsByTag(slideRoot, OOXML_NS.a, 'srgbClr')) {
 		const hex = attr(srgb, 'val')
 		const slot = hex ? slotByHex.get(hex.toUpperCase()) : undefined
 		if (!slot) continue
-		const scheme = createElement(doc, 'a:schemeClr')
-		setAttr(scheme, 'val', tokenBySlot.get(slot) ?? slot) // route through the source clrMap; dk1/lt1/… are themselves valid tokens
-		while (srgb.firstChild) scheme.appendChild(srgb.firstChild) // carry transforms
-		replaceInParent(srgb, scheme)
+		// Routed through the source clrMap; dk1/lt1/… are themselves valid tokens.
+		replaceColorElement(srgb, 'a:schemeClr', tokenBySlot.get(slot) ?? slot)
 	}
 }
 
@@ -280,15 +277,11 @@ function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
 
 /** Rewrite every `a:schemeClr` under `root` to a literal `a:srgbClr` when resolvable. */
 function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
-	const doc = ownerDocumentOf(root)
 	for (const schemeClr of descendantsByTag(root, OOXML_NS.a, 'schemeClr')) {
 		const token = attr(schemeClr, 'val')
 		const hex = token ? resolveSchemeToken(token, ctx) : null
 		if (!hex) continue // phClr or an unmapped token — leave it for the destination theme.
-		const srgb = createElement(doc, 'a:srgbClr')
-		setAttr(srgb, 'val', hex)
-		while (schemeClr.firstChild) srgb.appendChild(schemeClr.firstChild) // carry transforms
-		replaceInParent(schemeClr, srgb)
+		replaceColorElement(schemeClr, 'a:srgbClr', hex)
 	}
 }
 

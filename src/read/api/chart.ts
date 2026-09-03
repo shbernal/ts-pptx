@@ -9,14 +9,15 @@
  */
 import type { Part } from '../opc/part.js'
 import {
-	ELEMENT_NODE,
-	OOXML_NS,
 	attr,
 	boolValue,
+	concatDrawingMLText,
+	type Element,
+	ELEMENT_NODE,
 	firstChild,
 	getElements,
 	numberValue,
-	type Element,
+	OOXML_NS,
 } from '../oxml/dom.js'
 import { solidFillColor } from '../oxml/fill.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
@@ -453,11 +454,7 @@ export class ChartSeries {
 function readTitleText(titleEl: Element | null): string | null {
 	if (!titleEl) return null
 	const tx = firstChild(titleEl, 'c:tx')
-	const rich = tx && firstChild(tx, 'c:rich')
-	if (!rich) return null
-	let out = ''
-	for (const t of rich.getElementsByTagNameNS(OOXML_NS.a, 't')) out += t.textContent ?? ''
-	return out === '' ? null : out
+	return concatDrawingMLText(tx && firstChild(tx, 'c:rich'))
 }
 
 /** Read a `c:numFmt` child of `parent` into `{ formatCode, sourceLinked }`, or `null` when absent. */

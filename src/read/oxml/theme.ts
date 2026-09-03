@@ -253,16 +253,38 @@ export function resolveThemeFont(typeface: string | null, fontScheme: Element | 
 	return resolved || null
 }
 
+/**
+ * Swap one colour element for another, MOVING the old element's transform children onto the new
+ * one — and, optionally, seeding it with a set of transforms of its own first.
+ *
+ * The move is the whole rule the flatten path exists to preserve: only the base reference is
+ * swapped, never the transform math. Three sites implemented it and a fourth cloned instead of
+ * moving, each with its own `while (old.firstChild) …` loop — duplication of exactly the one
+ * invariant that must not vary.
+ *
+ * Transform ORDER matters and is the reason `seed` is separate: `substitutePhClr` puts the
+ * theme reference's own `lumMod`/`alpha` ahead of the ones the `phClr` carried, because the
+ * reference's are the outer adjustment.
+ * @param old - the element being replaced; it is detached from its parent
+ * @param qname - the replacement's qualified name, e.g. `a:srgbClr`
+ * @param val - the replacement's `@val`
+ * @param seed - transforms to place on the replacement before the moved ones, deep-cloned
+ * @returns the replacement element
+ */
+export function replaceColorElement(old: Element, qname: string, val: string, seed: readonly Element[] = []): Element {
+	const replacement = createElement(ownerDocumentOf(old), qname)
+	setAttr(replacement, 'val', val)
+	for (const transform of seed) replacement.appendChild(transform.cloneNode(true))
+	while (old.firstChild) replacement.appendChild(old.firstChild)
+	replaceInParent(old, replacement)
+	return replacement
+}
+
 /** Replace every `phClr` under `el` with the ref colour (ref transforms first, then the `phClr`'s own). */
 export function substitutePhClr(el: Element, ref: ResolvedColorRef): void {
-	const doc = ownerDocumentOf(el)
 	for (const phClr of descendantsByTag(el, OOXML_NS.a, 'schemeClr')) {
 		if (attr(phClr, 'val') !== 'phClr') continue
-		const srgb = createElement(doc, 'a:srgbClr')
-		setAttr(srgb, 'val', ref.hex)
-		for (const t of ref.transforms) srgb.appendChild(t.cloneNode(true))
-		while (phClr.firstChild) srgb.appendChild(phClr.firstChild)
-		replaceInParent(phClr, srgb)
+		replaceColorElement(phClr, 'a:srgbClr', ref.hex, ref.transforms)
 	}
 }
 

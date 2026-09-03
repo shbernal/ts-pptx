@@ -177,7 +177,7 @@ export type PlotBuilder = (
 	sheet: SheetLayout
 ) => string
 
-export const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
+const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
 /**
  * A validated, lowercased axis time unit, or `undefined` when the value is not one.
@@ -332,13 +332,35 @@ export function chartColorLineFill(color: string): string {
  * @param opts - the chart's normalized options, read for `chartColorsOpacity`
  * @param serColor - the series' resolved palette colour, or `'transparent'`
  */
-export function seriesFill(opts: ChartOptsInternal, serColor: string): string {
+function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 	if (serColor === 'transparent') return voidEl('a:noFill')
 	if (!opts.chartColorsOpacity) return genXmlColorSelection(serColor)
 	const alpha = alphaEl(
 		percentToFixedPercent(opts.chartColorsOpacity, 'chart/option-out-of-range', 'chartColorsOpacity')
 	)
 	return el('a:solidFill', null, raw(createColorElement(serColor, alpha)))
+}
+
+/**
+ * One plotted series' stroke: a width, this series' dash, the palette colour and a round join —
+ * or `<a:noFill/>` when the caller asked for no line at all.
+ *
+ * Three plot builders had this, differing only in whether a per-series `lineSize` could override
+ * the chart's. `lineSize: 0` is the caller's "no outline" and is checked for explicitly, not by
+ * truthiness, because it is a stated value rather than an absent one.
+ * @param opts - the chart's normalized options
+ * @param color - the series' resolved palette colour
+ * @param serIndex - the series' index, for `lineDashValues`
+ * @param sizePt - the width in points; `undefined` falls back to the chart's, then to 2
+ */
+export function seriesStroke(opts: ChartOptsInternal, color: string, serIndex: number, sizePt?: number): string {
+	const widthPt = sizePt ?? opts.lineSize ?? 2
+	if (widthPt === 0) return el('a:ln', null, raw(voidEl('a:noFill')))
+	return el('a:ln', { w: ptsToEmuLenient(widthPt), cap: createLineCap(opts.lineCap) }, [
+		raw(chartColorLineFill(color)),
+		raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
+		raw(voidEl('a:round')),
+	])
 }
 
 /**
@@ -420,7 +442,7 @@ export function createChartTextFonts(typeface: string): string {
  * which leaves that axis on automatic layout rather than on a wrong number.
  * @param value - the chart's `x` or `y` as the caller spelled it
  */
-export function chartCoordInches(value: Coord | undefined): number | undefined {
+function chartCoordInches(value: Coord | undefined): number | undefined {
 	if (value === undefined || value === null) return undefined
 	// A bare number is inches by definition. Taking it directly also keeps `coordToEmu` from
 	// re-raising `coord/bare-number-is-inches`, which the graphic frame already reports for it.
@@ -519,28 +541,99 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 }
 
 /**
+ * A chart furniture line wrapped in its own element and a `<c:spPr>`: the gridlines a plot draws
+ * behind its series, or the series lines a stacked bar draws between them.
+ *
+ * One `<a:ln>` body served two elements that differed only in their wrapping tag and in how the
+ * caller decides whether to emit at all, so the tag is the parameter and the two guards stay
+ * with their own entry points.
+ * @param tag - `c:majorGridlines` or `c:serLines`
+ * @param opts - the caller's line options
+ * @param option - option name as the caller spells it, for the dash diagnostic
+ */
+function chartFurnitureLine(tag: 'c:majorGridlines' | 'c:serLines', opts: OptsChartGridLine, option: string): string {
+	const line = el(
+		'a:ln',
+		{
+			w: ptsToEmuLenient(opts.size || DEF_CHART_GRIDLINE.size || 1),
+			cap: createLineCap(opts.cap || DEF_CHART_GRIDLINE.cap),
+		},
+		[
+			raw(el('a:solidFill', null, raw(createColorElement(opts.color || DEF_GRIDLINE_COLOR)))),
+			raw(
+				voidEl('a:prstDash', { val: resolveDash(opts.style, DEF_CHART_GRIDLINE.style ?? 'solid', option) }) +
+					voidEl('a:round')
+			),
+		]
+	)
+	return el(tag, null, raw(el('c:spPr', null, raw(line))))
+}
+
+/**
  * Create Grid Line Element
  * @param {OptsChartGridLine} glOpts {size, color, style}
  * @return {string} XML
  */
 export function createGridLineElement(glOpts: OptsChartGridLine): string {
-	const line = el(
-		'a:ln',
-		{
-			w: ptsToEmuLenient(glOpts.size || DEF_CHART_GRIDLINE.size || 1),
-			cap: createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap),
-		},
-		[
-			raw(el('a:solidFill', null, raw(createColorElement(glOpts.color || DEF_GRIDLINE_COLOR)))),
-			raw(
-				voidEl('a:prstDash', {
-					val: resolveDash(glOpts.style, DEF_CHART_GRIDLINE.style ?? 'solid', 'gridLine style'),
-				}) + voidEl('a:round')
-			),
-		]
-	)
+	return chartFurnitureLine('c:majorGridlines', glOpts, 'gridLine style')
+}
 
-	return el('c:majorGridlines', null, raw(el('c:spPr', null, raw(line))))
+/**
+ * The children of a `<c:dLbls>` (or a `<c:dLbl>`), in the ONE order `CT_DLbls` allows.
+ *
+ * `EG_DLblShared` sequences `numFmt, spPr, txPr, dLblPos`, then the six flags, then
+ * `showLeaderLines` and `leaderLines`, with any per-point `<c:dLbl>` ahead of all of it and
+ * `<c:extLst>` last. Five builders across four modules restated that sequence by hand, which is
+ * the same shape as the axis-units bug: a child in the wrong place is a repair prompt, not a
+ * wrong-looking chart. `dLblShowFlags` already owned the six-flag run for this reason and the
+ * sequence around it was left copied.
+ *
+ * Every part is optional and stated by the caller, so the drift between the five shows up as a
+ * missing argument rather than as a silently different chart: only one of them honoured
+ * `dataLabelBkgrdColors`, only one a per-series `dataLabelFormatCode`, and two hard-coded
+ * `showLeaderLines` to on while four read the option.
+ *
+ * @param parts - the children this site emits, each already built
+ * @param tag - `c:dLbls` for a group of labels, `c:dLbl` for one point's
+ */
+export function dLblsBlock(
+	parts: {
+		/** Per-point `<c:dLbl>` blocks, or a `<c:idx>` on a `c:dLbl`. Emitted first, in order. */
+		lead?: string | undefined
+		numFmt?: string | undefined
+		spPr?: string | undefined
+		txPr?: string | undefined
+		dLblPos?: string | undefined
+		flags: XmlChild[]
+		showLeaderLines?: string | undefined
+		leaderLines?: string | undefined
+		extLst?: string | undefined
+	},
+	tag: 'c:dLbls' | 'c:dLbl' = 'c:dLbls'
+): string {
+	return el(tag, null, [
+		parts.lead ? raw(parts.lead) : null,
+		parts.numFmt ? raw(parts.numFmt) : null,
+		parts.spPr ? raw(parts.spPr) : null,
+		parts.txPr ? raw(parts.txPr) : null,
+		parts.dLblPos ? raw(parts.dLblPos) : null,
+		...parts.flags,
+		parts.showLeaderLines ? raw(parts.showLeaderLines) : null,
+		parts.leaderLines ? raw(parts.leaderLines) : null,
+		parts.extLst ? raw(parts.extLst) : null,
+	])
+}
+
+/**
+ * The `<c:numFmt>` a data-label block carries: the caller's format code, or `General`.
+ *
+ * `(x ?? '') || 'General'` stood at five sites verbatim. The two coalescers are not
+ * interchangeable and both are load-bearing: `??` keeps an explicit empty string from becoming
+ * `undefined`, and `||` turns that empty string into the schema's own default.
+ * @param formatCode - the caller's format code, if any
+ */
+export function dLblNumFmt(formatCode: string | undefined): string {
+	return voidEl('c:numFmt', { formatCode: (formatCode ?? '') || 'General', sourceLinked: 0 })
 }
 
 /**
@@ -559,15 +652,13 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
  * @param leaderLines - emit the trailing `<c:showLeaderLines>` (category-axis plots only)
  */
 export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): string {
-	const defRPr = dataLabelDefRPr(opts)
-	const txPr = labelTextProps(defRPr)
-	return el('c:dLbls', null, [
-		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
-		raw(txPr),
-		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
-		leaderLines ? raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })) : null,
-	])
+	return dLblsBlock({
+		numFmt: dLblNumFmt(opts.dataLabelFormatCode),
+		txPr: labelTextProps(dataLabelDefRPr(opts)),
+		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		flags: dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
+		showLeaderLines: leaderLines ? voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }) : undefined,
+	})
 }
 
 /**
@@ -726,22 +817,7 @@ export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string
 	if (!opt) return ''
 	if (opt === true) return voidEl('c:serLines')
 	if (opt.style === 'none') return ''
-	const line = el(
-		'a:ln',
-		{
-			w: ptsToEmuLenient(opt.size || DEF_CHART_GRIDLINE.size || 1),
-			cap: createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap),
-		},
-		[
-			raw(el('a:solidFill', null, raw(createColorElement(opt.color || DEF_GRIDLINE_COLOR)))),
-			raw(
-				voidEl('a:prstDash', { val: resolveDash(opt.style, DEF_CHART_GRIDLINE.style ?? 'solid', 'serLine style') }) +
-					voidEl('a:round')
-			),
-		]
-	)
-
-	return el('c:serLines', null, raw(el('c:spPr', null, raw(line))))
+	return chartFurnitureLine('c:serLines', opt, 'serLine style')
 }
 
 /**
@@ -879,7 +955,7 @@ export function makeSeriesDataPointsXml(
 				? opts.invertedColors || opts.chartColors || BARCHART_COLORS
 				: varyColors
 			: null
-		const fillColor = ptStyle?.fill || (arrColors ? arrColors[index % arrColors.length] : null)
+		const fillColor = ptStyle?.fill || (arrColors ? paletteColor(arrColors, index) : null)
 		const pattern = ptStyle?.pattern
 		const border = ptStyle?.border
 		// Nothing to style for this point -> omit the c:dPt entirely

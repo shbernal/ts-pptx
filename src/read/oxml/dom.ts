@@ -312,3 +312,19 @@ export function parsePercent(value: string | null): number | null {
 export function pctAttr(element: Element, qname: string): number | null {
 	return parsePercent(attr(element, qname))
 }
+
+/**
+ * The text of a DrawingML rich-text body: every `a:t` under `rich`, concatenated, or `null` when
+ * there is none.
+ *
+ * `null` rather than `''` for an empty body, because a title element with no runs and no title
+ * element at all are the same fact to a caller. The two chart readers (`c:rich` and `cx:rich`)
+ * were the only occurrences of this loop in `src/` and each had its own copy.
+ * @param rich - the `a:*`-bearing rich-text element, or `null`
+ */
+export function concatDrawingMLText(rich: Element | null): string | null {
+	if (!rich) return null
+	let out = ''
+	for (const t of rich.getElementsByTagNameNS(OOXML_NS.a, 't')) out += t.textContent ?? ''
+	return out === '' ? null : out
+}
