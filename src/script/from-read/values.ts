@@ -27,6 +27,7 @@ import { toInches } from '../units.js'
 import { stripHash } from '../../hex-color.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 import { SchemeColor } from '../../enums.js'
+import { VALIGN_BY_ANCHOR } from '../../ooxml/text-anchor.js'
 
 /** Geometry as a `Coord` the write API takes verbatim, preserving the exact EMU. */
 export function emu(value: number): string {
@@ -148,10 +149,10 @@ export function colorOption(
 /**
  * `a:bodyPr/@anchor` and `a:tcPr/@anchor` -> the write API's `valign`.
  *
- * The inverse of the emitters' own `resolveTextAnchor`, and one table rather than the two
- * byte-identical copies the text and table mappers each carried.
+ * Derived from the same table `resolveTextAnchor` reads, rather than written out again here:
+ * this side cannot import `gen/`, so the two directions had no way to stay in step.
  */
-export const ANCHOR_TO_VALIGN: Readonly<Record<string, string>> = { t: 'top', ctr: 'middle', b: 'bottom' }
+export const ANCHOR_TO_VALIGN = VALIGN_BY_ANCHOR
 
 /**
  * The `a:prstDash` values the write API's `dashType` can spell.

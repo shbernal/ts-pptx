@@ -21,6 +21,13 @@
  * same silent way. The write side is the exception at the bottom of this file: `[Content_Types].xml`
  * spells its entries out locally so each one stays greppable by its suffix next to the part it
  * declares.
+ *
+ * That exception has been re-examined and kept, because the failure it risks is not silent after
+ * all: the nine part kinds it restates are in every deck this library writes, so changing one of
+ * them on the write side moves the bytes of `[Content_Types].xml` and fails the byte-identity gate
+ * along with the suites that read a written deck back; changing one here fails the read tests that
+ * find a layout or a master by content type. Both halves are pinned by the corpus rather than by
+ * agreement between two literals, which is what makes the local spelling affordable.
  */
 
 /** Root of every ECMA-376 schema URI. Private: callers want one of the prefixes below. */

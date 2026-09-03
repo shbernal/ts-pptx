@@ -6,14 +6,15 @@
  * predicate, and the placeholder `<p:ph>` element.
  */
 
-import { PlaceholderType, SlideObjectType, TextAnchor } from '../../enums.js'
+import { PlaceholderType, SlideObjectType } from '../../enums.js'
 import { CRLF } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
-import { TEXT_ANCHORS, TEXT_SHAPE_TYPES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
+import { TEXT_SHAPE_TYPES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
 import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { TEXT_ANCHOR_BY_VALIGN, type TextAnchorToken } from '../../ooxml/text-anchor.js'
 import {
 	genXmlNormAutofit,
 	genXmlParagraphProperties,
@@ -108,46 +109,6 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	}
 
 	return el('a:bodyPr', attrs, children.map(raw))
-}
-
-/** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items. */
-/**
- * Every spelling of `valign` the three definers between them accepted, mapped to the one
- * `ST_TextAnchoringType` token it means.
- *
- * The three read it three ways: `startsWith('b'|'m'|'t')` in `gen/define/text.ts`, a chain of
- * `.replace('top','t')…` in `gen/slide/object.ts` that let any other string through *verbatim*
- * into `anchor=`, and a longer chain in `gen/slide/objects/table.ts` that also took `btm` and
- * `center`. This table is the union of what they named; anything else is now a warning and an
- * omitted attribute rather than an invalid one.
- */
-/**
- * The `a:bodyPr/@anchor` tokens this library writes: the {@link TextAnchor} enum, checked here
- * against `ST_TextAnchoringType`.
- *
- * `TEXT_ANCHORS` (`ooxml/st-enums.ts`) is the schema's own list and no write-side site consulted
- * it, so the enum the emitters actually write could drift out of the schema with nothing to say
- * so. `Extract` is that check: an enum member outside `ST_TextAnchoringType` is dropped from this
- * type and the map below stops compiling. It is deliberately compile-time rather than a
- * `checkEnumOrWarn` on the result, because every value in that map is already an enum member, so
- * a runtime check there could never fail -- and a check that cannot fail is worse than none.
- *
- * The library writes three of the schema's five; `just` and `dist` are anchoring modes no option
- * surfaces.
- */
-type TextAnchorToken = Extract<TextAnchor, (typeof TEXT_ANCHORS)[number]>
-
-const TEXT_ANCHOR_BY_VALIGN: Readonly<Record<string, TextAnchorToken>> = {
-	t: TextAnchor.t,
-	top: TextAnchor.t,
-	b: TextAnchor.b,
-	btm: TextAnchor.b,
-	bottom: TextAnchor.b,
-	c: TextAnchor.ctr,
-	ctr: TextAnchor.ctr,
-	center: TextAnchor.ctr,
-	m: TextAnchor.ctr,
-	middle: TextAnchor.ctr,
 }
 
 /**

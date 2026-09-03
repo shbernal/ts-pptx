@@ -377,7 +377,14 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
 		align?: AlignH
-		anchor?: TextAnchor
+		/**
+		 * The resolved `a:bodyPr/@anchor` token. The enum's *values* rather than the enum, so
+		 * that both spellings of the same three tokens are accepted: the definer writes
+		 * `TextAnchor.ctr` for its own default, while `resolveTextAnchor` answers with the
+		 * schema token from the shared `valign` table, which cannot name the enum (it lives in
+		 * `ooxml/`, which holds no runtime imports).
+		 */
+		anchor?: `${TextAnchor}`
 		lIns?: number
 		rIns?: number
 		tIns?: number
