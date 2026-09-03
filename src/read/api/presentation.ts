@@ -83,6 +83,9 @@ const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
 
+/** ST_SlideId maximum (ECMA-376). One past it is not a slide id, it is a repair prompt. */
+const MAX_SLIDE_ID = 2147483647
+
 export class Presentation {
 	#presentationPart: Part | undefined
 	/**
@@ -742,14 +745,32 @@ export class Presentation {
 		return new Slide(this, newPart, newSlideId, newIndex)
 	}
 
-	/** A slide id one past the highest existing, but at least ST_SlideId's minimum. */
+	/**
+	 * A slide id one past the highest existing, but at least ST_SlideId's minimum.
+	 *
+	 * The module named and enforced that minimum and not the maximum, so a deck near the ceiling
+	 * got an out-of-range `p:sldId/@id` written with no diagnostic — the package then needs
+	 * repair, for a reason nothing reported. Past the ceiling there is no "next" id to hand out,
+	 * so the allocation falls back to the lowest id in range that the deck is not already using;
+	 * a deck holding every one of the two billion has no legal answer and says so.
+	 */
 	#nextSlideId(sldIds: ReturnType<typeof getElements>): number {
+		const used = new Set<number>()
 		let max = MIN_SLIDE_ID - 1
 		for (const sldId of sldIds) {
 			const id = numberValue(attr(sldId, 'id'))
-			if (id !== null && id > max) max = id
+			if (id === null) continue
+			used.add(id)
+			if (id > max) max = id
 		}
-		return max + 1
+		if (max < MAX_SLIDE_ID) return max + 1
+		for (let id = MIN_SLIDE_ID; id <= MAX_SLIDE_ID; id++) {
+			if (!used.has(id)) return id
+		}
+		throw new InvalidOptionError(
+			'slide/id-space-exhausted',
+			`this deck already uses every slide id ST_SlideId allows (${MIN_SLIDE_ID}-${MAX_SLIDE_ID}); no slide can be added.`
+		)
 	}
 
 	/** Re-emit the package; untouched parts stay byte-identical (see `OpcPackage.save`). */

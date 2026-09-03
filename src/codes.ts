@@ -264,6 +264,7 @@ export type InvalidOptionErrorCode =
 	// Addressing an existing deck (`ts-pptx/read`)
 	| 'slide/index-out-of-range'
 	| 'slide/foreign-target'
+	| 'slide/id-space-exhausted'
 	| 'shape/index-out-of-range'
 	| 'layout/ambiguous-name'
 	| 'layout/not-found'

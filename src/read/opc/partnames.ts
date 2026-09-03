@@ -37,6 +37,29 @@ export function relPart(opc: OpcPackage, rels: Relationships, relId: string): Pa
 }
 
 /**
+ * The absolute partname `relId` names, or `null` when there is nothing in the package to name:
+ * no id, no relationship declaring it, or a relationship whose target is **external**.
+ *
+ * `Relationships.resolveTarget` throws on both of the last two, which is right where the caller
+ * is asking a question a malformed package cannot answer (the graphic-frame accessors below rely
+ * on it). It is wrong for the accessors that already report "absent" as `null`: the SAME
+ * `a:blip/@r:embed` reached through a picture fill degraded to `null` and through
+ * `Picture.imagePartName` threw, so one broken embed on an imported deck took out a whole
+ * `slide.shapes` walk -- and `Picture.mediaPartName`, the "just give me the bytes" accessor,
+ * inherited the throw from both halves. A `p:pic` holding a LINKED image, which `mediaKind`'s
+ * own documentation names, threw rather than reporting `'none'`.
+ * @param relId - the relationship id, if any
+ * @param rels - the owning part's relationships, if any
+ * @returns the absolute partname, or `null`
+ */
+export function resolvePartName(relId: string | null | undefined, rels: Relationships | null): string | null {
+	if (!relId || !rels) return null
+	const rel = rels.get(relId)
+	if (!rel || rel.targetMode === 'External') return null
+	return rels.resolveTarget(relId)
+}
+
+/**
  * {@link resolveSingleRel}, resolved the rest of the way to the {@link Part}.
  *
  * For the one-of-a-kind links in a deck's spine, where the caller wants the part rather than

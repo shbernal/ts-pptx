@@ -9,20 +9,21 @@
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import {
-	ELEMENT_NODE,
 	attr,
 	boolValue,
 	childElements,
 	createElement,
+	type Element,
+	ELEMENT_NODE,
 	firstChild,
 	firstChildElement,
 	getElements,
 	getOrAddChild,
 	numberValue,
+	pctAttr,
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
-	type Element,
 } from '../oxml/dom.js'
 import { colorValueIf, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type ThemeContext } from '../oxml/theme.js'
@@ -40,7 +41,7 @@ import {
 	type StyleFontRef,
 } from './theme-context.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
-import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../ooxml/sequence.js'
 import { pctFromThousandths, ptFromEmu, ptFromHundredths } from './coords.js'
 
@@ -292,10 +293,14 @@ export class Run {
 	 * in 1000ths of a percent): positive for superscript (the writer's default is
 	 * `30`), negative for subscript (`-40`), or `null` when unset. Reported as the
 	 * percentage (`@baseline` ÷ 1000).
+	 *
+	 * `@baseline` is `a:ST_Percentage`, a union that also admits `"62.5%"` — the only form the
+	 * Strict profile has — so it is read through `parsePercent` rather than as a bare number.
 	 */
 	get baselinePct(): number | null {
-		const raw = this.#rPrAttr('baseline')
-		return pctFromThousandths(raw)
+		const rPr = this.#rPr()
+		const pct = rPr ? pctAttr(rPr, 'baseline') : null
+		return pct === null ? null : pct * 100
 	}
 
 	/**
@@ -652,8 +657,10 @@ export class Paragraph {
 		}
 		const pct = firstChild(lnSpc, 'a:spcPct')
 		if (pct) {
-			const val = numberValue(attr(pct, 'val'))
-			return val === null ? null : { type: 'percent', percent: val / FIXED_PCT_PER_PERCENT }
+			// `ST_TextSpacingPercentOrPercentString`: the name says it, and the string half is the
+			// only spelling Strict has.
+			const val = pctAttr(pct, 'val')
+			return val === null ? null : { type: 'percent', percent: val * 100 }
 		}
 		return null
 	}
@@ -924,12 +931,18 @@ export class TextFrame {
 		return this.#normAutofitPct('lnSpcReduction')
 	}
 
-	/** A `a:normAutofit` percentage attribute (stored in 1000ths of a percent → percent), or `null`. */
+	/**
+	 * A `a:normAutofit` percentage attribute → percent, or `null`.
+	 *
+	 * `fontScale` is `ST_TextFontScalePercentOrPercentString` and `lnSpcReduction` is
+	 * `ST_TextSpacingPercentOrPercentString`; both admit the `"62.5%"` spelling alongside the
+	 * fixed-point one, and it is the only spelling Strict has.
+	 */
 	#normAutofitPct(name: string): number | null {
 		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
 		const norm = bodyPr && firstChild(bodyPr, 'a:normAutofit')
-		const raw = norm ? numberValue(attr(norm, name)) : null
-		return pctFromThousandths(raw)
+		const pct = norm ? pctAttr(norm, name) : null
+		return pct === null ? null : pct * 100
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

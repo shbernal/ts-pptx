@@ -683,9 +683,13 @@ export class Slide implements ShapeHost {
 	}
 
 	/**
-	 * @internal The smallest drawing id (`p:cNvPr/@id`) not already used on this
-	 * slide. Exposed so `Presentation.importShape` can give a lifted shape (and its
-	 * group children) collision-free ids on the host.
+	 * @internal One past the highest drawing id (`p:cNvPr/@id`) in use on this slide. Exposed so
+	 * `Presentation.importShape` can give a lifted shape (and its group children) collision-free
+	 * ids on the host.
+	 *
+	 * It does NOT fill gaps, and it does not reserve what it hands out: calling it twice without
+	 * appending in between returns the same id both times. A caller allocating several ids at
+	 * once counts up from one call rather than calling repeatedly.
 	 */
 	nextShapeId(): number {
 		return this.#nextShapeId()
@@ -697,7 +701,7 @@ export class Slide implements ShapeHost {
 		this.part.markDirty()
 	}
 
-	/** The smallest drawing id (`p:cNvPr/@id`) not already used on the slide. */
+	/** One past the highest drawing id (`p:cNvPr/@id`) in use on the slide. */
 	#nextShapeId(): number {
 		const root = this.part.dom.documentElement
 		let max = 1

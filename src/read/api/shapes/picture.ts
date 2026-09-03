@@ -22,7 +22,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../../media/image-size.js'
 import { imageFormatForContentType } from '../../../media/image-formats.js'
 import { warn } from '../../../diagnostics.js'
-import { relativePartName } from '../../opc/partnames.js'
+import { relativePartName, resolvePartName } from '../../opc/partnames.js'
 import { colorValueIf } from '../../oxml/fill.js'
 import { readRect, type FillRect } from '../picture-fill.js'
 import { Shape } from './base.js'
@@ -89,10 +89,15 @@ export class Picture extends Shape {
 		this.markDirty()
 	}
 
-	/** Absolute partname of the embedded image, resolved via the owning part's relationships, or `null`. */
+	/**
+	 * Absolute partname of the embedded image, resolved via the owning part's relationships.
+	 *
+	 * `null` covers every way there is nothing to name: no `r:embed`, an id the part does not
+	 * declare, or a relationship whose target is external (a LINKED image). It used to throw on
+	 * the last two while the same blip reached through a picture fill returned `null`.
+	 */
 	get imagePartName(): string | null {
-		const relId = this.imageRelId
-		return relId ? this.host.relationships.resolveTarget(relId) : null
+		return resolvePartName(this.imageRelId, this.host.relationships)
 	}
 
 	/**
@@ -108,10 +113,9 @@ export class Picture extends Shape {
 		return svg ? attr(svg, 'r:embed') : null
 	}
 
-	/** Absolute partname of the embedded SVG image, resolved via the owning part's relationships, or `null`. */
+	/** Absolute partname of the embedded SVG image, or `null`. Same rule as {@link imagePartName}. */
 	get svgPartName(): string | null {
-		const relId = this.svgRelId
-		return relId ? this.host.relationships.resolveTarget(relId) : null
+		return resolvePartName(this.svgRelId, this.host.relationships)
 	}
 
 	/**

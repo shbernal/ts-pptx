@@ -91,6 +91,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`Picture.imagePartName`, `.svgPartName` and `.mediaPartName` return `null` where they used
+  to throw.** `Relationships.resolveTarget` throws on a dangling id and on an external target,
+  which is right for an accessor asking a question a malformed package cannot answer — and
+  wrong for one that already reports "absent" as `null`. The *same* `a:blip/@r:embed` reached
+  through `AutoShape.pictureFill`, `TableCell.pictureFill` or `Slide.background` degraded to
+  `null` and through `Picture.imagePartName` threw, so one broken embed on an imported deck
+  took out a whole `slide.shapes` walk; `mediaPartName`, the "just give me the bytes"
+  accessor, inherited the throw from both halves. A `p:pic` carrying a *linked* image — which
+  `mediaKind`'s own documentation names as its `'none'` case — threw rather than reporting it.
+
+  **Migration:** a caller that was catching `relationship/not-found` or
+  `relationship/external-has-no-partname` around these three getters checks for `null`
+  instead. The `GraphicFrame` accessors that deliberately let it throw are unchanged.
+
 - **Enumerated attributes are checked against their `ST_` union on every write path, not on
   four of them.** `check-enum.ts` is the declared policy for this and had four call sites
   against roughly thirty hand-rolled ones, which is how the *same type* reaching the *same*
@@ -314,6 +328,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **A percentage stated in the string form is read as the value it states.** `ST_Percentage`
+  and its relatives are *unions*: the fixed-point integer PowerPoint writes (`100%` →
+  `100000`) and a decimal string carrying a literal `%` (`"62.5%"`) — and the string form is
+  the **only** one the Strict profile has. `read/oxml/dom.ts` has carried the union parser and
+  a note saying exactly this; four getters read the attribute as a bare number instead, so
+  `Run.baselinePct`, `Paragraph.lineSpacing`, `TextFrame.autofitFontScale` and
+  `TextFrame.autofitLineSpaceReduction` reported `null` for a value that was present, and the
+  model's contract for those nulls says "absent". A Strict-profile or non-PowerPoint deck
+  therefore came back with no baseline shift, no line spacing and no autofit scale.
+
+  `a:buSzPct/@val` is genuinely `ST_TextBulletSizePercent`, which has no string form, so it
+  stays a bare fixed-point read; `pctFromThousandths` now documents that it is for those.
+
+- **`p:spTree/p:extLst` is the shape tree's own child, not a shape.** Three helpers over a
+  shape tree asked "is this a shape" and only one of them excluded `p:extLst`, so
+  `carriedDecorations` reported it as a decoration to carry — and `importSlide`'s
+  `carryMasterGraphics` inserts each of those *before* the destination's own shapes, which
+  puts an `extLst` where `CT_GroupShape` sequences `nvGrpSpPr, grpSpPr, (shape)*, extLst?` and
+  makes the part invalid. The read corpus holds no direct `p:spTree/p:extLst` across 776 shape
+  trees, so nothing existing could have caught it.
+
+- **A table cell's `fillSchemeColor` reads the same element its siblings do.** It fell back to
+  `a:tc` when the cell had no `a:tcPr` — a location `CT_TableCell` does not permit — so on a
+  malformed deck it reported a scheme token that `resolvedFill` and `hasOwnFill` both denied,
+  and on a well-formed one the arm was unreachable code that read as a deliberate rule.
+
+- **Two read sites hand-rolled `xsd:boolean`.** `TableCell.anchorCtr` spelled the test a fourth
+  way (and read the attribute twice to do it) and the `vt:bool` document-property decoder
+  accepted `'TRUE'`, which `xsd:boolean` does not. Both go through the module that exists to
+  make that judgement unnecessary. Neither was a live defect — both attributes default false —
+  but a hand-rolled `=== '1'` passes every deck this library and PowerPoint produce and
+  misreads the rest, which is the shape of bug the module was extracted to prevent.
+
+- **A new slide id stays inside `ST_SlideId`.** The allocator named and enforced the type's
+  minimum and not its maximum, so a deck near the ceiling got an out-of-range `p:sldId/@id`
+  written with no diagnostic. Past the ceiling it now falls back to the lowest id in range the
+  deck is not already using, and a deck holding every one of the two billion throws
+  `slide/id-space-exhausted` instead of writing a number the format has no room for.
 
 - **A table's usable width read the wrong two slide margins.** `resolveSlideMarginsInches`
   returns `[top, right, bottom, left]`, and `usableTableWidthEmu` took index 1 (the right

@@ -15,6 +15,7 @@ import { OpcPackage } from '../opc/package.js'
 import { singleRelPart } from '../opc/partnames.js'
 import { attr, childElements, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
 import { CORE_PROPS_REL, CUSTOM_PROPS_REL } from '../../ooxml/rel-types.js'
+import { boolValue } from '../../ooxml/xsd-boolean.js'
 
 // The two content types below are the fallback lookup for when the rel is absent, and this is
 // the only module that matches on them — the write side spells its own out next to the part it
@@ -132,7 +133,9 @@ function decodeValue(vt: Element): CustomPropertyValue {
 			return Number.isFinite(n) ? n : text
 		}
 		case 'bool':
-			return text.trim().toLowerCase() === 'true' || text.trim() === '1'
+			// `vt:bool` is `xsd:boolean`, so `boolValue` is the one reading of its four lexical
+			// forms. The hand-rolled test accepted `'TRUE'`, which `xsd:boolean` does not.
+			return boolValue(text.trim()) ?? false
 		case 'filetime':
 		case 'date':
 			return text

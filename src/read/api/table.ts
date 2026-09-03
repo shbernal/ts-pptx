@@ -13,6 +13,7 @@ import {
 	attr,
 	boolAttr,
 	createElement,
+	type Element,
 	firstChild,
 	getElements,
 	getOrAddChild,
@@ -21,7 +22,6 @@ import {
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
-	type Element,
 } from '../oxml/dom.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import {
@@ -845,7 +845,11 @@ export class TableCell {
 	 * The resolved literal is {@link resolvedFill}; this is the unresolved reference.
 	 */
 	get fillSchemeColor(): string | null {
-		return solidFillColor(this.#tcPr() ?? this.tc, 'a:schemeClr')
+		// `#tcPr()` alone, as every sibling fill accessor reads it. `a:tc/a:solidFill` is a
+		// location `CT_TableCell` does not permit, so the `?? this.tc` fallback was unreachable on
+		// a well-formed deck and, on a malformed one, reported a scheme token that `resolvedFill`
+		// and `hasOwnFill` both denied.
+		return solidFillColor(this.#tcPr(), 'a:schemeClr')
 	}
 
 	/**
@@ -915,7 +919,7 @@ export class TableCell {
 	 */
 	get anchorCtr(): boolean {
 		const tcPr = this.#tcPr()
-		return tcPr ? attr(tcPr, 'anchorCtr') === '1' || attr(tcPr, 'anchorCtr') === 'true' : false
+		return tcPr ? boolAttr(tcPr, 'anchorCtr') === true : false
 	}
 
 	/**

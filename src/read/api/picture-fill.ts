@@ -11,6 +11,7 @@
  */
 import { attr, boolValue, firstChild, numberValue, pctAttr, type Element } from '../oxml/dom.js'
 import type { Relationships } from '../opc/relationships.js'
+import { resolvePartName } from '../opc/partnames.js'
 
 /** A rectangle expressed as per-edge fractions (`a:srcRect`/`a:fillRect`), `0.1` = 10 %. */
 export interface FillRect {
@@ -89,14 +90,6 @@ function readTile(tile: Element): PictureFillTile {
 		flip: attr(tile, 'flip'),
 		align: attr(tile, 'algn'),
 	}
-}
-
-/** Resolve a rel id to an absolute partname, `null` for an absent/external/dangling one. */
-function resolvePartName(relId: string | null, rels: Relationships | null): string | null {
-	if (!relId || !rels) return null
-	const rel = rels.get(relId)
-	if (!rel || rel.targetMode === 'External') return null
-	return rels.resolveTarget(relId)
 }
 
 /**

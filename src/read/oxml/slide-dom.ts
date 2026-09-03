@@ -45,9 +45,23 @@ export function cSldName(part: Part | undefined): string {
 	return (cSld && attr(cSld, 'name')) ?? ''
 }
 
-/** Whether `el` is a `p:spTree`'s own group properties (`p:nvGrpSpPr`/`p:grpSpPr`), not a shape. */
-function isSpTreeProperty(el: Element): boolean {
-	return el.namespaceURI === OOXML_NS.p && (el.localName === 'nvGrpSpPr' || el.localName === 'grpSpPr')
+/**
+ * Whether a `p:spTree` child is one of the tree's own children rather than a shape:
+ * `p:nvGrpSpPr` and `p:grpSpPr` before the shapes, `p:extLst` after them.
+ *
+ * `CT_GroupShape` sequences `nvGrpSpPr, grpSpPr, (shape)*, extLst?`, so all three are
+ * positional and none of them is something a shape walk should return. Three helpers below
+ * asked this question and only one of them excluded `p:extLst`, so `carriedDecorations`
+ * reported it as a decoration to carry -- and the slide importer inserts each of those BEFORE
+ * the destination's shapes, which puts an `extLst` where the content model has none and makes
+ * the part invalid. The read corpus holds no direct `p:spTree/p:extLst` at all, across 776
+ * shape trees, so nothing existing could have caught it.
+ */
+function isSpTreeOwnChild(el: Element): boolean {
+	return (
+		el.namespaceURI === OOXML_NS.p &&
+		(el.localName === 'nvGrpSpPr' || el.localName === 'grpSpPr' || el.localName === 'extLst')
+	)
 }
 
 /** Whether a `p:spTree` child is a placeholder shape (its `*nvPr` carries a `p:ph`). */
@@ -64,36 +78,34 @@ export function carriedDecorations(root: Element | null): Element[] {
 	for (let node = spTree.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const el = node as Element
-		if (isSpTreeProperty(el) || isPlaceholderShape(el)) continue
+		if (isSpTreeOwnChild(el) || isPlaceholderShape(el)) continue
 		out.push(el)
 	}
 	return out
 }
 
 /**
- * The `n`-th shape child of a `p:spTree` in document (z-)order, skipping the
- * tree's own `nvGrpSpPr`/`grpSpPr` and any trailing `p:extLst`. Returns `null`
- * when `n` is past the last shape (the caller then appends).
+ * The `n`-th shape child of a `p:spTree` in document (z-)order, skipping the tree's own
+ * children. Returns `null` when `n` is past the last shape (the caller then appends).
  */
 export function nthShapeChild(spTree: Element, n: number): Element | null {
 	let i = 0
 	for (let node = spTree.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const el = node as Element
-		if (isSpTreeProperty(el)) continue
-		if (el.namespaceURI === OOXML_NS.p && el.localName === 'extLst') continue
+		if (isSpTreeOwnChild(el)) continue
 		if (i === n) return el
 		i++
 	}
 	return null
 }
 
-/** The first shape child of a `p:spTree` (skipping `nvGrpSpPr`/`grpSpPr`), or `null`. */
+/** The first shape child of a `p:spTree` (skipping the tree's own children), or `null`. */
 export function firstShapeChild(spTree: Element): Element | null {
 	for (let node = spTree.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const el = node as Element
-		if (!isSpTreeProperty(el)) return el
+		if (!isSpTreeOwnChild(el)) return el
 	}
 	return null
 }

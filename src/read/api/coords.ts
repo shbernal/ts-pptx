@@ -76,10 +76,18 @@ export function ptFromHundredths(value: number | null): number | null {
 }
 
 /**
- * Thousandths of a percent → percent, propagating "absent" — `a:spcPct/@val`
- * (`ST_TextSpacingPercent`) and `a:buSzPct/@val` (`ST_TextBulletSizePercent`), both of which
- * spell 100% as `100000`. That is the same fixed-point percentage the write side scales into
- * with {@link FIXED_PCT_PER_PERCENT}, read in the other direction.
+ * Thousandths of a percent → percent, propagating "absent" — `a:buSzPct/@val`
+ * (`ST_TextBulletSizePercent`), which spells 100% as `100000`. That is the same fixed-point
+ * percentage the write side scales into with {@link FIXED_PCT_PER_PERCENT}, read in the other
+ * direction.
+ *
+ * **Fixed-point only, by design.** It takes a `number`, so a caller must have parsed the
+ * attribute already — and the `…PercentOrPercentString` types (`ST_Percentage` and its
+ * relatives) also admit a decimal string with a literal `%`, which is the ONLY form the Strict
+ * profile has. `numberValue('62.5%')` is `null`, so four getters reported a value that was
+ * present as absent. Read one of those through `parsePercent`/`pctAttr` in `read/oxml/dom.ts`,
+ * which takes the raw attribute and knows both spellings; this one is for the attributes whose
+ * type has no string form.
  */
 export function pctFromThousandths(value: number | null): number | null {
 	return value === null ? null : value / FIXED_PCT_PER_PERCENT
