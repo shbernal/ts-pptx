@@ -332,6 +332,22 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
  * Apply chart-level option defaults: gap/overlap/hole clamps, chart colors, plotArea/chartArea
  * borders and fills, data border, data-label format codes, line size and multi-level cat labels.
  */
+/**
+ * The chart types whose series builder reads {@link ChartOpts.seriesOptions}.
+ *
+ * The category-axis family, and only it: `makeScatterPlot`, `makeBubblePlot`, `makeStockPlot`,
+ * `makeSurfacePlot` and `makePiePlot` all go straight to `paletteColor(...)`. A pie is the one
+ * with no referent even in principle -- it colours *points*, not series -- and the rest are a
+ * gap rather than a decision.
+ */
+const SERIES_OPTIONS_TYPES: ReadonlySet<ChartType> = new Set([
+	ChartType.area,
+	ChartType.bar,
+	ChartType.bar3d,
+	ChartType.line,
+	ChartType.radar,
+])
+
 function normalizeChartOptions(options: ChartOptsInternal): void {
 	options.barGapWidthPct = clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150
 	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
@@ -707,6 +723,25 @@ export function addChartDefinition(
 	// `<c:gapWidth>`/`<c:gapDepth>` are ST_GapAmount (integer 0..500); `<c:overlap>` is
 	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
 	normalizeChartOptions(options)
+
+	// D.1: `seriesOptions` is read only by the category-axis plot family, which is a fact about
+	// this library rather than about the format -- and a documented chart-wide option that does
+	// nothing on six of the eleven classic types, silently, is the third state the option rules
+	// forbid: "the caller said it and nothing happened". Saying so is the decision; threading it
+	// through the remaining builders is a separate change, and one that has a question to settle
+	// first (a scatter's `data[0]` is the shared X row, so it is not obvious which series
+	// `seriesOptions[0]` names).
+	if (options.seriesOptions?.length) {
+		const unsupported = (Array.isArray(options._type) ? options._type.map((sub) => sub.type) : [options._type])
+			.map((name) => asChartType(name))
+			.filter((name) => !SERIES_OPTIONS_TYPES.has(name))
+		if (unsupported.length > 0) {
+			warn(
+				'chart/option-not-supported',
+				`"seriesOptions" has no effect on ${[...new Set(unsupported)].join('/')}; it is read by ${[...SERIES_OPTIONS_TYPES].join('/')} only. Style those series through the chart-level options.`
+			)
+		}
+	}
 
 	// E: Options: combo subcharts
 	// A `ChartMulti` entry's options override the chart-level ones at emit time, so they have to

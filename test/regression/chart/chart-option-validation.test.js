@@ -445,4 +445,33 @@ defineRegressionSuite('Chart option validation', [
 			assertIncludes(codes, 'chart/option-out-of-range')
 		},
 	},
+	{
+		name: 'seriesOptions on a chart type that does not read it warns rather than doing nothing',
+		fn: async () => {
+			// A documented chart-wide option honoured by one plot family: `scatter`, `bubble`,
+			// `bubble3d`, `pie`, `doughnut`, `stock` and `surface` build their series colours
+			// straight from the palette and never look at it. "The caller said it and nothing
+			// happened" is the state the option rules forbid.
+			const { codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.pie, seriesOptions: [{ color: 'FF0000' }] })
+				})
+			)
+			assertIncludes(codes, 'chart/option-not-supported')
+		},
+	},
+	{
+		name: 'and stays quiet on the family that does read it',
+		fn: async () => {
+			const { codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, seriesOptions: [{ color: 'FF0000' }] })
+				})
+			)
+			assert(
+				!codes.includes('chart/option-not-supported'),
+				'a bar chart reads seriesOptions; got ' + JSON.stringify(codes)
+			)
+		},
+	},
 ])

@@ -50,6 +50,7 @@ export type DiagnosticCode =
 	| 'chart/invalid-metadata-value'
 	| 'chart/option-out-of-range'
 	| 'chart/option-not-on-axis'
+	| 'chart/option-not-supported'
 	| 'chart/invalid-option-value'
 	| 'chart/invalid-subtotal-index'
 	| 'chart/symbol-size-out-of-range'

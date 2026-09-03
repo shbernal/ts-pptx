@@ -325,6 +325,11 @@ export interface ChartPropsBase {
 	 * Per-series style overrides.
 	 * Element at index N applies to the series at data[N].
 	 * Missing indices or unset fields fall back to the chart-level option.
+	 *
+	 * **Read by `bar`, `bar3d`, `line`, `area` and `radar` only.** The other classic plots build
+	 * their series colours straight from the palette, and a pie has no referent for a *series*
+	 * override at all -- it colours points. Setting it on any of them warns
+	 * (`chart/option-not-supported`) and changes nothing.
 	 */
 	seriesOptions?: ChartSeriesOpts[]
 }

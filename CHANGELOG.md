@@ -112,6 +112,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`seriesOptions` now warns on the chart types that do not read it.** It is documented
+  chart-wide and honoured by one plot family: `bar`, `bar3d`, `line`, `area` and `radar`
+  resolve it per series, while `scatter`, `bubble`, `bubble3d`, `pie`, `doughnut`, `stock` and
+  `surface` build their series colours straight from the palette and never look at it. A
+  documented public option that does nothing on six of eleven types, with no warning and no
+  type-level signal, is the state the library's option rules forbid: the caller said it and
+  nothing happened.
+
+  Setting it on one of those now raises `chart/option-not-supported` and the type says which
+  families read it. Nothing about the emitted chart changes. A pie has no referent for a
+  *series* override even in principle — it colours points — while the others are a gap whose
+  fix needs a question settled first: a scatter's `data[0]` is the shared X row, so it is not
+  obvious which series `seriesOptions[0]` names.
+
 - **A chart option that is not a number now throws instead of silently taking the default.**
   BREAKING for a caller passing `NaN` or a non-number where a number is declared.
   `clampRangedInput` states the library's one policy for a value outside a schema range, and
