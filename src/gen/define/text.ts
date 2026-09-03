@@ -11,7 +11,7 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.j
 import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, mediaSlideKey } from '../utils.js'
+import { encodeXmlAttrValue, getNewRelId, nextMediaTarget } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
@@ -347,7 +347,7 @@ function createBulletImageRels(
 				extn: strImgExtn,
 				data: img.data || '',
 				rId: relId,
-				Target: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${strImgExtn}`,
+				Target: nextMediaTarget(target, 'image', strImgExtn),
 			})
 			bullet._rId = relId
 		}

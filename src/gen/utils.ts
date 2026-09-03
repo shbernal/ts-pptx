@@ -5,7 +5,7 @@
  * no single part:
  *   - XML text                encodeXmlEntities (re-exported from `xml-escape.ts`)
  *   - Identifiers & naming    getUuid, validateObjectName, getDuplicateObjectNames
- *   - Slide relationships     getNewRelId, isHyperlinkRel, mediaSlideKey
+ *   - Slide relationships     getNewRelId, isHyperlinkRel, nextMediaTarget
  *
  * DrawingML fragment builders moved to `gen/drawingml/{color,effect,fill,line}.ts`;
  * unit conversion to `units-internal.ts` (over the public primitives in `units.ts`);
@@ -187,7 +187,49 @@ export function isHyperlinkRel(rel: { type: string }): boolean {
  * @param {PresSlideInternal} target - the slide, layout or master registering the media
  * @returns {string} the key to splice into the media part name
  */
-export function mediaSlideKey(target: PresSlideInternal): string {
+function mediaSlideKey(target: PresSlideInternal): string {
 	if (target._slideNum == null) return 'sm'
 	return target._slideNum >= 1000 ? `sl-${target._slideNum}` : `${target._slideNum}`
+}
+
+/**
+ * The target of the media part the NEXT push onto `target._relsMedia` will create:
+ * `../media/image-3-2.png`, or `../embeddings/oleObject-sm-1.xlsx` for a `dir` of
+ * `embeddings`.
+ *
+ * The trailing number counts a target's media parts from one, and it is read *before* the
+ * push that consumes the name — so this must be called in the object literal being pushed,
+ * not hoisted above an earlier push, which would rename every part after it. Eight sites
+ * spelled the rule out by hand with `_relsMedia.length + 1` inline; naming it is what lets
+ * the off-by-one convention be stated once and read.
+ *
+ * @param target - the slide, layout or master registering the media
+ * @param kind - the name's leading segment: `image`, `media`, `model3d`, `audio`, `oleObject`
+ * @param extn - the part's file extension, without the dot
+ * @param dir - which sibling directory the part lands in
+ */
+export function nextMediaTarget(
+	target: PresSlideInternal,
+	kind: string,
+	extn: string,
+	dir: 'media' | 'embeddings' = 'media'
+): string {
+	return `../${dir}/${kind}-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${extn}`
+}
+
+/**
+ * The target the immediately preceding push named — for the second of two rels that must point
+ * at one part. A video registers `relationships/video` and `relationships/media` against the
+ * same bytes, so the second names the part the first created rather than a new one.
+ *
+ * This was `_relsMedia.length + 0` beside seven `+ 1`s: the same expression with the same
+ * shape meaning the opposite thing, and nothing saying so.
+ */
+export function previousMediaTarget(
+	target: PresSlideInternal,
+	kind: string,
+	extn: string,
+	dir: 'media' | 'embeddings' = 'media'
+): string {
+	return `../${dir}/${kind}-${mediaSlideKey(target)}-${target._relsMedia.length}.${extn}`
 }

@@ -8,7 +8,7 @@
  * explaining the path-versus-data match below.
  */
 import type { PresSlideInternal } from '../../types/internal.js'
-import { getNewRelId, mediaSlideKey } from '../utils.js'
+import { getNewRelId, nextMediaTarget } from '../utils.js'
 import { imageContentType } from '../../media/content-type.js'
 
 /**
@@ -46,11 +46,9 @@ export function registerImageMediaRel(
 		data,
 		rId: relId,
 		isDuplicate: !!dupe?.Target,
-		// `_relsMedia.length + 1` is read BEFORE this push, so the first rel on a slide lands on
-		// `image-<key>-1`. Keep the read here rather than hoisting it.
-		Target: dupe?.Target
-			? dupe.Target
-			: `../media/image-${mediaSlideKey(target)}-${target._relsMedia.length + 1}.${source.extn}`,
+		// `nextMediaTarget` reads the rel count BEFORE this push, so the first rel on a slide
+		// lands on `image-<key>-1`. Keep the call here rather than hoisting it.
+		Target: dupe?.Target ? dupe.Target : nextMediaTarget(target, 'image', source.extn),
 	})
 }
 
@@ -84,7 +82,6 @@ export function registerSvgImageRels(
 	pinned?: { pngRid: number; svgRid: number }
 ): { pngRid: number; svgRid: number } {
 	const { path, data } = source
-	const mediaKey = mediaSlideKey(target)
 
 	const pngRid = pinned ? pinned.pngRid : getNewRelId(target)
 	target._relsMedia.push({
@@ -93,8 +90,8 @@ export function registerSvgImageRels(
 		extn: 'png',
 		data,
 		rId: pngRid,
-		// `_relsMedia.length + 1` is read BEFORE each push, so the pair lands on consecutive names.
-		Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.png`,
+		// The count is read BEFORE each push, so the pair lands on consecutive names.
+		Target: nextMediaTarget(target, 'image', 'png'),
 		isSvgPng: true,
 		...(source.svgSize ? { svgSize: source.svgSize } : {}),
 	})
@@ -106,7 +103,7 @@ export function registerSvgImageRels(
 		extn: 'svg',
 		data,
 		rId: svgRid,
-		Target: `../media/image-${mediaKey}-${target._relsMedia.length + 1}.svg`,
+		Target: nextMediaTarget(target, 'image', 'svg'),
 	})
 
 	return { pngRid, svgRid }

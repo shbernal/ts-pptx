@@ -14,6 +14,7 @@ import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { InternalError } from '../../errors.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { NOTES_SLIDE_REL, OFFICE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
+import { commentPath, notesSlidePath, slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
@@ -78,11 +79,11 @@ export function makeXmlSlideRel(
 		throw new InternalError('slide/rel-index-out-of-range', `makeXmlSlideRel: no slide at index ${slideNumber - 1}`)
 	const defaultRels = [
 		{
-			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
+			target: targetFromPptSubpart(slideLayoutPath(getLayoutIdxForSlide(slides, slideLayouts, slideNumber))),
 			type: SLIDE_LAYOUT_REL,
 		},
 		{
-			target: `../notesSlides/notesSlide${slideNumber}.xml`,
+			target: targetFromPptSubpart(notesSlidePath(slideNumber)),
 			type: NOTES_SLIDE_REL,
 		},
 	]
@@ -90,7 +91,7 @@ export function makeXmlSlideRel(
 	// is likewise only written for those slides); the rId is assigned after slideLayout/notesSlide.
 	if ((slide._comments || []).length > 0) {
 		defaultRels.push({
-			target: `../comments/comment${slideNumber}.xml`,
+			target: targetFromPptSubpart(commentPath(slideNumber)),
 			// Only this module emits a comments rel, so it is built here rather than hoisted.
 			type: OFFICE_REL + 'comments',
 		})

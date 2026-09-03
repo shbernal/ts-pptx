@@ -20,6 +20,7 @@ import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
+import { slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
@@ -362,7 +363,7 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
  */
 export function makeXmlMasterRel(masterSlide: PresSlideInternal, slideLayouts: SlideLayoutInternal[]): string {
 	const defaultRels = slideLayouts.map((_layoutDef, idx) => ({
-		target: `../slideLayouts/slideLayout${idx + 1}.xml`,
+		target: targetFromPptSubpart(slideLayoutPath(idx + 1)),
 		type: SLIDE_LAYOUT_REL,
 	}))
 	defaultRels.push({

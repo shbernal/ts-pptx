@@ -10,6 +10,7 @@
 import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
 import { relationshipEl, relationshipsPart } from '../opc/rels.js'
+import { fontPath, NOTES_MASTER_PATH, slidePath, SLIDE_MASTER_PATH, targetFromPresentation } from '../opc/part-paths.js'
 import {
 	NOTES_MASTER_REL,
 	OFFICE_REL,
@@ -71,12 +72,12 @@ export function presentationFontRelStart(slides: PresSlideInternal[]): number {
 
 export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFonts?: EmbeddedFont[]): string {
 	const fixed = presentationFixedRelIds(slides)
-	const rels: string[] = [relationshipEl(1, SLIDE_MASTER_REL, 'slideMasters/slideMaster1.xml')]
+	const rels: string[] = [relationshipEl(1, SLIDE_MASTER_REL, targetFromPresentation(SLIDE_MASTER_PATH))]
 	for (let idx = 1; idx <= slides.length; idx++) {
-		rels.push(relationshipEl(idx + 1, SLIDE_REL, `slides/slide${idx}.xml`))
+		rels.push(relationshipEl(idx + 1, SLIDE_REL, targetFromPresentation(slidePath(idx))))
 	}
 	rels.push(
-		relationshipEl(fixed.notesMaster, NOTES_MASTER_REL, 'notesMasters/notesMaster1.xml'),
+		relationshipEl(fixed.notesMaster, NOTES_MASTER_REL, targetFromPresentation(NOTES_MASTER_PATH)),
 		relationshipEl(fixed.presProps, OFFICE_REL + 'presProps', 'presProps.xml'),
 		relationshipEl(fixed.viewProps, OFFICE_REL + 'viewProps', 'viewProps.xml'),
 		relationshipEl(fixed.theme, THEME_REL, 'theme/theme1.xml'),
@@ -89,7 +90,7 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
 	}
 	// Embedded fonts: one `font` rel per face, ids continuing past the fixed rels above.
 	for (const face of flattenEmbeddedFaces(embeddedFonts || [], presentationFontRelStart(slides))) {
-		rels.push(relationshipEl(face.rId, FONT_REL_TYPE, `fonts/font${face.partIndex}.fntdata`))
+		rels.push(relationshipEl(face.rId, FONT_REL_TYPE, targetFromPresentation(fontPath(face.partIndex))))
 	}
 
 	return relationshipsPart(rels)

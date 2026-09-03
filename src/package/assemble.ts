@@ -15,7 +15,7 @@ import type { PresentationPropsInternal, PresSlideInternal, SlideLayoutInternal 
 import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
-import { getNewRelId } from '../gen/utils.js'
+import { getNewRelId, nextMediaTarget } from '../gen/utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
 import { createExcelWorksheet } from '../gen/chart/embed-xlsx.js'
@@ -39,6 +39,17 @@ import {
 	makeXmlNotesSlideRel,
 } from '../gen/slide/notes.js'
 import { makeXmlSlide, makeXmlSlideLayoutRel, makeXmlSlideRel } from '../gen/slide/slide.js'
+import {
+	commentPath,
+	fontPath,
+	NOTES_MASTER_PATH,
+	notesSlidePath,
+	PRESENTATION_PATH,
+	relsPath,
+	slideLayoutPath,
+	SLIDE_MASTER_PATH,
+	slidePath,
+} from '../gen/opc/part-paths.js'
 
 /**
  * The slice of an authored presentation the packager reads. The authoring class satisfies
@@ -120,15 +131,13 @@ function registerTransitionSounds(slides: PresSlideInternal[]): void {
 			: (pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 		const rId = getNewRelId(slide)
-		const mediaSlideKey =
-			slide._slideNum == null ? 'sm' : slide._slideNum >= 1000 ? `sl-${slide._slideNum}` : slide._slideNum
 		slide._relsMedia.push({
 			path: sound.path ?? `preencoded.${extn}`,
 			type: `audio/${extn}`,
 			extn,
 			data: sound.data ?? '',
 			rId,
-			Target: `../media/audio-${mediaSlideKey}-${slide._relsMedia.length + 1}.${extn}`,
+			Target: nextMediaTarget(slide, 'audio', extn),
 		})
 		transition._sndRId = rId
 	})
@@ -217,7 +226,7 @@ export async function buildPackageParts(
 		// OOXML). This subsumes the per-slide path/data de-dup for cross-slide reuse and
 		// also covers background images.
 		const canonicalMediaTargets = new Map<string, string>()
-		for (const target of [...pres.slides, ...pres.slideLayouts, pres.masterSlide]) {
+		for (const target of mediaTargets) {
 			for (const rel of target._relsMedia || []) {
 				if (rel.type === 'online' || rel.type === 'hyperlink' || typeof rel.data !== 'string' || !rel.data) continue
 				// OLE payloads are exempt: PowerPoint gives every embedded object its own part, and
@@ -242,7 +251,7 @@ export async function buildPackageParts(
 		// input, different bytes. `gen/chart/chartex-xml.ts` derives its series GUIDs from
 		// the id assigned here, so both depend on this pass staying authoritative.
 		let chartPartIdx = 0
-		for (const target of [...pres.slides, ...pres.slideLayouts, pres.masterSlide]) {
+		for (const target of mediaTargets) {
 			for (const rel of target._relsChart || []) {
 				const chartId = ++chartPartIdx
 				rel.globalId = chartId
@@ -274,39 +283,36 @@ export async function buildPackageParts(
 		if (hasCustomProps) {
 			zip.add('docProps/custom.xml', makeXmlCustomProperties(source.customProperties))
 		}
-		zip.add('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(pres.slides, pres.embeddedFonts))
+		zip.add(relsPath(PRESENTATION_PATH), makeXmlPresentationRels(pres.slides, pres.embeddedFonts))
 		// Embedded font parts (raw whole faces). Fonts are already compact binary, so STORE
 		// (no DEFLATE) like already-compressed media. Part index matches the rels Target above.
 		for (const face of flattenEmbeddedFaces(pres.embeddedFonts, 1)) {
-			zip.add(`ppt/fonts/font${face.partIndex}.fntdata`, face.bytes, { store: true })
+			zip.add(fontPath(face.partIndex), face.bytes, { store: true })
 		}
 		zip.add('ppt/theme/theme1.xml', makeXmlTheme(pres))
 		// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
 		zip.add('ppt/theme/theme2.xml', makeXmlTheme(pres))
-		zip.add('ppt/presentation.xml', makeXmlPresentation(pres))
+		zip.add(PRESENTATION_PATH, makeXmlPresentation(pres))
 		zip.add('ppt/presProps.xml', makeXmlPresProps())
 		zip.add('ppt/tableStyles.xml', makeXmlTableStyles())
 		zip.add('ppt/viewProps.xml', makeXmlViewProps())
 
 		// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
 		pres.slideLayouts.forEach((layout, idx) => {
-			zip.add(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, makeXmlLayout(layout))
-			zip.add(
-				`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`,
-				makeXmlSlideLayoutRel(idx + 1, pres.slideLayouts)
-			)
+			zip.add(slideLayoutPath(idx + 1), makeXmlLayout(layout))
+			zip.add(relsPath(slideLayoutPath(idx + 1)), makeXmlSlideLayoutRel(idx + 1, pres.slideLayouts))
 		})
 		pres.slides.forEach((slide, idx) => {
-			zip.add(`ppt/slides/slide${idx + 1}.xml`, makeXmlSlide(slide))
-			zip.add(`ppt/slides/_rels/slide${idx + 1}.xml.rels`, makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
+			zip.add(slidePath(idx + 1), makeXmlSlide(slide))
+			zip.add(relsPath(slidePath(idx + 1)), makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
 			// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
-			zip.add(`ppt/notesSlides/notesSlide${idx + 1}.xml`, makeXmlNotesSlide(slide))
-			zip.add(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, makeXmlNotesSlideRel(slide, idx + 1))
+			zip.add(notesSlidePath(idx + 1), makeXmlNotesSlide(slide))
+			zip.add(relsPath(notesSlidePath(idx + 1)), makeXmlNotesSlideRel(slide, idx + 1))
 		})
-		zip.add('ppt/slideMasters/slideMaster1.xml', makeXmlMaster(pres.masterSlide, pres.slideLayouts))
-		zip.add('ppt/slideMasters/_rels/slideMaster1.xml.rels', makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
-		zip.add('ppt/notesMasters/notesMaster1.xml', makeXmlNotesMaster())
-		zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', makeXmlNotesMasterRel())
+		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts))
+		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
+		zip.add(NOTES_MASTER_PATH, makeXmlNotesMaster())
+		zip.add(relsPath(NOTES_MASTER_PATH), makeXmlNotesMasterRel())
 
 		// C.1: Comments — resolve the deck-wide author registry once, then emit the shared
 		// commentAuthors part plus a per-slide comment part for each slide that has comments.
@@ -315,7 +321,7 @@ export async function buildPackageParts(
 			zip.add('ppt/commentAuthors.xml', makeXmlCommentAuthors(resolvedComments.authors))
 			pres.slides.forEach((slide, idx) => {
 				if ((slide._comments || []).length > 0) {
-					zip.add(`ppt/comments/comment${idx + 1}.xml`, makeXmlComments(slide, resolvedComments.meta))
+					zip.add(commentPath(idx + 1), makeXmlComments(slide, resolvedComments.meta))
 				}
 			})
 		}

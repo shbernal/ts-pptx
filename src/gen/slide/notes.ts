@@ -21,6 +21,7 @@ import { hyperlinkRel } from '../define/hyperlinks.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 import { xfrmEl } from './objects/shared.js'
+import { NOTES_MASTER_PATH, slidePath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 /**
  * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
@@ -470,8 +471,8 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
 		XML_DECL +
 		relationshipsEl(
 			[
-				relationshipEl(1, NOTES_MASTER_REL, '../notesMasters/notesMaster1.xml'),
-				relationshipEl(2, SLIDE_REL, `../slides/slide${slideNumber}.xml`),
+				relationshipEl(1, NOTES_MASTER_REL, targetFromPptSubpart(NOTES_MASTER_PATH)),
+				relationshipEl(2, SLIDE_REL, targetFromPptSubpart(slidePath(slideNumber))),
 				// Always a child, even when empty, so its `childPrefix` indent is still emitted.
 				hlinkRels,
 			],

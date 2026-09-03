@@ -11,6 +11,16 @@ import type { PresSlideInternal, SlideLayoutInternal, SlideRelChart, SlideRelMed
 import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import {
+	commentPath,
+	NOTES_MASTER_PATH,
+	notesSlidePath,
+	overrideName,
+	PRESENTATION_PATH,
+	slideLayoutPath,
+	SLIDE_MASTER_PATH,
+	slidePath,
+} from './part-paths.js'
 
 /** Content-type prefixes; spelled out per part below so each entry stays greppable by its suffix. */
 const OD = 'application/vnd.openxmlformats-officedocument.'
@@ -105,13 +115,13 @@ export function makeXmlContTypes(
 	}
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
-	parts.push(override('/ppt/presentation.xml', OD + 'presentationml.presentation.main+xml'))
-	parts.push(override('/ppt/notesMasters/notesMaster1.xml', OD + 'presentationml.notesMaster+xml'))
+	parts.push(override(overrideName(PRESENTATION_PATH), OD + 'presentationml.presentation.main+xml'))
+	parts.push(override(overrideName(NOTES_MASTER_PATH), OD + 'presentationml.notesMaster+xml'))
 	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
-	parts.push(override('/ppt/slideMasters/slideMaster1.xml', OD + 'presentationml.slideMaster+xml'))
+	parts.push(override(overrideName(SLIDE_MASTER_PATH), OD + 'presentationml.slideMaster+xml'))
 	slides.forEach((slide, idx) => {
-		parts.push(override(`/ppt/slides/slide${idx + 1}.xml`, OD + 'presentationml.slide+xml'))
+		parts.push(override(overrideName(slidePath(idx + 1)), OD + 'presentationml.slide+xml'))
 		// Add charts if any
 		slide._relsChart.forEach((rel) => {
 			parts.push(...chartOverrides(rel))
@@ -128,7 +138,7 @@ export function makeXmlContTypes(
 
 	// STEP 4: Add Slide Layouts
 	slideLayouts.forEach((layout, idx) => {
-		parts.push(override(`/ppt/slideLayouts/slideLayout${idx + 1}.xml`, OD + 'presentationml.slideLayout+xml'))
+		parts.push(override(overrideName(slideLayoutPath(idx + 1)), OD + 'presentationml.slideLayout+xml'))
 		;(layout._relsChart || []).forEach((rel) => {
 			parts.push(...chartOverrides(rel, LEADING_SPACE))
 		})
@@ -136,7 +146,7 @@ export function makeXmlContTypes(
 
 	// STEP 5: Add notes slide(s)
 	slides.forEach((_slide, idx) => {
-		parts.push(override(`/ppt/notesSlides/notesSlide${idx + 1}.xml`, OD + 'presentationml.notesSlide+xml'))
+		parts.push(override(overrideName(notesSlidePath(idx + 1)), OD + 'presentationml.notesSlide+xml'))
 	})
 
 	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
@@ -145,7 +155,7 @@ export function makeXmlContTypes(
 	slides.forEach((slide, idx) => {
 		if ((slide._comments || []).length > 0) {
 			hasAnyComment = true
-			parts.push(override(`/ppt/comments/comment${idx + 1}.xml`, OD + 'presentationml.comments+xml'))
+			parts.push(override(overrideName(commentPath(idx + 1)), OD + 'presentationml.comments+xml'))
 		}
 	})
 	if (hasAnyComment) parts.push(override('/ppt/commentAuthors.xml', OD + 'presentationml.commentAuthors+xml'))
