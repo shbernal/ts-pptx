@@ -7,12 +7,14 @@
  * the columns it covers — which is what `walkTableGrid` exists to hand out.
  */
 
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE } from '../constants-internal.js'
+import { DEF_FONT_SIZE } from '../constants-internal.js'
+import { resolveSpan } from '../gen/table/spans.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import {
 	autoPageLineHeightEmu,
 	getSmartParseNumber,
 	marginToEmu,
+	resolveCellMarginsInches,
 	resolveTableColWidthsEmu,
 	resolveTableRowHeightEmu,
 } from '../units-internal.js'
@@ -71,11 +73,7 @@ interface CellInsetsEmu {
 
 /** Resolve a cell's margins to EMU insets, mirroring `gen/slide/objects/table.ts` (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
 export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
-	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
-	if (typeof m === 'number') m = [m, m, m, m]
-	if (!Array.isArray(m) || m.length !== 4 || m.some((v) => typeof v !== 'number' || !Number.isFinite(v)))
-		m = DEF_CELL_MARGIN_IN
-	const arr = m
+	const arr = resolveCellMarginsInches(margin)
 	return {
 		marT: marginToEmu(arr[0]),
 		marR: marginToEmu(arr[1]),
@@ -105,7 +103,7 @@ export function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): vo
 /** Grid column count of a table (sums the first row's colspans), mirroring `gen/slide/objects/table.ts`. */
 export function tableColCount(rows: TableCell[][]): number {
 	const first = rows[0]
-	return first ? first.reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0) : 0
+	return first ? first.reduce((n, c) => n + resolveSpan(c?.options?.colspan, 'colspan'), 0) : 0
 }
 
 /** A placed (non-merged origin) cell yielded by {@link walkTableGrid}. */
@@ -138,8 +136,8 @@ export function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<
 		for (const cell of row) {
 			while (col < numCols && (occupied[col] ?? 0) > 0) col++
 			if (col >= numCols) break
-			const colspan = Math.max(1, Number(cell?.options?.colspan) || 1)
-			const rowspan = Math.min(Math.max(1, Number(cell?.options?.rowspan) || 1), rows.length - r)
+			const colspan = resolveSpan(cell?.options?.colspan, 'colspan')
+			const rowspan = Math.min(resolveSpan(cell?.options?.rowspan, 'rowspan'), rows.length - r)
 			const colStart = col
 			const colEnd = Math.min(colStart + colspan, numCols)
 			for (let c = colStart; c < colEnd; c++) occupied[c] = rowspan

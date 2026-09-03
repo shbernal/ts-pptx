@@ -90,6 +90,7 @@ export type DiagnosticCode =
 	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
 	| 'table/invalid-row-height'
+	| 'table/invalid-margin'
 	| 'table/invalid-header-row-count'
 	// Text and bullets
 	| 'text/invalid-valign'

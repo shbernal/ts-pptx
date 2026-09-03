@@ -40,6 +40,7 @@ import { borderLine, noStrokeLine } from '../drawingml/line.js'
 
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
+import { sheetLayout, type SheetLayout } from './data-refs.js'
 import { makeCatAxis, makeSerAxis, makeValAxis } from './chart-axes.js'
 import { makeCatAxisPlot } from './plot-cat-axis.js'
 import { makeScatterPlot } from './plot-scatter.js'
@@ -501,17 +502,21 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	// STEP 1: what the axes have to be, read off the subcharts before anything is emitted.
 	const plan = planComboAxes(rel.opts, Array.isArray(rel.opts._type) ? rel.opts._type : undefined)
 
-	// STEP 2: the plot for every subchart's series and points.
+	// STEP 2: the plot for every subchart's series and points. The worksheet layout is a fact
+	// about the WHOLE chart -- one workbook is written from `rel.data` -- so it is resolved once
+	// here and handed down; a combo subchart sees only its own slice of the series and could not
+	// derive it.
+	const sheet = sheetLayout(rel.data)
 	let plots = ''
 	if (Array.isArray(rel.opts._type)) {
 		for (const type of rel.opts._type) {
 			const options = resolveSubchartOptions(rel.opts, type.options)
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
-			plots += makeChartType(asChartType(type.type), type.data, options, valAxisId, catAxisId)
+			plots += makeChartType(asChartType(type.type), type.data, options, valAxisId, catAxisId, sheet)
 		}
 	} else if (rel.opts._type) {
-		plots = makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
+		plots = makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY, sheet)
 	}
 
 	// STEP 3: the axes the plots just referenced.
@@ -624,7 +629,8 @@ function makeChartType(
 	data: OptsChartDataInternal[],
 	opts: ChartOptsInternal,
 	valAxisId: string,
-	catAxisId: string
+	catAxisId: string,
+	sheet: SheetLayout
 ): string {
 	// NOTE: "Chart Range" (as shown in "select Chart Area dialog") is calculated.
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
@@ -644,16 +650,16 @@ function makeChartType(
 		case ChartType.bar3d:
 		case ChartType.line:
 		case ChartType.radar:
-			return makeCatAxisPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+			return makeCatAxisPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.scatter:
-			return makeScatterPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+			return makeScatterPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.bubble:
 		case ChartType.bubble3d:
-			return makeBubblePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+			return makeBubblePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.stock:
-			return makeStockPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+			return makeStockPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.surface:
-			return makeSurfacePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+			return makeSurfacePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.doughnut:
 		case ChartType.pie:
 			return makePiePlot(chartType, data, opts, valFmtCode)

@@ -7,18 +7,22 @@
  */
 
 import { SlideObjectType } from '../../../enums.js'
-import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
 import type { BorderProps, ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
 import { checkEnumOrWarn } from '../../../ooxml/check-enum.js'
 import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
-import { withCheckedSpans } from '../../table/spans.js'
+import { resolveSpan, withCheckedSpans } from '../../table/spans.js'
 import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
 import { genXmlPlaceholder, genXmlTextBody, resolveTextAnchor } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { marginToEmu, resolveTableColWidthsEmu, resolveTableRowHeightEmu } from '../../../units-internal.js'
+import {
+	marginToEmu,
+	resolveCellMarginsInches,
+	resolveTableColWidthsEmu,
+	resolveTableRowHeightEmu,
+} from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
@@ -111,7 +115,6 @@ export function renderTableObject(ctx: RenderContext): string {
 	let objTabOpts: ObjectOptions = {}
 	let intColCnt = 0
 	let tblInner = ''
-	let cellOpts: TableCellProps | null = null
 	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
 	// Checked again here, not only in `addTableDefinition`: this is where the merge grid allocates
@@ -125,8 +128,7 @@ export function renderTableObject(ctx: RenderContext): string {
 	// NOTE: Cells may have a colspan, so merely taking the length of the [0] (or any other) row is not
 	// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
 	;(arrTabRows[0] ?? []).forEach((cell) => {
-		cellOpts = cell.options || null
-		intColCnt += cellOpts?.colspan ? Number(cellOpts.colspan) : 1
+		intColCnt += resolveSpan(cell.options?.colspan, 'colspan')
 	})
 
 	// STEP 1: Start Table XML
@@ -255,9 +257,9 @@ export function renderTableObject(ctx: RenderContext): string {
 		for (let cIdx = 0; cIdx < cells.length;) {
 			const cell = cells[cIdx]
 			if (!cell) break
-			const colspan = cell.options?.colspan
+			const colspan = resolveSpan(cell.options?.colspan, 'colspan')
 			const rowspan = cell.options?.rowspan
-			if (colspan && colspan > 1) {
+			if (colspan > 1) {
 				const vMergeCells = new Array(colspan - 1).fill(undefined).map((): TableCell => {
 					// A dummy that inherits no rowspan carries no `rowspan` key, rather than one
 					// holding `undefined`: absent is the model's one spelling of "not spanning".
@@ -280,7 +282,7 @@ export function renderTableObject(ctx: RenderContext): string {
 		const nextRow = arrTabRows[rIdx + 1]
 		if (!nextRow) return
 		cells.forEach((cell, cIdx) => {
-			const rowspan = cell._rowContinue || cell.options?.rowspan
+			const rowspan = cell._rowContinue || resolveSpan(cell.options?.rowspan, 'rowspan')
 			const colspan = cell.options?.colspan
 			const _hmerge = cell._hmerge
 			if (rowspan && rowspan > 1) {
@@ -404,17 +406,7 @@ export function renderTableObject(ctx: RenderContext): string {
 			const fillColor = cellOpts.fill || ''
 			const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
 
-			let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
-			if (!Array.isArray(cellMargin) && typeof cellMargin === 'number')
-				cellMargin = [cellMargin, cellMargin, cellMargin, cellMargin]
-			// defensive fallback - if `cellMargin` is not a 4-element array of finite numbers, use defaults (prevents NaN in marL/R/T/B)
-			if (
-				!Array.isArray(cellMargin) ||
-				cellMargin.length !== 4 ||
-				cellMargin.some((v) => typeof v !== 'number' || !Number.isFinite(v))
-			) {
-				cellMargin = DEF_CELL_MARGIN_IN
-			}
+			const cellMargin = resolveCellMarginsInches(cellOpts.margin)
 			// Cell text ALWAYS wraps — PowerPoint has no per-cell no-wrap, so there is nothing to emit
 			// for one. `wrap="none"` on a cell's `<a:bodyPr>` renders inert and is stripped on the next
 			// save, and `TextFrame.WordWrap` is read-only on a cell over COM (it reports msoTrue whatever

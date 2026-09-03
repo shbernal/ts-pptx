@@ -37,12 +37,26 @@ export const MAX_TABLE_SPAN = 1000
  * Everything else is caller error: `NaN`, a negative, a fraction and a span past the ceiling all
  * describe a table that cannot be built (a fractional span silently truncates, a negative one
  * shifts every column after it, an enormous one is the allocation above).
- * @param value - the raw option value
+ *
+ * The parameter is typed `unknown` because this is also **the** reading of a span for the six
+ * sites that consume one after {@link withCheckedSpans} has run. Those had six different
+ * coercions — `Number(x) ? … : 1`, `Math.max(1, Number(x) || 1)`, `x ?? 1` — which agreed only
+ * on the values that were already valid, and one of them let a non-numeric span reach a grid
+ * column count as `NaN`. Reading a span through one function is what stops them drifting apart
+ * again if the up-front check is ever moved.
+ * @param value - the raw option value, as the caller wrote it
  * @param kind - `'colspan'` or `'rowspan'`, for the diagnostic
  * @returns the span to use, at least 1
  */
-export function resolveSpan(value: number | undefined, kind: 'colspan' | 'rowspan'): number {
-	if (value === undefined) return 1
+export function resolveSpan(value: unknown, kind: 'colspan' | 'rowspan'): number {
+	if (value === undefined || value === null || value === '') return 1
+	if (typeof value !== 'number') {
+		warn(
+			'table/span-out-of-range',
+			`table cell: ${kind} must be a whole number between 1 and ${MAX_TABLE_SPAN}; got ${String(value)}. Using 1.`
+		)
+		return 1
+	}
 	if (!Number.isInteger(value) || value < 1 || value > MAX_TABLE_SPAN) {
 		warn(
 			'table/span-out-of-range',

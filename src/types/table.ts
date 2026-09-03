@@ -352,6 +352,16 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	autoPageSlideStartY?: number
 	/**
+	 * Slide margins (inches) this table is laid out against, overriding the master's.
+	 *
+	 * Steers the default table width, `fitColumns: 'shrink'`, and every page the auto-pager
+	 * creates. It was declared on {@link TableToSlidesProps} only, while the pager read it on
+	 * both paths — so from `addTable` it worked at run time and the type rejected it, and the
+	 * table definer ignored it either way, which made "does my table respect `slideMargin`"
+	 * depend on whether `autoPage` was on.
+	 */
+	slideMargin?: Margin
+	/**
 	 * Whether populated placeholders on the source slide (e.g. a title set via
 	 * `addText(text, { placeholder })`) are copied onto each overflow slide created by autoPage.
 	 * - new slides otherwise inherit only the layout's empty placeholders, so a title set on the

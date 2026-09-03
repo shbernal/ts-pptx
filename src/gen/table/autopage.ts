@@ -24,11 +24,13 @@ import {
 	inch2Emu,
 	marginToEmu,
 	pinnedRowHeightInches,
+	resolveCellMarginsInches,
 	resolveSlideMarginsInches,
 	resolveTableColWidthsEmu,
 	usableTableWidthEmu,
 } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
+import { resolveSpan, withCheckedSpans } from './spans.js'
 import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
 type AutoPageCell = TableCell & {
@@ -249,6 +251,77 @@ function resolveCellFontSize(cellOpts: TableCellProps | undefined | null, tableO
 // row-iteration/overflow loop (STEP 6) → final-slide flush (STEP 7).
 
 /**
+ * The largest top and bottom cell margin in one row, in EMU.
+ *
+ * A cell's own `margin` wins over the table's when it states one, and a stated `0` counts as
+ * stating one. Both sites that read this gated on truthiness and on `Array.isArray`, so a cell
+ * asking for `margin: [0, …]` fell through to the table's margin instead of taking its own, and
+ * a scalar `margin: 0.2` was not seen at all -- while the emitter broadcasts a scalar to four
+ * sides. `resolveCellMarginsInches` is the resolver the emitter itself reads.
+ * @param row - the row's cells
+ * @param tableProps - the table's options, for the fallback margin
+ * @returns the row's top and bottom margin allowance in EMU
+ */
+function rowMarginsEmu(row: TableRow, tableProps: TableToSlidesProps): { topEmu: number; btmEmu: number } {
+	let topEmu = 0
+	let btmEmu = 0
+	row.forEach((cell) => {
+		const stated = cell?.options?.margin ?? tableProps.margin
+		if (stated === undefined || stated === null) return
+		const [top, , btm] = resolveCellMarginsInches(stated)
+		if (marginToEmu(top) > topEmu) topEmu = marginToEmu(top)
+		if (marginToEmu(btm) > btmEmu) btmEmu = marginToEmu(btm)
+	})
+	return { topEmu, btmEmu }
+}
+
+/**
+ * The vertical space one repeated header row occupies, in EMU: its own top/bottom cell margins
+ * plus its tallest cell's wrapped line count times that row's line height.
+ *
+ * This is the same arithmetic the main loop applies to a body row, and the reason it has to be
+ * spelled again is that the pager used to read `cell._lineHeight` off `_arrObjTabHeadRows` --
+ * which holds the DEFINER's plain `TableCell`s. `_lineHeight` is written only onto the pager's
+ * own working cells, so it was always absent there and every repeated header row was priced at
+ * zero: each continuation page took the header for free and then packed the same number of body
+ * rows the first page fits, so the last row hung off the bottom of the slide. That is the same
+ * failure the margin reset a few lines below documents having already been fixed once.
+ *
+ * @param row - one header row, as the definer built it
+ * @param colWidthsIn - the resolved column grid, in inches
+ * @param numCols - the grid's column count
+ * @param tableProps - the table's options, for font size and the two weights
+ * @returns the row's height in EMU
+ */
+function headerRowHeightEmu(
+	row: TableRow,
+	colWidthsIn: number[],
+	numCols: number,
+	tableProps: TableToSlidesProps
+): number {
+	let maxLines = 0
+	let maxLineHeightEmu = 0
+	const { topEmu: marTopEmu, btmEmu: marBtmEmu } = rowMarginsEmu(row, tableProps)
+	let colCursor = 0
+	row.forEach((cell) => {
+		const cellOpts = cell.options
+		const cellColspan = resolveSpan(cellOpts?.colspan, 'colspan')
+		const colStart = colCursor
+		colCursor = Math.min(colCursor + cellColspan, numCols)
+		const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
+
+		const lines = parseTextToLines(cell, totalColW, false).length
+		if (lines > maxLines) maxLines = lines
+		const lineHeightEmu = autoPageLineHeightEmu(
+			resolveCellFontSize(cellOpts, tableProps),
+			tableProps.autoPageLineWeight || 0
+		)
+		if (lineHeightEmu > maxLineHeightEmu) maxLineHeightEmu = lineHeightEmu
+	})
+	return marTopEmu + marBtmEmu + maxLines * maxLineHeightEmu
+}
+
+/**
  * Takes an array of table rows and breaks into an array of slides, which contain the calculated amount of table rows that fit on that slide
  * @param {TableCell[][]} tableRows - table rows
  * @param {TableToSlidesProps} tableProps - table2slides properties
@@ -257,11 +330,19 @@ function resolveCellFontSize(cellOpts: TableCellProps | undefined | null, tableO
  * @return {TableRowSlide[]} array of table rows
  */
 export function getSlidesForTableRows(
-	tableRows: TableCell[][] = [],
+	rows: TableCell[][] = [],
 	tableProps: TableToSlidesProps = {},
 	presLayout: PresLayout,
 	masterSlide?: SlideLayoutInternal | null
 ): TableRowSlide[] {
+	// `MAX_TABLE_SPAN` guards the two allocations a span decides, and its own module says it
+	// covers both paths -- but `tableToSlides` reaches this function directly, without the
+	// definer that applies the check, and its own `gridSpan` has no ceiling. So a
+	// `colspan="4000000000"` in a source table reached the column walk and the per-column depth
+	// array, which is the allocation that takes the host process down with no exception to catch.
+	// Checking here rather than at the call site keeps the one entry point guarded whoever calls
+	// it; a grid whose spans are all fine is passed through by identity.
+	const tableRows = withCheckedSpans(rows)
 	let arrInchMargins = DEF_SLIDE_MARGIN_IN
 	let emuSlideTabW: number
 	let colWidthsIn: number[] = []
@@ -277,31 +358,31 @@ export function getSlidesForTableRows(
 	let tableCalcW: number = tablePropW
 
 	function calcSlideTabH(): void {
-		let emuStartY = 0
-		if (tableRowSlides.length === 0) emuStartY = tablePropY || inch2Emu(arrInchMargins[0])
-		if (tableRowSlides.length > 0) emuStartY = inch2Emu(tableProps.autoPageSlideStartY || arrInchMargins[0])
+		// Where this page's table starts, in EMU from the top of the slide.
+		//
+		// There used to be three rules for two cases. The first page and "every page after it"
+		// were handled together, then a block gated on `tableRowSlides.length > 1` overrode the
+		// result -- so despite its own comment it began on the THIRD page, and its first arm
+		// recomputed exactly what had just been computed. Page 2 therefore got a different usable
+		// height from pages 3 and up: with `y` above the top margin and an explicit `h`, a
+		// 60-row table paged 9 / 7 / 9 / 9 / 9 / 9 / 8, which is the same "pages disagree about
+		// how many identical rows fit" symptom the margin-reset note below records.
+		const isFirstPage = tableRowSlides.length === 0
+		const emuStartY = isFirstPage
+			? tablePropY || inch2Emu(arrInchMargins[0])
+			: typeof tableProps.autoPageSlideStartY === 'number'
+				? inch2Emu(tableProps.autoPageSlideStartY)
+				: // RULE: after the first page the table starts at the top margin rather than at its
+					// own `y` -- unless `y` is ABOVE the margin, in which case paging must not push the
+					// table down and lose the space. Whichever is higher on the slide wins.
+					inch2Emu(tablePropY ? Math.min(tablePropY / EMU_PER_INCH, arrInchMargins[0]) : arrInchMargins[0])
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
-		// EXPLICIT-H FIX: an explicit `h` is the table's height (an extent), not a
-		// bottom coordinate, so — unlike `presLayout.height` — the first slide must NOT subtract the
-		// start-Y from it. Otherwise a table that begins mid-slide gets a tiny first page (only a few
-		// rows) while later pages, which already clamp to `h`, render normally. Mirror the
-		// subsequent-slide rule below: never let an explicit `h` shrink the usable height below `h`.
-		if (tableRowSlides.length === 0 && tablePropH && emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
-		if (tableRowSlides.length > 1) {
-			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y`
-			if (typeof tableProps.autoPageSlideStartY === 'number') {
-				emuSlideTabH = (tablePropH || presLayout.height) - inch2Emu(tableProps.autoPageSlideStartY + arrInchMargins[2])
-			} else if (tablePropY) {
-				emuSlideTabH =
-					(tablePropH || presLayout.height) -
-					inch2Emu(
-						(tablePropY / EMU_PER_INCH < arrInchMargins[0] ? tablePropY / EMU_PER_INCH : arrInchMargins[0]) +
-							arrInchMargins[2]
-					)
-				// Use whichever is greater: area between margins or the table H provided (dont shrink usable area - the whole point of over-riding Y on paging is to *increase* usable space)
-				if (emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
-			}
-		}
+		// EXPLICIT-H FIX: an explicit `h` is the table's height (an extent), not a bottom
+		// coordinate, so -- unlike `presLayout.height` -- the start-Y must not be subtracted from
+		// it. Otherwise a table that begins mid-slide gets a tiny page while the pages that do
+		// clamp to `h` render normally. Applied on every page: the floor used to reach the first
+		// page and pages three and up, leaving page two as the one that could shrink below `h`.
+		if (tablePropH && emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
 
 		// GUARD: a non-positive height, or one too small to fit even a single line of the base font,
 		// means no row ever fits. That previously emitted degenerate empty overflow pages (rows:[]),
@@ -379,9 +460,7 @@ export function getSlidesForTableRows(
 		// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
 		const firstRow = tableRows[0] || []
 		firstRow.forEach((cell) => {
-			if (!cell) cell = { _type: SlideObjectType.tablecell }
-			const cellOpts = cell.options || null
-			numCols += Number(cellOpts?.colspan ? cellOpts.colspan : 1)
+			numCols += resolveSpan(cell?.options?.colspan, 'colspan')
 		})
 		if (tableProps.verbose) console.log(`| numCols ......................................... = ${numCols}`)
 	}
@@ -425,6 +504,14 @@ export function getSlidesForTableRows(
 	const resolveRowH = (origRowIdx: number): number | undefined =>
 		Array.isArray(tableProps.rowH) ? (pinnedRowHeightInches(tableProps.rowH[origRowIdx]) ?? undefined) : undefined
 
+	// What the repeated header rows cost a continuation page. Computed once: the rows and the
+	// grid are the same on every page, so re-measuring per page would only be slower.
+	const repeatHeaderRows =
+		tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows ? tableProps._arrObjTabHeadRows : []
+	const repeatHeaderHeightsEmu = repeatHeaderRows.map((row) =>
+		headerRowHeightEmu(row, colWidthsIn, numCols, tableProps)
+	)
+
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = {
 		rows: [] as TableRow[],
@@ -436,26 +523,10 @@ export function getSlidesForTableRows(
 		// suppress page breaks that would split a rowspan group across slides.
 		const hasActiveRowSpan = colSpanDepths.some((d) => d > 0)
 		const rowCellLines: AutoPageCell[] = []
-		let maxCellMarTopEmu = 0
-		let maxCellMarBtmEmu = 0
-
 		// B: Create new row in data model, calc `maxCellMar*`
+		const { topEmu: maxCellMarTopEmu, btmEmu: maxCellMarBtmEmu } = rowMarginsEmu(row, tableProps)
 		let currTableRow: TableRow = []
-		row.forEach((cell) => {
-			currTableRow.push(workingCell([], cell.options))
-
-			// Cell margins are inches (see `marginToEmu`); prefer the cell's own top/bottom margin, else the table's.
-			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
-			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null
-			if (cellMargin?.[0] && marginToEmu(cellMargin[0]) > maxCellMarTopEmu)
-				maxCellMarTopEmu = marginToEmu(cellMargin[0])
-			else if (tableMargin?.[0] && marginToEmu(tableMargin[0]) > maxCellMarTopEmu)
-				maxCellMarTopEmu = marginToEmu(tableMargin[0])
-			if (cellMargin?.[2] && marginToEmu(cellMargin[2]) > maxCellMarBtmEmu)
-				maxCellMarBtmEmu = marginToEmu(cellMargin[2])
-			else if (tableMargin?.[2] && marginToEmu(tableMargin[2]) > maxCellMarBtmEmu)
-				maxCellMarBtmEmu = marginToEmu(tableMargin[2])
-		})
+		row.forEach((cell) => currTableRow.push(workingCell([], cell.options)))
 
 		// C: Calc usable vertical space/table height. Set default value first, adjust below when necessary.
 		calcSlideTabH()
@@ -474,7 +545,7 @@ export function getSlidesForTableRows(
 		let colCursor = 0
 		row.forEach((cell) => {
 			while (colCursor < numCols && (colSpanDepths[colCursor] ?? 0) > 0) colCursor++
-			const cellColspan = Math.max(1, Number(cell.options?.colspan) || 1)
+			const cellColspan = resolveSpan(cell.options?.colspan, 'colspan')
 			const colStart = colCursor
 			colCursor = Math.min(colCursor + cellColspan, numCols)
 
@@ -618,22 +689,12 @@ export function getSlidesForTableRows(
 					)
 
 				// G: handle repeat headers option /or/ Add new empty row to continue current lines into
-				if (tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows) {
-					tableProps._arrObjTabHeadRows.forEach((row, headIdx) => {
-						const newHeadRow: TableRow = []
-						let maxLineHeight = 0
-						row.forEach((cell) => {
-							newHeadRow.push(cell)
-							if ((cell._lineHeight || 0) > maxLineHeight) maxLineHeight = cell._lineHeight || 0
-						})
-						newTableRowSlide.rows.push(newHeadRow)
-						// Repeated header rows are the original leading rows, so carry their configured height.
-						newTableRowSlide.rowH?.push(resolveRowH(headIdx))
-						// NOTE: possible imprecision — this accumulates line height only; cell top/bottom
-						// margins are not added, so autoPage row-height estimates can run slightly short.
-						emuTabCurrH += maxLineHeight
-					})
-				}
+				repeatHeaderRows.forEach((row, headIdx) => {
+					newTableRowSlide.rows.push([...row])
+					// Repeated header rows are the original leading rows, so carry their configured height.
+					newTableRowSlide.rowH?.push(resolveRowH(headIdx))
+					emuTabCurrH += repeatHeaderHeightsEmu[headIdx] ?? 0
+				})
 
 				// WIP: NEW: TEST THIS!!
 				tgtCell = currTableRow[currCellIdx]
@@ -674,7 +735,7 @@ export function getSlidesForTableRows(
 		let spanCursor = 0
 		row.forEach((cell) => {
 			while (spanCursor < numCols && (occupiedBefore[spanCursor] ?? 0) > 0) spanCursor++
-			const cellColspan = cell.options?.colspan ?? 1
+			const cellColspan = resolveSpan(cell.options?.colspan, 'colspan')
 			const cellRowspan = cell.options?.rowspan ?? 1
 			if (cellRowspan > 1) {
 				for (let c = 0; c < cellColspan && spanCursor + c < numCols; c++) {

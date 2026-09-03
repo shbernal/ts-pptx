@@ -13,7 +13,7 @@
  * from an entrypoint.
  */
 
-import { DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from './constants-internal.js'
+import { DEF_CELL_MARGIN_IN, DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from './constants-internal.js'
 import { warn, warnOnce } from './diagnostics.js'
 import { InvalidOptionError } from './errors.js'
 import {
@@ -246,8 +246,12 @@ export function usableTableWidthEmu(
 	xEmu: number,
 	marginsIn: readonly [number, number, number, number]
 ): number {
-	const startIn = xEmu ? xEmu / EMU_PER_INCH : marginsIn[1]
-	return Math.max(0, presLayout.width - inch2Emu(startIn) - inch2Emu(marginsIn[3]))
+	// `marginsIn` is TRBL, so the left margin is index 3 and the right one index 1. Both were
+	// read one index off, which cancels out for a symmetric margin -- the default, and what every
+	// gate deck sets -- and is wrong by their difference for anything else. `define/table.ts` had
+	// already found and fixed this exact swap at its own sibling site.
+	const startIn = xEmu ? xEmu / EMU_PER_INCH : marginsIn[3]
+	return Math.max(0, presLayout.width - inch2Emu(startIn) - inch2Emu(marginsIn[1]))
 }
 
 /**
@@ -278,6 +282,38 @@ export function pinnedRowHeightInches(entry: unknown): number | null {
 		`rowH entry ${String(entry)} is not a positive number of inches; the row is sized from the table height instead.`
 	)
 	return null
+}
+
+/**
+ * A table cell's `[Top, Right, Bottom, Left]` margins in inches, defaulted and validated.
+ *
+ * Three sites spelled this out -- two of them character-identical, the third self-described as
+ * "mirroring" one of them -- and a fourth in the auto-pager gated each side on truthiness, so a
+ * cell stating `margin: [0, …]` fell through to the table's margin instead of taking its own
+ * zero. All of them swapped an unusable margin for the default in silence, while every sibling
+ * resolver in this file warns for the same class of input.
+ *
+ * `resolveInsetsEmu` above is deliberately NOT a fifth copy: it resolves a text box's
+ * `a:bodyPr` insets, where stating nothing means writing no attribute at all rather than
+ * taking a cell default, so its absent case has a different answer.
+ * @param margin - the caller's `margin`: a scalar, a `[T, R, B, L]` array, or nothing
+ * @returns four finite inch measures
+ */
+export function resolveCellMarginsInches(
+	margin: number | number[] | undefined | null
+): [number, number, number, number] {
+	if (margin === undefined || margin === null) return [...DEF_CELL_MARGIN_IN]
+	const usable = (value: unknown): boolean => typeof value === 'number' && Number.isFinite(value)
+	if (typeof margin === 'number') {
+		if (usable(margin)) return [margin, margin, margin, margin]
+	} else if (Array.isArray(margin) && margin.length === 4 && margin.every(usable)) {
+		return [margin[0] as number, margin[1] as number, margin[2] as number, margin[3] as number]
+	}
+	warnOnce(
+		'table/invalid-margin',
+		`table margin ${JSON.stringify(margin)} is not a number of inches or a [top, right, bottom, left] array of four; using the default.`
+	)
+	return [...DEF_CELL_MARGIN_IN]
 }
 
 /**

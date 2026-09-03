@@ -35,7 +35,7 @@ import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { borderLine, createLineCap, noStrokeLine, resolveDash } from '../drawingml/line.js'
 import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
-import { dataValues } from './data-refs.js'
+import { dataValues, type SheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 
 /**
@@ -154,7 +154,7 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts)
 /**
  * The signature every axis-plot builder shares: `<c:areaChart>`, `<c:barChart>`,
  * `<c:lineChart>`, `<c:radarChart>`, `<c:scatterChart>`, `<c:bubbleChart>`,
- * `<c:stockChart>` and `<c:surfaceChart>` are all built from the same six inputs and
+ * `<c:stockChart>` and `<c:surfaceChart>` are all built from the same inputs and
  * dispatched from one `switch` in {@link ./chart-xml}.
  *
  * Naming it makes adding an input one edit instead of six, and makes a builder that
@@ -172,7 +172,8 @@ export type PlotBuilder = (
 	opts: ChartOptsInternal,
 	valAxisId: string,
 	catAxisId: string,
-	valFmtCode: string
+	valFmtCode: string,
+	sheet: SheetLayout
 ) => string
 
 export const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']

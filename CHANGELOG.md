@@ -315,6 +315,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A table's usable width read the wrong two slide margins.** `resolveSlideMarginsInches`
+  returns `[top, right, bottom, left]`, and `usableTableWidthEmu` took index 1 (the right
+  margin) as its left-edge fallback and subtracted index 3 (the left margin) as the right
+  one — both one index off, so the two errors cancel for a symmetric margin and are wrong by
+  their difference for anything else. On a 10in slide at `x: 1` with margins
+  `[0.5, 0.5, 0.5, 2]`, an auto-paged table came out 7.0in wide where 8.5in was available.
+  The sibling site in the table definer had already been found and fixed, with a comment
+  naming this exact swap; this was the copy that was missed.
+
+- **`slideMargin` steers a table whether or not `autoPage` is on.** The definer never read
+  it — only the pager did — so a table's default width, its `fitColumns: 'shrink'` target
+  and its per-page reset all silently depended on an unrelated option. It is also declared
+  on `TableProps` now rather than on `TableToSlidesProps` alone, which is where the pager was
+  reading it from on both paths.
+
+  The two width formulas behind it are one: `defaultTableWidthIn()` was
+  `slide − right − left` and ignored `x`, while the pager's was `slide − x − right`, and the
+  pager's own doc claimed they were "the same reading". Both now go through
+  `usableTableWidthEmu`, so a table at a stated `x` is no longer sized as though it began at
+  the left margin.
+
+- **Every series' worksheet reference addresses its own column.** The embedded workbook lays
+  every series out behind the FIRST series' label columns, one row per that series'
+  categories; the chart XML derived both numbers from *each* series' own labels. Label only
+  the first series — the shape the plot builders' own worked example shows — and from series
+  1 on the part carried `Sheet1!$A$2:$$1` for the categories, a `<c:val>` range running
+  backwards over series A's column, and a `<c:tx>` naming series A's header. The workbook was
+  right throughout. One `sheetLayout(data)` now serves the chart XML and the workbook
+  builder, so the two sides cannot drift; a series carrying no labels of its own states no
+  `<c:cat>` rather than an empty one. Reaches the category-axis, stock and surface families.
+
+- **`headerRow` styling is no longer reapplied to a body row on every auto-paged page.** The
+  sugar is applied to row 0 at definition time, and `headerRow` was carried onto each
+  continuation page, where the recursive `addTable` re-ran it against that page's row 0. With
+  the default repeat-header off, that painted rows 11, 22 and 33 of a 40-row table bold and
+  filled, and every page emitted `firstRow="1"`. `hasHeader` now follows the same rule: true
+  on the first page, and on a later page only when the header row is genuinely repeated onto
+  it. `columns` still carries, because it is positional and re-applying it per page is
+  correct.
+
+- **A repeated header row costs the page budget it occupies.** The pager priced it from
+  `cell._lineHeight`, which is written only onto its own working cells — the repeated rows are
+  the definer's plain cells, so the accumulation was always zero and each continuation page
+  took the header for free, then packed the same number of body rows the first page fits. A
+  40-row table at 18pt paged 15/15/10 without a repeat header and 15/16/11 with one, the last
+  row hanging off the slide. The row is now priced the way a body row is, once rather than per
+  page.
+
+- **Every page of a paged table gets the same usable height.** There were three rules for two
+  cases: the "after the initial slide" block was gated on `tableRowSlides.length > 1`, so
+  despite its own comment it began on the *third* page, its first arm recomputed what had just
+  been computed, and the explicit-`h` floor reached page one and pages three and up. Page two
+  was the one page that got neither, so a 60-row table with `h: 4` and `y: 0.2` paged
+  9/**7**/9/9/9/9/8. `calcSlideTabH` is now one rule: this page's start-Y, less the bottom
+  margin, floored at `h`.
+
+- **A `colspan` or a cell `margin` is read the same way everywhere.** Six sites read a span in
+  six spellings and five read a cell margin in five, agreeing only on values that were already
+  valid — and the auto-pager gated each margin side on truthiness, so a cell asking for
+  `margin: [0, …]` fell through to the *table's* margin instead of taking its own zero, and a
+  scalar `margin: 0.2` was not seen at all where the emitter broadcasts it to four sides. Spans
+  now read through `resolveSpan` (already the declared rule) and margins through the new
+  `resolveCellMarginsInches`, which reports an unusable one under `table/invalid-margin`
+  instead of swapping in the default in silence.
+
+- **`tableToSlides` checks its spans.** `MAX_TABLE_SPAN` guards the two allocations a span
+  decides and its own module says it covers both paths, but `tableToSlides` calls
+  `getSlidesForTableRows` directly, without the definer that applies the check, and its own
+  attribute reader has no ceiling. So `colspan="4000000000"` in a source table reached the
+  per-column depth array — the allocation V8 aborts on, with no exception to catch. The check
+  now runs at the top of `getSlidesForTableRows`, so the one entry point is guarded whoever
+  calls it.
+
 - **Axis units are emitted per axis TYPE, so a chart carrying them opens.** `<c:catAx>`
   (`CT_CatAx`) has no `majorUnit`/`minorUnit` slot at all and `<c:serAx>` (`CT_SerAx`) has
   none of the five units, yet the emitters appended whichever the caller named as the last

@@ -75,6 +75,41 @@ export function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, r
 }
 
 /**
+ * The shape of the embedded worksheet every series in one chart is laid out against.
+ *
+ * Both numbers are facts about the FIRST series, because that is how the workbook is written:
+ * `data[0]`'s label groups take the leading columns and its categories decide the row count,
+ * then every series gets one column. Neither is a fact about the series being emitted.
+ */
+export interface SheetLayout {
+	/** How many leading columns the label groups occupy. */
+	labelCols: number
+	/** How many data rows the sheet has, header row excluded. */
+	rowCount: number
+}
+
+/**
+ * The worksheet layout for one chart's series set.
+ *
+ * The chart XML derived both numbers per series instead, from that series' own labels, so the
+ * two sides of the mapping this module exists to keep in step disagreed the moment a caller
+ * labelled only the first series -- which is the shape the plot builders' own worked example
+ * shows. From series 1 on that produced `Sheet1!$A$2:$$1`, a `<c:val>` range pointing backwards
+ * at series A's column, and a `<c:tx>` naming series A's header. The workbook was right
+ * throughout; only the references were wrong.
+ *
+ * The row-count fallback is the workbook's: a category-less layout (a histogram feeds raw
+ * observations with no labels) sizes the sheet from the longest value series instead.
+ * @param data - the chart's normalized series, in data order
+ */
+export function sheetLayout(data: readonly OptsChartDataInternal[]): SheetLayout {
+	return {
+		labelCols: dataLabels(data[0]).length,
+		rowCount: firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
+	}
+}
+
+/**
  * The 1-based worksheet column a series' values occupy: the label groups come first, then one
  * column per series in data order.
  *
@@ -82,8 +117,9 @@ export function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, r
  * emitters wrote the expression out. It belongs beside the reference builders for the same
  * reason they do.
  * @param d - the normalized series
+ * @param sheet - the chart's worksheet layout, from {@link sheetLayout}
  */
-export const seriesColumn = (d: OptsChartDataInternal): number => d._dataIndex + dataLabels(d).length + 1
+export const seriesColumn = (d: OptsChartDataInternal, sheet: SheetLayout): number => d._dataIndex + sheet.labelCols + 1
 
 /**
  * The category-name range in column A, header row excluded: `Sheet1!$A$2:$A$<count + 1>`.

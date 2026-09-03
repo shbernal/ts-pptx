@@ -30,7 +30,7 @@ import {
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
 import { CORE_PROPS_NS, coreTimestamp } from '../opc/core.js'
-import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
+import { dataLabels, dataSizes, dataValues, firstLabelGroup, getExcelColName, sheetLayout } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
 import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
@@ -335,7 +335,7 @@ function sheetExtent(
  * Build the embedded workbook's `xl/tables/table1.xml` (the data table over the sheet range).
  */
 function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], intBubbleCols: number): string {
-	const labelCols = dataLabels(data[0]).length
+	const labelCols = sheetLayout(data).labelCols
 	const { colCount, rowCount } = sheetExtent(chartObject, data, intBubbleCols)
 	const ref = `A1:${getExcelColName(colCount)}${rowCount}`
 	let columns: string
@@ -390,7 +390,7 @@ function buildXlsxSheet(
 ): string {
 	const isBubble = isBubbleChart(chartObject.opts._type)
 	const isScatter = isScatterChart(chartObject.opts._type)
-	const labelCols = dataLabels(data[0]).length
+	const labelCols = sheetLayout(data).labelCols
 	/**
 	 * One cell. `t="s"` marks a shared-string index; without it the value is a number.
 	 *
@@ -499,7 +499,7 @@ function buildXlsxSheet(
 		// Normally one row per category; a category-less chartEx layout (a histogram feeds PowerPoint
 		// raw observations with no labels) has no label groups, so the row count falls back to the
 		// longest value series and the leading label columns are simply skipped — values land in A.
-		const rowCount = firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length))
+		const rowCount = sheetLayout(data).rowCount
 		for (let idx = 0; idx < rowCount; idx++) {
 			let cells = ''
 			for (let idx2 = labelCols - 1; idx2 >= 0; idx2--)
@@ -511,7 +511,7 @@ function buildXlsxSheet(
 		}
 	} else {
 		const TOT_SER = data.length
-		const TOT_CAT = firstLabelGroup(data[0]).length
+		const TOT_CAT = sheetLayout(data).rowCount
 		// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
 		// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
 		const revLabelGroups = dataLabels(data[0]).slice().reverse()

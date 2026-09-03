@@ -58,7 +58,7 @@ defineRegressionSuite('Schema value guards', [
 						title: 'GUARDS',
 						textStyles: { body: [{ fontSize: 99999, marginLeft: 1e6, indent: -1e6 }] },
 					})
-					p.addSlide({ masterName: 'GUARDS' }).addText('x', { x: 1, y: 1, w: 2, h: 1 })
+					p.addSlide({ masterTitle: 'GUARDS' }).addText('x', { x: 1, y: 1, w: 2, h: 1 })
 				})
 				return readEntry(zip, MASTER_XML)
 			})

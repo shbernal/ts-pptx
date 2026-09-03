@@ -21,6 +21,7 @@ import {
 	firstLabelGroup,
 	seriesColumn,
 	sheetCellRef,
+	type SheetLayout,
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -123,6 +124,10 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): string {
 	const groups = dataLabels(obj)
 	const cats = firstLabelGroup(obj)
+	// A series with no labels of its own states no categories. It used to fall through to the
+	// multi-level arm with an empty group, which wrote `Sheet1!$A$2:$$1` -- a reference that
+	// resolves nowhere. `<c:cat>` is optional in `CT_Ser`; the same arm `plot-pie.ts` takes.
+	if (groups.length === 0 || cats.length === 0) return ''
 	const catRef = categoryRange(cats.length)
 	if (opts.catLabelFormatCode) {
 		// A `catLabelFormatCode` implies numbers, so the cache is a numRef carrying that format.
@@ -143,17 +148,20 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 }
 
 /** The `<c:val>` numeric cache: the series' own sheet column, one point per category. */
-function serValues(obj: OptsChartDataInternal, valFmtCode: string): string {
-	const valCol = seriesColumn(obj)
-	const catCount = firstLabelGroup(obj).length
-	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, catCount + 1), valFmtCode, dataValues(obj), catCount)
+function serValues(obj: OptsChartDataInternal, valFmtCode: string, sheet: SheetLayout): string {
+	const valCol = seriesColumn(obj, sheet)
+	// The sheet's row count, not this series' own label count: the workbook writes one row per
+	// category of the FIRST series and fills every series column across it, so a series with no
+	// labels of its own would otherwise take a range that runs backwards.
+	const rows = sheet.rowCount
+	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, rows + 1), valFmtCode, dataValues(obj), rows)
 }
 
 /**
  * Plot a category-axis chart family (area / bar / bar3d / line / radar) into a
  * `<c:xxxChart>` element. These share the grouping / series / cat+val axis structure.
  */
-export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
+export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
 	/* EX1:
 				data: [
 				 {
@@ -209,7 +217,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
-				raw(strRefBlock(sheetCellRef(seriesColumn(obj), 1), obj.name ?? '')),
+				raw(strRefBlock(sheetCellRef(seriesColumn(obj, sheet), 1), obj.name ?? '')),
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, serIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
@@ -221,7 +229,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				chartType === ChartType.radar ? null : raw(serDataLabels(obj, opts, seriesColor)),
 				chartType === ChartType.radar ? null : raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
 				raw(serCategories(obj, opts)),
-				raw(serValues(obj, valFmtCode)),
+				raw(serValues(obj, valFmtCode, sheet)),
 				chartType === ChartType.line ? raw(voidEl('c:smooth', { val: opts.lineSmooth ? 1 : 0 })) : null,
 			])
 		})

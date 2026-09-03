@@ -6,7 +6,7 @@
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
 import { SlideObjectType } from '../../enums.js'
-import { DEF_CELL_BORDER, DEF_CELL_MARGIN_IN, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
+import { DEF_CELL_BORDER, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type {
 	AddSlideProps,
@@ -21,7 +21,12 @@ import type {
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { tableHasHyperlink, withCheckedSpans } from '../table/spans.js'
-import { getSmartParseNumber, resolveSlideMarginsInches } from '../../units-internal.js'
+import {
+	getSmartParseNumber,
+	resolveCellMarginsInches,
+	resolveSlideMarginsInches,
+	usableTableWidthEmu,
+} from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -387,17 +392,7 @@ export function addTableDefinition(
 	if (opt.y === undefined || opt.y === null) opt.y = 0.5
 	// NOTE: Dont set default `h` - leaving it null triggers auto-rowH in `makeXMLSlide()`
 	opt.fontSize = opt.fontSize || DEF_FONT_SIZE
-	opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN
-	if (typeof opt.margin === 'number')
-		opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)]
-	// defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
-	if (
-		!Array.isArray(opt.margin) ||
-		opt.margin.length !== 4 ||
-		opt.margin.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v))
-	) {
-		opt.margin = DEF_CELL_MARGIN_IN
-	}
+	opt.margin = resolveCellMarginsInches(opt.margin)
 	// Black lands on the table and is inherited by every cell that has no colour of its own
 	// (`gen/slide/objects/table.ts`), as direct formatting. One thing stands it down: a
 	// hyperlink anywhere in the grid, because the default paints the whole run, so the words
@@ -449,15 +444,29 @@ export function addTableDefinition(
 	// Set/Calc table width
 	// Get slide margins - start with default values, then adjust if master or slide margins exist
 	// Master margins override the defaults, if present.
-	const arrTableMargin = resolveSlideMarginsInches(slideLayout?._margin)
+	// `opt.slideMargin` belongs here as much as it does in the pager, which is the only place it
+	// used to be read: whether a table respected the option depended on whether `autoPage` was on.
+	const arrTableMargin = resolveSlideMarginsInches(slideLayout?._margin, opt.slideMargin)
 
 	/**
 	 * Calc table width depending upon what data we have - several scenarios exist (including bad data, eg: colW doesnt match col count)
 	 * The API does not require a `w` value, but XML generation does, hence, code to calc a width below using colW value(s)
 	 */
-	/** The width a table with nothing to size it from gets: the slide between its margins, in inches. */
+	/**
+	 * The width a table with nothing to size it from gets: the slide from the table's own left
+	 * edge to the right margin, in whole inches.
+	 *
+	 * Through `usableTableWidthEmu` rather than its own subtraction, because there were two
+	 * formulas for one quantity: this one was `W - right - left` and ignored `x`, while the
+	 * pager's is `W - x - right`, and the pager's own doc claimed the two were "the same
+	 * reading". A table at a stated `x` was sized as though it started at the left margin, so it
+	 * ran off the right of the slide by the difference. `x` is already defaulted above, and its
+	 * default equals the default left margin, which is why symmetric decks see no change.
+	 */
 	const defaultTableWidthIn = (): number =>
-		Math.floor(presLayout.width / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
+		Math.floor(
+			usableTableWidthEmu(presLayout, getSmartParseNumber(opt.x, 'X', presLayout), arrTableMargin) / EMU_PER_INCH
+		)
 
 	if (opt.colW) {
 		const firstRowColCnt = (arrRows[0] ?? []).reduce((totalLen, c) => {
@@ -520,13 +529,11 @@ export function addTableDefinition(
 	// single `w`. Rewriting the widths here (the table definition) means both the emitter and
 	// the measured-fit pass inherit the fitted grid; shrink only, no minimum-width floor.
 	if (opt.fitColumns === 'shrink') {
-		const slideWin = presLayout.width / EMU_PER_INCH
-		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU_PER_INCH
-		// `arrTableMargin` is TRBL, so the margin to the RIGHT of the table is index 1. This
-		// read index 3 (the left margin) — invisible with the default symmetric [0.5 × 4], and
-		// wrong by the difference for any master whose `_margin` is asymmetric, which is
-		// exactly the layout a caller sets a left gutter on.
-		const availWin = slideWin - xIn - arrTableMargin[1]
+		// The same quantity `defaultTableWidthIn` resolves, un-floored: `fitColumns` scales a grid
+		// into it rather than picking a whole-inch width, so a floor here would throw away up to
+		// an inch of the space it is fitting to.
+		const availWin =
+			usableTableWidthEmu(presLayout, getSmartParseNumber(opt.x, 'X', presLayout), arrTableMargin) / EMU_PER_INCH
 		if (availWin > 0) {
 			if (Array.isArray(opt.colW)) {
 				const sumIn = opt.colW.reduce((p, n) => p + (Number.isFinite(n) ? n : 0), 0)
@@ -647,7 +654,18 @@ export function addTableDefinition(
 				// treats a falsy per-row height as "auto", so the cast to number[] is safe.
 				// Overwritten only when there is a per-slide mapping to apply; otherwise `rowH` is left
 				// exactly as the caller spelled it, absent included.
-				const pagedOpt: TableProps = { ...opt }
+				// `headerRow` is inline styling for row 0 and was baked into the cells at definition
+				// time. Carrying it here made the recursive `addTable` re-run that sugar against
+				// EACH PAGE's row 0 — an arbitrary body row — so with the default repeat-header off,
+				// row 11 and row 22 came out bold and filled like the header. Stripped by key rather
+				// than by a blanket strip: `columns` is positional, so re-applying it per page is
+				// correct and it has to stay.
+				//
+				// `hasHeader` is the same fact one level down (`a:tblPr/@firstRow`, which every page
+				// emitted). It is true on the first page, and on a later page only when the header
+				// row is genuinely repeated onto it.
+				const { headerRow: _headerRow, ...pagedOpt } = opt
+				if (idx > 0 && !opt.autoPageRepeatHeader) pagedOpt.hasHeader = false
 				// The pager resolves the column grid it wraps text against and hands it back on
 				// each page; the emitted table takes that grid rather than re-deriving one.
 				if (slide.colW) pagedOpt.colW = slide.colW

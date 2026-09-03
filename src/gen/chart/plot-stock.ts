@@ -17,7 +17,15 @@ import {
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { categoryRange, dataValues, firstLabelGroup, seriesColumn, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import {
+	categoryRange,
+	dataValues,
+	firstLabelGroup,
+	seriesColumn,
+	sheetCellRef,
+	type SheetLayout,
+	sheetRangeRef,
+} from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	catRefBlock,
@@ -39,9 +47,14 @@ export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!
 const STOCK_DLBLS = el('c:dLbls', null, [...dLblShowFlags({})])
 
 /** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
-function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmtCode: string): string {
+function stockCatVal(
+	obj: OptsChartDataInternal,
+	opts: ChartOptsInternal,
+	valFmtCode: string,
+	sheet: SheetLayout
+): string {
 	const cats = firstLabelGroup(obj)
-	const valColRow = seriesColumn(obj)
+	const valColRow = seriesColumn(obj, sheet)
 	const catRef = categoryRange(cats.length)
 	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
 	// them as dates rather than serial numbers; text ones take a plain `strRef`.
@@ -54,21 +67,22 @@ function stockCatVal(obj: OptsChartDataInternal, opts: ChartOptsInternal, valFmt
 				: catRefBlock('str', catRef, cats)
 		)
 	)
+	// The value range spans the sheet's own rows, which the first series' categories decide.
 	return (
-		cat +
+		(cats.length ? cat : '') +
 		numRefBlock(
 			'c:val',
-			sheetRangeRef(valColRow, 2, valColRow, cats.length + 1),
+			sheetRangeRef(valColRow, 2, valColRow, sheet.rowCount + 1),
 			valFmtCode,
 			dataValues(obj),
-			cats.length
+			sheet.rowCount
 		)
 	)
 }
 
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
-function stockSeriesName(obj: OptsChartDataInternal): string {
-	const nameCol = seriesColumn(obj)
+function stockSeriesName(obj: OptsChartDataInternal, sheet: SheetLayout): string {
+	const nameCol = seriesColumn(obj, sheet)
 	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')
 }
 
@@ -77,7 +91,8 @@ function makeStockLineSer(
 	obj: OptsChartDataInternal,
 	opts: ChartOptsInternal,
 	valFmtCode: string,
-	markCloseColor: string | null
+	markCloseColor: string | null,
+	sheet: SheetLayout
 ): string {
 	// Stock series draw no line themselves (the hi-low lines / up-down bars carry the visual).
 	const spPr = el('c:spPr', null, [
@@ -100,10 +115,10 @@ function makeStockLineSer(
 	return el('c:ser', null, [
 		raw(voidEl('c:idx', { val: obj._dataIndex })),
 		raw(voidEl('c:order', { val: obj._dataIndex })),
-		raw(stockSeriesName(obj)),
+		raw(stockSeriesName(obj, sheet)),
 		raw(spPr),
 		raw(marker),
-		raw(stockCatVal(obj, opts, valFmtCode)),
+		raw(stockCatVal(obj, opts, valFmtCode, sheet)),
 		raw(voidEl('c:smooth', { val: 0 })),
 	])
 }
@@ -114,7 +129,7 @@ function makeStockLineSer(
  * `<c:stockChart>` on the secondary axis pair; the non-volume styles draw only the stock chart on
  * the primary pair. `valAxisId`/`catAxisId` are the primary ids passed by the dispatch.
  */
-export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode) => {
+export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
 	const spec = STOCK_STYLE_SPEC[(opts.stockStyle as StockStyle) || 'hlc']
 	const chartColors = resolveChartPalette(opts)
 	const volumeSeries = spec.volume ? data[0] : null
@@ -126,10 +141,10 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 		const volumeSer = el('c:ser', null, [
 			raw(voidEl('c:idx', { val: volumeSeries._dataIndex })),
 			raw(voidEl('c:order', { val: volumeSeries._dataIndex })),
-			raw(stockSeriesName(volumeSeries)),
+			raw(stockSeriesName(volumeSeries, sheet)),
 			raw(el('c:spPr', null, raw(genXmlColorSelection(chartColors[0] ?? '4472C4')))),
 			raw(voidEl('c:invertIfNegative', { val: 0 })),
-			raw(stockCatVal(volumeSeries, opts, valFmtCode)),
+			raw(stockCatVal(volumeSeries, opts, valFmtCode, sheet)),
 		])
 		strXml += el('c:barChart', null, [
 			raw(voidEl('c:barDir', { val: 'col' })),
@@ -149,7 +164,7 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 			// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
 			const isClose = !spec.upDownBars && idx === stockSeries.length - 1
 			const markColor = isClose ? paletteColor(chartColors, obj._dataIndex, 'ED7D31') : null
-			return makeStockLineSer(obj, opts, valFmtCode, markColor)
+			return makeStockLineSer(obj, opts, valFmtCode, markColor, sheet)
 		})
 		.join('')
 	const hiLowLines = el(
