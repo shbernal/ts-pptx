@@ -22,32 +22,16 @@ import type { CallIr, IrValue } from '../ir.js'
 import type { MapContext } from './context.js'
 import {
 	ANCHOR_TO_VALIGN,
+	colorOption,
 	compact,
 	inches,
-	literalColor,
 	nameOf,
 	orUndefined,
 	positionOptions,
-	schemeColorOption,
 	WRITABLE_DASHES,
 } from './values.js'
-import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
-import { gradientStops, patternOption } from './surface-fill.js'
+import { surfaceFill } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
-
-/** How {@link pictureFillOption}'s notes name a cell. */
-const CELL_PICTURE_FILL: PictureFillSubject = {
-	construct: 'table.cell.fill.picture',
-	subject: 'this table cell',
-	element: 'a:tcPr/a:blipFill',
-}
-
-/** How {@link pictureFillOption}'s notes name the table's own background. */
-const TABLE_PICTURE_FILL: PictureFillSubject = {
-	construct: 'table.fill.picture',
-	subject: 'this table',
-	element: 'a:tblPr/a:blipFill',
-}
 
 export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): CallIr {
 	const { notes } = ctx
@@ -135,30 +119,7 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
  * keeps tracking its theme.
  */
 function tableFill(table: Table, ctx: MapContext): IrValue | undefined {
-	const { notes, assets } = ctx
-	const gradient = table.gradientFill
-	if (gradient) {
-		const stops = gradientStops(gradient, notes, 'table.fill')
-		if (stops) return { type: 'gradient', gradient: stops }
-	}
-
-	const pattern = patternOption(table.patternFill)
-	if (pattern) return pattern
-
-	const picture = table.pictureFill
-	if (picture) return pictureFillOption(picture, assets, notes, TABLE_PICTURE_FILL)
-
-	const resolved = table.resolvedFill
-	const scheme = schemeColorOption(
-		table.fillSchemeColor,
-		resolved?.effectiveHex ?? null,
-		notes,
-		'table.fill.schemeToken',
-		'table fill'
-	)
-	if (scheme !== undefined) return { color: scheme }
-
-	return resolved ? { color: literalColor(resolved.effectiveHex) } : undefined
+	return surfaceFill(table, ctx, 'table.fill')
 }
 
 /**
@@ -298,51 +259,7 @@ function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefin
  * neither records a note.
  */
 function cellFill(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue | undefined {
-	const { notes, assets } = ctx
-	// An explicit `a:noFill` is a statement, and the one `EG_FillProperties` member whose
-	// loss is invisible further down: a suppressed cell reports `null` from every colour
-	// accessor, so without this it falls out of the bottom as "no fill option" and the copy
-	// takes the style's banding — the opposite of what the source shows. Same distinction
-	// `lineOption` makes for `lineNoFill` on the shape side.
-	if (cell.fillNoFill) return { type: 'none' }
-
-	// Every non-solid choice comes next, and for one shared reason: a cell whose `a:tcPr`
-	// holds a `a:gradFill`/`a:pattFill`/`a:blipFill` holds no `a:solidFill` for the colour
-	// legs below to find, so `resolvedFill` would answer with the table style's banding
-	// colour and paint over the cell with something the source never showed.
-	const gradient = cell.gradientFill
-	if (gradient) {
-		const stops = gradientStops(gradient, notes, 'table.cell.fill')
-		if (stops) return { type: 'gradient', gradient: stops }
-	}
-
-	const pattern = patternOption(cell.patternFill)
-	if (pattern) return pattern
-
-	const picture = cell.pictureFill
-	if (picture) return pictureFillOption(picture, assets, notes, CELL_PICTURE_FILL)
-
-	const scheme = schemeColorOption(
-		cell.fillSchemeColor,
-		cell.resolvedFill?.effectiveHex ?? null,
-		notes,
-		'table.cell.fill.schemeToken',
-		'cell fill'
-	)
-	if (scheme !== undefined) return { color: scheme }
-
-	// A styled cell with no fill of its own takes the style's banding, and the style GUID
-	// travels with the table — so emitting nothing here is not a loss, it is what keeps the
-	// copy responsive to its own style.
-	if (hasStyle && !cell.hasOwnFill) return undefined
-
-	const resolved = cell.resolvedFill
-	if (!resolved) return undefined
-	// Reached only when the cell's fill IS its own: either there is no style to inherit from,
-	// or `hasOwnFill` said so. The literal is exact for a `srgbClr`, and for the rarer colour
-	// models (`a:sysClr`, `a:prstClr`, `a:hslClr`, …) it is the colour they resolve to, which
-	// is the closest the write API's hex option can come.
-	return { color: literalColor(resolved.effectiveHex) }
+	return surfaceFill(cell, ctx, 'table.cell.fill', { styled: hasStyle })
 }
 
 /**
@@ -388,14 +305,16 @@ function borderIr(edge: CellBorder | null, notes: NoteScope): IrValue {
 			type: dash === null || dash === 'solid' ? 'solid' : 'dash',
 			// `solid` is what an absent/solid dash already implies, so emitting it would be noise.
 			dashType: known && dash !== null && dash !== 'solid' ? dash : undefined,
-			color:
-				schemeColorOption(
-					edge.schemeColor,
-					edge.resolvedColor?.effectiveHex ?? null,
-					notes,
-					'table.cell.borders.schemeToken',
-					'cell border'
-				) ?? (edge.color === null ? undefined : literalColor(edge.color)),
+			// `edge.color` is the RESOLVED literal (`resolvedColor?.effectiveHex`), not an own one —
+			// a border states either an `a:srgbClr` or an `a:schemeClr` and this field reports what
+			// either resolves to — so it belongs on the resolved leg, where an unwritable token is
+			// still noted before it is baked.
+			color: colorOption(
+				{ scheme: edge.schemeColor, resolvedHex: edge.color },
+				notes,
+				'table.cell.borders.schemeToken',
+				'cell border'
+			),
 			width: orUndefined(edge.widthPt),
 		}) ?? {}
 	)

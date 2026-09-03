@@ -200,3 +200,37 @@ describe('an `xsd:boolean` attribute is parsed, not compared to `1`', () => {
 		)
 	})
 })
+
+describe('a fill transparency is read on every surface that can carry one', () => {
+	// `a:alphaModFix` was read by the shape's copy of the fill ladder and by neither of the
+	// table's two, so a table or a cell whose `a:solidFill` carried an alpha lost it -- with
+	// nothing declaring the loss, because the round trip cannot see a key neither side produces.
+	// Same staging as the shape case above: the transparency only reaches the IR down the
+	// resolved-colour leg, so the token has to be one the reader cannot write back.
+	test("a cell's fill", async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addTable([[{ text: 'A', options: { fill: { color: 'accent1', transparency: 40 } } }]], {
+				x: 0.5,
+				y: 0.5,
+				w: 4,
+				h: 1,
+			})
+		})
+		const ir = await irWithSlideXml(buf, (xml) => xml.replaceAll('val="accent1"', 'val="dk1"'))
+		const cell = tableCall(ir).args[0][0][0]
+		assertEqual(cell.options.fill.transparency, 40, 'the cell keeps the alpha its source stated')
+	})
+
+	test("the table's own background", async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addTable([[{ text: 'A' }]], { x: 0.5, y: 0.5, w: 4, h: 1 })
+		})
+		const ir = await irWithSlideXml(buf, (xml) =>
+			xml.replace(
+				'<a:tblPr/>',
+				'<a:tblPr><a:solidFill><a:schemeClr val="lt2"><a:alpha val="60000"/></a:schemeClr></a:solidFill></a:tblPr>'
+			)
+		)
+		assertEqual(tableCall(ir).args[1].tableFill.transparency, 40, 'and so does the table behind it')
+	})
+})

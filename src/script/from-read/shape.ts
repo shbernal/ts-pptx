@@ -46,11 +46,9 @@ import {
 	nameOf,
 	orUndefined,
 	positionOptions,
-	schemeColorOption,
 	WRITABLE_DASHES,
 } from './values.js'
-import { gradientStops, patternOption } from './surface-fill.js'
-import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
+import { type FillSubject, gradientStops, surfaceFill } from './surface-fill.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
@@ -59,13 +57,6 @@ import { chartCall } from './chart.js'
 import { forShape, type MapContext } from './context.js'
 export type { AssetResolver } from './context.js'
 import { PERCENT_SCALE } from '../../units.js'
-
-/** How {@link pictureFillOption}'s notes name a shape's surface. */
-const SHAPE_PICTURE_FILL: PictureFillSubject = {
-	construct: 'fill.picture',
-	subject: "this shape's surface",
-	element: 'a:blipFill',
-}
 
 /** Arrowhead types `ShapeLineProps` accepts; `a:headEnd/@type` uses the same tokens. */
 const WRITABLE_ARROWS = new Set(['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'])
@@ -145,35 +136,26 @@ function transformOptions(shape: AnyShape): Record<string, IrValue | undefined> 
  * theme has no `a:solidFill` of its own, so without it the shape would come out unfilled.
  */
 function fillOption(shape: AnyShape, ctx: MapContext): IrValue | undefined {
-	const { notes, assets } = ctx
-	const gradient = shape.gradientFill
-	if (gradient) {
-		const stops = gradientStops(gradient, notes, 'fill')
-		if (stops) return { type: 'gradient', gradient: stops }
+	// A shape has no explicit-noFill leg here: `lineOption` handles the stroke's, and a shape's
+	// own `a:noFill` reaches the write side as an absent fill option, which is the same output.
+	return surfaceFill({ ...fillAccessors(shape), fillColor: shape.fillColor }, ctx, 'fill')
+}
+
+/**
+ * The `EG_FillProperties` accessors {@link surfaceFill} reads, projected off a read-model shape.
+ *
+ * A projection rather than passing the shape itself: `AnyShape` is a union whose members carry
+ * far more than this, and naming the six keys is what makes "a shape, a table and a cell answer
+ * the same six questions" a checked statement rather than an observation.
+ */
+function fillAccessors(shape: AnyShape): FillSubject {
+	return {
+		gradientFill: shape.gradientFill,
+		patternFill: shape.patternFill,
+		pictureFill: shape.pictureFill,
+		fillSchemeColor: shape.fillSchemeColor,
+		resolvedFill: shape.resolvedFill,
 	}
-
-	const pattern = patternOption(shape.patternFill)
-	if (pattern) return pattern
-
-	// An image-filled *surface* is not a picture object — it is `ShapeFillProps.image`, so
-	// the bytes are re-embedded through the same asset resolver an `addImage` uses. Before
-	// the fill option itself, since a shape carrying a `a:blipFill` has no `a:solidFill` for
-	// the colour legs below to find.
-	const picture = shape.pictureFill
-	if (picture) return pictureFillOption(picture, assets, notes, SHAPE_PICTURE_FILL)
-
-	const scheme = shape.fillSchemeColor
-	if (isWritableSchemeToken(scheme)) return { color: scheme as string }
-	if (shape.fillColor !== null) return { color: literalColor(shape.fillColor) }
-
-	const resolved = shape.resolvedFill
-	if (!resolved) return undefined
-	// The note-and-bake half of the ladder, shared with the six other sites that make this
-	// decision; `??` covers the no-token case, where nothing was noted and the literal stands.
-	const color =
-		schemeColorOption(scheme, resolved.effectiveHex, notes, 'fill.schemeToken', 'fill') ??
-		literalColor(resolved.effectiveHex)
-	return compact({ color, transparency: alphaToTransparency(resolved.alpha) })
 }
 
 /**

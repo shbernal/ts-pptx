@@ -109,6 +109,43 @@ export function schemeColorOption(
 }
 
 /**
+ * One colour, as the read model splits it, resolved into the write API's single `color` field.
+ *
+ * The ladder, in order:
+ *
+ * 1. a **writable scheme token** — kept as a token, so the copy keeps tracking its theme;
+ * 2. the surface's **own literal**, where the read model separates it from the resolved one;
+ * 3. an **unwritable token**, noted and baked to the literal it resolves to;
+ * 4. the **resolved literal**, for the colour models the write API's hex option cannot name;
+ * 5. `undefined` — nothing to say, and the caller's own arm decides from there.
+ *
+ * Steps 2 and 3 cannot both apply: `a:solidFill` holds exactly one colour child, so a surface
+ * has either an `a:srgbClr` or an `a:schemeClr` and never both. That is what makes one order
+ * safe for all six sites, which is worth stating because the six had three orders between them
+ * — one put the own literal first, one never consulted it at all, and one tested the token for
+ * `null` before calling. {@link schemeColorOption} extracted the middle step and the ladder
+ * around it stayed copied.
+ *
+ * @param color - the three spellings the read model reports
+ * @param notes - the scope an unwritable token is noted on
+ * @param construct - the note's construct id, e.g. `table.cell.fill.schemeToken`
+ * @param label - how the note's prose names the thing, e.g. `cell fill`
+ */
+export function colorOption(
+	color: { scheme: string | null; ownHex?: string | null; resolvedHex: string | null },
+	notes: NoteScope,
+	construct: RecordableConstruct,
+	label: string
+): string | undefined {
+	if (isWritableSchemeToken(color.scheme)) return color.scheme as string
+	if (color.ownHex != null) return literalColor(color.ownHex)
+	return (
+		schemeColorOption(color.scheme, color.resolvedHex, notes, construct, label) ??
+		(color.resolvedHex === null ? undefined : literalColor(color.resolvedHex))
+	)
+}
+
+/**
  * `a:bodyPr/@anchor` and `a:tcPr/@anchor` -> the write API's `valign`.
  *
  * The inverse of the emitters' own `resolveTextAnchor`, and one table rather than the two

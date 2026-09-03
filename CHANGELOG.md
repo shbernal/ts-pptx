@@ -345,6 +345,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A table's or a table cell's fill lost its transparency when converted to a script.**
+  An `a:solidFill` carrying an `a:alphaModFix` is read on any surface, but only the shape's
+  copy of the fill ladder passed the alpha on: a table background or a cell fill came back
+  fully opaque, with no fidelity note, because a key neither the source nor the copy
+  produces is invisible to the round trip. All three surfaces read one ladder now, so a
+  generated script states `transparency` wherever the source deck did.
+
 - **Eight blind spots in the round-trip verifier, which is the thing that decides whether a
   generated script rebuilt the deck it came from.** Each is a way it could answer *yes*
   without having compared, or report a defect where the loss was already declared.

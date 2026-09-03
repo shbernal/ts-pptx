@@ -28,7 +28,15 @@ import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFra
 import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
-import { ANCHOR_TO_VALIGN, compact, literalColor, orUndefined, pointsToInches, schemeColorOption } from './values.js'
+import {
+	ANCHOR_TO_VALIGN,
+	colorOption,
+	compact,
+	literalColor,
+	orUndefined,
+	pointsToInches,
+	schemeColorOption,
+} from './values.js'
 
 /**
  * `a:pPr/@algn` → `HAlign`. `dist` and `thaiDist` (distributed justification) are
@@ -207,17 +215,16 @@ function bulletStyle(bullet: BulletStyle, notes: NoteScope): Record<string, IrVa
  * same reason {@link runColor} does: a token keeps tracking the destination theme.
  */
 function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined {
-	const scheme = bullet.schemeColor
-	if (scheme !== null)
-		return schemeColorOption(
-			scheme,
-			bullet.resolvedColor?.effectiveHex ?? null,
-			notes,
-			'text.bullet.schemeToken',
-			'bullet'
-		)
-	if (bullet.color !== null) return literalColor(bullet.color)
-	return bullet.resolvedColor ? literalColor(bullet.resolvedColor.effectiveHex) : undefined
+	return colorOption(
+		{
+			scheme: bullet.schemeColor,
+			ownHex: bullet.color,
+			resolvedHex: bullet.resolvedColor?.effectiveHex ?? null,
+		},
+		notes,
+		'text.bullet.schemeToken',
+		'bullet'
+	)
 }
 
 /**
