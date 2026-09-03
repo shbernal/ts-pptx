@@ -32,13 +32,8 @@ import {
 	resolveBodyInsetsEmu,
 	type RunOpts,
 } from './paragraphs.js'
-import {
-	effectiveCellOpts,
-	resolveCellInsetsEmu,
-	resolveTableGridEmu,
-	scaleCellFontSizes,
-	walkTableGrid,
-} from './table-fit.js'
+import { walkTableGrid } from '../gen/table/grid.js'
+import { effectiveCellOpts, resolveCellInsetsEmu, resolveTableGridEmu, scaleCellFontSizes } from './table-fit.js'
 import type { MeasureTextOptions, TextFitShrinkProps, TextMeasurement, TextProps } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
 import { pickDefined } from '../options-internal.js'

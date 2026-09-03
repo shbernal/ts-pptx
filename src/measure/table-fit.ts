@@ -8,7 +8,7 @@
  */
 
 import { DEF_FONT_SIZE } from '../constants-internal.js'
-import { resolveSpan } from '../gen/table/spans.js'
+import { type GridPlacement, tableColCount, walkTableGrid } from '../gen/table/grid.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import {
 	autoPageLineHeightEmu,
@@ -97,57 +97,6 @@ export function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): vo
 				? { ...run, options: { ...run.options, fontSize: shrink(run.options.fontSize) } }
 				: run
 		)
-	}
-}
-
-/** Grid column count of a table (sums the first row's colspans), mirroring `gen/slide/objects/table.ts`. */
-export function tableColCount(rows: TableCell[][]): number {
-	const first = rows[0]
-	return first ? first.reduce((n, c) => n + resolveSpan(c?.options?.colspan, 'colspan'), 0) : 0
-}
-
-/** A placed (non-merged origin) cell yielded by {@link walkTableGrid}. */
-interface GridPlacement {
-	cell: TableCell
-	/** Zero-based grid row of the cell's top-left origin. */
-	row: number
-	/** Zero-based grid column of the cell's top-left origin. */
-	col: number
-	/** Rows spanned, clamped to the available rows. */
-	rowSpan: number
-	/** Columns spanned, clamped to the grid width. */
-	colSpan: number
-}
-
-/**
- * Walk a table's cell grid in row-major order, resolving each authored cell to its
- * grid origin (`row`/`col`) and clamped colspan/rowspan. Tracks rowspan occupancy so
- * a cell never lands beneath one spanned from above (grid build). This is
- * the single traversal shared by the measured-fit shrink pass and
- * {@link computeTableLayout}, so cell placement cannot drift between them.
- */
-export function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<GridPlacement> {
-	// occupied[c] = rows still covered by a rowspan started above (incl. current row).
-	const occupied = new Array<number>(numCols).fill(0)
-	for (let r = 0; r < rows.length; r++) {
-		const row = rows[r]
-		if (!row) continue
-		let col = 0
-		for (const cell of row) {
-			while (col < numCols && (occupied[col] ?? 0) > 0) col++
-			if (col >= numCols) break
-			const colspan = resolveSpan(cell?.options?.colspan, 'colspan')
-			const rowspan = Math.min(resolveSpan(cell?.options?.rowspan, 'rowspan'), rows.length - r)
-			const colStart = col
-			const colEnd = Math.min(colStart + colspan, numCols)
-			for (let c = colStart; c < colEnd; c++) occupied[c] = rowspan
-			col = colEnd
-			yield { cell, row: r, col: colStart, rowSpan: rowspan, colSpan: colEnd - colStart }
-		}
-		for (let c = 0; c < numCols; c++) {
-			const cur = occupied[c] ?? 0
-			if (cur > 0) occupied[c] = cur - 1
-		}
 	}
 }
 

@@ -27,6 +27,7 @@ import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
+import { tableColCount } from '../../table/grid.js'
 
 /**
  * The table-level options a cell inherits when it states none of its own.
@@ -144,25 +145,15 @@ export function renderTableObject(ctx: RenderContext): string {
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.
-	let arrTabRows: TableCell[][] = []
-	let objTabOpts: ObjectOptions = {}
-	let intColCnt = 0
 	let tblInner = ''
 	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
 	// Checked again here, not only in `addTableDefinition`: this is where the merge grid allocates
 	// from a span, and an emitter must not size an array from a number it has not seen. Rows that
 	// came through the definer are already correct, so this warns about nothing and copies nothing.
-	arrTabRows = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
-	objTabOpts = itemOpts
-	intColCnt = 0
-
-	// Calc number of columns
-	// NOTE: Cells may have a colspan, so merely taking the length of the [0] (or any other) row is not
-	// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
-	;(arrTabRows[0] ?? []).forEach((cell) => {
-		intColCnt += resolveSpan(cell.options?.colspan, 'colspan')
-	})
+	const arrTabRows: TableCell[][] = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
+	const objTabOpts: ObjectOptions = itemOpts
+	const intColCnt = tableColCount(arrTabRows)
 
 	// STEP 1: Start Table XML
 	// NOTE: The cNvPr id must be unique among ALL shapes on the slide. A table is an

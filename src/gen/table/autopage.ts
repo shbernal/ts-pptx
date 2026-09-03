@@ -30,6 +30,7 @@ import {
 	usableTableWidthEmu,
 } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
+import { type GridPlacement, tableColCount, walkTableGrid } from './grid.js'
 import { resolveSpan, withCheckedSpans } from './spans.js'
 import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
@@ -456,19 +457,22 @@ export function getSlidesForTableRows(
 
 	// STEP 2: Calculate number of columns
 	{
-		// NOTE: Cells may have a colspan, so merely taking the length of the [0] (or any other) row is not
-		// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
-		const firstRow = tableRows[0] || []
-		firstRow.forEach((cell) => {
-			numCols += resolveSpan(cell?.options?.colspan, 'colspan')
-		})
+		numCols = tableColCount(tableRows)
 		if (tableProps.verbose) console.log(`| numCols ......................................... = ${numCols}`)
 	}
 
-	// Track per-column remaining rowspan depths so we can suppress page breaks that would
-	// fall inside a rowspan group. colSpanDepths[c] = how many more rows column c is still
-	// occupied by a rowspan that started in a previous row.
-	const colSpanDepths: number[] = new Array<number>(numCols).fill(0)
+	// Where every cell actually lands. The pager asks the grid two questions -- which columns a
+	// cell spans, so its text is wrapped against the right width, and whether a rowspan opened
+	// on an earlier row is still open here, so a page break does not split a merged group -- and
+	// it used to answer both with its own occupancy array, once forwards through the row and
+	// once again after it. `walkTableGrid` is the traversal the measured-fit pass and the
+	// emitter's own grid build follow, so the widths this pager wraps against are the widths the
+	// cells are finally given.
+	const placements: GridPlacement[][] = tableRows.map(() => [])
+	for (const placement of walkTableGrid(tableRows, numCols)) placements[placement.row]?.push(placement)
+	/** Whether a rowspan opened above `iRow` is still covering it. */
+	const spannedFromAbove = (iRow: number): boolean =>
+		placements.some((row) => row.some((p) => p.row < iRow && p.row + p.rowSpan > iRow))
 
 	// STEP 3: Calculate width using tableProps.colW if possible
 	if (!tablePropW && tableProps.colW) {
@@ -521,7 +525,7 @@ export function getSlidesForTableRows(
 	tableRows.forEach((row, iRow) => {
 		// A: Row variables — detect active rowspan at the start of this row so we can
 		// suppress page breaks that would split a rowspan group across slides.
-		const hasActiveRowSpan = colSpanDepths.some((d) => d > 0)
+		const hasActiveRowSpan = spannedFromAbove(iRow)
 		const rowCellLines: AutoPageCell[] = []
 		// B: Create new row in data model, calc `maxCellMar*`
 		const { topEmu: maxCellMarTopEmu, btmEmu: maxCellMarBtmEmu } = rowMarginsEmu(row, tableProps)
@@ -538,16 +542,15 @@ export function getSlidesForTableRows(
 
 		// D: --==[[ BUILD DATA SET ]]==-- (iterate over cells: split text into lines[], set `lineHeight`)
 		// Cells are keyed to grid columns, not to their position in the row: a colspan earlier in
-		// the row shifts every later cell, and a rowspan opened above skips columns entirely. The
-		// cursor is the same placement rule G applies below and `walkTableGrid` applies in
-		// `src/measure/table-fit.ts`; measuring a cell against `colW[iCell]` wrapped its text to
-		// another column's width.
-		let colCursor = 0
-		row.forEach((cell) => {
-			while (colCursor < numCols && (colSpanDepths[colCursor] ?? 0) > 0) colCursor++
-			const cellColspan = resolveSpan(cell.options?.colspan, 'colspan')
-			const colStart = colCursor
-			colCursor = Math.min(colCursor + cellColspan, numCols)
+		// the row shifts every later cell, and a rowspan opened above skips columns entirely.
+		// Measuring a cell against `colW[iCell]` wrapped its text to another column's width.
+		const rowPlacements = placements[iRow] ?? []
+		row.forEach((cell, iCell) => {
+			// A row longer than the grid runs off the end of it: those cells are placed nowhere
+			// and measure against no column, which is what the cursor did by clamping.
+			const placed = rowPlacements[iCell]
+			const colStart = placed ? placed.col : numCols
+			const cellColspan = placed ? placed.colSpan : resolveSpan(cell.options?.colspan, 'colspan')
 
 			const newCellOptions = cell.options || {}
 			const newCell: AutoPageCell = {
@@ -726,28 +729,6 @@ export function getSlidesForTableRows(
 		if (currTableRow.length > 0) {
 			newTableRowSlide.rows.push(currTableRow)
 			newTableRowSlide.rowH?.push(resolveRowH(iRow))
-		}
-
-		// G: Update colSpanDepths for the next row's hasActiveRowSpan check.
-		// Snapshot occupied columns *before* adding new spans from this row so that
-		// cells in this row are placed correctly even when the row itself starts spans.
-		const occupiedBefore = [...colSpanDepths]
-		let spanCursor = 0
-		row.forEach((cell) => {
-			while (spanCursor < numCols && (occupiedBefore[spanCursor] ?? 0) > 0) spanCursor++
-			const cellColspan = resolveSpan(cell.options?.colspan, 'colspan')
-			const cellRowspan = cell.options?.rowspan ?? 1
-			if (cellRowspan > 1) {
-				for (let c = 0; c < cellColspan && spanCursor + c < numCols; c++) {
-					colSpanDepths[spanCursor + c] = cellRowspan
-				}
-			}
-			spanCursor += cellColspan
-		})
-		// Consume one row from every active span (including ones just opened above).
-		for (let c = 0; c < numCols; c++) {
-			const depth = colSpanDepths[c] ?? 0
-			if (depth > 0) colSpanDepths[c] = depth - 1
 		}
 
 		if (tableProps.verbose) {
