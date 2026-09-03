@@ -10,6 +10,7 @@ import type { TransitionProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 /** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */
 function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast' {
@@ -44,7 +45,7 @@ function transitionSoundToXml(transition: TransitionProps): string {
 		raw(
 			el(
 				'p:stSnd',
-				{ loop: sound.loop ? '1' : null },
+				{ loop: xsdBoolIfTrue(sound.loop) },
 				raw(voidEl('p:snd', { 'r:embed': `rId${transition._sndRId}`, name: sound.name || null }))
 			)
 		)

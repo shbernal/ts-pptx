@@ -19,13 +19,14 @@
 import type { IrValue } from '../ir.js'
 import type { Shape } from '../../read.js'
 import type { NoteScope, RecordableConstruct } from '../fidelity.js'
-import { EMU_PER_POINT } from '../../units.js'
+import { emuToPoints, POINTS_PER_INCH } from '../../units.js'
 // Re-exported so this module stays the one import the mappers reach for; it lives in
 // `script/units.ts` because the printer needs it too and may not import from here.
 export { inches, INCH_DECIMALS } from '../units.js'
-import { INCH_DECIMALS } from '../units.js'
+import { toInches } from '../units.js'
 import { stripHash } from '../../hex-color.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
+import { SchemeColor } from '../../enums.js'
 
 /** Geometry as a `Coord` the write API takes verbatim, preserving the exact EMU. */
 export function emu(value: number): string {
@@ -34,7 +35,7 @@ export function emu(value: number): string {
 
 /** EMU → points, the unit the write API uses for line widths and font sizes. */
 export function points(emuValue: number): number {
-	return emuValue / EMU_PER_POINT
+	return emuToPoints(emuValue)
 }
 
 /**
@@ -44,7 +45,7 @@ export function points(emuValue: number): number {
  * mistake, so handing it points would both mis-scale the text and produce a warning.
  */
 export function pointsToInches(pt: number): number {
-	return Number((pt / 72).toFixed(INCH_DECIMALS))
+	return toInches(pt / POINTS_PER_INCH)
 }
 
 /**
@@ -53,23 +54,18 @@ export function pointsToInches(pt: number): number {
  * re-resolves against the destination theme and so keeps the deck recolourable, which is
  * the whole reason a theme colour was authored.
  *
- * Only the ten tokens the write path's `clrMap` covers survive as tokens — the other
- * seven `ST_SchemeColorVal` values degrade to a hex literal there anyway, so passing them
- * through would produce a silently different colour. Callers hand those to
- * {@link literalColor} instead after recording a note.
+ * Only the tokens the write path's `clrMap` covers survive as tokens — the other seven
+ * `ST_SchemeColorVal` values degrade to a hex literal there anyway, so passing them through
+ * would produce a silently different colour. Callers hand those to {@link literalColor}
+ * instead after recording a note.
+ *
+ * Derived from `SchemeColor` rather than transcribed from it. A hand-written copy of the ten
+ * meant that a member added to the enum would keep being treated as unwritable here: baked to
+ * a hex literal under an "approximated" note that had stopped being true, which is worse than
+ * a loud failure. The write side already asks the same question of the same enum
+ * (`gen/define/chart.ts`).
  */
-const WRITABLE_SCHEME_TOKENS = new Set([
-	'accent1',
-	'accent2',
-	'accent3',
-	'accent4',
-	'accent5',
-	'accent6',
-	'bg1',
-	'bg2',
-	'tx1',
-	'tx2',
-])
+const WRITABLE_SCHEME_TOKENS: ReadonlySet<string> = new Set(Object.values(SchemeColor))
 
 /** `true` when a `schemeClr` token survives as a token rather than degrading to hex. */
 export function isWritableSchemeToken(token: string | null): boolean {

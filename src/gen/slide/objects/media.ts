@@ -11,7 +11,7 @@ import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
 import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { msMediaRid, previewRid } from '../../define/media.js'
-import { type RenderContext, cNvPrOpen } from './shared.js'
+import { cNvPrOpen, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -119,11 +119,7 @@ export function renderMediaObject(ctx: RenderContext): string {
 				'p:spPr',
 				null,
 				[
-					raw(
-						el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))], {
-							openPrefix: '  ',
-						})
-					),
+					raw(xfrmEl('a:xfrm', { x, y, cx, cy }, locationAttrs, { openPrefix: '  ' })),
 					raw(prstGeomRect({ openPrefix: '  ' })),
 				],
 				{ openPrefix: ' ', closePrefix: ' ' }

@@ -29,7 +29,7 @@ import {
 	buildFitParagraphs,
 	computeBox,
 	extractParagraphs,
-	resolveInsetsEmu,
+	resolveBodyInsetsEmu,
 	type RunOpts,
 } from './paragraphs.js'
 import {
@@ -290,7 +290,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			const outcome = solveResize(paragraphs, box, resolve)
 			if (outcome.kind === 'resize') {
 				const opts = obj.options as RunOpts
-				const { tIns, bIns } = resolveInsetsEmu(opts)
+				const { tIns, bIns } = resolveBodyInsetsEmu(opts)
 				const oldHeightEmu = getSmartParseNumber(opts.h, 'Y', layout)
 				const newHeightEmu = Math.round(outcome.neededInnerHeightPt * EMU_PER_POINT) + tIns + bIns
 				// Shift the box origin so growth/shrink honors the vertical anchor; `off.y`

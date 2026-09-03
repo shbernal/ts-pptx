@@ -30,6 +30,7 @@ import {
 } from './clamp.js'
 import { genXmlInlineMath, genXmlMathParagraph } from './math.js'
 import { InvalidOptionError } from '../../errors.js'
+import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 /** The 2018 hyperlink-color extension namespace, written on the `<ahyp:hlinkClr>` element itself. */
 const AHYP_NS = 'http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor'
@@ -411,8 +412,8 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		sz: opts.fontSize ? clampFontSizeSz(opts.fontSize) : null,
 		// NOTE: `b`/`i` were written as `opts.bold ? '1' : '0'` inside a truthiness guard, so the
 		// "0" arm was unreachable — the emitted value is always "1".
-		b: opts?.bold ? '1' : null,
-		i: opts?.italic ? '1' : null,
+		b: xsdBoolIfTrue(opts?.bold),
+		i: xsdBoolIfTrue(opts?.italic),
 		strike: opts?.strike ? (typeof opts.strike === 'string' ? opts.strike : 'sngStrike') : null,
 		cap: opts?.caps ? opts.caps : null,
 		u: underline,

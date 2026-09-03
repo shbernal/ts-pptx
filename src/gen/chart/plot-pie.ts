@@ -16,6 +16,7 @@ import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { categoryRange, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	catRefBlock,
 	createChartBorderLine,
@@ -120,10 +121,10 @@ function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOpt
  */
 function pieLabelFlags(opts: ChartOptsInternal, customLbl?: string): XmlChild[] {
 	return dLblShowFlags({
-		val: customLbl ? 0 : opts.showValue ? 1 : 0,
-		catName: opts.showLabel ? 1 : 0,
-		serName: opts.showSerName ? 1 : 0,
-		percent: opts.showPercent ? 1 : 0,
+		val: customLbl ? '0' : xsdBool(opts.showValue),
+		catName: xsdBool(opts.showLabel),
+		serName: xsdBool(opts.showSerName),
+		percent: xsdBool(opts.showPercent),
 	})
 }
 
@@ -209,7 +210,7 @@ export function makePiePlot(
 		raw(labelTextProps(labelDefRPr(opts))),
 		chartType === ChartType.pie ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' })) : null,
 		...pieLabelFlags(opts),
-		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })),
+		raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })),
 		raw(createLeaderLinesElement(opts)),
 	])
 

@@ -29,7 +29,7 @@ import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { type RenderContext, cNvPrOpen } from './objects/shared.js'
+import { cNvPrOpen, grpXfrmEl, type RenderContext } from './objects/shared.js'
 import { renderChartObject } from './objects/chart.js'
 import { renderConnectorObject } from './objects/connector.js'
 import { renderImageObject } from './objects/image.js'
@@ -50,6 +50,7 @@ import {
 	VIDEO_REL,
 } from '../../ooxml/rel-types.js'
 import { externalHyperlinkRel, relationshipEl, relationshipsPart } from '../opc/rels.js'
+import { xsdBool, xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 /** The four axes that make up an explicit group frame. All or nothing — see `givenGroupFrameAxes`. */
 const GROUP_FRAME_AXES = ['x', 'y', 'w', 'h'] as const
@@ -204,18 +205,7 @@ function spTreeOpenXml(): string {
 		raw(voidEl('p:cNvGrpSpPr')),
 		raw(voidEl('p:nvPr')),
 	])
-	strSlideXml += el(
-		'p:grpSpPr',
-		null,
-		raw(
-			el('a:xfrm', null, [
-				raw(voidEl('a:off', { x: '0', y: '0' })),
-				raw(voidEl('a:ext', { cx: '0', cy: '0' })),
-				raw(voidEl('a:chOff', { x: '0', y: '0' })),
-				raw(voidEl('a:chExt', { cx: '0', cy: '0' })),
-			])
-		)
-	)
+	strSlideXml += el('p:grpSpPr', null, raw(grpXfrmEl({ x: '0', y: '0', cx: '0', cy: '0' })))
 	return strSlideXml
 }
 
@@ -316,7 +306,7 @@ function slideNumberPlaceholderXml(
 		raw(
 			el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
 				// NOTE: `b` is emitted as "0" when unset, unlike the run properties elsewhere which omit it.
-				raw(voidEl('a:rPr', { b: snProps.bold ? 1 : 0, lang: 'en-US' })),
+				raw(voidEl('a:rPr', { b: xsdBool(snProps.bold), lang: 'en-US' })),
 				// `<a:t>` inside an `a:fld` is the *cached* rendering of the field, so it is only a
 				// slide number where there is a slide number to cache. A master has none
 				// (`_slideNum` is null) and a layout carries the internal 1000+ counter, so this
@@ -467,8 +457,8 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// A flip derived from a negative extent XORs with the author's own: `{ w: -2, flipH: true }`
 		// is a box mirrored twice, i.e. not mirrored at all.
 		const locationAttrs: XmlAttrs = {
-			flipH: Boolean(slideItemObj.options.flipH) !== normX.flip ? '1' : null,
-			flipV: Boolean(slideItemObj.options.flipV) !== normY.flip ? '1' : null,
+			flipH: xsdBoolIfTrue(Boolean(slideItemObj.options.flipH) !== normX.flip),
+			flipV: xsdBoolIfTrue(Boolean(slideItemObj.options.flipV) !== normY.flip),
 			rot: slideItemObj.options.rotate ? convertRotationDegrees(slideItemObj.options.rotate) : null,
 		}
 
@@ -565,18 +555,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 					raw(grpLockXml ? el('p:cNvGrpSpPr', null, raw(grpLockXml)) : voidEl('p:cNvGrpSpPr')),
 					raw(voidEl('p:nvPr')),
 				])
-				strSlideXml += el(
-					'p:grpSpPr',
-					null,
-					raw(
-						el('a:xfrm', locationAttrs, [
-							raw(voidEl('a:off', { x: gx, y: gy })),
-							raw(voidEl('a:ext', { cx: gcx, cy: gcy })),
-							raw(voidEl('a:chOff', { x: gx, y: gy })),
-							raw(voidEl('a:chExt', { cx: gcx, cy: gcy })),
-						])
-					)
-				)
+				strSlideXml += el('p:grpSpPr', null, raw(grpXfrmEl({ x: gx, y: gy, cx: gcx, cy: gcy }, locationAttrs)))
 				strSlideXml += innerXml
 				strSlideXml += '</p:grpSp>'
 				break

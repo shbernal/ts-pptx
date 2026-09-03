@@ -125,25 +125,56 @@ export function genXmlShapeLine(ln: ShapeLineProps): string {
 	])
 }
 
+/** A box in EMU, the one argument every transform emitter takes. */
+export interface XfrmFrame {
+	x: number | string
+	y: number | string
+	cx: number | string
+	cy: number | string
+}
+
 /**
  * An `<a:off>`/`<a:ext>` transform, under whichever wrapper the context calls for: `p:xfrm` on a
- * `<p:graphicFrame>`, `a:xfrm` inside a `<p:spPr>`. Nine sites across the graphic-frame and
- * preview-picture emitters wrote the same six-line pair.
+ * `<p:graphicFrame>`, `a:xfrm` inside a `<p:spPr>`. Fourteen sites across the shape, chart,
+ * connector, image, media, notes-master, text and zoom emitters wrote the same six-line pair;
+ * `attrs` is what the last of them needed (a shape's `rot`/`flipH`/`flipV` ride on the `a:xfrm`
+ * itself, not on its children).
  * @param tag - `p:xfrm` or `a:xfrm`
  * @param frame - the box, in EMU
+ * @param attrs - attributes on the transform element itself, e.g. rotation and flips
  * @param fmt - byte-significant layout, where the caller's part indents
  */
 export function xfrmEl(
 	tag: 'p:xfrm' | 'a:xfrm',
-	frame: { x: number; y: number; cx: number; cy: number },
+	frame: XfrmFrame,
+	attrs: XmlAttrs | null = null,
 	fmt?: XmlFmt
 ): string {
 	return el(
 		tag,
-		null,
+		attrs,
 		[raw(voidEl('a:off', { x: frame.x, y: frame.y })), raw(voidEl('a:ext', { cx: frame.cx, cy: frame.cy }))],
 		fmt
 	)
+}
+
+/**
+ * A group's `<a:xfrm>`: the box, then an IDENTITY child coordinate space (`chOff`/`chExt` equal
+ * to `off`/`ext`).
+ *
+ * The identity is the contract `docs/groups.md` and the measured-fit solver both rest on — a
+ * group never scales its children, so a grouped shape's authored size is its rendered size.
+ * Three group emitters spelled the four-child block out.
+ * @param frame - the box, in EMU
+ * @param attrs - attributes on the `a:xfrm` itself
+ */
+export function grpXfrmEl(frame: XfrmFrame, attrs: XmlAttrs | null = null): string {
+	return el('a:xfrm', attrs, [
+		raw(voidEl('a:off', { x: frame.x, y: frame.y })),
+		raw(voidEl('a:ext', { cx: frame.cx, cy: frame.cy })),
+		raw(voidEl('a:chOff', { x: frame.x, y: frame.y })),
+		raw(voidEl('a:chExt', { cx: frame.cx, cy: frame.cy })),
+	])
 }
 
 /**
@@ -178,7 +209,7 @@ export function graphicFrameEl(opts: {
 	const { nvGraphicFramePr, frame, uri, payload, fmt } = opts
 	return el('p:graphicFrame', null, [
 		raw(nvGraphicFramePr),
-		raw(xfrmEl('p:xfrm', frame, fmt?.xfrm)),
+		raw(xfrmEl('p:xfrm', frame, null, fmt?.xfrm)),
 		raw(
 			el(
 				'a:graphic',
@@ -225,15 +256,27 @@ export const FALLBACK_PICTURE_LOCKS = Object.freeze({
  * @param previewRid - the relationship id of the cached image
  * @param frame - where the picture is drawn, in EMU
  * @param outline - `true` for the hairline grey border a zoom tile carries
+ * @param prefix - which namespace the two wrapper elements take; a zoom tile's live in `p166`
  */
+/** Which namespace `previewPicBody`'s two wrapper elements take, and whether to declare it. */
+export interface PreviewPicPrefix {
+	ns: string
+	nsUri?: string
+}
+
 export function previewPicBody(
 	previewRid: number,
-	frame: { x: number; y: number; cx: number; cy: number },
-	outline = false
+	frame: XfrmFrame,
+	outline = false,
+	prefix: PreviewPicPrefix = { ns: 'p' }
 ): string {
+	const attrs = prefix.nsUri === undefined ? null : { [`xmlns:${prefix.ns}`]: prefix.nsUri }
 	return (
-		el('p:blipFill', null, [raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })), raw(STRETCH_FILL_RECT)]) +
-		el('p:spPr', null, [
+		el(`${prefix.ns}:blipFill`, attrs, [
+			raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })),
+			raw(STRETCH_FILL_RECT),
+		]) +
+		el(`${prefix.ns}:spPr`, attrs, [
 			raw(xfrmEl('a:xfrm', frame)),
 			raw(prstGeomRect()),
 			outline

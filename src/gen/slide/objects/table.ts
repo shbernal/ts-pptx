@@ -26,6 +26,7 @@ import {
 import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
+import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
 /**
  * The table-level options a cell inherits when it states none of its own.
@@ -225,13 +226,13 @@ export function renderTableObject(ctx: RenderContext): string {
 		// NOTE: attribute ORDER is byte-significant. None of these flags appears in the byte-gate
 		// baseline (zero parts each), so their emission is pinned by test/regression instead.
 		const tblPrAttrs: XmlAttrs = {
-			rtl: objTabOpts.rtl ? '1' : null,
-			firstRow: objTabOpts.hasHeader ? '1' : null,
-			lastRow: objTabOpts.hasFooter ? '1' : null,
-			bandRow: objTabOpts.hasBandedRows ? '1' : null,
-			bandCol: objTabOpts.hasBandedColumns ? '1' : null,
-			firstCol: objTabOpts.hasFirstColumn ? '1' : null,
-			lastCol: objTabOpts.hasLastColumn ? '1' : null,
+			rtl: xsdBoolIfTrue(objTabOpts.rtl),
+			firstRow: xsdBoolIfTrue(objTabOpts.hasHeader),
+			lastRow: xsdBoolIfTrue(objTabOpts.hasFooter),
+			bandRow: xsdBoolIfTrue(objTabOpts.hasBandedRows),
+			bandCol: xsdBoolIfTrue(objTabOpts.hasBandedColumns),
+			firstCol: xsdBoolIfTrue(objTabOpts.hasFirstColumn),
+			lastCol: xsdBoolIfTrue(objTabOpts.hasLastColumn),
 		}
 		// `CT_TableProperties` sequences its children as EG_FillProperties, EG_EffectProperties,
 		// then the tableStyle/tableStyleId choice — so a table background precedes the style id.
@@ -437,7 +438,7 @@ export function renderTableObject(ctx: RenderContext): string {
 				marB: marginToEmu(cellMargin[2]),
 				anchor: cellValign,
 				// `false` is the schema default, so only `true` is worth writing.
-				anchorCtr: cellOpts.anchorCtr ? '1' : null,
+				anchorCtr: xsdBoolIfTrue(cellOpts.anchorCtr),
 				vert: cellTextDir,
 				horzOverflow: cellHorzOverflow,
 			}

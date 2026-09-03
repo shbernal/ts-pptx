@@ -12,7 +12,7 @@
 
 import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
-import { EMU_PER_INCH } from './units.js'
+import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
@@ -41,7 +41,7 @@ export const DEF_SHAPE_LINE_COLOR = '333333'
 export const DEF_SHAPE_SHADOW: ShadowPropsInternal = {
 	type: 'outer',
 	blur: 3,
-	offset: 23000 / 12700,
+	offset: 23000 / EMU_PER_POINT,
 	angle: 90,
 	color: '000000',
 	_alpha: 0.35,

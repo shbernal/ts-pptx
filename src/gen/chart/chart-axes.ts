@@ -40,6 +40,7 @@ import {
 	validTimeUnit,
 } from './chart-parts.js'
 import { isScatterChart, isXyChart } from './chart-kind.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
  * The `<c:spPr>` axis-line block, identical on all three axes.
@@ -100,8 +101,8 @@ function axisLabelDefRPr(font: AxisLabelFont): string {
 		'a:defRPr',
 		{
 			sz: clampFontSizeSz(font.size || DEF_FONT_SIZE, font.option),
-			b: font.bold ? 1 : 0,
-			i: font.italic ? 1 : 0,
+			b: xsdBool(font.bold),
+			i: xsdBool(font.italic),
 			u: 'none',
 			strike: 'noStrike',
 		},
@@ -223,7 +224,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	return el(tag, null, [
 		raw(voidEl('c:axId', { val: axisId })),
 		raw(scaling),
-		raw(voidEl('c:delete', { val: opts.catAxisHidden ? 1 : 0 })),
+		raw(voidEl('c:delete', { val: xsdBool(opts.catAxisHidden) })),
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
 		raw(opts.catGridLine && opts.catGridLine.style !== 'none' ? createGridLineElement(opts.catGridLine) : ''),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
@@ -315,7 +316,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	return el('c:valAx', null, [
 		raw(voidEl('c:axId', { val: valAxisId })),
 		raw(scaling),
-		raw(voidEl('c:delete', { val: opts.valAxisHidden ? 1 : 0 })),
+		raw(voidEl('c:delete', { val: xsdBool(opts.valAxisHidden) })),
 		raw(voidEl('c:axPos', { val: axisPos })),
 		opts.valGridLine && opts.valGridLine.style !== 'none' ? raw(createGridLineElement(opts.valGridLine)) : null,
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
@@ -382,7 +383,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	return el('c:serAx', null, [
 		raw(voidEl('c:axId', { val: axisId })),
 		raw(el('c:scaling', null, raw(voidEl('c:orientation', { val: opts.serAxisOrientation || 'minMax' })))),
-		raw(voidEl('c:delete', { val: opts.serAxisHidden ? 1 : 0 })),
+		raw(voidEl('c:delete', { val: xsdBool(opts.serAxisHidden) })),
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
 		raw(opts.serGridLine && opts.serGridLine.style !== 'none' ? createGridLineElement(opts.serGridLine) : ''),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.

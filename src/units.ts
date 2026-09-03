@@ -164,11 +164,27 @@ export function emuToInches(emu: number): number {
 	return emu / EMU_PER_INCH
 }
 
+/**
+ * EMU → points, the unit the write API states line widths, font sizes and text insets in.
+ *
+ * The one conversion, for the library as well as for a consumer: three private forms of
+ * `emu / EMU_PER_POINT` had grown around it — the read model's `null`-propagating `ptFromEmu`,
+ * the script mapper's `points`, and a dozen inline divisions — while this stayed published and
+ * uncalled.
+ */
 export function emuToPoints(emu: number): number {
 	assertFiniteNumber(emu, 'emu')
 	return emu / EMU_PER_POINT
 }
 
+/**
+ * EMU → whole pixels at a stated DPI.
+ *
+ * **Published for consumers, and used nowhere in `src/` on purpose.** Nothing inside the
+ * library thinks in pixels: it is the unit a caller placing library output on a canvas or in a
+ * `<img>` needs, and the DPI is theirs to choose. Left exported deliberately rather than by
+ * oversight — this note is the difference between the two.
+ */
 export function emuToPixels(emu: number, dpi: number): number {
 	assertFiniteNumber(emu, 'emu')
 	assertPositiveFiniteNumber(dpi, 'dpi')

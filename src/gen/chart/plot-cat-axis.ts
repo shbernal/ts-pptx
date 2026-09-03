@@ -25,6 +25,7 @@ import {
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	catRefBlock,
 	chartColorLineFill,
@@ -111,8 +112,8 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 		opts.dataLabelBkgrdColors ? raw(el('c:spPr', null, raw(genXmlColorSelection(seriesColor)))) : null,
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }),
-		raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })),
+		...dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
+		raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })),
 	])
 }
 
@@ -230,7 +231,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				chartType === ChartType.radar ? null : raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
 				raw(serCategories(obj, opts)),
 				raw(serValues(obj, valFmtCode, sheet)),
-				chartType === ChartType.line ? raw(voidEl('c:smooth', { val: opts.lineSmooth ? 1 : 0 })) : null,
+				chartType === ChartType.line ? raw(voidEl('c:smooth', { val: xsdBool(opts.lineSmooth) })) : null,
 			])
 		})
 		.join('')

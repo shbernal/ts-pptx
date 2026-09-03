@@ -27,6 +27,7 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts } from './chart-parts.js'
 import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
  * Map a chartEx {@link ChartType} to its `<cx:series layoutId>` token (the CT_SeriesLayout value
@@ -118,7 +119,7 @@ function makeChartExBinning(binning: ChartExBinning | undefined): string {
  * attribute form PowerPoint uses.
  */
 function makeBoxWhiskerLayoutPr(stats: ChartExStatistics | undefined): string {
-	const bit = (v: boolean | undefined, dflt: boolean): 0 | 1 => ((v ?? dflt) ? 1 : 0)
+	const bit = (v: boolean | undefined, dflt: boolean): XsdBool => xsdBool(v ?? dflt)
 	const visibility = voidEl('cx:visibility', {
 		meanLine: bit(stats?.meanLine, false),
 		meanMarker: bit(stats?.meanMarker, true),

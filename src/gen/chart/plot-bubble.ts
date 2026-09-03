@@ -12,6 +12,7 @@ import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { categoryRange, dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	chartColorLineFill,
 	createDataBorderLine,
@@ -67,7 +68,7 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
 					'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
 				},
-				raw(voidEl('c15:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 }))
+				raw(voidEl('c15:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }))
 			)
 		)
 	)
@@ -76,9 +77,9 @@ function bubbleDataLabels(opts: ChartOptsInternal): string {
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
 		...dLblShowFlags({
-			val: opts.showValue ? 1 : 0,
-			serName: opts.showSerName ? 1 : 0,
-			bubbleSize: opts.showBubbleSize ? 1 : 0,
+			val: xsdBool(opts.showValue),
+			serName: xsdBool(opts.showSerName),
+			bubbleSize: xsdBool(opts.showBubbleSize),
 		}),
 		raw(extLst),
 	])
@@ -136,7 +137,7 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 				raw(xVal),
 				raw(yVal),
 				raw(sizeVal),
-				raw(voidEl('c:bubble3D', { val: chartType === ChartType.bubble3d ? 1 : 0 })),
+				raw(voidEl('c:bubble3D', { val: xsdBool(chartType === ChartType.bubble3d) })),
 			])
 		})
 		.join('')

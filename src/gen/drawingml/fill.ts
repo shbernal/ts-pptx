@@ -22,10 +22,7 @@ import { alphaEl, createColorElement } from './color.js'
 import { genXmlImageCropRect, STRETCH_FILL_RECT } from './src-rect.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-
-function boolToXml(value: boolean): string {
-	return value ? '1' : '0'
-}
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 function normalizeGradientAngle(angle: number | undefined): number {
 	const degrees = angle ?? 0
@@ -125,11 +122,11 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 		// and `voidEl` drops the attribute entirely.
 		shape = voidEl('a:lin', {
 			ang: normalizeGradientAngle(gradient.angle),
-			scaled: typeof gradient.scaled === 'boolean' ? boolToXml(gradient.scaled) : undefined,
+			scaled: typeof gradient.scaled === 'boolean' ? xsdBool(gradient.scaled) : undefined,
 		})
 	}
 
-	return el('a:gradFill', { rotWithShape: boolToXml(rotWithShape) }, [raw(gsLst), raw(shape)])
+	return el('a:gradFill', { rotWithShape: xsdBool(rotWithShape) }, [raw(gsLst), raw(shape)])
 }
 
 /**

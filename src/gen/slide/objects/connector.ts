@@ -10,7 +10,7 @@ import type { SlideObject } from '../../../types/internal.js'
 import { warn } from '../../../diagnostics.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
-import { type RenderContext, cNvPrOpen, genXmlShapeLine } from './shared.js'
+import { cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 
 /**
  * Render a `connector` slide object to its `<p:cxnSp>` XML (start/end shape bindings via shapeIds).
@@ -56,7 +56,7 @@ export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObj
 		strSlideXml += cxnSpPr ? el('p:cNvCxnSpPr', null, raw(cxnSpPr)) : voidEl('p:cNvCxnSpPr')
 	}
 	strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
-	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
+	strSlideXml += xfrmEl('a:xfrm', { x, y, cx, cy }, locationAttrs)
 	{
 		// Bent/curved connectors carry adjustable jogs as `<a:gd name="adjN" fmla="val …"/>`
 		// (1000ths-of-a-percent). With none, the empty `<a:avLst/>` leaves the preset default (50%).

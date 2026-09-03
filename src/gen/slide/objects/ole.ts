@@ -6,6 +6,7 @@ import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/lock
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
+import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
 /** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
 const VML_NS = 'urn:schemas-microsoft-com:vml'
@@ -36,7 +37,7 @@ export function renderOleObject(ctx: RenderContext): string {
 	// Shared by both branches; attribute order matches PowerPoint's.
 	const oleAttrs: XmlAttrs = {
 		name: ole.name,
-		showAsIcon: ole.showAsIcon ? '1' : null,
+		showAsIcon: xsdBoolIfTrue(ole.showAsIcon),
 		'r:id': `rId${ole.objectRid}`,
 		imgW: ole.imgW ?? cx,
 		imgH: ole.imgH ?? cy,

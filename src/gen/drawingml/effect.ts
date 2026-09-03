@@ -16,6 +16,7 @@ import { clampRangedInput, convertAngleUnits, opacityToAlpha, positiveCoordinate
 import { splitRgbaHex, stripHash } from '../../hex-color.js'
 import { alphaEl, createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
  * Creates `a:glow` element
@@ -68,7 +69,7 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 	// `a:innerShdw` (CT_InnerShadowEffect) accepts only blurRad/dist/dir.
 	const outerAttrs: XmlAttrs =
 		type === 'outer'
-			? { sx: 100000, sy: 100000, kx: 0, ky: 0, algn: 'bl', rotWithShape: opts.rotateWithShape ? 1 : 0 }
+			? { sx: 100000, sy: 100000, kx: 0, ky: 0, algn: 'bl', rotWithShape: xsdBool(opts.rotateWithShape) }
 			: {}
 	const attrs = { ...outerAttrs, blurRad: blur, dist: offset, dir: angle }
 

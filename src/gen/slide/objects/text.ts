@@ -16,7 +16,8 @@ import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingm
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
+import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
+import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
 /**
  * Render a `text` / `placeholder` slide object to its `<p:sp>` XML.
@@ -55,7 +56,7 @@ export function renderTextObject(ctx: RenderContext): string {
 		const spLockXml = genXmlObjectLock('a:spLocks', SHAPE_LOCK_ATTRS, txtOpts.objectLock, txtOpts.objectName)
 		// NOTE: paired only when there are locks to carry; otherwise self-closing. That is an arity
 		// difference, so it cannot be expressed as one `el()` call.
-		const cNvSpPrAttrs: XmlAttrs = { txBox: txtOpts?.isTextBox ? '1' : null }
+		const cNvSpPrAttrs: XmlAttrs = { txBox: xsdBoolIfTrue(txtOpts?.isTextBox) }
 		strSlideXml += spLockXml ? el('p:cNvSpPr', cNvSpPrAttrs, raw(spLockXml)) : voidEl('p:cNvSpPr', cNvSpPrAttrs)
 	}
 	// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
@@ -72,7 +73,7 @@ export function renderTextObject(ctx: RenderContext): string {
 		)
 	)
 	strSlideXml += '</p:nvSpPr><p:spPr>'
-	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
+	strSlideXml += xfrmEl('a:xfrm', { x, y, cx, cy }, locationAttrs)
 
 	if (slideItemObj.shape === 'custGeom') {
 		strSlideXml += genXmlCustGeom(itemOpts, cx, cy, slide._presLayout)

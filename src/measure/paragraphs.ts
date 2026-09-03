@@ -9,16 +9,13 @@
 
 import { DEF_FONT_SIZE } from '../constants-internal.js'
 import { EMU_PER_POINT } from '../units.js'
-import { getSmartParseNumber, marginToEmu } from '../units-internal.js'
+import { getSmartParseNumber, resolveInsetsEmu as resolveMarginInsetsEmu } from '../units-internal.js'
+import { BODY_INSET_DEFAULTS_EMU } from '../ooxml/body-insets.js'
 import type { FitBox, FitParagraph, FitRun } from './text-fit.js'
 import { TextAnchor } from '../enums.js'
 import type { ObjectOptions, TextProps, TextPropsOptions } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
 import { pickDefined } from '../options-internal.js'
-
-// PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
-const DEF_INS_LR_EMU = 91440
-const DEF_INS_TB_EMU = 45720
 
 const CRLF_RE = /\r*\n/g
 
@@ -146,29 +143,35 @@ interface InsetsEmu {
 	bIns: number
 }
 
-/** Resolve text-frame insets (EMU): explicit `_bodyProp` (from `inset`) → `margin` → PowerPoint defaults. */
-export function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
+/**
+ * Resolve a text frame's insets (EMU): explicit `_bodyProp` (from `inset`) → `margin` →
+ * PowerPoint's defaults.
+ *
+ * Named for the question it answers, which is not the one `units-internal.resolveInsetsEmu`
+ * answers: that one takes a `margin` alone and returns `null` when the caller stated none, so
+ * an emitter can leave the attributes off. This one takes the whole option bag, consults
+ * `_bodyProp` first, and always produces four numbers, because a solver has to measure against
+ * something. Two exported functions with one name, imported from two places, was a coin-flip
+ * for anyone reading a call site.
+ *
+ * The `[T, R, B, L]` shuffle and the defaults both come from the modules that own them rather
+ * than being spelled again here.
+ */
+export function resolveBodyInsetsEmu(opts: RunOpts): InsetsEmu {
 	const bp = opts._bodyProp ?? {}
-	const margin = opts.margin
 	let lIns = bp.lIns
 	let rIns = bp.rIns
 	let tIns = bp.tIns
 	let bIns = bp.bIns
-	if (lIns == null && rIns == null && tIns == null && bIns == null && margin != null) {
-		if (Array.isArray(margin)) {
-			tIns = marginToEmu(margin[0] ?? 0)
-			rIns = marginToEmu(margin[1] ?? 0)
-			bIns = marginToEmu(margin[2] ?? 0)
-			lIns = marginToEmu(margin[3] ?? 0)
-		} else if (typeof margin === 'number') {
-			lIns = rIns = tIns = bIns = marginToEmu(margin)
-		}
+	if (lIns == null && rIns == null && tIns == null && bIns == null) {
+		const insets = resolveMarginInsetsEmu(opts.margin)
+		if (insets) ({ l: lIns, r: rIns, t: tIns, b: bIns } = insets)
 	}
 	return {
-		lIns: lIns ?? DEF_INS_LR_EMU,
-		rIns: rIns ?? DEF_INS_LR_EMU,
-		tIns: tIns ?? DEF_INS_TB_EMU,
-		bIns: bIns ?? DEF_INS_TB_EMU,
+		lIns: lIns ?? BODY_INSET_DEFAULTS_EMU.left,
+		rIns: rIns ?? BODY_INSET_DEFAULTS_EMU.right,
+		tIns: tIns ?? BODY_INSET_DEFAULTS_EMU.top,
+		bIns: bIns ?? BODY_INSET_DEFAULTS_EMU.bottom,
 	}
 }
 
@@ -188,7 +191,7 @@ export function computeBox(obj: SlideObject, presLayout: PresSlideInternal['_pre
 	const hEmu = getSmartParseNumber(opts.h, 'Y', presLayout)
 	if (!(wEmu > 0) || !(hEmu > 0)) return null
 
-	const { lIns, rIns, tIns, bIns } = resolveInsetsEmu(opts)
+	const { lIns, rIns, tIns, bIns } = resolveBodyInsetsEmu(opts)
 
 	// wrap=none lays text out one line per paragraph (no width-wrapping, handled by
 	// the solver via the wrap flag), but the box width is still a real constraint:

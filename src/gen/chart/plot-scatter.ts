@@ -15,6 +15,7 @@ import { createLineCap } from '../drawingml/line.js'
 import { ptsToEmuLenient } from '../../units-internal.js'
 import { categoryRange, dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	chartColorLineFill,
 	chartDataLabels,
@@ -164,9 +165,9 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
 		...dLblShowFlags({
-			val: opts.showLabel ? 1 : 0,
-			catName: opts.showLabel ? 1 : 0,
-			serName: opts.showSerName ? 1 : 0,
+			val: xsdBool(opts.showLabel),
+			catName: xsdBool(opts.showLabel),
+			serName: xsdBool(opts.showSerName),
 		}),
 		raw(extLst),
 	])
@@ -257,7 +258,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				// Error bars come after dLbls and before xVal/yVal in schema order.
 				raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
 				raw(values),
-				raw(voidEl('c:smooth', { val: opts.lineSmooth ? 1 : 0 })),
+				raw(voidEl('c:smooth', { val: xsdBool(opts.lineSmooth) })),
 			])
 		})
 		.join('')

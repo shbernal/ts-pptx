@@ -20,7 +20,7 @@ import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
 import { pixelsToEmu } from '../../../units.js'
 import { warn } from '../../../diagnostics.js'
-import { type RenderContext, cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
+import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 
 /**
  * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
@@ -210,12 +210,11 @@ export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: numbe
 	}
 	strSlideXml += '</p:blipFill>'
 	strSlideXml += '<p:spPr>'
-	strSlideXml += el(
-		'a:xfrm',
-		locationAttrs,
-		[raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx: imgWidth, cy: imgHeight }))],
-		{ openPrefix: ' ', childPrefix: '  ', closePrefix: ' ' }
-	)
+	strSlideXml += xfrmEl('a:xfrm', { x, y, cx: imgWidth, cy: imgHeight }, locationAttrs, {
+		openPrefix: ' ',
+		childPrefix: '  ',
+		closePrefix: ' ',
+	})
 	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
 	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
 	if (itemOpts.points) {

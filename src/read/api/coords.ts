@@ -14,7 +14,7 @@
 
 import { InvalidOptionError } from '../../errors.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
-import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
+import { emuToPoints, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
 
 /**
  * Round a measurement to whole EMU, rejecting a value that cannot be written.
@@ -53,7 +53,7 @@ export function checkPositiveEmu(value: number, field: string): number {
  * only have to be unwrapped again.
  */
 export function ptFromEmu(emu: number | null): number | null {
-	return emu === null ? null : emu / EMU_PER_POINT
+	return emu === null ? null : emuToPoints(emu)
 }
 
 /**

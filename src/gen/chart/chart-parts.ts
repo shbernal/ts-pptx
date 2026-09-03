@@ -37,6 +37,7 @@ import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../..
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
 import { dataValues, type SheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
+import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
  * The six `c:show*` flags every `<c:dLbls>` carries, in schema order, as `XmlChild`s for the
@@ -50,12 +51,12 @@ import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
  * @param flags - the values to emit, defaulting to `0`
  */
 export function dLblShowFlags(flags: {
-	legendKey?: 0 | 1
-	val?: 0 | 1
-	catName?: 0 | 1
-	serName?: 0 | 1
-	percent?: 0 | 1
-	bubbleSize?: 0 | 1
+	legendKey?: XsdBool
+	val?: XsdBool
+	catName?: XsdBool
+	serName?: XsdBool
+	percent?: XsdBool
+	bubbleSize?: XsdBool
 }): XmlChild[] {
 	return (
 		[
@@ -84,8 +85,8 @@ export function dLblShowFlags(flags: {
 export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string | number> {
 	return {
 		sz: clampFontSizeSz(opts.dataLabelFontSize || DEF_FONT_SIZE, 'dataLabelFontSize'),
-		b: opts.dataLabelFontBold ? 1 : 0,
-		i: opts.dataLabelFontItalic ? 1 : 0,
+		b: xsdBool(opts.dataLabelFontBold),
+		i: xsdBool(opts.dataLabelFontItalic),
 		u: 'none',
 		strike: 'noStrike',
 	}
@@ -138,8 +139,8 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts)
 	return el(
 		'a:defRPr',
 		{
-			b: (over?.dataLabelFontBold ?? opts.dataLabelFontBold) ? 1 : 0,
-			i: (over?.dataLabelFontItalic ?? opts.dataLabelFontItalic) ? 1 : 0,
+			b: xsdBool(over?.dataLabelFontBold ?? opts.dataLabelFontBold),
+			i: xsdBool(over?.dataLabelFontItalic ?? opts.dataLabelFontItalic),
 			strike: 'noStrike',
 			sz: clampFontSizeSz(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE, 'dataLabelFontSize'),
 			u: 'none',
@@ -441,7 +442,7 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	// `docs/chart-whitespace-flatten.md`. Two other sites in this directory are in the same
 	// position; the ratchet header lists them.
 	const sizeAttr = opts.fontSize ? `sz="${clampFontSizeSz(opts.fontSize, 'title fontSize')}"` : ''
-	const runAttrs = ` ${sizeAttr} b="${opts.titleBold ? 1 : 0}" i="${opts.titleItalic ? 1 : 0}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
+	const runAttrs = ` ${sizeAttr} b="${xsdBool(opts.titleBold)}" i="${xsdBool(opts.titleItalic)}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
 		genXmlColorSelection(opts.color || DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace || 'Arial')
 
@@ -564,8 +565,8 @@ export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): 
 		raw(voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })),
 		raw(txPr),
 		opts.dataLabelPosition ? raw(voidEl('c:dLblPos', { val: opts.dataLabelPosition })) : null,
-		...dLblShowFlags({ val: opts.showValue ? 1 : 0, serName: opts.showSerName ? 1 : 0 }),
-		leaderLines ? raw(voidEl('c:showLeaderLines', { val: opts.showLeaderLines ? 1 : 0 })) : null,
+		...dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
+		leaderLines ? raw(voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) })) : null,
 	])
 }
 
@@ -656,7 +657,7 @@ export function makeChartErrorBarsXml(
 			voidEl('c:errDir', { val: direction }) +
 			voidEl('c:errBarType', { val: barType }) +
 			voidEl('c:errValType', { val: valueType }) +
-			voidEl('c:noEndCap', { val: eb.noEndCap ? 1 : 0 })
+			voidEl('c:noEndCap', { val: xsdBool(eb.noEndCap) })
 
 		if (valueType === 'cust') {
 			// Custom amounts: <c:plus>/<c:minus> each hold a number source (we emit <c:numLit>).

@@ -8,12 +8,19 @@
  */
 
 import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
-import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
-import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
-import { FALLBACK_PICTURE_LOCKS, type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
+import {
+	cNvPrOpen,
+	FALLBACK_PICTURE_LOCKS,
+	graphicFrameEl,
+	grpXfrmEl,
+	previewPicBody,
+	type RenderContext,
+	type XfrmFrame,
+} from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
+import { xsdBool } from '../../../ooxml/xsd-boolean.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
 const ZOOM_VARIANTS = {
@@ -39,21 +46,14 @@ const ZOOM_VARIANTS = {
 /** Namespace of the zoom preview `blipFill`/`spPr` (children of `zmPr`). */
 const P166_NS = 'http://schemas.microsoft.com/office/powerpoint/2016/6/main'
 
-/** The `p166:blipFill` + `p166:spPr` (preview image + framed tile) shared by a zoom tile's `zmPr`. */
-function zoomBlipSpPr(previewRid: number, xf: { x: number; y: number; cx: number; cy: number }): string {
-	return (
-		el('p166:blipFill', { 'xmlns:p166': P166_NS }, [
-			raw(voidEl('a:blip', { 'r:embed': `rId${previewRid}` })),
-			raw(STRETCH_FILL_RECT),
-		]) +
-		el('p166:spPr', { 'xmlns:p166': P166_NS }, [
-			raw(
-				el('a:xfrm', null, [raw(voidEl('a:off', { x: xf.x, y: xf.y })), raw(voidEl('a:ext', { cx: xf.cx, cy: xf.cy }))])
-			),
-			raw(prstGeomRect()),
-			raw(el('a:ln', { w: '3175' }, raw(el('a:solidFill', null, raw(voidEl('a:prstClr', { val: 'ltGray' })))))),
-		])
-	)
+/**
+ * The `p166:blipFill` + `p166:spPr` (preview image + framed tile) shared by a zoom tile's `zmPr`.
+ *
+ * The same body `previewPicBody` builds for a `p:pic`, one namespace over — which is the only
+ * thing that ever differed between them.
+ */
+function zoomBlipSpPr(previewRid: number, xf: XfrmFrame): string {
+	return previewPicBody(previewRid, xf, true, { ns: 'p166', nsUri: P166_NS })
 }
 
 /** One `{prefix}:{obj}` targeting element (sldZmObj/sectionZmObj/summaryZmObj) with its nested `zmPr`. */
@@ -68,7 +68,7 @@ function zoomObjEl(
 	const objAttrs: XmlAttrs = variant === 'slide' ? { sldId: tile.sldId ?? null } : { sectionId: tile.sectionId ?? null }
 	// zmPr attrs: id, (Slide Zoom only) returnToParent, transitionDur — matching PowerPoint's order.
 	const zmAttrs: XmlAttrs = { id: tile.zmPrId }
-	if (variant === 'slide') zmAttrs['returnToParent'] = returnToParent ? '1' : '0'
+	if (variant === 'slide') zmAttrs['returnToParent'] = xsdBool(returnToParent)
 	zmAttrs['transitionDur'] = transitionDur
 	return el(
 		`${prefix}:${obj}`,
@@ -190,20 +190,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 					raw(voidEl('p:nvPr')),
 				])
 			),
-			raw(
-				el(
-					'p:grpSpPr',
-					null,
-					raw(
-						el('a:xfrm', null, [
-							raw(voidEl('a:off', { x, y })),
-							raw(voidEl('a:ext', { cx, cy })),
-							raw(voidEl('a:chOff', { x, y })),
-							raw(voidEl('a:chExt', { cx, cy })),
-						])
-					)
-				)
-			),
+			raw(el('p:grpSpPr', null, raw(grpXfrmEl({ x, y, cx, cy })))),
 			...pics,
 		])
 	} else {

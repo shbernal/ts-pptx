@@ -51,6 +51,7 @@ import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { isScatterChart, isXyChart } from './chart-kind.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /** The three namespaces every `<c:chartSpace>` declares, in the order PowerPoint writes them. */
 const CHART_SPACE_NS = {
@@ -547,7 +548,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		el('c:chartSpace', CHART_SPACE_NS, [
 			// PowerPoint defaults to 1904 dates, Excel to 1900.
 			raw(voidEl('c:date1904', { val: 0 })),
-			raw(voidEl('c:roundedCorners', { val: chartArea.roundedCorners ? 1 : 0 })),
+			raw(voidEl('c:roundedCorners', { val: xsdBool(chartArea.roundedCorners) })),
 			raw(chart),
 			raw(chartShapeProps(chartArea.fill, chartArea.border)),
 			raw(el('c:externalData', { 'r:id': 'rId1' }, raw(voidEl('c:autoUpdate', { val: 0 })))),

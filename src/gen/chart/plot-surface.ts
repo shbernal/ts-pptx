@@ -22,6 +22,7 @@ import {
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	catRefBlock,
 	numRefBlock,
@@ -89,7 +90,7 @@ export const makeSurfacePlot: PlotBuilder = (_chartType, data, opts, valAxisId, 
 		.map((obj, idx) => makeSurfaceSer(obj, valFmtCode, paletteColor(chartColors, idx, '4472C4'), sheet))
 		.join('')
 	return el(`c:${tag}`, null, [
-		raw(voidEl('c:wireframe', { val: opts.surfaceWireframe ? 1 : 0 })),
+		raw(voidEl('c:wireframe', { val: xsdBool(opts.surfaceWireframe) })),
 		raw(sers),
 		// Surface, value and series axes (category X, value Y/height, series Z).
 		raw(voidEl('c:axId', { val: catAxisId })),

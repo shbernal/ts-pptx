@@ -20,6 +20,7 @@ import { externalHyperlinkRel, relationshipEl, relationshipsEl, relationshipsPar
 import { hyperlinkRel } from '../define/hyperlinks.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
+import { xfrmEl } from './objects/shared.js'
 
 /**
  * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
@@ -170,8 +171,7 @@ function notesExtLst(): string {
  * @returns {string} XML
  */
 export function makeXmlNotesMaster(): string {
-	const xfrmOffExt = (x: number, y: number, cx: number, cy: number): string =>
-		el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
+	const xfrmOffExt = (x: number, y: number, cx: number, cy: number): string => xfrmEl('a:xfrm', { x, y, cx, cy })
 	const rectGeom = prstGeomRect()
 	const spLocks = (attrs: Record<string, number>): string => el('p:cNvSpPr', null, raw(voidEl('a:spLocks', attrs)))
 	const nvPr = (phAttrs: Record<string, string | number>): string => el('p:nvPr', null, raw(voidEl('p:ph', phAttrs)))

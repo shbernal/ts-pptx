@@ -19,6 +19,7 @@ import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
+import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
@@ -212,7 +213,7 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 		raw(
 			themeFontDefRPr(
 				base.font,
-				{ sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 },
+				{ sz, b: xsdBoolIfTrue(levelOverride.bold), i: xsdBoolIfTrue(levelOverride.italic), kern: 1200 },
 				colorXml,
 				latinXml
 			)

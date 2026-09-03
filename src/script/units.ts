@@ -23,9 +23,19 @@ import { EMU_PER_INCH } from '../units.js'
 export const INCH_DECIMALS = 6
 
 /**
+ * Round a length already in inches to {@link INCH_DECIMALS}, which is EMU-exact on the way back.
+ *
+ * The one rounding: `inches` below and `pointsToInches` in the mapper each carried it, and the
+ * second spelled the divisor as a bare `72`.
+ */
+export function toInches(value: number): number {
+	return Number(value.toFixed(INCH_DECIMALS))
+}
+
+/**
  * Geometry as inches, for the options that reject a raw-EMU string. Rounded to
  * {@link INCH_DECIMALS}, which is EMU-exact on the way back.
  */
 export function inches(emuValue: number): number {
-	return Number((emuValue / EMU_PER_INCH).toFixed(INCH_DECIMALS))
+	return toInches(emuValue / EMU_PER_INCH)
 }

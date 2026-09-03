@@ -11,7 +11,7 @@ import { prstGeomRect } from '../../drawingml/geometry.js'
 import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { type RenderContext, cNvPrOpen } from './shared.js'
+import { cNvPrOpen, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -66,7 +66,7 @@ export function renderChartObject(ctx: RenderContext): string {
 				{ openPrefix: ' ', closePrefix: ' ' }
 			)
 		),
-		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))], { openPrefix: ' ' })),
+		raw(xfrmEl('p:xfrm', { x, y, cx, cy }, null, { openPrefix: ' ' })),
 		raw(
 			el(
 				'a:graphic',
@@ -115,7 +115,7 @@ function renderChartExFallback(
 		),
 		raw(
 			el('p:spPr', null, [
-				raw(el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
+				raw(xfrmEl('a:xfrm', { x, y, cx, cy })),
 				raw(prstGeomRect()),
 				raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: 'F2F2F2' })))),
 				raw(el('a:ln', null, raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: 'BFBFBF' })))))),
