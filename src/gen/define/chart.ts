@@ -226,40 +226,53 @@ function chartEnum<T extends string>(value: string | undefined, valid: readonly 
  * @param chartType - the plot type these options are emitted for, if known
  */
 function normalizeChartDataLabelPosition(options: ChartOptsOverrides, chartType: ChartType | undefined): void {
-	if (options.dataLabelPosition) {
-		const dataLabelPosition = options.dataLabelPosition
-		if (
-			chartType === ChartType.area ||
-			chartType === ChartType.bar3d ||
-			chartType === ChartType.doughnut ||
-			chartType === ChartType.radar
-		) {
-			delete options.dataLabelPosition
-		}
-		if (chartType === ChartType.pie) {
-			if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_PIE, 'dataLabelPosition')) {
-				delete options.dataLabelPosition
-			}
-		}
-		if (isBubbleChart(chartType) || chartType === ChartType.line || chartType === ChartType.scatter) {
-			if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_POINT, 'dataLabelPosition')) {
-				delete options.dataLabelPosition
-			}
-		}
-		if (chartType === ChartType.bar) {
-			// The two tests are not exclusive: a grouping that is neither stacked nor clustered has
-			// to satisfy both sets, which comes to the stacked one.
-			if (!['stacked', 'percentStacked'].includes(options.barGrouping || '')) {
-				if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_BAR_STACKED, 'dataLabelPosition')) {
-					delete options.dataLabelPosition
-				}
-			}
-			if (options.barGrouping !== 'clustered') {
-				if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_BAR_CLUSTERED, 'dataLabelPosition')) {
-					delete options.dataLabelPosition
-				}
-			}
-		}
+	if (!options.dataLabelPosition) return
+	const allowed = dataLabelPositionsFor(chartType, options.barGrouping)
+	if (allowed === null) return
+	if (allowed.length === 0 || !chartEnum(options.dataLabelPosition, allowed, 'dataLabelPosition')) {
+		delete options.dataLabelPosition
+	}
+}
+
+/**
+ * The `ST_DLblPos` values one plot accepts, or `null` where this library states no rule.
+ *
+ * An empty list means the plot takes no position at all: `<c:dLblPos>` on an area, 3-D bar,
+ * doughnut or radar chart is a PowerPoint repair prompt whatever its value.
+ *
+ * The bar row is the one that was wrong, and wrong in the direction that hurts: the list
+ * *containing* `outEnd` was applied when the grouping was NOT clustered and the list without it
+ * when the grouping was NOT stacked, so `{ barGrouping: 'clustered', dataLabelPosition:
+ * 'outEnd' }` -- the most ordinary combination there is -- was silently deleted, while the
+ * stacked form that PowerPoint itself refuses was kept. Settled against PowerPoint over COM:
+ * setting `DataLabels.Position` to `xlLabelPositionOutsideEnd` on a clustered column chart is
+ * accepted and reads back, and on a stacked or 100%-stacked one it raises 0x80004005, while
+ * inside-end, inside-base and centre are accepted on all three.
+ *
+ * `barGrouping` is already defaulted by the time this runs -- {@link normalizeChartBarGrouping}
+ * gives a 2-D bar `clustered` -- so there is no third arm for "no grouping stated".
+ */
+function dataLabelPositionsFor(
+	chartType: ChartType | undefined,
+	barGrouping: string | undefined
+): readonly string[] | null {
+	switch (chartType) {
+		case ChartType.area:
+		case ChartType.bar3d:
+		case ChartType.doughnut:
+		case ChartType.radar:
+			return []
+		case ChartType.pie:
+			return DATA_LABEL_POSITIONS_PIE
+		case ChartType.line:
+		case ChartType.scatter:
+			return DATA_LABEL_POSITIONS_POINT
+		case ChartType.bar:
+			return barGrouping === 'stacked' || barGrouping === 'percentStacked'
+				? DATA_LABEL_POSITIONS_BAR_STACKED
+				: DATA_LABEL_POSITIONS_BAR_CLUSTERED
+		default:
+			return isBubbleChart(chartType) ? DATA_LABEL_POSITIONS_POINT : null
 	}
 }
 

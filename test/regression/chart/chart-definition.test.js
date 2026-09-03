@@ -165,21 +165,25 @@ defineRegressionSuite('Chart definition', [
 		},
 	},
 	{
-		// Bar label positions are filtered by the grouping, and the two rules run in sequence rather
-		// than as a switch -- which makes the outcome the opposite of the obvious reading. The first
-		// rule applies to any grouping that is NOT stacked and allows only ctr/inBase/inEnd; the
-		// second applies to any grouping that is NOT clustered and additionally allows outEnd. So
-		// `outEnd`, whose name suggests a clustered bar's outside-end label, is dropped on clustered
-		// bars by the first rule and kept on stacked ones by the second. A position outside both
-		// lists only ever meets the second rule, since a stacked chart skips the first.
-		name: 'bar label positions are filtered by the bar grouping, and outEnd inverts',
+		// Bar label positions are filtered by the grouping: a clustered bar has an outside end and
+		// a stacked one does not. Settled against PowerPoint over COM -- setting
+		// `DataLabels.Position` to `xlLabelPositionOutsideEnd` is accepted and reads back on a
+		// clustered column chart, and raises 0x80004005 on a stacked or 100%-stacked one, while
+		// inside-end, inside-base and centre are accepted on all three.
+		//
+		// The rules used to run as two sequential `if`s rather than a switch, and each was keyed to
+		// the grouping it did NOT apply to, so the outcome was exactly inverted: `outEnd` was
+		// dropped on clustered bars and kept on stacked ones.
+		name: 'bar label positions are filtered by the bar grouping',
 		fn: async () => {
 			const barLabel = (barGrouping, dataLabelPosition) =>
 				chartFrom(SERIES, { ...BASE, type: ChartType.bar, showValue: true, barGrouping, dataLabelPosition })
 
 			assertIncludes(await barLabel('clustered', 'inEnd'), '<c:dLblPos val="inEnd"/>', 'inEnd on clustered bars')
-			assertNotIncludes(await barLabel('clustered', 'outEnd'), '<c:dLblPos', 'outEnd on clustered bars')
-			assertIncludes(await barLabel('stacked', 'outEnd'), '<c:dLblPos val="outEnd"/>', 'outEnd on stacked bars')
+			assertIncludes(await barLabel('clustered', 'outEnd'), '<c:dLblPos val="outEnd"/>', 'outEnd on clustered bars')
+			assertNotIncludes(await barLabel('stacked', 'outEnd'), '<c:dLblPos', 'outEnd on stacked bars')
+			assertNotIncludes(await barLabel('percentStacked', 'outEnd'), '<c:dLblPos', 'nor on percent-stacked ones')
+			assertIncludes(await barLabel('stacked', 'inBase'), '<c:dLblPos val="inBase"/>', 'inBase on stacked bars')
 			assertNotIncludes(await barLabel('stacked', /** @type {any} */ ('b')), '<c:dLblPos', 'a line-only position')
 		},
 	},

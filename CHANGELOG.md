@@ -421,6 +421,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`dataLabelPosition: 'outEnd'` on a clustered bar chart is no longer silently dropped.**
+  The two rules deciding which `ST_DLblPos` values a bar accepts ran as sequential `if`s, each
+  keyed to the grouping it did *not* apply to, so the outcome was exactly inverted: the list
+  containing `outEnd` was applied when the grouping was not clustered and the list without it
+  when the grouping was not stacked. `{ barGrouping: 'clustered', dataLabelPosition: 'outEnd' }`
+  — the most ordinary combination there is — emitted no `<c:dLblPos>` at all, while the stacked
+  form that PowerPoint itself refuses was kept.
+
+  Settled against PowerPoint over COM: setting `DataLabels.Position` to
+  `xlLabelPositionOutsideEnd` on a clustered column chart is accepted and reads back, and on a
+  stacked or 100%-stacked one it raises 0x80004005; inside-end, inside-base and centre are
+  accepted on all three. Both rules are now one table from chart type (plus bar grouping) to
+  the positions that plot allows.
+
 - **A table-level `italic` (and the other text options the fitter reads) now reaches the
   cells it was measured against.** The emitter and the measured-fit pass each had their own
   list of what a cell inherits from its table, and the measure one's docstring claimed to
