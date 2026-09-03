@@ -257,3 +257,36 @@ const BLIPFILL_SEQUENCE: readonly SequenceStep[] = ['a:blip', 'a:srcRect', ['a:t
 export const PIC_BLIPFILL_AFTER = successorsOf(PIC_SEQUENCE, 'p:blipFill')
 /** Successors of `a:blip` inside `a:blipFill`. */
 export const BLIPFILL_BLIP_AFTER = successorsOf(BLIPFILL_SEQUENCE, 'a:blip')
+
+/**
+ * Every sequence declared here, keyed by the element names that carry it.
+ *
+ * The successor lists above serve the read path, which inserts into a live DOM. The write path
+ * has no equivalent: each emitter states its children in order by hand, and the only thing
+ * checking that order is PowerPoint refusing to open the file. This table is what lets a test
+ * compare the two -- an emitted element's children must be a subsequence of the sequence its
+ * type declares -- so the next transposed child is a failing assertion rather than a repair
+ * prompt in front of a user.
+ *
+ * The same complexType appears under several names: `CT_ShapeProperties` is `p:spPr` on a slide
+ * and `c:spPr` inside a chart, and `CT_TextCharacterProperties` is `a:rPr`, `a:defRPr` and
+ * `a:endParaRPr`. Each name maps to the one sequence, which is the point -- a chart's `spPr` is
+ * bound by the same order a slide's is, and it was a chart emitter that last got one wrong.
+ */
+export const CHILD_SEQUENCES: Readonly<Record<string, readonly SequenceStep[]>> = {
+	'p:spPr': SPPR_SEQUENCE,
+	'c:spPr': SPPR_SEQUENCE,
+	'a:spPr': SPPR_SEQUENCE,
+	'cx:spPr': SPPR_SEQUENCE,
+	'p:grpSpPr': GRPSPPR_SEQUENCE,
+	'p:sp': SP_SEQUENCE,
+	'a:ln': LN_SEQUENCE,
+	'a:rPr': RPR_SEQUENCE,
+	'a:defRPr': RPR_SEQUENCE,
+	'a:endParaRPr': RPR_SEQUENCE,
+	'a:tcPr': TCPR_SEQUENCE,
+	'p:presentation': PRESENTATION_SEQUENCE,
+	'p:pic': PIC_SEQUENCE,
+	'p:blipFill': BLIPFILL_SEQUENCE,
+	'a:blipFill': BLIPFILL_SEQUENCE,
+}
