@@ -133,4 +133,43 @@ defineRegressionSuite('Chart bar3d series axis', [
 			assertNotIncludes(xml, '<c:majorTimeUnit', 'the whole majorTimeUnit element is omitted after validation')
 		},
 	},
+	{
+		name: 'the series axis line takes a width and a dash, like the other two axes',
+		fn: async () => {
+			// The series axis could be shown and coloured but not sized or dashed: the emitter
+			// hardcoded one point and `solid` where `c:catAx` and `c:valAx` read the caller's
+			// options. Nothing said so -- the options simply did not exist -- so a 3-D chart
+			// styled to match its siblings came out with one axis drawn differently.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(DATA, {
+					type: ChartType.bar3d,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 4,
+					serAxisLineShow: true,
+					serAxisLineColor: '4472C4',
+					serAxisLineSize: 3,
+					serAxisLineStyle: 'dash',
+				})
+			})
+			const serAx = serAxBlock(await chartXml(zip))
+			assertIncludes(serAx, '<a:ln w="38100"', 'serAxisLineSize 3pt reaches a:ln/@w')
+			assertIncludes(serAx, '<a:prstDash val="dash"/>', 'serAxisLineStyle reaches a:prstDash')
+			assertIncludes(serAx, '<a:srgbClr val="4472C4"/>', 'and the colour is still honoured')
+		},
+	},
+	{
+		name: 'a series axis stating no width or dash is unchanged',
+		fn: async () => {
+			// The defaults are the values that were hardcoded, so every existing deck emits
+			// exactly what it did before the options existed.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(DATA, { type: ChartType.bar3d, x: 1, y: 1, w: 6, h: 4 })
+			})
+			const serAx = serAxBlock(await chartXml(zip))
+			assertIncludes(serAx, '<a:ln w="12700"', 'the default width is one point')
+			assertIncludes(serAx, '<a:prstDash val="solid"/>', 'and the default dash is solid')
+		},
+	},
 ])

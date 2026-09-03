@@ -214,3 +214,7 @@ function bytesToBinaryString(bytes: Uint8Array, base64: boolean): string {
 // Error taxonomy — see `entry-errors.ts`. Re-exported from every entry so `instanceof`
 // works whichever subpath a consumer imports.
 export * from './entry-errors.js'
+
+// Diagnostics — see `entry-diagnostics.ts`. Re-exported from every entry so a consumer of any
+// subpath can install a handler for the warnings that subpath emits.
+export * from './entry-diagnostics.js'

@@ -404,6 +404,16 @@ export interface ChartPropsAxisSer {
 	serAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	serAxisLineColor?: string
 	serAxisLineShow?: boolean
+	/**
+	 * Series-axis line width in points, matching {@link ChartPropsAxisCat.catAxisLineSize}.
+	 *
+	 * The series axis is the third axis of a 3-D chart, and it was the one axis whose line
+	 * could be shown and coloured but not sized or dashed -- the emitter hardcoded one point
+	 * and `solid` where the other two axes read the caller's options.
+	 */
+	serAxisLineSize?: number
+	/** Series-axis line dash, matching {@link ChartPropsAxisCat.catAxisLineStyle}. */
+	serAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	serAxisOrientation?: string
 	serAxisTitle?: string
 	serAxisTitleColor?: string

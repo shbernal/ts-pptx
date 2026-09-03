@@ -400,7 +400,14 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(voidEl('c:majorTickMark', { val: 'out' })),
 		raw(voidEl('c:minorTickMark', { val: 'none' })),
 		raw(voidEl('c:tickLblPos', { val: opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') })),
-		raw(axisLineSpPr(EMU_PER_POINT, opts.serAxisLineShow, opts.serAxisLineColor, 'solid')),
+		raw(
+			axisLineSpPr(
+				opts.serAxisLineSize ? ptsToEmuLenient(opts.serAxisLineSize) : EMU_PER_POINT,
+				opts.serAxisLineShow,
+				opts.serAxisLineColor,
+				opts.serAxisLineStyle || 'solid'
+			)
+		),
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: valAxisId })),
 		raw(voidEl('c:crosses', { val: 'autoZero' })),

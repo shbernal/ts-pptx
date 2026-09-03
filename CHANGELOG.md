@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every published subpath now exports `setDiagnosticHandler` and `resetDiagnosticState`.**
+  The library's warnings — a chart point cache out of range, a picture whose relationship
+  does not resolve, a table span the auto-pager refuses — are reported through a handler a
+  consumer installs, but that handler was published only by the three authoring entries
+  (`.`, and the node/browser conditions of it). A consumer of `ts-pptx/read`,
+  `ts-pptx/measure`, `ts-pptx/script`, `ts-pptx/inspect`, `ts-pptx/html`, `ts-pptx/math` or
+  `ts-pptx/zip` got `console.warn` output from those paths with no supported way to
+  intercept it.
+
+  Importing the handler from `.` did happen to work — bundling puts the diagnostics module
+  in a shared chunk — but that is an artifact of chunking rather than a promise, and it
+  pulls the whole write path in for a three-line function. The surface is now republished
+  from one module the way the error taxonomy already was, so one installed handler serves
+  every subpath, and a test pins that they are literally the same function.
+
+- **`serAxisLineSize` and `serAxisLineStyle`.** The series axis — the third axis of a 3-D
+  chart — could be shown and coloured but not sized or dashed: the emitter hardcoded one
+  point and `solid` where `catAxis*` and `valAxis*` read the caller's options. Both new
+  options are spelled and defaulted exactly as their category-axis counterparts, so a chart
+  that sets neither emits what it always did.
+
 - **`Shape.absoluteFrameFailure` names why `absoluteFrame` is `null`.** That one `null`
   stands for three different situations — the shape states no transform of its own
   (`'no-own-transform'`, an ordinary placeholder inheriting its box from the layout), an

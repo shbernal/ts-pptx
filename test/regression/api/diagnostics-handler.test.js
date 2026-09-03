@@ -148,4 +148,29 @@ defineRegressionSuite('Diagnostics handler', [
 			}
 		},
 	},
+	{
+		name: 'every published subpath can install the handler, and they are the same one',
+		fn: async () => {
+			// A consumer of `ts-pptx/read` alone gets warnings from the read path -- a chart point
+			// cache out of range, a picture whose relationship does not resolve -- and until the
+			// diagnostic surface was republished the way the error taxonomy already was, there was
+			// no supported way to intercept them: the handler was exported only by the three
+			// authoring entries. Importing it from `.` did happen to work, because bundling puts
+			// `diagnostics.js` in a shared chunk, but that is an artifact of chunking rather than
+			// a promise -- and it pulls the whole write path in for a three-line function.
+			//
+			// Identity, not just presence: one installed handler must serve every subpath, which
+			// is only true while they all resolve to the one module.
+			const base = await import('../../../dist/node.js')
+			for (const entry of ['read', 'measure', 'script', 'inspect', 'html', 'math', 'zip']) {
+				const mod = await import(`../../../dist/${entry}.js`)
+				assertEqual(typeof mod.setDiagnosticHandler, 'function', `ts-pptx/${entry} must publish setDiagnosticHandler`)
+				assertEqual(typeof mod.resetDiagnosticState, 'function', `ts-pptx/${entry} must publish resetDiagnosticState`)
+				assert(
+					mod.setDiagnosticHandler === base.setDiagnosticHandler,
+					`ts-pptx/${entry} must publish the SAME handler installer as the main entry`
+				)
+			}
+		},
+	},
 ])
