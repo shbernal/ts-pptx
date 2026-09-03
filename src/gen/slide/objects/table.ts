@@ -28,25 +28,13 @@ import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 import { tableColCount } from '../../table/grid.js'
+import { CELL_INHERITED_KEYS } from '../../table/cell-inherit.js'
 
 /**
  * The table-level options a cell inherits when it states none of its own.
  * @see http://officeopenxml.com/drwTableCellProperties-alignment.php
  */
-const TABLE_INHERITED_KEYS = [
-	'align',
-	'bold',
-	'border',
-	'color',
-	'fill',
-	'fontFace',
-	'fontSize',
-	'margin',
-	'textDirection',
-	'underline',
-	'valign',
-] as const
-type TableInheritableOption = (typeof TABLE_INHERITED_KEYS)[number]
+type TableInheritableOption = (typeof CELL_INHERITED_KEYS)[number]
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
 
 /**
@@ -114,8 +102,8 @@ function applyOuterBorder(
  * explicit `!== 0` arm and nothing else, so a cell's `bold: false` was still overwritten by the
  * table's `bold: true`.
  *
- * `src/measure/table-fit.ts` resolves the same inheritance for the measured-fit pass over a
- * DIFFERENT key list; the two are reconciled separately, since widening either one moves bytes.
+ * `src/measure/table-fit.ts` resolves the same inheritance for the measured-fit pass, over the
+ * text half of the same list -- see `gen/table/cell-inherit.ts`, which owns both halves.
  * @param cellOpts - the cell's own options, if any
  * @param tableOpts - the table's options
  * @returns a fresh bag; neither input is written to
@@ -124,7 +112,7 @@ function inheritTableOptions(cellOpts: TableCellProps | undefined, tableOpts: Ob
 	const merged: TableCellProps = { ...cellOpts }
 	const inheritedCell = merged as Partial<Record<TableInheritableOption, TableInheritableValue>>
 	const inheritedTable = tableOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
-	for (const name of TABLE_INHERITED_KEYS) {
+	for (const name of CELL_INHERITED_KEYS) {
 		if (inheritedCell[name] === undefined && inheritedTable[name] !== undefined)
 			inheritedCell[name] = inheritedTable[name]
 	}

@@ -407,6 +407,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A table-level `italic` (and the other text options the fitter reads) now reaches the
+  cells it was measured against.** The emitter and the measured-fit pass each had their own
+  list of what a cell inherits from its table, and the measure one's docstring claimed to
+  mirror the emitter's while naming four keys — `italic`, `charSpacing`, `lineSpacing`,
+  `lineSpacingMultiple` — that the emitter did not carry. So a table-level `italic` was laid
+  out with italic metrics and emitted upright; on `fit: 'shrink'` a table-level line spacing
+  made the solver compute a taller layout and bake a smaller font that the cell then rendered
+  at default spacing, and `pptx.tableLayout()` reported geometry the file disagreed with.
+
+  The text keys are now one shared list. The emitter's extra keys (`border`, `color`, `fill`,
+  `textDirection`, `underline`) stay its own and say why: they paint, or the fitter does not
+  model them. Emitted bytes change for a table that states one of the four keys at table level
+  and has cells that do not.
+
 - **A table's or a table cell's fill lost its transparency when converted to a script.**
   An `a:solidFill` carrying an `a:alphaModFix` is read on any surface, but only the shape's
   copy of the fill ladder passed the alpha on: a table background or a cell fill came back

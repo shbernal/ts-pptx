@@ -21,6 +21,7 @@ import {
 import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text-fit.js'
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
+import { CELL_INHERITED_TEXT_KEYS } from '../gen/table/cell-inherit.js'
 import type {
 	Coord,
 	Margin,
@@ -33,8 +34,11 @@ import type {
 } from '../types/index.js'
 
 /**
- * The text/format options a cell inherits from its table when it sets none itself; mirrors the
- * list `gen/slide/objects/table.ts` inherits.
+ * Effective cell options: the cell's own values, with table-level values filled in where unset.
+ *
+ * The keys are `CELL_INHERITED_TEXT_KEYS` (`gen/table/cell-inherit.ts`), the half of the
+ * emitter's list that decides how text lays out. This used to be its own list, claiming in its
+ * docstring to mirror the emitter's while naming four keys the emitter did not.
  *
  * PowerPoint has no text-autofit for a table cell — `a:tcPr` carries no autofit, and the app
  * ignores a `normAutofit` inside one; rows auto-grow instead. So a cell's `fit: 'shrink'` is
@@ -42,23 +46,9 @@ import type {
  * LibreOffice render identically with no edit or resize. That is what makes these options worth
  * resolving here: the shrink is computed against the cell's effective text, not the table's.
  */
-const CELL_INHERIT_KEYS = [
-	'fontFace',
-	'fontSize',
-	'bold',
-	'italic',
-	'charSpacing',
-	'align',
-	'lineSpacing',
-	'lineSpacingMultiple',
-	'valign',
-	'margin',
-] as const
-
-/** Effective cell options: the cell's own values, with table-level values filled in where unset. */
 export function effectiveCellOpts(cellOpts: TableCellProps, tableOpts: RunOpts): RunOpts {
 	const merged = { ...cellOpts } as RunOpts
-	for (const k of CELL_INHERIT_KEYS) {
+	for (const k of CELL_INHERITED_TEXT_KEYS) {
 		if (merged[k] === undefined && tableOpts[k] !== undefined) (merged as Record<string, unknown>)[k] = tableOpts[k]
 	}
 	return merged
@@ -176,7 +166,7 @@ export function computeTableLayout(
 	const grid = resolveTableGridEmu(rows, opts, presLayout)
 	const numCols = grid.numCols
 	if (!(numCols > 0)) return empty
-	// Reuse TableProps as a bag of inheritable text props; only CELL_INHERIT_KEYS are
+	// Reuse TableProps as a bag of inheritable text props; only CELL_INHERITED_TEXT_KEYS are
 	// read from it. Route through `unknown` because TableProps.columns (per-column cell
 	// styling, TableCellProps[]) collides by name with TextPropsOptions.columns (text
 	// column count, number) — the two never overlap here since `columns` isn't inherited.
