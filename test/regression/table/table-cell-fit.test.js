@@ -1,9 +1,13 @@
 // End-to-end: TableCellProps.fit:'shrink' through the public API. PowerPoint has no
 // text-autofit for table cells, so the library bakes a REDUCED literal font size onto
-// the cell's runs. The no-metrics no-op path is CI-safe and always runs; the
-// baked-size assertions need a real font and are skipped when none resolves.
+// the cell's runs.
+//
+// Every case here runs on every machine. What the measured ones assert is the SHAPE of the
+// bake — below the authored size, or untouched — not a particular face's advances, so the
+// registered face is the committed Silkscreen fixture rather than whatever fontconfig
+// happens to answer with. Resolving the font off the machine is what let all three of them
+// report PASSED on a runner that had measured nothing.
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { describe, test, expect } from 'vitest'
 import JSZip from 'jszip'
 import TsPptx from '../../../dist/node.js'
@@ -17,22 +21,8 @@ async function slide1Xml(pres) {
 const szValues = (xml) => [...xml.matchAll(/sz="(\d+)"/g)].map((m) => Number(m[1]))
 const LONG = 'This is a deliberately long cell sentence that overflows a short fixed-height table row.'
 
-/** Resolve a usable .ttf for some common Linux/CI family (opentype.js parses plain TTF). */
-function usableFontPath() {
-	for (const fam of ['DejaVu Sans', 'Liberation Sans', 'Noto Sans', 'Arial']) {
-		try {
-			const out = execFileSync('fc-match', ['-f', '%{file}', fam], {
-				encoding: 'utf8',
-				stdio: ['ignore', 'pipe', 'ignore'],
-			})
-			const file = out.trim()
-			if (file && file.toLowerCase().endsWith('.ttf')) return file
-		} catch {
-			/* try next */
-		}
-	}
-	return null
-}
+/** A committed face, so the measured arm of this file has no machine-dependent input. */
+const CELL_FONT = new Uint8Array(readFileSync('test/read/fixtures/fonts/Silkscreen-Regular.ttf'))
 
 describe('measured fit: TableCellProps.fit', () => {
 	test('no registered metrics → cell font size unchanged (no-op)', async () => {
@@ -51,13 +41,8 @@ describe('measured fit: TableCellProps.fit', () => {
 	})
 
 	test('registered metrics + overflow in a fixed-height row → baked size < authored', async () => {
-		const path = usableFontPath()
-		if (!path) {
-			expect(true).toBe(true)
-			return
-		}
 		const pres = new TsPptx()
-		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
+		await pres.registerFontMetrics('CellFont', CELL_FONT)
 		const slide = pres.addSlide()
 		slide.addTable([[{ text: LONG, options: { fontFace: 'CellFont', fontSize: 18, fit: 'shrink' } }]], {
 			x: 0.5,
@@ -74,13 +59,8 @@ describe('measured fit: TableCellProps.fit', () => {
 	})
 
 	test('auto-height row (no rowH / table h) → no shrink (the row grows instead)', async () => {
-		const path = usableFontPath()
-		if (!path) {
-			expect(true).toBe(true)
-			return
-		}
 		const pres = new TsPptx()
-		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
+		await pres.registerFontMetrics('CellFont', CELL_FONT)
 		const slide = pres.addSlide()
 		// No `h` and no `rowH` → unconstrained height → nothing to shrink against.
 		slide.addTable([[{ text: LONG, options: { fontFace: 'CellFont', fontSize: 18, fit: 'shrink' } }]], {
@@ -93,13 +73,8 @@ describe('measured fit: TableCellProps.fit', () => {
 	})
 
 	test('table-level fit:shrink cascades to a cell with no explicit fit', async () => {
-		const path = usableFontPath()
-		if (!path) {
-			expect(true).toBe(true)
-			return
-		}
 		const pres = new TsPptx()
-		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
+		await pres.registerFontMetrics('CellFont', CELL_FONT)
 		const slide = pres.addSlide()
 		slide.addTable([[{ text: LONG, options: { fontFace: 'CellFont', fontSize: 18 } }]], {
 			x: 0.5,

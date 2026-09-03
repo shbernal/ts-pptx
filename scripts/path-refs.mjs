@@ -49,7 +49,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 
-import { isMain, ROOT, runCli } from './script-utils.mjs'
+import { isMain, parseCli, ROOT, runCli } from './script-utils.mjs'
 
 /** Trees worth scanning. Everything else is either generated or third-party. */
 const SCAN_ROOTS = ['docs', 'src', 'test', 'scripts', 'tools', 'demos', 'www', '.github']
@@ -254,11 +254,30 @@ function collect() {
 	return citations
 }
 
-/** @param {string[]} argv */
+const USAGE = `Path-citation gate — a backticked repo path must name a file that exists.
+
+  node scripts/path-refs.mjs
+  node scripts/path-refs.mjs --list
+
+Options:
+  --list      print every citation found, resolved or not
+  -h, --help  show this message`
+
+/** @param {string[]} argv @returns {number} process exit code */
 function main(argv) {
+	// Through the shared front end, like the other nine. The hand-rolled
+	// `argv.includes('--list')` this replaces was the last one left, and it had the failure
+	// `parseCli` exists to prevent: an unrecognised flag was not an error, so
+	// `--lst` ran the full check and exited 0/1 with no complaint about the typo, and
+	// `--help` printed nothing at all.
+	const { values } = parseCli(argv, {
+		usage: USAGE,
+		options: { list: { type: 'boolean', default: false } },
+	})
+
 	const citations = collect()
 
-	if (argv.includes('--list')) {
+	if (values.list) {
 		for (const c of citations) console.log(`${c.ok ? 'ok  ' : 'DEAD'} ${c.file}:${c.line}  ${c.token}`)
 		console.log(`\n${citations.length} citation(s), ${citations.filter((c) => !c.ok).length} unresolved`)
 		return 0

@@ -63,7 +63,11 @@
  *
  * The share is also a gate: past `MAX_ORPHAN_SHARE` the two lanes are not looking at the
  * same build at all — a stale `dist/`, a half-rebuilt chunk — and the run fails instead of
- * reporting a number assembled from two different packages.
+ * reporting a number assembled from two different packages. Two degenerate shapes of that
+ * same disagreement fail on their own terms rather than through the share, because the share
+ * cannot see them: a browser file the Node report has no entry for at all, and a run in
+ * which nothing was measured — which would divide the share by zero and, read as 0%, would
+ * let a merge that merged nothing write a report and exit 0.
  */
 
 import fs from 'node:fs'
@@ -372,7 +376,8 @@ for (const file of browserMap.files()) {
 	if (!nodeData) {
 		// The Node report includes every file reachable from `dist/**`, covered or not, so
 		// there should be nothing here. If there is, it is a finding about the Node report's
-		// `include` rather than a file to quietly add on different terms from the rest.
+		// `include` rather than a file to quietly add on different terms from the rest — so
+		// it is collected and failed on below, not merged.
 		unknownFiles.push(file)
 		continue
 	}
@@ -382,7 +387,30 @@ for (const file of browserMap.files()) {
 	merged.merge({ [file]: projected.coverage })
 }
 
-const orphanShare = measured ? (orphans / measured) * 100 : 0
+// Both of these are the same failure as the orphan gate below — the browser lane and the
+// Node report have stopped agreeing about what `dist/**` is — and both used to be
+// survivable. A file the Node report has never heard of was printed as a NOTE and nothing
+// else; and with every browser file in that bucket, `measured` stays 0, the share reads a
+// healthy 0%, and this script writes a "merged" report that is a byte copy of the Node one.
+// The regression then surfaces downstream as a coverage drop, blamed on whatever code the
+// browser lane was the only witness for, rather than as "the two lanes did not merge".
+if (unknownFiles.length) {
+	fail(
+		`${unknownFiles.length} browser file(s) are absent from the Node report:\n` +
+			unknownFiles.map((file) => `    ${relative(file)}\n`).join('') +
+			'  The Node report includes every file reachable from `dist/**`, so this is a finding about\n' +
+			'  its `include` glob (vitest.config.ts) rather than a file to merge on different terms.'
+	)
+}
+if (measured === 0) {
+	fail(
+		'the browser lane contributed no measured locations at all, so the merge is a no-op.\n' +
+			'  Rebuild dist/ and re-run both lanes:\n' +
+			'    pnpm run test:coverage && pnpm run test:browser'
+	)
+}
+
+const orphanShare = (orphans / measured) * 100
 if (orphanShare > MAX_ORPHAN_SHARE) {
 	fail(
 		`${orphans} of ${measured} browser locations (${orphanShare.toFixed(1)}%) have no slot in the Node report.\n` +
@@ -411,8 +439,5 @@ console.log(
 	`  ${orphans} of ${measured} browser locations (${orphanShare.toFixed(2)}%) had no slot in the Node ` +
 		`report's shape and were dropped`
 )
-for (const file of unknownFiles) {
-	console.log(`  NOTE: ${relative(file)} is covered by the browser lane but absent from the Node report; not merged`)
-}
 console.log(`  report: ${relative(OUT_DIR)}/`)
 console.log('')

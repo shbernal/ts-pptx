@@ -14,6 +14,14 @@
 // cannot tell "the deck is valid" apart from "the validator reported nothing". See
 // the comment on the first of them.
 //
+// A case may also carry `exclusive: true`. That means its body takes over a
+// process-global — every one of them swaps `console.warn` for a collector — and it
+// must not run alongside the concurrent fixtures, which would restore the global out
+// from under it. The marker is the only thing that routes a case to the sequential
+// block; `schema-validation.test.js` fails the run if an unmarked case captures
+// warnings inline, but it cannot see a capture made through a helper, so set the flag
+// by hand for those.
+//
 // Finding a fixture: the array is append-ordered (new cases are added at the end
 // over time), so it is not grouped strictly by domain. Grep the `name:` string —
 // every case has a descriptive name, many tagged with the upstream issue/PR or the
@@ -2180,6 +2188,7 @@ export default [
 	},
 	{
 		name: 'chart with non-finite (NaN) values emits a valid sparse numCache',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -2209,6 +2218,7 @@ export default [
 	},
 	{
 		name: 'line chart marker size out of range is clamped to valid ST_MarkerSize',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -2249,6 +2259,7 @@ export default [
 	},
 	{
 		name: 'out-of-range chart gap/overlap/holeSize/firstSliceAng are clamped to valid ranges',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -2287,6 +2298,7 @@ export default [
 	},
 	{
 		name: 'out-of-range text fontSize/charSpacing/lineSpacing are clamped to valid ranges',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -2322,6 +2334,7 @@ export default [
 	},
 	{
 		name: 'out-of-range shape transparency/line-width are clamped to valid ranges',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -2357,6 +2370,7 @@ export default [
 		// `transparency: 150` wrote a NEGATIVE `alphaModFix`. All four are PowerPoint repair
 		// prompts, which is why the assertion is the validator rather than the emitted string.
 		name: 'out-of-range percent options (chart opacity, image transparency/biLevel, line-spacing multiple) are clamped',
+		exclusive: true,
 		fn: async () => {
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 			const png = 'image/png;base64,' + b64
@@ -2552,6 +2566,7 @@ export default [
 	},
 	{
 		name: 'line chart with transparent marker fill',
+		exclusive: true,
 		fn: async () => {
 			// `chartColors: ['transparent']` means an invisible series: the fill, the connecting line,
 			// and the marker (fill + border) must all resolve to <a:noFill/> — never a black 000000
@@ -3780,6 +3795,7 @@ export default [
 		// repair prompt. The dropped guide must not leave the gdLst (or the ahLst/cxnLst
 		// entries that reference the surviving guide) malformed.
 		name: 'custGeom drops a guide with an unknown formula operation and stays schema-valid',
+		exclusive: true,
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn

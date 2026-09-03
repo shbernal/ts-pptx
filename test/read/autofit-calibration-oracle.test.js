@@ -71,9 +71,11 @@ function paragraphsOf(c) {
 	}))
 }
 
-describe('autofit calibration oracle: shrink solver is conservative vs PowerPoint', () => {
-	let ranAny = false
+// Set by every case that got past face resolution, in BOTH blocks. File scope because the
+// accounting test now sits below them and asserts on both.
+let ranAny = false
 
+describe('autofit calibration oracle: shrink solver is conservative vs PowerPoint', () => {
 	for (const c of shrinkSpec.cases) {
 		const pp = ppById.get(c.id)
 		// Only cases where PowerPoint actually baked a fontScale are conservativeness targets.
@@ -103,17 +105,6 @@ describe('autofit calibration oracle: shrink solver is conservative vs PowerPoin
 			expect(computedPct).toBeLessThanOrEqual(ppPct)
 		})
 	}
-
-	// Accounting, not decoration. This test used to pass unconditionally and only warn, so a
-	// run that resolved nothing and asserted nothing was indistinguishable from a run that
-	// proved every case. It now fails when the suite measured nothing at all, and reports
-	// where the advances came from so a leg that quietly fell back to the sidecar says so.
-	test('the conservativeness assertions actually ran', () => {
-		const { genuine, sidecar, missing } = resolutionTally()
-		console.info(`autofit oracle: ${genuine} face(s) from installed fonts, ${sidecar} from the metrics sidecar.`)
-		expect(missing).toEqual([])
-		expect(ranAny).toBe(true)
-	})
 })
 
 describe('autofit calibration oracle: resize solver is conservative vs PowerPoint + LibreOffice', () => {
@@ -130,6 +121,7 @@ describe('autofit calibration oracle: resize solver is conservative vs PowerPoin
 				ctx.skip('a face this case uses resolved neither an installed font nor a sidecar entry')
 				return
 			}
+			ranAny = true
 
 			const paragraphs = paragraphsOf(c)
 			const box = {
@@ -149,4 +141,20 @@ describe('autofit calibration oracle: resize solver is conservative vs PowerPoin
 			if (lo?.hEmu != null) expect(computedCyEmu).toBeGreaterThanOrEqual(lo.hEmu)
 		})
 	}
+})
+
+// Accounting, not decoration. This test used to pass unconditionally and only warn, so a
+// run that resolved nothing and asserted nothing was indistinguishable from a run that
+// proved every case. It now fails when NEITHER solver measured anything, and reports where
+// the advances came from so a leg that quietly fell back to the sidecar says so.
+//
+// Last in the file, and outside both blocks, deliberately. `missing` tallies what has been
+// ASKED for so far, so while this sat at the foot of the shrink block a face only the resize
+// cases name was not yet in it — the one place a dropped font would have shown up was the
+// one place it could not be seen. Describes run in source order, so by here both have run.
+test('the conservativeness assertions actually ran', () => {
+	const { genuine, sidecar, missing } = resolutionTally()
+	console.info(`autofit oracle: ${genuine} face(s) from installed fonts, ${sidecar} from the metrics sidecar.`)
+	expect(missing).toEqual([])
+	expect(ranAny).toBe(true)
 })

@@ -93,8 +93,7 @@ describe('XML attribute whitespace — write→read fidelity', () => {
 		assert(!/name="[^"]*\n[^"]*"/.test(cNvPr), 'no literal newline survives inside an attribute value')
 	})
 
-	test('the deck stays schema-valid with character references in attributes', async () => {
-		if (!validatorInstalled) return
+	test.skipIf(!validatorInstalled)('the deck stays schema-valid with character references in attributes', async () => {
 		const { buf } = await authorWhitespaceDeck()
 		const errors = await schemaErrors(buf)
 		assertEqual(errors.length, 0, `schema errors: ${errors.join('\n')}`)

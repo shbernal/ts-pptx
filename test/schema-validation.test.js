@@ -1,4 +1,4 @@
-import { beforeAll, describe, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 import TsPptx from '../dist/node.js'
 import { isInstalled, validateBuf } from './validator.js'
 import cases from './schema-cases.js'
@@ -39,25 +39,47 @@ beforeAll(async () => {
  * anything. Routing these to a sequential block is the fix that matches the cause:
  * a fixture that needs exclusive access to a global must not share the process.
  *
- * Detection is by source inspection *plus* an explicit `exclusive: true` opt-out,
- * so a newly added warn-capturing fixture is quarantined automatically instead of
- * silently rejoining the concurrent block and reintroducing a load-dependent flake.
- * If a fixture ever captures warnings through a helper rather than inline, set the
- * flag on it — the sniff cannot see through a call boundary.
+ * `exclusive: true` is the ONLY route into the sequential block, and it is a marker
+ * on the case rather than a property read off its source. Classifying 157 fixtures by
+ * running a regex over `String(fn)` put the whole quarantine on a sniff that can stop
+ * matching without anyone touching it: `globalThis.console.warn =`, a capture moved
+ * behind a helper, a switch to `vi.spyOn(console, 'warn')`, or any change to what
+ * `String(fn)` returns. Each of those reads as a green run today and an intermittent
+ * red later, in whichever fixture happened to lose the race — never in the one that
+ * changed.
+ *
+ * The sniff survives, inverted, as `WARN_CAPTURE` below: it no longer classifies
+ * anything, it only fails the run when an unmarked fixture captures warnings inline.
+ * That turns the case it cannot see through — a capture behind a call boundary — from a
+ * silent misclassification into the one case a human has to mark by hand.
  *
  * The scalable alternative, if this set grows much past a handful, is to route
  * `setDiagnosticHandler` (src/diagnostics.ts) through an `AsyncLocalStorage` sink
  * so each concurrent fixture collects into its own store. That is a real fix for
- * concurrency rather than an avoidance of it, and it is not worth its cost for 7
- * of 151 fixtures.
+ * concurrency rather than an avoidance of it, and it is not worth its cost for 8
+ * of 157 fixtures.
  * @param {{ name: string, fn: Function, exclusive?: boolean }} fixture
  */
 function needsExclusiveProcess(fixture) {
-	return fixture.exclusive === true || /console\.warn\s*=/.test(String(fixture.fn))
+	return fixture.exclusive === true
 }
+
+/** Inline `console.warn` capture — a lint over the concurrent block, not a classifier. */
+const WARN_CAPTURE = /console\.warn\s*=/
 
 const concurrentCases = cases.filter((f) => !needsExclusiveProcess(f))
 const exclusiveCases = cases.filter(needsExclusiveProcess)
+
+// The marker is load-bearing now, so an unmarked warn-capturer has to be a failure rather
+// than a case that quietly rejoins the concurrent block. Its own suite, and sequential, so
+// it reports as itself rather than as one more flake among the fixtures it is describing.
+describe('TsPptx schema validation fixtures (quarantine)', { concurrent: false }, () => {
+	test('every fixture that captures console.warn is marked exclusive', () => {
+		const unmarked = concurrentCases.filter((c) => WARN_CAPTURE.test(String(c.fn))).map((c) => c.name)
+		const hint = `add \`exclusive: true\` to these fixtures in test/schema-cases.js:\n  ${unmarked.join('\n  ')}`
+		expect(unmarked, hint).toEqual([])
+	})
+})
 
 describe.concurrent('TsPptx schema validation fixtures', () => {
 	for (const fixture of concurrentCases) {

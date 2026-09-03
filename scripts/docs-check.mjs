@@ -335,7 +335,13 @@ Options:
   -h, --help   show this message`
 
 /**
- * Every `scripts/*.mjs` must have a row in `scripts/README.md`'s table.
+ * Every `.mjs` under `scripts/` must have a row in `scripts/README.md`'s table.
+ *
+ * Every, including the ones in subdirectories: a non-recursive listing left `scripts/com/`
+ * and `scripts/gate-decks/` invisible to a rule whose whole premise is that a script cannot
+ * be added without anyone answering what runs it — and a new module dropped into either of
+ * them is exactly such an addition. Rows are keyed by the path relative to `scripts/`, so a
+ * nested module is cited as `com/decks.mjs`.
  *
  * That table's own premise is that "the single most useful fact about a script here is not what
  * it does but whether anything runs it", which is worth nothing if a script can be added without
@@ -353,10 +359,17 @@ function checkScriptsTable() {
 	if (!existsSync(readme)) return ['scripts/README.md: missing']
 	const text = readFileSync(readme, 'utf8')
 	const documented = new Set([...text.matchAll(/\|\s*`([^`]+)`\s*\|/g)].map((m) => m[1]))
-	return readdirSync(dir)
-		.filter((name) => name.endsWith('.mjs'))
-		.filter((name) => !documented.has(name))
-		.map((name) => `scripts/README.md: no table row for \`${name}\` — say what it does and what runs it`)
+	/** @param {string} sub @returns {string[]} */
+	const walk = (sub) =>
+		readdirSync(path.join(dir, sub), { withFileTypes: true }).flatMap((entry) => {
+			const rel = sub ? `${sub}/${entry.name}` : entry.name
+			if (entry.isDirectory()) return walk(rel)
+			return entry.name.endsWith('.mjs') ? [rel] : []
+		})
+	return walk('')
+		.filter((rel) => !documented.has(rel))
+		.sort()
+		.map((rel) => `scripts/README.md: no table row for \`${rel}\` — say what it does and what runs it`)
 }
 
 /** @param {string[]} argv */

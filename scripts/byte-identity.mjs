@@ -145,13 +145,30 @@ async function explodeDecks(decks, destDir) {
  *
  * Scoped to `src/gen/` deliberately — dirt anywhere else cannot affect the
  * emitted bytes, so it is none of this gate's business.
+ *
+ * Only two git failures are a benign skip: git is not installed, and this is not a
+ * checkout. Everything else — a `dubious ownership` refusal, a quarantined `git.exe`,
+ * a locked index — means git REFUSED TO ANSWER, which is exactly when the assertion is
+ * needed and not a reason to freeze anyway. Swallowing them all was the difference
+ * between "nothing to assert" and "could not tell", on the one guard standing between
+ * the harness and a baseline frozen after the refactor it exists to detect.
  */
 function assertGenTreeClean() {
 	let dirty
 	try {
 		dirty = execFileSync('git', ['status', '--porcelain', '--', 'src/gen'], { cwd: ROOT, encoding: 'utf8' }).trim()
-	} catch {
-		return // not a git checkout, or git unavailable — nothing to assert
+	} catch (err) {
+		const e = /** @type {NodeJS.ErrnoException & { stderr?: Buffer | string }} */ (err)
+		const stderr = String(e.stderr ?? '')
+		if (e.code === 'ENOENT' || /not a git repository/i.test(stderr)) return // nothing to assert
+		console.error('refusing to freeze a baseline: git could not report on src/gen/.')
+		console.error('  ' + (stderr.trim() || e.message))
+		console.error('')
+		console.error('This gate is what keeps a baseline from being frozen AFTER the refactor it')
+		console.error('exists to detect, so a git that refuses to answer is not a skip.')
+		console.error('Fix the git error, or, if the current state genuinely IS the intended')
+		console.error('reference: --allow-dirty')
+		process.exit(2)
 	}
 	if (!dirty) return
 	console.error('refusing to freeze a baseline: src/gen/ has uncommitted changes:')

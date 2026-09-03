@@ -443,6 +443,11 @@ describe('pptx.registerFontMetrics accepts a collection', () => {
 
 const ORACLE_PATH = fixture('windows-collections.oracle.json')
 const FONT_DIR = `${process.env.SystemRoot ?? 'C:\\Windows'}\\Fonts`
+// The one case in this file that a missing font would silence rather than fail, so the
+// probe is hoisted out of the test body: a `return` inside it reported PASSED.
+const MSGOTHIC = `${FONT_DIR}\\msgothic.ttc`
+const hasMsGothic = existsSync(MSGOTHIC)
+
 const oracle = existsSync(ORACLE_PATH) ? JSON.parse(readFileSync(ORACLE_PATH, 'utf8')) : null
 const oracleFaces = (oracle?.faces ?? []).filter((f) => existsSync(`${FONT_DIR}\\${f.file}`))
 
@@ -485,23 +490,24 @@ describe.skipIf(process.platform !== 'win32' || oracleFaces.length === 0)(
 			expect(compared).toBeGreaterThan(100)
 		})
 
-		test('members of one collection are genuinely distinct, not the same font read twice', async () => {
-			// msgothic.ttc is the sharp case: an unwrapper that ignored the selector would
-			// return equal profiles here and still pass every other test in this file.
-			// Both scripts are needed. Latin separates monospaced MS Gothic (A = 0.5 em)
-			// from the two proportional members (0.6328), but MS UI Gothic and MS PGothic
-			// have the SAME Latin advances - only Kana tells those apart (の advances
-			// 0.8164 em in MS UI Gothic against a full em in MS PGothic).
-			const msgothic = `${FONT_DIR}\\msgothic.ttc`
-			if (!existsSync(msgothic)) return
-			const bytes = new Uint8Array(readFileSync(msgothic))
-			const profiles = await Promise.all(
-				listFontFaces(bytes).map(async (f) => {
-					const m = await parseFontMetrics(bytes, { font: f.index })
-					return [...'AMiのテ'].map((ch) => m.advanceWidthPt(ch, 1000))
-				})
-			)
-			expect(new Set(profiles.map((p) => p.join(','))).size).toBe(profiles.length)
-		})
+		test.skipIf(!hasMsGothic)(
+			'members of one collection are genuinely distinct, not the same font read twice',
+			async () => {
+				// msgothic.ttc is the sharp case: an unwrapper that ignored the selector would
+				// return equal profiles here and still pass every other test in this file.
+				// Both scripts are needed. Latin separates monospaced MS Gothic (A = 0.5 em)
+				// from the two proportional members (0.6328), but MS UI Gothic and MS PGothic
+				// have the SAME Latin advances - only Kana tells those apart (の advances
+				// 0.8164 em in MS UI Gothic against a full em in MS PGothic).
+				const bytes = new Uint8Array(readFileSync(MSGOTHIC))
+				const profiles = await Promise.all(
+					listFontFaces(bytes).map(async (f) => {
+						const m = await parseFontMetrics(bytes, { font: f.index })
+						return [...'AMiのテ'].map((ch) => m.advanceWidthPt(ch, 1000))
+					})
+				)
+				expect(new Set(profiles.map((p) => p.join(','))).size).toBe(profiles.length)
+			}
+		)
 	}
 )

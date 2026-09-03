@@ -7,7 +7,6 @@
 // The KEY correctness assertion is the no-drift test: measureText's height equals
 // the height the export-time resize bake (solveResize) uses for the same input.
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { describe, test, expect } from 'vitest'
 import { measureText } from '../../../src/measure/fit.ts'
 import { buildFitParagraphs } from '../../../src/measure/paragraphs.ts'
@@ -19,18 +18,14 @@ import {
 } from '../../../src/measure/font-metrics.ts'
 import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../../src/measure/text-fit.ts'
 import TsPptx from '../../../dist/node.js'
+import { resolveGenuineFontFile } from '../../read/font-oracle.js'
 
-// Resolve a genuine Aptos font file via fontconfig; null when unavailable so the
-// file-backed coverage assertions skip on CI (same pattern as measured-fit-integration).
-function aptosPath() {
-	try {
-		const out = execFileSync('fc-match', ['-f', '%{family}\t%{file}', 'Aptos'], { encoding: 'utf8' })
-		const [fam, file] = out.split('\t')
-		return fam && file && fam.toLowerCase().includes('aptos') ? file.trim() : null
-	} catch {
-		return null
-	}
-}
+// The genuine Aptos file, or null. The one case that reads it asserts Aptos's own cmap, so
+// no other face and no recorded-advance sidecar can stand in — but it now reports as SKIPPED
+// where the font is absent rather than as a pass that measured nothing. Resolution goes
+// through the read-side oracles' lookup, which is the only one that finds the per-user
+// Office install and the only one that answers on Windows, where there is no `fc-match`.
+const APTOS = resolveGenuineFontFile({ family: 'Aptos' })
 
 // Monospace synthetic metrics: every code point advances `emPerChar` ems.
 const mono = (emPerChar = 0.5) => ({
@@ -235,14 +230,8 @@ describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
 		expect(h.hasCodepoint(0x2011)).toBe(true) // non-breaking hyphen, still reported covered
 	})
 
-	test('file-backed Aptos: covers A and ordinary hyphen, lacks U+2011 non-breaking hyphen', async () => {
-		const path = aptosPath()
-		// skip when fontconfig can't resolve Aptos
-		if (!path) {
-			expect(true).toBe(true)
-			return
-		}
-		const fm = await parseFontMetrics(new Uint8Array(readFileSync(path)))
+	test.skipIf(!APTOS)('file-backed Aptos: covers A and ordinary hyphen, lacks U+2011 non-breaking hyphen', async () => {
+		const fm = await parseFontMetrics(new Uint8Array(readFileSync(APTOS)))
 		expect(fm.hasCodepoint(0x41)).toBe(true) // 'A' — present
 		expect(fm.hasCodepoint(0x2d)).toBe(true) // '-' ordinary hyphen-minus — present (contrast control)
 		expect(fm.hasCodepoint(0x2011)).toBe(false) // non-breaking hyphen — the canonical missing glyph

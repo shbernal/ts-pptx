@@ -28,7 +28,8 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 
 ## The scripts
 
-Every `*.mjs` in this directory has a row, and `docs-check.mjs` fails when one does not: the
+Every `.mjs` under this directory has a row, subdirectories included, and `docs-check.mjs`
+fails when one does not: the
 premise above -- that the most useful fact about a script here is whether anything runs it --
 is worth nothing if a script can be added without answering the question. Four were missing
 when the check was written, including `path-refs.mjs` and `run-steps.mjs`, which between them
@@ -74,8 +75,12 @@ are in every aggregate the repo has.
 | `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
 | `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
 | `xml-equivalence.mjs` | Library | Proves two XML parts differ only in inert inter-element whitespace | `byte-identity.mjs prove-whitespace`; unit-tested |
-| `com/` | Library | The COM smoke's four deck builders, its VBScript templates, and the contract the verifiers share with them | `powerpoint-com-smoke.mjs` |
-| `gate-decks/` | Library | The four showcase decks the byte-identity harness builds, as one module per deck | `byte-identity.mjs` |
+| `com/contract.mjs` | Library | The shape names, `ProgID`s and `PpActionType` values the COM decks, VBScripts and verifiers all have to agree on | `powerpoint-com-smoke.mjs` |
+| `com/decks.mjs` | Library | Builds the four decks the COM smoke drives, from the current `dist/` | `powerpoint-com-smoke.mjs` |
+| `com/vbs.mjs` | Library | The VBScript sources that drive desktop PowerPoint, one per deck | `powerpoint-com-smoke.mjs` |
+| `gate-decks/chart-matrix.mjs` | Library | Gate deck reaching the chart emitters the showcase corpus never does | `byte-identity.mjs` |
+| `gate-decks/index.mjs` | Library | The gate-deck registry — one list, so a deck cannot go undiffed | `byte-identity.mjs` |
+| `gate-decks/shape-matrix.mjs` | Library | Gate deck reaching the slide-object constructs a presentation deck has no reason to carry | `byte-identity.mjs` |
 
 ### Why four of these are manual on purpose
 
