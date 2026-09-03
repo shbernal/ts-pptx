@@ -214,7 +214,12 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, serIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
-				isLineLike(chartType) ? raw(serMarker(opts, paletteColor(chartColors, obj._dataIndex), seriesColor)) : null,
+				// The marker takes the series' own colour, not a second palette lookup. These read
+				// two different entries -- `serIndex` is the position within this subchart and
+				// `_dataIndex` the position across all of them -- which is the same number for a
+				// single-type chart and not for a combo: bar(2) + line(1) drew a `C0504D` line with
+				// `9BBB59` dots, and a `seriesOptions.color` override moved the body and not the dots.
+				isLineLike(chartType) ? raw(serMarker(opts, seriesColor, seriesColor)) : null,
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` in CT_*Ser schema order.
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, barVaryColors)),
 				// NOTE: [20190117] Adding data labels to a RADAR chart causes unrecoverable corruption,

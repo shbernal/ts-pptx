@@ -89,4 +89,40 @@ defineRegressionSuite('chart palette wraparound', [
 			assertEqual(await pieXml(), await pieXml(), 'pie chart XML is reproducible')
 		},
 	},
+	{
+		name: "a combo line's marker takes the same colour as the line it sits on",
+		fn: async () => {
+			// Two palette lookups for one series: the line body read the series' position within
+			// its own subchart and the marker read its position across all of them. Equal for a
+			// single-type chart, and not for a combo -- bar(2) + line(1) drew a red line with green
+			// dots, and a `seriesOptions.color` override moved the body and left the dots behind.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: ChartType.bar,
+							data: [
+								{ name: 'North', labels: ['A', 'B'], values: [1, 2] },
+								{ name: 'South', labels: ['A', 'B'], values: [3, 4] },
+							],
+							options: { barGrouping: 'clustered' },
+						},
+						{
+							type: ChartType.line,
+							data: [{ name: 'Index', labels: ['A', 'B'], values: [5, 6] }],
+							options: { secondaryValAxis: true, secondaryCatAxis: true },
+						},
+					],
+					{ x: 1, y: 1, w: 8, h: 4 }
+				)
+			})
+			const xml = await chartXml(zip)
+			const lineSer = /<c:lineChart>[\s\S]*?<\/c:ser>/.exec(xml)
+			assert(lineSer, 'expected a line subchart; got: ' + xml)
+			const body = /<c:spPr><a:solidFill><a:srgbClr val="([0-9A-F]{6})"\/>/.exec(lineSer[0])
+			const marker = /<c:marker>[\s\S]*?<a:solidFill><a:srgbClr val="([0-9A-F]{6})"\/>/.exec(lineSer[0])
+			assert(body && marker, 'expected a body fill and a marker fill; got: ' + lineSer[0])
+			assertEqual(marker[1], body[1], 'the dots are the colour of the line')
+		},
+	},
 ])

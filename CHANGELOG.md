@@ -421,6 +421,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo chart's line markers took a different palette entry from the line they sit on.**
+  Two lookups for one series: the line body read the series' position *within its own
+  subchart* and the marker read its position *across all of them*. Those are the same number
+  for a single-type chart and not for a combo — a bar(2) + line(1) combo drew a `C0504D` line
+  with `9BBB59` dots — and a `seriesOptions.color` override moved the body while leaving the
+  dots on the palette. The marker now takes the series colour that was already resolved for
+  the body, so the two cannot disagree. Emitted bytes change for a combo whose line or radar
+  subchart is not the first one.
+
 - **`dataLabelPosition: 'outEnd'` on a clustered bar chart is no longer silently dropped.**
   The two rules deciding which `ST_DLblPos` values a bar accepts ran as sequential `if`s, each
   keyed to the grouping it did *not* apply to, so the outcome was exactly inverted: the list
