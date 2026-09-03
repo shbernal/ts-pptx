@@ -178,3 +178,25 @@ describe('a fully opaque source emits no transparency key', () => {
 		assertEqual(fill.transparency, undefined, 'and fully opaque states nothing')
 	})
 })
+
+describe('an `xsd:boolean` attribute is parsed, not compared to `1`', () => {
+	// `p:cNvSpPr/@txBox` is the sole discriminator between a text box and an auto shape, and
+	// `xsd:boolean` admits `true` as well as `1`. Both producers this repo can author with --
+	// its own write path and PowerPoint -- emit `1`, so every fixture agrees with a bare
+	// `=== '1'` test and none of them can catch it. A foreign deck that spells it `true` was
+	// converted with each of its text boxes turned into an auto shape: different autofit, wrap
+	// and resize rules, no note, and a round trip that compares clean because both sides read
+	// it the same wrong way.
+	test('a text box whose `txBox` is spelled `true`', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addText('boxed', { x: 1, y: 1, w: 3, h: 1, isTextBox: true })
+		})
+		const ir = await irWithSlideXml(buf, (xml) => xml.replaceAll('txBox="1"', 'txBox="true"'))
+		const text = ir.slides[0].calls.find((call) => call.method === 'addText')
+		assertEqual(
+			/** @type {Record<string, unknown>} */ (text.args[1]).isTextBox,
+			true,
+			'the other lexical form of the same boolean means the same thing'
+		)
+	})
+})

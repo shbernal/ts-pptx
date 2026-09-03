@@ -242,6 +242,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A converted text box whose `txBox` is spelled `true` stays a text box.**
+  `p:cNvSpPr/@txBox` is the only thing separating a text box from an auto shape — the
+  substitute test, "it has no preset geometry", is wrong, because PowerPoint gives every text
+  box an explicit `<a:prstGeom prst="rect"/>` — and the script converter read it by comparing
+  the raw attribute to `'1'`. The attribute is `xsd:boolean`, which admits `true` and `false`
+  as well as `1` and `0`, so a deck from a producer that spells it `true` converted with every
+  text box turned into an auto shape: different autofit, wrap and resize rules, and no
+  fidelity note, because nothing observed the loss. Neither this library's write path nor
+  PowerPoint emits anything but `1`, so no fixture could catch it.
+
+  The parser that already handled the other four-form attributes on the read side —
+  `Run.bold`, `Run.italic`, `Shape.hidden`, `flipH`/`flipV`, and a dozen more — has moved
+  from `read/oxml/dom.ts` to `ooxml/xsd-boolean.ts`, beside the namespace registry and the
+  child-sequence tables, for the same reason those live there: the lexical space of a schema
+  type is a fact about the schema, and code outside `read/` should not have to take a DOM
+  dependency to reach it. The DOM-typed `boolAttr` wrapper stays behind, and `boolValue` is
+  re-exported from its old home, so every existing import is unchanged.
+
 - **`dataBorder: { color: '' }` takes the data-point border default rather than black.**
   Three of the four `<a:ln>` builders defaulted their colour on `??`, which only catches
   nullish, so an empty string passed straight through to the colour validator: a

@@ -19,6 +19,7 @@ import {
 export type { Document, Element, Node } from '@xmldom/xmldom'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { boolValue } from '../../ooxml/xsd-boolean.js'
 import { PERCENT_SCALE } from '../../units.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
@@ -277,12 +278,11 @@ export function numberAttr(element: Element, qname: string): number | null {
 	return numberValue(attr(element, qname))
 }
 
-/** Parse an `xsd:boolean` OOXML attribute (`1`/`0`/`true`/`false`); else `null`. */
-export function boolValue(value: string | null): boolean | null {
-	if (value === '1' || value === 'true') return true
-	if (value === '0' || value === 'false') return false
-	return null
-}
+// The parser itself lives in `ooxml/xsd-boolean.ts` for the same reason the namespace registry
+// does: it is a fact about the schema, it has no runtime imports, and code outside `read/` should
+// not have to take a `@xmldom/xmldom` dependency to reach it. Re-exported here so every existing
+// `from '.../oxml/dom.js'` import keeps working.
+export { boolValue } from '../../ooxml/xsd-boolean.js'
 
 /** {@link boolValue} over an attribute read by qname. */
 export function boolAttr(element: Element, qname: string): boolean | null {

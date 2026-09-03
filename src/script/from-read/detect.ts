@@ -19,6 +19,7 @@
  */
 
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { boolValue } from '../../ooxml/xsd-boolean.js'
 
 /** Office MathML namespace — the equation body itself, wrapped by `a14:m` in a text run. */
 const MATH_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
@@ -113,10 +114,15 @@ export function hasEquation(element: unknown): boolean {
  *
  * Direct child rather than a subtree search: `p:cNvSpPr` sits under `p:nvSpPr`, and a group
  * would otherwise answer for its first child.
+ *
+ * Parsed through {@link boolValue} rather than compared to `'1'`: `txBox` is `xsd:boolean`, and
+ * this module's whole job is reading decks this library did not write. PowerPoint and `gen/` both
+ * emit `1`, so a bare comparison is right for every fixture here and wrong for a producer that
+ * spells it `true` — which would convert that deck's text boxes as auto shapes, silently.
  */
 export function isTextBox(element: unknown): boolean {
 	const nvSpPr = child(element as ElementLike | null, OOXML_NS.p, 'nvSpPr')
-	return child(nvSpPr, OOXML_NS.p, 'cNvSpPr')?.getAttribute('txBox') === '1'
+	return boolValue(child(nvSpPr, OOXML_NS.p, 'cNvSpPr')?.getAttribute('txBox')) === true
 }
 
 /**
