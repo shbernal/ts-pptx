@@ -49,6 +49,11 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	// defaults. It reached that arm by way of the text serializer creating an empty bag on the
 	// authored object, which is the kind of write a serializer does not get to make; the empty
 	// bag is spelled here instead.
+	//
+	// `addShape` is who arrives here that way — it builds a `_type === text` object and never
+	// writes `_bodyProp`, where `addTextDefinition` always does. So every shape's `wrap` is
+	// decided by what an *absent* key means, which is why it is stated rather than read off a
+	// truthiness test below.
 	const options = slideObject.options
 	const bodyProp = options?._bodyProp ?? {}
 
@@ -56,8 +61,11 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	// NOTE: attribute ORDER is byte-significant; `rtlCol` sits after the margins and columns but
 	// before the anchor points, which is why this is one ordered literal rather than grouped writes.
 	const attrs: XmlAttrs = {
-		// A: Enable or disable textwrapping none or square
-		wrap: bodyProp.wrap ? 'square' : 'none',
+		// A: Enable or disable textwrapping none or square. Only an explicit `false` turns wrapping
+		// off: `square` is PowerPoint's own default and what `addTextDefinition` writes whenever it
+		// runs, so an object that carries no `wrap` at all is one nobody made a decision about —
+		// and the un-decided case is the default, not the opposite of it.
+		wrap: bodyProp.wrap === false ? 'none' : 'square',
 		// B: Textbox margins [padding] — an explicit zero is meaningful, so test for it separately
 		lIns: bodyProp.lIns || bodyProp.lIns === 0 ? bodyProp.lIns : null,
 		tIns: bodyProp.tIns || bodyProp.tIns === 0 ? bodyProp.tIns : null,

@@ -60,7 +60,6 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strCover = opt.cover || IMG_PLAYBTN
 	const objectName = resolveObjectName(target, SlideObjectType.media, {
 		label: 'Media',
-		base: 0,
 		kind: 'media',
 		supplied: opt.objectName,
 	})

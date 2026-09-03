@@ -44,7 +44,6 @@ function pushZoomObject(
 ): void {
 	const objectName = resolveObjectName(target, SlideObjectType.zoom, {
 		label: ZOOM_LABEL[variant],
-		base: 1,
 		kind: 'zoom',
 		supplied: opts.objectName,
 	})

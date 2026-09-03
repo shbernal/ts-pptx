@@ -115,7 +115,6 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	const camera = resolveCamera(opt.camera, opt.meterPerModelUnit)
 	const objectName = resolveObjectName(target, SlideObjectType.model3d, {
 		label: '3D Model',
-		base: 1,
 		kind: 'model3d',
 		supplied: opt.objectName,
 	})

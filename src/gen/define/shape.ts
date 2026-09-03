@@ -44,10 +44,10 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// defaults and the assigned `objectName` above all — so without the copy a style literal reused
 	// across shapes carries one shape's settings to the next:
 	//
-	//   slide.addShape('rect', STYLE)            // STYLE now holds `objectName: 'Shape 0'`
+	//   slide.addShape('rect', STYLE)            // STYLE now holds `objectName: 'Shape 1'`
 	//   slide.addShape('ellipse', { ...STYLE })  // …spread onto the second, and the third
 	//
-	// which emits three shapes named `Shape 0` and a duplicate-`objectName` warning.
+	// which emits three shapes named `Shape 1` and a duplicate-`objectName` warning.
 	//
 	// Nested caller objects (`fill`, `shadow`) stay shared by reference, as in `addTextDefinition`:
 	// the image fill's rel id is registered through that reference and read back at emit time.
@@ -116,11 +116,10 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	options.y = options.y || (options.y === 0 ? 0 : 1)
 	options.w = options.w || (options.w === 0 ? 0 : 1)
 	options.h = options.h || (options.h === 0 ? 0 : 1)
-	// Shapes are `_type === text` objects, so they share the text-box name bucket (`Shape 0`,
-	// `Text 1`, …) — which is what stops a shape and a text box colliding on `0`.
+	// Shapes are `_type === text` objects, so they share the text-box name bucket (`Shape 1`,
+	// `Text 2`, …) — which is what stops a shape and a text box colliding on one index.
 	options.objectName = resolveObjectName(target, SlideObjectType.text, {
 		label: 'Shape',
-		base: 0,
 		kind: 'shape',
 		supplied: options.objectName,
 	})

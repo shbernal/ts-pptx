@@ -317,7 +317,6 @@ export function addTableDefinition(
 	// because a splice into a group makes the count go backwards.
 	opt.objectName = resolveObjectName(target, SlideObjectType.table, {
 		label: 'Table',
-		base: 0,
 		kind: 'table',
 		supplied: opt.objectName,
 	})

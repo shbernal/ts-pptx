@@ -129,7 +129,6 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	const format = OLE_FORMATS[extn] ?? BIN_FORMAT
 	const objectName = resolveObjectName(target, SlideObjectType.oleObject, {
 		label: 'Object',
-		base: 1,
 		kind: 'oleObject',
 		supplied: opt.objectName,
 	})

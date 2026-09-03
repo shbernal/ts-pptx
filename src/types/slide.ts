@@ -16,6 +16,7 @@ import type { ShapeProps } from './shape.js'
 import type { ConnectorProps } from './style.js'
 import type { TableCellProps, TableProps, TableRow } from './table.js'
 import type { CommentProps, NotesProps, TextProps, TextPropsOptions } from './text.js'
+import type { SectionZoomProps, SlideZoomProps, SummaryZoomProps } from './zoom.js'
 
 /**
  * A child object that can be placed inside a group via `slide.addGroup()`.
@@ -164,6 +165,21 @@ export interface Slide {
 	addGroup: (children: GroupChildProps[], options?: GroupProps) => Slide
 	/** Group objects already on this slide, addressed by their `objectName`, into a single group. */
 	groupObjects: (objectNames: string[], options?: GroupProps) => Slide
+	/**
+	 * Add a Slide Zoom — a clickable tile that zooms to a single target slide (Insert ▸ Zoom).
+	 * @example slide.addSlideZoom({ target: intro, x: 1, y: 1, w: 3, h: 1.7 })
+	 */
+	addSlideZoom: (options: SlideZoomProps) => Slide
+	/**
+	 * Add a Section Zoom — a clickable tile that zooms to the start of a named section.
+	 * @example slide.addSectionZoom({ sectionTitle: 'Results', x: 1, y: 1, w: 3, h: 1.7 })
+	 */
+	addSectionZoom: (options: SectionZoomProps) => Slide
+	/**
+	 * Add a Summary Zoom — a grid of tiles, one per section (excluding this slide's own section).
+	 * @example slide.addSummaryZoom({ x: 0.5, y: 1.5, w: 11, h: 4.5 })
+	 */
+	addSummaryZoom: (options: SummaryZoomProps) => Slide
 
 	/**
 	 * The objects authored on this slide so far, bottom-to-top in z-order — the read-back half of

@@ -95,6 +95,26 @@ defineRegressionSuite('Shared chart fragments', [
 		},
 	},
 	{
+		// An empty `color` is not a stated colour. Three of the four `<a:ln>` builders defaulted
+		// theirs on `??`, which only catches nullish, so `''` reached the colour validator: a
+		// `color/invalid-value` diagnostic and a black outline, one line after `363636` was named
+		// as the default for exactly this case. `dataBorder` is the reachable one of the three —
+		// the chart-area, plot-area and table-cell borders resolve their colour in the definition
+		// step before the emitter sees it.
+		name: 'an empty dataBorder color takes the data-point default, not the font default',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(() =>
+				chartFor(ChartType.bubble, BUBBLE, { dataBorder: { color: '', width: 2 } })
+			)
+			assert(
+				!codes.includes('color/invalid-value'),
+				'an empty color should not reach the colour validator; got: ' + JSON.stringify(codes)
+			)
+			assertIncludes(serShapeProps(xml), '<a:srgbClr val="363636"/>', 'the data-point border default')
+			assertNotIncludes(serShapeProps(xml), '<a:srgbClr val="000000"/>', 'not the font default')
+		},
+	},
+	{
 		name: 'every numeric-reference block emits the same shape, scatter and bubble alike',
 		fn: async () => {
 			// This case used to pin four different indentations, one of which was bubble's y-block

@@ -64,6 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Thanks to [@flyisland](https://github.com/flyisland) ([#28](https://github.com/shbernal/ts-pptx/issues/28), [#29](https://github.com/shbernal/ts-pptx/pull/29)).
 
+- **`Slide` declares `addSlideZoom`, `addSectionZoom` and `addSummaryZoom`.** `SlideBuilder`
+  has implemented all three since zooms shipped, `ZoomBaseProps` and its three option types
+  are exported, and the doc comments describe them — but the published `Slide` interface did
+  not list them, so a TypeScript consumer calling `slide.addSlideZoom(...)` got
+  `Property 'addSlideZoom' does not exist on type 'Slide'` and had to cast. Purely additive:
+  the runtime is unchanged, and the gate deck that carried an `any` cast for exactly this
+  no longer needs one.
+
 ### Changed
 
 - **`PresLayout.width` and `.height` say which unit they are in, because it depends on the
@@ -172,6 +180,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   No published census figure moves — no corpus deck crops a *fill*, as opposed to a picture
   — so this shows up as a note that no longer fires where a deck of your own uses one.
 
+- **Default `objectName` indices are 1-based for every kind, and `addChart` now takes its
+  index from the shared counter.** Six definers numbered their default Selection Pane name
+  from 0 (`Shape 0`, `Text 0`, `Image 0`, `Connector 0`, `Media 0`, `Table 0`) and four from
+  1 (`Group 1`, `Object 1`, `3D Model 1`, and the zoom tiles), while `addChart` did neither:
+  it derived `Chart 0` by counting the chart objects *currently* on the slide, which is the
+  numbering the per-slide counter exists to replace — group children are spliced out of that
+  list, so a count taken from it can hand a later object a name already in use.
+
+  All eleven are 1-based now, which is the base PowerPoint itself uses: it names an inserted
+  rectangle `Rectangle 1`, and nothing it authors is ever suffixed `0`. `resolveObjectName`
+  has no `base` parameter left to pass, so a definer added later cannot pick the other
+  convention by accident.
+
+  **Migration:** this renames defaulted objects only. Anything authored with an explicit
+  `objectName` is untouched, as are master and layout placeholders, which default to their
+  declared name. A consumer that matched on a generated name — `'Shape 0'`, `'Chart 0'` —
+  should add 1, or better, set `objectName` explicitly: `docs/reference/object-identity.md`
+  has always said generated names are not a stable identity.
+
 ### Removed
 
 - **`PresLayout._sizeW` / `._sizeH` are gone.** Every writer set them equal to `width` /
@@ -214,6 +241,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **`dataBorder: { color: '' }` takes the data-point border default rather than black.**
+  Three of the four `<a:ln>` builders defaulted their colour on `??`, which only catches
+  nullish, so an empty string passed straight through to the colour validator: a
+  `color/invalid-value` diagnostic and a `000000` outline, one line after `363636` was named
+  as the default for exactly this. `dataBorder` is the reachable one — the chart-area,
+  plot-area and table-cell borders all resolve their colour in the definition step before
+  the emitter sees it — and the chart-area *builder* already read an empty colour as
+  unstated. All four builders share one implementation now, so they can no longer disagree
+  about it.
+
+- **Text inside a shape wraps.** `addShape` builds its slide object without a `_bodyProp`
+  bag, where `addTextDefinition` always writes one — and the body-property builder read that
+  absent bag's missing `wrap` as `false` through a truthiness test, so every autoshape got
+  `<a:bodyPr wrap="none">` and its text ran off the shape on a single line. `square` is both
+  the `ST_TextWrappingType` the schema defaults to and what PowerPoint's own "Wrap text in
+  shape" writes, so the un-decided case is now the default rather than its opposite: only an
+  explicit `wrap: false` still turns wrapping off, and `addText`, which always states `wrap`,
+  is unaffected.
+
+  Master and layout placeholders built from a `defineSlideMaster` descriptor reached the
+  emitter the same way and are corrected with it.
 
 - **No slide size was bounded, and `defineLayout` warned about everything and refused
   nothing.** `p:sldSz/@cx` and `@cy` are `ST_SlideSizeCoordinate`, 914400 to 51206400 EMU —

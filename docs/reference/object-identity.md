@@ -26,7 +26,11 @@ The explicit `objectName` contract applies to:
 - slide master placeholders.
 
 When `objectName` is omitted, ts-pptx emits an internal default such as
-`Text 0`, `Shape 0`, `Image 0`, `Chart 0`, `Table 0`, or `Media 0`. Slide master
+`Text 1`, `Shape 1`, `Image 1`, `Chart 1`, `Table 1`, or `Media 1`. The index is
+1-based for every kind, which is the base PowerPoint itself uses, and it counts
+per kind per slide in the order the objects were added (including objects that
+were given an explicit name, so an object's index is its ordinal among its kind
+rather than a count of the defaulted ones). Slide master
 and layout placeholders instead default to their declared `name` (falling back to
 their placeholder `type`, then their index) so that multiple placeholders keep
 distinct Selection Pane identities. Consumers that need stable semantic identity

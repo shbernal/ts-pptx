@@ -150,7 +150,7 @@ defineRegressionSuite('Group shapes', [
 		fn: async () => {
 			// Group children are spliced out of the slide's object list, so a name counter derived
 			// from that list never advanced past them and the later top-level shape reused the
-			// grouped child's `Shape 0` in the Selection Pane.
+			// grouped child's `Shape 1` in the Selection Pane.
 			const warnings = []
 			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
@@ -172,8 +172,8 @@ defineRegressionSuite('Group shapes', [
 				!warnings.some((w) => /duplicate objectName/.test(w)),
 				'expected no duplicate-objectName warning; got: ' + JSON.stringify(warnings)
 			)
-			// grouped child takes `Shape 0`, so the later top-level shape must take `Shape 1`
-			assert(names.includes('Shape 0') && names.includes('Shape 1'), 'expected Shape 0 + Shape 1; got: ' + names)
+			// grouped child takes `Shape 1`, so the later top-level shape must take `Shape 2`
+			assert(names.includes('Shape 1') && names.includes('Shape 2'), 'expected Shape 1 + Shape 2; got: ' + names)
 		},
 	},
 	{

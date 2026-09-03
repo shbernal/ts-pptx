@@ -248,7 +248,6 @@ export function addTextDefinition(
 		: undefined
 	newObject.options.objectName = resolveObjectName(target, newObject._type, {
 		label: 'Text',
-		base: 0,
 		kind: 'text',
 		supplied: newObject.options.objectName,
 		...(placeholderName === undefined ? {} : { fallback: placeholderName }),

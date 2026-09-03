@@ -30,10 +30,10 @@ import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '.
 import { warn } from '../../diagnostics.js'
 import { alphaEl, createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { genXmlColorSelection, genXmlPatternFill, solidPaint } from '../drawingml/fill.js'
+import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
-import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
-import { convertAngleUnits, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { borderLine, createLineCap, noStrokeLine } from '../drawingml/line.js'
+import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH, ptToHundredths } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
@@ -779,11 +779,11 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  * The `<a:ln>` a chart-level `dataBorder` paints around every data point — the bubble, the
  * pie slice, the bar.
  *
- * A near-sibling of {@link createChartBorderLine} rather than the same thing, and the four
- * differences are all deliberate: a data-point outline defaults to 0.75pt against a chart
- * border's 1pt, to `363636` against `666666`, is always solid because `dataBorder` has no
- * dash spelling of its own, and has no `type: 'none'` arm because the caller decides whether
- * to emit it at all. Three plot builders carried a byte-identical copy of it.
+ * A near-sibling of {@link createChartBorderLine} rather than the same thing, and the three
+ * remaining differences are all deliberate: a data-point outline defaults to 0.75pt against a
+ * chart border's 1pt, to `363636` against `666666`, and is always solid because `dataBorder`
+ * has no dash spelling of its own. It also has no `type: 'none'` arm, because the caller
+ * decides whether to emit it at all. Three plot builders carried a byte-identical copy of it.
  *
  * `cap` is the one thing that genuinely varies: the bubble and pie paths pin `flat`, the
  * category-axis path resolves the chart's own `lineCap`.
@@ -791,25 +791,33 @@ export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInte
  * @param cap - the `cap` attribute value, already resolved
  */
 export function createDataBorderLine(dataBorder: BorderProps, cap: string): string {
-	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(dataBorder, 0.75)), cap }, [
-		raw(genXmlColorSelection(solidPaint(dataBorder.color ?? '363636', dataBorder.transparency))),
-		raw(voidEl('a:prstDash', { val: 'solid' })),
-		raw(voidEl('a:round')),
-	])
+	return borderLine('a:ln', dataBorder, {
+		defaultWidth: 0.75,
+		defaultColor: '363636',
+		cap,
+		dash: 'solid',
+		tail: [voidEl('a:round')],
+	})
 }
 
 /**
  * The `<a:ln>` a chart-area or plot-area `border` paints, or an explicit `<a:noFill>` when the
  * caller asked for none. See {@link createDataBorderLine} for why the two are separate.
+ *
+ * `type: 'dash'` here means the `dash` preset, not the `sysDash` a table border's `type`
+ * resolves to — a chart border has no `dashType` of its own to name a preset with, so the
+ * three-way switch is the whole vocabulary and it picks the plain one.
  * @param border - the chart's `border` (`type`, `color`, `width`, `transparency`)
  */
 export function createChartBorderLine(border: BorderProps): string {
-	if (border.type === 'none') return el('a:ln', null, raw(voidEl('a:noFill')))
-	return el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' }, [
-		raw(genXmlColorSelection(solidPaint(border.color || '666666', border.transparency))),
-		raw(voidEl('a:prstDash', { val: border.type === 'dash' ? 'dash' : 'solid' })),
-		raw(voidEl('a:round')),
-	])
+	if (border.type === 'none') return noStrokeLine()
+	return borderLine('a:ln', border, {
+		defaultWidth: 1,
+		defaultColor: '666666',
+		cap: 'flat',
+		dash: border.type === 'dash' ? 'dash' : 'solid',
+		tail: [voidEl('a:round')],
+	})
 }
 
 /**
@@ -857,7 +865,7 @@ export function makeSeriesDataPointsXml(
 		let shape = ''
 		if ((isBar || isScatter) && opts.lineSize === 0 && !border && !ptStyle?.fill && !pattern) {
 			// Preserve legacy color-vary behavior: hide outline when lineSize===0
-			shape = el('a:ln', null, raw(voidEl('a:noFill')))
+			shape = noStrokeLine()
 		} else {
 			// Pattern fill takes precedence over a solid fill (OOXML allows only one fill per c:dPt).
 			// Default the pattern foreground to this point's resolved color so it reads as a hatched bar.

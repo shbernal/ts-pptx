@@ -19,7 +19,7 @@ import {
 //   s.addShape('rect', STYLE); s.addShape('ellipse', { ...STYLE })
 //
 // spread the FIRST shape's name onto the second and every one after it -- three shapes called
-// `Shape 0`, colliding in the Selection Pane. `addTable` did the same, and worse: STEP 5 hands the
+// `Shape 1`, colliding in the Selection Pane. `addTable` did the same, and worse: STEP 5 hands the
 // options object to every plain string cell as that cell's options, so the cell emitters wrote onto
 // the caller's literal too.
 //
@@ -55,7 +55,7 @@ const PNG_DATA =
 defineRegressionSuite('Caller-owned options', [
 	{
 		// The reported failure, verbatim: three shapes built from one spread literal came out named
-		// `['', 'Shape 0', 'Shape 0', 'Shape 0']` with a duplicate-name warning, because the first
+		// `['', 'Shape 1', 'Shape 1', 'Shape 1']` with a duplicate-name warning, because the first
 		// call wrote its assigned name onto `STYLE` and each `{ ...STYLE }` carried it forward.
 		name: 'a reused options literal is left untouched and does not leak between shapes',
 		fn: async () => {
@@ -68,9 +68,9 @@ defineRegressionSuite('Caller-owned options', [
 			})
 			const shapes = await shapesOn(zip)
 			assertEqual(shapes.length, 3, 'expected all three shapes')
-			assertNonVisualDrawingProperty(shapes[0], { name: 'Shape 0' }, 'the first shape')
-			assertNonVisualDrawingProperty(shapes[1], { name: 'Shape 1' }, 'the second shape')
-			assertNonVisualDrawingProperty(shapes[2], { name: 'Shape 2' }, 'the third shape')
+			assertNonVisualDrawingProperty(shapes[0], { name: 'Shape 1' }, 'the first shape')
+			assertNonVisualDrawingProperty(shapes[1], { name: 'Shape 2' }, 'the second shape')
+			assertNonVisualDrawingProperty(shapes[2], { name: 'Shape 3' }, 'the third shape')
 			assertEqual(warnings.length, 0, `expected no diagnostics; got ${JSON.stringify(warnings)}`)
 			assertEqual(
 				JSON.stringify(STYLE),
@@ -118,7 +118,7 @@ defineRegressionSuite('Caller-owned options', [
 	{
 		// `addTable` normalized nine keys onto the caller's literal (`objectName`, `fontSize`,
 		// `margin`, `color`, and the five `autoPage*` ones). The `objectName` leak is the visible
-		// one -- two tables named `Table 0` -- but `autoPage` is the dangerous one: the auto-pager
+		// one -- two tables named `Table 1` -- but `autoPage` is the dangerous one: the auto-pager
 		// sets `opt.autoPage = false` once it has shredded the rows, so a literal reused for a
 		// second table silently lost its paging.
 		name: 'a reused options literal is left untouched and does not leak between tables',
@@ -132,8 +132,8 @@ defineRegressionSuite('Caller-owned options', [
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			const frames = xml.match(/<p:graphicFrame>[\s\S]*?<\/p:graphicFrame>/g) || []
 			assertEqual(frames.length, 2, 'expected both tables')
-			assertNonVisualDrawingProperty(frames[0], { name: 'Table 0' }, 'the first table')
-			assertNonVisualDrawingProperty(frames[1], { name: 'Table 1' }, 'the second table')
+			assertNonVisualDrawingProperty(frames[0], { name: 'Table 1' }, 'the first table')
+			assertNonVisualDrawingProperty(frames[1], { name: 'Table 2' }, 'the second table')
 			assertEqual(warnings.length, 0, `expected no diagnostics; got ${JSON.stringify(warnings)}`)
 			assertEqual(
 				JSON.stringify(STYLE),

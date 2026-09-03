@@ -10,8 +10,8 @@ import type { PresSlideInternal } from '../../types/internal.js'
 import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 
 /**
- * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,
- * `Group 1`, …).
+ * Take the next slide-wide index for `type`'s default Selection Pane name — 0-based here, and
+ * offset to the 1-based name by {@link resolveObjectName}.
  *
  * Default names used to be derived by counting the matching objects already in
  * `target._slideObjects`. `buildGroupObject` splices group children back out of that array, so the
@@ -21,7 +21,7 @@ import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
  * slide all the way down.
  *
  * Shapes and text boxes deliberately share the `text` bucket (both are `_type === text`), which is
- * what keeps `Shape 0` and `Text 0` from colliding on one slide. Callers take an index
+ * what keeps `Shape 1` and `Text 1` from colliding on one slide. Callers take an index
  * unconditionally, including when the caller supplied an explicit `objectName`, so an object's
  * index is its ordinal among its kind rather than a count of the defaulted ones.
  * @param target - slide (or master) the object is being added to
@@ -37,44 +37,35 @@ export function nextObjectNameIdx(target: PresSlideInternal, type: SlideObjectTy
 
 /**
  * The Selection Pane name an object takes: the caller's, validated and attribute-encoded, or the
- * next default for its kind.
+ * next default for its kind — `Shape 1`, `Image 1`, `Group 1`, `Slide Zoom 1`, …
  *
- * Ten definers wrote this out, and the index base they append is not the same in all of them:
+ * Eleven definers wrote this out, and the index base they appended used to disagree: six counted
+ * from 0 (`Shape 0`, `Text 0`, `Image 0`, `Connector 0`, `Media 0`, `Table 0`), four from 1
+ * (`Group 1`, `Object 1`, `3D Model 1`, and the zoom tiles), and `addChart` neither — it derived
+ * `Chart 0` by counting the chart objects already on the slide, which is the numbering this
+ * counter exists to replace ({@link nextObjectNameIdx}).
  *
- * | Definer | Default | Base |
- * | --- | --- | --- |
- * | `addShape` | `Shape N` | 0 |
- * | `addText` | `Text N` | 0 |
- * | `addImage` | `Image N` | 0 |
- * | `addConnector` | `Connector N` | 0 |
- * | `addMedia` | `Media N` | 0 |
- * | `addTable` | `Table N` | 0 |
- * | `addGroup` | `Group N` | 1 |
- * | `addOleObject` | `Object N` | 1 |
- * | `addModel3d` | `3D Model N` | 1 |
- * | Zoom tiles | `Slide Zoom N`, … | 1 |
- *
- * `addGroup` documents 1-based as the one matching PowerPoint. Unifying them would rename every
- * defaulted object in half the definers, so the split stays as it is and is stated here rather
- * than being spread across ten files where nobody can see it at once.
+ * They are all 1-based now, which is the base PowerPoint itself uses: it names an inserted
+ * rectangle `Rectangle 1`, and nothing it authors is ever suffixed `0`. There is no base
+ * parameter left to pass, so a new definer cannot pick the other convention by accident.
  *
  * The index is taken unconditionally — including when the caller supplied a name — so an object's
  * index is its ordinal among its kind. See {@link nextObjectNameIdx}.
  *
  * @param target - slide (or master) the object is being added to
  * @param type - the object's `_type`, which selects the counter bucket
- * @param spec - `label` opens the default name, `base` is the first index it uses, `kind` names
- *   the API in a validation warning, and `supplied` is the caller's own name when they gave one.
- *   `fallback` replaces the `label N` default for a kind that has a better one to offer — a
- *   placeholder is named after the placeholder it fills — and is used as given, since it is the
- *   library's own string rather than the caller's and has nothing to validate.
+ * @param spec - `label` opens the default name, `kind` names the API in a validation warning, and
+ *   `supplied` is the caller's own name when they gave one. `fallback` replaces the `label N`
+ *   default for a kind that has a better one to offer — a placeholder is named after the
+ *   placeholder it fills — and is used as given, since it is the library's own string rather than
+ *   the caller's and has nothing to validate.
  */
 export function resolveObjectName(
 	target: PresSlideInternal,
 	type: SlideObjectType,
-	spec: { label: string; base: 0 | 1; kind: string; supplied: string | undefined; fallback?: string }
+	spec: { label: string; kind: string; supplied: string | undefined; fallback?: string }
 ): string {
 	const idx = nextObjectNameIdx(target, type)
 	if (spec.supplied) return encodeXmlAttrValue(validateObjectName(spec.supplied, spec.kind))
-	return spec.fallback ?? `${spec.label} ${idx + spec.base}`
+	return spec.fallback ?? `${spec.label} ${idx + 1}`
 }

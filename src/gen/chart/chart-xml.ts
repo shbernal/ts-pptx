@@ -34,9 +34,8 @@ import type {
 } from '../../types/internal.js'
 import type { BorderProps, ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
-import { genXmlColorSelection, solidPaint } from '../drawingml/fill.js'
-import { resolveBorderWidth } from '../drawingml/line.js'
-import { lineWidthToEmu } from '../../units-internal.js'
+import { genXmlColorSelection } from '../drawingml/fill.js'
+import { borderLine, noStrokeLine } from '../drawingml/line.js'
 import { ptToHundredths } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
@@ -334,18 +333,25 @@ function makeChartAxesXml(rel: SlideRelChart, plan: ComboAxisPlan): string {
 /**
  * The `<c:spPr>` shared by the plot area and the chart space: a stated fill or none, a border
  * or an explicit no-line, and an empty effect list.
+ *
+ * The lightest of the four `BorderProps` strokes: paint only, with neither the `a:prstDash`
+ * nor the `a:round` its siblings write. It also branches on the border being *absent* rather
+ * than on `type: 'none'` — the caller here has an optional border where
+ * `createChartBorderLine` (`gen/chart/chart-parts.ts`) has a resolved one.
  */
 function chartShapeProps(fill: ShapeFillProps | undefined, border: BorderProps | undefined): string {
 	return el('c:spPr', null, [
 		raw(isStatedFill(fill) ? genXmlColorSelection(fill) : voidEl('a:noFill')),
 		raw(
 			border
-				? el(
-						'a:ln',
-						{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap: 'flat' },
-						raw(genXmlColorSelection(solidPaint(border.color ?? '363636', border.transparency)))
-					)
-				: el('a:ln', null, raw(voidEl('a:noFill')))
+				? borderLine('a:ln', border, {
+						defaultWidth: 1,
+						defaultColor: '363636',
+						cap: 'flat',
+						dash: null,
+						tail: [],
+					})
+				: noStrokeLine()
 		),
 		raw(voidEl('a:effectLst', null)),
 	])

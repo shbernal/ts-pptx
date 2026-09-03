@@ -28,7 +28,8 @@ import type {
 	PresSlideInternal,
 	SlideObject,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
+import { getNewRelId } from '../utils.js'
+import { resolveObjectName } from './object-name.js'
 import { setOrClear } from '../../options-internal.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
@@ -550,9 +551,14 @@ export function addChartDefinition(
 	options.y = options.y ?? 1
 	options.w = options.w || '50%'
 	options.h = options.h || '50%'
-	options.objectName = options.objectName
-		? encodeXmlAttrValue(validateObjectName(options.objectName, 'chart'))
-		: `Chart ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.chart).length}`
+	// Was the one definer still counting `_slideObjects` for its default name, which numbers a
+	// chart by how many charts are *currently* on the slide rather than by how many have been
+	// added — the difference `nextObjectNameIdx` exists for.
+	options.objectName = resolveObjectName(target, SlideObjectType.chart, {
+		label: 'Chart',
+		kind: 'chart',
+		supplied: options.objectName,
+	})
 
 	// B: Options: misc
 	if (!['bar', 'col'].includes(options.barDir || '')) options.barDir = 'col'

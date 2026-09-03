@@ -4,14 +4,20 @@
  * Resolve the pieces of an `<a:ln>` stroke: its width, its `cap` attribute, and
  * its paint child. The paint reuses the shape fill group (`fill.ts`), because
  * DrawingML allows the same fills inside `<a:ln>` as inside a shape.
+ *
+ * It also assembles the whole element for the one stroke shape that recurs: the
+ * `CT_LineProperties` a `BorderProps` paints, on a chart data point, a chart or plot
+ * area, and each of a table cell's six edges ({@link borderLine}).
  */
 
 import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
-import { fillNamesPaint, genXmlColorSelection, resolveLineKind } from './fill.js'
+import { fillNamesPaint, genXmlColorSelection, resolveLineKind, solidPaint } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
+import { lineWidthToEmu } from '../../units-internal.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /**
  * Every key `BorderProps` defines.
@@ -134,4 +140,74 @@ export function genXmlLineFill(line: ShapeLineProps): string {
 	// reaching the emitter directly.
 	resolveLineKind(line)
 	return genXmlColorSelection(line)
+}
+
+/**
+ * The `<a:ln>`-shaped stroke a {@link BorderProps} paints, in the one place every border
+ * emitter now derives it.
+ *
+ * Four builders used to turn a `BorderProps` into a line element, each with its own
+ * defaults, and the differences between them were only visible by reading all four: a
+ * chart data point's outline, a chart-area or plot-area border, the `<c:spPr>` line the
+ * plot and chart space share, and a table cell's six edges. They agree on the shape —
+ * `w` and `cap` on the element, a solid paint from `color`/`transparency`, then an
+ * optional dash and whatever the schema allows after it — and disagree only on what fills
+ * those slots. Those are this function's parameters, so each caller is now a named
+ * argument set rather than a re-derivation.
+ *
+ * Two things are deliberately *not* parameters. A stroke that paints nothing is spelled
+ * differently by each caller (a bare `<a:ln><a:noFill/></a:ln>` for a chart, an
+ * attribute-carrying `w="0"` rule for a table cell, and nothing at all for a data point,
+ * whose caller decides whether to emit it) — see {@link noStrokeLine} for the shared
+ * spelling of the first. And the colour default is taken on `||`, not `??`, so an empty
+ * `color` reads as *unstated* rather than reaching the colour validator as a bad value:
+ * three of the four callers used to hand `''` straight through, which warns
+ * `color/invalid-value` and paints `DEF_FONT_COLOR` — black — instead of the border
+ * default they had named a line earlier. The chart-border builder already read it this way,
+ * and `dataBorder` is the only one of the other three a caller can actually reach with an
+ * empty string; the rest resolve their colour in the definition step first.
+ *
+ * @param name - the element's qualified name (`a:ln`, or `a:lnL`/`a:lnTlToBr`/… for a table cell)
+ * @param border - the caller's border properties
+ * @param spec - `defaultWidth`/`defaultColor` are used when the border states neither;
+ *   `cap` is the `cap` attribute value, already resolved; `extraAttrs` follows it in
+ *   document order; `dash` is the `a:prstDash/@val` to write, or `null` to omit the
+ *   element; `tail` is the already-built children that follow the dash (`a:round`, and a
+ *   table cell's head/tail ends), in schema order.
+ * @returns the border element XML
+ */
+export function borderLine(
+	name: string,
+	border: BorderProps,
+	spec: {
+		defaultWidth: number
+		defaultColor: string
+		cap: string
+		extraAttrs?: XmlAttrs
+		dash: string | null
+		tail: readonly string[]
+	}
+): string {
+	return el(
+		name,
+		{ w: lineWidthToEmu(resolveBorderWidth(border, spec.defaultWidth)), cap: spec.cap, ...spec.extraAttrs },
+		[
+			genXmlColorSelection(solidPaint(border.color || spec.defaultColor, border.transparency)),
+			...(spec.dash === null ? [] : [voidEl('a:prstDash', { val: spec.dash })]),
+			...spec.tail,
+		].map(raw)
+	)
+}
+
+/**
+ * The `<a:ln>` that paints no stroke at all: an explicit `<a:noFill/>` on a bare element.
+ *
+ * This is the chart side's spelling of "no line" and is a different statement from a
+ * {@link borderLine} whose paint is absent — an omitted `a:ln` inherits the theme's
+ * `a:lnRef`, where this overrides it. A table cell spells the same intent with the
+ * attributes still on the element and `w="0"`, which is why that one is not this.
+ * @returns the `<a:ln><a:noFill/></a:ln>` element XML
+ */
+export function noStrokeLine(): string {
+	return el('a:ln', null, raw(voidEl('a:noFill')))
 }

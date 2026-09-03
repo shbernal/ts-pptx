@@ -117,7 +117,6 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')
 	const objectName = resolveObjectName(target, SlideObjectType.connector, {
 		label: 'Connector',
-		base: 0,
 		kind: 'connector',
 		supplied: opts.objectName,
 	})

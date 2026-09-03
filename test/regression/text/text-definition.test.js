@@ -100,7 +100,7 @@ defineRegressionSuite('Text definition', [
 				p.addSlide().addText([], { x: 1, y: 1, w: 4, h: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			assertNonVisualDrawingProperty(xml, { name: 'Text 0' }, 'the empty text box')
+			assertNonVisualDrawingProperty(xml, { name: 'Text 1' }, 'the empty text box')
 			const runs = xml.match(/<a:t>[\s\S]*?<\/a:t>/g) || []
 			assertEqual(runs.length, 1, `expected exactly one run; got ${JSON.stringify(runs)}`)
 			assertEqual(runs[0], '<a:t></a:t>', 'the run is empty')
@@ -159,9 +159,9 @@ defineRegressionSuite('Text definition', [
 			assertNotIncludes(shapes[0], 'numCol', 'the box added before the two-column one')
 			assertIncludes(shapes[1], 'numCol="2"', 'the box that actually asked for two columns')
 			assertNotIncludes(shapes[2], 'numCol', 'the box added after the two-column one')
-			assertNonVisualDrawingProperty(shapes[0], { name: 'Text 0' }, 'the first box')
-			assertNonVisualDrawingProperty(shapes[1], { name: 'Text 1' }, 'the second box')
-			assertNonVisualDrawingProperty(shapes[2], { name: 'Text 2' }, 'the third box')
+			assertNonVisualDrawingProperty(shapes[0], { name: 'Text 1' }, 'the first box')
+			assertNonVisualDrawingProperty(shapes[1], { name: 'Text 2' }, 'the second box')
+			assertNonVisualDrawingProperty(shapes[2], { name: 'Text 3' }, 'the third box')
 			assertEqual(warnings.length, 0, `expected no diagnostics; got ${JSON.stringify(warnings)}`)
 			assertEqual(
 				JSON.stringify(STYLE),

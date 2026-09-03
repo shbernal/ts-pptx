@@ -325,7 +325,7 @@ defineRegressionSuite('Object identity [legacy bug-21]', [
 		// fork-placeholder-objectname-collision: a master/layout placeholder without an explicit
 		// objectName defaults to its declared name (then type, then idx) rather than the plain
 		// text-box counter, which counts only `_type === text` objects and so would tag every
-		// placeholder with a duplicate `Text 0`. Two named placeholders must get distinct
+		// placeholder with a duplicate `Text 1`. Two named placeholders must get distinct
 		// Selection Pane identities and must not fire the duplicate-objectName warning.
 		name: 'master placeholders default to distinct names (no duplicate objectName)',
 		fn: async () => {
@@ -372,6 +372,33 @@ defineRegressionSuite('Object identity [legacy bug-21]', [
 			} finally {
 				warnSpy.mockRestore()
 			}
+		},
+	},
+	{
+		// The index base used to differ per definer: six kinds counted from 0 and four from 1,
+		// and `addChart` did neither — it derived `Chart 0` by counting the chart objects already
+		// on the slide. They are all 1-based now, which is the base PowerPoint itself uses, so a
+		// definer added later cannot pick the other convention by accident.
+		name: 'every kind numbers its default objectName from 1',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addText('t', { x: 0.4, y: 0.3, w: 2, h: 0.4 })
+				slide.addShape(ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4 })
+				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 1.7, y: 0.9, w: 0.4, h: 0.4 })
+				slide.addConnector({ type: 'straight', x1: 3, y1: 1, x2: 4, y2: 1 })
+				slide.addTable([['a']], { x: 0.4, y: 1.5, w: 2 })
+				slide.addChart([{ name: 's', labels: ['a'], values: [1] }], { type: ChartType.bar, x: 3, y: 2, w: 3, h: 2 })
+				slide.addGroup([{ rect: { x: 6, y: 1, w: 1, h: 1 } }])
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const names = xmlOpeningTags(xml, 'p:cNvPr').map((tag) => xmlAttributes(tag).name)
+			// `addShape` and `addText` share the `text` bucket, so the shape is `Shape 2`; the
+			// group's own child took `Shape 3` before the group itself was named.
+			for (const expected of ['Text 1', 'Shape 2', 'Image 1', 'Connector 1', 'Table 1', 'Chart 1', 'Group 1']) {
+				assert(names.includes(expected), `expected a default name ${expected}; got: ${names.join(', ')}`)
+			}
+			assert(!names.some((n) => n.endsWith(' 0')), `expected no 0-suffixed default name; got: ${names.join(', ')}`)
 		},
 	},
 ])

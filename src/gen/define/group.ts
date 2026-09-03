@@ -126,10 +126,9 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
  */
 function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[], opts: GroupProps): SlideObject {
 	// Per slide rather than per process: a module-global counter made two identical presentations
-	// built in one process disagree on their group names. `Group N` is 1-based, matching PowerPoint.
+	// built in one process disagree on their group names.
 	const objectName = resolveObjectName(target, SlideObjectType.group, {
 		label: 'Group',
-		base: 1,
 		kind: 'group',
 		supplied: opts.objectName,
 	})

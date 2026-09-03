@@ -7,9 +7,7 @@
  */
 
 import type { BorderProps, TableCellDiagonals } from '../../types/index.js'
-import { genXmlColorSelection, solidPaint } from './fill.js'
-import { createLineCap, resolveBorderDash, resolveBorderWidth } from './line.js'
-import { lineWidthToEmu } from '../../units-internal.js'
+import { borderLine, createLineCap, resolveBorderDash } from './line.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /**
@@ -21,18 +19,25 @@ import { el, raw, voidEl } from '../oxml/el.js'
  */
 function genBorderLine(name: string, border: BorderProps): string {
 	const cap = createLineCap(border.cap)
+	// A cell's *no border* keeps the attributes and zeroes the width, where the chart side
+	// drops them (`noStrokeLine` in `gen/drawingml/line.ts`): this is the direct formatting that
+	// overrides whatever the table style would have drawn on that edge, and an attribute-less
+	// rule does not.
 	if (border.type === 'none') return el(`a:${name}`, { w: 0, cap, cmpd: 'sng', algn: 'ctr' }, raw(voidEl('a:noFill')))
-	return el(
-		`a:${name}`,
-		{ w: lineWidthToEmu(resolveBorderWidth(border, 1)), cap, cmpd: 'sng', algn: 'ctr' },
-		[
-			genXmlColorSelection(solidPaint(border.color ?? '363636', border.transparency)),
-			voidEl('a:prstDash', { val: resolveBorderDash(border) }),
+	return borderLine(`a:${name}`, border, {
+		defaultWidth: 1,
+		defaultColor: '363636',
+		cap,
+		extraAttrs: { cmpd: 'sng', algn: 'ctr' },
+		// The only one of the four to honour `dashType`: a table border is the only place the
+		// full `ST_PresetLineDashVal` range is authorable.
+		dash: resolveBorderDash(border),
+		tail: [
 			voidEl('a:round'),
 			voidEl('a:headEnd', { type: 'none', w: 'med', len: 'med' }),
 			voidEl('a:tailEnd', { type: 'none', w: 'med', len: 'med' }),
-		].map(raw)
-	)
+		],
+	})
 }
 
 /**

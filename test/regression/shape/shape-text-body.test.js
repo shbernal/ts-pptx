@@ -24,6 +24,41 @@ defineRegressionSuite('Shape text bodies [legacy bug-13]', [
 		},
 	},
 	{
+		// `addShape` builds a `_type === text` object and never writes `_bodyProp`, where
+		// `addTextDefinition` always does. The body-property builder used to read that absent bag's
+		// missing `wrap` as `false` and emit `wrap="none"`, so text inside every autoshape ran off
+		// the shape on one line. `square` is PowerPoint's own default and the schema's, and it is
+		// what an object nobody made a wrap decision about now gets.
+		name: 'a shape with no body properties wraps its text',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1 })
+				s.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, text: 'a line long enough to need wrapping' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const bodyPrs = xml.match(/<a:bodyPr[^>]*>/g) || []
+			assert(bodyPrs.length === 2, 'expected one <a:bodyPr> per shape; got: ' + bodyPrs.join(' | '))
+			assert(
+				bodyPrs.every((b) => b.includes('wrap="square"')),
+				'expected every shape body to wrap; got: ' + bodyPrs.join(' | ')
+			)
+		},
+	},
+	{
+		// The other half of that default: `wrap` is authorable on a text box, and an explicit
+		// `false` still has to reach the attribute — the fix must not have made `square` absolute.
+		name: 'an explicit `wrap: false` still turns wrapping off',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('no wrapping here', { x: 1, y: 1, w: 2, h: 1, wrap: false })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(xml.includes('<a:bodyPr wrap="none"'), 'expected wrap="none" for an authored `wrap: false`; got: ' + xml)
+		},
+	},
+	{
 		name: 'textful addShape still emits text run (regression guard)',
 		fn: async () => {
 			const { zip } = await build((p) => {

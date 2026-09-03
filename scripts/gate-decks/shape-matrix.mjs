@@ -128,10 +128,7 @@ function pictures(pptx) {
 
 /** @param {import('../../dist/node.js').default} pptx */
 function zooms(pptx) {
-	// Cast because the published `Slide` type does not declare the three zoom methods, though
-	// `SlideBuilder` implements them and the docs describe them. That is a public-surface gap,
-	// not something this deck should paper over quietly — the deck still reaches the emitter.
-	const slide = /** @type {any} */ (pptx.addSlide({ sectionTitle: 'References' }))
+	const slide = pptx.addSlide({ sectionTitle: 'References' })
 	slide.addText('zoom tiles', TITLE)
 	slide.addSlideZoom({ target: 1, x: 0.3, y: 0.8, w: 3, h: 1.7 })
 	slide.addSectionZoom({ sectionTitle: 'Constructs', x: 3.8, y: 0.8, w: 3, h: 1.7 })

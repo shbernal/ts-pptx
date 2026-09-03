@@ -127,7 +127,6 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const imageRelId = getNewRelId(target)
 	const objectName = resolveObjectName(target, SlideObjectType.image, {
 		label: 'Image',
-		base: 0,
 		kind: 'image',
 		supplied: opt.objectName,
 	})
