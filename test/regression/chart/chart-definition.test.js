@@ -88,8 +88,8 @@ defineRegressionSuite('Chart definition', [
 		// `copyChartOptions` is what lets `addChart` treat the caller's bag as read-only: every nested
 		// object a normalizer writes into is shallow-copied first. The cheap check is that the caller's
 		// objects come back untouched after a build that would otherwise have defaulted them --
-		// `chartArea.border` gains a color and width, `plotArea.fill` and the gridlines get scrubbed,
-		// and `shadow` is normalized in place by `correctShadowOptions`.
+		// `chartArea.border` gains a color and width and `plotArea.fill` and the gridlines get
+		// scrubbed. `shadow` needs no copy of its own any more -- its normalizer is pure.
 		//
 		// `plotArea` here has a `fill` but no `border`, which is also the only shape that reaches the
 		// else of the border copy.

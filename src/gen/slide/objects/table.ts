@@ -27,18 +27,24 @@ import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 
-type TableInheritableOption =
-	| 'align'
-	| 'bold'
-	| 'border'
-	| 'color'
-	| 'fill'
-	| 'fontFace'
-	| 'fontSize'
-	| 'margin'
-	| 'textDirection'
-	| 'underline'
-	| 'valign'
+/**
+ * The table-level options a cell inherits when it states none of its own.
+ * @see http://officeopenxml.com/drwTableCellProperties-alignment.php
+ */
+const TABLE_INHERITED_KEYS = [
+	'align',
+	'bold',
+	'border',
+	'color',
+	'fill',
+	'fontFace',
+	'fontSize',
+	'margin',
+	'textDirection',
+	'underline',
+	'valign',
+] as const
+type TableInheritableOption = (typeof TABLE_INHERITED_KEYS)[number]
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
 
 /**
@@ -93,6 +99,32 @@ function applyOuterBorder(
 	for (const idx of applies) {
 		const side = outer[idx]
 		if (side) merged[idx] = side
+	}
+	return merged
+}
+
+/**
+ * The options a table cell is emitted with: its own values, with the table's filled in wherever
+ * the cell stated nothing.
+ *
+ * The guard is `=== undefined`, not a falsy test: the question is whether the CELL said
+ * anything, and `false`/`0`/`''` are things it said. An older guard rescued `0` with an
+ * explicit `!== 0` arm and nothing else, so a cell's `bold: false` was still overwritten by the
+ * table's `bold: true`.
+ *
+ * `src/measure/table-fit.ts` resolves the same inheritance for the measured-fit pass over a
+ * DIFFERENT key list; the two are reconciled separately, since widening either one moves bytes.
+ * @param cellOpts - the cell's own options, if any
+ * @param tableOpts - the table's options
+ * @returns a fresh bag; neither input is written to
+ */
+function inheritTableOptions(cellOpts: TableCellProps | undefined, tableOpts: ObjectOptions): TableCellProps {
+	const merged: TableCellProps = { ...cellOpts }
+	const inheritedCell = merged as Partial<Record<TableInheritableOption, TableInheritableValue>>
+	const inheritedTable = tableOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
+	for (const name of TABLE_INHERITED_KEYS) {
+		if (inheritedCell[name] === undefined && inheritedTable[name] !== undefined)
+			inheritedCell[name] = inheritedTable[name]
 	}
 	return merged
 }
@@ -369,36 +401,12 @@ export function renderTableObject(ctx: RenderContext): string {
 				return
 			}
 
-			// 2: OPTIONS: Build/set cell options
-			const cellOpts = cell.options || {}
-			cell.options = cellOpts
-
-			// B: Inherit some options from table when cell options dont exist
-			// @see: http://officeopenxml.com/drwTableCellProperties-alignment.php
-			const inheritedCellOpts = cellOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
-			const inheritedTableOpts = objTabOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
-			;(
-				[
-					'align',
-					'bold',
-					'border',
-					'color',
-					'fill',
-					'fontFace',
-					'fontSize',
-					'margin',
-					'textDirection',
-					'underline',
-					'valign',
-				] as const
-			).forEach((name) => {
-				// `=== undefined`, not a falsy test: the question is whether the CELL said anything,
-				// and `false`/`0`/`''` are things it said. The old guard rescued `0` with an explicit
-				// `!== 0` arm and nothing else, so a cell's `bold: false` was still overwritten by the
-				// table's `bold: true`.
-				if (inheritedCellOpts[name] === undefined && inheritedTableOpts[name] !== undefined)
-					inheritedCellOpts[name] = inheritedTableOpts[name]
-			})
+			// 2: OPTIONS: the cell's own values, with the table's filled in where the cell said
+			// nothing. Resolved into a LOCAL bag: this used to be written back onto `cell.options`,
+			// which is the stored model, so emitting the same deck twice inherited into it again and
+			// the reference handed to `genXmlTextBody` below carried keys the cell never stated.
+			// The invariant at the head of this file has said "never mutates" throughout.
+			const cellOpts = inheritTableOptions(cell.options, objTabOpts)
 
 			const cellValign = resolveTextAnchor(cellOpts.valign)
 			const cellTextDir = cellOpts.textDirection && cellOpts.textDirection !== 'horz' ? cellOpts.textDirection : null
@@ -453,7 +461,7 @@ export function renderTableObject(ctx: RenderContext): string {
 					'a:tc',
 					cellSpanAttrs,
 					[
-						raw(genXmlTextBody(cell)),
+						raw(genXmlTextBody({ ...cell, options: cellOpts })),
 						raw(
 							el('a:tcPr', tcPrAttrs, [raw(cellBorderXml), raw(genTableCell3DXml(cellOpts.cell3D)), raw(cellFill)], {
 								closePrefix: '  ',

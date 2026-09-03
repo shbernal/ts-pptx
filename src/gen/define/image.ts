@@ -11,7 +11,7 @@ import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
-import { correctShadowOptions } from '../drawingml/effect.js'
+import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
@@ -199,7 +199,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	}
 
 	// STEP 4: Set image properties & options
-	const shadow = correctShadowOptions(opt.shadow)
+	const shadow = normalizeShadowOptions(opt.shadow)
 	// The twelve pass-through options go through `pickDefined` rather than being listed as
 	// `key: opt.key`: an image that asks for no `crop` carries no `crop` key, where the literal
 	// wrote one holding `undefined`. Every one of these is read by an emitter that branches on the

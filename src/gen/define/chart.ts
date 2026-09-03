@@ -41,7 +41,7 @@ import type {
 import { getNewRelId } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
 import { setOrClear } from '../../options-internal.js'
-import { correctShadowOptions } from '../drawingml/effect.js'
+import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { isBubbleChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 
@@ -103,8 +103,6 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
 	if (copy.catGridLine) copy.catGridLine = { ...copy.catGridLine }
 	if (copy.valGridLine) copy.valGridLine = { ...copy.valGridLine }
 	if (copy.serGridLine) copy.serGridLine = { ...copy.serGridLine }
-	// `correctShadowOptions` normalizes its argument in place (angle rounding, `_alpha`).
-	if (copy.shadow) copy.shadow = { ...copy.shadow }
 	return copy
 }
 
@@ -687,7 +685,7 @@ export function addChartDefinition(
 	correctGridLineOptions(options.catGridLine)
 	correctGridLineOptions(options.valGridLine)
 	correctGridLineOptions(options.serGridLine)
-	correctShadowOptions(options.shadow)
+	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
 
 	// C: Options: plotArea
 	normalizeChartPlotAreaOptions(options)

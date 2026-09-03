@@ -9,7 +9,7 @@ import { type SHAPE_NAME, ShapeType, SlideObjectType } from '../../enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { correctShadowOptions } from '../drawingml/effect.js'
+import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { assertKnownPreset } from '../drawingml/geometry.js'
 import { resolveObjectName } from './object-name.js'
@@ -49,20 +49,18 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	//
 	// which emits three shapes named `Shape 1` and a duplicate-`objectName` warning.
 	//
-	// Nested caller objects (`fill`, `shadow`) stay shared by reference, as in `addTextDefinition`:
-	// the image fill's rel id is registered through that reference and read back at emit time.
-	// `shadow` follows text rather than `copyChartOptions`, which does copy it. `correctShadowOptions`
-	// normalizes in place, so the caller's shadow object comes back with a rounded `angle` and the
-	// derived `_alpha` on it — but those are idempotent normalizations of the caller's own values,
-	// not one shape's identity carried to the next, and `test/regression/shape/shared-shadow.test.js`
-	// pins that `_alpha` precisely because a shadow object shared across shapes has to keep emitting
-	// the same `<a:effectLst>`.
+	// Nested caller objects (`fill`) stay shared by reference, as in `addTextDefinition`: the image
+	// fill's rel id is registered through that reference and read back at emit time. `shadow` does
+	// not — `normalizeShadowOptions` returns a fresh bag, so a shadow literal shared across shapes
+	// gives each of them its own normalized copy and comes back as the caller wrote it.
+	// `test/regression/shape/shared-shadow.test.js` pins that the shared literal keeps emitting the
+	// same `<a:effectLst>` on every shape.
 	const options: ShapeProps = typeof opts === 'object' ? { ...opts } : {}
 	options.line = options.line || { type: 'none' }
 	// A shape with no shadow carries no `shadow` key: `ShapeProps` bags are spread (a style literal
 	// over another, and this one onto the slide object's options), so a key holding `undefined`
 	// would suppress an inherited shadow where an absent one does not.
-	setOrClear(options, 'shadow', correctShadowOptions(options.shadow))
+	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
 	// Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid
 	// OOXML preset spellings before storing on the slide object.
 	const resolvedShapeName: SHAPE_NAME =

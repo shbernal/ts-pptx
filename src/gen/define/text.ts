@@ -14,7 +14,7 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, mediaSlideKey } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
-import { correctShadowOptions } from '../drawingml/effect.js'
+import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
@@ -218,8 +218,10 @@ export function addTextDefinition(
 			if (anchor) itemOpts._bodyProp.anchor = anchor
 		}
 
-		// STEP 3: ROBUST: Set rational values for some shadow props if needed
-		correctShadowOptions(itemOpts.shadow)
+		// STEP 3: ROBUST: Set rational values for some shadow props if needed.
+		// Assigned, not discarded: the normalizer is pure, and `_alpha` is what
+		// `genXmlTextRunProperties` reads for a run's shadow transparency.
+		setOrClear(itemOpts, 'shadow', normalizeShadowOptions(itemOpts.shadow))
 
 		return itemOpts
 	}

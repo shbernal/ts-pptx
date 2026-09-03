@@ -42,7 +42,7 @@ export type OptionalKeysOf<T> = { [K in keyof T]-?: {} extends Pick<T, K> ? K : 
 export type MaybeUndefined<T> = Omit<T, OptionalKeysOf<T>> & { [K in OptionalKeysOf<T>]?: T[K] | undefined }
 
 /**
- * Internal, wire-normalized shadow shape produced by `correctShadowOptions` — not part of the
+ * Internal, wire-normalized shadow shape produced by `normalizeShadowOptions` — not part of the
  * public `ShadowProps` input. `_alpha` (0.0 fully transparent – 1.0 fully opaque) is the alpha
  * derived from the public `transparency` option (or a color's embedded alpha byte); it is what
  * every emit site reads, so downstream code stays unit-agnostic about the public percent scale.

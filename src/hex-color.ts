@@ -60,7 +60,7 @@ export function isArgbHex(value: string): boolean {
  *
  * `#` is stripped first, so both spellings reach the same answer. Two sites parsed this by
  * hand — `createColorElement`, which turns the alpha into an `<a:alpha>` sibling, and
- * `correctShadowOptions`, which turns it into a shadow's `_alpha` — and they divided by 255 at
+ * `normalizeShadowOptions`, which turns it into a shadow's `_alpha` — and they divided by 255 at
  * different points in their arithmetic.
  * @param value - the caller's colour, with or without a leading `#`
  */

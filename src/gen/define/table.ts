@@ -15,6 +15,7 @@ import type {
 	PresLayout,
 	ShapeFillProps,
 	TableCell,
+	TableCellProps,
 	TableProps,
 	TableRow,
 } from '../../types/index.js'
@@ -46,7 +47,11 @@ type OuterBorderTuple = [BorderProps?, BorderProps?, BorderProps?, BorderProps?]
  * @return {BorderTuple} a 4-element `[top, right, bottom, left]` tuple
  */
 function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
-	return Array.isArray(border) ? border : [border, border, border, border]
+	// A fresh array either way. A cell that inherits the TABLE's tuple used to be handed the same
+	// array object as every other cell, so the per-side completion below wrote through all of
+	// them — and the table-level pass that ran afterwards reached into cells that had already
+	// captured it.
+	return Array.isArray(border) ? [...border] : [border, border, border, border]
 }
 
 /** Fill a border's defaulted keys, preserving anything else the caller set (`cap`, `dashType`, …). */
@@ -139,8 +144,13 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 
 		if (Array.isArray(row)) {
 			row.forEach((cell: number | string | TableCell) => {
-				// A:
-				const newCellOptions = typeof cell === 'object' && cell.options ? cell.options : {}
+				// A: the cell's options, COPIED. `addTableDefinition` takes ownership of the table
+				// options for exactly this reason and left the per-cell ones aliased, so everything
+				// below — the border completion here, the hyperlink `_rId` the definer stamps later,
+				// and the table-level inheritance the emitter resolves — wrote into the caller's own
+				// object. A `rows` literal reused across two tables therefore came out styled by the
+				// first table both times, and came back holding keys the caller never wrote.
+				const newCellOptions: TableCellProps = typeof cell === 'object' && cell.options ? { ...cell.options } : {}
 				const newCell: TableCell = {
 					_type: SlideObjectType.tablecell,
 					text: '',
@@ -153,8 +163,7 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 					// Cell can contain complex text type, or string, or number
 					if (typeof cell.text === 'string' || typeof cell.text === 'number') newCell.text = cell.text.toString()
 					else if (cell.text) newCell.text = cell.text
-					// Capture options
-					if (cell.options && typeof cell.options === 'object') newCell.options = cell.options
+					// Capture options (the copy made above; `newCell.options` already is it)
 				}
 
 				// C: Set cell borders
@@ -405,11 +414,15 @@ export function addTableDefinition(
 		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
 		delete opt.border
 	} else if (Array.isArray(opt.border)) {
-		const border = opt.border
-		;([0, 1, 2, 3] as const).forEach((idx) => {
-			const side = border[idx]
-			border[idx] = side ? withBorderDefaults(side) : { type: 'none' }
-		})
+		// A HOLE stays a hole. The cell path has always been explicit that a `null` side is
+		// *omitted* rather than erased — it keeps inheriting from the built-in style — and this
+		// filled it with `{ type: 'none' }`, so the identical sparse tuple meant "inherit" on a
+		// cell and "erase the style's rule" on the table. Same reading now on both, which is what
+		// leaves `[rule, null, rule, null]` with one meaning instead of two.
+		opt.border = ([0, 1, 2, 3] as const).map((idx) => {
+			const side = (opt.border as BorderTuple)[idx]
+			return side ? withBorderDefaults(side) : undefined
+		}) as BorderTuple
 	}
 	if (typeof opt.outerBorder === 'string') {
 		warn(

@@ -91,6 +91,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A hole in a table-level `border` tuple is left alone, exactly as it is on a cell.**
+  `[rule, null, rule, null]` meant two different things depending on where it was written: on a
+  cell a `null` side is *omitted*, so the edge keeps inheriting from the built-in table style,
+  while at table level the definer filled the hole with an explicit `{ type: 'none' }` — which
+  is direct formatting and erases the style's rule. And because the same array object reached
+  every cell by reference, the filling propagated into cells that had already captured it. Both
+  levels now read a hole the same way.
+
+  **Migration:** a table that was relying on a `null` side to erase the style's rule spells it
+  `{ type: 'none' }`, which is what the cell path has always required.
+
 - **`Picture.imagePartName`, `.svgPartName` and `.mediaPartName` return `null` where they used
   to throw.** `Relationships.resolveTarget` throws on a dangling id and on an external target,
   which is right for an accessor asking a question a malformed package cannot answer — and
@@ -281,6 +292,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`correctShadowOptions` is now `normalizeShadowOptions` and no longer mutates its
+  argument.** It is not exported from any entrypoint, so this reaches no consumer; the rename
+  is recorded because the old name promised a correction *of* the caller's object and that is
+  what four internal call sites had come to depend on unevenly.
+
 - **The five series-axis unit options are gone.** `serAxisMajorUnit`, `serAxisMinorUnit`,
   `serAxisBaseTimeUnit`, `serAxisMajorTimeUnit` and `serAxisMinorTimeUnit` each wrote an
   element `CT_SerAx` has no slot for, so every value any of them could take produced a
@@ -328,6 +344,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **Building a table no longer writes into the caller's cell objects.** `addTableDefinition`
+  takes ownership of the *table* options and left the per-cell ones aliased, so the border
+  completion, the hyperlink rel id and the table-level inheritance all wrote through to the
+  objects the caller passed in. One `rows` array reused across two tables — the obvious thing
+  to do with a shared style fixture — came out styled by the *first* table both times, and the
+  caller's cell came back holding `{ border, bold, color, fontSize, margin, _lineIdx }`. The
+  emitter resolves the inheritance into a local bag now instead of stamping the stored model,
+  which also makes two `write()` calls on one deck independent.
+
+  The file's own invariant, three hundred lines above the offending line, has said "never
+  mutates: `arrTabRows` holds the caller's own cell objects" throughout.
+
+- **A shadow literal shared between two shapes comes back as written.**
+  `correctShadowOptions` normalized its argument *in place* and returned it, and its four
+  callers split on which of the two contracts they used — two assigned the result, two
+  discarded it and relied on the mutation. It is `normalizeShadowOptions` now, pure, with all
+  four callers assigning: the derived `_alpha` reaches the emitter as a value rather than as a
+  side effect. Emitted bytes are unchanged, which is the point — the function was a trap
+  rather than a live defect, because the obvious "make it pure" cleanup silently drops
+  `transparency` and RGBA alpha on every text run unless all four move together.
 
 - **A percentage stated in the string form is read as the value it states.** `ST_Percentage`
   and its relatives are *unions*: the fixed-point integer PowerPoint writes (`100%` →

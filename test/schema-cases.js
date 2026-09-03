@@ -333,7 +333,7 @@ export default [
 	},
 	{
 		// RGBA (8-char) effect colors must not emit two <a:alpha> children when the
-		// effect also carries an explicit `opacity`. Cell text skips correctShadowOptions,
+		// effect also carries an explicit `opacity`. Cell text skips normalizeShadowOptions,
 		// so the RGBA byte reaches createColorElement directly — the caller's opacity wins.
 		name: 'RGBA effect color with explicit opacity (shadow + glow)',
 		fn: async () => {

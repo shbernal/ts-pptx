@@ -64,18 +64,18 @@ defineRegressionSuite('Shared shadow options [legacy bug-05]', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			/** The caller's own `ShadowProps`; the definer normalizes a COPY per shape.
 			 * @type {import('../../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
 			await buildSlideXml(pres)
 
-			assert(shadow.blur === 6, 'shadow.blur changed: ' + shadow.blur)
-			assert(shadow.offset === 2, 'shadow.offset changed: ' + shadow.offset)
-			assert(Math.abs(shadow._alpha - 0.15) < 1e-9, 'shadow._alpha changed: ' + shadow._alpha)
-			assert(shadow.color === '000000', 'shadow.color changed: ' + shadow.color)
-			assert(shadow.angle === undefined, 'shadow.angle changed: ' + shadow.angle)
+			assert(
+				JSON.stringify(shadow) ===
+					JSON.stringify({ type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }),
+				'the shared literal comes back as written: ' + JSON.stringify(shadow)
+			)
 		},
 	},
 	{

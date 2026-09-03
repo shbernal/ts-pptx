@@ -92,15 +92,26 @@ export function createShadowEffectLst(options: ShadowPropsInternal | undefined, 
 }
 
 /**
- * Checks shadow options passed by user and performs corrections if needed.
- * @param {ShadowProps} ShadowProps - shadow options
+ * Normalize a caller's `shadow` into the internal shape every emit site reads: a legal `type`, a
+ * whole-degree `angle` inside `ST_PositiveFixedAngle`, a `_alpha` derived from `transparency` or
+ * from an RGBA colour's alpha byte, and a colour with no `#` and no alpha byte.
+ *
+ * **Pure.** It used to normalize the caller's object *in place* and return it, and its four call
+ * sites split on which of the two contracts they used — two assigned the result, two discarded it
+ * and relied on the mutation. That made the obvious cleanup a trap: making it pure without
+ * converting every caller silently drops `transparency` and RGBA alpha on every text run, because
+ * `_alpha` is what `genXmlTextRunProperties` reads and nothing else writes it. The value now
+ * reaches the emitter as a value rather than as a side effect, and a shadow literal shared across
+ * two shapes comes back untouched.
+ * @param shadow - the caller's shadow options
+ * @returns a fresh normalized bag, or `undefined` when the caller stated no shadow object
  */
-export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPropsInternal | undefined {
-	if (!ShadowProps || typeof ShadowProps !== 'object') {
+export function normalizeShadowOptions(shadow?: ShadowProps | null): ShadowPropsInternal | undefined {
+	if (!shadow || typeof shadow !== 'object') {
 		// warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
 		return undefined
 	}
-	const corrected: ShadowPropsInternal = ShadowProps
+	const corrected: ShadowPropsInternal = { ...shadow }
 	// No `opacity` scrub is needed: the derived alpha lives under the private `_alpha` name, so a
 	// stray `opacity` from an untyped/legacy caller lands on a field nothing reads (inert) rather
 	// than colliding with the internal value.

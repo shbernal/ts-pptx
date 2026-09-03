@@ -16,7 +16,7 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			/** The caller's own `ShadowProps`; the writer normalizes a COPY and leaves this one alone.
 			 * @type {import('../../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
@@ -30,11 +30,13 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 		},
 	},
 	{
+		// The normalizer is pure, so the caller's object comes back exactly as written — the derived
+		// `_alpha` lives on the definer's copy, which is what the emitter reads.
 		name: 'user shadow object is not mutated across two writes',
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			/** The caller's own `ShadowProps`; the writer normalizes a COPY and leaves this one alone.
 			 * @type {import('../../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
@@ -42,11 +44,11 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 			await buildOnce(pres)
 			await buildOnce(pres)
 
-			assert(shadow.blur === 6, 'expected shadow.blur to remain 6 (pt); got ' + shadow.blur)
-			assert(shadow.offset === 2, 'expected shadow.offset to remain 2 (pt); got ' + shadow.offset)
-			assert(Math.abs(shadow._alpha - 0.15) < 1e-9, 'expected shadow._alpha to remain ~0.15; got ' + shadow._alpha)
-			assert(shadow.angle === undefined, 'expected shadow.angle to remain undefined; got ' + shadow.angle)
-			assert(shadow.color === '000000', 'expected shadow.color to remain "000000"; got ' + shadow.color)
+			assert(
+				JSON.stringify(shadow) ===
+					JSON.stringify({ type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }),
+				'expected the caller shadow object untouched; got ' + JSON.stringify(shadow)
+			)
 		},
 	},
 	{
@@ -57,7 +59,7 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 			// 1x1 transparent PNG, base64
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
-			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			/** The caller's own `ShadowProps`; the writer normalizes a COPY and leaves this one alone.
 			 * @type {import('../../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addImage({ data: png, x: 1, y: 1, w: 1, h: 1, shadow })
@@ -71,8 +73,8 @@ defineRegressionSuite('Repeated presentation writes [legacy bug-04]', [
 
 			assert(shadow.blur === 6, 'expected image-branch shadow.blur to remain 6 (pt); got ' + shadow.blur)
 			assert(
-				Math.abs(shadow._alpha - 0.15) < 1e-9,
-				'expected image-branch shadow._alpha to remain ~0.15; got ' + shadow._alpha
+				shadow._alpha === undefined,
+				'expected the image branch to leave the caller shadow untouched; got ' + JSON.stringify(shadow)
 			)
 		},
 	},

@@ -84,13 +84,11 @@ defineRegressionSuite('Caller-owned options', [
 		// on the literal too, so a caller who gave ONE shape a stroke handed the normalized form of
 		// it to every shape built from the same literal afterwards.
 		//
-		// `shadow` is the deliberate exception. `correctShadowOptions` normalizes in place -- angle
-		// rounded, `_alpha` derived, a leading `#` stripped -- and the definer shares the caller's
-		// object rather than copying it, following `addTextDefinition` and not `copyChartOptions`.
-		// Those are idempotent normalizations of the caller's own values, not one shape's identity
-		// carried to the next, and `shape/shared-shadow.test.js` pins the resulting `_alpha` because
-		// two shapes sharing one shadow object have to keep emitting the same `<a:effectLst>`.
-		// Asserted here so the difference between the two nested objects is on the record.
+		// `shadow` used to be the exception: the normalizer wrote into the caller's object -- angle
+		// rounded, `_alpha` derived, a leading `#` stripped -- and the definer shared it rather than
+		// copying. It is pure now, so a shadow literal comes back exactly as written and each shape
+		// built from it gets its own normalized copy. `shape/shared-shadow.test.js` pins that the
+		// shared literal still emits the SAME `<a:effectLst>` on every shape.
 		name: 'shape line normalization does not write back onto the caller',
 		fn: async () => {
 			const LINE = { color: '0088CC', width: 3 }
@@ -112,7 +110,11 @@ defineRegressionSuite('Caller-owned options', [
 				JSON.stringify(['x', 'y', 'w', 'h', 'line', 'shadow']),
 				'the caller-owned style literal after addShape'
 			)
-			assertEqual(SHADOW._alpha, 0.6, 'the derived alpha, stamped onto the shared shadow object by design')
+			assertEqual(
+				JSON.stringify(SHADOW),
+				JSON.stringify({ type: 'outer', blur: 6, transparency: 40, color: 'FF0000' }),
+				'the caller-owned shadow literal after addShape: no derived `_alpha` written back'
+			)
 		},
 	},
 	{
