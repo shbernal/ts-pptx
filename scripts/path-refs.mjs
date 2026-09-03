@@ -206,7 +206,7 @@ function rel(file) {
  * @param {string} from the citing file, absolute
  * @param {Set<string>} known every repo-relative path in the scanned trees
  */
-function resolves(token, from, known) {
+export function resolves(token, from, known) {
 	const candidates = [token]
 	// A comment citing `./pattern-fill.js` means the module whose source is `pattern-fill.ts`.
 	if (/\.m?js$/.test(token)) candidates.push(token.replace(/\.js$/, '.ts').replace(/\.mjs$/, '.mts'))

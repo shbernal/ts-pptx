@@ -22,7 +22,7 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { ROOT, runCli } from './script-utils.mjs'
+import { isMain, ROOT, runCli } from './script-utils.mjs'
 
 /** @type {Record<string, string>} */
 const scripts = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).scripts
@@ -67,7 +67,7 @@ const GENERATORS = new Set([
  * @param {string[]} trail - names already being expanded, for cycle detection
  * @returns {{step: string, command: string}[]}
  */
-function expand(name, trail = []) {
+export function expand(name, trail = []) {
 	const body = scripts[name]
 	if (body === undefined) throw new Error(`no such script: ${name}\n(known: ${Object.keys(scripts).join(', ')})`)
 	if (trail.includes(name)) throw new Error(`script cycle: ${[...trail, name].join(' -> ')}`)
@@ -114,64 +114,67 @@ function runLeaf(command) {
 	})
 }
 
-await runCli(async () => {
-	const argv = process.argv.slice(2)
-	const listOnly = argv[0] === '--list'
-	const names = listOnly ? argv.slice(1) : argv
-	if (names.length === 0) {
-		console.error('usage: node scripts/run-steps.mjs [--list] <script-name>…')
-		return 1
-	}
-
-	const steps = names.flatMap((n) => expand(n))
-
-	if (listOnly) {
-		for (const { step, command } of steps) console.log(step.padEnd(24), command)
-		return 0
-	}
-
-	const started = process.hrtime.bigint()
-	/** @type {{step: string, ms: number}[]} */
-	const timings = []
-	// Composites overlap: `verify:full` is `verify` plus `docs:build`, and both
-	// reach `docs:api` (6.5s) and `ensure-dist`. Every step in these gates is a
-	// check or a regenerator whose second consecutive run cannot say anything the
-	// first did not, so an exact command repeat inside ONE invocation is skipped —
-	// UNLESS something has written into its inputs since. `GENERATORS` is which
-	// steps do that, and passing one resets the record of what has run.
-	//
-	// Both the skip and the reset are logged rather than silent, so a step that
-	// starts mutating another's inputs is visible at the point it would otherwise
-	// be wrongly elided. Order is untouched either way: this drops repeats, it
-	// never reorders or parallelises.
-	const alreadyRun = new Set()
-	for (const { step, command } of steps) {
-		if (alreadyRun.has(command)) {
-			console.log(`· ${step} — skipped, already run in this invocation (${command})`)
-			continue
+// Guarded like every other gate script's entry: `expand` is imported by
+// `test/scripts/gate-parsers.test.js`, and without this the import would run the CLI.
+if (isMain(import.meta.url))
+	await runCli(async () => {
+		const argv = process.argv.slice(2)
+		const listOnly = argv[0] === '--list'
+		const names = listOnly ? argv.slice(1) : argv
+		if (names.length === 0) {
+			console.error('usage: node scripts/run-steps.mjs [--list] <script-name>…')
+			return 1
 		}
-		alreadyRun.add(command)
-		const stepStart = process.hrtime.bigint()
-		const code = await runLeaf(command)
-		const ms = Number(process.hrtime.bigint() - stepStart) / 1e6
-		timings.push({ step, ms })
-		if (code !== 0) {
-			console.error(`\n✗ ${step} failed (exit ${code})\n  ${command}`)
-			return code
+
+		const steps = names.flatMap((n) => expand(n))
+
+		if (listOnly) {
+			for (const { step, command } of steps) console.log(step.padEnd(24), command)
+			return 0
 		}
-		if (GENERATORS.has(command)) {
-			alreadyRun.clear()
+
+		const started = process.hrtime.bigint()
+		/** @type {{step: string, ms: number}[]} */
+		const timings = []
+		// Composites overlap: `verify:full` is `verify` plus `docs:build`, and both
+		// reach `docs:api` (6.5s) and `ensure-dist`. Every step in these gates is a
+		// check or a regenerator whose second consecutive run cannot say anything the
+		// first did not, so an exact command repeat inside ONE invocation is skipped —
+		// UNLESS something has written into its inputs since. `GENERATORS` is which
+		// steps do that, and passing one resets the record of what has run.
+		//
+		// Both the skip and the reset are logged rather than silent, so a step that
+		// starts mutating another's inputs is visible at the point it would otherwise
+		// be wrongly elided. Order is untouched either way: this drops repeats, it
+		// never reorders or parallelises.
+		const alreadyRun = new Set()
+		for (const { step, command } of steps) {
+			if (alreadyRun.has(command)) {
+				console.log(`· ${step} — skipped, already run in this invocation (${command})`)
+				continue
+			}
 			alreadyRun.add(command)
-			console.log(`· ${step} — wrote into docs/; earlier checks of it may run again`)
+			const stepStart = process.hrtime.bigint()
+			const code = await runLeaf(command)
+			const ms = Number(process.hrtime.bigint() - stepStart) / 1e6
+			timings.push({ step, ms })
+			if (code !== 0) {
+				console.error(`\n✗ ${step} failed (exit ${code})\n  ${command}`)
+				return code
+			}
+			if (GENERATORS.has(command)) {
+				alreadyRun.clear()
+				alreadyRun.add(command)
+				console.log(`· ${step} — wrote into docs/; earlier checks of it may run again`)
+			}
 		}
-	}
 
-	// A per-step breakdown, so the cost of a gate is visible where it is paid
-	// rather than having to be measured from outside every time it grows.
-	const total = Number(process.hrtime.bigint() - started) / 1e6
-	const merged = new Map()
-	for (const { step, ms } of timings) merged.set(step, (merged.get(step) ?? 0) + ms)
-	const summary = [...merged].map(([step, ms]) => `${step} ${(ms / 1000).toFixed(1)}s`).join(', ')
-	console.log(`\n✓ ${names.join(' ')} — ${(total / 1000).toFixed(1)}s (${summary})`)
-	return 0
-})
+		// A per-step breakdown, so the cost of a gate is visible where it is paid
+		// rather than having to be measured from outside every time it grows.
+		const total = Number(process.hrtime.bigint() - started) / 1e6
+		const merged = new Map()
+		for (const { step, ms } of timings) merged.set(step, (merged.get(step) ?? 0) + ms)
+		const summary = [...merged].map(([step, ms]) => `${step} ${(ms / 1000).toFixed(1)}s`).join(', ')
+		console.log(`\n✓ ${names.join(' ')} — ${(total / 1000).toFixed(1)}s (${summary})`)
+		return 0
+	})
