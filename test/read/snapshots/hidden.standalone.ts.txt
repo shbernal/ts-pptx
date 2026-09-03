@@ -10,7 +10,7 @@
  *
  * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
  *
- * FIDELITY: 10 declared loss(es). Everything not listed here is expected to
+ * FIDELITY: 11 declared loss(es). Everything not listed here is expected to
  * survive unchanged; a difference that is not in this list is a defect, not a caveat.
  *
  * Deck:
@@ -32,12 +32,16 @@
  *   not reproduced: the write path seeds every slide with each layout placeholder the slide did not populate,
  *   and since every source shape is authored here as concrete content rather than into a placeholder,
  *   re-declaring them would add an empty shape to every slide rather than a prompt
- * - deck.docProps [dropped, unwritable] — only title, author, company, subject and revision have write-API
- *   setters; keywords, description, category, content status and last-modified-by have none
+ * - deck.docProps [dropped, unwritable] — only title, author, subject and revision round-trip; keywords,
+ *   description, category, content status and last-modified-by have no write-API setter, and `company` has one
+ *   but lives in docProps/app.xml, which the read model does not open
  * - master.default (DEFAULT) [approximated, unsupported] — the write path seeds every presentation with a blank
  *   layout of its own named DEFAULT, and there is no way to remove it, so the output deck's layout gallery
  *   carries one extra entry ahead of the source's layouts; nothing binds to it, but it is visible in
  *   PowerPoint's layout picker
+ * - deck.docPropsDefault [approximated, unwritable] — the source deck declares no subject, and a deck built
+ *   through the write API is stamped with the library's own value for each in its constructor with no way to
+ *   unset it, so the output declares one the source did not
  * Slide 1:
  * - text.color.inherited (replaceText) [flattened, unsupported] — this run inherits its colour from the
  *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to

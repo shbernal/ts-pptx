@@ -73,18 +73,22 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		)
 	}
 
+	const data = seriesData(chart, notes)
+	if (data.length === 0) {
+		notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
+		return null
+	}
+
+	// BELOW the guard above, deliberately. Recorded unconditionally, a chart with no cached
+	// series emitted two notes — one saying it was dropped, one saying it was rebuilt — and this
+	// one maps to `['*']`, so on a dropped chart it also excused every difference on that frame:
+	// the widest exclusion in the table, applied to the case it least describes.
 	notes.note(
 		'chart.workbook',
 		'approximated',
 		'unsupported',
 		"the chart is rebuilt from its cached plot values, so its embedded workbook is regenerated: the plotted numbers match, but the source sheet's formulas, extra columns and formatting are gone"
 	)
-
-	const data = seriesData(chart, notes)
-	if (data.length === 0) {
-		notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
-		return null
-	}
 
 	// `type` is an *option*, not a positional argument: the signature is
 	// `addChart(data, options & { type })`. Passing it separately produces a call that

@@ -22,8 +22,12 @@ import { alphaToTransparency, compact, compactRequired } from './values.js'
 
 /** How a note names the surface it is about; the mapping itself does not vary. */
 export interface PictureFillSubject {
-	/** Note construct for a fill whose bytes cannot be carried at all. */
-	construct: string
+	/**
+	 * Note construct for a fill whose bytes cannot be carried at all. The union rather than
+	 * `string`, so that this and the `` `${construct}.geometry` `` spelling below are both
+	 * checked against the catalogue.
+	 */
+	construct: 'fill.picture' | 'table.fill.picture' | 'table.cell.fill.picture'
 	/** The surface as a note's detail names it — "this shape's surface", "this table cell". */
 	subject: string
 	/** Where the fill sits in the source XML, for a note's detail. */

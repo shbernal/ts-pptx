@@ -95,8 +95,12 @@ export function assetIdentifiers(ir: DeckIr): Map<string, string> {
 	const out = new Map<string, string>()
 	const used = new Set<string>()
 	for (const asset of ir.assets) {
-		const base = asset.name.replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_$]/g, '_')
-		let identifier = /^[A-Za-z_$]/.test(base) ? base : `_${base}`
+		const raw = asset.name.replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_$]/g, '_')
+		// The SANITISED base seeds the collision candidates too. Re-deriving them from the raw
+		// one made the first candidate for a name starting with a digit `_1image` and the next
+		// `1image_2` — not a legal identifier, so the emitted script would not parse.
+		const base = /^[A-Za-z_$]/.test(raw) ? raw : `_${raw}`
+		let identifier = base
 		let suffix = 2
 		while (used.has(identifier)) identifier = `${base}_${suffix++}`
 		used.add(identifier)

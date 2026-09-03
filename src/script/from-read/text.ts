@@ -459,7 +459,7 @@ function fitOption(frame: TextFrame, notes: NoteScope): IrValue | undefined {
 }
 
 /** A baked `a:normAutofit` percentage, or `undefined` (with a note) when the write API would reject it. */
-function bakedPct(value: number | null, name: string, notes: NoteScope): number | undefined {
+function bakedPct(value: number | null, name: 'fontScale' | 'lnSpcReduction', notes: NoteScope): number | undefined {
 	if (value === null) return undefined
 	if (value >= 0 && value <= 100) return value
 	notes.note(

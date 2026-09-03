@@ -34,7 +34,7 @@
  * lost".
  */
 import { alignByKey } from './align.js'
-import { LAYOUT_NOTE_PREFIX, type FidelityNote } from '../fidelity.js'
+import { LAYOUT_NOTE_PREFIX, NOTE_CONSTRUCTS, type FidelityNote } from '../fidelity.js'
 import {
 	collectObjectNames,
 	type CanonicalCall,
@@ -73,6 +73,9 @@ export type DifferenceKind = 'lost' | 'added' | 'changed'
  * its entry here into a real comparison.
  */
 const WRITER_DEFAULTS: Record<string, string> = {
+	// Keys are dotted option PATHS, matched as a suffix of a difference's own path. A bare key
+	// still means "this option wherever it appears", which is right for the ones below that are
+	// unambiguous; qualify one the moment the same word names two different things.
 	// The write path copies the object-level and first-run character properties onto every
 	// run it emits. The source's bare runs inherited theirs from the list style, which is
 	// unread, so there is nothing to compare the copied value against.
@@ -82,13 +85,22 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	// together rather than separating; the write path spells out an explicit border per edge.
 	border:
 		'table cell borders are resolved through the style graph, which the read model cannot separate from the cell’s own',
+	// The same unknown one level down, for a cell whose border array survives while an individual
+	// EDGE gains the write path's completed `{ type, width }`. Under key-only matching these were
+	// covered by the bare `type`/`width` entries, which is the accident this qualification removes:
+	// those are about a fill's kind and an outline's weight, on shapes.
+	'border.type':
+		'a table cell border edge the write path completes; the source’s came from the style graph the read model cannot separate',
+	'border.width':
+		'a table cell border edge the write path completes; the source’s came from the style graph the read model cannot separate',
 	// `a:ln/@w` defaults to a hairline in OOXML and to 1pt here, and a source outline with no
 	// explicit width is exactly the theme-`lnRef` case `line.width` already declares unread.
-	width:
+	'line.width':
 		'an outline with no explicit width takes the write path’s 1pt default; the source’s came from the unread theme line style',
 	// A shape with no geometry of its own — an unfilled placeholder — has no preset to name.
 	shape: 'a shape that inherits its geometry from a layout is emitted as a plain rectangle',
-	type: 'a fill or line with no explicit kind takes the write path’s solid default',
+	'fill.type': 'a fill with no explicit kind takes the write path’s solid default',
+	'line.type': 'an outline with no explicit kind takes the write path’s solid default',
 	// Chart options the write path always emits; the read side reports only what the chart
 	// part contains, and these are defaults rather than authored values.
 	chartColors: 'the write path assigns a series palette; the source’s came from the theme',
@@ -101,11 +113,12 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	// a read-side one: the fix is a way to author a deck with a property genuinely absent.
 	// Restricted to `added` by construction, so a printer that stopped writing docProps still
 	// fails: the source's own values become `changed`, which nothing here excuses.
-	title: 'a deck that declares no title gets the write path’s own',
-	author: 'a deck that declares no author gets the write path’s own',
-	subject: 'a deck that declares no subject gets the write path’s own',
-	company: 'a deck that declares no company gets the write path’s own',
-	revision: 'a deck that declares no revision gets the write path’s own',
+	// Path-qualified so they reach `docProps` and nothing else: a bare `title` also excused an
+	// added chart title and an added layout title in `chrome.masters`.
+	'props.title': 'a deck that declares no title gets the write path’s own',
+	'props.author': 'a deck that declares no author gets the write path’s own',
+	'props.subject': 'a deck that declares no subject gets the write path’s own',
+	'props.revision': 'a deck that declares no revision gets the write path’s own',
 }
 
 export interface IrDifference {
@@ -161,204 +174,12 @@ export interface RoundTripReport {
 }
 
 /**
- * Option names each note construct is a promise about.
- *
- * This table is the fidelity catalogue made mechanical. A note claims a construct will not
- * survive; without a mapping from that claim to the fields it covers, the claim cannot
- * exclude anything and the round trip degenerates into a snapshot.
- *
- * `'*'` covers every difference inside the call it is scoped to — correct only where the
- * note says the whole shape is gone or was copied wholesale, never as a shortcut for a
- * construct whose fields are merely tedious to enumerate.
- *
- * An empty list is meaningful and common: the construct is invisible to the IR on both
- * sides (a slide's build animations, a paragraph's `a:pPr/@marL`, a connector's shape
- * binding), so the note is a caveat for a human and there is nothing here to exclude. Saying
- * so explicitly is what keeps it from looking like an oversight. A construct can leave that
- * state — `slide.transition` was an empty entry until the converter learned to transcribe
- * transitions, and the IR gaining a field is exactly when its note gains a mapping.
- */
-const NOTE_FIELDS: Record<string, readonly string[]> = {
-	'chart.blanks': ['values'],
-	'chart.combo': ['type'],
-	'chart.type': ['type'],
-	'chart.workbook': ['*'],
-	'chartEx.all': ['*'],
-	'connector.binding': [],
-	'connector.line': ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'],
-	'connector.rotation': ['rotate'],
-	// Empty, and the temptation to list title/author/subject/revision here has to be
-	// resisted: this note is about the *other* seven docProps, which have no setter and are
-	// absent from the IR. Listing the four that do have setters would excuse a printer that
-	// stopped writing them — measured, by exactly that mutation.
-	'deck.docProps': [],
-	// Nothing to exclude: the differences it predicts are `added`, which WRITER_DEFAULTS covers
-	// by kind. The note exists so a reader of the emitted script learns the deck gained them.
-	'deck.docPropsDefault': [],
-	'deck.slideSize': ['widthEmu', 'heightEmu'],
-	'diagram.all': ['*'],
-	'fill.gradient.path': ['gradient', 'fill'],
-	// Recorded only when an image-filled surface cannot carry its *bytes* — a linked blip, an
-	// SVG the write path refuses, a part missing from the package. The fill option is then
-	// absent from the output entirely, which is the same two keys `fill.schemeToken` covers.
-	'fill.picture': ['fill', 'color'],
-	// Empty, and deliberately so: this note declares that a picture fill's tiling, crop, DPI
-	// and rotWithShape do not survive, and *none of them is in the IR on either side* — the
-	// write API expresses a picture fill as bytes plus transparency, so the converter never
-	// emits them. Widening this to `fill` would be the mistake it looks like a fix for: it
-	// would excuse an image fill that failed to come back at all, which is the thing the
-	// round trip is here to catch.
-	'fill.picture.geometry': [],
-	'fill.gradient.schemeToken': ['gradient', 'fill'],
-	'fill.schemeToken': ['fill', 'color'],
-	'graphicFrame.unknown': ['*'],
-	'group.child': ['*'],
-	'group.childSpace': ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'],
-	'group.empty': ['*'],
-	'group.transform': ['rotate', 'flipH', 'flipV'],
-	'image.data': ['data', '$asset'],
-	'image.recolor': ['duotone', 'grayscale', 'biLevel', 'clrChange'],
-	// Covers the picture's bytes, not just an `svg` option: an SVG picture's raster fallback
-	// is regenerated rather than carried, so the blip the round trip compares is a different
-	// image from the source's — which is precisely the loss this note is about.
-	'image.svg': ['svg', 'data', '$asset'],
-	'line.arrowSize': ['beginArrowType', 'endArrowType'],
-	// The chrome notes. Most are empty for the reason stated above and it is the common case
-	// here rather than the exception: `a:fmtScheme`, `p:txStyles`, a *master's* decoration and a
-	// layout's placeholder definitions are all absent from the IR on *both* sides — the first two
-	// because nothing reads them, the other two because nothing writes them — so there is nothing
-	// for a note to exclude and the note exists for a human. A *layout's* decoration is the one
-	// that left this state: it is now in the IR as `objects` and is genuinely compared, which is
-	// what makes the `layout.` entries below worth stating separately.
-	// `p:clrMap` is the subtle one: a remapped token changes what every scheme colour in the
-	// deck resolves to, and the round trip still cannot see it, because the IR reports the token
-	// verbatim rather than its resolved hex. That is exactly the blind spot this file's header
-	// describes, and writing `[]` is the honest spelling of it.
-	'master.background': ['background', 'color', 'data', 'master'],
-	'master.colorMap': [],
-	'master.decoration': [],
-	'master.default': ['master'],
-	'master.multiple': [],
-	'master.name': ['title', 'layoutName'],
-	'master.nameCollision': ['title', 'layoutName'],
-	'master.placeholders': [],
-	'master.txStyles': [],
-	'theme.fmtScheme': [],
-	// The two layout-shape notes with no slide counterpart to inherit a mapping from. Both are
-	// empty for the same reason, and it is worth spelling out because both *look* like they
-	// should exclude something. A table on a layout is absent from the `objects` array on both
-	// sides — the source's because this converter skips it, the output's because it was never
-	// written — so there is no difference to excuse. A flattened group is stronger still: the
-	// source layout's group becomes N loose objects here and the output layout genuinely *has*
-	// N loose objects, so the two agree exactly and the note is a caveat for a human reading the
-	// emitted script, not an exclusion.
-	'layout.decoration': [],
-	'layout.group': [],
-	'line.dash': ['dashType'],
-	'line.width': ['width'],
-	'media.audioVideo': ['*'],
-	'notes.formatting': ['notesText'],
-	'shape.custGeom.guides': ['points'],
-	'shape.effects': ['shadow', 'glow'],
-	'shape.empty': ['*'],
-	'shape.frameInherited': ['x', 'y', 'w', 'h'],
-	'shape.hidden': ['*'],
-	'shape.placeholder': ['placeholder'],
-	'slide.animation': [],
-	'slide.background': ['background', 'color', 'transparency', 'image'],
-	'slide.carried': ['*'],
-	'slide.layout': ['layoutName'],
-	'slide.name': [],
-	// A transition the write vocabulary cannot name is dropped whole, so the difference lands
-	// on the slide's `transition` key itself. Deliberately *not* widened to the keys inside it:
-	// this note is only ever recorded when the whole transition is gone.
-	'slide.transition': ['transition'],
-	// The sound alone, one level down. Scoped to `sound` so it cannot also excuse a transition
-	// whose type or timing came back wrong — the loss it declares is exactly the missing
-	// `p:sndAc`, and `data`/`$asset` cover the case where the sound survives with other bytes.
-	'slide.transitionSound': ['sound', 'data', '$asset'],
-	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
-	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
-	'table.cell.borders.dash': ['border', 'diagonal'],
-	// `table.cell.fill` used to live here, for a cell whose own fill could not be told apart
-	// from the one it inherited from the table style. `TableCell.hasOwnFill` tells them apart,
-	// so the mapper emits the right one and records nothing — the note is gone rather than
-	// unmapped. Its `.gradient` / `.picture` children below are separate constructs and stay.
-	// Empty, and correctly so: `a:tc/@id` and `a:tcPr/a:headers` have no write option — the
-	// IR has nowhere to put them on either side, so there is nothing to exclude. The note
-	// exists so a reader of the emitted script learns the association was there and is gone.
-	'table.cell.headers': [],
-	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
-	// same reasons.
-	'table.cell.fill.picture': ['fill'],
-	'table.cell.fill.picture.geometry': [],
-	// The table-side twins of `fill.schemeToken` / `text.color.schemeToken`: one of the seven
-	// `ST_SchemeColorVal` tokens the write path's `clrMap` does not carry, baked to the literal
-	// it resolves to. Three sites used to pass one through RAW, so the generated script warned
-	// `color/invalid-value` and painted the default text colour instead.
-	'table.cell.fill.schemeToken': ['fill', 'color'],
-	'table.cell.borders.schemeToken': ['border', 'diagonal'],
-	// The table-background twins. Scoped to `tableFill` rather than `fill`, because those are
-	// two different options: one lands on `a:tblPr`, the other is stamped onto every cell.
-	'table.fill.schemeToken': ['tableFill', 'color'],
-	'table.fill.picture': ['tableFill'],
-	'table.fill.picture.geometry': [],
-	// A gradient that cannot be expressed falls back to no gradient, so the difference lands
-	// on the fill option itself — `tableFill` for the background, `fill` for a cell.
-	'table.fill.gradient': ['tableFill'],
-	'table.fill.gradient.path': ['tableFill'],
-	'table.cell.fill.gradient': ['fill'],
-	'table.cell.fill.gradient.path': ['fill'],
-	// Narrowed to the East-Asian `ST_TextVerticalType` modes `textDirection` cannot spell —
-	// the four it can now round-trip, so this no longer excuses every vertical cell.
-	'table.cell.vert': ['textDirection', 'vert'],
-	'table.rowAuto': ['rowH'],
-	'table.style': ['tableStyle'],
-	'text.align': ['align'],
-	// `text.bullet.numberStartAt` and `text.bullet.style` used to live here, for
-	// `a:buAutoNum/@startAt` and for a bullet's own font/size/colour. `Paragraph.bulletDetail`
-	// reads all four, so the mapper emits `numberStartAt` / `fontFace` / `size` / `color` and
-	// records nothing — the notes are gone rather than unmapped. What remains of the size half
-	// is `text.bullet.sizePt`, which is a genuinely unwritable unit rather than an unread value.
-	'text.bullet.numberType': ['bullet'],
-	// An absolute bullet size (`a:buSzPts`) has no write option at all — `bullet.size` is a
-	// percentage of the run size — so the difference lands on the bullet option.
-	'text.bullet.sizePt': ['bullet'],
-	// A percentage outside 25–400%, which the write path rejects with a warning and replaces
-	// with the run's own size.
-	'text.bullet.sizePct': ['bullet'],
-	// A bullet colour outside the ten scheme tokens the write path maps, baked to a literal.
-	'text.bullet.schemeToken': ['bullet'],
-	// A picture bullet (`a:buBlip`): readable, and `bullet.image` could author it, but the
-	// paragraph mapper carries no asset resolver to re-embed the bytes with.
-	'text.bullet.picture': ['bullet'],
-	'text.color.default': ['color'],
-	'text.color.inherited': ['color'],
-	'text.color.schemeToken': ['color'],
-	'text.equation': ['*'],
-	'text.field': ['*'],
-	'text.bullet.glyph': ['bullet'],
-	// `text.bullet.inherited` used to live here — a paragraph stating no bullet of its own was
-	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that
-	// element rather than silence. `bullet: 'inherit'` says silence now, so the mapper carries
-	// the state instead of excusing its loss and the note is gone rather than unmapped.
-	//
-	// `text.indent` used to live here, empty, because a paragraph's `a:pPr/@marL` and `@indent`
-	// were in neither IR — the write API had no option for them, so the mapper never emitted one
-	// and the diff compared two models both missing the field. `paraMarginLeft` / `paraIndent`
-	// put it in both, which is what turns an empty entry into a comparison rather than a caveat,
-	// so the note is gone rather than unmapped.
-	'text.paraSpaceZero': ['paraSpaceBefore', 'paraSpaceAfter'],
-	'text.vert': ['vert'],
-}
-
-/**
  * Every note construct this table knows how to match, for a test to check against. The
  * `layout.` spellings are not listed — they resolve through {@link isKnownNoteConstruct},
  * which is what a corpus check should use.
  */
 export function knownNoteConstructs(): string[] {
-	return Object.keys(NOTE_FIELDS).sort()
+	return Object.keys(NOTE_CONSTRUCTS).sort()
 }
 
 /**
@@ -412,7 +233,8 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 	for (const difference of differences) difference.declaredBy = declaringNote(difference, notes)
 	const matched = new Set(differences.map((difference) => difference.declaredBy).filter(Boolean))
 	const accounted = (difference: IrDifference): boolean =>
-		difference.declaredBy !== null || (difference.kind === 'added' && difference.field in WRITER_DEFAULTS)
+		difference.declaredBy !== null ||
+		(difference.kind === 'added' && Object.keys(WRITER_DEFAULTS).some((spec) => specCovers(spec, difference)))
 
 	return {
 		slideCount: Math.max(expected.slides.length, actual.slides.length),
@@ -661,6 +483,37 @@ function scalarDifference(
 	}
 }
 
+/**
+ * The dotted option path a difference sits at, array indices removed: `calls[4].args[1].line.width`
+ * becomes `['calls', 'args', 'line', 'width']`.
+ *
+ * Both exclusion mechanisms used to match the terminal key alone, at any depth anywhere in the
+ * IR — so `type` (written about a fill's solid default) excused an added `bullet.type`, waving
+ * through a character bullet that came back as a numbered list; `title` (written about
+ * `docProps`) excused an added chart title; and `width` (written about `a:ln/@w`) excused an
+ * added table-cell bevel or border width. Matching a suffix keeps every bare key working where
+ * it is unambiguous and lets a spec say WHICH `width` it means.
+ */
+function pathKeys(difference: IrDifference): string[] {
+	const keys = difference.path.split('.').map((segment) => segment.replace(/\[[^\]]*\]/g, ''))
+	// A handful of differences are synthesised rather than walked, and name a `field` the path
+	// does not end in — a whole master reported at `chrome.masters[11]` with `field: 'master'`.
+	// Appending it keeps those matchable while leaving every walked difference untouched.
+	return keys[keys.length - 1] === difference.field ? keys : [...keys, difference.field]
+}
+
+/**
+ * Whether one exclusion spec covers a difference: `'*'` covers the whole call it is scoped to,
+ * and anything else must be a dotted SUFFIX of the difference's own path.
+ */
+function specCovers(spec: string, difference: IrDifference): boolean {
+	if (spec === '*') return true
+	const wanted = spec.split('.')
+	const keys = pathKeys(difference)
+	if (wanted.length > keys.length) return false
+	return wanted.every((segment, index) => segment === keys[keys.length - wanted.length + index])
+}
+
 /** The first note that covers this difference, or `null` if none does. */
 function declaringNote(difference: IrDifference, notes: FidelityNote[]): FidelityNote | null {
 	for (const note of notes) {
@@ -680,7 +533,7 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
 		}
 		const fields = noteFields(note.construct)
 		if (!fields) continue
-		if (fields.includes('*') || fields.includes(difference.field)) return note
+		if (fields.some((field) => specCovers(field, difference))) return note
 	}
 	return null
 }
@@ -693,7 +546,8 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
  * the same field. Only the two constructs with no slide twin need entries of their own.
  */
 function noteFields(construct: string): readonly string[] | undefined {
-	return NOTE_FIELDS[construct] ?? (construct.startsWith(LAYOUT_NOTE_PREFIX) ? NOTE_FIELDS[construct.slice(LAYOUT_NOTE_PREFIX.length)] : undefined) // prettier-ignore
+	const table: Record<string, readonly string[] | undefined> = NOTE_CONSTRUCTS
+	return table[construct] ?? (construct.startsWith(LAYOUT_NOTE_PREFIX) ? table[construct.slice(LAYOUT_NOTE_PREFIX.length)] : undefined) // prettier-ignore
 }
 
 /**

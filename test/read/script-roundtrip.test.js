@@ -141,6 +141,78 @@ describe('script round trip — the oracle has teeth', () => {
 	})
 })
 
+describe('script round trip — a note covers a PATH, not a key at any depth', () => {
+	// Both exclusion mechanisms used to match the terminal key alone, anywhere in the IR. So
+	// `type` — a `WRITER_DEFAULTS` entry written about a fill's solid default — excused an added
+	// `bullet.type`, waving through a character bullet that came back as a numbered list; `title`,
+	// written about `docProps`, excused an added chart title; and a note about `line.width`
+	// excused any `width` in the same call, including a table cell border's.
+
+	/** A canonical deck built from one fixture, twice, so one copy can be perturbed. */
+	const pair = async (name) => {
+		const ir = await irFor(name)
+		return [canonicalDeckIr(ir), canonicalDeckIr(ir)]
+	}
+
+	/** @type {(construct: string, shapeName?: string | null) => import('../../dist/script.js').FidelityNote[]} */
+	const note = (construct, shapeName = null) => [{ slideNumber: 1, shapeName, construct, disposition: 'dropped', cause: 'unread', detail: '' }] // prettier-ignore
+
+	/**
+	 * Put `value` at `options[key]` on both sides of the pair, then change it on the output side
+	 * only, so the difference lands on the leaf rather than on the object appearing.
+	 */
+	const perturbLeaf = (before, after, key, seed, changed) => {
+		const call = before.slides[0].calls.find((c) => c.method === 'addText')
+		const other = after.slides[0].calls.find((c) => c.method === 'addText')
+		const seedOptions = /** @type {any} */ (call.args[1])
+		const changedOptions = /** @type {any} */ (other.args[1])
+		seedOptions[key] = seed
+		changedOptions[key] = changed
+		return other.shapeName
+	}
+
+	test('a note about `line.width` does not excuse a width one level down', async () => {
+		const [before, after] = await pair('textbox.pptx')
+		const shapeName = perturbLeaf(before, after, 'border', [{ width: 1 }], [{ width: 3 }])
+
+		const report = diffDeckIr(before, after, note('line.width', shapeName))
+		assertEqual(report.differences.length, 1, 'exactly one difference, on the border width')
+		assertEqual(report.undeclared.length, 1, 'a border width is not the outline width the note is about')
+	})
+
+	test('a note about `line.width` still excuses the outline width itself', async () => {
+		// The other direction: qualifying the entry must not stop it matching what it names.
+		const [before, after] = await pair('textbox.pptx')
+		const shapeName = perturbLeaf(before, after, 'line', { width: 1 }, { width: 3 })
+
+		const report = diffDeckIr(before, after, note('line.width', shapeName))
+		assertEqual(report.differences.length, 1, 'exactly one difference, on the outline width')
+		assertEqual(report.undeclared.length, 0, 'the note names exactly this width')
+	})
+
+	test("the write path's docProps defaults do not excuse a title one level down", async () => {
+		const [before, after] = await pair('textbox.pptx')
+		const call = after.slides[0].calls.find((c) => c.method === 'addText')
+		const options = /** @type {any} */ (call.args[1])
+		options.title = 'a title the source never had'
+
+		const report = diffDeckIr(before, after, [])
+		assertEqual(report.undeclared.length, 1, 'an added shape title is not the deck title `props.title` is about')
+		assertEqual(report.undeclared[0].kind, 'added', 'and it is an added difference, the kind the defaults cover')
+	})
+
+	test("the write path's docProps defaults still excuse the deck property itself", async () => {
+		const [before, after] = await pair('textbox.pptx')
+		delete (/** @type {any} */ (before.props).title)
+
+		assertEqual(
+			diffDeckIr(before, after, []).undeclared.length,
+			0,
+			'a deck that declared no title gets the write path\u2019s own, which is what the entry is for'
+		)
+	})
+})
+
 describe('script round trip — the note coverage table', () => {
 	// A note whose construct is absent from the table excludes nothing, so a typo or a new
 	// note silently turns the round trip back into a snapshot. Checked against the notes the

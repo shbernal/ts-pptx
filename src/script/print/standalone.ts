@@ -75,9 +75,13 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 	const assetNames = assetIdentifiers(ir)
 	const printAsset = assetPrinter(assetNames)
 
-	// Walked before the header is built: this tier's own notes are only known afterwards.
+	// EVERY part that records a note is walked before the header is built: this tier's own notes
+	// are only known afterwards, and `notes` below is a snapshot of the collector rather than a
+	// live view. `printDocProps` used to run after that snapshot was taken, so the one note it
+	// records reached neither the header nor the returned list — it was collected and dropped.
 	const masters = printMasters(ir, collector, printAsset)
 	const body = printSlides(ir, collector, printAsset)
+	const props = printDocProps(ir, collector)
 	const notes = [...ir.fidelity.filter((note) => !NOT_APPLICABLE.has(note.construct)), ...collector.notes]
 
 	const needsReadFile = assetMode === 'file' && ir.assets.length > 0
@@ -121,7 +125,6 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 		)
 	}
 
-	const props = printDocProps(ir, collector)
 	if (props.length > 0) lines.push('', ...props)
 
 	const assetLines = printAssetBindings(
@@ -149,11 +152,18 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
 	const entries = Object.entries(ir.props).filter(([, value]) => typeof value === 'string')
 
-	// A deck built through the write API is stamped with the library's own author, company,
-	// subject, title and revision in the constructor, and a property cannot be unset — writing
-	// `''` emits an empty element rather than removing it. So whatever the source left blank
-	// comes back filled in, which is a change to the deck rather than a formatting detail.
-	const stamped = ['title', 'author', 'company', 'subject', 'revision'].filter((key) => !(key in ir.props))
+	// A deck built through the write API is stamped with the library's own author, subject,
+	// title and revision in the constructor, and a property cannot be unset — writing `''` emits
+	// an empty element rather than removing it. So whatever the source left blank comes back
+	// filled in, which is a change to the deck rather than a formatting detail.
+	//
+	// `company` is NOT in this list, although the constructor stamps one: nothing populates it in
+	// the IR, so it was unconditionally "missing" and every standalone script carried a note
+	// claiming the source deck declared no company — a claim the converter never checked and one
+	// that is false for most real decks. A note that says something untrue is worse than a
+	// missing one. `Company` lives in `docProps/app.xml`, which the read model does not read at
+	// all; when it does, this list gains the key back.
+	const stamped = ['title', 'author', 'subject', 'revision'].filter((key) => !(key in ir.props))
 	if (stamped.length > 0) {
 		scopeNotes(collector, null).note(
 			'deck.docPropsDefault',

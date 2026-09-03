@@ -465,7 +465,7 @@ SVG, which `addImage` accepts but a *fill* does not, so emitting one would
 produce a script that runs, warns, and paints nothing. Those surfaces come out
 unfilled, as they did before, with the note saying which case it was.
 
-**Standalone only**: the chrome cliff, quantified. Five notes fire on *every*
+**Standalone only**: the chrome cliff, quantified. Six notes fire on *every*
 fixture, which is the honest headline of that tier:
 
 | construct | fixtures | what it costs |
@@ -473,7 +473,8 @@ fixture, which is the honest headline of that tier:
 | `theme.fmtScheme` | 46/46 | the output carries Office's format scheme |
 | `master.txStyles` | 46/46 | placeholder text falls back to built-in defaults |
 | `master.placeholders` | 46/46 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 46/46 | 5 of 12 document properties have setters |
+| `deck.docProps` | 46/46 | 4 of 12 document properties round-trip |
+| `deck.docPropsDefault` | 46/46 | the write path stamps its own value for each property the source left blank |
 | `master.default` | 46/46 | every presentation carries an unremovable blank `DEFAULT` layout |
 | `master.background` | 45/46 | a `p:bgRef` theme reference is baked to the colour it resolves to |
 | `master.decoration` | 6/46 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |

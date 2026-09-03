@@ -20,6 +20,7 @@
  */
 import { asIrValue, isAssetRef, type AssetIr, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
 import { BODY_INSET_DEFAULTS_IN } from '../../ooxml/body-insets.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /** One write-API call, with the source shape name lifted out as an address rather than data. */
 export interface CanonicalCall {
@@ -196,7 +197,22 @@ export function collectObjectNames(value: IrValue, out: Set<string>): Set<string
  * happen and, worse, would *miss* one where two images traded places.
  */
 function canonicalValue(value: IrValue, digests: Map<string, string>): IrValue {
-	if (isAssetRef(value)) return { $asset: digests.get(value.$asset) ?? `unknown:${value.$asset}` }
+	if (isAssetRef(value)) {
+		const digest = digests.get(value.$asset)
+		// An unresolved reference used to fall back to `unknown:<name>`, which is the asset's own
+		// NAME — so if neither side resolved it, both canonicalised to the same string and the round
+		// trip came back clean on bytes it never compared. That is the one case where names carry no
+		// information, which is precisely what the digest exists to avoid. It is already an
+		// `InvalidOptionError` on the print path, so it is an invariant violation rather than a
+		// difference: saying so is louder than a sentinel and cannot be compared equal by accident.
+		if (digest === undefined) {
+			throw new InvalidOptionError(
+				'script/unresolved-asset-reference',
+				`Asset reference ${value.$asset} has no entry in DeckIr.assets, so it cannot be compared by content`
+			)
+		}
+		return { $asset: digest }
+	}
 	if (Array.isArray(value)) return value.map((item) => canonicalValue(item, digests))
 	if (value === null || typeof value !== 'object') return value
 

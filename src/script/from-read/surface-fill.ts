@@ -25,9 +25,20 @@ type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
 export function gradientStops(gradient: GradientFill, notes: NoteScope, where: FillNoteScope): IrValue | undefined {
 	const stops = gradient.stops
 		.map((stop) => {
+			// Scoped by `where`, like the two notes below it. Hardcoding the shape spelling meant a
+			// table background's gradient stop recorded `fill.gradient.schemeToken`, whose entry
+			// excuses a difference on `fill` — while the difference itself lands on `tableFill`,
+			// which the table mapper keeps deliberately distinct. A declared, genuine loss was
+			// therefore reported as an undeclared defect, and on a line gradient the note's prose
+			// said "fill" about a stroke.
 			const color =
-				schemeColorOption(stop.schemeColor, stop.effectiveHex, notes, 'fill.gradient.schemeToken', 'gradient stop') ??
-				(stop.effectiveHex === null ? undefined : literalColor(stop.effectiveHex))
+				schemeColorOption(
+					stop.schemeColor,
+					stop.effectiveHex,
+					notes,
+					`${where}.gradient.schemeToken`,
+					`${where === 'line' ? 'line' : 'fill'} gradient stop`
+				) ?? (stop.effectiveHex === null ? undefined : literalColor(stop.effectiveHex))
 			if (color === undefined) return null
 			return compact({
 				color,

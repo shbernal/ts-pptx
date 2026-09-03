@@ -52,13 +52,27 @@ export function alignByKey<T>(
 	const expectedKeys = uniqueBy(expected)
 	const claimed = new Set<T>()
 
-	// Positional cursor for items no key can align, advanced only past claimed items so a keyed
-	// match does not consume an unkeyed item's slot.
+	// Every actual item some expected item will claim BY KEY, reserved before the positional walk
+	// begins. Without the reservation the walk claims whatever it lands on, including an item a
+	// later expected entry is going to match by name: with `expected = [<unnamed>, "A"]` against
+	// `actual = ["A", <unnamed>]`, the unnamed expected item took `"A"` positionally, `"A"` then
+	// found its own match already claimed and fell to the unnamed one, and the report described
+	// two shapes that each had an exact counterpart as a full set of differences.
+	const reserved = new Set<T>()
+	for (const before of expected) {
+		const key = keyOf(before)
+		if (key === null || !expectedKeys.has(key)) continue
+		const named = byKey.get(key)
+		if (named !== undefined) reserved.add(named)
+	}
+
+	// Positional cursor for items no key can align, advanced only past claimed and reserved items
+	// so a keyed match does not lose its slot to an unkeyed one.
 	let cursor = 0
 	const nextUnclaimed = (): T | null => {
 		while (cursor < actual.length) {
 			const candidate = actual[cursor++]
-			if (candidate !== undefined && !claimed.has(candidate)) return candidate
+			if (candidate !== undefined && !claimed.has(candidate) && !reserved.has(candidate)) return candidate
 		}
 		return null
 	}

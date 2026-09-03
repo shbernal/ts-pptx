@@ -18,7 +18,7 @@
  */
 import type { IrValue } from '../ir.js'
 import type { Shape } from '../../read.js'
-import type { NoteScope } from '../fidelity.js'
+import type { NoteScope, RecordableConstruct } from '../fidelity.js'
 import { EMU_PER_POINT } from '../../units.js'
 // Re-exported so this module stays the one import the mappers reach for; it lives in
 // `script/units.ts` because the printer needs it too and may not import from here.
@@ -98,7 +98,7 @@ export function schemeColorOption(
 	scheme: string | null,
 	resolvedHex: string | null,
 	notes: NoteScope,
-	construct: string,
+	construct: RecordableConstruct,
 	label: string
 ): string | undefined {
 	if (isWritableSchemeToken(scheme)) return scheme as string

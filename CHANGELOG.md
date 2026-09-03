@@ -345,6 +345,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Eight blind spots in the round-trip verifier, which is the thing that decides whether a
+  generated script rebuilt the deck it came from.** Each is a way it could answer *yes*
+  without having compared, or report a defect where the loss was already declared.
+
+  - **Seven note constructs were emitted with no entry in the coverage table** — `chart.data`,
+    `line.align`, `fill.gradient`, `line.gradient`, `line.gradient.path`,
+    `text.autofit.fontScale` and `text.autofit.lnSpcReduction`. A construct with no entry
+    declares nothing, so the difference the note predicted came back as a defect. The table is
+    now the source of the `NoteConstruct` union a note is recorded under, so an unmapped
+    construct is a **compile** error; that alone found two more (`table.fill.gradient.schemeToken`
+    and its cell twin). The corpus check that was supposed to catch this only sees constructs
+    the fixtures happen to produce, which is why it stayed green through all nine.
+  - **A note or a write-path default matched the last key of a path, at any depth.** So `type`,
+    written about a fill's solid default, excused an added `bullet.type` — a character bullet
+    that came back as a numbered list, waved through; `title`, written about `docProps`, excused
+    an added chart title; and a note about `line.width` excused a table cell border's width in
+    the same call. Both mechanisms match a dotted path SUFFIX now.
+  - **A gradient stop's scheme-token note ignored the surface it was on.** The two notes beside
+    it are scoped by surface and this one hardcoded the shape spelling, so a table background's
+    gradient recorded `fill.gradient.schemeToken` while its difference landed on `tableFill` —
+    a declared, genuine loss reported as an undeclared defect, on exactly the distinction the
+    table mapper goes to trouble to keep.
+  - **The aligner let an unkeyed item claim a slot a later keyed one would match.** With an
+    unnamed shape ahead of a named one on one side and the reverse on the other, both pairs
+    cross-matched and the report described two shapes that each had an exact counterpart as a
+    full set of differences. Keyed matches are reserved before the positional walk now, which
+    also puts a lost item's `null` beside the item that went missing rather than at the end.
+  - **An unresolved asset reference compared equal to itself.** It fell back to
+    `unknown:<name>` — the asset's own name — so if neither side resolved one, both
+    canonicalised to the same string and the round trip came back clean on bytes it never
+    compared. That is the one case where names carry no information, which is what the content
+    digest exists to avoid. It throws `script/unresolved-asset-reference` now, matching the
+    print path.
+  - **`DeckPropsIr.company` was a field nothing populated**, so every standalone script carried
+    a note asserting "the source deck declares no company" — a claim the converter never
+    checked and one that is false for most real decks. `Company` lives in `docProps/app.xml`,
+    which the read model does not open. The field is gone and the `deck.docProps` note now says
+    what is actually true of it.
+  - **A chart with no cached series claimed its workbook had been rebuilt.** The
+    `chart.workbook` note was recorded before the guard that drops such a chart, so it emitted
+    two contradictory notes — and `chart.workbook` maps to `['*']`, the widest exclusion in the
+    table, applied to the case it least describes.
+  - **The standalone printer collected one note and dropped it.** `printDocProps` ran after the
+    note list had been snapshotted, so `deck.docPropsDefault` — which says the output declares
+    document properties the source did not — reached neither the emitted script's header nor
+    the returned notes. It now fires on every fixture, which is where the census gains an entry.
+
+  Also: the asset-identifier deduplicator re-derived its collision candidate from the raw
+  name rather than the sanitised one, so a base starting with a digit would have produced
+  `1image_2` — not a legal JavaScript identifier. Unreachable today, and one line.
+
 - **Building a table no longer writes into the caller's cell objects.** `addTableDefinition`
   takes ownership of the *table* options and left the per-cell ones aliased, so the border
   completion, the hyperlink rel id and the table-level inheritance all wrote through to the
