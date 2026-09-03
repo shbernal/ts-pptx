@@ -23,9 +23,12 @@ import {
 	DEF_FONT_SIZE,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
+import { warn } from '../../diagnostics.js'
+import { clampFontSizeSz } from '../drawingml/clamp.js'
+import { resolveDash } from '../drawingml/line.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
-import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	axisCrossing,
@@ -49,7 +52,7 @@ import { isScatterChart, isXyChart } from './chart-kind.js'
 function axisLineSpPr(widthEmu: number, show: boolean | undefined, color: string | undefined, dash: string): string {
 	const line = el('a:ln', { w: widthEmu, cap: 'flat' }, [
 		raw(!show ? voidEl('a:noFill') : genXmlColorSelection(color || DEF_GRIDLINE_COLOR)),
-		raw(voidEl('a:prstDash', { val: dash })),
+		raw(voidEl('a:prstDash', { val: resolveDash(dash, 'solid', 'axis line style') })),
 		raw(voidEl('a:round', null)),
 	])
 	return el('c:spPr', null, raw(line))
@@ -75,6 +78,8 @@ function axisTextProps(defRPr: string, lang: string, rot?: number): string {
 
 /** One axis' label font, as the three axis builders each spelled it. */
 interface AxisLabelFont {
+	/** Option name as the caller spells it (`catAxisLabelFontSize` and its two siblings). */
+	option: string
 	size: number | undefined
 	bold: boolean | undefined
 	italic: boolean | undefined
@@ -94,7 +99,7 @@ function axisLabelDefRPr(font: AxisLabelFont): string {
 	return el(
 		'a:defRPr',
 		{
-			sz: ptToHundredths(font.size || DEF_FONT_SIZE),
+			sz: clampFontSizeSz(font.size || DEF_FONT_SIZE, font.option),
 			b: font.bold ? 1 : 0,
 			i: font.italic ? 1 : 0,
 			u: 'none',
@@ -123,6 +128,22 @@ function axisTitleXml(show: boolean | undefined, title: AxisTitle): string {
 		titleRotate: title.rotate,
 		title: title.text || 'Axis Title',
 	})
+}
+
+/**
+ * Report an axis option the chosen axis tag has no slot for, and emit nothing.
+ *
+ * The category builder emits one of three tags and the three have three content models, so a
+ * unit option is not "an option the axis ignores" but one the schema has no place for --
+ * writing it anyway is what made `<c:catAx>` and `<c:serAx>` reject on open. Silence would be
+ * the footgun; the option is named back to the caller instead.
+ * @param tag - the axis element actually being emitted
+ * @param optionName - option name as the caller spells it
+ * @param value - the caller's value; nothing is reported when they named none
+ */
+function warnNoSlot(tag: string, optionName: string, value: number | string | undefined): void {
+	if (value === undefined || value === null || value === '') return
+	warn('chart/option-not-on-axis', `"${optionName}" has no place on <${tag}>; ignoring it.`)
 }
 
 export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
@@ -155,6 +176,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			voidEl('c:tickLblPos', { val: opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') })
 
 	const defRPr = axisLabelDefRPr({
+		option: 'catAxisLabelFontSize',
 		size: opts.catAxisLabelFontSize,
 		bold: opts.catAxisLabelFontBold,
 		italic: opts.catAxisLabelFontItalic,
@@ -170,23 +192,33 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	const catLabelSkip = positiveIntAttr(opts.catAxisLabelFrequency, 'catAxisLabelFrequency')
 	const valAxisCrossing = axisCrossing(opts.valAxisCrossesAt, 'autoZero', 'valAxisCrossesAt')
 
-	// The TIME units are gated on a format code because they describe a date axis and PowerPoint
-	// auto-adjusts them once it has calculated the date bounds. The numeric major/minor units are
-	// not: they are an `xsd:double` spacing that applies to any category axis, and the value axis
-	// below has always emitted its own with no gate at all. Gating them here meant
-	// `{ type: 'bar3d', catAxisMajorUnit: 3, valAxisMajorUnit: 4 }` emitted exactly one element.
+	// Which units this axis can carry is decided by the tag, not by the option: the three tags
+	// this one builder emits have three different content models. `CT_CatAx` has no unit slot at
+	// all; `CT_ValAx` -- the tag a scatter/bubble X axis takes -- has the numeric pair only;
+	// `CT_DateAx` has all five, and wants them interleaved rather than time-then-numeric.
 	let units = ''
-	if (opts.catLabelFormatCode) {
+	if (tag === 'c:dateAx') {
 		// All three resolved before any is emitted, so the warnings still arrive in option order.
 		const baseTimeUnit = validTimeUnit(opts.catAxisBaseTimeUnit, 'catAxisBaseTimeUnit')
 		const majorTimeUnit = validTimeUnit(opts.catAxisMajorTimeUnit, 'catAxisMajorTimeUnit')
 		const minorTimeUnit = validTimeUnit(opts.catAxisMinorTimeUnit, 'catAxisMinorTimeUnit')
 		if (baseTimeUnit) units += voidEl('c:baseTimeUnit', { val: baseTimeUnit })
+		if (opts.catAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.catAxisMajorUnit })
 		if (majorTimeUnit) units += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
+		if (opts.catAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.catAxisMinorUnit })
 		if (minorTimeUnit) units += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
+	} else {
+		if (tag === 'c:valAx') {
+			if (opts.catAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.catAxisMajorUnit })
+			if (opts.catAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.catAxisMinorUnit })
+		} else {
+			warnNoSlot(tag, 'catAxisMajorUnit', opts.catAxisMajorUnit)
+			warnNoSlot(tag, 'catAxisMinorUnit', opts.catAxisMinorUnit)
+		}
+		warnNoSlot(tag, 'catAxisBaseTimeUnit', opts.catAxisBaseTimeUnit)
+		warnNoSlot(tag, 'catAxisMajorTimeUnit', opts.catAxisMajorTimeUnit)
+		warnNoSlot(tag, 'catAxisMinorTimeUnit', opts.catAxisMinorTimeUnit)
 	}
-	if (opts.catAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.catAxisMajorUnit })
-	if (opts.catAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.catAxisMinorUnit })
 
 	return el(tag, null, [
 		raw(voidEl('c:axId', { val: axisId })),
@@ -253,6 +285,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 			voidEl('c:tickLblPos', { val: opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low') })
 
 	const defRPr = axisLabelDefRPr({
+		option: 'valAxisLabelFontSize',
 		size: opts.valAxisLabelFontSize,
 		bold: opts.valAxisLabelFontBold,
 		italic: opts.valAxisLabelFontItalic,
@@ -324,6 +357,10 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 
 /**
  * Create Series Axis (Used by `bar3D`)
+ *
+ * `CT_SerAx` carries no unit of any kind -- neither the numeric `majorUnit`/`minorUnit` pair
+ * nor the three time units -- which is why this builder emits none and the options that named
+ * them are gone from `ChartPropsAxisSer` rather than warned about.
  * @param {ChartOptsInternal} opts - chart options
  * @param {string} axisId - axis ID
  * @param {string} valAxisId - value
@@ -331,6 +368,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
  */
 export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	const defRPr = axisLabelDefRPr({
+		option: 'serAxisLabelFontSize',
 		size: opts.serAxisLabelFontSize,
 		bold: opts.serAxisLabelFontBold,
 		italic: opts.serAxisLabelFontItalic,
@@ -340,25 +378,6 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	// No `serAxisLabelRotate` option exists, so the series axis always takes the auto rotation.
 	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
 	const serLabelSkip = positiveIntAttr(opts.serAxisLabelFrequency, 'serAxisLabelFrequency')
-
-	// Time units on a format code, numeric units unconditionally — the same split as the
-	// category axis above and the value axis below. See the note there.
-	let units = ''
-	if (opts.serLabelFormatCode) {
-		// All three resolved before any is emitted, so the warnings still arrive in option order.
-		const baseTimeUnit = validTimeUnit(opts.serAxisBaseTimeUnit, 'serAxisBaseTimeUnit')
-		const majorTimeUnit = validTimeUnit(opts.serAxisMajorTimeUnit, 'serAxisMajorTimeUnit')
-		const minorTimeUnit = validTimeUnit(opts.serAxisMinorTimeUnit, 'serAxisMinorTimeUnit')
-		// `baseTimeUnit` keeps its template string on purpose: it emits TWO spaces before
-		// `val`, and voidEl() joins attributes with exactly one. Normalizing the spacing
-		// would be a byte change, so the quirk stays visible here rather than being
-		// silently "fixed" by the builder.
-		if (baseTimeUnit) units += ` <c:baseTimeUnit  val="${baseTimeUnit}"/>`
-		if (majorTimeUnit) units += voidEl('c:majorTimeUnit', { val: majorTimeUnit })
-		if (minorTimeUnit) units += voidEl('c:minorTimeUnit', { val: minorTimeUnit })
-	}
-	if (opts.serAxisMajorUnit) units += voidEl('c:majorUnit', { val: opts.serAxisMajorUnit })
-	if (opts.serAxisMinorUnit) units += voidEl('c:minorUnit', { val: opts.serAxisMinorUnit })
 
 	return el('c:serAx', null, [
 		raw(voidEl('c:axId', { val: axisId })),
@@ -385,6 +404,5 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(voidEl('c:crossAx', { val: valAxisId })),
 		raw(voidEl('c:crosses', { val: 'autoZero' })),
 		serLabelSkip !== undefined ? raw(voidEl('c:tickLblSkip', { val: serLabelSkip })) : null,
-		raw(units),
 	])
 }

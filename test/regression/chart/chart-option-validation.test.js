@@ -301,28 +301,61 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
-		// Three sibling axes had three rules for the same pair of options: the value axis emitted
-		// them unconditionally, the category axis only behind a format code or an XY chart, and the
-		// series axis only behind a format code. So this deck used to emit exactly one element.
-		name: 'all three axes emit their numeric major/minor units',
+		// `majorUnit`/`minorUnit` belong to `CT_ValAx` and `CT_DateAx`. `CT_CatAx` has no slot for
+		// either, so a plain category axis takes neither -- and says so rather than writing an
+		// element PowerPoint then refuses to open the deck over.
+		name: 'a plain category axis has no unit slot, and the caller is told',
 		fn: async () => {
-			const { zip } = await build((p) => {
-				p.addSlide().addChart(SERIES, {
-					...BASE,
-					type: ChartType.bar3d,
-					catAxisMajorUnit: 3,
-					catAxisMinorUnit: 1,
-					serAxisMajorUnit: 2,
-					valAxisMajorUnit: 4,
-					valAxisMinorUnit: 2,
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.bar3d,
+						catAxisMajorUnit: 3,
+						catAxisMinorUnit: 1,
+						valAxisMajorUnit: 4,
+						valAxisMinorUnit: 2,
+					})
 				})
+				return chartXml(zip)
 			})
-			const xml = await chartXml(zip)
+			const catAx = xml.match(/<c:catAx>[\s\S]*?<\/c:catAx>/)
+			assert(catAx, 'expected a <c:catAx> block; got: ' + xml)
+			assertNotIncludes(catAx[0], '<c:majorUnit', 'CT_CatAx has no majorUnit')
+			assertNotIncludes(catAx[0], '<c:minorUnit', 'CT_CatAx has no minorUnit')
 			const units = [...xml.matchAll(/<c:(major|minor)Unit val="(\d+)"\/>/g)].map((m) => `${m[1]}:${m[2]}`)
 			assertEqual(
 				JSON.stringify(units.sort()),
-				JSON.stringify(['major:2', 'major:3', 'major:4', 'minor:1', 'minor:2'].sort()),
-				'every axis unit reaches the part; got ' + JSON.stringify(units)
+				JSON.stringify(['major:4', 'minor:2'].sort()),
+				'only the value axis carries units; got ' + JSON.stringify(units)
+			)
+			assert(codes.includes('chart/option-not-on-axis'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'a date axis interleaves its numeric and time units in schema order',
+		fn: async () => {
+			// `CT_DateAx` orders them baseTimeUnit, majorUnit, majorTimeUnit, minorUnit,
+			// minorTimeUnit. Emitting the three time units and then the two numeric ones is a
+			// content-model violation even though every element is legal on the type.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					type: ChartType.line,
+					catLabelFormatCode: 'yyyy-mm-dd',
+					catAxisBaseTimeUnit: 'days',
+					catAxisMajorTimeUnit: 'months',
+					catAxisMinorTimeUnit: 'years',
+					catAxisMajorUnit: 3,
+					catAxisMinorUnit: 1,
+				})
+			})
+			const xml = await chartXml(zip)
+			assertIncludes(
+				xml,
+				'<c:baseTimeUnit val="days"/><c:majorUnit val="3"/><c:majorTimeUnit val="months"/>' +
+					'<c:minorUnit val="1"/><c:minorTimeUnit val="years"/>',
+				'the five units come out in CT_DateAx order'
 			)
 		},
 	},
@@ -330,11 +363,31 @@ defineRegressionSuite('Chart option validation', [
 		name: 'the time units stay behind their format code',
 		fn: async () => {
 			// Their gate is real: PowerPoint auto-adjusts them once it has the date bounds, and
-			// they belong to a `c:dateAx`. Only the numeric siblings came out from behind it.
-			const { zip } = await build((p) => {
-				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, catAxisMajorTimeUnit: 'months' })
+			// they belong to a `c:dateAx`. Without a format code there is no date axis to hold one.
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, catAxisMajorTimeUnit: 'months' })
+				})
+				return chartXml(zip)
 			})
-			assertNotIncludes(await chartXml(zip), '<c:majorTimeUnit', 'no format code, no date axis, no time unit')
+			assertNotIncludes(xml, '<c:majorTimeUnit', 'no format code, no date axis, no time unit')
+			assert(codes.includes('chart/option-not-on-axis'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'a scatter X axis is a value axis and carries the numeric units',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart([{ name: 'S1', values: [1, 2, 3] }], {
+					...BASE,
+					type: ChartType.scatter,
+					catAxisMajorUnit: 2,
+					catAxisMinorUnit: 1,
+				})
+			})
+			const xml = await chartXml(zip)
+			assertIncludes(xml, '<c:majorUnit val="2"/>', 'the X value axis takes catAxisMajorUnit')
+			assertIncludes(xml, '<c:minorUnit val="1"/>', 'and catAxisMinorUnit')
 		},
 	},
 	{

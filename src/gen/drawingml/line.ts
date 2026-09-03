@@ -15,7 +15,7 @@ import { fillNamesPaint, genXmlColorSelection, resolveLineKind, solidPaint } fro
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
-import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
+import { LINE_END_TYPES, PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 import { lineWidthToEmu } from '../../units-internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
@@ -36,24 +36,62 @@ const BORDER_KEYS: readonly string[] = Object.keys({
 } satisfies Record<keyof Required<BorderProps>, 0>)
 
 /**
+ * Resolve an `a:prstDash/@val`, falling back when the caller named nothing or named something
+ * outside `ST_PresetLineDashVal`.
+ *
+ * Nine sites in the emitters reach that attribute and five of them wrote the caller's value
+ * straight through, so the SAME type on the SAME attribute got two answers: a table border's
+ * `dashType: 'bogusDash'` warned and fell back to solid, a shape line's went into the part. A
+ * value outside the union makes the part schema-invalid, which PowerPoint reports as a corrupt
+ * file rather than as a mis-set option.
+ * @param value - the caller's dash, if any
+ * @param fallback - what to emit when the caller named none, or named one outside the union
+ * @param label - how the diagnostic names the option, e.g. `'border: dashType'`
+ * @returns a value legal for `a:prstDash/@val`
+ */
+export function resolveDash(value: string | undefined | null, fallback: string, label: string): string {
+	return checkEnumOrWarn(value, PRESET_LINE_DASHES, 'border/invalid-dash-type', label) ?? fallback
+}
+
+/**
  * Resolve the `a:prstDash/@val` a border should emit.
  *
  * `BorderProps.type` is a three-way switch, so on its own it can only say "dashed" and
  * every dashed border collapses onto `sysDash`. `dashType` names the preset directly and
  * therefore wins when both are given; `type: 'none'` never reaches here, being decided by
  * the caller before any dash is chosen.
- *
- * A value outside `ST_PresetLineDashVal` would make the part schema-invalid, which
- * PowerPoint reports as a corrupt file rather than a mis-set option — so an unrecognized
- * one is reported and dropped back to what `type` implies.
  * @param {BorderProps} border - the caller's border properties
  * @returns {string} a value legal for `a:prstDash/@val`
  */
 export function resolveBorderDash(border: BorderProps): string {
-	const fromType = border.type === 'dash' ? 'sysDash' : 'solid'
-	return (
-		checkEnumOrWarn(border.dashType, PRESET_LINE_DASHES, 'border/invalid-dash-type', 'border: dashType') ?? fromType
-	)
+	return resolveDash(border.dashType, border.type === 'dash' ? 'sysDash' : 'solid', 'border: dashType')
+}
+
+/**
+ * Resolve an arrowhead type for `a:headEnd/@type` / `a:tailEnd/@type`, or `null` when the caller
+ * named none -- the attribute is then not written and that end of the stroke stays plain.
+ *
+ * `ST_LineEndType` had no runtime tuple at all, so the two options were emitted verbatim and an
+ * untyped caller could reach the attribute with anything.
+ * @param value - the caller's arrow type, if any
+ * @param label - how the diagnostic names the option, e.g. `'line: beginArrowType'`
+ * @returns a value legal for the attribute, or `null` to omit it
+ */
+export function resolveLineEnd(value: string | undefined | null, label: string): string | null {
+	return checkEnumOrWarn(value, LINE_END_TYPES, 'line/invalid-arrow-type', label)
+}
+
+/**
+ * One arrowhead element (`<a:headEnd>` / `<a:tailEnd>`), or `''` when the caller named no arrow
+ * or named one outside `ST_LineEndType`.
+ * @param tag - `a:headEnd` or `a:tailEnd`
+ * @param value - the caller's arrow type, if any
+ * @param label - how the diagnostic names the option
+ * @returns the element, or `''`
+ */
+export function lineEndEl(tag: 'a:headEnd' | 'a:tailEnd', value: string | undefined | null, label: string): string {
+	const type = resolveLineEnd(value, label)
+	return type === null ? '' : voidEl(tag, { type })
 }
 
 /**

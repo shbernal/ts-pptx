@@ -388,7 +388,6 @@ export interface ChartPropsAxisCat {
 	showCatAxisTitle?: boolean
 }
 export interface ChartPropsAxisSer {
-	serAxisBaseTimeUnit?: string
 	serAxisHidden?: boolean
 	serAxisLabelColor?: string
 	serAxisLabelFontBold?: boolean
@@ -405,10 +404,6 @@ export interface ChartPropsAxisSer {
 	serAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	serAxisLineColor?: string
 	serAxisLineShow?: boolean
-	serAxisMajorTimeUnit?: string
-	serAxisMajorUnit?: number
-	serAxisMinorTimeUnit?: string
-	serAxisMinorUnit?: number
 	serAxisOrientation?: string
 	serAxisTitle?: string
 	serAxisTitleColor?: string

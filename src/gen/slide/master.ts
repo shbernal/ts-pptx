@@ -11,8 +11,8 @@ import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } fr
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
-import { inch2Emu } from '../../units-internal.js'
-import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
+import { clampFontSizeSz, clampParaIndentInchesEmu, clampParaMarginInchesEmu } from '../drawingml/clamp.js'
+import { HUNDREDTHS_PER_POINT } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
@@ -182,11 +182,11 @@ function masterBulletXml(
 function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverride: MasterTextStyleLevel = {}): string {
 	const marL =
 		typeof levelOverride.marginLeft === 'number' && Number.isFinite(levelOverride.marginLeft)
-			? inch2Emu(levelOverride.marginLeft)
+			? clampParaMarginInchesEmu(levelOverride.marginLeft, 'master textStyles marginLeft')
 			: base.marL
 	const indentEmu =
 		typeof levelOverride.indent === 'number' && Number.isFinite(levelOverride.indent)
-			? inch2Emu(levelOverride.indent)
+			? clampParaIndentInchesEmu(levelOverride.indent, 'master textStyles indent')
 			: base.indent
 	const algn = (levelOverride.align && masterAlignAttr(levelOverride.align)) || base.algn
 
@@ -197,7 +197,7 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 				'master/invalid-text-style-font-size',
 				`master textStyles fontSize "${levelOverride.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
-		else sz = ptToHundredths(levelOverride.fontSize)
+		else sz = clampFontSizeSz(levelOverride.fontSize, 'master textStyles fontSize')
 	}
 	const colorXml = levelOverride.color ? createColorElement(levelOverride.color) : voidEl('a:schemeClr', { val: 'tx1' })
 	const latinXml = levelOverride.fontFace

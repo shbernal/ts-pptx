@@ -6,7 +6,7 @@
  */
 import type { LineCap } from './chart.js'
 import type { Color, Coord, GradientFillProps, HexColor, ImageFillProps, PatternFillProps } from './core.js'
-import type { PresetLineDashVal } from '../ooxml/st-enums.js'
+import type { LineEndType, PresetLineDashVal } from '../ooxml/st-enums.js'
 
 // used by charts, shape, text
 export interface BorderProps {
@@ -269,13 +269,13 @@ export interface ShapeLineProps extends Omit<ShapeFillProps, 'type' | 'image' | 
 	 */
 	cap?: LineCap
 	/**
-	 * Begin arrow type
+	 * Begin arrow type — the `ST_LineEndType` set (`a:headEnd/@type`).
 	 */
-	beginArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
+	beginArrowType?: LineEndType
 	/**
-	 * End arrow type
+	 * End arrow type — the `ST_LineEndType` set (`a:tailEnd/@type`).
 	 */
-	endArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
+	endArrowType?: LineEndType
 	// FUTURE: beginArrowSize (1-9)
 	// FUTURE: endArrowSize (1-9)
 }

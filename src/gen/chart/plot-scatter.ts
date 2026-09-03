@@ -26,8 +26,9 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	serMarker,
+	seriesDash,
 	seriesShapeProps,
+	serMarker,
 	strRefBlock,
 	type PlotBuilder,
 } from './chart-parts.js'
@@ -178,7 +179,7 @@ function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serInde
 			? el('a:ln', null, raw(voidEl('a:noFill')))
 			: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: createLineCap(opts.lineCap) }, [
 					raw(chartColorLineFill(serColor)),
-					raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
+					raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
 					raw(voidEl('a:round')),
 				])
 	return seriesShapeProps(opts, serColor, line)

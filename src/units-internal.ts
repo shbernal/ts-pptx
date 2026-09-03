@@ -473,7 +473,7 @@ export function lineWidthToEmu(widthPts: number | string): number {
  * ST_TextSpacingPercent rather than to the `0.0-9.99` its own option describes. Only values
  * PowerPoint reports as needing repair are worth moving.
  */
-export function shadowLengthToEmu(pts: number | string, code: DiagnosticCode, label: string): number {
+export function positiveCoordinateEmu(pts: number | string, code: DiagnosticCode, label: string): number {
 	return clampLengthEmu(pts, 27273042316900, code, label, '0-2147483647pt')
 }
 

@@ -177,7 +177,7 @@ const CASES = [
 	},
 	{ name: 'line no markers', data: TWO, opts: { type: ChartType.line, lineDataSymbol: 'none', lineSize: 0 } },
 	{ name: 'area stacked', data: TWO, opts: { type: ChartType.area, barGrouping: 'stacked' } },
-	{ name: 'radar marker', data: THREE, opts: { type: ChartType.radar, radarStyle: 'marker' } },
+	{ name: 'radar marker', data: THREE, opts: { type: ChartType.radar, radarStyle: 'markers' } },
 	{ name: 'radar filled', data: TWO, opts: { type: ChartType.radar, radarStyle: 'filled' } },
 	{
 		name: 'per-series colors',
@@ -422,8 +422,6 @@ const CASES = [
 			serAxisLabelPos: 'nextTo',
 			serAxisLineShow: true,
 			serAxisLineColor: '999999',
-			serAxisMajorUnit: 1,
-			serAxisMinorUnit: 1,
 			serGridLine: { color: 'E0E0E0', size: 1, style: 'solid' },
 			serLabelFormatCode: 'General',
 		},
@@ -531,6 +529,13 @@ const CASES = [
 			},
 		],
 		opts: { type: ChartType.bar, barDir: 'col' },
+	},
+	{
+		// The category builder's third tag: scatter/bubble put numbers on X, so the axis is a
+		// `<c:valAx>`, which is the one arm besides `<c:dateAx>` with a slot for the numeric units.
+		name: 'axis scatter X units (valAx branch)',
+		data: XY_PLAIN,
+		opts: { type: ChartType.scatter, lineSize: 0, catAxisMajorUnit: 2, catAxisMinorUnit: 1 },
 	},
 ]
 

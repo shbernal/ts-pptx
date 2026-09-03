@@ -4448,6 +4448,171 @@ export default [
 		},
 	},
 	{
+		// Axis units are per axis TYPE, not per axis: `CT_CatAx` and `CT_SerAx` have no slot for
+		// `majorUnit`/`minorUnit` at all, `CT_ValAx` has the numeric pair, and `CT_DateAx` has all
+		// five interleaved. Setting every unit option on a 3-D bar chart puts all three axes in
+		// one part, so a builder that writes a unit where its type has none is reported here.
+		name: 'axis unit options on a 3-D bar chart (catAx/valAx/serAx together)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					type: ChartType.bar3d,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					catAxisMajorUnit: 3,
+					catAxisMinorUnit: 1,
+					catAxisBaseTimeUnit: 'days',
+					catAxisMajorTimeUnit: 'months',
+					catAxisMinorTimeUnit: 'years',
+					valAxisMajorUnit: 4,
+					valAxisMinorUnit: 2,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'axis-units-bar3d')
+		},
+	},
+	{
+		// The date-axis arm, where all five units are legal and the content model interleaves
+		// them: baseTimeUnit, majorUnit, majorTimeUnit, minorUnit, minorTimeUnit. Emitting the
+		// three time units first is a content-model violation the validator alone catches.
+		name: 'date axis carrying both numeric and time units',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[{ name: 'Daily', labels: ['2026-01-01', '2026-01-02', '2026-01-03'], values: [3, 6, 4] }],
+					{
+						type: ChartType.line,
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						catLabelFormatCode: 'yyyy-mm-dd',
+						catAxisBaseTimeUnit: 'days',
+						catAxisMajorTimeUnit: 'months',
+						catAxisMinorTimeUnit: 'years',
+						catAxisMajorUnit: 2,
+						catAxisMinorUnit: 1,
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'date-axis-units')
+		},
+	},
+	{
+		// A scatter X axis is emitted as `<c:valAx>`, so the category unit options land on a type
+		// that does have a slot for them -- the one arm of the category builder that keeps them.
+		name: 'scatter X axis carrying the numeric units',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ name: 'X-Axis', values: [0, 1, 2] },
+						{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
+					],
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3, catAxisMajorUnit: 2, catAxisMinorUnit: 1 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'scatter-x-axis-units')
+		},
+	},
+	{
+		// Out-of-range input on every measure whose `ST_` type has a range. The library's policy is
+		// to clamp and warn rather than emit a degenerate value, and the validator is what proves
+		// the clamp actually covers each site: several of these reached the part raw because the
+		// clamp existed and was called from a sibling emitter rather than from this one.
+		name: 'out-of-range text measures are clamped into their ST_ ranges',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('huge', { x: 0.5, y: 0.5, w: 4, h: 1, fontSize: 99999, charSpacing: 99999 })
+				s.addText('deep', {
+					x: 0.5,
+					y: 2,
+					w: 4,
+					h: 1,
+					bullet: true,
+					indentLevel: 1e6,
+					paraMarginLeft: 1e6,
+					paraIndent: -1e6,
+				})
+				s.addText('glowy', { x: 0.5, y: 3.5, w: 4, h: 1, glow: { size: -5, color: 'FFFF00', opacity: 0.5 } })
+			})
+			await expectNoSchemaErrors(buf, 'text-measure-clamps')
+		},
+	},
+	{
+		// The master's text styles state their measures in inches and so reached `inch2Emu`
+		// directly, bypassing both paragraph clamps and the font-size one.
+		name: 'out-of-range master textStyles measures are clamped into their ST_ ranges',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'CLAMPS',
+					textStyles: {
+						title: [{ fontSize: 99999 }],
+						body: [{ fontSize: 0.001, marginLeft: 1e6, indent: -1e6 }],
+					},
+				})
+				p.addSlide({ masterName: 'CLAMPS' }).addText('x', { x: 1, y: 1, w: 4, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'master-text-style-clamps')
+		},
+	},
+	{
+		// Every chart font size, on one chart, all out of range. `ST_TextFontSize` is 100..400000
+		// and six of the nine `sz` sites in the chart emitters wrote the caller's number straight.
+		name: 'out-of-range chart font sizes are clamped into ST_TextFontSize',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					type: ChartType.bar,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					showTitle: true,
+					title: 'over',
+					titleFontSize: 5000,
+					showLegend: true,
+					legendFontSize: 0.4,
+					showDataTable: true,
+					dataTableFontSize: 5000,
+					showValue: true,
+					dataLabelFontSize: 5000,
+					catAxisLabelFontSize: 5000,
+					valAxisLabelFontSize: 0.4,
+					showCatAxisTitle: true,
+					catAxisTitle: 'cat',
+					catAxisTitleFontSize: 5000,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-font-size-clamps')
+		},
+	},
+	{
+		// Enumerated attributes reached from an untyped caller. A value outside its `ST_` union
+		// makes the part invalid, which PowerPoint reports as a corrupt file; each of these had a
+		// sibling site that checked the same union.
+		name: 'enum values outside their ST_ unions never reach an attribute',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, {
+					x: 0.5,
+					y: 0.5,
+					w: 3,
+					h: 1,
+					line: { color: 'FF0000', dashType: 'bogusDash', beginArrowType: 'wedge' },
+				})
+				s.addText('warped', { x: 0.5, y: 2, w: 3, h: 1, textWarp: 'textLoopTheLoop' })
+				s.addText('sideways', { x: 0.5, y: 3.5, w: 3, h: 1, vert: 'sideways' })
+			})
+			await expectNoSchemaErrors(buf, 'enum-guards')
+		},
+	},
+	{
 		// SELF-CHECK, not a fixture. Nothing above this line asserts a non-zero error
 		// count, so nothing above this line would notice if `validateBuf` began returning
 		// `[]` unconditionally — a keying bug in the batcher, a spawn that fails in a way

@@ -9,7 +9,8 @@
 import { PlaceholderType, SlideObjectType, TextAnchor } from '../../enums.js'
 import { CRLF } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import { TEXT_ANCHORS } from '../../ooxml/st-enums.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import { TEXT_ANCHORS, TEXT_SHAPE_TYPES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
 import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -78,7 +79,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 		rtlCol: '0',
 		// D: Add anchorPoints
 		anchor: bodyProp.anchor ? bodyProp.anchor : null, // VALS: [t,ctr,b]
-		vert: bodyProp.vert ? bodyProp.vert : null, // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+		vert: checkEnumOrWarn(bodyProp.vert, TEXT_VERTICAL, 'text/invalid-vertical', 'text: vert'),
 	}
 
 	const children: string[] = []
@@ -86,8 +87,9 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	// E.1: Preset text warp (`<a:prstTxWarp>`). Per CT_TextBodyProperties this child
 	// comes before the autofit group, so emit it immediately after the attributes.
 	// NOTE: this `<a:avLst/>` has NO space before the slash, unlike the one `custGeom` writes.
-	if (bodyProp.prstTxWarp) {
-		children.push(el('a:prstTxWarp', { prst: bodyProp.prstTxWarp }, raw(voidEl('a:avLst'))))
+	const prstTxWarp = checkEnumOrWarn(bodyProp.prstTxWarp, TEXT_SHAPE_TYPES, 'text/invalid-warp', 'text: textWarp')
+	if (prstTxWarp) {
+		children.push(el('a:prstTxWarp', { prst: prstTxWarp }, raw(voidEl('a:avLst'))))
 	}
 
 	/**

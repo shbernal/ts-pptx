@@ -39,6 +39,7 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	seriesDash,
 	seriesShapeProps,
 	serMarker,
 	strRefBlock,
@@ -87,7 +88,7 @@ function serShapeProps(
 				? el('a:ln', null, raw(voidEl('a:noFill')))
 				: el('a:ln', { w: ptsToEmuLenient(effectiveLineSize), cap: createLineCap(opts.lineCap) }, [
 						raw(chartColorLineFill(seriesColor)),
-						raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
+						raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
 						raw(voidEl('a:round')),
 					])
 	} else if (opts.dataBorder) {

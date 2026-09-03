@@ -34,9 +34,10 @@ import type {
 } from '../../types/internal.js'
 import type { BorderProps, FillOption } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
+import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { borderLine, noStrokeLine } from '../drawingml/line.js'
-import { ptToHundredths } from '../../units.js'
+
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
 import { makeCatAxis, makeSerAxis, makeValAxis } from './chart-axes.js'
@@ -376,7 +377,7 @@ function makeDataTableXml(rel: SlideRelChart): string {
 	const defRPr = el(
 		'a:defRPr',
 		{
-			sz: ptToHundredths(rel.opts.dataTableFontSize || DEF_FONT_SIZE),
+			sz: clampFontSizeSz(rel.opts.dataTableFontSize || DEF_FONT_SIZE, 'dataTableFontSize'),
 			b: 0,
 			i: 0,
 			u: 'none',
@@ -465,7 +466,7 @@ function makeLegendXml(rel: SlideRelChart): string {
 		// gets `coord/non-finite` from the converter rather than a silent coercion.
 		const defRPr = el(
 			'a:defRPr',
-			{ sz: rel.opts.legendFontSize ? ptToHundredths(rel.opts.legendFontSize) : undefined },
+			{ sz: rel.opts.legendFontSize ? clampFontSizeSz(rel.opts.legendFontSize, 'legendFontSize') : undefined },
 			[
 				raw(rel.opts.legendColor ? genXmlColorSelection(rel.opts.legendColor) : ''),
 				raw(rel.opts.legendFontFace ? createChartTextFonts(rel.opts.legendFontFace) : ''),

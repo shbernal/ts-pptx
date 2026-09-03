@@ -136,6 +136,67 @@ export const TEXT_VERTICAL = [
 export type TextVerticalType = (typeof TEXT_VERTICAL)[number]
 
 /**
+ * `ST_LineEndType` — the arrowhead at either end of a stroke (`a:headEnd/@type`,
+ * `a:tailEnd/@type`).
+ * @see ECMA-376 Part 1 §20.1.10.33
+ */
+export const LINE_END_TYPES = ['none', 'triangle', 'stealth', 'diamond', 'oval', 'arrow'] as const
+export type LineEndType = (typeof LINE_END_TYPES)[number]
+
+/**
+ * `ST_TextShapeType` — the preset path text is bent along (`a:prstTxWarp/@prst`), which
+ * PowerPoint calls WordArt.
+ *
+ * `textNoShape` is the identity member: it is legal, and it warps nothing. The library does not
+ * narrow this set — every member is a shape PowerPoint draws.
+ * @see ECMA-376 Part 1 §20.1.10.76
+ */
+export const TEXT_SHAPE_TYPES = [
+	'textNoShape',
+	'textPlain',
+	'textStop',
+	'textTriangle',
+	'textTriangleInverted',
+	'textChevron',
+	'textChevronInverted',
+	'textRingInside',
+	'textRingOutside',
+	'textArchUp',
+	'textArchDown',
+	'textCircle',
+	'textButton',
+	'textArchUpPour',
+	'textArchDownPour',
+	'textCirclePour',
+	'textButtonPour',
+	'textCurveUp',
+	'textCurveDown',
+	'textCanUp',
+	'textCanDown',
+	'textWave1',
+	'textWave2',
+	'textDoubleWave1',
+	'textWave4',
+	'textInflate',
+	'textDeflate',
+	'textInflateBottom',
+	'textDeflateBottom',
+	'textInflateTop',
+	'textDeflateTop',
+	'textDeflateInflate',
+	'textDeflateInflateDeflate',
+	'textFadeRight',
+	'textFadeLeft',
+	'textFadeUp',
+	'textFadeDown',
+	'textSlantUp',
+	'textSlantDown',
+	'textCascadeUp',
+	'textCascadeDown',
+] as const
+export type TextShapeType = (typeof TEXT_SHAPE_TYPES)[number]
+
+/**
  * `ST_PresetLineDashVal` — the dash pattern of a line or border (`a:prstDash/@val`).
  *
  * The `sys*` members are the "system" dashes whose exact dot/gap ratio the renderer picks; the
@@ -157,6 +218,74 @@ export const PRESET_LINE_DASHES = [
 	'sysDashDotDot',
 ] as const
 export type PresetLineDashVal = (typeof PRESET_LINE_DASHES)[number]
+
+/**
+ * `ST_BarDir` — whether a bar/column plot runs horizontally or vertically (`c:barDir/@val`).
+ * @see ECMA-376 Part 1 §21.2.3.3
+ */
+export const BAR_DIRECTIONS = ['bar', 'col'] as const
+export type BarDirection = (typeof BAR_DIRECTIONS)[number]
+
+/**
+ * `ST_BarGrouping` — how a bar/column plot stacks its series (`c:grouping/@val` inside
+ * `c:barChart`/`c:bar3DChart`).
+ * @see ECMA-376 Part 1 §21.2.3.4
+ */
+export const BAR_GROUPINGS = ['percentStacked', 'clustered', 'standard', 'stacked'] as const
+export type BarGrouping = (typeof BAR_GROUPINGS)[number]
+
+/**
+ * `ST_Grouping` — the same decision for the plots that have no clustered form
+ * (`c:areaChart`, `c:lineChart`).
+ * @see ECMA-376 Part 1 §21.2.3.17
+ */
+export const GROUPINGS = ['percentStacked', 'standard', 'stacked'] as const
+export type Grouping = (typeof GROUPINGS)[number]
+
+/**
+ * `ST_Shape` — the solid a 3-D bar is drawn as (`c:shape/@val`).
+ * @see ECMA-376 Part 1 §21.2.3.35
+ */
+export const BAR_3D_SHAPES = ['cone', 'coneToMax', 'box', 'cylinder', 'pyramid', 'pyramidToMax'] as const
+export type Bar3DShape = (typeof BAR_3D_SHAPES)[number]
+
+/**
+ * `ST_LegendPos` — where the legend sits relative to the plot area (`c:legendPos/@val`).
+ * @see ECMA-376 Part 1 §21.2.3.24
+ */
+export const LEGEND_POSITIONS = ['b', 'tr', 'l', 'r', 't'] as const
+export type LegendPosition = (typeof LEGEND_POSITIONS)[number]
+
+/**
+ * `ST_DispBlanksAs` — what a plot draws where a value is missing (`c:dispBlanksAs/@val`).
+ * @see ECMA-376 Part 1 §21.2.3.10
+ */
+export const DISPLAY_BLANKS_AS = ['span', 'gap', 'zero'] as const
+export type DisplayBlanksAs = (typeof DISPLAY_BLANKS_AS)[number]
+
+/**
+ * `ST_DLblPos` — where a data label sits relative to its point (`c:dLblPos/@val`).
+ *
+ * The whole set is legal on the attribute, but only a subset of it is legal *per plot type* —
+ * PowerPoint offers a pie chart `bestFit`/`ctr`/`inEnd`/`outEnd` and nothing else. Those subsets
+ * are a fact about the chart types rather than about the attribute, so they live beside the
+ * chart definer that applies them; this is the value space they are drawn from.
+ * @see ECMA-376 Part 1 §21.2.3.13
+ */
+export const DATA_LABEL_POSITIONS = ['bestFit', 'b', 'ctr', 'inBase', 'inEnd', 'l', 'outEnd', 'r', 't'] as const
+export type DataLabelPosition = (typeof DATA_LABEL_POSITIONS)[number]
+
+/**
+ * `ST_MarkerStyle`, **narrowed** to what the library authors (`c:symbol/@val`).
+ *
+ * The schema also has `plus`, `star`, `x`, `picture` and `auto`. Neither PowerPoint 2013 nor
+ * PowerPoint Online draws the first three, `picture` needs a `c:spPr` blip this API has no
+ * spelling for, and `auto` is what leaving the option off already means — so the accepted set is
+ * deliberately smaller than the type. Widen it only with evidence that the member renders.
+ * @see ECMA-376 Part 1 §21.2.3.27
+ */
+export const LINE_DATA_SYMBOLS = ['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'] as const
+export type LineDataSymbol = (typeof LINE_DATA_SYMBOLS)[number]
 
 /**
  * The twelve theme colour slots (`a:clrScheme` children) a `p:clrMap` token can point at.

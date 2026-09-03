@@ -21,6 +21,7 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
+	seriesDash,
 	seriesShapeProps,
 	strRefBlock,
 	type PlotBuilder,
@@ -45,7 +46,7 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 				? createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
 				: el('a:ln', { w: ptsToEmuLenient(opts.lineSize ?? 2), cap: createLineCap(opts.lineCap) }, [
 						raw(chartColorLineFill(serColor)),
-						raw(voidEl('a:prstDash', { val: opts.lineDashValues?.[serIndex] ?? opts.lineDash ?? 'solid' })),
+						raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
 						raw(voidEl('a:round')),
 					])
 	return seriesShapeProps(opts, serColor, line)

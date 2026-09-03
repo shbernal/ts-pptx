@@ -16,6 +16,7 @@ import type {
 	TextVertType,
 	VAlign,
 } from './core.js'
+import type { TextShapeType } from '../ooxml/st-enums.js'
 import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
 import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
@@ -46,12 +47,12 @@ export interface TextBaseProps {
 	breakLine?: boolean
 	/**
 	 * Preset text warp / WordArt shape (`<a:bodyPr><a:prstTxWarp prst="..">`), which
-	 * bends the text along a preset path (arch, circle, wave, …). The value is an
-	 * OOXML `ST_TextShapeType` preset name.
+	 * bends the text along a preset path (arch, circle, wave, …) — the whole
+	 * `ST_TextShapeType` set.
 	 * @example 'textArchUp' // bend text along an upward arch (e.g. a label following a ring/arc)
 	 * @example 'textCircle'
 	 */
-	textWarp?: string
+	textWarp?: TextShapeType
 	/**
 	 * Add standard or custom bullet
 	 * - use `true` for standard bullet
@@ -385,7 +386,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 		spcCol?: number
 		vert?: TextVertType
 		wrap?: boolean
-		prstTxWarp?: string
+		prstTxWarp?: TextShapeType
 	}
 	_lineIdx?: number
 

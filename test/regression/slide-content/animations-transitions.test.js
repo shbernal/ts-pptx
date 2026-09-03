@@ -229,11 +229,32 @@ defineRegressionSuite('Preset build animations (write)', [
 				setDiagnosticHandler(null)
 			}
 			assert(
-				warnings.some((w) => /shapeIndex 5 is out of range/.test(w) && /1 top-level object/.test(w)),
+				warnings.some((w) => /shapeIndex 5 is out of range/.test(w) && /1 top-level shape/.test(w)),
 				'expected an out-of-range shapeIndex warning; got: ' + JSON.stringify(warnings)
 			)
 			assert(timingOf(xml) === null, 'the dropped effect emits no <p:timing> tree')
 			assert(!/<p:spTgt spid="7"/.test(xml), 'no dangling spid for the out-of-range index')
+		},
+	},
+	{
+		// `_slideObjects` holds four member types that draw nothing — notes, table cells,
+		// hyperlink definitions and `online` — and both the id allocator and `shapeIndex` used to
+		// count them. So `addNotes` before the first shape gave every shape an id one higher than
+		// it emitted, and `shapeIndex: 0` produced a spid naming nothing at all.
+		name: 'a notes object shifts neither the emitted cNvPr ids nor shapeIndex',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				s.addNotes('speaker notes come first')
+				s.addText('animate me', { x: 1, y: 1, w: 1, h: 1 })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 0 })
+			})
+			const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1])
+			assert(
+				JSON.stringify(ids) === JSON.stringify(['1', '2']),
+				'the one shape takes the first shape id, with no gap; got ' + JSON.stringify(ids)
+			)
+			assert(/<p:spTgt spid="2"\/>/.test(xml), 'shapeIndex 0 targets that shape; got: ' + xml)
 		},
 	},
 	{

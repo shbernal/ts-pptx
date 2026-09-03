@@ -97,16 +97,18 @@ export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 /**
  * A preset build animation on a shape (entrance/emphasis/exit), added via
  * {@link Slide.addAnimation}. Target the shape by its 0-based add order
- * (`shapeIndex`, mapping to the generated `spid = shapeIndex + 2`) or by
- * `objectName`. Effects play in the order added, grouped into click steps by
- * `trigger`.
+ * (`shapeIndex`) or by `objectName`. Effects play in the order added, grouped
+ * into click steps by `trigger`.
  */
 export interface AnimationProps {
 	/** The preset effect to play. */
 	preset: PresetEffect
 	/**
-	 * 0-based add order of the target shape on the slide (`spid = shapeIndex + 2`).
-	 * Counts top-level objects only; use `objectName` to target a shape inside a group.
+	 * 0-based add order of the target SHAPE on the slide.
+	 *
+	 * Counts the top-level objects that draw something, so an `addNotes` (or a hyperlink
+	 * definition) between two shapes does not shift the shapes after it. Use `objectName` to
+	 * target a shape inside a group; an index past the last shape warns and drops the effect.
 	 */
 	shapeIndex?: number
 	/**

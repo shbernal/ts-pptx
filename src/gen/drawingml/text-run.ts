@@ -16,7 +16,7 @@ import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
 import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
-import { ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
@@ -86,6 +86,13 @@ function emitsBulletMarkup(bullet: TextPropsOptions['bullet']): boolean {
  * number is clamped and written, `'inherit'` writes nothing, and an absent option falls back to
  * whatever the `bullet` arm decided — which is also `null` for `bullet: 'inherit'`, the one arm
  * that states nothing on its own.
+ *
+ * BOTH arms go through the clamp. The fallback used to be returned verbatim on the grounds that
+ * the emitter computed it, but the emitter computes it from the caller's `bullet.indent` and
+ * `indentLevel`, so it is caller input one multiplication later — and it reached `@marL` at
+ * ~6700x the `ST_TextMargin` ceiling. The fallback arrives in EMU rather than points because the
+ * bullet arms do their arithmetic there; the round trip through the clamp's own unit is exact
+ * for any value in range, so a paragraph that was already legal emits the same bytes.
  * @param {number|'inherit'|undefined} option - `paraMarginLeft` / `paraIndent` as given
  * @param {number|null} fallbackEmu - the bullet arm's default, `null` for no attribute
  * @param {Function} clamp - the attribute's ST_* range clamp (points in, EMU out)
@@ -96,9 +103,40 @@ function resolveParagraphMargin(
 	fallbackEmu: number | null,
 	clamp: (points: number) => number
 ): number | null {
-	if (option === undefined) return fallbackEmu
 	if (option === 'inherit') return null
-	return clamp(option)
+	if (option !== undefined) return clamp(option)
+	return fallbackEmu === null ? null : clamp(fallbackEmu / EMU_PER_POINT)
+}
+
+/**
+ * The paragraph's outline level, or `0` when the caller named none or named one `a:p/@lvl`
+ * cannot hold.
+ *
+ * Resolved once because the level is read twice — for the attribute, and as the multiplier on
+ * the bullet arms' default `@marL`. Validating it for one use and multiplying a margin by it in
+ * the other is how `indentLevel: 1e6` reached `marL="342900342900"` under a warning that said
+ * the value was being ignored.
+ * @param {number|undefined} level - `indentLevel` as given
+ * @return {number} a level `ST_TextIndentLevelType` accepts
+ */
+function resolveIndentLevel(level: number | undefined): number {
+	if (!level) return 0
+	if (Number.isInteger(level) && level > 0 && level <= 8) return level
+	warn('text/invalid-indent-level', `indentLevel ${String(level)} must be a whole number from 0 to 8; ignoring it.`)
+	return 0
+}
+
+/**
+ * The `@marL` a bulleted paragraph defaults to: the bullet's own hang, plus one more of it for
+ * every outline level. Two arms of the bullet chain write it — `bullet: {…}` and `bullet: true`
+ * — and each had the expression spelled out, which is how one of them would have been fixed
+ * and the other left behind.
+ * @param {number} bulletMarLEmu - the hang one level is worth, in EMU
+ * @param {number} indentLevel - the resolved outline level
+ * @return {number} `a:pPr/@marL` in EMU
+ */
+function bulletHangMarL(bulletMarLEmu: number, indentLevel: number): number {
+	return bulletMarLEmu + bulletMarLEmu * indentLevel
 }
 
 /**
@@ -172,15 +210,8 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		// `a:p/@lvl` is ST_TextIndentLevelType (0-8) and the value is written straight into the
 		// attribute, so an unusable one is a repair prompt rather than a wrong-looking slide.
 		// The guard used to be truthiness plus `> 0`, which `Infinity` passes: `lvl="Infinity"`.
-		if (opts.indentLevel) {
-			if (Number.isInteger(opts.indentLevel) && opts.indentLevel > 0 && opts.indentLevel <= 8)
-				paragraphPropXml += ` lvl="${opts.indentLevel}"`
-			else
-				warn(
-					'text/invalid-indent-level',
-					`indentLevel ${String(opts.indentLevel)} must be a whole number from 0 to 8; ignoring it.`
-				)
-		}
+		const indentLevel = resolveIndentLevel(opts.indentLevel)
+		if (indentLevel) paragraphPropXml += ` lvl="${indentLevel}"`
 
 		// OPTION: Paragraph Spacing: Before/After
 		// `NaN` is falsy, so truthiness plus `> 0` is the whole guard. A non-finite value is
@@ -201,7 +232,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
 			if (opts.bullet?.indent) bulletMarL = ptsToEmuLenient(opts.bullet.indent)
 			// Every bullet form hangs the first line by the same margin, whichever glyph it draws.
-			defaultMarL = opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
+			defaultMarL = bulletHangMarL(bulletMarL, indentLevel)
 			defaultIndent = -bulletMarL
 			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
 			if (opts.bullet.color && !isPictureBullet)
@@ -304,7 +335,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			// every deck authored against it depends on that. Same resolution as `fill: { type:
 			// 'inherit' }` (#10) — name the state that had no name, leave the one that has.
 		} else if (opts.bullet) {
-			defaultMarL = opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
+			defaultMarL = bulletHangMarL(bulletMarL, indentLevel)
 			defaultIndent = -bulletMarL
 			// No `a:buSzPct` here either — `bullet: true` asks for a bullet, not for one pinned
 			// to 100% of the body size in defiance of the master's list style. Same reasoning as

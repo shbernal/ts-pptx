@@ -91,6 +91,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Enumerated attributes are checked against their `ST_` union on every write path, not on
+  four of them.** `check-enum.ts` is the declared policy for this and had four call sites
+  against roughly thirty hand-rolled ones, which is how the *same type* reaching the *same*
+  attribute got two answers: `addTable(..., { border: { dashType: 'bogusDash' } })` warned
+  and fell back to solid, while `addShape('rect', { line: { dashType: 'bogusDash' } })`
+  wrote `<a:prstDash val="bogusDash"/>` into the part. Nine dash sites now share one
+  `resolveDash`; `a:headEnd`/`a:tailEnd` (`ST_LineEndType`), `a:bodyPr/@vert`
+  (`ST_TextVerticalType`) and `a:prstTxWarp/@prst` (`ST_TextShapeType`) are checked for the
+  first time, the last two reporting under the new `text/invalid-vertical` and
+  `text/invalid-warp`; an unrecognized arrowhead reports under the new
+  `line/invalid-arrow-type`.
+
+  The chart definer's own twenty-odd inline `Array.includes` tests — three of the lists
+  written out twice, verbatim — are now one `chartEnum` wrapper over tuples in
+  `ooxml/st-enums.ts`, and report under the new `chart/invalid-option-value` instead of
+  correcting in silence. The tuples are the library's accepted set rather than the schema's
+  where the two differ, which is documented on each: `lineDataSymbol` deliberately omits the
+  `ST_MarkerStyle` members PowerPoint does not draw, and `radarStyle` is not `ST_RadarStyle`
+  at all but a library vocabulary mapped at emit time.
+
+- **`ShapeLineProps.beginArrowType` / `.endArrowType` and `TextPropsOptions.textWarp` are
+  narrowed to their `ST_` unions.** The two arrow options repeated their six members inline
+  and `textWarp` was `string`; they now take `LineEndType` and `TextShapeType`, derived from
+  the same tuples the runtime check reads, so the type and the validator cannot disagree.
+  **Migration:** none for a value that was already legal.
+
 - **A bare colour is now the documented shorthand for a solid fill, at every fill option.**
   `fill: 'FF0000'` says exactly what `fill: { color: 'FF0000' }` says and emits the same
   bytes, and the runtime had accepted it that way for a long time — but the types said
@@ -241,6 +267,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **The five series-axis unit options are gone.** `serAxisMajorUnit`, `serAxisMinorUnit`,
+  `serAxisBaseTimeUnit`, `serAxisMajorTimeUnit` and `serAxisMinorTimeUnit` each wrote an
+  element `CT_SerAx` has no slot for, so every value any of them could take produced a
+  chart part PowerPoint refuses to open. There is no correct value to keep them for.
+  **Migration:** none is possible on the series axis; the category axis takes the same five
+  through `catAxis*` when it is a date axis, and the value axis takes the numeric pair.
+
 - **`PresLayout._sizeW` / `._sizeH` are gone.** Every writer set them equal to `width` /
   `height`, and the only two readers were spelled `presLayout._sizeW || presLayout.width` —
   two names for one fact, with the fallback proving the second was always enough. Because
@@ -281,6 +314,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **Axis units are emitted per axis TYPE, so a chart carrying them opens.** `<c:catAx>`
+  (`CT_CatAx`) has no `majorUnit`/`minorUnit` slot at all and `<c:serAx>` (`CT_SerAx`) has
+  none of the five units, yet the emitters appended whichever the caller named as the last
+  child of all three axes. The validator reported
+  `Sch_InvalidElementContentExpectingComplex` on the category and series axes, which
+  PowerPoint reports as a file needing repair. The date axis was invalid too, for a
+  different reason: `CT_DateAx` does hold all five, but interleaved as `baseTimeUnit,
+  majorUnit, majorTimeUnit, minorUnit, minorTimeUnit`, and the code wrote the three time
+  units before the two numeric ones.
+
+  The three tags the category builder emits now each get what their content model has:
+  none on `<c:catAx>`, the numeric pair on `<c:valAx>` (the tag a scatter or bubble X axis
+  takes, where `catAxisMajorUnit` is meaningful and was previously legal by accident), all
+  five in schema order on `<c:dateAx>`. `<c:serAx>` emits none. A unit option named on an
+  axis with no slot for it now warns under `chart/option-not-on-axis` instead of being
+  silently written or silently dropped.
+
+  A regression test had pinned the invalid bytes as correct, which is why this survived; the
+  line is now held by `test/schema-cases.js`, where the validator rather than a hand-read
+  assertion decides.
+
+- **Every `sz` in the package is bounded by `ST_TextFontSize`.** `clampFontSizeSz` bounds a
+  font size to 100..400000 hundredths, and six of the nine sites that write `sz` called the
+  bare converter instead — so `addText({ fontSize: 99999 })` warned and emitted `400000`
+  while `defineSlideMaster({ textStyles: { body: [{ fontSize: 99999 }] } })` silently emitted
+  `9999900`, and one chart could carry both readings (`dataLabelFontSize: 5000` corrected,
+  `catAxisLabelFontSize: 5000` raw). All nine now go through the clamp, and the warning names
+  the option the caller actually spelled. The master's `textStyles` margins are clamped the
+  same way, into `ST_TextMargin` and `ST_TextIndent`.
+
+- **A rejected `indentLevel` is rejected for the bullet margin too.** The level was validated
+  for `a:p/@lvl` and then multiplied into the bullet arm's default `marL` regardless, so
+  `indentLevel: 1e6` warned that the value was being ignored and emitted
+  `marL="342900342900"` — about 6700x the `ST_TextMargin` ceiling. The level is resolved once
+  now, and both arms of the paragraph margin go through the clamp rather than only the
+  explicitly stated one.
+
+- **A preset-geometry adjustment is not computed against a zero extent.** `rectRadius` is
+  emitted as a fraction of the shape's shorter side, and a text object with no stated height
+  reaches the emitter with `cy === 0` — the renderer rescues a height only for a *line-less*
+  text shape, so any line at all put the division back on zero and wrote
+  `<a:gd name="adj" fmla="val Infinity"/>`. A guide formula is a plain string in the schema,
+  so nothing downstream refused it. A zero or negative divisor now warns under
+  `shape/degenerate-extent` and leaves the preset's own handle in place; a non-finite
+  `rectRadius` or `arcThicknessRatio` warns under `geometry/invalid-shape-adjust` and is
+  dropped.
+
+- **An animation's `shapeIndex` counts shapes, and `p:cNvPr` ids have no gaps.** Four
+  `SlideObjectType` members live in a slide's object list without drawing anything — notes,
+  table cells, hyperlink definitions and `online` — and both the id allocator and the
+  animation resolver counted them. So `addNotes` before the first shape gave every shape an
+  id one higher than it emitted, and `shapeIndex: 0` produced a `<p:spTgt spid>` naming no
+  shape on the slide, which is the dangling-target corruption the range check exists to
+  prevent. Both now run over the objects that render.
+
+- **A glow radius is clamped like the shadow measure beside it.** `a:glow/@rad` is
+  `ST_PositiveCoordinate`, the same type as a shadow's `blurRad` and `dist`, and those went
+  through the clamping converter while the glow was a bare multiply — so `glow: { size: -5 }`
+  emitted `rad="-63500"` and `glow: { size: NaN }` emitted `rad="NaN"`. Out-of-range now
+  warns under the new `glow/size-out-of-range`. A shadow's `dir` goes through the guarded
+  angle converter for the same reason.
 
 - **A chart area asked for a bare colour is painted, instead of coming out transparent.**
   `plotArea: { fill: 'FF0000' }` and `chartArea: { fill: '00FF00' }` emitted `<a:noFill/>`
@@ -508,9 +603,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     axes had three rules for the same pair of options: the value axis emitted `majorUnit`
     unconditionally, the category axis only behind `catLabelFormatCode` or an XY chart, and
     the series axis only behind `serLabelFormatCode`. So
-    `{ type: 'bar3d', catAxisMajorUnit: 3, serAxisMajorUnit: 2, valAxisMajorUnit: 4 }` emitted
-    exactly one element. The *time* units keep that gate — they describe a date axis and
-    PowerPoint recomputes them from the date bounds — and the numeric ones no longer share it.
+    `{ type: 'bar3d', catAxisMajorUnit: 3, valAxisMajorUnit: 4 }` emitted exactly one element.
+
+    Ungating them was the wrong reading and is superseded within this same unreleased cycle
+    (see **Axis units are emitted per axis TYPE** above): the three rules were three *content
+    models*, not three spellings of one decision, and emitting the units on every axis made
+    the category and series axes schema-invalid. What survives of this entry is that the
+    numeric units no longer sit behind a *format code* — they sit behind the axis type.
   - **A pie's plot-level label flags were constants.** The per-point `<c:dLbl>` honoured
     `showLabel`/`showPercent`/`showValue`/`showSerName` while the plot-level `<c:dLbls>` wrote
     `showCatName="1" showPercent="1"` whatever the caller said. The constants were masked

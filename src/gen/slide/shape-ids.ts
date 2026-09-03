@@ -13,9 +13,39 @@ import type { SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue } from '../utils.js'
 
 /**
+ * The four `SlideObjectType` members that live in `_slideObjects` without drawing anything on the
+ * slide: speaker notes belong to the notes part, a table cell is rendered by its owning table, a
+ * hyperlink is a relationship carried by whatever shape owns it, and `online` is unreachable.
+ * `slideObjectToXml` spells the same four out as the arms that emit nothing.
+ */
+const NON_RENDERING_TYPES: ReadonlySet<SlideObjectType> = new Set([
+	SlideObjectType.notes,
+	SlideObjectType.tablecell,
+	SlideObjectType.hyperlink,
+	SlideObjectType.online,
+])
+
+/**
+ * The slide's top-level objects that actually reach the shape tree, in add order.
+ *
+ * This is the sequence a `shapeIndex` addresses and the sequence ids are handed out along. Both
+ * used to run over `_slideObjects` itself, which counts the four non-rendering members: a slide
+ * whose first entry was `addNotes` gave every later shape an id one higher than it emitted, so
+ * `shapeIndex: 0` produced a `<p:spTgt spid>` naming nothing on the slide.
+ * @param slideObjects - the slide's top-level objects
+ * @returns the subset that renders a shape
+ */
+export function renderedSlideObjects(slideObjects: SlideObject[]): SlideObject[] {
+	return slideObjects.filter((obj) => !NON_RENDERING_TYPES.has(obj._type))
+}
+
+/**
  * Every object a slide renders, paired with the `<p:cNvPr>` id it is rendered with: top-level
  * objects first (`index + 2`, in add order), then group children, seeded past the last top-level id
  * and allocated pre-order (a nested group takes an id before its own children do).
+ *
+ * Only the objects that render take an id, so the emitted ids run without gaps and every id in the
+ * map names a shape that exists.
  *
  * This **mirrors** the allocation in `slideObjectToXml`, which hands out ids as it walks the tree.
  * A reference that must name an id *before* the walk reaches it — a connector's `<a:stCxn>`, an
@@ -27,16 +57,17 @@ import { encodeXmlAttrValue } from '../utils.js'
  */
 export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObject, number> {
 	const shapeIds = new Map<SlideObject, number>()
-	slideObjects.forEach((obj, idx) => shapeIds.set(obj, idx + 2))
+	const rendered = renderedSlideObjects(slideObjects)
+	rendered.forEach((obj, idx) => shapeIds.set(obj, idx + 2))
 
-	let childIdxAlloc = slideObjects.length
+	let childIdxAlloc = rendered.length
 	const allocGroupChildren = (children: SlideObject[]): void => {
 		children.forEach((child) => {
 			shapeIds.set(child, childIdxAlloc++ + 2)
 			if (child._type === SlideObjectType.group) allocGroupChildren(child._groupObjects || [])
 		})
 	}
-	slideObjects.forEach((obj) => {
+	rendered.forEach((obj) => {
 		if (obj._type === SlideObjectType.group) allocGroupChildren(obj._groupObjects || [])
 	})
 

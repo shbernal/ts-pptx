@@ -10,7 +10,7 @@ import type { AnimationProps } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { resolveObjectNameToId } from '../slide/shape-ids.js'
+import { renderedSlideObjects, resolveObjectNameToId } from '../slide/shape-ids.js'
 
 /**
  * Resolved animation target's shape id (`spid`), or `null` when it cannot be resolved — in which
@@ -23,10 +23,12 @@ import { resolveObjectNameToId } from '../slide/shape-ids.js'
  * matching it against the attribute-escaped form the slide object stores — so the warning below
  * quotes the same spelling the caller passed.
  *
- * `shapeIndex` is a 0-based index into the top-level objects only (its `spid = shapeIndex + 2`
- * mirrors the `idx + 2` top-level allocation in `collectSlideShapeIds`; group children take ids past
- * that range). An index outside `[0, topLevelCount)` would emit a `<p:spTgt spid>` naming no shape on
- * the slide — a dangling spid PowerPoint reports as a repair (0x80070570) — so it warns and drops,
+ * `shapeIndex` is a 0-based index into the top-level objects that RENDER, which is the same
+ * sequence `collectSlideShapeIds` allocates along; group children take ids past that range. It
+ * counted `_slideObjects` itself, and four of that array's members draw nothing — so `addNotes`
+ * before the first shape shifted every index by one and `shapeIndex: 0` addressed the notes.
+ * An index outside `[0, renderedCount)` would emit a `<p:spTgt spid>` naming no shape on the
+ * slide — a dangling spid PowerPoint reports as a repair (0x80070570) — so it warns and drops,
  * exactly like an unresolvable `objectName` does.
  * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds`
  * @param slideObjects - the slide's top-level objects, which a `shapeIndex` addresses
@@ -38,14 +40,14 @@ export function resolveAnimationSpid(
 	slideObjects: SlideObject[],
 	anim: AnimationProps
 ): number | null {
-	const topLevelCount = slideObjects.length
 	if (typeof anim.shapeIndex === 'number') {
 		// Through the map, not `shapeIndex + 2`: the id basis belongs to one allocator.
-		const target = slideObjects[anim.shapeIndex]
+		const targets = renderedSlideObjects(slideObjects)
+		const target = targets[anim.shapeIndex]
 		if (target) return shapeIds.get(target) ?? null
 		warn(
 			'animation/target-index-out-of-range',
-			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${topLevelCount} top-level object(s)), so its "${anim.preset}" effect was dropped.`
+			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${targets.length} top-level shape(s)), so its "${anim.preset}" effect was dropped.`
 		)
 		return null
 	}

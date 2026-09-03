@@ -7,8 +7,8 @@
  * Out-of-range values make PowerPoint report the package as needing repair.
  */
 
-import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
-import { ptsToEmuLenient } from '../../units-internal.js'
+import { EMU_PER_INCH, EMU_PER_POINT, HUNDREDTHS_PER_POINT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
+import { inch2Emu, ptsToEmuLenient } from '../../units-internal.js'
 import { warnOnce } from '../../diagnostics.js'
 import type { DiagnosticCode } from '../../codes.js'
 
@@ -38,14 +38,11 @@ interface ClampSpec {
  * the shape of the warning are the same for all of them. `warnOnce` keys its dedupe set on the
  * code plus the message, so the wording is part of the contract, not decoration.
  */
-function clampWithWarn(value: number, spec: ClampSpec): number {
+function clampWithWarn(value: number, spec: ClampSpec, label = spec.label): number {
 	const raw = spec.convert(value)
 	const clamped = Math.min(spec.max, Math.max(spec.min, raw))
 	if (clamped !== raw)
-		warnOnce(
-			spec.code,
-			`${spec.label} ${value} is outside the valid range ${spec.range}; using ${clamped / spec.perUnit}.`
-		)
+		warnOnce(spec.code, `${label} ${value} is outside the valid range ${spec.range}; using ${clamped / spec.perUnit}.`)
 	return clamped
 }
 
@@ -89,6 +86,22 @@ const PARA_INDENT: ClampSpec = {
 	max: 51206400,
 }
 
+/** {@link PARA_MARGIN}, for the callers that state the measure in inches. 4032pt is 56in. */
+const PARA_MARGIN_INCHES: ClampSpec = {
+	...PARA_MARGIN,
+	range: '0-56in',
+	convert: inch2Emu,
+	perUnit: EMU_PER_INCH,
+}
+
+/** {@link PARA_INDENT}, for the callers that state the measure in inches. */
+const PARA_INDENT_INCHES: ClampSpec = {
+	...PARA_INDENT,
+	range: '-56..56in',
+	convert: inch2Emu,
+	perUnit: EMU_PER_INCH,
+}
+
 const LINE_SPACING: ClampSpec = {
 	code: 'text/line-spacing-out-of-range',
 	label: 'lineSpacing',
@@ -113,9 +126,16 @@ const LINE_SPACING_MULTIPLE: ClampSpec = {
  * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
  * hundredths of a point for the `sz` attribute. Out-of-range sizes make
  * PowerPoint report the package as needing repair (e.g. `sz` > 400000 or < 100).
+ *
+ * Every `sz` in the package goes through here, and the nine options that reach it are spelled
+ * nine different ways -- `fontSize` on a run, `legendFontSize` and six siblings on a chart.
+ * `label` is what the warning quotes back, so a caller who set `catAxisLabelFontSize` is not
+ * told about `fontSize`.
+ * @param fontSizePts - the caller's size in points
+ * @param label - option name as the caller spells it
  */
-export function clampFontSizeSz(fontSizePts: number): number {
-	return clampWithWarn(fontSizePts, FONT_SIZE)
+export function clampFontSizeSz(fontSizePts: number, label?: string): number {
+	return clampWithWarn(fontSizePts, FONT_SIZE, label)
 }
 
 /** Clamp character spacing (points) into ST_TextPoint (-4000..4000pt); returns hundredths for the `spc` attribute. */
@@ -139,6 +159,31 @@ export function clampParaMarginEmu(marginPts: number): number {
  */
 export function clampParaIndentEmu(indentPts: number): number {
 	return clampWithWarn(indentPts, PARA_INDENT)
+}
+
+/**
+ * Clamp a left margin the caller stated in INCHES into ST_TextMargin, returning EMU for
+ * `a:pPr/@marL`.
+ *
+ * A master's text styles state their measures in inches where a run's paragraph properties
+ * state them in points. The schema bound is the same one either way, so the two spellings
+ * share {@link PARA_MARGIN}'s range and differ only in the unit the warning quotes back.
+ * @param marginInches - the caller's margin in inches
+ * @param label - option name as the caller spells it
+ */
+export function clampParaMarginInchesEmu(marginInches: number, label: string): number {
+	return clampWithWarn(marginInches, PARA_MARGIN_INCHES, label)
+}
+
+/**
+ * Clamp a first-line indent the caller stated in INCHES into ST_TextIndent, returning EMU for
+ * `a:pPr/@indent`. The inch-stated half of {@link clampParaIndentEmu}; see
+ * {@link clampParaMarginInchesEmu} for why there are two.
+ * @param indentInches - the caller's indent in inches
+ * @param label - option name as the caller spells it
+ */
+export function clampParaIndentInchesEmu(indentInches: number, label: string): number {
+	return clampWithWarn(indentInches, PARA_INDENT_INCHES, label)
 }
 
 /** Clamp line spacing (points) into ST_TextSpacingPoint (0..1584pt); returns hundredths for `<a:spcPts val>`. */

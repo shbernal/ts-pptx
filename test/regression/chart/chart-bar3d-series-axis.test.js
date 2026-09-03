@@ -3,10 +3,9 @@ import { defineRegressionSuite, build, assert, assertIncludes, assertNotIncludes
 import { chartXml } from './chart-parts.js'
 
 // A `bar3d` chart emits a third axis — the series axis (`<c:serAx>`, `makeSerAxis`)
-// — that no other chart type produces. Its title, gridlines, tick-label skip,
-// number format, and time-unit options were entirely uncovered. These cases lock
-// the serAx emission and its input validation (garbage time units warn and are
-// dropped rather than corrupting the chart).
+// — that no other chart type produces. Its title, gridlines, tick-label skip and
+// number format were entirely uncovered. These cases lock the serAx emission, and
+// the shape of `CT_SerAx` that leaves it with no unit element to carry.
 
 /** The `<c:serAx>…</c:serAx>` block (the bar3d series axis). */
 function serAxBlock(xml) {
@@ -59,8 +58,11 @@ defineRegressionSuite('Chart bar3d series axis', [
 		},
 	},
 	{
-		name: 'serLabelFormatCode drives the axis numFmt and enables valid time units',
+		name: 'serLabelFormatCode drives the axis numFmt, and the axis carries no unit of any kind',
 		fn: async () => {
+			// `CT_SerAx` ends at `tickLblSkip`/`tickMarkSkip`/`extLst`: it has no slot for the
+			// numeric units nor for the three time units, so the axis emits none and the options
+			// that used to write them are gone from the type.
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
 					type: ChartType.bar3d,
@@ -69,16 +71,13 @@ defineRegressionSuite('Chart bar3d series axis', [
 					w: 6,
 					h: 4,
 					serLabelFormatCode: '0.0',
-					serAxisBaseTimeUnit: 'days',
-					serAxisMajorTimeUnit: 'months',
-					serAxisMinorTimeUnit: 'years',
 				})
 			})
 			const serAx = serAxBlock(await chartXml(zip))
 			assertIncludes(serAx, '<c:numFmt formatCode="0.0" sourceLinked="0"/>', 'serLabelFormatCode drives numFmt')
-			assertIncludes(serAx, '<c:baseTimeUnit  val="days"/>', 'base time unit emitted (lowercased)')
-			assertIncludes(serAx, '<c:majorTimeUnit val="months"/>', 'major time unit emitted')
-			assertIncludes(serAx, '<c:minorTimeUnit val="years"/>', 'minor time unit emitted')
+			for (const tag of ['baseTimeUnit', 'majorTimeUnit', 'minorTimeUnit', 'majorUnit', 'minorUnit']) {
+				assertNotIncludes(serAx, `<c:${tag}`, `CT_SerAx has no ${tag}`)
+			}
 		},
 	},
 	{
@@ -117,20 +116,21 @@ defineRegressionSuite('Chart bar3d series axis', [
 	{
 		name: 'a garbage time unit warns and is dropped (chart stays valid)',
 		fn: async () => {
+			// The category axis is where the time units live, and this is its date-axis arm.
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: ChartType.bar3d,
+					type: ChartType.line,
 					x: 1,
 					y: 1,
 					w: 6,
 					h: 4,
-					serLabelFormatCode: '0',
-					serAxisMajorTimeUnit: 'fortnights',
+					catLabelFormatCode: '0',
+					catAxisMajorTimeUnit: 'fortnights',
 				})
 			})
-			const serAx = serAxBlock(await chartXml(zip))
-			assertNotIncludes(serAx, 'fortnights', 'invalid time unit is dropped, not emitted')
-			assertNotIncludes(serAx, '<c:majorTimeUnit', 'the whole majorTimeUnit element is omitted after validation')
+			const xml = await chartXml(zip)
+			assertNotIncludes(xml, 'fortnights', 'invalid time unit is dropped, not emitted')
+			assertNotIncludes(xml, '<c:majorTimeUnit', 'the whole majorTimeUnit element is omitted after validation')
 		},
 	},
 ])

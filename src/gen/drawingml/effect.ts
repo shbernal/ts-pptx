@@ -11,8 +11,8 @@ import { DEF_FONT_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type { ShadowProps, TextGlowProps } from '../../types/index.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
-import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
-import { clampRangedInput, opacityToAlpha, shadowLengthToEmu } from '../../units-internal.js'
+import { PERCENT_SCALE } from '../../units.js'
+import { clampRangedInput, convertAngleUnits, opacityToAlpha, positiveCoordinateEmu } from '../../units-internal.js'
 import { splitRgbaHex, stripHash } from '../../hex-color.js'
 import { alphaEl, createColorElement } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -26,7 +26,12 @@ import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
  */
 export function createGlowElement(options: TextGlowProps, defaults: TextGlowProps): string {
 	const opts = { ...defaults, ...options }
-	const size = Math.round(opts.size * EMU_PER_POINT)
+	// `a:glow/@rad` is `ST_PositiveCoordinate`, exactly like the shadow's `blurRad` and `dist`
+	// below, so it takes the same converter. A bare multiply put `size: -5` in the package as
+	// `rad="-63500"` and `size: NaN` as `rad="NaN"`, while the structurally identical shadow
+	// measure two functions down was clamped and reported -- the asymmetry was inside this one
+	// function, with the opacity beside it already guarded.
+	const size = positiveCoordinateEmu(opts.size, 'glow/size-out-of-range', 'glow.size')
 	const color = opts.color || DEF_FONT_COLOR
 	const opacity = opacityToAlpha(opts.opacity ?? 0)
 
@@ -53,9 +58,9 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 	// NOTE: read into locals so we never mutate the caller's options (re-emission
 	// would otherwise re-convert pt→EMU and produce absurd values).
 	const type = opts.type || 'outer'
-	const blur = shadowLengthToEmu(opts.blur ?? 0, 'shadow/blur-out-of-range', 'shadow.blur')
-	const offset = shadowLengthToEmu(opts.offset ?? 0, 'shadow/offset-out-of-range', 'shadow.offset')
-	const angle = Math.round((opts.angle ?? 0) * ANGLE_UNITS_PER_DEGREE)
+	const blur = positiveCoordinateEmu(opts.blur ?? 0, 'shadow/blur-out-of-range', 'shadow.blur')
+	const offset = positiveCoordinateEmu(opts.offset ?? 0, 'shadow/offset-out-of-range', 'shadow.offset')
+	const angle = convertAngleUnits(opts.angle ?? 0, 'shadow.angle')
 	const opacity = Math.round((opts._alpha ?? 0.75) * PERCENT_SCALE)
 	const color = opts.color || DEF_FONT_COLOR
 

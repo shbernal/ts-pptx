@@ -108,12 +108,32 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	// A truthy check silently dropped rectRadius: 0's guide entirely (PowerPoint then fell
 	// back to the preset default rounding) and arcThicknessRatio: 0's adj3. (#24)
 	if (options.rectRadius !== undefined) {
-		const adjVal = Math.round((options.rectRadius * EMU_PER_INCH * PERCENT_SCALE) / Math.min(cx, cy))
-		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
-			emitGuide('adj1', adjVal)
-			emitGuide('adj2', 0)
+		// The radius is stated as a length and emitted as a fraction of the shape's SHORTER side,
+		// which makes that side a divisor. A shape with no stated height reaches here as `cy === 0`
+		// — `objects/text.ts` rescues a height for a line-less text shape, but `addShapeDefinition`
+		// always stamps a `line`, so every `addShape` skips that rescue — and the division then
+		// writes `fmla="val Infinity"`. Both that and a non-finite radius are tokens PowerPoint
+		// cannot evaluate, so warn and leave the handle at the preset's own default, which is the
+		// policy `shapeAdjust` below already applies to a guide it will not emit.
+		const shorterSideEmu = Math.min(cx, cy)
+		if (!Number.isFinite(options.rectRadius)) {
+			warn(
+				'geometry/invalid-shape-adjust',
+				`rectRadius ${String(options.rectRadius)} is not a finite number and was ignored.`
+			)
+		} else if (!(shorterSideEmu > 0)) {
+			warn(
+				'shape/degenerate-extent',
+				`rectRadius cannot be resolved against a ${cx}x${cy} EMU extent (the shape has no size on one axis); the preset's own corner radius is kept.`
+			)
 		} else {
-			emitGuide('adj', adjVal)
+			const adjVal = Math.round((options.rectRadius * EMU_PER_INCH * PERCENT_SCALE) / shorterSideEmu)
+			if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
+				emitGuide('adj1', adjVal)
+				emitGuide('adj2', 0)
+			} else {
+				emitGuide('adj', adjVal)
+			}
 		}
 	} else if (options.angleRange !== undefined) {
 		for (let i = 0; i < 2; i++) {
@@ -122,7 +142,15 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 		}
 
 		if (options.arcThicknessRatio !== undefined) {
-			emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
+			// Same reading as `rectRadius` above: a guide formula is a string, so nothing downstream
+			// refuses `val NaN` — this is the only place it can be caught.
+			if (Number.isFinite(options.arcThicknessRatio))
+				emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
+			else
+				warn(
+					'geometry/invalid-shape-adjust',
+					`arcThicknessRatio ${String(options.arcThicknessRatio)} is not a finite number and was ignored.`
+				)
 		}
 	}
 	// Generic adjustment handles (`shapeAdjust`) for any preset shape.

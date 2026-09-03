@@ -27,6 +27,7 @@ import { resolveObjectName } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
+import { ANGLE_UNITS_PER_DEGREE } from '../../units.js'
 
 /** OPC content type for a glTF binary, as PowerPoint spells it in `[Content_Types].xml`. */
 const GLB_CONTENT_TYPE = 'model/gltf.binary'
@@ -37,8 +38,6 @@ const MODEL3D_REL_TYPE = 'http://schemas.microsoft.com/office/2017/06/relationsh
 const AM3D_UNIT = 36000000
 /** Denominator of every `am3d` rational (`meterPerModelUnit`, `scale`, `illuminance`, `intensity`). */
 const AM3D_RATIO_DEN = 1000000
-/** `am3d:perspective@fov` is in 60000ths of a degree, like every other DrawingML angle. */
-const FOV_PER_DEGREE = 60000
 
 /**
  * The camera PowerPoint wrote for the 2×2×2 cube fixture, in caller units (metres / degrees).
@@ -91,7 +90,7 @@ function resolveCamera(
 		pos: toAm3dUnits(camera?.pos, DEFAULT_CAMERA.pos, 'pos'),
 		lookAt: toAm3dUnits(camera?.lookAt, DEFAULT_CAMERA.lookAt, 'lookAt'),
 		up: { dx: up.x, dy: up.y, dz: up.z },
-		fov: Math.round(fovDeg * FOV_PER_DEGREE),
+		fov: Math.round(fovDeg * ANGLE_UNITS_PER_DEGREE),
 		meterPerModelUnitN: Math.round(scale * AM3D_RATIO_DEN),
 	}
 }

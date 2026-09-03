@@ -16,6 +16,16 @@ import {
 } from '../../enums.js'
 import { DEF_CHART_BORDER } from '../../constants-internal.js'
 import { isHexColor } from '../../hex-color.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import {
+	BAR_3D_SHAPES,
+	BAR_DIRECTIONS,
+	BAR_GROUPINGS,
+	DISPLAY_BLANKS_AS,
+	GROUPINGS,
+	LEGEND_POSITIONS,
+	LINE_DATA_SYMBOLS,
+} from '../../ooxml/st-enums.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -132,6 +142,49 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
 }
 
 /**
+ * The library's own vocabulary for `radarStyle`, which is NOT `ST_RadarStyle`: the three names
+ * are mapped onto `standard`/`marker`/`filled` at emit time (`plot-cat-axis.ts`). Validating
+ * against the schema's spelling here would reject every legal option.
+ */
+const RADAR_STYLES = ['radar', 'markers', 'filled'] as const
+
+/**
+ * `ST_BarGrouping` minus `standard`, which PowerPoint does not offer on a 2-D bar plot.
+ */
+const BAR_GROUPINGS_2D = BAR_GROUPINGS.filter((g) => g !== 'standard')
+
+/**
+ * The `ST_DLblPos` members PowerPoint actually offers per plot type. The attribute's own value
+ * space is `DATA_LABEL_POSITIONS`; these are the subsets of it a given plot accepts, and a value
+ * outside its own plot's subset makes PowerPoint flag the file.
+ */
+const DATA_LABEL_POSITIONS_PIE = ['bestFit', 'ctr', 'inEnd', 'outEnd'] as const
+/** Bubble, line and scatter: the four sides and the centre. */
+const DATA_LABEL_POSITIONS_POINT = ['b', 'ctr', 'l', 'r', 't'] as const
+/** A stacked or percent-stacked bar has no outside, so `outEnd` is not among its choices. */
+const DATA_LABEL_POSITIONS_BAR_STACKED = ['ctr', 'inBase', 'inEnd'] as const
+/** A clustered bar adds `outEnd` to the stacked set. */
+const DATA_LABEL_POSITIONS_BAR_CLUSTERED = ['ctr', 'inBase', 'inEnd', 'outEnd'] as const
+
+/**
+ * Check one chart option against the values the library accepts for it, reporting and dropping
+ * an unrecognized one so the caller's own default can stand.
+ *
+ * The definer hand-rolled about twenty of these as bare `Array.includes` tests with the list
+ * written inline -- three of the lists twice, verbatim -- and every one was silent, while
+ * `correctGridLineOptions` a few lines away reported the same class of mistake under its own
+ * code. One wrapper puts them all on the reporting policy `check-enum.ts` describes.
+ * @param value - the caller's value, if any
+ * @param valid - the values this option accepts
+ * @param option - option name as the caller spells it
+ * @returns the value when accepted, else `null`
+ */
+function chartEnum<T extends string>(value: string | undefined, valid: readonly T[], option: string): T | null {
+	return checkEnumOrWarn(value, valid, 'chart/invalid-option-value', `chart: ${option}`)
+}
+
+/**
+ * Drop `dataLabelPosition` values that are invalid for the chart type / bar grouping,/**
  * Drop `dataLabelPosition` values that are invalid for the chart type / bar grouping,
  * per the OOXML data-label placement rules, so PowerPoint does not flag the file.
  *
@@ -153,17 +206,27 @@ function normalizeChartDataLabelPosition(options: ChartOptsOverrides, chartType:
 			delete options.dataLabelPosition
 		}
 		if (chartType === ChartType.pie) {
-			if (!['bestFit', 'ctr', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
+			if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_PIE, 'dataLabelPosition')) {
+				delete options.dataLabelPosition
+			}
 		}
 		if (isBubbleChart(chartType) || chartType === ChartType.line || chartType === ChartType.scatter) {
-			if (!['b', 'ctr', 'l', 'r', 't'].includes(dataLabelPosition)) delete options.dataLabelPosition
+			if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_POINT, 'dataLabelPosition')) {
+				delete options.dataLabelPosition
+			}
 		}
 		if (chartType === ChartType.bar) {
+			// The two tests are not exclusive: a grouping that is neither stacked nor clustered has
+			// to satisfy both sets, which comes to the stacked one.
 			if (!['stacked', 'percentStacked'].includes(options.barGrouping || '')) {
-				if (!['ctr', 'inBase', 'inEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
+				if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_BAR_STACKED, 'dataLabelPosition')) {
+					delete options.dataLabelPosition
+				}
 			}
-			if (!['clustered'].includes(options.barGrouping || '')) {
-				if (!['ctr', 'inBase', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
+			if (options.barGrouping !== 'clustered') {
+				if (!chartEnum(dataLabelPosition, DATA_LABEL_POSITIONS_BAR_CLUSTERED, 'dataLabelPosition')) {
+					delete options.dataLabelPosition
+				}
 			}
 		}
 	}
@@ -179,17 +242,17 @@ function normalizeChartDataLabelPosition(options: ChartOptsOverrides, chartType:
  * @param chartType - the plot type these options are emitted for, if known
  */
 function normalizeChartBarGrouping(options: ChartOptsOverrides, chartType: ChartType | undefined): void {
-	// barGrouping: "21.2.3.17 ST_Grouping (Grouping)"
+	// An area plot writes `<c:grouping>` (ST_Grouping), which has no clustered form; the two bar
+	// plots write the `<c:grouping>` inside `c:barChart`/`c:bar3DChart`, which is ST_BarGrouping.
+	// A 2-D bar additionally has no `standard`, PowerPoint offering clustered in its place.
 	if (chartType === ChartType.area) {
-		if (!['stacked', 'standard', 'percentStacked'].includes(options.barGrouping || '')) options.barGrouping = 'standard'
+		if (!chartEnum(options.barGrouping, GROUPINGS, 'barGrouping')) options.barGrouping = 'standard'
 	}
 	if (chartType === ChartType.bar) {
-		if (!['clustered', 'stacked', 'percentStacked'].includes(options.barGrouping || ''))
-			options.barGrouping = 'clustered'
+		if (!chartEnum(options.barGrouping, BAR_GROUPINGS_2D, 'barGrouping')) options.barGrouping = 'clustered'
 	}
 	if (chartType === ChartType.bar3d) {
-		if (!['clustered', 'stacked', 'standard', 'percentStacked'].includes(options.barGrouping || ''))
-			options.barGrouping = 'standard'
+		if (!chartEnum(options.barGrouping, BAR_GROUPINGS, 'barGrouping')) options.barGrouping = 'standard'
 	}
 }
 
@@ -400,12 +463,10 @@ function normalizeComboSubchartOptions(
 
 	// Enumerations emitted verbatim: `<c:barDir>` (ST_BarDir), `<c:grouping>` (ST_Grouping),
 	// `<c:shape>` (ST_Shape), `<c:symbol>` (ST_MarkerStyle).
-	if (!['bar', 'col'].includes(fixed.barDir || '')) fixed.barDir = 'col'
+	if (!chartEnum(fixed.barDir, BAR_DIRECTIONS, 'barDir')) fixed.barDir = 'col'
 	normalizeChartBarGrouping(fixed, subType)
-	if (!['cone', 'coneToMax', 'box', 'cylinder', 'pyramid', 'pyramidToMax'].includes(fixed.bar3DShape || ''))
-		fixed.bar3DShape = 'box'
-	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(fixed.lineDataSymbol || ''))
-		fixed.lineDataSymbol = 'circle'
+	if (!chartEnum(fixed.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) fixed.bar3DShape = 'box'
+	if (!chartEnum(fixed.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) fixed.lineDataSymbol = 'circle'
 	// A stacked bar group takes the narrower default gap a chart-level stacked bar gets. The
 	// merged bag already carries the clustered default, so only step in when neither the
 	// chart-level nor the subchart caller asked for a specific width.
@@ -565,7 +626,7 @@ export function addChartDefinition(
 	})
 
 	// B: Options: misc
-	if (!['bar', 'col'].includes(options.barDir || '')) options.barDir = 'col'
+	if (!chartEnum(options.barDir, BAR_DIRECTIONS, 'barDir')) options.barDir = 'col'
 
 	// barGrouping must be handled before data label validation as it can affect valid label positioning
 	const chartLevelType = Array.isArray(options._type) ? undefined : options._type
@@ -578,17 +639,12 @@ export function addChartDefinition(
 	normalizeChartDataLabelPosition(options, chartLevelType)
 	// dataLabelBkgrdColors: same dead-ternary shape as the show* block in
 	// normalizeChartPlotAreaOptions, same reason for its absence.
-	if (!['b', 'l', 'r', 't', 'tr'].includes(options.legendPos || '')) options.legendPos = 'r'
+	if (!chartEnum(options.legendPos, LEGEND_POSITIONS, 'legendPos')) options.legendPos = 'r'
 
-	// 3D bar: ST_Shape
-	if (!['cone', 'coneToMax', 'box', 'cylinder', 'pyramid', 'pyramidToMax'].includes(options.bar3DShape || ''))
-		options.bar3DShape = 'box'
-	// lineDataSymbol: http://www.datypic.com/sc/ooxml/a-val-32.html
-	// Spec has [plus,star,x] however neither PPT2013 nor PPT-Online support them
-	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(options.lineDataSymbol || ''))
-		options.lineDataSymbol = 'circle'
-	if (!['gap', 'span', 'zero'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'gap'
-	if (!['radar', 'markers', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'radar'
+	if (!chartEnum(options.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) options.bar3DShape = 'box'
+	if (!chartEnum(options.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) options.lineDataSymbol = 'circle'
+	if (!chartEnum(options.displayBlanksAs, DISPLAY_BLANKS_AS, 'displayBlanksAs')) options.displayBlanksAs = 'gap'
+	if (!chartEnum(options.radarStyle, RADAR_STYLES, 'radarStyle')) options.radarStyle = 'radar'
 	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
 	// Out-of-range or non-integer values make PowerPoint report the file as needing
 	// repair, so round and clamp into range and warn when the input is coerced.

@@ -32,9 +32,9 @@ import { alphaEl, createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
-import { borderLine, createLineCap, noStrokeLine } from '../drawingml/line.js'
+import { borderLine, createLineCap, noStrokeLine, resolveDash } from '../drawingml/line.js'
 import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
-import { coordToEmu, EMU_PER_INCH, ptToHundredths } from '../../units.js'
+import { coordToEmu, EMU_PER_INCH } from '../../units.js'
 import { dataValues } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 
@@ -83,7 +83,7 @@ export function dLblShowFlags(flags: {
  */
 export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string | number> {
 	return {
-		sz: ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE),
+		sz: clampFontSizeSz(opts.dataLabelFontSize || DEF_FONT_SIZE, 'dataLabelFontSize'),
 		b: opts.dataLabelFontBold ? 1 : 0,
 		i: opts.dataLabelFontItalic ? 1 : 0,
 		u: 'none',
@@ -141,7 +141,7 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts)
 			b: (over?.dataLabelFontBold ?? opts.dataLabelFontBold) ? 1 : 0,
 			i: (over?.dataLabelFontItalic ?? opts.dataLabelFontItalic) ? 1 : 0,
 			strike: 'noStrike',
-			sz: clampFontSizeSz(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE),
+			sz: clampFontSizeSz(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE, 'dataLabelFontSize'),
 			u: 'none',
 		},
 		[
@@ -289,6 +289,20 @@ export function paletteColor(palette: readonly string[], idx: number, fallback =
 export const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
 
 /**
+ * The `a:prstDash/@val` one plotted series' stroke takes: this series' own entry in
+ * `lineDashValues`, else the chart-wide `lineDash`, else solid.
+ *
+ * The bubble, category and scatter plot builders each spelled that fallback chain out
+ * byte-identically, and none of the three checked the result against `ST_PresetLineDashVal`.
+ * @param opts - the chart's normalized options
+ * @param serIndex - the series' 0-based index
+ * @returns a value legal for `a:prstDash/@val`
+ */
+export function seriesDash(opts: ChartOptsInternal, serIndex: number): string {
+	return resolveDash(opts.lineDashValues?.[serIndex] ?? opts.lineDash, 'solid', 'lineDash')
+}
+
+/**
  * Fill fragment for a `chartColors`-derived series/line/marker colour.
  *
  * A `'transparent'` entry means "no fill" — an invisible series, connecting line, or marker
@@ -425,7 +439,7 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	// `prove-whitespace` freezes intra-tag whitespace so it stays visible. See
 	// `docs/chart-whitespace-flatten.md`. Two other sites in this directory are in the same
 	// position; the ratchet header lists them.
-	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : ''
+	const sizeAttr = opts.fontSize ? `sz="${clampFontSizeSz(opts.fontSize, 'title fontSize')}"` : ''
 	const runAttrs = ` ${sizeAttr} b="${opts.titleBold ? 1 : 0}" i="${opts.titleItalic ? 1 : 0}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
 		genXmlColorSelection(opts.color || DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace || 'Arial')
@@ -516,7 +530,11 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 		},
 		[
 			raw(el('a:solidFill', null, raw(createColorElement(glOpts.color || DEF_GRIDLINE_COLOR)))),
-			raw(voidEl('a:prstDash', { val: glOpts.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
+			raw(
+				voidEl('a:prstDash', {
+					val: resolveDash(glOpts.style, DEF_CHART_GRIDLINE.style ?? 'solid', 'gridLine style'),
+				}) + voidEl('a:round')
+			),
 		]
 	)
 
@@ -714,7 +732,10 @@ export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string
 		},
 		[
 			raw(el('a:solidFill', null, raw(createColorElement(opt.color || DEF_GRIDLINE_COLOR)))),
-			raw(voidEl('a:prstDash', { val: opt.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
+			raw(
+				voidEl('a:prstDash', { val: resolveDash(opt.style, DEF_CHART_GRIDLINE.style ?? 'solid', 'serLine style') }) +
+					voidEl('a:round')
+			),
 		]
 	)
 
