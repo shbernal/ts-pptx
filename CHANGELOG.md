@@ -112,6 +112,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **An object's own coordinates now beat the frame of the placeholder it names.** BREAKING
+  for a deck that states both. `addText('own coords', { placeholder: 'body', x: 5, y: 3, w: 2,
+  h: 1 })` used to emit the layout placeholder's box and discard all four stated values, with
+  no diagnostic — while the same object with a *partial* frame and no placeholder warns
+  loudly. Three states (inherit the box, override it, override part of it) had one spelling
+  between them, and the decision is the one the rest of the library makes everywhere: an
+  explicit option beats an inherited one, and a placeholder's frame is an inherited one.
+
+  Each axis resolves independently, so `{ placeholder: 'body', x: 5, w: 2 }` takes `x` and `w`
+  from the object and `y` and `h` from the placeholder. A stated `0` counts as stated. The
+  resolution also moved *before* the negative-extent normalization: the placeholder's extents
+  used to skip it while the flip flags were derived from the object's own signs, so a negative
+  extent on either side composed wrong.
+
+  Every other option a placeholder states is still imposed on the object, unchanged.
+
+- **`SectionProps.order` counts from 1, as it has always documented.** BREAKING for a deck
+  passing `order`. It was spliced in raw, so `order: 1` inserted the section *second* and
+  `order: 0` — falsy — appended it with nothing said. `order: 1` is now the first position.
+  An order past the end appends. Anything that is not a whole number of at least 1 warns with
+  the new `section/invalid-order` code and appends, rather than splicing from somewhere
+  unpredictable.
+
+  Migration: subtract one from any `order` you pass today, or drop it where you were relying
+  on `0` to append.
+
 - **A hole in a table-level `border` tuple is left alone, exactly as it is on a cell.**
   `[rule, null, rule, null]` meant two different things depending on where it was written: on a
   cell a `null` side is *omitted*, so the edge keeps inheriting from the built-in table style,

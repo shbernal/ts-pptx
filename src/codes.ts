@@ -150,6 +150,7 @@ export type DiagnosticCode =
 	| 'section/missing-argument'
 	| 'section/missing-title'
 	| 'section/duplicate-title'
+	| 'section/invalid-order'
 	| 'slide/section-not-found'
 	| 'layout/invalid-definition'
 	// SmartArt

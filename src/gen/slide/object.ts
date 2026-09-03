@@ -419,14 +419,29 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		slideItemObj.options = slideItemObj.options || {}
 		const itemOpts = slideItemObj.options
 
-		if (typeof slideItemObj.options.x !== 'undefined')
-			x = getSmartParseNumber(slideItemObj.options.x, 'X', slide._presLayout)
-		if (typeof slideItemObj.options.y !== 'undefined')
-			y = getSmartParseNumber(slideItemObj.options.y, 'Y', slide._presLayout)
-		if (typeof slideItemObj.options.w !== 'undefined')
-			cx = getSmartParseNumber(slideItemObj.options.w, 'X', slide._presLayout)
-		if (typeof slideItemObj.options.h !== 'undefined')
-			cy = getSmartParseNumber(slideItemObj.options.h, 'Y', slide._presLayout)
+		// Each axis, most specific source first: what the caller stated on this object, else what
+		// the layout placeholder it names states, else the default already in the variable.
+		//
+		// The placeholder used to be applied AFTER this, and unconditionally — so
+		// `addText('own coords', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` had all four of
+		// its stated values thrown away with no diagnostic, while the same object with a
+		// *partial* frame and no placeholder warns loudly. An explicit option beats an inherited
+		// one everywhere else in this library; a placeholder is an inherited one.
+		//
+		// It also has to happen before the normalization below rather than after it: the
+		// placeholder's extents used to skip normalization entirely while the flip flags were
+		// derived from the object's own signs, so a negative extent on either side composed wrong.
+		const phOpts = placeholderObj?.options ?? {}
+		const inherited = <T>(own: T | undefined, ph: T | undefined): T | undefined =>
+			own !== undefined ? own : (ph ?? undefined)
+		const ownX = inherited(slideItemObj.options.x, phOpts.x)
+		const ownY = inherited(slideItemObj.options.y, phOpts.y)
+		const ownW = inherited(slideItemObj.options.w, phOpts.w)
+		const ownH = inherited(slideItemObj.options.h, phOpts.h)
+		if (ownX !== undefined) x = getSmartParseNumber(ownX, 'X', slide._presLayout)
+		if (ownY !== undefined) y = getSmartParseNumber(ownY, 'Y', slide._presLayout)
+		if (ownW !== undefined) cx = getSmartParseNumber(ownW, 'X', slide._presLayout)
+		if (ownH !== undefined) cy = getSmartParseNumber(ownH, 'Y', slide._presLayout)
 
 		// A negative `w`/`h` becomes a min-corner origin, an absolute extent, and a flip — never a
 		// negative `<a:ext>`, which is out of range for `ST_PositiveCoordinate` and costs the whole
@@ -443,14 +458,6 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		const imgWidth = cx
 		const imgHeight = cy
 
-		// If using a placeholder then inherit it's position
-		if (placeholderObj) {
-			const phOpts = placeholderObj.options ?? {}
-			if (phOpts.x || phOpts.x === 0) x = getSmartParseNumber(phOpts.x, 'X', slide._presLayout)
-			if (phOpts.y || phOpts.y === 0) y = getSmartParseNumber(phOpts.y, 'Y', slide._presLayout)
-			if (phOpts.w || phOpts.w === 0) cx = getSmartParseNumber(phOpts.w, 'X', slide._presLayout)
-			if (phOpts.h || phOpts.h === 0) cy = getSmartParseNumber(phOpts.h, 'Y', slide._presLayout)
-		}
 		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
 		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
 		// stays absent, matching the truthiness test this replaced.

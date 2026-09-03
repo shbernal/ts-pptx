@@ -76,7 +76,14 @@ export interface SectionProps {
 	 */
 	title: string
 	/**
-	 * Section order - uses to add section at any index
+	 * Where to insert the section, counting from **1**: `order: 1` puts it first, `order: 2`
+	 * second. Omit it to append.
+	 *
+	 * An order past the end appends, which is the only sensible reading of "put it at
+	 * position 12" in a deck with four sections. Anything that is not a whole number of at
+	 * least 1 -- `0`, a negative, a fraction -- warns and appends: it named no position, and
+	 * silently treating it as one is how `order: 1` came to insert *second* and `order: 0` to
+	 * append with no word said.
 	 * - values: 1-n
 	 */
 	order?: number

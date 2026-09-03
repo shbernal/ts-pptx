@@ -770,8 +770,22 @@ export default class PresentationCore {
 			title: section.title,
 		}
 
-		if (section.order) this._sections.splice(section.order, 0, newSection)
-		else this._sections.push(newSection)
+		// `order` counts from 1, as the option documents; the splice index is one less. It was
+		// spliced in raw, so `order: 1` inserted second and `order: 0` -- falsy -- appended
+		// without a word. An order past the end appends, which is what `splice` does anyway.
+		if (section.order === undefined) {
+			this._sections.push(newSection)
+			return
+		}
+		if (!Number.isInteger(section.order) || section.order < 1) {
+			warn(
+				'section/invalid-order',
+				`addSection: "order" must be a whole number of at least 1 (the first position); got ${String(section.order)}. Appending.`
+			)
+			this._sections.push(newSection)
+			return
+		}
+		this._sections.splice(section.order - 1, 0, newSection)
 	}
 
 	/**

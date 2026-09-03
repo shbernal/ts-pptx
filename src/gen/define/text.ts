@@ -119,7 +119,22 @@ export function addTextDefinition(
 						item.options.placeholder &&
 						item.options.placeholder === itemOpts.placeholder
 				)[0]
-				if (placeHold?.options) itemOpts = { ...itemOpts, ...placeHold.options }
+				if (placeHold?.options) {
+					// The frame is inherited, not imposed: an axis the caller stated wins over the
+					// placeholder's. Every other option still comes from the placeholder, which is
+					// what "text targeting a placeholder inherits its options" has always meant here.
+					//
+					// `{ ...itemOpts, ...placeHold.options }` overwrote all four coordinates, so
+					// `addText('x', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` lost every value
+					// it stated -- silently, while the same object with a partial frame and no
+					// placeholder warns. An explicit option beats an inherited one everywhere else in
+					// this library.
+					const inherited: typeof placeHold.options = { ...placeHold.options }
+					for (const axis of ['x', 'y', 'w', 'h'] as const) {
+						if (itemOpts[axis] !== undefined) delete inherited[axis]
+					}
+					itemOpts = { ...itemOpts, ...inherited }
+				}
 			}
 
 			// B:
