@@ -393,6 +393,44 @@ defineRegressionSuite('PPTX inspection primitives', [
 		},
 	},
 	{
+		// The other two reasons `absoluteFrame` is `null`. Both used to be re-derived here
+		// by a second walk over the same ancestry; they now come from the read model's
+		// `absoluteFrameFailure`, so this pins the wiring — one warns, one is silent.
+		name: 'inspect distinguishes an unusable group transform from an inherited box',
+		fn: async () => {
+			const buf = await packageWithSpTree(`
+				<p:sp>
+					<p:nvSpPr><p:cNvPr id="2" name="inherits its box"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>
+					<p:spPr/>
+				</p:sp>
+				<p:grpSp>
+					<p:nvGrpSpPr><p:cNvPr id="3" name="untransformed group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+					<p:grpSpPr/>
+					${spXml(4, 'unmappable child')}
+				</p:grpSp>`)
+
+			const { result, warnings } = await captureWarnings(() => inspectPptx(buf))
+			const names = result.slides[0].elements.map((el) => el.name)
+
+			assert(!names.includes('unmappable child'), 'a child of an untransformed group has no position to report')
+			assert(
+				warnings.some((line) => line.includes('unmappable child') && line.includes('no usable a:xfrm')),
+				`expected a warning naming the unmappable child; got ${JSON.stringify(warnings)}`
+			)
+			// A placeholder inheriting its geometry is ordinary: this surface reports what the
+			// slide states, so the shape is omitted with nothing said about it.
+			assert(!names.includes('inherits its box'), 'a shape with no own transform is omitted')
+			assertEqual(
+				warnings.filter((line) => line.includes('inherits its box')).length,
+				0,
+				`expected silence about the inherited box; got ${JSON.stringify(warnings)}`
+			)
+			// The group itself sits at slide level with no transform of its own, so it is
+			// omitted on the same rule as the placeholder — and just as quietly.
+			assertEqual(names.length, 0, `expected nothing to survive this slide; got ${JSON.stringify(names)}`)
+		},
+	},
+	{
 		// Slides come back in the order PowerPoint shows them (`p:sldIdLst`), which
 		// stops matching part order the moment a deck is reordered: dragging a slide
 		// rewrites the list and leaves `slideN.xml` named as it was. Reading the

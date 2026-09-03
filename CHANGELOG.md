@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Shape.absoluteFrameFailure` names why `absoluteFrame` is `null`.** That one `null`
+  stands for three different situations — the shape states no transform of its own
+  (`'no-own-transform'`, an ordinary placeholder inheriting its box from the layout), an
+  enclosing `p:grpSp` states no complete `a:off`/`a:ext` **and** `a:chOff`/`a:chExt` pair
+  (`'group-transform-missing'`), or an enclosing group's `a:chExt` is zero on an axis
+  (`'group-transform-degenerate'`) — and only a caller that wants to *report* the
+  unresolvable shape needs them apart: the first is normal, the other two say the deck is
+  malformed. The new getter is `null` when the frame resolved; both project from a single
+  ancestry walk, so they cannot disagree. A missing group transform outranks a degenerate
+  one wherever the two meet in one chain, since composing needs every group's mapping.
+
+  `ts-pptx/inspect` was the caller that needed the distinction, and it re-derived it by
+  walking the same ancestry a second time over the raw DOM. It now reads the getter,
+  which drops its last three DOM helpers and its only `element_` escape hatch — the
+  surface is now the pure projection over `ts-pptx/read` its own header claims. No
+  diagnostic message or dropped element changes.
+
 - **`importSlides` takes `embedFonts` and `rescale`, so the batch path is no longer the
   one missing two options.** The batch is the import with the all-or-nothing guarantee, so
   it is the one a caller should reach for, and it was also the one that could not carry a

@@ -225,6 +225,23 @@ export interface AbsoluteFrame {
 }
 
 /**
+ * Why {@link Shape.absoluteFrame} could not resolve a frame.
+ *
+ * - `no-own-transform` — the shape states no `a:xfrm` of its own, or an incomplete
+ *   one: typically a placeholder inheriting its box from the layout. Nothing is
+ *   wrong with the deck; the read model reports what the shape itself states.
+ * - `group-transform-missing` — an enclosing `p:grpSp` states no complete
+ *   `a:off`/`a:ext` **and** `a:chOff`/`a:chExt` pair, so its child space is unknown.
+ * - `group-transform-degenerate` — an enclosing group's `a:chExt` is zero on an
+ *   axis, so the child-space ratio the mapping divides by is undefined.
+ *
+ * A missing group transform outranks a degenerate one wherever the two meet in
+ * one chain: composing needs every group's mapping, so an ancestor that states
+ * none is reported even when a nearer group is the degenerate one.
+ */
+export type AbsoluteFrameFailure = 'no-own-transform' | 'group-transform-missing' | 'group-transform-degenerate'
+
+/**
  * A group shape's own child coordinate space (`p:grpSpPr/a:xfrm/a:chOff` and
  * `a:chExt`) in EMU — the space its children's `a:off`/`a:ext` are authored in.
  *

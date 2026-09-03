@@ -939,6 +939,19 @@ These report the shape's **own** orientation; they are the per-shape complement
 to `absoluteFrame`, which reports the effective position, size, rotation, and
 flips after composing enclosing group transforms.
 
+`absoluteFrame` is `null` for three different reasons, and `absoluteFrameFailure`
+says which: `'no-own-transform'` (the shape states no complete `a:xfrm` of its own,
+typically a placeholder inheriting its box from the layout), or one of
+`'group-transform-missing'` / `'group-transform-degenerate'` for an enclosing
+`p:grpSp` that states no complete `a:off`/`a:ext` **and** `a:chOff`/`a:chExt` pair,
+or a zero `a:chExt` with no child-space ratio to map through. `absoluteFrameFailure`
+is `null` when the frame resolved. Only a caller that wants to *report* an
+unresolvable shape needs the distinction, since the first reason is normal while the
+other two say the deck is malformed. That is what `ts-pptx/inspect` warns on
+(`inspect/group-transform-missing`, `inspect/group-transform-degenerate`) while
+staying silent about an inherited box. A missing group transform outranks a
+degenerate one wherever the two meet in one chain.
+
 ```ts
 abstract class Shape {
 	readonly shapeType: ShapeType
@@ -961,6 +974,7 @@ abstract class Shape {
 		flipH: boolean
 		flipV: boolean
 	} | null // slide-absolute EMU/degrees after composing enclosing groups
+	readonly absoluteFrameFailure: 'no-own-transform' | 'group-transform-missing' | 'group-transform-degenerate' | null // why absoluteFrame is null
 	fillColor: string | null // spPr/a:solidFill/a:srgbClr/@val (6-hex) — settable
 	fillSchemeColor: string | null // spPr/a:solidFill/a:schemeClr/@val, e.g. 'accent2' — settable
 	lineColor: string | null // spPr/a:ln/a:solidFill/a:srgbClr/@val (6-hex) — settable

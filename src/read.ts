@@ -93,6 +93,7 @@ export {
 	type CustomGeometryPath,
 	type GeometryCommand,
 	type AbsoluteFrame,
+	type AbsoluteFrameFailure,
 	type ChildFrame,
 	type Recolor,
 	type RecolorColor,

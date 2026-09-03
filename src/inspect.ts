@@ -28,7 +28,6 @@ import { Presentation } from './read/api/presentation.js'
 import type { AnyShape } from './read/api/shapes.js'
 import type { GraphicFrame } from './read/api/shapes/graphic-frame.js'
 import type { Run, TextFrame } from './read/api/text.js'
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, numberValue, type Element } from './read/oxml/dom.js'
 import { POINTS_PER_INCH, STANDARD_LAYOUTS, emuToInches } from './units.js'
 import { BODY_INSET_DEFAULTS_PT } from './ooxml/body-insets.js'
 
@@ -515,25 +514,25 @@ function readBodyInsets(textFrame: TextFrame | null): PptxBodyInsets | null {
 	}
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
- * Unresolvable positions
+/**
+ * Warn about a shape whose slide position cannot be resolved, unless it never
+ * claimed one.
  *
- * `absoluteFrame` reports `null` for three different situations, and only two of
- * them are worth telling the caller about. The distinction is not recoverable
- * from the `null`, so it is re-derived here from the same ancestry the read model
- * walks.
- * ──────────────────────────────────────────────────────────────────────────── */
-
-/** Warn about a shape whose slide position cannot be resolved, unless it never claimed one. */
+ * `absoluteFrame` is `null` for three different situations and only two of them
+ * are worth telling the caller about; `absoluteFrameFailure` is the read model
+ * naming which, so this surface does not walk the ancestry a second time to
+ * re-derive it.
+ */
 function reportUnresolvable(shape: AnyShape, zIndex: number, slidePath: string): void {
-	const element = shape.element_
+	const failure = shape.absoluteFrameFailure
 	// No own `a:xfrm` at all: the shape inherits its geometry from a layout
 	// placeholder, which this surface deliberately does not resolve. Nothing is
-	// wrong with the deck, so nothing is reported.
-	if (!hasBox(ownTransform(element), 'a:off', 'a:ext')) return
+	// wrong with the deck, so nothing is reported. (`null` cannot reach here — the
+	// caller only calls this for a shape whose frame did not resolve.)
+	if (failure === null || failure === 'no-own-transform') return
 
 	const who = shape.name ? `"${shape.name}"` : `the element at zIndex ${zIndex}`
-	if (enclosingGroupLacksTransform(element)) {
+	if (failure === 'group-transform-missing') {
 		warn(
 			'inspect/group-transform-missing',
 			`inspect: skipped ${who} on ${slidePath} — an enclosing group has no usable a:xfrm, so its slide position cannot be resolved.`
@@ -543,37 +542,6 @@ function reportUnresolvable(shape: AnyShape, zIndex: number, slidePath: string):
 	warn(
 		'inspect/group-transform-degenerate',
 		`inspect: skipped ${who} on ${slidePath} — an enclosing group has a degenerate transform (zero a:chExt), so its slide position cannot be resolved.`
-	)
-}
-
-/** The element's own `a:xfrm` — on `p:grpSpPr` for a group, `p:spPr` for every other kind. */
-function ownTransform(element: Element): Element | null {
-	const props = firstChild(element, element.localName === 'grpSp' ? 'p:grpSpPr' : 'p:spPr')
-	return props && firstChild(props, 'a:xfrm')
-}
-
-/** Whether any enclosing `p:grpSp` fails to state a complete child-space mapping. */
-function enclosingGroupLacksTransform(element: Element): boolean {
-	for (let node = element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
-		const parent = node as Element
-		if (parent.namespaceURI !== OOXML_NS.p || parent.localName !== 'grpSp') return false // reached the shape tree
-		const xfrm = ownTransform(parent)
-		if (!hasBox(xfrm, 'a:off', 'a:ext') || !hasBox(xfrm, 'a:chOff', 'a:chExt')) return true
-	}
-	return false
-}
-
-/** Whether a transform states a complete position + extent pair. */
-function hasBox(xfrm: Element | null, offName: string, extName: string): boolean {
-	if (!xfrm) return false
-	const off = firstChild(xfrm, offName)
-	const ext = firstChild(xfrm, extName)
-	if (!off || !ext) return false
-	return (
-		numberValue(attr(off, 'x')) !== null &&
-		numberValue(attr(off, 'y')) !== null &&
-		numberValue(attr(ext, 'cx')) !== null &&
-		numberValue(attr(ext, 'cy')) !== null
 	)
 }
 

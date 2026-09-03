@@ -58,6 +58,7 @@ import {
 import { readBox, rotationDegrees, transformFlipH, transformFlipV } from './geometry.js'
 import type {
 	AbsoluteFrame,
+	AbsoluteFrameFailure,
 	Glow,
 	InnerShadow,
 	LineEnd,
@@ -317,16 +318,43 @@ export abstract class Shape {
 	 *
 	 * `null` when the shape (or any enclosing group) has no own transform, or a
 	 * group's `a:chExt` is degenerate (zero) — there is then no resolvable frame.
+	 * {@link absoluteFrameFailure} says which of those it was.
 	 *
 	 * A rotated shape's returned `left`/`top` remain PowerPoint's unrotated
 	 * placement box (the same box PowerPoint writes after Ungroup), with the
 	 * effective rotation exposed separately.
 	 */
 	get absoluteFrame(): AbsoluteFrame | null {
+		const resolved = this.#resolveAbsoluteFrame()
+		return typeof resolved === 'string' ? null : resolved
+	}
+
+	/**
+	 * Why {@link absoluteFrame} is `null`, or `null` when it resolved.
+	 *
+	 * `absoluteFrame` reports one `null` for three different situations, and only a
+	 * caller that wants to *report* the unresolvable shape needs them apart — an
+	 * inherited placeholder box is ordinary, a group with no usable `a:xfrm` is not.
+	 * The distinction is not recoverable from the `null`, and re-deriving it means
+	 * walking the same ancestry a second time, so it is named here instead. See
+	 * {@link AbsoluteFrameFailure} for what each value means.
+	 */
+	get absoluteFrameFailure(): AbsoluteFrameFailure | null {
+		const resolved = this.#resolveAbsoluteFrame()
+		return typeof resolved === 'string' ? resolved : null
+	}
+
+	/**
+	 * The one ancestry walk behind {@link absoluteFrame} and
+	 * {@link absoluteFrameFailure}: the composed frame, or the reason there is none.
+	 * A frame is always an object and a failure always a string, so the two project
+	 * out of it without a wrapper.
+	 */
+	#resolveAbsoluteFrame(): AbsoluteFrame | AbsoluteFrameFailure {
 		const xfrm = this.xfrm()
-		if (!xfrm) return null
+		if (!xfrm) return 'no-own-transform'
 		const box = readBox(xfrm, 'a:off', 'a:ext')
-		if (!box) return null
+		if (!box) return 'no-own-transform'
 
 		const groups: GroupTransform[] = []
 		for (let node = this.element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
@@ -336,7 +364,7 @@ export abstract class Shape {
 			const groupXfrm = grpSpPr && firstChild(grpSpPr, 'a:xfrm')
 			const outer = groupXfrm && readBox(groupXfrm, 'a:off', 'a:ext')
 			const child = groupXfrm && readBox(groupXfrm, 'a:chOff', 'a:chExt')
-			if (!groupXfrm || !outer || !child) return null
+			if (!groupXfrm || !outer || !child) return 'group-transform-missing'
 			groups.push({
 				outer,
 				child,
@@ -350,7 +378,10 @@ export abstract class Shape {
 			{ box, rotation: rotationDegrees(xfrm), flipH: transformFlipH(xfrm), flipV: transformFlipV(xfrm) },
 			groups
 		)
-		if (!frame) return null
+		// `composeGroupFrame` returns `null` for exactly one reason — a group's zero
+		// `a:chExt` — and it is the authority on that rule. Re-testing `chExt` here to
+		// name the failure would put the rule in two places for no gain.
+		if (!frame) return 'group-transform-degenerate'
 		return {
 			left: Math.round(frame.box.x),
 			top: Math.round(frame.box.y),

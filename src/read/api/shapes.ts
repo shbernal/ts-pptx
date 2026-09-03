@@ -38,6 +38,7 @@ export type { PictureFill, PictureFillTile, FillRect } from './picture-fill.js'
 // Likewise for the shape value types, whose definitions live in ./shapes/types.js.
 export type {
 	AbsoluteFrame,
+	AbsoluteFrameFailure,
 	ChildFrame,
 	ConnectionSite,
 	CustomGeometry,
