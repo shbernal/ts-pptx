@@ -4,7 +4,7 @@
  * Registers an `addBackground()` image as a slide media rel (color backgrounds carry no rel);
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
-import type { BackgroundProps } from '../../types/index.js'
+import type { BackgroundOption } from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
@@ -37,12 +37,16 @@ function sanitizeMediaNamePart(name: string): string {
 
 /**
  * Adds a background image or color to a slide definition.
- * @param {BackgroundProps} props - color string or an object with image definition
+ *
+ * Only an image background does anything here: it is the one that needs a media relationship.
+ * A colour — object or the bare-string shorthand — carries no rel and is emitted straight from
+ * `slide.background` at serialize time, so it falls through.
+ * @param {BackgroundOption} props - a bare colour, or an object with a colour or image definition
  * @param {PresSlideInternal} target - slide object that the background is set to
  */
-export function addBackgroundDefinition(props: BackgroundProps | undefined, target: SlideLayoutInternal): void {
+export function addBackgroundDefinition(props: BackgroundOption | undefined, target: SlideLayoutInternal): void {
 	// Handle media
-	if (props && (props.path || props.data)) {
+	if (props && typeof props === 'object' && (props.path || props.data)) {
 		// The `data:` mime wins over `path`, as it does for `addImage()`: a background supplied as
 		// bytes alone used to fall back on the `preencoded.png` placeholder path and declare
 		// `image/png` no matter what it actually carried, so `{ data: 'data:image/svg+xml;…' }`

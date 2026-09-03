@@ -8,7 +8,7 @@ import type { BevelPresetType, LightRigDirection, LightRigType, PresetMaterialTy
 import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
-import type { BorderProps, HyperlinkProps, ShapeFillProps } from './style.js'
+import type { BorderProps, FillOption, HyperlinkProps } from './style.js'
 import type { TextBaseProps, TextFitShrinkProps, TextProps, TextPropsOptions } from './text.js'
 
 /**
@@ -239,14 +239,16 @@ export interface TableCellProps extends TextBaseProps {
 	 * Cell fill — a solid color, or a picture that fills the cell (`a:blipFill` in
 	 * the cell's `a:tcPr`, stretched to the cell box). A picture fill embeds the
 	 * image as slide media; identical sources are embedded once. Raster only —
-	 * an SVG source warns and is ignored, matching shape fills.
+	 * an SVG source warns and is ignored, matching shape fills. A bare {@link Color} is
+	 * shorthand for a solid fill ({@link FillOption}).
+	 * @example 'FF0000' // hex color (red), shorthand for { color:'FF0000' }
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'image', image:{ path:'logo.png' } } // picture fill
 	 * @example { image:{ data:'image/png;base64,…' } } // picture fill, `type` inferred
 	 */
-	fill?: ShapeFillProps
+	fill?: FillOption
 	/**
 	 * What happens to a **single glyph** wider than the cell's text width (`a:tcPr/@horzOverflow`).
 	 * - `'clip'` (PowerPoint's default) cuts the glyph off at the cell edge
@@ -563,13 +565,15 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Visually this is usually what you want, but it is not what a source deck contains, and
 	 * it has one real consequence: because every cell ends up explicitly filled, a cell that
 	 * later gets its own fill has nothing to fall back to. For a genuine table background —
-	 * one `a:tblPr` fill that cells sit on top of — use {@link tableFill}.
+	 * one `a:tblPr` fill that cells sit on top of — use {@link tableFill}. A bare
+	 * {@link Color} is shorthand for a solid fill ({@link FillOption}).
+	 * @example 'FF0000' // hex color (red), shorthand for { color:'FF0000' }
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'image', image:{ path:'watermark.png' } } // picture fill
 	 */
-	fill?: ShapeFillProps
+	fill?: FillOption
 	/**
 	 * The table's own background (`a:tblPr` fill) — one fill behind the whole table that
 	 * every cell sits on top of.
@@ -582,11 +586,13 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * actually carries, so a replica reproduces the source's structure rather than an
 	 * equivalent-looking flattening of it.
 	 *
-	 * Takes the same `ShapeFillProps` a cell does — solid, gradient, pattern or picture.
+	 * Takes the same {@link FillOption} a cell does — solid, gradient, pattern or picture,
+	 * or a bare {@link Color} as shorthand for a solid fill.
+	 * @example 'F2F2F2' // shorthand for { color:'F2F2F2' }
 	 * @example { color:'F2F2F2' } // a light background behind the whole table
 	 * @example { type:'image', image:{ path:'watermark.png' } } // one watermark, not one per cell
 	 */
-	tableFill?: ShapeFillProps
+	tableFill?: FillOption
 	/**
 	 * Cell margin (inches)
 	 * - affects all table cells, is superceded by cell options

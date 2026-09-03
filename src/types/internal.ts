@@ -10,7 +10,7 @@ import type { CHART_NAME, ChartType, SHAPE_NAME, SlideObjectType } from '../enum
 import type { EmbeddedFont } from '../embedded-fonts.js'
 import type { AnimationProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
-import type { BackgroundProps, Margin } from './core.js'
+import type { BackgroundOption, Margin } from './core.js'
 import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
 import type { MediaProps, MediaType } from './media.js'
 import type { PresLayout, PresentationProps, SectionProps } from './pres.js'
@@ -272,7 +272,7 @@ export interface SlideBaseProps {
 	 * answers `undefined` when none is set. The `_`-prefixed members above are plain fields and
 	 * keep the strict form.
 	 */
-	background?: BackgroundProps | undefined
+	background?: BackgroundOption | undefined
 }
 export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	_slide?: {

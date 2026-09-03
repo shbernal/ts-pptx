@@ -74,6 +74,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A bare colour is now the documented shorthand for a solid fill, at every fill option.**
+  `fill: 'FF0000'` says exactly what `fill: { color: 'FF0000' }` says and emits the same
+  bytes, and the runtime had accepted it that way for a long time — but the types said
+  `ShapeFillProps`, so only JavaScript callers could reach the spelling and only by writing
+  something TypeScript rejected. `ShapeProps.fill`, `TextPropsOptions.fill`,
+  `TableCellProps.fill` (so also `headerRow` and `columns[i]`), `TableProps.fill`,
+  `TableProps.tableFill` and a chart's `plotArea.fill` / `chartArea.fill` now take the new
+  `FillOption` (`Color | ShapeFillProps`); `Slide.background`, `SlideLayout.background` and
+  `SlideMasterProps.background` take `BackgroundOption` (`BackgroundProps | Color`) for the
+  same reason.
+
+  Settled as one decision for the whole surface rather than per key: every one of these
+  keys hands its option to the same `genXmlColorSelection`, so a rule that held at some of
+  them and not others would make the API less predictable, not more. The shorthand is
+  lossless — it is the object form minus the keys it has no way to say — which is why it is
+  documented rather than deprecated: unlike `coord/bare-number-is-inches` or
+  `margin/legacy-points`, there is no changed meaning to warn about.
+
+  **A stroke is deliberately not included.** `line` carries width and dash alongside its
+  paint, and those defaults come from rebuilding the line object at definition time, so a
+  bare string would paint the colour and silently ship an `<a:ln>` with no `w` and no
+  `prstDash`. `ShapeLineProps` says so.
+
 - **`PresLayout.width` and `.height` say which unit they are in, because it depends on the
   direction.** `defineLayout` reads them as INCHES — that is what its own example passes —
   while `pptx.presLayout` returns them in EMU. Both are public and both are the same type,
@@ -241,6 +264,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **A chart area asked for a bare colour is painted, instead of coming out transparent.**
+  `plotArea: { fill: 'FF0000' }` and `chartArea: { fill: '00FF00' }` emitted `<a:noFill/>`
+  and the requested colour appeared nowhere in the chart part. `copyChartOptions` clones
+  every nested options object defensively, and its clone of `fill` was an unconditional
+  spread — which turns a string into `{0:'F',1:'F',…}`, an object naming neither a `color`
+  nor a `type`, so `isStatedFill` read it as "this fill states nothing" and took the no-fill
+  arm. The clone now leaves a string alone (a string needs no defensive copy) and
+  `isStatedFill` counts one as stated.
+
+  This was the one fill site of six where the bare-colour spelling did not work, which is
+  what made the leniency invisible: five sites painted it, so nothing looked broken until
+  the shorthand was written down. See the `FillOption` entry under **Changed**.
 
 - **A converted text box whose `txBox` is spelled `true` stays a text box.**
   `p:cNvSpPr/@txBox` is the only thing separating a text box from an auto shape — the

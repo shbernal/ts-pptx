@@ -11,6 +11,7 @@ import { warn } from '../../diagnostics.js'
 import type {
 	AddSlideProps,
 	BorderProps,
+	FillOption,
 	PresLayout,
 	ShapeFillProps,
 	TableCell,
@@ -268,8 +269,9 @@ function resolveHeaderRowCount(value: number | undefined, rowCount: number): num
 
 function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][], opt: TableProps): void {
 	const seen = new Set<ShapeFillProps>()
-	const register = (fill: ShapeFillProps | undefined): void => {
+	const register = (fill: FillOption | undefined): void => {
 		// `type:'image'` and a bare `image:{…}` are both accepted, mirroring the shape path.
+		// A bare colour string is the solid-fill shorthand and never carries media.
 		if (!fill || typeof fill !== 'object') return
 		if (resolveFillKind(fill) !== 'image') return
 		if (seen.has(fill)) return

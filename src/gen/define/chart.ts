@@ -81,7 +81,11 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
 	if (copy.plotArea) {
 		copy.plotArea = { ...copy.plotArea }
 		if (copy.plotArea.border) copy.plotArea.border = { ...copy.plotArea.border }
-		if (copy.plotArea.fill) copy.plotArea.fill = { ...copy.plotArea.fill }
+		// `typeof === 'object'`, not just truthy: `fill` takes a bare colour string as the
+		// solid-fill shorthand, and spreading a string produces `{0:'F',1:'F',…}` — an object
+		// that names neither `color` nor `type`, so `isStatedFill` rejected it and the area
+		// came out `<a:noFill/>`. A string is immutable and needs no defensive copy anyway.
+		if (typeof copy.plotArea.fill === 'object') copy.plotArea.fill = { ...copy.plotArea.fill }
 	}
 	if (copy.chartArea) copy.chartArea = { ...copy.chartArea }
 	if (copy.dataBorder) copy.dataBorder = { ...copy.dataBorder }

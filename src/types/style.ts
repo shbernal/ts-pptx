@@ -139,6 +139,25 @@ export interface ShadowProps {
 	 */
 	rotateWithShape?: boolean
 }
+/**
+ * What a fill option accepts: a {@link ShapeFillProps} object, or a bare {@link Color} as
+ * shorthand for a solid fill in that colour.
+ *
+ * `'FF0000'` and `{ color: 'FF0000' }` are the same statement and emit the same
+ * `<a:solidFill>` — the shorthand is lossless, not a lesser spelling, and every other key on
+ * the object (`transparency`, `gradient`, `pattern`, `image`) is simply one the shorthand has
+ * no way to say. Reach for the object as soon as you need any of them.
+ *
+ * The shorthand is deliberately **not** offered on {@link ShapeLineProps}. A stroke carries
+ * width and dash alongside its paint, and those defaults are applied by rebuilding the line
+ * object at definition time; a bare string arrives with nothing to rebuild, so it would paint
+ * the colour and silently drop `w` and `prstDash`. A stroke says more than a colour, so it is
+ * spelled as an object.
+ * @example fill: 'FF0000' // solid red
+ * @example fill: { color: 'FF0000', transparency: 50 } // the same red, half transparent
+ */
+export type FillOption = Color | ShapeFillProps
+
 // used by: shape, table, text
 export interface ShapeFillProps {
 	/**
@@ -222,6 +241,9 @@ export interface ShapeFillProps {
  * ever registered the media for it, so a picture stroke reached the emitter with no rel and
  * painted nothing. It is now spelled out as unsupported: a JS caller who sets it anyway
  * gets `line/image-fill-unsupported`.
+ *
+ * A stroke also does not take the bare-colour shorthand a fill does — see {@link FillOption}
+ * for why. Spell it `line: { color: 'FF0000' }`.
  */
 export interface ShapeLineProps extends Omit<ShapeFillProps, 'type' | 'image' | '_imgRid'> {
 	/**

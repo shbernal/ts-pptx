@@ -32,7 +32,7 @@ import type {
 	OptsChartDataInternal,
 	SlideRelChart,
 } from '../../types/internal.js'
-import type { BorderProps, ShapeFillProps } from '../../types/index.js'
+import type { BorderProps, FillOption } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { borderLine, noStrokeLine } from '../drawingml/line.js'
@@ -74,8 +74,14 @@ const CHART_SPACE_NS = {
  * A payload with no `type` (`{ gradient }`, `{ pattern }`) is likewise not stated, which
  * matches the shape path: only `line` infers its type from a bare `gradient`, fills have
  * always wanted `type: 'gradient'` spelled out.
+ *
+ * A bare {@link Color} string is stated — it is the solid-colour shorthand every other fill
+ * site takes. This one used to be the exception: the string reached here having already been
+ * spread into `{0:'F',1:'F',…}` by `copyChartOptions`, so it named neither `color` nor `type`
+ * and a chart area asked for `fill: 'FF0000'` came out `<a:noFill/>`.
  */
-function isStatedFill(fill?: ShapeFillProps): fill is ShapeFillProps {
+function isStatedFill(fill?: FillOption): fill is FillOption {
+	if (typeof fill === 'string') return fill.length > 0
 	return Boolean(fill?.color || fill?.type)
 }
 
@@ -339,7 +345,7 @@ function makeChartAxesXml(rel: SlideRelChart, plan: ComboAxisPlan): string {
  * than on `type: 'none'` — the caller here has an optional border where
  * `createChartBorderLine` (`gen/chart/chart-parts.ts`) has a resolved one.
  */
-function chartShapeProps(fill: ShapeFillProps | undefined, border: BorderProps | undefined): string {
+function chartShapeProps(fill: FillOption | undefined, border: BorderProps | undefined): string {
 	return el('c:spPr', null, [
 		raw(isStatedFill(fill) ? genXmlColorSelection(fill) : voidEl('a:noFill')),
 		raw(

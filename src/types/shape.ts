@@ -5,7 +5,7 @@
  */
 import type { Coord, GeometryPoint, HAlign, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
-import type { HyperlinkProps, ShadowProps, ShapeFillProps, ShapeLineProps } from './style.js'
+import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
 
 /**
  * A single preset-geometry adjustment guide (`<a:gd>` inside `<a:avLst>`).
@@ -114,12 +114,14 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	arcThicknessRatio?: number
 	/**
-	 * Shape fill color properties
+	 * Shape fill color properties, or a bare {@link Color} as shorthand for a solid fill
+	 * ({@link FillOption}).
+	 * @example 'FF0000' // hex color (red), shorthand for { color:'FF0000' }
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // Theme color Accent1
 	 */
-	fill?: ShapeFillProps
+	fill?: FillOption
 	/**
 	 * Flip shape horizontally?
 	 * @default false

@@ -5,7 +5,7 @@
  */
 import type { CHART_NAME } from '../enums.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
-import type { BackgroundProps, Color, HAlign, Margin, PositionProps } from './core.js'
+import type { BackgroundOption, Color, HAlign, Margin, PositionProps } from './core.js'
 import type { CommonObjectDescriptor, PlaceholderProps } from './object.js'
 import type { TextBaseProps } from './text.js'
 
@@ -108,7 +108,7 @@ export interface SlideMasterProps {
 	 * Unique name for this master
 	 */
 	title: string
-	background?: BackgroundProps
+	background?: BackgroundOption
 	margin?: Margin
 	slideNumber?: SlideNumberProps
 	objects?: SlideMasterObject[]

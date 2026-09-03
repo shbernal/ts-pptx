@@ -7,7 +7,7 @@
 import type { CHART_NAME } from '../enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
-import type { BorderProps, ShadowProps, ShapeFillProps } from './style.js'
+import type { BorderProps, FillOption, ShadowProps } from './style.js'
 import type { TextBaseProps } from './text.js'
 
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
@@ -196,13 +196,14 @@ export interface ChartPropsFillLine {
 	 *
 	 * `type: 'image'` is not supported here and falls back to no fill with a warning: a
 	 * blip fill needs a media relationship on the chart part, which nothing registers.
+	 * @example fill: '696969' // hex RGB color value, shorthand for {color: '696969'}
 	 * @example fill: {color: '696969'} // hex RGB color value
 	 * @example fill: {color: SchemeColor.background2} // Theme color value
 	 * @example fill: {color: '696969', transparency: 50} // 50% transparent grey
 	 * @example fill: {type: 'gradient', gradient: {kind: 'linear', angle: 90, stops: [{position: 0, color: '0088CC'}, {position: 100, color: 'FFFFFF'}]}}
 	 * @example fill: {type: 'inherit'} // no fill child at all -- take the chart style's fill
 	 */
-	fill?: ShapeFillProps
+	fill?: FillOption
 }
 export interface ChartAreaProps extends ChartPropsFillLine {
 	/**

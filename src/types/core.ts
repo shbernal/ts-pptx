@@ -78,6 +78,13 @@ export interface DataOrPathProps {
 export type DataOrPathRequiredProps = (DataOrPathProps & { data: string }) | (DataOrPathProps & { path: string })
 export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {}
 /**
+ * What a `background` option accepts: a {@link BackgroundProps} object, or a bare
+ * {@link Color} as shorthand for a solid background in that colour — the same shorthand
+ * every other fill site takes (see `FillOption`).
+ * @example background: 'FF3399' // shorthand for { color: 'FF3399' }
+ */
+export type BackgroundOption = BackgroundProps | Color
+/**
  * Color in Hex format
  * @example 'FF3399'
  */

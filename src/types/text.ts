@@ -18,7 +18,7 @@ import type {
 } from './core.js'
 import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
-import type { HyperlinkProps, ShadowProps, ShapeFillProps, ShapeLineProps } from './style.js'
+import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
 
 // used by: chart, slide, table, text
 export interface TextBaseProps {
@@ -440,12 +440,13 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 */
 	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
 	/**
-	 * Shape fill
+	 * Shape fill, or a bare {@link Color} as shorthand for a solid fill ({@link FillOption}).
+	 * @example 'FF0000' // hex color (red), shorthand for { color:'FF0000' }
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 */
-	fill?: ShapeFillProps
+	fill?: FillOption
 	/**
 	 * Flip shape horizontally?
 	 * @default false

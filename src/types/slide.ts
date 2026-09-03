@@ -7,7 +7,7 @@
 import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
 import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
-import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'
+import type { BackgroundOption, Coord, HexColor, Margin, PositionProps } from './core.js'
 import type { SlideNumberProps } from './master.js'
 import type { ImageBaseProps, ImageProps, MediaProps, OleObjectProps } from './media.js'
 import type { Model3dProps } from './model3d.js'
@@ -90,7 +90,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	tableFill?: TableProps['tableFill'] // table
 }
 export interface SlideLayout {
-	background?: BackgroundProps | undefined
+	background?: BackgroundOption | undefined
 }
 
 /**
@@ -221,7 +221,7 @@ export interface Slide {
 	 * @example { path: '/home/user/images/myimg.png` } - retrieve image via local path
 	 * @example { data: 'image/png;base64,iVtDaDrF[...]=' } - base64 string
 	 */
-	background?: BackgroundProps | undefined
+	background?: BackgroundOption | undefined
 	/**
 	 * Default text color (hex format)
 	 * @example 'FF3399'
