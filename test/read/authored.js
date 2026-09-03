@@ -22,10 +22,11 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 
-/** True when the OOXML oracle is available; gate schema legs with this. */
-export const validatorInstalled = await validatorAvailable()
+// Re-exported rather than recomputed: `validator.js` owns the fact, and this module is where
+// most read-side tests already import from.
+export { validatorInstalled }
 
 /**
  * Author a deck in memory with the write API and load it into the deep read

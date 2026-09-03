@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test, beforeAll } from 'vitest'
 import TsPptx from '../../../dist/node.js'
-import { assert, assertEqual } from '../../helpers.js'
+import { assert, assertEqual, assertRejects } from '../../helpers.js'
 import { FIXTURES } from '../../read/corpus.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -116,11 +116,20 @@ describe('TsPptx.embedFont', () => {
 		const p = new TsPptx()
 		// Intentionally invalid inputs (negative tests): cast past the compile-time
 		// types to prove the runtime validation still rejects them.
-		await assertRejects(() => p.embedFont(/** @type {any} */ ({ data: regular })), 'missing typeface throws')
-		await assertRejects(() => p.embedFont({ typeface: 'X' }), 'missing source throws')
+		await assertRejects(
+			() => p.embedFont(/** @type {any} */ ({ data: regular })),
+			/`typeface` is required/,
+			'embedFont without a typeface'
+		)
+		await assertRejects(
+			() => p.embedFont({ typeface: 'X' }),
+			/provide either `path` or `data`/,
+			'embedFont without a source'
+		)
 		await assertRejects(
 			() => p.embedFont(/** @type {any} */ ({ data: regular, typeface: 'X', style: 'heavy' })),
-			'invalid style throws'
+			/invalid style "heavy"/,
+			'embedFont with an unknown style slot'
 		)
 	})
 
@@ -135,13 +144,3 @@ describe('TsPptx.embedFont', () => {
 		assert(/saveSubsetFonts="1"/.test(pres), 'historical saveSubsetFonts="1" preserved')
 	})
 })
-
-async function assertRejects(fn, label) {
-	let threw = false
-	try {
-		await fn()
-	} catch {
-		threw = true
-	}
-	assert(threw, label)
-}

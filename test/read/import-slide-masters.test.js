@@ -16,11 +16,9 @@ import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
-
-const validatorInstalled = await validatorAvailable()
 
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const THEME_REL = `${R_NS}/theme`

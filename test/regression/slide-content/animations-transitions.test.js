@@ -1,14 +1,15 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readOracle } from '../../read/corpus.js'
+import { fixturePath, readOracle } from '../../read/corpus.js'
 import {
-	setDiagnosticHandler,
-	defineRegressionSuite,
-	build,
-	readEntry,
 	assert,
 	assertEqual,
+	build,
 	contentTypeForExtension,
+	defineRegressionSuite,
+	readEntry,
+	setDiagnosticHandler,
+	slideXml,
 } from '../../helpers.js'
 
 // Write-side slide transitions and preset build animations
@@ -17,11 +18,6 @@ import {
 // PowerPoint oracles in test/read/fixtures (slide-transition / slide-animation-*).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-async function slideXml(buildFn, n = 1) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, `ppt/slides/slide${n}.xml`)
-}
 
 function timingOf(xml) {
 	const m = xml.match(/<p:timing>[\s\S]*<\/p:timing>/)
@@ -407,7 +403,7 @@ defineRegressionSuite('Transition sounds (write)', [
 			const { zip } = await build((p) => {
 				p.addSlide().transition = {
 					type: 'fade',
-					sound: { path: 'test/read/fixtures/media/tiny.mp3', name: 'tiny.mp3' },
+					sound: { path: fixturePath('media/tiny.mp3'), name: 'tiny.mp3' },
 				}
 			})
 			const media = Object.keys(zip.files).filter((key) => key.startsWith('ppt/media/'))

@@ -15,10 +15,8 @@ import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath } from './corpus.js'
-
-const validatorInstalled = await validatorAvailable()
 
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'

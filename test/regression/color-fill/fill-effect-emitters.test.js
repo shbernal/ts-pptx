@@ -1,5 +1,13 @@
 import { Presentation, isAutoShape } from '../../../dist/read.js'
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
+import {
+	assert,
+	assertEqual,
+	build,
+	captureDiagnostics,
+	defineRegressionSuite,
+	readEntry,
+	slideXml,
+} from '../../helpers.js'
 
 // The byte-identity harness (`scripts/byte-identity.mjs`) is what gates a behavior-preserving
 // refactor of `src/gen/`, but its corpus is only what the showcase decks emit — and no showcase
@@ -15,11 +23,6 @@ import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDi
 // If one of these fails after an emitter change, the question is whether the *bytes* were meant
 // to change. If they were, that is an OOXML change and needs a schema fixture too (AGENTS.md);
 // if they were not, the builder call is wrong.
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 /** A 1x1 transparent PNG — the smallest thing that resolves to a real media relationship. */
 const PNG =

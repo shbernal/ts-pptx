@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, firstXmlBlock } from '../../helpers.js'
+import { assert, build, defineRegressionSuite, firstXmlBlock, slideXml } from '../../helpers.js'
 
 // A stroke is painted like a fill: `ShapeLineProps extends ShapeFillProps`, so `line` accepts
 // `gradient`/`pattern`/`image` as well as a solid `color`, plus its own `cap`. The emitters
@@ -12,11 +12,6 @@ import { defineRegressionSuite, build, readEntry, assert, firstXmlBlock } from '
 // the paths that were dropping keys — one per rebuild site (define/shape.ts, define/text.ts).
 // Table borders are pinned in border-shadow-ppt-props.test.js, and the schema fixture
 // "shape with pattern line" checks a `<a:pattFill>` stroke against the validator.
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 /** The `<a:ln>` element of the part's first shape. */
 function lineBlock(xml) {

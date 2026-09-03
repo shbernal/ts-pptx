@@ -12,11 +12,9 @@ import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath } from './corpus.js'
 import { resolveSingle } from './opc.js'
-
-const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const PRESENTATION_MAIN_CT = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'

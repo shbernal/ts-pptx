@@ -20,11 +20,9 @@
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { openFixture } from './corpus.js'
 import { assertNoDanglingRels } from './opc.js'
-
-const validatorInstalled = await validatorAvailable()
 
 /** Index of the `mixed` fixture pages this file leans on. */
 const NOTES_PAGE = 0 // a page with speaker notes

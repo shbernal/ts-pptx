@@ -1,6 +1,6 @@
 import { describe, test } from 'vitest'
 import TsPptx from '../../../dist/node.js'
-import { assert } from '../../helpers.js'
+import { assert, assertRejects } from '../../helpers.js'
 
 // Acceptance: a media asset that fails to load must, by default, reject the export with an
 // actionable error that names the failing asset (the raw fs/network error alone does not say
@@ -17,15 +17,12 @@ function deckWithMissingImage() {
 
 describe('media load failure policy', () => {
 	test('default export rejects with an error naming the failing asset', async () => {
-		let threw = false
-		try {
-			await deckWithMissingImage().write({ outputType: 'nodebuffer' })
-		} catch (ex) {
-			threw = true
-			assert(String(ex.message).includes(BAD_PATH), `error must name the failing media path; got: ${ex.message}`)
-			assert(ex.cause !== undefined, 'wrapped error must chain the original cause')
-		}
-		assert(threw, 'export must reject by default when a media asset fails to load')
+		const error = await assertRejects(
+			() => deckWithMissingImage().write({ outputType: 'nodebuffer' }),
+			new RegExp(BAD_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+			'export with a media asset that fails to load'
+		)
+		assert(error.cause !== undefined, 'wrapped error must chain the original cause')
 	})
 
 	test("onMediaError:'placeholder' substitutes a placeholder and resolves", async () => {

@@ -9,10 +9,8 @@ import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
-
-const validatorInstalled = await validatorAvailable()
 
 describe('Presentation.cloneSlide', () => {
 	test('appends an independent duplicate that reloads with the source content', async () => {

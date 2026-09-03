@@ -11,7 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 
-import { assert, assertEqual } from '../helpers.js'
+import { assert, assertEqual, assertRejects } from '../helpers.js'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
 import { openFixture } from './corpus.js'
 
@@ -57,13 +57,12 @@ describe('Slide.addPicture — image format sniffing', () => {
 
 	test('bytes too short to match any signature still throw without an explicit type', async () => {
 		const slide = (await openFixture('empty')).slides[0]
-		let threw = false
-		try {
-			slide.addPicture(new Uint8Array([0xff, 0xd8]), GEOM) // JPEG needs 3 signature bytes
-		} catch {
-			threw = true
-		}
-		assert(threw, 'an unsniffable 2-byte buffer with no {extension} throws')
+		// JPEG needs 3 signature bytes, so 2 sniff to nothing.
+		await assertRejects(
+			() => slide.addPicture(new Uint8Array([0xff, 0xd8]), GEOM),
+			/Could not determine image type/,
+			'an unsniffable 2-byte buffer with no { extension }'
+		)
 	})
 })
 

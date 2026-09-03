@@ -15,12 +15,11 @@ import { describe, test } from 'vitest'
 import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { bytesEqual, PNG_1X1, assert, assertEqual, assertIncludes, partBodies } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { FIXTURES, fixturePath } from './corpus.js'
 import { resolveSingle } from './opc.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const validatorInstalled = await validatorAvailable()
 
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'

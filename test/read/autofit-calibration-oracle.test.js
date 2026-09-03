@@ -12,16 +12,14 @@
 // committed metrics sidecar otherwise. Under `FONT_ORACLES=required` a face that resolves
 // through neither is a failure rather than a skip, which is what CI sets.
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { describe, test, expect } from 'vitest'
 import { solveShrink, solveResize } from '../../src/measure/text-fit.ts'
 import { FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
 import { oracleMetrics, resolutionTally } from './font-oracle.js'
+import { FIXTURES } from './corpus.js'
 
 const EMU_PER_PT = 12700
-
-const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 
 /**
  * Register every face a case's runs name, and report whether all of them resolved.
@@ -41,9 +39,9 @@ async function registerCaseFaces(registry, c) {
 	return true
 }
 
-const calibration = JSON.parse(readFileSync(resolve(FIX, 'autofit-calibration.json'), 'utf8'))
-const shrinkSpec = JSON.parse(readFileSync(resolve(FIX, 'autofit-shrink.cases.json'), 'utf8'))
-const resizeSpec = JSON.parse(readFileSync(resolve(FIX, 'autofit-resize.cases.json'), 'utf8'))
+const calibration = JSON.parse(readFileSync(resolve(FIXTURES, 'autofit-calibration.json'), 'utf8'))
+const shrinkSpec = JSON.parse(readFileSync(resolve(FIXTURES, 'autofit-shrink.cases.json'), 'utf8'))
+const resizeSpec = JSON.parse(readFileSync(resolve(FIXTURES, 'autofit-resize.cases.json'), 'utf8'))
 const ppById = new Map()
 const loById = new Map()
 for (const deck of calibration.decks) {

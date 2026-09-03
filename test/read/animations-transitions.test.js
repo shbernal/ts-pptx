@@ -13,12 +13,11 @@ import assert from 'node:assert/strict'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture, readOracle } from './corpus.js'
 import { partBodies, assertUnchangedExcept } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const validatorInstalled = await validatorAvailable()
 
 async function slidePartXml(pptxBytes, slideNumber) {
 	const zip = await JSZip.loadAsync(pptxBytes)

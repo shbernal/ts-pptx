@@ -4,22 +4,15 @@
 // set and writes every untouched part body byte-identically; dirty parts
 // reserialize from their DOM and stay schema-valid.
 
-import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ContentTypes, OpcPackage, Relationships, resolveRelativePartName, relsPartNameFor } from '../../dist/read.js'
-import { bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
-import { fixtureNames, fixturePath } from './corpus.js'
+import { assert, assertEqual, assertRejects, assertUnchangedExcept, bytesEqual, partBodies } from '../helpers.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
+import { fixtureNames, readFixture } from './corpus.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
-
-const validatorInstalled = await validatorAvailable()
-
-async function loadFixture(name) {
-	return readFile(fixturePath(name))
-}
 
 /**
  * `{ input, saved }` for a fixture — its committed bytes, and what one load→save produces.
@@ -37,7 +30,7 @@ function roundTrip(name) {
 	let pending = roundTripped.get(name)
 	if (!pending) {
 		pending = (async () => {
-			const input = await loadFixture(name)
+			const input = await readFixture(name)
 			return { input, saved: await (await OpcPackage.load(input)).save() }
 		})()
 		roundTripped.set(name, pending)
@@ -73,7 +66,7 @@ describe('OPC round-trip — corpus invariants', () => {
 	})
 
 	test.for(fixtureNames)('%s: no part is parsed as XML during load/save', async (name) => {
-		const pkg = await OpcPackage.load(await loadFixture(name))
+		const pkg = await OpcPackage.load(await readFixture(name))
 		await pkg.save()
 		for (const part of pkg.parts.values()) {
 			assert(!part.isParsed, `${name}: ${part.partName} was parsed without any DOM access`)
@@ -82,7 +75,7 @@ describe('OPC round-trip — corpus invariants', () => {
 	})
 
 	test.for(fixtureNames)('%s: saving twice yields identical part bodies', async (name) => {
-		const pkg = await OpcPackage.load(await loadFixture(name))
+		const pkg = await OpcPackage.load(await readFixture(name))
 		const first = await partBodies(await pkg.save())
 		const second = await partBodies(await pkg.save())
 		assertEqual([...second.keys()].join('\n'), [...first.keys()].join('\n'), `${name}: partnames across saves`)
@@ -90,7 +83,7 @@ describe('OPC round-trip — corpus invariants', () => {
 	})
 
 	test.for(fixtureNames)('%s: content types and relationships resolve', async (name) => {
-		const pkg = await OpcPackage.load(await loadFixture(name))
+		const pkg = await OpcPackage.load(await readFixture(name))
 		const slides = pkg.partsByContentType(SLIDE_CONTENT_TYPE)
 		assert(slides.length >= 1, `${name}: expected at least one slide part`)
 		assertEqual(pkg.contentTypes.contentTypeFor(slides[0].partName), SLIDE_CONTENT_TYPE, `${name}: slide Override`)
@@ -156,7 +149,7 @@ describe.concurrent('OPC round-trip — schema validity', () => {
 
 describe('dirty path: mutate one slide, save', () => {
 	async function mutateFirstTextRun() {
-		const input = await loadFixture('textbox')
+		const input = await readFixture('textbox')
 		const pkg = await OpcPackage.load(input)
 		const slide = pkg.partsByContentType(SLIDE_CONTENT_TYPE)[0]
 		const textNode = slide.dom.getElementsByTagName('a:t')[0]
@@ -232,7 +225,7 @@ describe('partname and overlay units', () => {
 		)
 	})
 
-	test('Relationships parses targets, modes, and external rels', () => {
+	test('Relationships parses targets, modes, and external rels', async () => {
 		const xml =
 			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
 			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -242,34 +235,22 @@ describe('partname and overlay units', () => {
 		const relationships = Relationships.parse(xml, '/ppt/slides/slide1.xml')
 		assertEqual(relationships.resolveTarget('rId1'), '/ppt/slideLayouts/slideLayout1.xml', 'relative target')
 		assertEqual(relationships.get('rId2').targetMode, 'External', 'external mode')
-		let threw = false
-		try {
-			relationships.resolveTarget('rId2')
-		} catch {
-			threw = true
-		}
-		assert(threw, 'resolveTarget on an External rel should throw')
+		await assertRejects(() => relationships.resolveTarget('rId2'), /External/, 'resolveTarget on an External rel')
 		const reparsed = Relationships.parse(relationships.serialize(), '/ppt/slides/slide1.xml')
 		assertEqual(reparsed.resolveTarget('rId1'), '/ppt/slideLayouts/slideLayout1.xml', 'serialize round-trips')
 	})
 
 	test('binary parts refuse DOM access but serialize their original bytes', async () => {
-		const pkg = await OpcPackage.load(await loadFixture('image'))
+		const pkg = await OpcPackage.load(await readFixture('image'))
 		const media = [...pkg.parts.values()].find((part) => part.contentType === 'image/png')
 		assert(media, 'image fixture should contain a png part')
 		assert(!media.isXmlPart, 'png part is not an XML part')
-		let threw = false
-		try {
-			void media.dom
-		} catch {
-			threw = true
-		}
-		assert(threw, 'dom access on a binary part should throw')
+		await assertRejects(() => media.dom, /not an XML part/, 'dom access on a binary part')
 		assert(bytesEqual(media.serialize(), media.bytes), 'binary serialize returns original bytes')
 	})
 
 	test('load rejects a part with no resolvable content type', async () => {
-		const zip = await JSZip.loadAsync(await loadFixture('empty'))
+		const zip = await JSZip.loadAsync(await readFixture('empty'))
 		zip.file('ppt/media/orphan.zzz', 'not a known type')
 		const broken = await zip.generateAsync({ type: 'uint8array' })
 		let message = ''
@@ -282,7 +263,7 @@ describe('partname and overlay units', () => {
 	})
 
 	test('load drops PowerPoint [trash] parts instead of failing on their missing content type', async () => {
-		const zip = await JSZip.loadAsync(await loadFixture('empty'))
+		const zip = await JSZip.loadAsync(await readFixture('empty'))
 		// PowerPoint parks deleted parts under /[trash]/ without registering them
 		// in [Content_Types].xml. Such a part has no resolvable content type, so it
 		// would trip the rejection above if it were not skipped on load.

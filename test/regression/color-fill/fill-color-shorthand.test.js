@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
+import { assert, assertEqual, build, defineRegressionSuite, readEntry, slideXml } from '../../helpers.js'
 
 // A bare colour is the solid-fill shorthand: `fill: 'FF0000'` says exactly what
 // `fill: { color: 'FF0000' }` says, at every fill option in the API. The runtime accepted it at
@@ -24,11 +24,6 @@ function colors(block) {
 }
 
 /** Slide 1 of a deck built by `buildFn`. */
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
-
 /**
  * Build the same deck twice — once with `fill: 'FF0000'`, once with `fill: { color: 'FF0000' }`
  * — and assert both the shorthand painted and the two agree byte for byte.

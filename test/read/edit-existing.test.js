@@ -14,10 +14,8 @@ import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
-
-const validatorInstalled = await validatorAvailable()
 
 // A 1×1 transparent PNG.
 const PNG_1X1 = new Uint8Array(

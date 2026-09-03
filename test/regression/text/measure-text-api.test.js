@@ -19,6 +19,7 @@ import {
 import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../../src/measure/text-fit.ts'
 import TsPptx from '../../../dist/node.js'
 import { resolveGenuineFontFile } from '../../read/font-oracle.js'
+import { fixturePath } from '../../read/corpus.js'
 
 // The genuine Aptos file, or null. The one case that reads it asserts Aptos's own cmap, so
 // no other face and no recorded-advance sidecar can stand in — but it now reports as SKIPPED
@@ -358,7 +359,7 @@ describe('FontMetricsRegistry.hasCodepoint (face-keyed coverage)', () => {
 	// Silkscreen is a committed pixel font with a small cmap: covers ASCII, lacks
 	// the U+2011 non-breaking hyphen — a deterministic covered/uncovered contrast
 	// with no fontconfig dependency.
-	const silkscreen = 'test/read/fixtures/fonts/Silkscreen-Regular.ttf'
+	const silkscreen = fixturePath('fonts/Silkscreen-Regular.ttf')
 
 	test('a registered face reports true/false from its cmap', async () => {
 		const reg = new FontMetricsRegistry()

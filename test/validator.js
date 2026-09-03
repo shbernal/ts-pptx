@@ -57,4 +57,18 @@ async function validateBuf(buf, fileFormat = FILE_FORMAT) {
 	return result.errors
 }
 
+/**
+ * Whether the OOXML oracle is available, resolved once for the whole run.
+ *
+ * Twenty-four test files opened with `const validatorInstalled = await validatorAvailable()`:
+ * twenty-four top-level awaits computing one process-wide fact, in a suite that turned
+ * isolation off specifically to stop paying per-file module costs. More to the point, each was
+ * a restatement of the *policy* -- skip or fail when the oracle is missing -- and that is what
+ * let two sites drift into a bare `return` that passed while asserting nothing.
+ *
+ * Gate a schema leg with `test.skipIf(!validatorInstalled)`, or `defineRegressionSuite`'s
+ * `skipIf`.
+ */
+export const validatorInstalled = await validatorAvailable()
+
 export { isInstalled, validatorAvailable, validateBuf, FILE_FORMAT }

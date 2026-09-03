@@ -1,13 +1,8 @@
-import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import { assert, build, defineRegressionSuite, setDiagnosticHandler, slideXml } from '../../helpers.js'
 
 // Regression: slide.addConnector emits a PowerPoint connector (<p:cxnSp>) — not a plain line
 // shape — with the correct connector preset, a min-corner origin + flip flags derived from the
 // endpoints, and line styling/arrowheads.
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 defineRegressionSuite('Connector shapes', [
 	{

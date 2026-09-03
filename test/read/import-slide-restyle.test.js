@@ -18,22 +18,14 @@ import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { assert, assertEqual, partXml } from '../helpers.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 import { resolveSingle } from './opc.js'
-
-const validatorInstalled = await validatorAvailable()
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 
 /** The serialized XML of a part, by partname, from saved package bytes. */
-async function slideXml(bytes, partName) {
-	const zip = await JSZip.loadAsync(bytes)
-	const zipPath = partName.replace(/^\//, '')
-	return zip.file(zipPath).async('string')
-}
-
 function countParts(opc, re) {
 	return [...opc.parts.keys()].filter((n) => re.test(n)).length
 }
@@ -73,7 +65,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
 
 		const imported = target.importSlide(source, 0, { theme: 'restyle' })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		assert(/<a:schemeClr val="accent1"/.test(xml), 'accent1 remains symbolic for destination-theme rebinding')
 		assert(/<a:schemeClr val="accent2"/.test(xml), 'accent2 remains symbolic for destination-theme rebinding')
@@ -94,7 +86,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
 		const bytes = await target.save()
-		const xml = await slideXml(bytes, imported.partName)
+		const xml = await partXml(bytes, imported.partName)
 
 		// The scheme colour is left symbolic (the defining difference from preserve).
 		assert(/<a:schemeClr val="accent1"/.test(xml), 'restyle leaves schemeClr accent1 symbolic')
@@ -125,7 +117,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
 		const bytes = await target.save()
-		const xml = await slideXml(bytes, imported.partName)
+		const xml = await partXml(bytes, imported.partName)
 
 		assert(/<a:fillRef idx="1"/.test(xml), 'a non-zero fillRef survives (refs are not neutralized)')
 		assert(/<a:lnRef idx="[12]"/.test(xml), 'a non-zero lnRef survives')
@@ -166,7 +158,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		)
 
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 		assert(!/clrMapOvr/.test(xml), 'the imported slide has no p:clrMapOvr')
 		assert(!/overrideClrMapping/.test(xml), 'the override colour mapping was removed')
 	})
@@ -177,7 +169,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		const target = await Presentation.load(await deckMixedRecoloredAccent1())
 		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle' })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 		assert(/<a:srgbClr val="FFFF00"/.test(xml), 'the source literal colour is unchanged by restyle')
 	})
 
@@ -187,7 +179,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		const target = await openFixture('mixed')
 		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle' }) // slide1: no own p:bg
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		const sourceHasNoBg = !/<p:bg>/.test(partText(source.opc.part(source.slides[0].partName)))
 		assert(sourceHasNoBg, 'precondition: the source slide defines no own p:bg')
@@ -200,7 +192,7 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		const target = await openFixture('mixed')
 		const source = await openFixture('mixed')
 		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'restyle', carryMasterGraphics: true })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		assert(xml.includes('name="Rectangle 2"'), 'a source-master decoration was baked onto the slide')
 		assert(
@@ -253,7 +245,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const target = await openFixture('empty')
 		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		assert(!new RegExp(`<a:srgbClr val="${ION_ACCENT1}"`).test(xml), 'the Ion-accent1 literal is no longer a literal')
 		assert(/<a:schemeClr val="accent1"/.test(xml), 'it was rewritten to a symbolic accent1 that re-brands to this deck')
@@ -267,7 +259,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const target = await openFixture('empty')
 		const source = await openFixture('multi-theme')
 		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle' })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 		assert(
 			new RegExp(`<a:srgbClr val="${ION_ACCENT1}"`).test(xml),
 			'the literal stays put (the limitation, as a guarantee)'
@@ -279,12 +271,12 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const target = await openFixture('empty')
 		const source = await openFixture('multi-theme')
 
-		const before = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+		const before = await partXml(await target.save(), '/ppt/tableStyles.xml')
 		assert(!before.includes(`styleId="${TABLE_STYLE_ID}"`), 'precondition: the destination defines no such table style')
 
 		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
 		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
-		const after = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+		const after = await partXml(await target.save(), '/ppt/tableStyles.xml')
 
 		const count = after.split(`styleId="${TABLE_STYLE_ID}"`).length - 1
 		assertEqual(count, 1, 'the source table style is copied exactly once across two imports')
@@ -295,7 +287,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const target = await openFixture('empty')
 		const source = await openFixture('multi-theme')
 		target.importSlide(source, SLIDE3, { theme: 'restyle' })
-		const after = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+		const after = await partXml(await target.save(), '/ppt/tableStyles.xml')
 		assert(!after.includes(`styleId="${TABLE_STYLE_ID}"`), 'plain restyle leaves the destination tableStyles untouched')
 	})
 
@@ -371,7 +363,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
 		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		// FFFFFF is both lt1 and accent3; lt1 comes first in clrScheme order. lt1 is then
 		// named by both bg1 and tx2; bg1 comes first in clrMap order.
@@ -390,7 +382,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
 		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		assert(
 			/<a:gs pos="100000"><a:schemeClr val="dk2"\/><\/a:gs>/.test(xml),
@@ -406,7 +398,7 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const source = await Presentation.load(await deckMixedUnreadableColorModels())
 		const target = await openFixture('mixed')
 		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
-		const xml = await slideXml(await target.save(), imported.partName)
+		const xml = await partXml(await target.save(), imported.partName)
 
 		assert(/<a:gs pos="0"><a:srgbClr val="FFFFFF"\/><\/a:gs>/.test(xml), 'the FFFFFF literal is untouched')
 		assert(/<a:gs pos="100000"><a:srgbClr val="333399"\/><\/a:gs>/.test(xml), 'the 333399 literal is untouched')

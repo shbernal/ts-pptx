@@ -1,12 +1,13 @@
 import {
 	PNG_1X1,
-	setDiagnosticHandler,
-	defineRegressionSuite,
+	assert,
+	assertRejects,
 	build,
+	defineRegressionSuite,
 	readEntry,
 	selfClosingTags,
+	setDiagnosticHandler,
 	xmlAttributes,
-	assert,
 } from '../../helpers.js'
 
 // `crop: { l, t, r, b }` emits an explicit OOXML <a:srcRect> (percentage edge insets) verbatim.
@@ -88,13 +89,11 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 				{ crop: { l: NaN }, why: 'NaN' },
 			]
 			for (const c of cases) {
-				let threw = false
-				try {
-					await srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, crop: c.crop })
-				} catch {
-					threw = true
-				}
-				assert(threw, `expected crop ${c.why} (${JSON.stringify(c.crop)}) to throw`)
+				await assertRejects(
+					() => srcRectFor({ data: PNG_1X1, x: 1, y: 1, w: 2, h: 2, crop: c.crop }),
+					/crop/,
+					`crop ${c.why} (${JSON.stringify(c.crop)})`
+				)
 			}
 		},
 	},

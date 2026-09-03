@@ -1,4 +1,4 @@
-import { PNG_1X1, defineRegressionSuite, build, readEntry, assert, xmlBlocks, firstXmlBlock } from '../../helpers.js'
+import { PNG_1X1, assert, defineRegressionSuite, firstXmlBlock, slideXml, xmlBlocks } from '../../helpers.js'
 
 // Regression (dn-negative-extent-normalization): a negative `w`/`h` must never reach
 // `<a:ext cx>`/`<a:ext cy>`. Both are ST_PositiveCoordinate, so a negative value is out of range and
@@ -7,11 +7,6 @@ import { PNG_1X1, defineRegressionSuite, build, readEntry, assert, xmlBlocks, fi
 // extent + a flip, the same encoding `addConnector` derives from its endpoints.
 
 const IN = 914400
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 /** Every `<a:ext>`/`<a:chExt>` in the part, as `{ cx, cy }` numbers. */
 function extents(xml) {

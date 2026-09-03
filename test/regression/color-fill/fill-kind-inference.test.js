@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
+import { assert, assertEqual, captureDiagnostics, defineRegressionSuite, slideXml } from '../../helpers.js'
 
 // Which fill kind a props object asks for used to be answered in seven places, and they
 // disagreed. `fill: { gradient }` painted a black `<a:solidFill>` and warned that the caller's
@@ -26,11 +26,6 @@ const PATTERN = { preset: 'diagCross', fgColor: '003366', bgColor: 'FFFFFF' }
 const PNG =
 	'image/png;base64,' +
 	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 /** The fill-group elements inside `block`, in document order, by local name. */
 function fillKinds(block) {

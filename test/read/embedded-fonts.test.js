@@ -9,10 +9,8 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 
 import { assert, assertEqual } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { openFixture } from './corpus.js'
-
-const validatorInstalled = await validatorAvailable()
 
 async function entries(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)

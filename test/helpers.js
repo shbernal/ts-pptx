@@ -36,6 +36,38 @@ async function readEntry(zip, path) {
 	return entry.async('string')
 }
 
+/**
+ * Build a deck and read one slide part back as a string.
+ *
+ * Thirteen files carried this, byte-identical in seven of them and in five near-variants that
+ * differed only in whether they took a `pres` or a slide number. Three operations spelled five
+ * ways, over helpers this module already exported.
+ *
+ * @param {(pres: any) => void | Promise<void>} buildFn
+ * @param {number} [n] 1-based slide number
+ * @returns {Promise<string>}
+ */
+async function slideXml(buildFn, n = 1) {
+	const { zip } = await build(buildFn)
+	return readEntry(zip, `ppt/slides/slide${n}.xml`)
+}
+
+/**
+ * Read one part of an existing `.pptx` back as a string, by part name or zip path.
+ *
+ * The two byte-based copies of this did `zip.file(zipPath).async('string')` with no null guard,
+ * so a renamed part failed with `Cannot read properties of null` rather than naming the part it
+ * could not find. `readEntry` says which one it wanted.
+ *
+ * @param {Uint8Array | Buffer} pptxBytes
+ * @param {string} partName absolute (`/ppt/slides/slide1.xml`) or zip-relative
+ * @returns {Promise<string>}
+ */
+async function partXml(pptxBytes, partName) {
+	const zip = await JSZip.loadAsync(pptxBytes)
+	return readEntry(zip, partName.replace(/^\//, ''))
+}
+
 function listEntries(zip) {
 	return Object.keys(zip.files)
 }
@@ -208,6 +240,35 @@ function bytesEqual(a, b) {
  * separate assertion on the message when the distinction matters — a bare `throws()` passes
  * just as happily on a `TypeError` from a typo in the test as on the guard under test.
  */
+/**
+ * Assert that `fn` throws (or rejects), and that the message matches `expected`.
+ *
+ * Thirteen sites hand-rolled this as `let threw = false` around a `try`/`catch`, and the six
+ * that asserted nothing about the message are why {@link throws}'s caveat stayed invisible:
+ * "it threw" passes just as happily on a `TypeError` from a typo in the test as on the guard
+ * under test. `expected` is required here for that reason -- pass `/(?:)/` where the message
+ * genuinely does not matter, so that it is a decision rather than an omission.
+ *
+ * @param {() => unknown} fn the call under test; may be async
+ * @param {RegExp} expected pattern the error message must match
+ * @param {string} [label] what was being called, for the failure text
+ * @returns {Promise<Error>} the error, for any further assertion
+ */
+async function assertRejects(fn, expected, label) {
+	let error = null
+	try {
+		await fn()
+	} catch (err) {
+		error = /** @type {Error} */ (err)
+	}
+	assert(error, `expected ${label || 'the call'} to throw, and it did not`)
+	assert(
+		expected.test(String(error.message)),
+		`expected ${label || 'the error'} to match ${expected}; got: ${error.message}`
+	)
+	return error
+}
+
 function throws(fn) {
 	try {
 		fn()
@@ -343,6 +404,8 @@ export {
 	PNG_1X1_DATA_URI,
 	build,
 	readEntry,
+	slideXml,
+	partXml,
 	listEntries,
 	partBodies,
 	assertUnchangedExcept,
@@ -353,6 +416,7 @@ export {
 	assertNotIncludes,
 	bytesEqual,
 	throws,
+	assertRejects,
 	xmlBlocks,
 	firstXmlBlock,
 	xmlAttributes,

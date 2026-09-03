@@ -1,8 +1,6 @@
 import { defineRegressionSuite, assert, assertEqual } from '../../helpers.js'
-import { buildSnapshot } from '../../../scripts/gen-inspect-snapshot.mjs'
+import { buildSnapshot, SNAPSHOT_PATH } from '../../../scripts/gen-inspect-snapshot.mjs'
 import { readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 // A characterization test: it pins what `inspectPptx()` reports for every fixture
 // deck, field by field, without claiming any of it is *right*. The recorded file
@@ -14,15 +12,6 @@ import { fileURLToPath } from 'node:url'
 // and explains why each matters; this one covers the other several hundred fields
 // nobody would write an assertion for, which is exactly where an "equivalent"
 // reimplementation quietly stops being equivalent.
-
-const SNAPSHOT = join(
-	dirname(fileURLToPath(import.meta.url)),
-	'..',
-	'..',
-	'read',
-	'fixtures',
-	'inspect-surface.snapshot.json'
-)
 
 /**
  * Inches, ~0.9 EMU. Every box in the snapshot is EMU converted to inches, and EMU
@@ -73,7 +62,7 @@ defineRegressionSuite('Inspect surface snapshot', [
 	{
 		name: 'inspectPptx reports the recorded result for every fixture deck',
 		fn: async () => {
-			const expected = JSON.parse(readFileSync(SNAPSHOT, 'utf8'))
+			const expected = JSON.parse(readFileSync(SNAPSHOT_PATH, 'utf8'))
 			const actual = await buildSnapshot()
 
 			// Deck-by-deck first: one deck's diff is legible, a 43-deck diff is not.

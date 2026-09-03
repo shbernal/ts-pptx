@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
+import { assert, assertEqual, build, captureDiagnostics, defineRegressionSuite, slideXml } from '../../helpers.js'
 
 // The companion to `numeric-conversion-guards.test.js`: that file pins what the *converters*
 // refuse, this one pins what the *guards in front of them* let through. `src/` used three tests
@@ -12,11 +12,6 @@ import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDi
 const BOX = { x: 1, y: 1, w: 4, h: 2 }
 const EMU_PER_INCH = 914400
 const SERIES = [{ name: 'S', labels: ['A', 'B'], values: [1, 2] }]
-
-async function slideXml(buildFn) {
-	const { zip } = await build(buildFn)
-	return readEntry(zip, 'ppt/slides/slide1.xml')
-}
 
 defineRegressionSuite('Coercing numeric guards', [
 	{

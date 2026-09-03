@@ -12,11 +12,9 @@ import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
-import { validatorAvailable, validateBuf } from '../validator.js'
+import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
-
-const validatorInstalled = await validatorAvailable()
 
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const SLIDE_MASTER_REL = `${R_NS}/slideMaster`
