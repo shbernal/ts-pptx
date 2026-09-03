@@ -112,6 +112,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A chart option that is not a number now throws instead of silently taking the default.**
+  BREAKING for a caller passing `NaN` or a non-number where a number is declared.
+  `clampRangedInput` states the library's one policy for a value outside a schema range, and
+  `docs/diagnostics.md` describes it: a finite value has a nearest legal neighbour, so it
+  clamps and warns; a value that is not a number at all has none, so the request is discarded
+  and that throws. The chart clamp answered `undefined` for the second case — discarding the
+  request and reporting nothing — so `holeSize: NaN` quietly took the default while
+  `holeSize: 200` warned. Same option, same class of mistake, two behaviours.
+
+  Affects `holeSize`, `firstSliceAng`, `barGapWidthPct`, `barGapDepthPct`, `barOverlapPct` and
+  `lineDataSymbolSize`, on the chart and on a combo subchart's overrides, under the new
+  `chart/option-non-finite` code. An omitted option still means omitted. A fractional in-range
+  value is still rounded and now says so — these are integer schema types, so `holeSize: 42.5`
+  is as much a correction as `holeSize: 200`.
+
 - **An object's own coordinates now beat the frame of the placeholder it names.** BREAKING
   for a deck that states both. `addText('own coords', { placeholder: 'body', x: 5, y: 3, w: 2,
   h: 1 })` used to emit the layout placeholder's box and discard all four stated values, with

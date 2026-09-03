@@ -2250,9 +2250,11 @@ export default [
 			} finally {
 				console.warn = origWarn
 			}
+			// Matched on the option name rather than the sentence: the message is not API, and
+			// this one changed when the clamp was routed through the library's one range policy.
 			assert(
-				warnings.some((w) => w.includes('valid marker size range')),
-				'expected a warning for out-of-range lineDataSymbolSize'
+				warnings.some((w) => w.includes('lineDataSymbolSize')),
+				'expected a warning for out-of-range lineDataSymbolSize; got ' + JSON.stringify(warnings)
 			)
 			await expectNoSchemaErrors(buf, 'line-chart-marker-size-clamped')
 		},

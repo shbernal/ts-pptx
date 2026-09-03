@@ -405,4 +405,44 @@ defineRegressionSuite('Chart option validation', [
 			assertNotIncludes(xml, '<c:axPos val="t"/>', 'the option never placed anything')
 		},
 	},
+	{
+		name: 'a chart option that is not a number throws instead of silently taking the default',
+		fn: async () => {
+			// One policy for an out-of-range number, stated on `clampRangedInput`: a finite value
+			// has a nearest legal neighbour, so it clamps and warns; a value that is not a number
+			// has none, so the request is discarded and that throws. The chart clamp answered
+			// `undefined` instead -- discarding the request and reporting nothing -- so
+			// `holeSize: NaN` silently took the default while `holeSize: 200` warned. Same option,
+			// same class of mistake, two behaviours.
+			for (const [option, value] of [
+				['holeSize', NaN],
+				['barGapWidthPct', NaN],
+				['firstSliceAng', /** @type {never} */ ('90')],
+				['lineDataSymbolSize', NaN],
+			]) {
+				let thrown = null
+				try {
+					const pres = new TsPptx()
+					pres.addSlide().addChart(SERIES, { ...BASE, type: ChartType.doughnut, [option]: value })
+				} catch (err) {
+					thrown = err
+				}
+				assert(thrown instanceof InvalidOptionError, `${option} must throw an InvalidOptionError`)
+				assertEqual(thrown.code, 'chart/option-non-finite', `${option} carries the shared code`)
+			}
+		},
+	},
+	{
+		name: 'a fractional chart option is rounded, and the caller is told',
+		fn: async () => {
+			// These are integer schema types, so `holeSize: 42.5` is as much a correction as
+			// `holeSize: 200` -- and it is in range, so it is the case a bounds check alone misses.
+			const { codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.doughnut, holeSize: 42.5 })
+				})
+			)
+			assertIncludes(codes, 'chart/option-out-of-range')
+		},
+	},
 ])

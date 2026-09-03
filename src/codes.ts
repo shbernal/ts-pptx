@@ -189,6 +189,7 @@ export type InvalidOptionErrorCode =
 	| 'shadow/angle-non-finite'
 	// Charts
 	| 'chart/missing-type'
+	| 'chart/option-non-finite'
 	| 'chart/unknown-type'
 	| 'chart/secondary-axis-unused'
 	| 'chart/axis-count-mismatch'

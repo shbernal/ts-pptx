@@ -28,6 +28,7 @@ import {
 } from '../../ooxml/st-enums.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
+import type { DiagnosticCode } from '../../codes.js'
 import { InvalidOptionError } from '../../errors.js'
 import type { BorderProps, ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
 import type {
@@ -42,7 +43,7 @@ import { getNewRelId } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
-import { lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
+import { clampRangedInput, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
 import { isBubbleChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 
 /**
@@ -118,25 +119,57 @@ function isUsableBorderWidth(width: number | undefined): boolean {
 }
 
 /**
- * Round and clamp an integer chart percentage/angle option into a schema-valid range.
+ * Round and clamp an integer chart option into the range its schema type allows.
  *
- * Several chart attributes are bounded integer types whose out-of-range values make
- * PowerPoint report the package as needing repair: `<c:overlap>` (ST_Overlap, -100..100),
- * `<c:gapWidth>`/`<c:gapDepth>` (ST_GapAmount, 0..500), `<c:holeSize>` (ST_HoleSize, 10..90)
- * and `<c:firstSliceAng>` (ST_FirstSliceAng, 0..360). Missing/non-numeric input returns
- * `undefined` so the caller can apply its own default; an out-of-range value is clamped
- * and a warning is emitted (per the library's warn-rather-than-degrade policy).
+ * Several chart attributes are bounded integer types whose out-of-range values make PowerPoint
+ * report the package as needing repair: `<c:overlap>` (ST_Overlap, -100..100),
+ * `<c:gapWidth>`/`<c:gapDepth>` (ST_GapAmount, 0..500), `<c:holeSize>` (ST_HoleSize, 10..90),
+ * `<c:firstSliceAng>` (ST_FirstSliceAng, 0..360) and `<c:size>` (ST_MarkerSize, 2..72).
+ *
+ * The out-of-range policy is {@link clampRangedInput}'s, which is the library's one policy and
+ * says so in its own docblock: a finite value has a nearest legal neighbour, so it clamps and
+ * warns; a value that is not a number at all has none, so the request is discarded and that
+ * throws. This helper used to answer `undefined` for the second case -- discarding the request
+ * and reporting nothing -- so `holeSize: NaN` silently took the default while `holeSize: 200`
+ * warned. Same option, same class of mistake, two behaviours.
+ *
+ * `undefined` in still means `undefined` out: that is the genuine "unset" case, and the callers
+ * spell their own default with `??` or `setOrClear`.
+ *
  * @param value - caller-supplied option value
  * @param min - inclusive lower bound
  * @param max - inclusive upper bound
- * @param name - option name, for the warning message
+ * @param name - option name, as the caller spells it, for the diagnostic
+ * @param code - the out-of-range diagnostic this option raises
  */
+function clampChartInt(
+	value: number | undefined | null,
+	min: number,
+	max: number,
+	name: string,
+	code: DiagnosticCode = 'chart/option-out-of-range'
+): number | undefined {
+	if (value === undefined || value === null) return undefined
+	const clamped = clampRangedInput(value, min, max, code, name, 'chart/option-non-finite')
+	const rounded = Math.round(clamped)
+	// A fractional in-range value is still coerced, and the caller is still told: these are
+	// integer types, so `holeSize: 42.5` is as much a correction as `holeSize: 200`.
+	if (rounded !== clamped) warn(code, `${name} ${String(value)} must be a whole number; using ${rounded}.`)
+	return rounded
+}
+
+/** {@link clampChartInt} for the percentage and angle options, which share one diagnostic. */
 function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
-	if (typeof value !== 'number' || Number.isNaN(value)) return undefined
-	const clamped = Math.min(max, Math.max(min, Math.round(value)))
-	if (clamped !== value)
-		warn('chart/option-out-of-range', `${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
-	return clamped
+	return clampChartInt(value, min, max, name)
+}
+
+/**
+ * `<c:size val>` is ST_MarkerSize: an integer 2..72 points. Two copies of this clamp, with the
+ * same bounds and the same message, sat 170 lines apart -- one for the chart-level option and
+ * one for a combo subchart's override.
+ */
+function clampSymbolSize(value: number | undefined | null): number | undefined {
+	return clampChartInt(value, 2, 72, 'lineDataSymbolSize', 'chart/symbol-size-out-of-range')
 }
 
 /**
@@ -480,16 +513,7 @@ function normalizeComboSubchartOptions(
 	fixed.barOverlapPct = clampChartPct(fixed.barOverlapPct, -100, 100, 'barOverlapPct')
 	fixed.holeSize = clampChartPct(fixed.holeSize, 10, 90, 'holeSize')
 	fixed.firstSliceAng = clampChartPct(fixed.firstSliceAng, 0, 360, 'firstSliceAng')
-	// `<c:size val>` is ST_MarkerSize: an integer 2..72 points.
-	if (fixed.lineDataSymbolSize != null && !Number.isNaN(fixed.lineDataSymbolSize)) {
-		const symbolSize = Math.min(72, Math.max(2, Math.round(fixed.lineDataSymbolSize)))
-		if (symbolSize !== fixed.lineDataSymbolSize)
-			warn(
-				'chart/symbol-size-out-of-range',
-				`lineDataSymbolSize ${fixed.lineDataSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
-			)
-		fixed.lineDataSymbolSize = symbolSize
-	}
+	setOrClear(fixed, 'lineDataSymbolSize', clampSymbolSize(fixed.lineDataSymbolSize))
 	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
 	// already been converted and doing it twice would emit a hairline.
 	if (sub.lineDataSymbolLineSize != null) fixed.lineDataSymbolLineSize = lineWidthToEmu(sub.lineDataSymbolLineSize)
@@ -646,18 +670,7 @@ export function addChartDefinition(
 	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
 	// Out-of-range or non-integer values make PowerPoint report the file as needing
 	// repair, so round and clamp into range and warn when the input is coerced.
-	{
-		const rawSymbolSize = options.lineDataSymbolSize
-		const hasSymbolSize = rawSymbolSize != null && !Number.isNaN(rawSymbolSize)
-		const symbolSize = Math.min(72, Math.max(2, Math.round(hasSymbolSize ? rawSymbolSize : 6)))
-		if (hasSymbolSize && symbolSize !== rawSymbolSize) {
-			warn(
-				'chart/symbol-size-out-of-range',
-				`lineDataSymbolSize ${rawSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
-			)
-		}
-		options.lineDataSymbolSize = symbolSize
-	}
+	options.lineDataSymbolSize = clampSymbolSize(options.lineDataSymbolSize) ?? 6
 	// `lineWidthToEmu` rather than `ptsToEmuLenient`: this is an `a:ln/@w`, so an out-of-range
 	// width is a repair prompt, and collapsing one to zero would be a silent hairline instead.
 	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize
