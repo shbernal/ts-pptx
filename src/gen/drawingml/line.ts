@@ -10,7 +10,7 @@
  * area, and each of a table cell's six edges ({@link borderLine}).
  */
 
-import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
+import type { BorderProps, Color, LineCap, ShapeLineProps, StrokeProps } from '../../types/index.js'
 import { fillNamesPaint, genXmlColorSelection, resolveLineKind, solidPaint } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
@@ -54,17 +54,42 @@ export function resolveDash(value: string | undefined | null, fallback: string, 
 }
 
 /**
- * Resolve the `a:prstDash/@val` a border should emit.
+ * Resolve the `a:prstDash/@val` a {@link StrokeProps} should emit.
  *
- * `BorderProps.type` is a three-way switch, so on its own it can only say "dashed" and
- * every dashed border collapses onto `sysDash`. `dashType` names the preset directly and
- * therefore wins when both are given; `type: 'none'` never reaches here, being decided by
- * the caller before any dash is chosen.
+ * `type` is a three-way switch, so on its own it can only say "dashed" and every dashed
+ * stroke collapses onto `sysDash`. `dashType` names the preset directly and therefore wins
+ * when both are given; `type: 'none'` never reaches here, being decided by the caller before
+ * any dash is chosen.
+ * @param stroke - the caller's stroke properties
+ * @param label - how the diagnostic names the option, e.g. `'border: dashType'`
+ * @returns a value legal for `a:prstDash/@val`
+ */
+export function strokeDash(stroke: StrokeProps, label: string): string {
+	return resolveDash(stroke.dashType, stroke.type === 'dash' ? 'sysDash' : 'solid', label)
+}
+
+/**
+ * {@link strokeDash} under the name the table and chart-area borders call it by.
  * @param {BorderProps} border - the caller's border properties
  * @returns {string} a value legal for `a:prstDash/@val`
  */
 export function resolveBorderDash(border: BorderProps): string {
-	return resolveDash(border.dashType, border.type === 'dash' ? 'sysDash' : 'solid', 'border: dashType')
+	return strokeDash(border, 'border: dashType')
+}
+
+/**
+ * The `<a:solidFill>` (or `<a:noFill/>`) a {@link StrokeProps} paints with.
+ *
+ * `type: 'none'` is the one state that is not a colour, and it is decided here rather than at
+ * each of the four chart call sites that used to spell it as a separate `*Show: false` flag or
+ * as a `style: 'none'` sentinel.
+ * @param stroke - the caller's stroke properties
+ * @param defaultColor - the colour to paint when the caller named none
+ * @returns the paint element
+ */
+export function strokePaint(stroke: StrokeProps, defaultColor: Color): string {
+	if (stroke.type === 'none') return voidEl('a:noFill')
+	return genXmlColorSelection(solidPaint(stroke.color || defaultColor, stroke.transparency))
 }
 
 /**

@@ -22,10 +22,12 @@ import {
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 } from '../../constants-internal.js'
+import type { StrokeProps } from '../../types/index.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
-import { resolveDash } from '../drawingml/line.js'
+import { createLineCap, strokeDash, strokePaint } from '../drawingml/line.js'
+import { axisLineStroke } from './chart-stroke.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT } from '../../units.js'
@@ -44,18 +46,25 @@ import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
  * The `<c:spPr>` axis-line block, identical on all three axes.
- * @param {number} widthEmu - line width for `a:ln@w`
- * @param {boolean | undefined} show - false emits `<a:noFill/>` instead of a colour
- * @param {string | undefined} color - line colour, defaulting to {@link DEF_GRIDLINE_COLOR}
- * @param {string} dash - `a:prstDash@val`
+ *
+ * The three axes each took four flat options here (`*AxisLineSize`, `*AxisLineShow`,
+ * `*AxisLineColor`, `*AxisLineStyle`) and passed them positionally, which is how the series
+ * axis came to hardcode a width and a dash the other two read from the caller. They now take
+ * one {@link StrokeProps}, folded from whichever spelling the caller used, and the cap and
+ * transparency the flat keys could not express come along with it.
+ * @param stroke - the axis line's resolved stroke
  * @return {string} XML `<c:spPr>`
  */
-function axisLineSpPr(widthEmu: number, show: boolean | undefined, color: string | undefined, dash: string): string {
-	const line = el('a:ln', { w: widthEmu, cap: 'flat' }, [
-		raw(!show ? voidEl('a:noFill') : genXmlColorSelection(color || DEF_GRIDLINE_COLOR)),
-		raw(voidEl('a:prstDash', { val: resolveDash(dash, 'solid', 'axis line style') })),
-		raw(voidEl('a:round', null)),
-	])
+function axisLineSpPr(stroke: StrokeProps): string {
+	const line = el(
+		'a:ln',
+		{ w: stroke.width ? ptsToEmuLenient(stroke.width) : EMU_PER_POINT, cap: createLineCap(stroke.cap) },
+		[
+			raw(strokePaint(stroke, DEF_GRIDLINE_COLOR)),
+			raw(voidEl('a:prstDash', { val: strokeDash(stroke, 'axis line dashType') })),
+			raw(voidEl('a:round', null)),
+		]
+	)
 	return el('c:spPr', null, raw(line))
 }
 
@@ -226,7 +235,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(scaling),
 		raw(voidEl('c:delete', { val: xsdBool(opts.catAxisHidden) })),
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
-		raw(opts.catGridLine && opts.catGridLine.style !== 'none' ? createGridLineElement(opts.catGridLine) : ''),
+		raw(createGridLineElement(opts.catGridLine)),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
 		raw(
 			axisTitleXml(opts.showCatAxisTitle, {
@@ -239,14 +248,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		),
 		raw(numFmt),
 		raw(ticks),
-		raw(
-			axisLineSpPr(
-				opts.catAxisLineSize ? ptsToEmuLenient(opts.catAxisLineSize) : EMU_PER_POINT,
-				opts.catAxisLineShow,
-				opts.catAxisLineColor,
-				opts.catAxisLineStyle || 'solid'
-			)
-		),
+		raw(axisLineSpPr(axisLineStroke(opts, 'cat'))),
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: valAxisId })),
 		raw(valAxisCrossing),
@@ -318,7 +320,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		raw(scaling),
 		raw(voidEl('c:delete', { val: xsdBool(opts.valAxisHidden) })),
 		raw(voidEl('c:axPos', { val: axisPos })),
-		opts.valGridLine && opts.valGridLine.style !== 'none' ? raw(createGridLineElement(opts.valGridLine)) : null,
+		raw(createGridLineElement(opts.valGridLine)),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
 		raw(
 			axisTitleXml(opts.showValAxisTitle, {
@@ -331,14 +333,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		),
 		raw(voidEl('c:numFmt', { formatCode: opts.valAxisLabelFormatCode || 'General', sourceLinked: 0 })),
 		raw(ticks),
-		raw(
-			axisLineSpPr(
-				opts.valAxisLineSize ? ptsToEmuLenient(opts.valAxisLineSize) : EMU_PER_POINT,
-				opts.valAxisLineShow,
-				opts.valAxisLineColor,
-				opts.valAxisLineStyle || 'solid'
-			)
-		),
+		raw(axisLineSpPr(axisLineStroke(opts, 'val'))),
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: crossAxId })),
 		raw(crosses),
@@ -385,7 +380,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(el('c:scaling', null, raw(voidEl('c:orientation', { val: opts.serAxisOrientation || 'minMax' })))),
 		raw(voidEl('c:delete', { val: xsdBool(opts.serAxisHidden) })),
 		raw(voidEl('c:axPos', { val: opts.barDir === 'col' ? 'b' : 'l' })),
-		raw(opts.serGridLine && opts.serGridLine.style !== 'none' ? createGridLineElement(opts.serGridLine) : ''),
+		raw(createGridLineElement(opts.serGridLine)),
 		// `<c:title>` comes between `</c:majorGridlines>` and `<c:numFmt>`.
 		raw(
 			axisTitleXml(opts.showSerAxisTitle, {
@@ -400,14 +395,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		raw(voidEl('c:majorTickMark', { val: 'out' })),
 		raw(voidEl('c:minorTickMark', { val: 'none' })),
 		raw(voidEl('c:tickLblPos', { val: opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo') })),
-		raw(
-			axisLineSpPr(
-				opts.serAxisLineSize ? ptsToEmuLenient(opts.serAxisLineSize) : EMU_PER_POINT,
-				opts.serAxisLineShow,
-				opts.serAxisLineColor,
-				opts.serAxisLineStyle || 'solid'
-			)
-		),
+		raw(axisLineSpPr(axisLineStroke(opts, 'ser'))),
 		raw(txPr),
 		raw(voidEl('c:crossAx', { val: valAxisId })),
 		raw(voidEl('c:crosses', { val: 'autoZero' })),

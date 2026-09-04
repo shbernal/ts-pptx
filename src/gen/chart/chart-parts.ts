@@ -32,7 +32,8 @@ import { alphaEl, createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
-import { borderLine, createLineCap, noStrokeLine, resolveDash } from '../drawingml/line.js'
+import { borderLine, createLineCap, noStrokeLine, resolveDash, strokeDash, strokePaint } from '../drawingml/line.js'
+import { gridLineStroke, gridLineSuppressed } from './chart-stroke.js'
 import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
 import { dataValues, type SheetLayout } from './data-refs.js'
@@ -551,31 +552,38 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
  * @param opts - the caller's line options
  * @param option - option name as the caller spells it, for the dash diagnostic
  */
-function chartFurnitureLine(tag: 'c:majorGridlines' | 'c:serLines', opts: OptsChartGridLine, option: string): string {
+function chartFurnitureLine(
+	tag: 'c:majorGridlines' | 'c:serLines',
+	opts: OptsChartGridLine | undefined,
+	option: string
+): string {
+	if (gridLineSuppressed(opts)) return ''
+	const stroke = gridLineStroke(opts as OptsChartGridLine)
 	const line = el(
 		'a:ln',
 		{
-			w: ptsToEmuLenient(opts.size || DEF_CHART_GRIDLINE.size || 1),
-			cap: createLineCap(opts.cap || DEF_CHART_GRIDLINE.cap),
+			w: ptsToEmuLenient(stroke.width || DEF_CHART_GRIDLINE.width || 1),
+			cap: createLineCap(stroke.cap || DEF_CHART_GRIDLINE.cap),
 		},
 		[
-			raw(el('a:solidFill', null, raw(createColorElement(opts.color || DEF_GRIDLINE_COLOR)))),
-			raw(
-				voidEl('a:prstDash', { val: resolveDash(opts.style, DEF_CHART_GRIDLINE.style ?? 'solid', option) }) +
-					voidEl('a:round')
-			),
+			raw(strokePaint(stroke, DEF_GRIDLINE_COLOR)),
+			raw(voidEl('a:prstDash', { val: strokeDash(stroke, option) }) + voidEl('a:round')),
 		]
 	)
 	return el(tag, null, raw(el('c:spPr', null, raw(line))))
 }
 
 /**
- * Create Grid Line Element
- * @param {OptsChartGridLine} glOpts {size, color, style}
- * @return {string} XML
+ * A plot's `<c:majorGridlines>`, or `''` when the caller asked for none.
+ *
+ * The "asked for none" test used to sit at each of the three axis builders as
+ * `opts.catGridLine && opts.catGridLine.style !== 'none'`, which stopped being the whole test
+ * once `type: 'none'` could say the same thing.
+ * @param glOpts - the caller's gridline stroke, if any
+ * @return {string} XML, or `''`
  */
-export function createGridLineElement(glOpts: OptsChartGridLine): string {
-	return chartFurnitureLine('c:majorGridlines', glOpts, 'gridLine style')
+export function createGridLineElement(glOpts: OptsChartGridLine | undefined): string {
+	return chartFurnitureLine('c:majorGridlines', glOpts, 'gridLine dashType')
 }
 
 /**
@@ -774,15 +782,38 @@ export function makeChartErrorBarsXml(
 			children += voidEl('c:val', { val: eb.value ?? 1 })
 		}
 
-		if (eb.color || eb.size != null) {
+		// The error bar is a stroke like any other, so it takes the same keys: `width` (with
+		// `size` still accepted), plus the `dashType`, `cap` and `transparency` the old
+		// two-key shape could not say. A bar that states none of them keeps emitting no
+		// `<c:spPr>` at all, which is what leaves PowerPoint's own error-bar style in charge.
+		// oxlint-disable-next-line typescript/no-deprecated -- `size` is the pre-4.0 spelling of `width` and is still honoured.
+		const width = eb.width ?? eb.size
+		// A bar that names a colour or a transparency paints one; `type: 'none'` paints an
+		// explicit `<a:noFill/>`; a bar that names only a width or a dash leaves the paint to
+		// PowerPoint's own error-bar style, which is what "no `<a:solidFill>`" has always meant
+		// here. `type: 'dash'` must NOT conjure a colour out of the default.
+		const paint =
+			eb.type === 'none'
+				? voidEl('a:noFill')
+				: eb.color !== undefined || eb.transparency !== undefined
+					? strokePaint(eb, DEF_GRIDLINE_COLOR)
+					: ''
+		const dash =
+			eb.dashType !== undefined || eb.type === 'dash'
+				? voidEl('a:prstDash', { val: strokeDash(eb, 'errorBars dashType') })
+				: ''
+		if (paint || dash || width != null || eb.cap !== undefined) {
 			children += el(
 				'c:spPr',
 				null,
 				raw(
 					el(
 						'a:ln',
-						{ w: eb.size != null ? ptsToEmuLenient(eb.size) : undefined },
-						raw(eb.color ? genXmlColorSelection(eb.color) : '')
+						{
+							w: width != null ? ptsToEmuLenient(width) : undefined,
+							cap: eb.cap !== undefined ? createLineCap(eb.cap) : undefined,
+						},
+						raw(paint + dash)
 					)
 				)
 			)
@@ -816,8 +847,7 @@ function makeErrBarNumLit(tag: 'plus' | 'minus', values: number[]): string {
 export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string {
 	if (!opt) return ''
 	if (opt === true) return voidEl('c:serLines')
-	if (opt.style === 'none') return ''
-	return chartFurnitureLine('c:serLines', opt, 'serLine style')
+	return chartFurnitureLine('c:serLines', opt, 'serLine dashType')
 }
 
 /**

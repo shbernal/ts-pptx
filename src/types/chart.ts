@@ -7,7 +7,7 @@
 import type { CHART_NAME } from '../enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
-import type { BorderProps, FillOption, ShadowProps } from './style.js'
+import type { BorderProps, FillOption, ShadowProps, StrokeProps } from './style.js'
 import type { TextBaseProps } from './text.js'
 
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
@@ -112,7 +112,7 @@ export interface ChartDataPointStyle {
  * Error-bar configuration for a chart series (`<c:errBars>`).
  * Maps onto OOXML `CT_ErrBars` (errDir / errBarType / errValType / noEndCap / plus / minus / val).
  */
-export interface ChartErrorBarOptions {
+export interface ChartErrorBarOptions extends StrokeProps {
 	/**
 	 * Axis the error bars measure along.
 	 * - `'y'` (the value axis) for BAR/BAR3D/LINE/AREA; SCATTER may also use `'x'`.
@@ -148,31 +148,36 @@ export interface ChartErrorBarOptions {
 	 * @default false
 	 */
 	noEndCap?: boolean
-	/** Error-bar line color (hex, e.g. `'FF0000'`). */
-	color?: HexColor
-	/** Error-bar line width (points). */
+	/**
+	 * Error-bar line width (points).
+	 * @deprecated Use {@link StrokeProps.width}. `width` wins when both are set.
+	 */
 	size?: number
 }
-export interface OptsChartGridLine {
+/**
+ * The stroke a plot draws its gridlines (or a stacked bar its series lines) with.
+ *
+ * A {@link StrokeProps}, so it takes `width`, `dashType`, `type`, `cap`, `color` and
+ * `transparency` under the same names a table border does. `size` and `style` are the
+ * pre-4.0 spellings and still work; see their notes for the exact mapping.
+ *
+ * Defaults where a gridline is drawn: `color: '888888'`, `width: 1`, `cap: 'flat'`, solid.
+ */
+export interface OptsChartGridLine extends StrokeProps {
 	/**
-	 * MS-PPT > Chart format > Format Major Gridlines > Line > Cap type
-	 * - line cap type
-	 * @default flat
-	 */
-	cap?: LineCap
-	/**
-	 * Gridline color
-	 * - `HexColor` or `ThemeColor`
-	 * @example 'FF3399'
-	 * @example SchemeColor.accent1 // theme color Accent1
-	 */
-	color?: Color
-	/**
-	 * Gridline size (points)
+	 * Gridline size (points).
+	 * @deprecated Use {@link StrokeProps.width}. `width` wins when both are set.
 	 */
 	size?: number
 	/**
-	 * Gridline style
+	 * Gridline style.
+	 *
+	 * `'none'` omits the gridlines entirely and is the same statement as `type: 'none'`;
+	 * `'solid'`, `'dash'` and `'dot'` are `a:prstDash` presets and map onto `dashType`
+	 * unchanged — note that this `'dash'` is the literal `dash` preset, where
+	 * {@link StrokeProps.type}`: 'dash'` means `sysDash`.
+	 * @deprecated Use {@link StrokeProps.dashType} (or `type: 'none'`). `dashType` and an
+	 *   explicit `type` both win when set.
 	 */
 	style?: 'solid' | 'dash' | 'dot' | 'none'
 }
@@ -364,9 +369,41 @@ export interface ChartPropsAxisCat {
 	catAxisLabelFrequency?: number | string
 	catAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	catAxisLabelRotate?: number
-	catAxisLineColor?: string
+	/**
+	 * The category axis line, as a stroke: `width`, `dashType`, `type`, `color`, `cap` and
+	 * `transparency` under the same names a table border and a gridline use.
+	 *
+	 * `type: 'none'` paints no line (an `<a:noFill/>` on the axis' own `<c:spPr>`), which is
+	 * what `catAxisLineShow: false` used to say. Omitted, the line is drawn at 1 pt in
+	 * `DEF_GRIDLINE_COLOR`, solid, flat-capped.
+	 *
+	 * The four flat `catAxisLine*` keys below are the pre-4.0 spellings. Anything set here wins
+	 * over its flat counterpart. They cannot express a cap, a transparency, or any
+	 * dash outside `solid`/`dash`/`dot`, which is why they are superseded rather than
+	 * widened.
+	 * @example { width: 1.5, dashType: 'lgDashDot', color: SchemeColor.accent1, transparency: 40 }
+	 */
+	catAxisLine?: StrokeProps
+	/**
+	 * Category-axis line colour.
+	 * @deprecated Use `catAxisLine.color`.
+	 */
+	catAxisLineColor?: Color
+	/**
+	 * Draw the category-axis line at all.
+	 * @deprecated Use `catAxisLine.type: 'none'` to suppress it.
+	 * @default true
+	 */
 	catAxisLineShow?: boolean
+	/**
+	 * Category-axis line width in points.
+	 * @deprecated Use `catAxisLine.width`.
+	 */
 	catAxisLineSize?: number
+	/**
+	 * Category-axis line dash.
+	 * @deprecated Use `catAxisLine.dashType`, which takes the full `ST_PresetLineDashVal` set.
+	 */
 	catAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	catAxisMajorTickMark?: ChartAxisTickMark
 	catAxisMajorTimeUnit?: string
@@ -407,17 +444,36 @@ export interface ChartPropsAxisSer {
 	 */
 	serAxisLabelFrequency?: number | string
 	serAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
-	serAxisLineColor?: string
-	serAxisLineShow?: boolean
 	/**
-	 * Series-axis line width in points, matching {@link ChartPropsAxisCat.catAxisLineSize}.
+	 * The series axis line, as a stroke — the same {@link StrokeProps} the other two axes and
+	 * every gridline take. See {@link ChartPropsAxisCat.catAxisLine}.
 	 *
 	 * The series axis is the third axis of a 3-D chart, and it was the one axis whose line
-	 * could be shown and coloured but not sized or dashed -- the emitter hardcoded one point
-	 * and `solid` where the other two axes read the caller's options.
+	 * could be shown and coloured but not sized or dashed: the emitter hardcoded one point and
+	 * `solid` where the other two read the caller. Comparing the three axes' option spellings
+	 * side by side is how that was found.
+	 */
+	serAxisLine?: StrokeProps
+	/**
+	 * Series-axis line colour.
+	 * @deprecated Use `serAxisLine.color`.
+	 */
+	serAxisLineColor?: Color
+	/**
+	 * Draw the series-axis line at all.
+	 * @deprecated Use `serAxisLine.type: 'none'` to suppress it.
+	 * @default true
+	 */
+	serAxisLineShow?: boolean
+	/**
+	 * Series-axis line width in points.
+	 * @deprecated Use `serAxisLine.width`.
 	 */
 	serAxisLineSize?: number
-	/** Series-axis line dash, matching {@link ChartPropsAxisCat.catAxisLineStyle}. */
+	/**
+	 * Series-axis line dash.
+	 * @deprecated Use `serAxisLine.dashType`, which takes the full `ST_PresetLineDashVal` set.
+	 */
 	serAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	serAxisOrientation?: string
 	serAxisTitle?: string
@@ -468,9 +524,31 @@ export interface ChartPropsAxisVal {
 	valAxisLabelFormatCode?: string
 	valAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	valAxisLabelRotate?: number
-	valAxisLineColor?: string
+	/**
+	 * The value axis line, as a stroke — the same {@link StrokeProps} the other two axes and
+	 * every gridline take. See {@link ChartPropsAxisCat.catAxisLine}.
+	 */
+	valAxisLine?: StrokeProps
+	/**
+	 * Value-axis line colour.
+	 * @deprecated Use `valAxisLine.color`.
+	 */
+	valAxisLineColor?: Color
+	/**
+	 * Draw the value-axis line at all.
+	 * @deprecated Use `valAxisLine.type: 'none'` to suppress it.
+	 * @default true
+	 */
 	valAxisLineShow?: boolean
+	/**
+	 * Value-axis line width in points.
+	 * @deprecated Use `valAxisLine.width`.
+	 */
 	valAxisLineSize?: number
+	/**
+	 * Value-axis line dash.
+	 * @deprecated Use `valAxisLine.dashType`, which takes the full `ST_PresetLineDashVal` set.
+	 */
 	valAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	/**
 	 * PowerPoint: Format Axis > Axis Options > Logarithmic scale - Base
@@ -865,7 +943,6 @@ export interface ChartOpts
 		ChartPropsLegend,
 		ChartPropsTitle,
 		ObjectNameProps,
-		OptsChartGridLine,
 		PositionProps {
 	/**
 	 * Chart type — required when using the canonical `addChart(data, options)` signature.

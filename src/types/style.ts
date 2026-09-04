@@ -8,45 +8,58 @@ import type { LineCap } from './chart.js'
 import type { Color, Coord, GradientFillProps, HexColor, ImageFillProps, PatternFillProps } from './core.js'
 import type { LineEndType, PresetLineDashVal } from '../ooxml/st-enums.js'
 
-// used by charts, shape, text
-export interface BorderProps {
+/**
+ * A stroke, stated once.
+ *
+ * Width, dash, colour, transparency and cap are one concept, and the library used to spell
+ * them five ways: `width`/`size`/`catAxisLineSize` for the measure, `type` + `dashType` /
+ * `style` / `catAxisLineStyle` for the dash, `HexColor` / `Color` / bare `string` for the
+ * paint. This is that vocabulary; {@link BorderProps} is an alias of it, and the chart
+ * option bag now takes it wherever it used to spell a stroke by hand.
+ *
+ * Defaults are **per site**, not per interface — a table border's absent `width` is 1 pt, a
+ * chart gridline's is whatever `DEF_CHART_GRIDLINE` says — so each consumer documents its own
+ * rather than this type claiming one for all of them.
+ *
+ * {@link ShapeLineProps} is deliberately *not* an alias: a shape stroke is a **paint**, so its
+ * `type` names a fill kind (`gradient`, `pattern`, …) rather than the three-way dash switch
+ * below. The keys the two share (`width`, `dashType`, `cap`, `transparency`) already agree.
+ */
+export interface StrokeProps {
 	/**
-	 * Border type
-	 * @default solid
+	 * Coarse three-way switch: `'none'` suppresses the stroke, `'dash'` asks for a dashed one,
+	 * `'solid'` for an unbroken one.
 	 */
 	type?: 'none' | 'dash' | 'solid'
 	/**
-	 * Dash pattern, using the same vocabulary as {@link ShapeLineProps.dashType}.
+	 * Dash pattern, over the full `ST_PresetLineDashVal` set, so any dash a source deck can
+	 * carry can also be authored.
 	 *
-	 * `type` is only a coarse three-way switch, so every dashed border it can express
-	 * collapses onto `sysDash`. Set this to pick the exact `a:prstDash` preset instead:
+	 * `type` is only a coarse three-way switch, so every dashed stroke it can express collapses
+	 * onto `sysDash`. Set this to pick the exact `a:prstDash` preset instead:
 	 * `dashType: 'lgDashDot'` emits `<a:prstDash val="lgDashDot"/>`.
 	 *
 	 * **Precedence.** When both are set, `dashType` wins over `type` for the dash pattern —
 	 * `{ type: 'solid', dashType: 'sysDot' }` draws a dotted rule. The one exception is
-	 * `type: 'none'`, which suppresses the border entirely and is decided before any dash
+	 * `type: 'none'`, which suppresses the stroke entirely and is decided before any dash
 	 * pattern is chosen. An unrecognized value warns and falls back to what `type` implies.
-	 * @default (derived from `type`: `sysDash` for `'dash'`, else `solid`)
 	 * @example { type: 'solid', color: '999999', dashType: 'lgDash' }
 	 */
-	dashType?: ShapeLineProps['dashType']
+	dashType?: PresetLineDashVal
 	/**
-	 * Border color (hex)
+	 * Stroke colour — a 6-digit hex RGB or a `SchemeColor` token.
 	 * @example 'FF3399'
-	 * @default '666666'
+	 * @example SchemeColor.accent1
 	 */
-	color?: HexColor
-
+	color?: Color
 	/**
-	 * Border width (points)
+	 * Stroke width, in points.
 	 * - MS-PPT > Format Shape > Fill & Line > Line > Width
-	 * @default 1
 	 */
 	width?: number
 	/**
-	 * Border transparency (percent)
+	 * Stroke transparency (percent, 0-100).
 	 * - MS-PPT > Format Shape > Fill & Line > Line > Transparency
-	 * - range: 0-100
 	 * @default 0
 	 */
 	transparency?: number
@@ -56,6 +69,14 @@ export interface BorderProps {
 	 */
 	cap?: LineCap
 }
+/**
+ * A border is a {@link StrokeProps} under its older name, kept because it reads better on the
+ * four sides of a table cell and on a chart area's outline than "stroke" would.
+ *
+ * Defaults where a table border is drawn: `type: 'solid'`, `color: '666666'`, `width: 1`.
+ */
+// used by charts, shape, text
+export type BorderProps = StrokeProps
 /**
  * Slide-show navigation action for action-button shapes. Each value maps 1:1 onto
  * `ppaction://hlinkshowjump?jump=<value>`. A specific numbered slide is reached via

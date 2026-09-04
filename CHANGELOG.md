@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`StrokeProps`: one stroke, one vocabulary.** A stroke is width, dash, colour, cap and
+  transparency, and the public type surface spelled it five ways -- `width` on a border,
+  `size` on a gridline, `catAxisLineSize` on an axis; `type` + `dashType` on a border,
+  `style` on a gridline, `catAxisLineStyle` on an axis; `HexColor`, `Color` and bare `string`
+  for the same paint. `StrokeProps` is that vocabulary stated once, `BorderProps` is now an
+  alias of it, and the chart option bag takes it wherever it used to spell a stroke by hand:
+
+  - `OptsChartGridLine` and `ChartErrorBarOptions` extend it (both were already nested
+    objects, so nothing about the flat bag changes).
+  - `catAxisLine`, `valAxisLine` and `serAxisLine` are new nested `StrokeProps` on
+    `ChartOpts`, superseding the twelve flat `*AxisLineColor` / `*AxisLineShow` /
+    `*AxisLineSize` / `*AxisLineStyle` keys.
+
+  Three capabilities come with it, all of which the old spellings could not express:
+  **the full `ST_PresetLineDashVal` set** on an axis line, a gridline and an error bar (they
+  took `solid | dash | dot` and nothing else, so a caller replicating a source deck could
+  carry `lgDashDot` on a shape and not on an axis); a **`cap`** and a **`transparency`** on
+  an axis line and an error bar; and a **`dashType`** on an error bar, which had only a
+  colour and a width.
+
+  Every pre-existing spelling still works and emits the same bytes. Twenty-five legacy
+  option combinations were diffed part-for-part against the previous tree, because the
+  byte-identity showcase decks reach only `*AxisLineShow` and gridlines -- `catAxisLineStyle`,
+  `*AxisLineSize`, `*AxisLineColor`, error bars and `barSeriesLine` have no coverage there,
+  and a green gate would have proved nothing about them.
+
 - **Every published subpath now exports `setDiagnosticHandler` and `resetDiagnosticState`.**
   The library's warnings — a chart point cache out of range, a picture whose relationship
   does not resolve, a table span the auto-pager refuses — are reported through a handler a
@@ -24,11 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from one module the way the error taxonomy already was, so one installed handler serves
   every subpath, and a test pins that they are literally the same function.
 
-- **`serAxisLineSize` and `serAxisLineStyle`.** The series axis — the third axis of a 3-D
-  chart — could be shown and coloured but not sized or dashed: the emitter hardcoded one
-  point and `solid` where `catAxis*` and `valAxis*` read the caller's options. Both new
-  options are spelled and defaulted exactly as their category-axis counterparts, so a chart
-  that sets neither emits what it always did.
+- **The series axis line can be sized and dashed.** The third axis of a 3-D chart could be
+  shown and coloured but not sized or dashed: the emitter hardcoded one point and `solid`
+  where the other two axes read the caller. Comparing the three axes' option spellings side
+  by side is how that was found, which is also what produced `StrokeProps` below. Spell it
+  `serAxisLine: { width, dashType }`; the flat `serAxisLineSize` / `serAxisLineStyle` exist
+  too, deprecated from birth, so that a caller already using the flat form on the other two
+  axes is not left reaching for a key that does not exist. A chart that sets none of them
+  emits what it always did.
 
 - **`Shape.absoluteFrameFailure` names why `absoluteFrame` is `null`.** That one `null`
   stands for three different situations — the shape states no transform of its own
@@ -111,6 +140,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer needs one.
 
 ### Changed
+
+- **`ShapeLineProps` is deliberately not a `StrokeProps`.** A shape stroke is a *paint*, so
+  its `type` names a fill kind (`gradient`, `pattern`, `inherit`, …) rather than the
+  three-way dash switch a border's does. The four keys the two share -- `width`, `dashType`,
+  `cap`, `transparency` -- already agreed and are unchanged. This is written down because
+  "make every stroke one type" is the obvious next step and it is the wrong one.
 
 - **`seriesOptions` now warns on the chart types that do not read it.** It is documented
   chart-wide and honoured by one plot family: `bar`, `bar3d`, `line`, `area` and `radar`
@@ -366,7 +401,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   should add 1, or better, set `objectName` explicitly: `docs/reference/object-identity.md`
   has always said generated names are not a stable identity.
 
+### Deprecated
+
+- **The chart option bag's older stroke spellings.** All of them still work, are still read,
+  and emit exactly what they did; they carry `@deprecated` so an editor points at the
+  replacement.
+
+  | Deprecated | Use |
+  |---|---|
+  | `OptsChartGridLine.size`, `ChartErrorBarOptions.size` | `width` |
+  | `OptsChartGridLine.style: 'solid' \| 'dash' \| 'dot'` | `dashType` (same values, plus the other eight presets) |
+  | `OptsChartGridLine.style: 'none'` | `type: 'none'` |
+  | `catAxisLineColor` / `valAxisLineColor` / `serAxisLineColor` | `catAxisLine.color`, … |
+  | `catAxisLineSize` / `valAxisLineSize` / `serAxisLineSize` | `catAxisLine.width`, … |
+  | `catAxisLineStyle` / `valAxisLineStyle` / `serAxisLineStyle` | `catAxisLine.dashType`, … |
+  | `catAxisLineShow: false` / `valAxisLineShow: false` / `serAxisLineShow: false` | `catAxisLine.type: 'none'`, … |
+
+  **Precedence, where a caller sets both:** the new key wins, and an explicit `type` wins
+  over one inferred from `style: 'none'` or `*AxisLineShow: false`. The one place the two
+  halves fold *independently* is a hidden axis line: `*AxisLineShow: false` with a
+  `*AxisLineStyle` still writes that dash, because the axis' `<c:spPr>` has always carried
+  an `<a:prstDash>` alongside its `<a:noFill/>` and swallowing it would move bytes.
+
 ### Removed
+
+- **`ChartOpts` no longer extends `OptsChartGridLine`.** That inheritance put `color`,
+  `size`, `style` and `cap` on the chart option bag itself, where nothing read them: a
+  caller who wrote `addChart(data, { style: 'dash' })` typechecked and got nothing. They
+  were never a chart-level concept -- the three real ones are `catGridLine`, `valGridLine`
+  and `serGridLine`. **Migration:** move the value to whichever of those three you meant.
+  The keys were dead in every version that had them, so no output changes.
+
+- **The three `*AxisLineShow` defaults in `normalizeChartPlotAreaOptions`.** They wrote
+  `true` over an absent flag, which was the last thing keeping "the caller said nothing" and
+  "the caller said yes" distinguishable, and nothing read the distinction. The axis emitter
+  now folds the flag into a stroke where only an explicit `false` says anything. No emitted
+  byte moves.
 
 - **`correctShadowOptions` is now `normalizeShadowOptions` and no longer mutates its
   argument.** It is not exported from any entrypoint, so this reaches no consumer; the rename

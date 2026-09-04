@@ -31,6 +31,7 @@ import { warn } from '../../diagnostics.js'
 import type { DiagnosticCode } from '../../codes.js'
 import { InvalidOptionError } from '../../errors.js'
 import type { BorderProps, ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
+import { scrubGridLine } from '../chart/chart-stroke.js'
 import type {
 	ChartMultiInternal,
 	ChartOptsInternal,
@@ -313,9 +314,11 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 	// `showPercent`, `v3DRAngAx`). Removing the dead statements changes no emitted byte;
 	// *applying* the defaults those ternaries appear to promise would, so do not "restore"
 	// them without treating it as the behavior change it is.
-	options.catAxisLineShow = typeof options.catAxisLineShow !== 'undefined' ? options.catAxisLineShow : true
-	options.valAxisLineShow = typeof options.valAxisLineShow !== 'undefined' ? options.valAxisLineShow : true
-	options.serAxisLineShow = typeof options.serAxisLineShow !== 'undefined' ? options.serAxisLineShow : true
+	// The three `*AxisLineShow` defaults that used to sit here are gone: they wrote `true` over
+	// an absent flag, and the axis emitter now folds the flag into a stroke where only an
+	// explicit `false` says anything (`type: 'none'`). Defaulting it was the last thing keeping
+	// "the caller said nothing" and "the caller said yes" distinguishable, and nothing read the
+	// distinction.
 
 	options.v3DRotX =
 		typeof options.v3DRotX === 'number' &&
@@ -585,22 +588,6 @@ export function addChartDefinition(
 	data: OptsChartData[] | ChartOpts,
 	opt?: ChartOptsInternal
 ): object {
-	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
-		if (!glOpts || glOpts.style === 'none') return
-		if (glOpts.size !== undefined && (!Number.isFinite(Number(glOpts.size)) || glOpts.size <= 0)) {
-			warn('chart/invalid-grid-line-size', 'chart.gridLine.size must be greater than 0.')
-			delete glOpts.size // delete prop to used defaults
-		}
-		if (glOpts.style && !['solid', 'dash', 'dot'].includes(glOpts.style)) {
-			warn('chart/invalid-grid-line-style', 'chart.gridLine.style options: `solid`, `dash`, `dot`.')
-			delete glOpts.style
-		}
-		if (glOpts.cap && !['flat', 'square', 'round'].includes(glOpts.cap)) {
-			warn('chart/invalid-grid-line-cap', 'chart.gridLine.cap options: `flat`, `square`, `round`.')
-			delete glOpts.cap
-		}
-	}
-
 	// Placeholder part identity, unique only within this target. The authoritative,
 	// package-unique chart part filename is assigned at write time by a per-presentation
 	// pass in `buildPackageParts` (`package/assemble.ts`, STEP 2). A module-global counter
@@ -719,14 +706,15 @@ export function addChartDefinition(
 	}
 
 	// Set gridline defaults
+	const scatterGrid: OptsChartGridLine = { color: 'D9D9D9', width: 1 }
 	options.catGridLine =
-		options.catGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
-	options.valGridLine = options.valGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : {})
+		options.catGridLine || (options._type === ChartType.scatter ? { ...scatterGrid } : { type: 'none' })
+	options.valGridLine = options.valGridLine || (options._type === ChartType.scatter ? { ...scatterGrid } : {})
 	options.serGridLine =
-		options.serGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
-	correctGridLineOptions(options.catGridLine)
-	correctGridLineOptions(options.valGridLine)
-	correctGridLineOptions(options.serGridLine)
+		options.serGridLine || (options._type === ChartType.scatter ? { ...scatterGrid } : { type: 'none' })
+	scrubGridLine(options.catGridLine)
+	scrubGridLine(options.valGridLine)
+	scrubGridLine(options.serGridLine)
 	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
 
 	// C: Options: plotArea
