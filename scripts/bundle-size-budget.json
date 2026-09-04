@@ -2,11 +2,11 @@
 	"browser.js": 156672,
 	"html.js": 16384,
 	"index.js": 152576,
-	"inspect.js": 73728,
+	"inspect.js": 75776,
 	"math.js": 2048,
 	"measure.js": 17408,
 	"node.js": 152576,
-	"read.js": 72704,
-	"script.js": 56320,
+	"read.js": 74752,
+	"script.js": 60416,
 	"zip.js": 2048
 }

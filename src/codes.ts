@@ -418,6 +418,11 @@ export type InternalErrorCode =
 	// `ChartType` between them and the caller picks by `isChartExType`, so reaching either one
 	// off-catalog is a routing bug, not bad input.
 	| 'chart/type-not-routed'
+	// A successor list was asked for a child that is not in the sequence it names. The lists
+	// decide where a new child is inserted, and an empty one silently APPENDS -- which is the
+	// schema-invalid part these declarations exist to prevent -- so a typo has to fail at
+	// module load rather than produce a subtly out-of-order part at run time.
+	| 'ooxml/member-not-in-sequence'
 	// An internal slide-to-slide link's rel Target was not a slide number. The write side puts
 	// that Target there itself (`addText`'s `hyperlink.slide`), so a value `Number()` cannot
 	// read is a defect on this side; catching it at the extraction boundary keeps it legible,

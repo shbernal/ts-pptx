@@ -22,6 +22,7 @@
  */
 
 import { EMBEDDED_FONT_SLOTS } from '../embedded-fonts.js'
+import { InternalError } from '../errors.js'
 
 /**
  * One step of a schema sequence: a single element, or a choice group whose members are mutually
@@ -54,7 +55,8 @@ const GEOMETRY_CHOICES = ['a:custGeom', 'a:prstGeom'] as const
  */
 function successorsOf(sequence: readonly SequenceStep[], member: string): string[] {
 	const index = sequence.findIndex((step) => (typeof step === 'string' ? step === member : step.includes(member)))
-	if (index < 0) throw new Error(`successorsOf: ${member} is not part of the given sequence`)
+	if (index < 0)
+		throw new InternalError('ooxml/member-not-in-sequence', `successorsOf: ${member} is not part of the given sequence`)
 	return sequence.slice(index + 1).flat()
 }
 

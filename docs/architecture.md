@@ -197,6 +197,17 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   host it does not have. The neutral adapter is the fallback, never a default the
   other two fall back *to*: a capability missing from a real host is a bug in that
   host's adapter, not something the neutral one should paper over.
+- `src/read/` imports from `src/gen/` in exactly two places, and both are deliberate:
+  `read/api/ops/notes-author.ts` and `read/api/ops/notes-master.ts` build a notes
+  slide and a notes master through `gen/slide/notes.ts`. Adding a notes page to a
+  loaded deck has to produce the same part the write path produces, and having two
+  builders for one part is how they come to disagree. The cost is that
+  `ts-pptx/read` pulls `gen/slide/notes.ts` and its `drawingml`/`opc` graph into its
+  bundle; that is the trade, and it is stated here so it stays a decision rather
+  than an observation. Everything else the two halves share lives in the
+  import-free `src/ooxml/` modules (`namespaces.ts`, `sequence.ts`,
+  `xsd-boolean.ts`, `st-enums.ts`, `text-anchor.ts`), which is where a new shared
+  schema fact belongs.
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for ts-pptx consumers.
 
