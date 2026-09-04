@@ -10,7 +10,16 @@
 import { readFile } from 'node:fs/promises'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
+import {
+	assert,
+	assertEqual,
+	assertRejects,
+	assertUnchangedExcept,
+	bytesEqual,
+	captureDiagnostics,
+	partBodies,
+	throws,
+} from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 
@@ -18,6 +27,23 @@ import { fixturePath, openFixture } from './corpus.js'
 const PNG_1X1 = new Uint8Array(
 	Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64')
 )
+
+/** A 2x1 PNG: twice as wide as it is tall, so a square frame has to crop or letterbox it. */
+const PNG_2X1 = new Uint8Array(
+	Buffer.from(
+		'iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEklEQVR4nGP8z8DAwMDAxAADAA8sAQdb4A2UAAAAAElFTkSuQmCC',
+		'base64'
+	)
+)
+
+/** The picture's `a:srcRect` attributes, as a plain record (absent attributes are absent). */
+function srcRectOf(picture) {
+	const match = /<a:srcRect\b([^>]*)\/?>/.exec(picture.element_.toString())
+	assert(match, 'expected an a:srcRect; got: ' + picture.element_.toString())
+	const attrs = {}
+	for (const [, name, value] of match[1].matchAll(/([a-zA-Z]+)="([^"]*)"/g)) attrs[name] = value
+	return attrs
+}
 
 describe('Slide.addPicture', () => {
 	test('adds a media part, relationship, and p:pic that reload correctly', async () => {
@@ -142,6 +168,71 @@ describe('Picture.setImage', () => {
 		const partName = picture.imagePartName
 		assert(partName && partName.endsWith('.gif'), `extension derived from content type: ${partName}`)
 		assertEqual(presentation.opc.contentTypes.contentTypeFor(partName), 'image/gif', 'gif content type registered')
+	})
+
+	// `fit` is the half of `setImage` a swap actually needs: an inherited `a:srcRect` was tuned
+	// to the PREVIOUS image's aspect ratio, so a new image of a different ratio reuses a crop
+	// that no longer fits. A quarter of this module was unreached and all of it was here.
+	test("fit 'stretch' drops the inherited crop", async () => {
+		const presentation = await openFixture('image')
+		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		// Give it a crop to drop, through the same accessor a caller would.
+		picture.setImage(PNG_1X1, { contentType: 'image/png', fit: 'cover' })
+		assert(/<a:srcRect\b/.test(picture.element_.toString()), 'cover leaves a crop behind')
+
+		picture.setImage(PNG_1X1, { contentType: 'image/png', fit: 'stretch' })
+		assert(!/<a:srcRect\b/.test(picture.element_.toString()), 'stretch removes it again')
+	})
+
+	test("fit 'cover' and 'contain' crop opposite axes", async () => {
+		// A 2x1 image in a square frame: `cover` fills the frame and crops the wide axis,
+		// `contain` fits the whole image and letterboxes the tall one. Which axis carries the
+		// inset is the whole content of the fit decision.
+		const presentation = await openFixture('image')
+		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		picture.width = 914400
+		picture.height = 914400
+
+		picture.setImage(PNG_2X1, { contentType: 'image/png', fit: 'cover' })
+		const cover = srcRectOf(picture)
+		assert(Number(cover.l) > 0 && Number(cover.r) > 0, `cover crops the wide axis; got ${JSON.stringify(cover)}`)
+		assertEqual(cover.t ?? '0', '0', 'and leaves the tall one alone')
+
+		picture.setImage(PNG_2X1, { contentType: 'image/png', fit: 'contain' })
+		const contain = srcRectOf(picture)
+		assert(
+			Number(contain.t) < 0 && Number(contain.b) < 0,
+			`contain insets the tall axis; got ${JSON.stringify(contain)}`
+		)
+		assertEqual(contain.l ?? '0', '0', 'and leaves the wide one alone')
+	})
+
+	test('an unmeasurable image leaves the crop alone and says so', async () => {
+		// The warn-rather-than-degrade arm: the alternative is a silently stretched picture.
+		const presentation = await openFixture('image')
+		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		const { codes } = await captureDiagnostics(() => {
+			picture.setImage(new Uint8Array([1, 2, 3, 4]), { contentType: 'image/png', fit: 'cover' })
+		})
+		assert(
+			codes.includes('image/unmeasurable-natural-size'),
+			'expected the unmeasurable warning; got ' + JSON.stringify(codes)
+		)
+		assert(!/<a:srcRect\b/.test(picture.element_.toString()), 'and no crop was invented')
+	})
+
+	test('fit needs a frame extent, and says which picture has none', async () => {
+		const presentation = await openFixture('image')
+		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		// Drop the transform: a picture inheriting its box from a placeholder has no `a:ext` to
+		// measure the crop against, and guessing one would be a crop nobody asked for.
+		const xfrm = picture.element_.getElementsByTagName('a:xfrm')[0]
+		xfrm.parentNode.removeChild(xfrm)
+		await assertRejects(
+			() => picture.setImage(PNG_1X1, { contentType: 'image/png', fit: 'contain' }),
+			/needs a frame extent/,
+			'setImage with a fit on a picture with no transform'
+		)
 	})
 
 	test('throws when no content type is supplied', async () => {
