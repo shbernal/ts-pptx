@@ -1,10 +1,11 @@
 /**
- * The four decks the PowerPoint COM smoke drives, built from the current `dist/`.
+ * The five decks the PowerPoint COM smoke drives, built from the current `dist/`.
  *
  * Each one is a minimal deck carrying exactly the construct under test -- navigation actions,
- * custGeom connection sites, embedded OLE objects, an embedded 3D model -- written to the OS temp
- * directory and handed back by path. Nothing here asserts: the verifiers in the entry point read
- * PowerPoint's answers, and `contract.mjs` is what the two sides agree on.
+ * custGeom connection sites, embedded OLE objects, an embedded 3D model, out-of-range preset
+ * adjustment guides -- written to the OS temp directory and handed back by path. Nothing here
+ * asserts: the verifiers in the entry point read PowerPoint's answers, and `contract.mjs` is what
+ * the two sides agree on.
  *
  * `dist/node.js` is imported lazily rather than at module load, so importing this module (a test,
  * a `--help`) does not require a build.
@@ -25,6 +26,9 @@ import {
 	MODEL3D_LAYOUT_IN,
 	MODEL3D_PREVIEW_RGB,
 	MODEL3D_SHAPE_NAME,
+	PRSTGEOM_CASES,
+	PRSTGEOM_FRAME_IN,
+	PRSTGEOM_LAYOUT_IN,
 } from './contract.mjs'
 
 async function loadTsPptx() {
@@ -168,6 +172,36 @@ export async function generateModel3dDeck() {
 	})
 
 	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-model3d-${process.pid}.pptx`)
+	await pptx.writeFile({ fileName: outFile })
+	return outFile
+}
+
+// --- 1e. preset-geometry adjustment deck ------------------------------------
+/**
+ * Build a deck with one shape per {@link PRSTGEOM_CASES} row, each on its own slide at the same
+ * rect so the exported PNGs are directly comparable.
+ *
+ * The guides are written through `shapeAdjust`, whose `value` is scaled by 100000 on the way to
+ * `<a:gd fmla="val N">` -- so the contract's raw units divide by that here rather than being
+ * spelled twice.
+ */
+export async function generatePresetGeomDeck() {
+	const { TsPptx } = await loadTsPptx()
+	const pptx = new TsPptx()
+	pptx.defineLayout({ name: 'PRSTGEOM', width: PRSTGEOM_LAYOUT_IN.w, height: PRSTGEOM_LAYOUT_IN.h })
+	pptx.layout = 'PRSTGEOM'
+
+	for (const testCase of PRSTGEOM_CASES) {
+		pptx.addSlide().addShape(testCase.shape, {
+			...PRSTGEOM_FRAME_IN,
+			objectName: testCase.label,
+			fill: { color: '4472C4' },
+			line: { type: 'none' },
+			shapeAdjust: Object.entries(testCase.adj).map(([name, raw]) => ({ name, value: raw / 100000 })),
+		})
+	}
+
+	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-prstgeom-${process.pid}.pptx`)
 	await pptx.writeFile({ fileName: outFile })
 	return outFile
 }

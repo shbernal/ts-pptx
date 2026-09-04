@@ -105,6 +105,31 @@ fallbacks are:
 - [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes): each shape has its own `.cpp` file with the full avLst and gdLst inline as XML strings.
 - [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx): adj handle constraints.
 
+### An out-of-range adj value does not need clamping, and this library does not clamp one
+
+Do not go looking for the per-preset **range** table to clamp against. The bounds live in each
+preset's own `ahXY` / `ahPolar` handle definitions, many of them formulas over the shape's width
+and height rather than constants, and no schema check can see a violation either: `a:gd/@fmla` is
+`xsd:string`, so `val 266667` on a `roundRect` whose handle stops at 50000 validates clean.
+
+The reason not to build that table is not the cost. An out-of-range guide is **inert**, verified
+against desktop PowerPoint rather than reasoned about:
+
+- PowerPoint stores it verbatim. It opens the package with no repair prompt, `Shape.Adjustments`
+  reads back the out-of-range figure (a `roundRect` `adj` of 266667 comes back as `2.66667`), and
+  a re-save writes the same `<a:gd fmla="val 266667"/>` out again.
+- The preset's own guide formula pins it at render time. Exported to PNG, `roundRect` at `adj`
+  50000, 60000 and 266667 rasterize to identical bytes, as do `blockArc` at `adj3` 50000 and
+  5000000, while two *in*-range values of the same guide do not, which is what shows the
+  comparison can see a geometry change at all.
+
+So clamping would only discard what the caller wrote, in exchange for a picture that was already
+identical. `genXmlPresetGeom` emits any finite adjustment as written and refuses only the values
+PowerPoint cannot evaluate: a non-finite one, and a `rectRadius` with no side to divide by, both
+of which would write `val NaN` / `val Infinity`, a token outside the formula grammar rather than a
+number outside a range. The `prstgeom` leg of `pnpm run test:com` is that evidence kept runnable,
+sensitivity pair included.
+
 ## Retrieval Workflow
 
 1. Start with local evidence. Search `src/`, `test/`, `README.md`, and

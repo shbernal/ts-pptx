@@ -10,7 +10,7 @@
  * this script made, never caller input.
  */
 
-import { MODEL3D_EXPORT } from './contract.mjs'
+import { MODEL3D_EXPORT, PRSTGEOM_CASES, PRSTGEOM_EXPORT } from './contract.mjs'
 
 // --- 3. the VBScripts that drive PowerPoint ---------------------------------
 /**
@@ -145,6 +145,33 @@ If Err.Number <> 0 Then
 Else
   WScript.StdOut.WriteLine "EXPORT" & vbTab & "${png}"
 End If
+` +
+		vbsFooter()
+	)
+}
+
+/** @param {string} pptxFile @returns {string} */
+export function buildPresetGeomVbs(pptxFile) {
+	// Exports every slide to `<deck>-<n>.png` and emits one `PNG <n> <path>` line each. Nothing is
+	// read back over COM on purpose: `Shape.Adjustments` reports the *stored* guide, out-of-range
+	// value and all, so it cannot answer what PowerPoint paints. Only the pixels can.
+	const base = pptxFile.replace(/\.pptx$/i, '').replace(/\\/g, '\\\\')
+	return (
+		vbsOpenHeader(pptxFile) +
+		`Dim i, png
+For i = 1 To pres.Slides.Count
+  png = "${base}-" & i & ".png"
+  Err.Clear
+  On Error Resume Next
+  pres.Slides(i).Export png, "PNG", ${PRSTGEOM_EXPORT.w}, ${PRSTGEOM_EXPORT.h}
+  If Err.Number <> 0 Then
+    WScript.StdOut.WriteLine "EXPORT_ERR" & vbTab & i & vbTab & Hex(Err.Number) & vbTab & Err.Description
+  Else
+    WScript.StdOut.WriteLine "PNG" & vbTab & i & vbTab & png
+  End If
+  On Error Goto 0
+Next
+WScript.StdOut.WriteLine "SLIDES" & vbTab & ${PRSTGEOM_CASES.length}
 ` +
 		vbsFooter()
 	)

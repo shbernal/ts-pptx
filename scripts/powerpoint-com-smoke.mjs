@@ -16,9 +16,13 @@
  *      the model collapses to its fallback picture, or renders as an empty frame. Nothing
  *      upstream can catch this: the SDK validator does not descend into an `mc:Choice` at
  *      all, so every mutation inside the `am3d` subtree validates clean.
+ *   6. preset adjustment guides (`<a:gd>`) driven past the range the preset's own handle
+ *      allows. These are inert rather than corrupting, and this is the only thing that can
+ *      say so: `Shape.Adjustments` reports the value as *stored*, so only the pixels answer
+ *      what PowerPoint paints.
  *
  * This script drives the real PowerPoint application over COM (via cscript) to check
- * all five. By default it runs four generated decks from the built `dist/`:
+ * all six. By default it runs five generated decks from the built `dist/`:
  *   - a navigation deck, reading each button's `ActionSettings(ppMouseClick).Action`
  *     back out and asserting each jump resolved to the correct PpActionType enum; and
  *   - a custGeom deck with connection sites + a connector bound to site index 1, reading
@@ -29,10 +33,14 @@
  *   - a 3D-model deck with one embedded `.glb` over a deliberately magenta preview, reading
  *     `Shape.Type`/`Model3DFormat.CameraPositionZ` back out AND exporting the slide to PNG,
  *     because the read-back only proves PowerPoint resolved a model — the pixels are what
- *     prove it drew one (no magenta ⇒ not the fallback; not blank ⇒ not an empty frame).
+ *     prove it drew one (no magenta ⇒ not the fallback; not blank ⇒ not an empty frame); and
+ *   - a preset-geometry deck whose slides pair an out-of-range adjustment guide with the same
+ *     shape at the bound, exported to PNG and compared pixel for pixel. Each pair carries a
+ *     third, in-range slide that must paint *differently*, so a run that rendered nothing
+ *     fails instead of satisfying every equality.
  * Point it at any deck with `--file` to run only the corruption-open check.
  *
- *   node scripts/powerpoint-com-smoke.mjs                 # nav + custGeom + OLE + 3D-model checks
+ *   node scripts/powerpoint-com-smoke.mjs                 # nav + custGeom + OLE + prstGeom + 3D-model checks
  *   node scripts/powerpoint-com-smoke.mjs --keep          # ...and keep the generated .pptx files
  *   node scripts/powerpoint-com-smoke.mjs --file deck.pptx # corruption-open check on an existing deck
  *
@@ -55,9 +63,24 @@ import {
 	MODEL3D_LAYOUT_IN,
 	MODEL3D_SHAPE_NAME,
 	MODEL3D_SHAPE_TYPE,
+	PRSTGEOM_CASES,
 } from './com/contract.mjs'
-import { generateGeomDeck, generateModel3dDeck, generateNavDeck, generateOleDeck } from './com/decks.mjs'
-import { buildGeomVbs, buildModel3dVbs, buildNavVbs, buildOleVbs, vbsFooter, vbsOpenHeader } from './com/vbs.mjs'
+import {
+	generateGeomDeck,
+	generateModel3dDeck,
+	generateNavDeck,
+	generateOleDeck,
+	generatePresetGeomDeck,
+} from './com/decks.mjs'
+import {
+	buildGeomVbs,
+	buildModel3dVbs,
+	buildNavVbs,
+	buildOleVbs,
+	buildPresetGeomVbs,
+	vbsFooter,
+	vbsOpenHeader,
+} from './com/vbs.mjs'
 
 // --- args -------------------------------------------------------------------
 const USAGE = `PowerPoint COM smoke — open generated decks in desktop PowerPoint (Windows only).
@@ -326,6 +349,87 @@ async function verifyModel3d(lines) {
 	return failures
 }
 
+/**
+ * Verifier for the preset-geometry deck.
+ *
+ * The claim: a finite adjustment guide outside the preset's own handle range is *inert*. PowerPoint
+ * stores it verbatim -- it neither repairs the package nor rewrites the value on re-save -- and the
+ * preset's guide formula pins it, so the shape it paints is the shape it paints at the bound. That
+ * is why `genXmlPresetGeom` emits a finite adjustment as written instead of clamping it against a
+ * per-preset range table, which lives in the preset shape definitions rather than in ECMA-376 and
+ * would have to be invented here.
+ *
+ * Each `same` pair asserts two exported slides are pixel-identical; each `differs` pair asserts two
+ * are not. The second is the sensitivity check: without it, six slides that failed to render
+ * anything would satisfy every equality in the set.
+ * @param {string[]} lines
+ * @returns {Promise<string[]>}
+ */
+async function verifyPresetGeom(lines) {
+	/** @type {string[]} */
+	const failures = []
+	const exportErr = lines.find((l) => l.startsWith('EXPORT_ERR'))
+	if (exportErr) {
+		failures.push(`preset geometry: slide export failed (${exportErr})`)
+		return failures
+	}
+	/** @type {Map<string, string>} */
+	const pngByLabel = new Map()
+	for (const line of lines) {
+		if (!line.startsWith('PNG')) continue
+		const [, slide, png] = line.split('	')
+		const label = PRSTGEOM_CASES[Number(slide) - 1]?.label
+		if (label && png) pngByLabel.set(label, png)
+	}
+	if (pngByLabel.size !== PRSTGEOM_CASES.length) {
+		failures.push(`preset geometry: exported ${pngByLabel.size} slides, expected ${PRSTGEOM_CASES.length}`)
+		return failures
+	}
+
+	// Each slide's pixels as one comparable string. The shapes are flat fills at identical rects, so
+	// an exact comparison is the right one -- there is no resampling or antialiasing difference to
+	// tolerate between two renders of the same geometry.
+	/** @type {Map<string, string>} */
+	const pixels = new Map()
+	try {
+		for (const [label, png] of pngByLabel) {
+			const img = decodePng(await fs.readFile(png))
+			/** @type {number[]} */
+			const flat = []
+			for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) flat.push(...img.rgb(x, y))
+			pixels.set(label, `${img.w}x${img.h}:` + flat.join(','))
+		}
+	} catch (e) {
+		failures.push(`preset geometry: could not read an exported PNG (${String(e)})`)
+		return failures
+	} finally {
+		if (!KEEP) for (const png of pngByLabel.values()) await fs.rm(png, { force: true })
+	}
+
+	for (const testCase of PRSTGEOM_CASES) {
+		const mine = pixels.get(testCase.label)
+		if (testCase.same) {
+			if (mine !== pixels.get(testCase.same)) {
+				failures.push(
+					`preset geometry: "${testCase.label}" paints differently from "${testCase.same}" — PowerPoint did NOT pin the out-of-range guide, so emitting one verbatim is no longer safe`
+				)
+			} else {
+				console.log(`  OK  ${testCase.label} paints exactly as ${testCase.same}`)
+			}
+		}
+		if (testCase.differs) {
+			if (mine === pixels.get(testCase.differs)) {
+				failures.push(
+					`preset geometry: "${testCase.label}" paints identically to "${testCase.differs}", but they are two different IN-range values — the comparison cannot see a geometry change, so the equalities above prove nothing`
+				)
+			} else {
+				console.log(`  OK  ${testCase.label} paints differently from ${testCase.differs} (comparison is sensitive)`)
+			}
+		}
+	}
+	return failures
+}
+
 // --- 5. orchestrate ---------------------------------------------------------
 async function main() {
 	/** @type {{label:string, file:string, generated:boolean, buildVbs:Function, verify:Function}[]} */
@@ -364,6 +468,16 @@ async function main() {
 		const oleFile = await generateOleDeck()
 		console.log('Generated OLE deck: ' + oleFile)
 		specs.push({ label: 'ole', file: oleFile, generated: true, buildVbs: buildOleVbs, verify: verifyOle })
+
+		const prstGeomFile = await generatePresetGeomDeck()
+		console.log('Generated preset-geometry deck: ' + prstGeomFile)
+		specs.push({
+			label: 'prstgeom',
+			file: prstGeomFile,
+			generated: true,
+			buildVbs: buildPresetGeomVbs,
+			verify: verifyPresetGeom,
+		})
 
 		const model3dFile = await generateModel3dDeck()
 		console.log('Generated 3D-model deck: ' + model3dFile)

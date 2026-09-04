@@ -67,3 +67,30 @@ export const MODEL3D_FRAME_IN = { x: 2, y: 1, w: 4, h: 3 }
  * would move the sampled rectangle off the model and read the slide background as "not drawn".
  */
 export const MODEL3D_LAYOUT_IN = { w: 10, h: 5.625 }
+
+/**
+ * The preset-geometry deck. Each row is one slide: a shape drawn at {@link PRSTGEOM_FRAME_IN}
+ * with one adjustment guide driven to `adj`, in the raw 1/100000 units `<a:gd fmla="val N">`
+ * carries. `same` names the slide whose exported pixels this one must match.
+ *
+ * The claim under test is that an out-of-range guide is *inert*, not corrupting: the preset's own
+ * formula pins it, so PowerPoint paints the same shape it paints at the bound. That is the whole
+ * reason this library emits a finite adjustment verbatim instead of clamping it against a
+ * per-preset range table it would have to invent -- see `gen/drawingml/geometry.ts`.
+ *
+ * The third row of each pair is the sensitivity check and is load-bearing: it is an IN-range value,
+ * so it must paint *differently*. Without it a run that exported six identical blank slides would
+ * pass every equality assertion it makes.
+ */
+export const PRSTGEOM_CASES = [
+	{ label: 'roundRect@max', shape: 'roundRect', adj: { adj: 50000 } },
+	{ label: 'roundRect@over', shape: 'roundRect', adj: { adj: 266667 }, same: 'roundRect@max' },
+	{ label: 'roundRect@half', shape: 'roundRect', adj: { adj: 25000 }, differs: 'roundRect@max' },
+	{ label: 'blockArc@max', shape: 'blockArc', adj: { adj1: 0, adj2: 10800000, adj3: 50000 } },
+	{ label: 'blockArc@over', shape: 'blockArc', adj: { adj1: 0, adj2: 10800000, adj3: 5000000 }, same: 'blockArc@max' },
+	{ label: 'blockArc@half', shape: 'blockArc', adj: { adj1: 0, adj2: 10800000, adj3: 25000 }, differs: 'blockArc@max' },
+]
+/** Export size, the shape's rect (inches), and the slide size the deck is built at. */
+export const PRSTGEOM_EXPORT = { w: 960, h: 540 }
+export const PRSTGEOM_FRAME_IN = { x: 1, y: 1, w: 4, h: 3 }
+export const PRSTGEOM_LAYOUT_IN = { w: 10, h: 5.625 }

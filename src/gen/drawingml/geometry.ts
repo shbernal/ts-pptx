@@ -89,6 +89,27 @@ export function assertKnownPreset(shapeName: string): void {
 	)
 }
 
+/**
+ * A finite adjustment guide is emitted verbatim, however far outside the preset's own handle range
+ * it falls. This is a decision, not an omission.
+ *
+ * Each preset defines its handle's bounds in its own geometry definition (the `ahXY`/`ahPolar`
+ * min/max formulas of [MS-ODRAWXML]'s preset shape definitions), and nothing in ECMA-376 states
+ * them -- `a:gd/@fmla` is `xsd:string`, so no schema check can see an out-of-range value either.
+ * Clamping would therefore mean carrying an invented table, and many of those bounds are formulas
+ * over the shape's own width and height rather than constants.
+ *
+ * It would also buy nothing. Desktop PowerPoint stores an out-of-range guide verbatim -- it neither
+ * repairs the package on open nor rewrites the value on re-save -- and the preset's own formula
+ * pins it at render time, so the shape it paints is the shape it paints at the bound. Verified by
+ * exporting the slides to PNG and comparing pixels: `roundRect` at `adj` 50000, 60000 and 266667
+ * rasterize identically, as do `blockArc` at `adj3` 50000 and 5000000, while two *in*-range values
+ * of the same guide do not. `pnpm run test:com` carries that as a standing case.
+ *
+ * What IS refused is a guide PowerPoint cannot evaluate at all: a non-finite value, and a
+ * `rectRadius` with no side to divide by. Those write `val NaN` / `val Infinity`, which is a token
+ * outside the formula grammar rather than a number outside a range.
+ */
 export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
 	assertKnownPreset(shapeName)
 	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
