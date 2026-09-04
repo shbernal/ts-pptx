@@ -99,6 +99,16 @@ const maxWorkers = resolveMaxWorkers()
 // reasoning in full, per remaining arm: test/read/chrome-read-edges.test.js for
 // src/read/api/chrome.ts, and test/read/import-slide-preserve.test.js for
 // src/read/oxml/theme.ts.
+//
+// `src/gen/table/html-dom.ts` is the one module whose thin branch coverage in THIS lane is
+// deliberate rather than owed. Its column-width basis reads a measured `offsetWidth`, which
+// only a real layout engine produces — that arm executes in the Playwright `html-table`
+// project and nowhere else, so no amount of `test/regression/html/` moves the Node lane's
+// number. Judged and left: the merged gate (`pnpm run coverage:gate`) is the one that counts
+// both lanes, and it is where this module's real figure appears. Extracting more of it into
+// DOM-independent helpers is the alternative, and the three that already exist
+// (`resolveHtmlColWidth`, `pickColWidthBasis`, `cssColorToHex`) are the pattern to follow if
+// the measured arm ever grows enough to be worth splitting again.
 export default defineConfig({
 	test: {
 		// `test/browser/**` belongs to Playwright (`playwright.config.ts`, `pnpm run
