@@ -108,6 +108,33 @@ await pptx.writeFile({ fileName: "example.pptx" })
   constructs it could not express reported rather than dropped silently
   ([deck to script](docs/reference/pptx-to-script.md)).
 
+<!-- comparison:start -->
+<!-- GENERATED REGION. Do not edit by hand.
+     Regenerate with `pnpm run comparison:render`.
+     Source: `scripts/comparison/snapshot.json`, written by `scripts/comparison/measure.mjs`. -->
+
+## How This Compares With PptxGenJS
+
+ts-pptx is an independent derivative of
+[PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1. Both were
+measured on 2026-09-04 by building the same 22 deck intents with each library and reading
+the bytes that came out.
+
+- **Construct coverage:** ts-pptx emitted 21 of 22, pptxgenjs 10 of 22. Nothing in the
+  corpus is emitted by pptxgenjs and not by ts-pptx.
+- **Schema validity:** of the decks each library built, 21 of 21 ts-pptx decks and 0 of 10
+  pptxgenjs decks validate with no error against the Open XML SDK.
+- **Adoption:** pptxgenjs is downloaded 11,116,327 times a month, against 2,019 for
+  ts-pptx. If a large installed base matters to you more than the differences above, use
+  pptxgenjs.
+- **Activity:** last commit on the default branch, 2026-09-04 for ts-pptx and 2025-06-26
+  for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
+
+The full tables, the method behind them, and what ts-pptx gives up (no CommonJS, no CDN
+script tag, Node.js `>=24` only) are on the [comparison page](docs/comparison.md).
+
+<!-- comparison:end -->
+
 ## Scope And Contributions
 
 This project is **Node-first**: it generates and is tested without a browser or any

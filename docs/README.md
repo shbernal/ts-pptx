@@ -17,6 +17,8 @@ artifacts.
 ## Start Here
 
 - [Project target](project-target.md): what this project is optimized for.
+- [Comparison with PptxGenJS](comparison.md): what each library emits,
+  validates and costs, measured by running both.
 - [Runtime and package support](runtime-and-package-support.md): supported
   imports, dropped upstream support, and shipped artifacts.
 - [Development guide](development.md): setup, source layout, generated outputs,

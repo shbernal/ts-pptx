@@ -137,6 +137,7 @@
 		"version": "node scripts/sync-version.mjs --stage",
 		"version:sync": "node scripts/sync-version.mjs",
 		"version:check": "node scripts/sync-version.mjs --check",
+		"comparison:render": "node scripts/comparison/render.mjs",
 		"docs:list": "node scripts/docs-list.mjs",
 		"docs:new": "node scripts/docs-new.mjs",
 		"docs:api": "node scripts/docs-api.mjs",
