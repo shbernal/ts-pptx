@@ -142,7 +142,13 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 			raw(voidEl('c:idx', { val: volumeSeries._dataIndex })),
 			raw(voidEl('c:order', { val: volumeSeries._dataIndex })),
 			raw(stockSeriesName(volumeSeries, sheet)),
-			raw(el('c:spPr', null, raw(genXmlColorSelection(chartColors[0] ?? '4472C4')))),
+			raw(
+				el(
+					'c:spPr',
+					null,
+					raw(genXmlColorSelection(opts.seriesOptions?.[volumeSeries._dataIndex]?.color ?? chartColors[0] ?? '4472C4'))
+				)
+			),
 			raw(voidEl('c:invertIfNegative', { val: 0 })),
 			raw(stockCatVal(volumeSeries, opts, valFmtCode, sheet)),
 		])
@@ -163,7 +169,12 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 		.map((obj, idx) => {
 			// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
 			const isClose = !spec.upDownBars && idx === stockSeries.length - 1
-			const markColor = isClose ? paletteColor(chartColors, obj._dataIndex, 'ED7D31') : null
+			// The price series draw no line of their own -- the hi-low lines and up-down bars carry the
+			// visual -- so a `seriesOptions.color` has exactly two referents on a stock chart: the
+			// volume bar above, and the dot that marks the close series where there are no up-down bars.
+			const markColor = isClose
+				? (opts.seriesOptions?.[obj._dataIndex]?.color ?? paletteColor(chartColors, obj._dataIndex, 'ED7D31'))
+				: null
 			return makeStockLineSer(obj, opts, valFmtCode, markColor, sheet)
 		})
 		.join('')

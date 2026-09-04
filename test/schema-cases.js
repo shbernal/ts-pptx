@@ -2747,7 +2747,7 @@ export default [
 						seriesOptions: [
 							{ color: 'FF0000', dataLabelColor: 'FFFFFF', dataLabelFontBold: true, dataLabelFormatCode: '0.00%' },
 							{ color: '00AA00', dataLabelFontSize: 14, dataLabelFontItalic: true },
-							{ lineSize: 0 },
+							{ dataLabelFontFace: 'Courier New' },
 						],
 					}
 				)

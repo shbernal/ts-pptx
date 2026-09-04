@@ -34,7 +34,14 @@ import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
 import type { DiagnosticCode } from '../../codes.js'
 import { InvalidOptionError } from '../../errors.js'
-import type { BorderProps, ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
+import type {
+	BorderProps,
+	ChartMulti,
+	ChartOpts,
+	ChartSeriesOpts,
+	OptsChartData,
+	OptsChartGridLine,
+} from '../../types/index.js'
 import { scrubGridLine } from '../chart/chart-stroke.js'
 import type {
 	ChartMultiInternal,
@@ -362,20 +369,48 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
  * Apply chart-level option defaults: gap/overlap/hole clamps, chart colors, plotArea/chartArea
  * borders and fills, data border, data-label format codes, line size and multi-level cat labels.
  */
+/** The five data-label font fields, which every per-series `<c:dLbls>` builder reads. */
+const SERIES_LABEL_FONT_FIELDS = [
+	'dataLabelColor',
+	'dataLabelFontBold',
+	'dataLabelFontFace',
+	'dataLabelFontItalic',
+	'dataLabelFontSize',
+] as const
+
 /**
- * The chart types whose series builder reads {@link ChartOpts.seriesOptions}.
+ * Which {@link ChartSeriesOpts} fields each plot builder actually reads.
  *
- * The category-axis family, and only it: `makeScatterPlot`, `makeBubblePlot`, `makeStockPlot`,
- * `makeSurfacePlot` and `makePiePlot` all go straight to `paletteColor(...)`. A pie is the one
- * with no referent even in principle -- it colours *points*, not series -- and the rest are a
- * gap rather than a decision.
+ * The check this drives is per FIELD, not per chart type, because "the caller said it and nothing
+ * happened" does not stop at the type boundary: `lineSize` reaches a stroke only where a series
+ * draws one, so it was accepted and dropped on `bar`/`bar3d`/`area` even though those types read
+ * every other field. A stock chart is the extreme of the same shape -- its price series draw no
+ * line by design and its `<c:dLbls>` is a constant, so `color` is the only field with a referent.
+ *
+ * A type absent from this table supports nothing: a pie colours *points* rather than series and a
+ * surface colours bands, so a per-series override has no referent on either even in principle.
+ *
+ * Keep each row in step with the builder named beside it. The rows are the only statement of what
+ * is wired; nothing derives them from the emitters, so a field threaded through a builder without
+ * being added here goes on warning that it does nothing.
  */
-const SERIES_OPTIONS_TYPES: ReadonlySet<ChartType> = new Set([
-	ChartType.area,
-	ChartType.bar,
-	ChartType.bar3d,
-	ChartType.line,
-	ChartType.radar,
+const SERIES_OPTION_FIELDS: ReadonlyMap<ChartType, ReadonlySet<keyof ChartSeriesOpts>> = new Map([
+	// `makeCatAxisPlot`: `serShapeProps` + `serDataLabels`. `lineSize` reaches `seriesStroke` only
+	// for the two line-like types; a bar or an area takes its outline from `dataBorder` instead.
+	[ChartType.area, new Set(['color', ...SERIES_LABEL_FONT_FIELDS, 'dataLabelFormatCode'] as const)],
+	[ChartType.bar, new Set(['color', ...SERIES_LABEL_FONT_FIELDS, 'dataLabelFormatCode'] as const)],
+	[ChartType.bar3d, new Set(['color', ...SERIES_LABEL_FONT_FIELDS, 'dataLabelFormatCode'] as const)],
+	[ChartType.line, new Set(['color', 'lineSize', ...SERIES_LABEL_FONT_FIELDS, 'dataLabelFormatCode'] as const)],
+	[ChartType.radar, new Set(['color', 'lineSize', ...SERIES_LABEL_FONT_FIELDS, 'dataLabelFormatCode'] as const)],
+	// `makeScatterPlot`: `scatterSerShapeProps`, plus `labelFontAttrs`/`labelFontChildren` inside
+	// both label builders. Neither emits a `<c:numFmt>`, so `dataLabelFormatCode` has no referent.
+	[ChartType.scatter, new Set(['color', 'lineSize', ...SERIES_LABEL_FONT_FIELDS] as const)],
+	// `makeBubblePlot`: `bubbleSerShapeProps`. Its `<c:dLbls>` is one chart-level block, not one
+	// per series, so no data-label field can be resolved per series.
+	[ChartType.bubble, new Set(['color', 'lineSize'] as const)],
+	[ChartType.bubble3d, new Set(['color', 'lineSize'] as const)],
+	// `makeStockPlot`: the volume bar's fill and the close-series marker.
+	[ChartType.stock, new Set(['color'] as const)],
 ])
 
 function normalizeChartOptions(options: ChartOptsInternal): void {
@@ -739,22 +774,29 @@ export function addChartDefinition(
 	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
 	normalizeChartOptions(options)
 
-	// D.1: `seriesOptions` is read only by the category-axis plot family, which is a fact about
-	// this library rather than about the format -- and a documented chart-wide option that does
-	// nothing on six of the eleven classic types, silently, is the third state the option rules
-	// forbid: "the caller said it and nothing happened". Saying so is the decision; threading it
-	// through the remaining builders is a separate change, and one that has a question to settle
-	// first (a scatter's `data[0]` is the shared X row, so it is not obvious which series
-	// `seriesOptions[0]` names).
+	// D.1: A stated `seriesOptions` field that no plot builder reads is the third state the option
+	// rules forbid -- "the caller said it and nothing happened" -- so each one is named against the
+	// type that will drop it. The check is per field because the gaps are per field: a `lineSize` on
+	// a bar series and a `dataLabelFormatCode` on a scatter series are both accepted by the type and
+	// reach nothing in the part.
 	if (options.seriesOptions?.length) {
-		const unsupported = (Array.isArray(options._type) ? options._type.map((sub) => sub.type) : [options._type])
-			.map((name) => asChartType(name))
-			.filter((name) => !SERIES_OPTIONS_TYPES.has(name))
-		if (unsupported.length > 0) {
-			warn(
-				'chart/option-not-supported',
-				`"seriesOptions" has no effect on ${[...new Set(unsupported)].join('/')}; it is read by ${[...SERIES_OPTIONS_TYPES].join('/')} only. Style those series through the chart-level options.`
+		const types = (Array.isArray(options._type) ? options._type.map((sub) => sub.type) : [options._type]).map((name) =>
+			asChartType(name)
+		)
+		const stated = new Set(
+			options.seriesOptions.flatMap((entry) =>
+				entry ? (Object.keys(entry) as Array<keyof ChartSeriesOpts>).filter((key) => entry[key] !== undefined) : []
 			)
+		)
+		for (const type of new Set(types)) {
+			const supported = SERIES_OPTION_FIELDS.get(type)
+			const dropped = [...stated].filter((field) => !supported?.has(field)).sort()
+			if (dropped.length > 0) {
+				warn(
+					'chart/option-not-supported',
+					`"seriesOptions" ${dropped.map((field) => `\`${field}\``).join(', ')} ${dropped.length === 1 ? 'has' : 'have'} no effect on ${type}; ${supported ? `that plot reads ${[...supported].sort().join('/')} only` : 'that plot colours points or bands rather than series'}. Style them through the chart-level options.`
+				)
+			}
 		}
 	}
 

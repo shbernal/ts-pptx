@@ -7,6 +7,7 @@
  */
 
 import { ChartType } from '../../enums.js'
+import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { createLineCap } from '../drawingml/line.js'
 import { categoryRange, dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
@@ -39,11 +40,13 @@ import {
  * and silently dropped for bubble charts alone; it is visible here, because a bubble outline
  * carries `lineDash` and a cap shapes the end of every dash.
  */
-function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
+function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number, lineSize?: number): string {
+	// A stated `lineSize: 0` is "no outline", and it beats `dataBorder` for the same reason the
+	// chart-level one does: the caller asked for no line, and a border is a line.
 	const line =
-		opts.lineSize !== 0 && opts.dataBorder
+		(lineSize ?? opts.lineSize) !== 0 && opts.dataBorder
 			? createDataBorderLine(opts.dataBorder, createLineCap(opts.lineCap))
-			: seriesStroke(opts, serColor, serIndex)
+			: seriesStroke(opts, serColor, serIndex, lineSize)
 	return seriesShapeProps(opts, serColor, line)
 }
 
@@ -101,7 +104,10 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 		.slice(1)
 		.map((obj, idx) => {
 			const name = strRefBlock(sheetCellRef(idxColLtr + 1, 1), obj.name ?? '')
-			const spPr = bubbleSerShapeProps(opts, paletteColor(chartColors, idx), idx)
+			// `idx` counts the value series, so it is this series' own `<c:idx>` -- the index
+			// `seriesOptions` is documented against. `data[0]` is the shared X row, not a series.
+			const over: ChartSeriesOpts | undefined = opts.seriesOptions?.[idx]
+			const spPr = bubbleSerShapeProps(opts, over?.color ?? paletteColor(chartColors, idx), idx, over?.lineSize)
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.
 			const yValues = dataValues(obj)

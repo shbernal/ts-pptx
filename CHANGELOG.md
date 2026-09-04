@@ -589,6 +589,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`seriesOptions` reaches the XY and stock plots, and says which fields it cannot.** The
+  option was read by the category-axis family alone, so `scatter`, `bubble`, `bubble3d` and
+  `stock` took their series colours straight from the palette. All four now read it:
+  `color` and `lineSize` on the XY plots, plus the per-series data-label font on `scatter`,
+  whose label builders run inside the series loop; `color` on `stock`, where it paints the
+  volume bar and the close marker.
+
+  The index is stated rather than left to inference. `seriesOptions[N]` is the **Nth series
+  of the chart** -- the number the series carries in `<c:idx>`/`<c:order>` -- so a scatter's
+  `seriesOptions[0]` styles `data[1]`, the first Y series, because `data[0]` is the shared X
+  row and is not a series at all.
+
+  The `chart/option-not-supported` warning is now per *field* rather than per chart type,
+  because the gaps are per field: `lineSize` reached a stroke only on a series that draws
+  one, so it was accepted and dropped on `bar`, `bar3d` and `area` while every other field on
+  the same bag worked. `pie`, `doughnut` and `surface` still warn on everything -- a pie
+  colours points and a surface colours bands, so a per-series override has no referent.
+
 - **A combo chart restarted the colour palette in every subchart.** Each subchart's series
   builder looked its colour up by the series' position *within that subchart*, so a
   bar(2) + line(1) combo painted the line with palette entry 0 -- the same colour as the

@@ -446,31 +446,87 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
-		name: 'seriesOptions on a chart type that does not read it warns rather than doing nothing',
+		name: 'seriesOptions on a chart type that colours points, not series, warns rather than doing nothing',
 		fn: async () => {
-			// A documented chart-wide option honoured by one plot family: `scatter`, `bubble`,
-			// `bubble3d`, `pie`, `doughnut`, `stock` and `surface` build their series colours
-			// straight from the palette and never look at it. "The caller said it and nothing
-			// happened" is the state the option rules forbid.
-			const { codes } = await captureDiagnostics(() =>
+			// A pie colours *points* and a surface colours bands, so a per-series override has no
+			// referent on either even in principle. "The caller said it and nothing happened" is the
+			// state the option rules forbid.
+			const { codes, messages } = await captureDiagnostics(() =>
 				build((p) => {
 					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.pie, seriesOptions: [{ color: 'FF0000' }] })
 				})
 			)
 			assertIncludes(codes, 'chart/option-not-supported')
+			assert(
+				messages.some((m) => m.includes('`color`')),
+				'the warning names the field that will be dropped; got ' + JSON.stringify(messages)
+			)
 		},
 	},
 	{
-		name: 'and stays quiet on the family that does read it',
+		name: 'and stays quiet on the plots that do read it',
 		fn: async () => {
-			const { codes } = await captureDiagnostics(() =>
+			for (const type of [
+				ChartType.bar,
+				ChartType.line,
+				ChartType.radar,
+				ChartType.area,
+				ChartType.scatter,
+				ChartType.bubble,
+			]) {
+				const { codes } = await captureDiagnostics(() =>
+					build((p) => {
+						p.addSlide().addChart(SERIES, { ...BASE, type, seriesOptions: [{ color: 'FF0000' }] })
+					})
+				)
+				assert(
+					!codes.includes('chart/option-not-supported'),
+					`${type} reads seriesOptions.color; got ` + JSON.stringify(codes)
+				)
+			}
+		},
+	},
+	{
+		// The warning is per FIELD, not per chart type: a type that reads `color` can still drop
+		// `lineSize`, because a bar series takes its outline from `dataBorder` and never reaches
+		// `seriesStroke`. Type-level checking called this supported and dropped it in silence.
+		name: 'a field the plot cannot resolve warns even when the type reads seriesOptions',
+		fn: async () => {
+			const { codes, messages } = await captureDiagnostics(() =>
 				build((p) => {
-					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, seriesOptions: [{ color: 'FF0000' }] })
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.bar,
+						seriesOptions: [{ color: 'FF0000', lineSize: 3 }],
+					})
 				})
 			)
+			assertIncludes(codes, 'chart/option-not-supported')
 			assert(
-				!codes.includes('chart/option-not-supported'),
-				'a bar chart reads seriesOptions; got ' + JSON.stringify(codes)
+				messages.some((m) => m.includes('`lineSize`') && !m.includes('`color`')),
+				'only `lineSize` should be reported as dropped; got ' + JSON.stringify(messages)
+			)
+		},
+	},
+	{
+		// A stock chart's price series draw no line by design and its `<c:dLbls>` is a constant, so
+		// `color` is the one field with a referent -- and it has two: the volume bar and the close
+		// marker.
+		name: 'a stock chart reads only the colour of a series override',
+		fn: async () => {
+			const { codes, messages } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.stock,
+						seriesOptions: [{ color: 'FF0000', dataLabelFontSize: 9 }],
+					})
+				})
+			)
+			assertIncludes(codes, 'chart/option-not-supported')
+			assert(
+				messages.some((m) => m.includes('`dataLabelFontSize`') && !m.includes('`color`')),
+				'only the data-label field should be reported as dropped; got ' + JSON.stringify(messages)
 			)
 		},
 	},

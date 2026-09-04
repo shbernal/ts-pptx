@@ -335,10 +335,19 @@ export interface ChartPropsBase {
 	 * it counts across every subchart in order, so a bar(2) + line(1) combo reaches the line at
 	 * index 2. Missing indices or unset fields fall back to the chart-level option.
 	 *
-	 * **Read by `bar`, `bar3d`, `line`, `area` and `radar` only.** The other classic plots build
-	 * their series colours straight from the palette, and a pie has no referent for a *series*
-	 * override at all -- it colours points. Setting it on any of them warns
-	 * (`chart/option-not-supported`) and changes nothing.
+	 * **Not every field reaches every plot**, and a stated field that cannot be resolved warns
+	 * (`chart/option-not-supported`) naming itself rather than being dropped in silence:
+	 *
+	 * - `color` reaches every plot that colours *series*: `bar`, `bar3d`, `area`, `line`, `radar`,
+	 *   `scatter`, `bubble`, `bubble3d`, and (as the volume bar and the close marker) `stock`.
+	 * - `lineSize` reaches only a series that strokes itself: `line`, `radar`, `scatter`, `bubble`
+	 *   and `bubble3d`. A bar or an area takes its outline from `dataBorder`; a stock price series
+	 *   draws no line at all.
+	 * - the `dataLabel*` fields need a per-series `<c:dLbls>`, which the category-axis family and
+	 *   `scatter` emit. A bubble chart's label block is chart-level, and `dataLabelFormatCode` in
+	 *   particular has no referent on `scatter`, whose label builders emit no number format.
+	 * - `pie`, `doughnut` and `surface` read nothing: a pie colours points and a surface colours
+	 *   bands, so a per-*series* override has no referent even in principle.
 	 */
 	seriesOptions?: ChartSeriesOpts[]
 }

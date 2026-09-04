@@ -9,6 +9,7 @@
  */
 
 import { BARCHART_COLORS } from '../../constants-internal.js'
+import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
 import { categoryRange, dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
@@ -81,18 +82,23 @@ function scatterCustomLabel(
 	opts: ChartOptsInternal,
 	label: string,
 	idx: number,
-	chartUuid: string
+	chartUuid: string,
+	over?: ChartSeriesOpts
 ): string {
 	const rich = el('c:rich', null, [
 		raw(el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null)))),
 		raw(voidEl('a:lstStyle', null)),
 		raw(
 			el('a:p', null, [
-				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))))),
+				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts, over), labelFontChildren(opts, over))))),
 				raw(
 					el('a:r', null, [
 						raw(
-							el('a:rPr', { lang: opts.lang || 'en-US', ...labelFontAttrs(opts), dirty: 0 }, labelFontChildren(opts))
+							el(
+								'a:rPr',
+								{ lang: opts.lang || 'en-US', ...labelFontAttrs(opts, over), dirty: 0 },
+								labelFontChildren(opts, over)
+							)
 						),
 						raw(el('a:t', null, label)),
 					])
@@ -137,14 +143,14 @@ function scatterCustomLabel(
 	)
 }
 
-/** The single chart-level `<c:dLbls>` of the `XY` label format: PowerPoint composes the text. */
-function scatterXYLabels(opts: ChartOptsInternal): string {
+/** The per-series `<c:dLbls>` of the `XY` label format: PowerPoint composes the text. */
+function scatterXYLabels(opts: ChartOptsInternal, over?: ChartSeriesOpts): string {
 	const txPr = el('c:txPr', null, [
 		raw(el('a:bodyPr', null, raw(voidEl('a:spAutoFit', null)))),
 		raw(voidEl('a:lstStyle', null)),
 		raw(
 			el('a:p', null, [
-				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))))),
+				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts, over), labelFontChildren(opts, over))))),
 				raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' })),
 			])
 		),
@@ -177,8 +183,8 @@ function scatterXYLabels(opts: ChartOptsInternal): string {
 }
 
 /** Fill, outline and shadow for one scatter series. */
-function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number): string {
-	return seriesShapeProps(opts, serColor, seriesStroke(opts, serColor, serIndex))
+function scatterSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex: number, lineSize?: number): string {
+	return seriesShapeProps(opts, serColor, seriesStroke(opts, serColor, serIndex, lineSize))
 }
 
 /**
@@ -208,7 +214,11 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 	const sers = data
 		.slice(1)
 		.map((obj, idx) => {
-			const serColor = paletteColor(chartColors, idx)
+			// `idx` counts the Y series, so it is this series' own `<c:idx>` -- which is the index
+			// `seriesOptions` is documented against. `data[0]` is the shared X row and is not a series,
+			// so it has no entry: `seriesOptions[0]` styles the FIRST Y series, `data[1]`.
+			const over = opts.seriesOptions?.[idx]
+			const serColor = over?.color ?? paletteColor(chartColors, idx)
 			const yValues = dataValues(obj)
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.
@@ -233,19 +243,19 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 						null,
 						raw(
 							firstLabelGroup(obj)
-								.map((label, pointIdx) => scatterCustomLabel(obj, opts, label, pointIdx, chartUuid))
+								.map((label, pointIdx) => scatterCustomLabel(obj, opts, label, pointIdx, chartUuid, over))
 								.join('')
 						)
 					)
 				}
-				if (opts.dataLabelFormatScatter === 'XY') labels += scatterXYLabels(opts)
+				if (opts.dataLabelFormatScatter === 'XY') labels += scatterXYLabels(opts, over)
 			}
 
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: idx })),
 				raw(voidEl('c:order', { val: idx })),
 				raw(strRefBlock(sheetCellRef(idx + 2, 1), obj.name ?? '')),
-				raw(scatterSerShapeProps(opts, serColor, idx)),
+				raw(scatterSerShapeProps(opts, serColor, idx, over?.lineSize)),
 				raw(serMarker(opts, serColor, serColor)),
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` (CT_ScatterSer schema order).
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, scatterVaryColors)),

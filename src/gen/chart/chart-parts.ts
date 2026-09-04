@@ -81,13 +81,17 @@ export function dLblShowFlags(flags: {
  * right to want one; but merging them moves bytes in a refactor whose whole claim is that it
  * does not, and the byte-identity gate is what makes that claim checkable. Unifying the
  * spelling is a decision to take on its own, with its own re-baseline.
+ *
+ * `over` layers a series' own `seriesOptions` entry on top with `??`, leaving the chart-level
+ * reading below it exactly as it was — a series that states nothing produces the same bytes.
  * @param opts - the chart's normalized options
+ * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
-export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string | number> {
+export function labelFontAttrs(opts: ChartOptsInternal, over?: ChartSeriesOpts): Record<string, string | number> {
 	return {
-		sz: clampFontSizeSz(opts.dataLabelFontSize || DEF_FONT_SIZE, 'dataLabelFontSize'),
-		b: xsdBool(opts.dataLabelFontBold),
-		i: xsdBool(opts.dataLabelFontItalic),
+		sz: clampFontSizeSz(over?.dataLabelFontSize ?? (opts.dataLabelFontSize || DEF_FONT_SIZE), 'dataLabelFontSize'),
+		b: xsdBool(over?.dataLabelFontBold ?? opts.dataLabelFontBold),
+		i: xsdBool(over?.dataLabelFontItalic ?? opts.dataLabelFontItalic),
 		u: 'none',
 		strike: 'noStrike',
 	}
@@ -96,11 +100,14 @@ export function labelFontAttrs(opts: ChartOptsInternal): Record<string, string |
 /**
  * The colour and typeface children of those run properties.
  * @param opts - the chart's normalized options
+ * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
-export function labelFontChildren(opts: ChartOptsInternal): XmlChild[] {
+export function labelFontChildren(opts: ChartOptsInternal, over?: ChartSeriesOpts): XmlChild[] {
 	return [
-		raw(el('a:solidFill', null, raw(createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)))),
-		raw(createChartTextFonts(opts.dataLabelFontFace || 'Arial')),
+		raw(
+			el('a:solidFill', null, raw(createColorElement(over?.dataLabelColor ?? (opts.dataLabelColor || DEF_FONT_COLOR))))
+		),
+		raw(createChartTextFonts(over?.dataLabelFontFace ?? (opts.dataLabelFontFace || 'Arial'))),
 	]
 }
 
