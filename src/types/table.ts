@@ -3,7 +3,7 @@
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
+import type { SHAPE_NAME, TableStyle } from '../enums.js'
 import type { BevelPresetType, LightRigDirection, LightRigType, PresetMaterialType } from '../ooxml/st-enums.js'
 import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
@@ -35,7 +35,6 @@ export interface TableToSlidesDocument {
 }
 
 export interface TableToSlidesProps extends TableProps {
-	_arrObjTabHeadRows?: TableRow[]
 	// _masterSlide?: SlideLayout
 
 	/**
@@ -297,8 +296,6 @@ export interface TableCellProps extends TextBaseProps {
 	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
 }
 export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProps {
-	_arrObjTabHeadRows?: TableRow[]
-
 	/**
 	 * Name of a table/content placeholder defined on the slide layout/master to bind this table to.
 	 * - when it matches a layout/master placeholder, the table's `<p:graphicFrame>` emits that
@@ -635,18 +632,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	verbose?: boolean
 }
 export interface TableCell {
-	_type?: SlideObjectType.tablecell
-	/** lines in this cell (autoPage) */
-	_lines?: TableCell[][]
-	/** height in EMU */
-	_lineHeight?: number
-	_hmerge?: boolean
-	_vmerge?: boolean
-	_rowContinue?: number
-	/** origin cell of a colspan/rowspan span, set on the dummy `_hmerge`/`_vmerge` cells so they can
-	 * inherit the origin's border/fill and render the merged region's outer edges */
-	_spanOrigin?: TableCell
-
 	/**
 	 * Cell content: a plain string, or an array of `TableCell` runs for mixed formatting.
 	 * (A `number` is still coerced to a string at runtime for plain-JS callers, but is no

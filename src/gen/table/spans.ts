@@ -15,7 +15,7 @@
  * on out-of-range input rather than emit a degenerate result.
  */
 
-import type { TableCell } from '../../types/index.js'
+import type { TableCellInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 
 /**
@@ -80,7 +80,7 @@ export function resolveSpan(value: unknown, kind: 'colspan' | 'rowspan'): number
  * @param rows - the rows to check; row arrays are never mutated
  * @returns the same rows with only the offending cells replaced
  */
-export function withCheckedSpans(rows: TableCell[][]): TableCell[][] {
+export function withCheckedSpans(rows: TableCellInternal[][]): TableCellInternal[][] {
 	return rows.map((cells) =>
 		cells.map((cell) => {
 			const opts = cell?.options
@@ -114,7 +114,7 @@ export function withCheckedSpans(rows: TableCell[][]): TableCell[][] {
  * the whole table — and serialized every cell on every `addTable` to ask.
  * @param rows - the table's rows
  */
-export function tableHasHyperlink(rows: TableCell[][]): boolean {
+export function tableHasHyperlink(rows: TableCellInternal[][]): boolean {
 	return rows.some((cells) =>
 		cells.some((cell) => {
 			if (!cell) return false

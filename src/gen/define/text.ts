@@ -9,8 +9,8 @@
 import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../enums.js'
 import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
+import type { ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
+import type { ObjectOptionsInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, nextMediaTarget } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
@@ -60,13 +60,13 @@ export function addTextDefinition(
 	// Nested option objects the caller supplies (`bullet`, `shadow`, `fill`) are deliberately still
 	// shared: `bullet._rId` and the image fill's rel id are registered through those references and
 	// read back at emit time, and auto-paging relies on a cloned text object reaching the same bullet.
-	const owned = new Map<TextPropsOptions, ObjectOptions>()
+	const owned = new Map<TextPropsOptions, ObjectOptionsInternal>()
 	/** Copy a caller-supplied options object once, returning the same copy for the same input. */
-	const own = (source?: TextPropsOptions): ObjectOptions => {
+	const own = (source?: TextPropsOptions): ObjectOptionsInternal => {
 		if (!source) return {}
 		const already = owned.get(source)
 		if (already) return already
-		const copy: ObjectOptions = { ...source }
+		const copy: ObjectOptionsInternal = { ...source }
 		owned.set(source, copy)
 		return copy
 	}
@@ -75,7 +75,7 @@ export function addTextDefinition(
 		...item,
 		options: own(item.options),
 	}))
-	const objectOptions: ObjectOptions = own(opts)
+	const objectOptions: ObjectOptionsInternal = own(opts)
 	const newObject: SlideObject = {
 		_type: isPlaceholder ? SlideObjectType.placeholder : SlideObjectType.text,
 		shape: opts.shape || ShapeType.rect,
@@ -85,7 +85,7 @@ export function addTextDefinition(
 	// One index for the whole text object, taken here rather than inside `cleanOpts` — that runs once
 	// for the object and again for every run, so naming from inside it would burn an index per run.
 
-	function cleanOpts(itemOpts: ObjectOptions): TextPropsOptions {
+	function cleanOpts(itemOpts: ObjectOptionsInternal): TextPropsOptions {
 		// STEP 1: Set some options
 		{
 			// A.1: Color (placeholders should inherit their colors or override them, so don't default them)
@@ -304,12 +304,12 @@ export function addTextDefinition(
  * needs the same media-rel + package-part plumbing as `addImage()`. The assigned `rId` is stored on
  * the bullet options object (`_rId`) so XML generation can reference it.
  * @param {PresSlideInternal} target - slide receiving the rels
- * @param {ObjectOptions} objectOptions - shape-level text options (bullet may live here)
+ * @param objectOptions - shape-level text options (bullet may live here)
  * @param {TextProps[]} textObjects - per-paragraph text options (bullet may live here too)
  */
 function createBulletImageRels(
 	target: PresSlideInternal,
-	objectOptions: ObjectOptions,
+	objectOptions: ObjectOptionsInternal,
 	textObjects: TextProps[]
 ): void {
 	// Collect every bullet options object that requests a picture bullet (shape-level + per-paragraph).

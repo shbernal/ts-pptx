@@ -11,8 +11,8 @@ import { CRLF } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { TEXT_SHAPE_TYPES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
-import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { SlideObject } from '../../types/internal.js'
+import type { ObjectOptions, TextProps, TextPropsOptions } from '../../types/index.js'
+import type { SlideObject, TableCellInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { TEXT_ANCHOR_BY_VALIGN, type TextAnchorToken } from '../../ooxml/text-anchor.js'
 import {
@@ -27,10 +27,10 @@ const PLACEHOLDER_TYPE_MAP = PlaceholderType as Record<string, string>
 
 /**
  * Builds `<a:bodyPr></a:bodyPr>` tag for "genXmlTextBody()"
- * @param {SlideObject | TableCell} slideObject - various options
+ * @param {SlideObject | TableCellInternal} slideObject - various options
  * @return {string} XML string
  */
-function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
+function genXmlBodyProperties(slideObject: SlideObject | TableCellInternal): string {
 	// A table cell always emits bare body properties, whatever else is configured. (This used to be
 	// a ternary on the return, which built the full element first and then threw it away.)
 	if (slideObject._type === SlideObjectType.tablecell) return voidEl('a:bodyPr')
@@ -145,7 +145,7 @@ export function objectHasMath(slideObj: SlideObject): boolean {
 
 /**
  * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
- * @param {SlideObject|TableCell} slideObj - slideObj or tableCell
+ * @param {SlideObject|TableCellInternal} slideObj - slideObj or tableCell
  * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
  * @note Bullets are a paragragh-level formatting device
  * @template
@@ -165,7 +165,7 @@ export function objectHasMath(slideObj: SlideObject): boolean {
  *    </p:txBody>
  * @returns XML containing the param object's text and formatting
  */
-export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
+export function genXmlTextBody(slideObj: SlideObject | TableCellInternal): string {
 	const opts: ObjectOptions = slideObj.options || {}
 	let tmpTextObjects: TextProps[] = []
 	const arrTextObjects: RunProps[] = []
@@ -224,10 +224,10 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		tmpTextObjects.push(textObject)
 	} else if (Array.isArray(slideObj.text)) {
 		// Handle cases 4,5,6
-		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
+		// NOTE: use cast as text is TextProps[]|TableCellInternal[] and their `options` dont overlap (they share the same TextBaseProps though)
 		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
 		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => {
-			// Projected key by key rather than spread: the array may really be `TableCell[]` (see
+			// Projected key by key rather than spread: the array may really be `TableCellInternal[]` (see
 			// the cast note above), and only these four belong on a `TextProps`. A key the item
 			// does not have stays off the projection rather than arriving as an `undefined`.
 			const projected: TextProps = {}

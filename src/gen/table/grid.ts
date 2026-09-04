@@ -13,7 +13,7 @@
  * reaching into `gen/table/` for the span reader it is built on.
  */
 
-import type { TableCell } from '../../types/index.js'
+import type { TableCellInternal } from '../../types/internal.js'
 import { resolveSpan } from './spans.js'
 
 /**
@@ -24,14 +24,14 @@ import { resolveSpan } from './spans.js'
  * later row wider than the first is ragged input, and the grid it is measured, paged and
  * emitted against is the one `a:tblGrid` declares.
  */
-export function tableColCount(rows: TableCell[][]): number {
+export function tableColCount(rows: TableCellInternal[][]): number {
 	const first = rows[0]
 	return first ? first.reduce((n, c) => n + resolveSpan(c?.options?.colspan, 'colspan'), 0) : 0
 }
 
 /** A placed (non-merged origin) cell yielded by {@link walkTableGrid}. */
 export interface GridPlacement {
-	cell: TableCell
+	cell: TableCellInternal
 	/** Zero-based grid row of the cell's top-left origin. */
 	row: number
 	/** Zero-based grid column of the cell's top-left origin. */
@@ -49,7 +49,7 @@ export interface GridPlacement {
  * the single traversal shared by the measured-fit shrink pass and
  * {@link computeTableLayout}, so cell placement cannot drift between them.
  */
-export function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<GridPlacement> {
+export function* walkTableGrid(rows: TableCellInternal[][], numCols: number): Generator<GridPlacement> {
 	// occupied[c] = rows still covered by a rowspan started above (incl. current row).
 	const occupied = new Array<number>(numCols).fill(0)
 	for (let r = 0; r < rows.length; r++) {

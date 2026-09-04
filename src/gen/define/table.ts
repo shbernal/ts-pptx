@@ -2,7 +2,7 @@
  * ts-pptx: Table Definition
  *
  * `addTableDefinition` applies the `headerRow` / `columns` sugar, normalizes rows into
- * fully-resolved `TableCell`s (incl. 4-side borders), computes width, and — when `autoPage` is
+ * fully-resolved `TableCellInternal`s (incl. 4-side borders), computes width, and — when `autoPage` is
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
 import { SlideObjectType } from '../../enums.js'
@@ -14,12 +14,16 @@ import type {
 	FillOption,
 	PresLayout,
 	ShapeFillProps,
-	TableCell,
 	TableCellProps,
 	TableProps,
 	TableRow,
 } from '../../types/index.js'
-import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
+import type {
+	PresSlideInternal,
+	SlideLayoutInternal,
+	TableCellInternal,
+	TablePropsInternal,
+} from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { tableHasHyperlink, withCheckedSpans } from '../table/spans.js'
 import {
@@ -99,7 +103,7 @@ function normalizeOuterBorder(outer: TableProps['outerBorder']): OuterBorderTupl
  * formatting into per-cell options so it flows through the normal cell pipeline. Sets
  * `opt.hasHeader` when `headerRow` implies it. Returns the (possibly shallow-copied) rows.
  */
-function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): TableRow[] {
+function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TablePropsInternal): TableRow[] {
 	const hdr = opt.headerRow && typeof opt.headerRow === 'object' ? opt.headerRow : undefined
 	const cols = Array.isArray(opt.columns) && opt.columns.length ? opt.columns : undefined
 	let srcRows: TableRow[] = tableRows
@@ -111,8 +115,8 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): Ta
 			// alone is a cheaper positional map. Skip untouched body rows to avoid needless copies.
 			if (!cols && rowIdx !== 0) return row
 			let colCursor = 0
-			return row.map((cell: number | string | TableCell): TableCell => {
-				const cellObj: TableCell =
+			return row.map((cell: number | string | TableCellInternal): TableCellInternal => {
+				const cellObj: TableCellInternal =
 					typeof cell === 'string' || typeof cell === 'number'
 						? { text: String(cell), options: {} }
 						: { ...cell, options: { ...cell.options } }
@@ -131,19 +135,19 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): Ta
 }
 
 /**
- * Transform loosely-typed table rows (strings / numbers / TableCell) into a grid of
- * well-formed TableCell objects with fully-resolved 4-side cell borders.
+ * Transform loosely-typed table rows (strings / numbers / TableCellInternal) into a grid of
+ * well-formed TableCellInternal objects with fully-resolved 4-side cell borders.
  *
  * @param srcRows - the rows as authored, after the `headerRow`/`columns` sugar
  * @param opt - the table's options
  */
-function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][] {
-	const arrRows: TableCell[][] = []
+function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): TableCellInternal[][] {
+	const arrRows: TableCellInternal[][] = []
 	srcRows.forEach((row, idx) => {
-		const newRow: TableCell[] = []
+		const newRow: TableCellInternal[] = []
 
 		if (Array.isArray(row)) {
-			row.forEach((cell: number | string | TableCell) => {
+			row.forEach((cell: number | string | TableCellInternal) => {
 				// A: the cell's options, COPIED. `addTableDefinition` takes ownership of the table
 				// options for exactly this reason and left the per-cell ones aliased, so everything
 				// below — the border completion here, the hyperlink `_rId` the definer stamps later,
@@ -151,7 +155,7 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				// object. A `rows` literal reused across two tables therefore came out styled by the
 				// first table both times, and came back holding keys the caller never wrote.
 				const newCellOptions: TableCellProps = typeof cell === 'object' && cell.options ? { ...cell.options } : {}
-				const newCell: TableCell = {
+				const newCell: TableCellInternal = {
 					_type: SlideObjectType.tablecell,
 					text: '',
 					options: newCellOptions,
@@ -281,7 +285,11 @@ function resolveHeaderRowCount(value: number | undefined, rowCount: number): num
 	return 1
 }
 
-function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][], opt: TableProps): void {
+function registerTableImageFills(
+	target: PresSlideInternal,
+	rows: TableCellInternal[][],
+	opt: TablePropsInternal
+): void {
 	const seen = new Set<ShapeFillProps>()
 	const register = (fill: FillOption | undefined): void => {
 		// `type:'image'` and a bare `image:{…}` are both accepted, mirroring the shape path.
@@ -326,7 +334,7 @@ export function addTableDefinition(
 	// `border` is copied because the array normalization below writes `withBorderDefaults` results
 	// back into its slots; `fill` and the cell-level objects stay shared by reference, since rel ids
 	// are registered through them and read back at emit time.
-	const opt: TableProps = options && typeof options === 'object' ? { ...options } : {}
+	const opt: TablePropsInternal = options && typeof options === 'object' ? { ...options } : {}
 	if (Array.isArray(opt.border)) opt.border = [...opt.border] as typeof opt.border
 	// Through `nextObjectNameIdx` like every other definer. This counted the tables already in
 	// `_slideObjects` instead — the derivation `object-name.ts` documents as having been replaced,
@@ -384,7 +392,7 @@ export function addTableDefinition(
 	// `tableRows` array is not mutated — only affected rows (and their cells) are shallow-copied.
 	const srcRows = applyTableHeaderColumnSugar(tableRows, opt)
 
-	// STEP 2: Transform `tableRows` into well-formatted TableCell's
+	// STEP 2: Transform `tableRows` into well-formatted TableCellInternal's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
 	// Range-check the spans before anything reads them. Both downstream consumers size an array
 	// from a span — the auto-pager's per-column depth array and the emitter's merge grid — and a
@@ -561,7 +569,7 @@ export function addTableDefinition(
 		}
 	}
 
-	// STEP 5: Loop over cells: transform each to TableCell; check to see whether to unset `autoPage` while here
+	// STEP 5: Loop over cells: transform each to TableCellInternal; check to see whether to unset `autoPage` while here
 	arrRows.forEach((row) => {
 		row.forEach((cell, idy) => {
 			// A: Transform cell data if needed

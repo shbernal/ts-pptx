@@ -4,7 +4,7 @@
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
+import type { CHART_NAME, SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
 import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundOption, Coord, HexColor, Margin, PositionProps } from './core.js'
@@ -50,23 +50,6 @@ export interface GroupProps extends PositionProps, ObjectNameProps {
 	flipV?: boolean
 }
 export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
-	_placeholderIdx?: number
-	_placeholderType?: PLACEHOLDER_TYPE
-	/** Connector adjust-guide values (OOXML 1000ths-of-a-percent), one per bend; emitted as `<a:gd name="adjN">` */
-	_connectorAdj?: number[]
-	/** Connector start-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:stCxn>` at serialize time */
-	_startCxn?: { name: string; idx: number }
-	/** Connector end-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:endCxn>` at serialize time */
-	_endCxn?: { name: string; idx: number }
-	/**
-	 * Image: which dimensions were omitted by the user and should be derived from the image's
-	 * natural pixel size at serialize time. Path-based images can't be measured synchronously in
-	 * `addImage()` (bytes are loaded async during export), so the missing extent is backfilled
-	 * once `_relsMedia[].data` is populated. `{ w, h }` true means "derive this side from the
-	 * natural ratio". Base64 `data` images are measured eagerly in `addImage()` and never set this.
-	 */
-	_szAuto?: { w: boolean; h: boolean }
-
 	cx?: Coord
 	cy?: Coord
 	margin?: Margin

@@ -13,13 +13,13 @@ import { getSmartParseNumber, resolveInsetsEmu as resolveMarginInsetsEmu } from 
 import { BODY_INSET_DEFAULTS_EMU } from '../ooxml/body-insets.js'
 import type { FitBox, FitParagraph, FitRun } from './text-fit.js'
 import { TextAnchor } from '../enums.js'
-import type { ObjectOptions, TextProps, TextPropsOptions } from '../types/index.js'
-import type { SlideObject, PresSlideInternal } from '../types/internal.js'
+import type { TextProps, TextPropsOptions } from '../types/index.js'
+import type { ObjectOptionsInternal, SlideObject, PresSlideInternal } from '../types/internal.js'
 import { pickDefined } from '../options-internal.js'
 
 const CRLF_RE = /\r*\n/g
 
-export type RunOpts = TextPropsOptions & ObjectOptions
+export type RunOpts = TextPropsOptions & ObjectOptionsInternal
 
 /**
  * The two fields a run list is read from, and the whole contract {@link normalizeRuns} and
@@ -27,7 +27,7 @@ export type RunOpts = TextPropsOptions & ObjectOptions
  *
  * Both used to take a full `SlideObject`, which is why both of their table call sites had to
  * write `{ text: cell.text, options: eff } as unknown as SlideObject` — a cell's `text` is
- * `string | TableCell[]` and a slide object's is `TextProps[]`, so nothing weaker than a
+ * `string | TableCellInternal[]` and a slide object's is `TextProps[]`, so nothing weaker than a
  * double cast would fit. Naming the two fields these functions actually read makes a table
  * cell an ordinary argument, and a `SlideObject` still one too.
  *

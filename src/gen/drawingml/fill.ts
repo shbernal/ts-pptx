@@ -16,6 +16,7 @@ import type {
 	ShapeFillProps,
 	ShapeLineProps,
 } from '../../types/index.js'
+import type { ShapeFillPropsInternal } from '../../types/internal.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { clampRangedInput, convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { alphaEl, createColorElement } from './color.js'
@@ -148,10 +149,10 @@ export function genXmlPatternFill(pattern: PatternFillProps | undefined): string
  * Create a native DrawingML picture (image) fill.
  * The media relationship is registered when the object is added; this only emits
  * the `<a:blipFill>` referencing the pre-resolved rId.
- * @param {ShapeFillProps} props fill props (must carry a resolved `_imgRid`)
+ * @param props fill props (must carry a resolved `_imgRid`)
  * @returns XML string
  */
-export function genXmlImageFill(props: ShapeFillProps | undefined): string {
+export function genXmlImageFill(props: ShapeFillPropsInternal | undefined): string {
 	if (!props || typeof props._imgRid !== 'number') {
 		warn(
 			'image-fill/unresolved-media',

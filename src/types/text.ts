@@ -4,7 +4,7 @@
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { AlignH, SHAPE_NAME, TextAnchor } from '../enums.js'
+import type { SHAPE_NAME } from '../enums.js'
 import type {
 	Color,
 	DataOrPathProps,
@@ -20,6 +20,86 @@ import type { TextShapeType } from '../ooxml/st-enums.js'
 import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
 import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
+
+/**
+ * A drawn bullet: the object arm of {@link TextPropsOptions.bullet}.
+ *
+ * Named rather than left inline so a caller can build one as a variable and so the two
+ * relationship ids `addText()` stamps on it have somewhere off the public surface to live
+ * (`TextBulletPropsInternal`).
+ */
+export interface TextBulletProps {
+	/**
+	 * Bullet type
+	 * @default bullet
+	 */
+	type?: 'bullet' | 'number'
+	/**
+	 * Bullet character code (unicode)
+	 * @example '25BA' // 'BLACK RIGHT-POINTING POINTER' (U+25BA)
+	 */
+	characterCode?: string
+	/**
+	 * Bullet glyph font typeface (`<a:buFont/>`), e.g. for symbol-font bullets
+	 * @example 'Wingdings' // render `characterCode` using the Wingdings font
+	 */
+	fontFace?: string
+	/**
+	 * Bullet glyph size as a percentage of the run's text size (25–400)
+	 * @default 100
+	 * @example 80 // bullet glyph is 80% of the text size
+	 */
+	size?: number
+	/**
+	 * Indentation (space between bullet and text) (points)
+	 * @default 27 // DEF_BULLET_MARGIN
+	 * @example 10 // Indents text 10 points from bullet
+	 */
+	indent?: number
+	/**
+	 * Number type
+	 * @example 'romanLcParenR' // roman numerals lower-case with paranthesis right
+	 */
+	numberType?:
+		| 'alphaLcParenBoth'
+		| 'alphaLcParenR'
+		| 'alphaLcPeriod'
+		| 'alphaUcParenBoth'
+		| 'alphaUcParenR'
+		| 'alphaUcPeriod'
+		| 'arabicParenBoth'
+		| 'arabicParenR'
+		| 'arabicPeriod'
+		| 'arabicPlain'
+		| 'romanLcParenBoth'
+		| 'romanLcParenR'
+		| 'romanLcPeriod'
+		| 'romanUcParenBoth'
+		| 'romanUcParenR'
+		| 'romanUcPeriod'
+	/**
+	 * Number bullets start at
+	 * @default 1
+	 * @example 10 // numbered bullets start with 10
+	 */
+	numberStartAt?: number
+	/**
+	 * Image to use as the bullet glyph ("picture bullet", `<a:buBlip>`)
+	 * - supply an image `path` (filesystem/URL) or base64 `data` (same forms as `addImage()`)
+	 * - raster formats (PNG/JPG/GIF) and SVG are supported; use `size` to scale relative to the text height
+	 * - SVG bullets embed a PNG preview plus the SVG (the same dual-rel handling as `addImage()`)
+	 * - takes precedence over `type`/`characterCode` when set
+	 * @example image: { path: 'images/star.png' }
+	 * @example image: { data: 'image/png;base64,iVBOR...' }
+	 * @example image: { path: 'images/star.svg' }
+	 */
+	image?: { path?: string; data?: string }
+	/**
+	 * Bullet glyph color (separate from the text run color)
+	 * @example 'FF0000' // red bullet
+	 */
+	color?: HexColor
+}
 
 // used by: chart, slide, table, text
 export interface TextBaseProps {
@@ -74,92 +154,7 @@ export interface TextBaseProps {
 	 * paragraphs. A paragraph takes its properties from its first run.
 	 * @default false
 	 */
-	bullet?:
-		| boolean
-		| 'inherit'
-		| {
-				/**
-				 * Bullet type
-				 * @default bullet
-				 */
-				type?: 'bullet' | 'number'
-				/**
-				 * Bullet character code (unicode)
-				 * @example '25BA' // 'BLACK RIGHT-POINTING POINTER' (U+25BA)
-				 */
-				characterCode?: string
-				/**
-				 * Bullet glyph font typeface (`<a:buFont/>`), e.g. for symbol-font bullets
-				 * @example 'Wingdings' // render `characterCode` using the Wingdings font
-				 */
-				fontFace?: string
-				/**
-				 * Bullet glyph size as a percentage of the run's text size (25–400)
-				 * @default 100
-				 * @example 80 // bullet glyph is 80% of the text size
-				 */
-				size?: number
-				/**
-				 * Indentation (space between bullet and text) (points)
-				 * @default 27 // DEF_BULLET_MARGIN
-				 * @example 10 // Indents text 10 points from bullet
-				 */
-				indent?: number
-				/**
-				 * Number type
-				 * @example 'romanLcParenR' // roman numerals lower-case with paranthesis right
-				 */
-				numberType?:
-					| 'alphaLcParenBoth'
-					| 'alphaLcParenR'
-					| 'alphaLcPeriod'
-					| 'alphaUcParenBoth'
-					| 'alphaUcParenR'
-					| 'alphaUcPeriod'
-					| 'arabicParenBoth'
-					| 'arabicParenR'
-					| 'arabicPeriod'
-					| 'arabicPlain'
-					| 'romanLcParenBoth'
-					| 'romanLcParenR'
-					| 'romanLcPeriod'
-					| 'romanUcParenBoth'
-					| 'romanUcParenR'
-					| 'romanUcPeriod'
-				/**
-				 * Number bullets start at
-				 * @default 1
-				 * @example 10 // numbered bullets start with 10
-				 */
-				numberStartAt?: number
-				/**
-				 * Image to use as the bullet glyph ("picture bullet", `<a:buBlip>`)
-				 * - supply an image `path` (filesystem/URL) or base64 `data` (same forms as `addImage()`)
-				 * - raster formats (PNG/JPG/GIF) and SVG are supported; use `size` to scale relative to the text height
-				 * - SVG bullets embed a PNG preview plus the SVG (the same dual-rel handling as `addImage()`)
-				 * - takes precedence over `type`/`characterCode` when set
-				 * @example image: { path: 'images/star.png' }
-				 * @example image: { data: 'image/png;base64,iVBOR...' }
-				 * @example image: { path: 'images/star.svg' }
-				 */
-				image?: { path?: string; data?: string }
-				/**
-				 * Relationship id assigned to a picture-bullet image (`<a:blip r:embed>`)
-				 * - for SVG bullets this is the PNG-preview rel; the SVG rel is `_rIdSvg`
-				 * @internal populated by `addText()`; do not set directly
-				 */
-				_rId?: number
-				/**
-				 * Relationship id of the SVG image for an SVG picture bullet (`<asvg:svgBlip r:embed>`)
-				 * @internal populated by `addText()`; do not set directly
-				 */
-				_rIdSvg?: number
-				/**
-				 * Bullet glyph color (separate from the text run color)
-				 * @example 'FF0000' // red bullet
-				 */
-				color?: HexColor
-		  }
+	bullet?: boolean | 'inherit' | TextBulletProps
 	/**
 	 * Text capitalization (`a:rPr/@cap`, `ST_TextCapsType`)
 	 * - `'all'` = ALL CAPS
@@ -374,28 +369,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	points?: GeometryPoint[]
 	/** Preset-geometry adjustment guides for text frames. */
 	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
-	_bodyProp?: {
-		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
-		align?: AlignH
-		/**
-		 * The resolved `a:bodyPr/@anchor` token. The enum's *values* rather than the enum, so
-		 * that both spellings of the same three tokens are accepted: the definer writes
-		 * `TextAnchor.ctr` for its own default, while `resolveTextAnchor` answers with the
-		 * schema token from the shared `valign` table, which cannot name the enum (it lives in
-		 * `ooxml/`, which holds no runtime imports).
-		 */
-		anchor?: `${TextAnchor}`
-		lIns?: number
-		rIns?: number
-		tIns?: number
-		bIns?: number
-		numCol?: number
-		spcCol?: number
-		vert?: TextVertType
-		wrap?: boolean
-		prstTxWarp?: TextShapeType
-	}
-	_lineIdx?: number
 
 	baseline?: number
 	/**

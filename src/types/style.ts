@@ -91,7 +91,6 @@ export type HyperlinkActionJump =
 	| 'endshow'
 // used by: image, object, text,
 export interface HyperlinkProps {
-	_rId?: number
 	/**
 	 * Slide number to link to
 	 */
@@ -237,12 +236,6 @@ export interface ShapeFillProps {
 	 * shape interior with a stretched bitmap instead of a color.
 	 */
 	image?: ImageFillProps
-
-	/**
-	 * Resolved media relationship id for an image fill, assigned at add-time.
-	 * @internal
-	 */
-	_imgRid?: number
 }
 /**
  * Line (stroke) options.
@@ -266,7 +259,7 @@ export interface ShapeFillProps {
  * A stroke also does not take the bare-colour shorthand a fill does — see {@link FillOption}
  * for why. Spell it `line: { color: 'FF0000' }`.
  */
-export interface ShapeLineProps extends Omit<ShapeFillProps, 'type' | 'image' | '_imgRid'> {
+export interface ShapeLineProps extends Omit<ShapeFillProps, 'type' | 'image'> {
 	/**
 	 * Stroke paint kind. The same vocabulary as {@link ShapeFillProps.type} minus
 	 * `'image'`, which `<a:ln>` cannot express (see the note on this interface).

@@ -6,8 +6,7 @@
  * the `mc:AlternateContent` envelope that carries an exact `p14:dur`.
  */
 
-import type { TransitionProps } from '../../types/index.js'
-import type { PresSlideInternal } from '../../types/internal.js'
+import type { PresSlideInternal, TransitionPropsInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
@@ -34,7 +33,7 @@ function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast'
  * `transition._sndRId`; the stop-previous form is `<p:endSnd/>` (no rel). Returns
  * `''` when the transition has no sound.
  */
-function transitionSoundToXml(transition: TransitionProps): string {
+function transitionSoundToXml(transition: TransitionPropsInternal): string {
 	const sound = transition.sound
 	if (!sound) return ''
 	if (sound.stopPrevious) return el('p:sndAc', null, raw(voidEl('p:endSnd')))

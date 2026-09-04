@@ -56,11 +56,6 @@ export interface TransitionProps {
 	variant?: Record<string, string>
 	/** Sound played with the transition (`p:sndAc`): a start sound (embedded WAV) or the stop-previous form. */
 	sound?: TransitionSoundProps
-	/**
-	 * Internal: the slide relationship id assigned to the embedded sound part, stamped
-	 * by the export-time registration pass. Not part of the authoring surface.
-	 */
-	_sndRId?: number
 }
 
 /**

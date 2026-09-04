@@ -7,7 +7,8 @@
  */
 
 import { SlideObjectType } from '../../../enums.js'
-import type { BorderProps, ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
+import type { TableCellInternal } from '../../../types/internal.js'
+import type { BorderProps, ObjectOptions, TableCellProps } from '../../../types/index.js'
 import { checkEnumOrWarn } from '../../../ooxml/check-enum.js'
 import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
@@ -139,7 +140,7 @@ export function renderTableObject(ctx: RenderContext): string {
 	// Checked again here, not only in `addTableDefinition`: this is where the merge grid allocates
 	// from a span, and an emitter must not size an array from a number it has not seen. Rows that
 	// came through the definer are already correct, so this warns about nothing and copies nothing.
-	const arrTabRows: TableCell[][] = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
+	const arrTabRows: TableCellInternal[][] = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
 	const objTabOpts: ObjectOptions = itemOpts
 	const intColCnt = tableColCount(arrTabRows)
 
@@ -272,7 +273,7 @@ export function renderTableObject(ctx: RenderContext): string {
 			const colspan = resolveSpan(cell.options?.colspan, 'colspan')
 			const rowspan = cell.options?.rowspan
 			if (colspan > 1) {
-				const vMergeCells = new Array(colspan - 1).fill(undefined).map((): TableCell => {
+				const vMergeCells = new Array(colspan - 1).fill(undefined).map((): TableCellInternal => {
 					// A dummy that inherits no rowspan carries no `rowspan` key, rather than one
 					// holding `undefined`: absent is the model's one spelling of "not spanning".
 					return {
@@ -301,7 +302,7 @@ export function renderTableObject(ctx: RenderContext): string {
 				// Point back to the true origin cell: when `cell` is itself an `_hmerge` dummy
 				// (combined colspan+rowspan), use its origin rather than the dummy.
 				const _spanOrigin = cell._spanOrigin || cell
-				const hMergeCell: TableCell = {
+				const hMergeCell: TableCellInternal = {
 					_type: SlideObjectType.tablecell,
 					options: colspan === undefined ? {} : { colspan },
 					_rowContinue: rowspan - 1,
@@ -330,7 +331,7 @@ export function renderTableObject(ctx: RenderContext): string {
 
 		// C: Loop over each CELL
 		cells.forEach((cellObj, cIdx) => {
-			const cell: TableCell = cellObj
+			const cell: TableCellInternal = cellObj
 			// The grid is rectangular by now (STEP 3 filled every span with a dummy cell), so a
 			// cell's index in its row *is* its grid column and the perimeter can be decided here.
 			const at: GridEdge = { rIdx, cIdx, lastRow: arrTabRows.length - 1, lastCol: cells.length - 1 }

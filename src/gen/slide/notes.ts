@@ -11,7 +11,7 @@ import { prstGeomRect } from '../drawingml/geometry.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { CRLF, LEVEL_MARGINS_EMU, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
 import type { TextProps } from '../../types/index.js'
-import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
+import type { HyperlinkPropsInternal, PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -57,7 +57,7 @@ export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 	let lastRid = NOTES_REL_RESERVED
 
 	getNotesRuns(slide).forEach((run) => {
-		const hyperlink = run.options?.hyperlink
+		const hyperlink: HyperlinkPropsInternal | undefined = run.options?.hyperlink
 		if (!hyperlink) return
 		if (!hyperlink.url) {
 			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the

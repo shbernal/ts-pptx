@@ -27,7 +27,6 @@ import type {
 	HAlign,
 	PositionProps,
 	PresLayout,
-	TableCell,
 	TableProps,
 	TableToSlidesDocument,
 	TableToSlidesElement,
@@ -36,7 +35,7 @@ import type {
 	VAlign,
 } from '../../types/index.js'
 import type { Slide } from '../../types/slide.js'
-import type { SlideLayoutInternal } from '../../types/internal.js'
+import type { SlideLayoutInternal, TableCellInternal, TableToSlidesPropsInternal } from '../../types/internal.js'
 import { inch2Emu, resolveSlideMarginsInches } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
@@ -642,13 +641,13 @@ export function genTableToSlides(
 	// caller's object made a reused bag change the next call's output — most visibly `y`, left
 	// holding the continuation start, so the second call's first table began where the first
 	// call's *second* page did.
-	const opts: TableToSlidesProps = { ...options }
+	const opts: TableToSlidesPropsInternal = { ...options }
 	const masterSlide = resolveMasterSlide(pptx, opts.masterTitle)
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
-	const arrObjTabHeadRows: TableCell[][] = []
-	const arrObjTabBodyRows: TableCell[][] = []
-	const arrObjTabFootRows: TableCell[][] = []
+	const arrObjTabHeadRows: TableCellInternal[][] = []
+	const arrObjTabBodyRows: TableCellInternal[][] = []
+	const arrObjTabFootRows: TableCellInternal[][] = []
 	const arrColW: number[] = []
 	const arrTabColW: number[] = []
 	const arrTabColCssW: string[] = []
@@ -759,7 +758,7 @@ export function genTableToSlides(
 	// STEP 4: Iterate over each table element and create data arrays (text and opts)
 	// NOTE: We create 3 arrays instead of one so we can loop over body then show header/footer rows on first and last page
 	domRows.forEach(({ row, part }, idxRow) => {
-		const arrObjTabCells: TableCell[] = []
+		const arrObjTabCells: TableCellInternal[] = []
 		rowCells(row).forEach((cell) => {
 			// The computed style is read a dozen times below; resolve it once per cell.
 			const style = ctx.getComputedStyle(cell)

@@ -9,15 +9,13 @@
 
 import { SlideObjectType } from '../../enums.js'
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN } from '../../constants-internal.js'
+import type { PresLayout, TableRowSlide, TableCellProps } from '../../types/index.js'
 import type {
-	PresLayout,
-	TableCell,
-	TableToSlidesProps,
-	TableRow,
-	TableRowSlide,
-	TableCellProps,
-} from '../../types/index.js'
-import type { SlideLayoutInternal } from '../../types/internal.js'
+	SlideLayoutInternal,
+	TableCellInternal,
+	TableRowInternal,
+	TableToSlidesPropsInternal,
+} from '../../types/internal.js'
 import {
 	autoPageLineHeightEmu,
 	getSmartParseNumber,
@@ -34,11 +32,11 @@ import { type GridPlacement, tableColCount, walkTableGrid } from './grid.js'
 import { resolveSpan, withCheckedSpans } from './spans.js'
 import { EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 
-type AutoPageCell = TableCell & {
+type AutoPageCell = TableCellInternal & {
 	_lineHeight: number
-	_lines: TableCell[][]
+	_lines: TableCellInternal[][]
 	options: TableCellProps
-	text: TableCell[]
+	text: TableCellInternal[]
 }
 
 /**
@@ -52,7 +50,7 @@ type AutoPageCell = TableCell & {
  * @param text - the cell's content, a string or the run list the pager is accumulating
  * @param options - the source cell's options, if it had any
  */
-function workingCell(text: string | TableCell[], options: TableCellProps | undefined): TableCell {
+function workingCell(text: string | TableCellInternal[], options: TableCellProps | undefined): TableCellInternal {
 	return options === undefined
 		? { _type: SlideObjectType.tablecell, text }
 		: { _type: SlideObjectType.tablecell, text, options }
@@ -62,13 +60,13 @@ function workingCell(text: string | TableCell[], options: TableCellProps | undef
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
- * @param {TableCell} cell - table cell
+ * @param {TableCellInternal} cell - table cell
  * @param {number} colWidth - table column width (inches)
  * @param {boolean} [verbose] - dump the four wrapping stages; carries `addTable({ verbose })`
  *   down, which is the only stage of the pager that flag did not reach
- * @return {TableRow[]} - cell's text objects grouped into lines
+ * @return {TableRowInternal[]} - cell's text objects grouped into lines
  */
-function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean): TableCell[][] {
+function parseTextToLines(cell: TableCellInternal, colWidth: number, verbose?: boolean): TableCellInternal[][] {
 	// FYI: CPL = Width / (font-size / font-constant)
 	// FYI: CHAR:2.3, colWidth:10, fontSize:12 => CPL=138, (actual chars per line in PPT)=145 [14.5 CPI]
 	// FYI: CHAR:2.3, colWidth:7 , fontSize:12 => CPL= 97, (actual chars per line in PPT)=100 [14.3 CPI]
@@ -91,10 +89,10 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 			`[0/4] colWidth=${colWidth}in fontSize=${cell.options?.fontSize ?? DEF_FONT_SIZE} FOCO=${FOCO} CPL=${CPL}`
 		)
 
-	const parsedLines: TableCell[][] = []
-	let inputCells: TableCell[] = []
-	const inputLines1: TableCell[][] = []
-	const inputLines2: TableCell[][] = []
+	const parsedLines: TableCellInternal[][] = []
+	let inputCells: TableCellInternal[] = []
+	const inputLines1: TableCellInternal[][] = []
+	const inputLines2: TableCellInternal[][] = []
 
 	/**
 	 * EX INPUTS: `cell.text`
@@ -133,7 +131,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	 * - EX: `[{ text:"Input\nOutput" }]`                                        == 2 lines
 	 * - EX: `[{ text:"Input", options:{ breakLine:true } }, { text:"Output" }]` == 2 lines
 	 */
-	let newLine: TableCell[] = []
+	let newLine: TableCellInternal[] = []
 	inputCells.forEach((cell) => {
 		if (typeof cell.text !== 'string') return
 
@@ -179,7 +177,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	// are flattened into a single token list so step 4 tracks column position across
 	// styled-run boundaries (fixes independent-reset bug for rich-text cells).
 	inputLines1.forEach((line) => {
-		const lineTokens: TableCell[] = []
+		const lineTokens: TableCellInternal[] = []
 		line.forEach((cell) => {
 			const cellTextStr = String(cell.text) // force convert to string (compiled JS is better with this than a cast)
 			const lineWords = cellTextStr.split(' ')
@@ -204,7 +202,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 
 	// STEP 4: Group cells/words into lines based upon space consumed by word letters
 	inputLines2.forEach((line) => {
-		let lineCells: TableCell[] = []
+		let lineCells: TableCellInternal[] = []
 		let strCurrLine = ''
 
 		line.forEach((word) => {
@@ -241,7 +239,10 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
  * else the table's, else the library default. Pass `null` for the cell to ask the same
  * question of the table alone.
  */
-function resolveCellFontSize(cellOpts: TableCellProps | undefined | null, tableOpts: TableToSlidesProps): number {
+function resolveCellFontSize(
+	cellOpts: TableCellProps | undefined | null,
+	tableOpts: TableToSlidesPropsInternal
+): number {
 	const size = cellOpts?.fontSize ?? tableOpts.fontSize
 	return typeof size === 'number' ? size : DEF_FONT_SIZE
 }
@@ -263,7 +264,10 @@ function resolveCellFontSize(cellOpts: TableCellProps | undefined | null, tableO
  * @param tableProps - the table's options, for the fallback margin
  * @returns the row's top and bottom margin allowance in EMU
  */
-function rowMarginsEmu(row: TableRow, tableProps: TableToSlidesProps): { topEmu: number; btmEmu: number } {
+function rowMarginsEmu(
+	row: TableRowInternal,
+	tableProps: TableToSlidesPropsInternal
+): { topEmu: number; btmEmu: number } {
 	let topEmu = 0
 	let btmEmu = 0
 	row.forEach((cell) => {
@@ -282,7 +286,7 @@ function rowMarginsEmu(row: TableRow, tableProps: TableToSlidesProps): { topEmu:
  *
  * This is the same arithmetic the main loop applies to a body row, and the reason it has to be
  * spelled again is that the pager used to read `cell._lineHeight` off `_arrObjTabHeadRows` --
- * which holds the DEFINER's plain `TableCell`s. `_lineHeight` is written only onto the pager's
+ * which holds the DEFINER's plain `TableCellInternal`s. `_lineHeight` is written only onto the pager's
  * own working cells, so it was always absent there and every repeated header row was priced at
  * zero: each continuation page took the header for free and then packed the same number of body
  * rows the first page fits, so the last row hung off the bottom of the slide. That is the same
@@ -295,10 +299,10 @@ function rowMarginsEmu(row: TableRow, tableProps: TableToSlidesProps): { topEmu:
  * @returns the row's height in EMU
  */
 function headerRowHeightEmu(
-	row: TableRow,
+	row: TableRowInternal,
 	colWidthsIn: number[],
 	numCols: number,
-	tableProps: TableToSlidesProps
+	tableProps: TableToSlidesPropsInternal
 ): number {
 	let maxLines = 0
 	let maxLineHeightEmu = 0
@@ -324,15 +328,15 @@ function headerRowHeightEmu(
 
 /**
  * Takes an array of table rows and breaks into an array of slides, which contain the calculated amount of table rows that fit on that slide
- * @param {TableCell[][]} tableRows - table rows
- * @param {TableToSlidesProps} tableProps - table2slides properties
+ * @param {TableCellInternal[][]} tableRows - table rows
+ * @param {TableToSlidesPropsInternal} tableProps - table2slides properties
  * @param {PresLayout} presLayout - presentation layout
  * @param {SlideLayoutInternal} masterSlide - master slide
  * @return {TableRowSlide[]} array of table rows
  */
 export function getSlidesForTableRows(
-	rows: TableCell[][] = [],
-	tableProps: TableToSlidesProps = {},
+	rows: TableCellInternal[][] = [],
+	tableProps: TableToSlidesPropsInternal = {},
 	presLayout: PresLayout,
 	masterSlide?: SlideLayoutInternal | null
 ): TableRowSlide[] {
@@ -518,7 +522,7 @@ export function getSlidesForTableRows(
 
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = {
-		rows: [] as TableRow[],
+		rows: [] as TableRowInternal[],
 		rowH: [] as Array<number | undefined>,
 		colW: colWidthsIn,
 	}
@@ -529,7 +533,7 @@ export function getSlidesForTableRows(
 		const rowCellLines: AutoPageCell[] = []
 		// B: Create new row in data model, calc `maxCellMar*`
 		const { topEmu: maxCellMarTopEmu, btmEmu: maxCellMarBtmEmu } = rowMarginsEmu(row, tableProps)
-		let currTableRow: TableRow = []
+		let currTableRow: TableRowInternal = []
 		row.forEach((cell) => currTableRow.push(workingCell([], cell.options)))
 
 		// C: Calc usable vertical space/table height. Set default value first, adjust below when necessary.
@@ -600,10 +604,10 @@ export function getSlidesForTableRows(
 		 * - `rowCellLines` is an array of cells, one for each column in the table, with each cell containing an array of lines
 		 *
 		 * Sample Data:
-		 * - `rowCellLines` ..: [ TableCell, TableCell, TableCell ]
-		 * - `TableCell` .....: { _type: 'tablecell', _lines: TableCell[], _lineHeight: 10 }
+		 * - `rowCellLines` ..: [ TableCellInternal, TableCellInternal, TableCellInternal ]
+		 * - `TableCellInternal` .....: { _type: 'tablecell', _lines: TableCellInternal[], _lineHeight: 10 }
 		 * - `_lines` ........: [ {_type: 'tablecell', text: 'cell-1,line-1', options: {…}}, {_type: 'tablecell', text: 'cell-1,line-2', options: {…}} }
-		 * - `_lines` is TableCell[] (the 1-N words in the line)
+		 * - `_lines` is TableCellInternal[] (the 1-N words in the line)
 		 * {
 		 *    _lines: [{ text:'cell-1,line-1' }, { text:'cell-1,line-2' }],                                                     // TOTAL-CELL-HEIGHT = 2
 		 *    _lines: [{ text:'cell-2,line-1' }, { text:'cell-2,line-2' }],                                                     // TOTAL-CELL-HEIGHT = 2
@@ -663,7 +667,7 @@ export function getSlidesForTableRows(
 				if (newTableRowSlide.rows.length > 0) tableRowSlides.push(newTableRowSlide)
 
 				// C: reset working/curr slide to hold rows as they're created
-				const newRows: TableRow[] = []
+				const newRows: TableRowInternal[] = []
 				newTableRowSlide = { rows: newRows, rowH: [] as Array<number | undefined>, colW: colWidthsIn }
 
 				// D: reset working/curr row

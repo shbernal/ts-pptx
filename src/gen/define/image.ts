@@ -8,8 +8,8 @@
  */
 import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
-import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
-import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
+import type { Coord, ImageProps, ObjectOptions } from '../../types/index.js'
+import type { PresSlideInternal, ShapeFillPropsInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
@@ -31,10 +31,11 @@ const IMAGE_NATURAL_DPI = 96
  * Mirrors the non-SVG media-registration path used by `addImageDefinition()`,
  * including de-duplication of identical sources. SVG sources are not
  * supported as fills yet.
- * @param {PresSlideInternal} target - slide the owning object belongs to
- * @param {ShapeFillProps} fill - fill options carrying `image: { path | data }`
+ * @param target - slide the owning object belongs to
+ * @param fill - fill options carrying `image: { path | data }`; the resolved media
+ *   relationship id is stamped back onto it
  */
-export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps): void {
+export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillPropsInternal): void {
 	const strImagePath = fill.image?.path || ''
 	const strImageData = fill.image?.data || ''
 

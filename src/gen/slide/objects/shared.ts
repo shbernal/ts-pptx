@@ -6,8 +6,14 @@
  * renderer never has to import from its own caller.
  */
 
-import type { HyperlinkProps, ObjectOptions, ShapeLineProps } from '../../../types/index.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
+import type { ShapeLineProps } from '../../../types/index.js'
+import type {
+	HyperlinkPropsInternal,
+	ObjectOptionsInternal,
+	PresSlideInternal,
+	SlideLayoutInternal,
+	SlideObject,
+} from '../../../types/internal.js'
 import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill, lineEndEl, resolveDash } from '../../drawingml/line.js'
 import { lineWidthToEmu } from '../../../units-internal.js'
@@ -55,7 +61,7 @@ export interface RenderContext {
 	 * re-narrowing `obj.options`: each renderer has exactly one call site, and a contract stated
 	 * there beats a defensive re-assignment in every callee.
 	 */
-	itemOpts: ObjectOptions
+	itemOpts: ObjectOptionsInternal
 }
 
 /**
@@ -89,7 +95,7 @@ export function cNvPrOpen(id: number, name: string | undefined, descr: string, o
  * @param link - the shape's hyperlink, if any
  * @returns zero, one or two `<a:hlinkClick>` elements
  */
-export function cNvPrHyperlink(link: HyperlinkProps | undefined): string {
+export function cNvPrHyperlink(link: HyperlinkPropsInternal | undefined): string {
 	if (!link) return ''
 	const tooltip = link.tooltip ?? ''
 	return (

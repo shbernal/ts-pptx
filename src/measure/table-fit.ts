@@ -22,11 +22,11 @@ import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
 import { CELL_INHERITED_TEXT_KEYS } from '../gen/table/cell-inherit.js'
+import type { TableCellInternal } from '../types/internal.js'
 import type {
 	Coord,
 	Margin,
 	PresLayout,
-	TableCell,
 	TableCellLayout,
 	TableCellProps,
 	TableLayoutResult,
@@ -77,7 +77,7 @@ export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu 
  * options object before mutating: a plain-string cell shares the table's `opt`
  * object (`gen/define/`), so in-place mutation would corrupt every other such cell.
  */
-export function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
+export function scaleCellFontSizes(cell: TableCellInternal, eff: RunOpts, f: number): void {
 	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side
 	const baseSize = Number(eff.fontSize ?? DEF_FONT_SIZE)
 	cell.options = { ...cell.options, fontSize: shrink(baseSize) }
@@ -127,7 +127,11 @@ export interface TableGridEmu {
  * @param opts - the table's options
  * @param presLayout - the presentation layout, for resolving percentages
  */
-export function resolveTableGridEmu(rows: TableCell[][], opts: TableGridOpts, presLayout: PresLayout): TableGridEmu {
+export function resolveTableGridEmu(
+	rows: TableCellInternal[][],
+	opts: TableGridOpts,
+	presLayout: PresLayout
+): TableGridEmu {
 	const numRows = rows.length
 	const numCols = tableColCount(rows)
 	const cxEmu =
@@ -155,7 +159,7 @@ export function resolveTableGridEmu(rows: TableCell[][], opts: TableGridOpts, pr
  * estimated height (mirrors `gen/table/autopage.ts`, which exempts them from line-height growth).
  */
 export function computeTableLayout(
-	rows: TableCell[][],
+	rows: TableCellInternal[][],
 	opts: TableProps,
 	presLayout: PresLayout,
 	registry: FontMetricsRegistry
@@ -188,7 +192,7 @@ export function computeTableLayout(
 
 	// Estimate a cell's content height (EMU) at its authored size, conservative/tall,
 	// with a one-line floor. Mirrors measureText's inflated wrap + height safety.
-	const estimateContentHeightEmu = (cell: TableCell, eff: RunOpts, innerWidthPt: number): number => {
+	const estimateContentHeightEmu = (cell: TableCellInternal, eff: RunOpts, innerWidthPt: number): number => {
 		const fontSizePt = Number(eff.fontSize ?? DEF_FONT_SIZE) || DEF_FONT_SIZE
 		const oneLineEmu = autoPageLineHeightEmu(fontSizePt)
 		if (!(innerWidthPt > 0)) return oneLineEmu

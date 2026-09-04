@@ -9,8 +9,15 @@
 
 import { BulletType, SlideObjectType } from '../../enums.js'
 import { DEF_BULLET_MARGIN, DEF_TEXT_GLOW, DEF_TEXT_SHADOW } from '../../constants-internal.js'
-import type { ObjectOptions, TableCell, TextFitShrinkProps, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { SlideObject } from '../../types/internal.js'
+import type { ObjectOptions, TextFitShrinkProps, TextProps, TextPropsOptions } from '../../types/index.js'
+import type {
+	HyperlinkPropsInternal,
+	ObjectOptionsInternal,
+	SlideObject,
+	TableCellInternal,
+	TextBulletPropsInternal,
+	TextPropsOptionsInternal,
+} from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
@@ -229,7 +236,9 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		// NOTE: OOXML uses the unicode character set for Bullets
 		// EX: Unicode Character 'BULLET' (U+2022) ==> '<a:buChar char="&#x2022;"/>'
 		if (typeof opts.bullet === 'object') {
-			const bulletImage = opts.bullet.image
+			// The two relationship ids `addText()` stamps on a picture bullet live off the public type.
+			const bullet: TextBulletPropsInternal = opts.bullet
+			const bulletImage = bullet.image
 			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
 			if (opts.bullet?.indent) bulletMarL = ptsToEmuLenient(opts.bullet.indent)
 			// Every bullet form hangs the first line by the same margin, whichever glyph it draws.
@@ -267,10 +276,10 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			if (isPictureBullet) {
 				// Picture bullet: <a:buBlip> references a slide media rel registered in addText() (`_rId`).
 				// No `buFont` (there is no glyph typeface), but `buSzPct` still scales the image height.
-				if (opts.bullet._rId) {
+				if (bullet._rId) {
 					// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
 					// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
-					const svgExt = opts.bullet._rIdSvg
+					const svgExt = bullet._rIdSvg
 						? el(
 								'a:extLst',
 								null,
@@ -281,7 +290,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 										raw(
 											voidEl('asvg:svgBlip', {
 												'xmlns:asvg': OOXML_NS.asvg,
-												'r:embed': `rId${opts.bullet._rIdSvg}`,
+												'r:embed': `rId${bullet._rIdSvg}`,
 											})
 										)
 									)
@@ -289,8 +298,8 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 							)
 						: ''
 					const blip = svgExt
-						? el('a:blip', { 'r:embed': `rId${opts.bullet._rId}` }, raw(svgExt))
-						: voidEl('a:blip', { 'r:embed': `rId${opts.bullet._rId}` })
+						? el('a:blip', { 'r:embed': `rId${bullet._rId}` }, raw(svgExt))
+						: voidEl('a:blip', { 'r:embed': `rId${bullet._rId}` })
 					strXmlBullet = strXmlBulletSize + el('a:buBlip', null, raw(blip))
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
@@ -486,12 +495,13 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		// (see `cNvPrHyperlink`), NOT on the text run — a labeled action button emits no run-level
 		// `<a:hlinkClick>`.
 		else if (opts.hyperlink.url || opts.hyperlink.slide) {
+			const link: HyperlinkPropsInternal = opts.hyperlink
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010!
 			// NOTE: `tooltip` is escaped by the builder now (the manual `encodeXmlEntities` is gone), and
 			// it is written even when absent — an empty `tooltip=""` is part of today's bytes.
 			const linkAttrs: XmlAttrs = opts.hyperlink.url
 				? {
-						'r:id': `rId${opts.hyperlink._rId}`,
+						'r:id': `rId${link._rId}`,
 						invalidUrl: '',
 						action: '',
 						tgtFrame: '',
@@ -501,7 +511,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 						endSnd: '0',
 					}
 				: {
-						'r:id': `rId${opts.hyperlink._rId}`,
+						'r:id': `rId${link._rId}`,
 						action: 'ppaction://hlinksldjump',
 						tooltip: opts.hyperlink.tooltip ?? '',
 					}
@@ -584,13 +594,13 @@ export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 
 // A run of formatted text within a paragraph. Every run reaching STEP 5/6 of genXmlTextBody
 // carries an `options` bag (assigned in STEP 4), so model it as required.
-export type RunProps = TextProps & { options: TextPropsOptions }
+export type RunProps = TextProps & { options: TextPropsOptionsInternal }
 
 /**
  * Group the flat run list into paragraphs (lines): a new line starts on a display-math run,
  * an alignment change, or a bullet, and closes after a breakLine. Returns the per-line run arrays.
  */
-export function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptions): RunProps[][] {
+export function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptionsInternal): RunProps[][] {
 	const arrLines: RunProps[][] = []
 	let arrTexts: RunProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
@@ -682,8 +692,8 @@ const RUN_INHERITABLE_OPTIONS = [
  */
 export function renderTextParagraphsXml(
 	arrLines: RunProps[][],
-	slideObj: SlideObject | TableCell,
-	opts: ObjectOptions
+	slideObj: SlideObject | TableCellInternal,
+	opts: ObjectOptionsInternal
 ): string {
 	let strSlideXml = ''
 	arrLines.forEach((line) => {

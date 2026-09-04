@@ -6,18 +6,27 @@
  *
  * Kept in one module so the public surface can be drawn around them.
  */
-import type { CHART_NAME, ChartType, SHAPE_NAME, SlideObjectType } from '../enums.js'
+import type {
+	AlignH,
+	CHART_NAME,
+	ChartType,
+	PLACEHOLDER_TYPE,
+	SHAPE_NAME,
+	SlideObjectType,
+	TextAnchor,
+} from '../enums.js'
 import type { EmbeddedFont } from '../embedded-fonts.js'
-import type { AnimationProps } from './animation.js'
+import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
-import type { BackgroundOption, Margin } from './core.js'
+import type { BackgroundOption, Margin, TextVertType } from './core.js'
 import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
 import type { MediaProps, MediaType } from './media.js'
+import type { TextShapeType } from '../ooxml/st-enums.js'
 import type { PresLayout, PresentationProps, SectionProps } from './pres.js'
 import type { ObjectOptions, Slide, SlideLayout } from './slide.js'
-import type { HyperlinkProps, ShadowProps } from './style.js'
-import type { TableCell } from './table.js'
-import type { SlideComment, TextProps } from './text.js'
+import type { HyperlinkProps, ShadowProps, ShapeFillProps } from './style.js'
+import type { TableCell, TableCellProps, TableProps, TableRow, TableToSlidesProps } from './table.js'
+import type { SlideComment, TextBulletProps, TextProps, TextPropsOptions } from './text.js'
 
 /** The keys of `T` that are declared optional. */
 // oxlint-disable-next-line typescript/no-empty-object-type -- `{} extends Pick<T, K>` is the test for "K is optional"; `object` fails it on a weak type.
@@ -49,6 +58,176 @@ export type MaybeUndefined<T> = Omit<T, OptionalKeysOf<T>> & { [K in OptionalKey
  * The `_` prefix keeps it clear of the removed public `opacity` input: a stray `opacity` from an
  * untyped caller lands on a field nothing reads, so it is inert rather than silently honored.
  */
+/**
+ * A transition carrying the relationship id its embedded sound part was registered under.
+ *
+ * Stamped by `registerTransitionSounds` at export time and read by the `p:sndAc` emitter. It
+ * was declared on the public {@link TransitionProps}, where it was a documented option key
+ * nobody intended: a caller setting it by hand would collide with the registration pass.
+ */
+export interface TransitionPropsInternal extends TransitionProps {
+	_sndRId?: number
+}
+
+/**
+ * A hyperlink carrying the relationship id `registerHyperlinkRel` minted for it.
+ *
+ * Every carrier of a hyperlink stays public (`hyperlink?: HyperlinkProps` on a shape, a run, a
+ * table cell, a media object): a `HyperlinkProps` is assignable to this, because the one added
+ * member is optional, so only the emitters that read or stamp the id name this type. The field
+ * was on the public interface, where a caller setting it by hand would collide with the
+ * registration pass rather than being ignored.
+ */
+export interface HyperlinkPropsInternal extends HyperlinkProps {
+	_rId?: number
+}
+
+/**
+ * A fill carrying the media relationship id its image was registered under, assigned at
+ * add-time and read by the `a:blipFill` emitter.
+ *
+ * The carriers stay public for the reason {@link HyperlinkPropsInternal} gives: a
+ * `ShapeFillProps` is assignable to this, so only the two sites that stamp and read the id
+ * name it. `ShapeLineProps` used to `Omit` this key by hand, which is what a stroke's own
+ * "no image fill" rule is really about -- it now omits `image` alone and says so.
+ */
+export interface ShapeFillPropsInternal extends ShapeFillProps {
+	_imgRid?: number
+}
+
+/**
+ * A drawn bullet carrying the relationship ids `addText()` registered its image under.
+ *
+ * `_rId` is the `a:blip r:embed`; for an SVG bullet it is the PNG-preview rel and `_rIdSvg`
+ * is the `asvg:svgBlip` one, the same dual-rel form `addImage()` emits.
+ */
+export interface TextBulletPropsInternal extends TextBulletProps {
+	_rId?: number
+	_rIdSvg?: number
+}
+
+/**
+ * Text options carrying the two members the emitters write onto them.
+ *
+ * `_bodyProp` is the normalized `a:bodyPr` the definer builds out of the caller's `align`,
+ * `valign`, `margin`, `columns`, `textDirection` and `textWarp` — a *derived* shape, not an
+ * input, which is what made its presence on the public interface a de-facto API nobody
+ * intended. `_lineIdx` is the paragraph index the run emitter stamps while walking an array
+ * of runs.
+ */
+export interface TextPropsOptionsInternal extends TextPropsOptions {
+	_bodyProp?: {
+		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
+		align?: AlignH
+		/**
+		 * The resolved `a:bodyPr/@anchor` token. The enum's *values* rather than the enum, so
+		 * that both spellings of the same three tokens are accepted: the definer writes
+		 * `TextAnchor.ctr` for its own default, while `resolveTextAnchor` answers with the
+		 * schema token from the shared `valign` table, which cannot name the enum (it lives in
+		 * `ooxml/`, which holds no runtime imports).
+		 */
+		anchor?: `${TextAnchor}`
+		lIns?: number
+		rIns?: number
+		tIns?: number
+		bIns?: number
+		numCol?: number
+		spcCol?: number
+		vert?: TextVertType
+		wrap?: boolean
+		prstTxWarp?: TextShapeType
+	}
+	_lineIdx?: number
+}
+
+/**
+ * A slide object's options carrying the six members the definers and emitters write onto them.
+ *
+ * All six are *derived* rather than authored: a placeholder's resolved index and type, the
+ * adjust guides and connection-site bindings a connector resolves at serialize time, and the
+ * flags recording which image dimension has to be backfilled from the natural pixel size once
+ * the bytes have loaded. They were on the public {@link ObjectOptions}, where the two `Cxn`
+ * ones in particular read as a supported way to bind a connector -- the supported way is
+ * `startShape`/`startShapeIdx`.
+ */
+export interface ObjectOptionsInternal extends ObjectOptions, TextPropsOptionsInternal {
+	_placeholderIdx?: number
+	_placeholderType?: PLACEHOLDER_TYPE
+	/** Connector adjust-guide values (OOXML 1000ths-of-a-percent), one per bend; emitted as `<a:gd name="adjN">` */
+	_connectorAdj?: number[]
+	/** Connector start-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:stCxn>` at serialize time */
+	_startCxn?: { name: string; idx: number }
+	/** Connector end-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:endCxn>` at serialize time */
+	_endCxn?: { name: string; idx: number }
+	/**
+	 * Image: which dimensions were omitted by the user and should be derived from the image's
+	 * natural pixel size at serialize time. Path-based images can't be measured synchronously in
+	 * `addImage()` (bytes are loaded async during export), so the missing extent is backfilled
+	 * once `_relsMedia[].data` is populated. `{ w, h }` true means "derive this side from the
+	 * natural ratio". Base64 `data` images are measured eagerly in `addImage()` and never set this.
+	 */
+	_szAuto?: { w: boolean; h: boolean }
+}
+
+/**
+ * A table cell carrying the seven members the auto-pager and the table emitter write onto it.
+ *
+ * All seven are produced by the write path rather than authored: the span dummies
+ * (`_hmerge`/`_vmerge`) and the `_spanOrigin` they inherit their paint from, the per-line
+ * split (`_lines`, `_lineHeight`) the auto-pager computes, `_rowContinue`, and the object-kind
+ * tag. A caller who set one by hand would be feeding the pager its own output.
+ *
+ * `_lines` and `_spanOrigin` refer to *this* type rather than to the public `TableCell`,
+ * because a split line and a span origin are themselves pager output.
+ */
+export interface TableCellInternal extends TableCell {
+	options?: TableCellPropsInternal
+	/** Narrowed alongside `_lines`: a cell's runs are pager output too. */
+	text?: string | TableCellInternal[]
+	_type?: SlideObjectType.tablecell
+	/** lines in this cell (autoPage) */
+	_lines?: TableCellInternal[][]
+	/** height in EMU */
+	_lineHeight?: number
+	_hmerge?: boolean
+	_vmerge?: boolean
+	_rowContinue?: number
+	/** origin cell of a colspan/rowspan span, set on the dummy `_hmerge`/`_vmerge` cells so they can
+	 * inherit the origin's border/fill and render the merged region's outer edges */
+	_spanOrigin?: TableCellInternal
+}
+
+/**
+ * The header rows the auto-pager repeats on each continuation slide.
+ *
+ * Stashed by `addTable` (and by `tableToSlides`, which builds them out of the HTML `thead`)
+ * and read by the pager. Never authored: it was on both `TableProps` and `TableToSlidesProps`,
+ * where it read as a way to supply header rows separately from the table's own.
+ */
+export interface TablePropsInternal extends TableProps {
+	_arrObjTabHeadRows?: TableRow[]
+}
+
+/** A row of {@link TableCellInternal}, the shape the pager builds and the emitter reads. */
+export type TableRowInternal = TableCellInternal[]
+
+/** {@link TablePropsInternal}, for the auto-pager's own option bag. */
+export interface TableToSlidesPropsInternal extends TableToSlidesProps {
+	_arrObjTabHeadRows?: TableRow[]
+}
+
+/**
+ * A cell's own text options, carrying the normalized `a:bodyPr` the definer derives.
+ *
+ * A cell renders through the same text-body builder a shape does, so it reaches `_bodyProp`
+ * by the same route -- see {@link TextPropsOptionsInternal}. Only that one member is added:
+ * a cell's options are `TableCellProps`, which is deliberately narrower than the full text
+ * bag (`columns` means something else on a table).
+ */
+export interface TableCellPropsInternal extends TableCellProps {
+	_bodyProp?: TextPropsOptionsInternal['_bodyProp']
+}
+
 export interface ShadowPropsInternal extends ShadowProps {
 	_alpha?: number
 }
@@ -155,7 +334,7 @@ export interface SlideRelMedia {
 }
 export interface SlideObject {
 	_type: SlideObjectType
-	options?: ObjectOptions
+	options?: ObjectOptionsInternal
 	// text
 	text?: TextProps[]
 	// table
@@ -283,6 +462,8 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	} | null
 }
 export interface PresSlideInternal extends SlideBaseProps, Slide {
+	/** Narrowed so the export-time `_sndRId` stamp has somewhere to live off the public type. */
+	transition?: TransitionPropsInternal | undefined
 	_rId: number
 	_slideLayout: SlideLayoutInternal | null
 	_slideId: number

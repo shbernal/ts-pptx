@@ -401,6 +401,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   should add 1, or better, set `objectName` explicitly: `docs/reference/object-identity.md`
   has always said generated names are not a stable identity.
 
+- **BREAKING: the 20 `_`-prefixed internal fields are off the public type surface.**
+  `TransitionProps._sndRId`, `HyperlinkProps._rId`, `ShapeFillProps._imgRid`,
+  `TextPropsOptions._bodyProp` / `._lineIdx`, the picture-bullet `_rId` / `_rIdSvg`,
+  `ObjectOptions`' six (`_placeholderIdx`, `_placeholderType`, `_connectorAdj`, `_startCxn`,
+  `_endCxn`, `_szAuto`), `TableCell`'s seven (`_type`, `_lines`, `_lineHeight`, `_hmerge`,
+  `_vmerge`, `_rowContinue`, `_spanOrigin`) and `_arrObjTabHeadRows` on both `TableProps` and
+  `TableToSlidesProps` all landed in `dist/index.d.ts` and in consumer IntelliSense. Every one
+  is **produced** by the write path rather than authored — a resolved relationship id, a
+  normalized `a:bodyPr`, the auto-pager's own row split — so a caller who set one was feeding
+  a pass its own output. `_bodyProp` in particular was a documented option key on a published
+  interface, i.e. a de-facto API nobody intended.
+
+  They now live on `…Internal` counterparts in `src/types/internal.ts`, which
+  `src/types/index.ts` deliberately does not barrel — the pattern `ShadowPropsInternal`
+  already set. Because every added member is optional, a public value is still assignable to
+  its internal counterpart, so the *carriers* stay public: `hyperlink?: HyperlinkProps` on a
+  shape, a run and a table cell is unchanged, and only the emitters that read or stamp the id
+  name the internal type.
+
+  **Migration:** none exists, and none is wanted — reading one told you nothing the public
+  API does not, and writing one was undefined behaviour. `startShape`/`startShapeIdx` is the
+  supported way to bind a connector (`_startCxn`/`_endCxn` were its resolved output), and
+  `autoPageRepeatHeader` + `autoPageHeaderRows` is the supported way to repeat header rows
+  (`_arrObjTabHeadRows` was theirs). No emitted byte changes: the byte-identity gate is clean
+  across 1256 parts.
+
+  Two things came out of the surface as a side effect, both improvements. **`TextBulletProps`
+  is now a named public interface** rather than an anonymous arm of the `bullet` union, so a
+  caller can build one as a variable. And **`ShapeLineProps` no longer `Omit`s `_imgRid`** by
+  hand: it omits `image` alone, which is the rule it was really stating — a stroke cannot be
+  a picture fill.
+
+  One place still surfaces them, unchanged from before: `ts-pptx/measure`'s
+  `buildFitParagraphs` takes the internal option shape, so that entry's `.d.ts` names
+  `ObjectOptionsInternal`. That is now visible in the type's name instead of inlined.
+
 ### Deprecated
 
 - **The chart option bag's older stroke spellings.** All of them still work, are still read,

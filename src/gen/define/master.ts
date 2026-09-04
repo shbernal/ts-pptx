@@ -5,8 +5,8 @@
  * chart / image / shape / text children via `addChildDefinition`, plus master-specific text
  * placeholders (which need the object index for `_placeholderIdx`).
  */
-import type { ObjectOptions, SlideMasterProps, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
+import type { SlideMasterProps, TextProps, TextPropsOptions } from '../../types/index.js'
+import type { ObjectOptionsInternal, PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { addChildDefinition } from './group.js'
 import { addTextDefinition } from './text.js'
 
@@ -25,7 +25,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 			} else if ('placeholder' in object) {
 				const placeholder = object.placeholder
 				const { name, type, ...rawPlaceholderOptions } = placeholder.options
-				const placeholderOptions = rawPlaceholderOptions as TextPropsOptions & ObjectOptions
+				const placeholderOptions = rawPlaceholderOptions as TextPropsOptions & ObjectOptionsInternal
 				placeholderOptions.placeholder = name
 				placeholderOptions._placeholderType = type
 				placeholderOptions._placeholderIdx = 100 + idx

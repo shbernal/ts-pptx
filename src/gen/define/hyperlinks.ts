@@ -6,8 +6,14 @@
  * each hyperlink so serialization can emit `r:id`. Shared by the shape, text and table layers.
  */
 import { SlideObjectType } from '../../enums.js'
-import type { HyperlinkProps, ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
-import type { PresSlideInternal, SlideObject, SlideRel } from '../../types/internal.js'
+import type { HyperlinkProps, ObjectOptions, TextProps, TextPropsOptions } from '../../types/index.js'
+import type {
+	HyperlinkPropsInternal,
+	PresSlideInternal,
+	SlideObject,
+	SlideRel,
+	TableCellInternal,
+} from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
 
 /**
@@ -42,29 +48,29 @@ export function hyperlinkRel(rId: number, hyperlink: HyperlinkProps): SlideRel {
  * hyperlink and emitting a duplicate `Relationship Id`.
  * @returns the allocated relationship id
  */
-export function registerHyperlinkRel(target: PresSlideInternal, hyperlink: HyperlinkProps): number {
+export function registerHyperlinkRel(target: PresSlideInternal, hyperlink: HyperlinkPropsInternal): number {
 	const relId = getNewRelId(target)
 	target._rels.push(hyperlinkRel(relId, hyperlink))
 	hyperlink._rId = relId
 	return relId
 }
 
-type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
+type HyperlinkTextObject = (TextProps | SlideObject | TableCellInternal) & {
 	options?: TextPropsOptions | ObjectOptions
-	text?: string | number | TextProps[] | TableCell[]
+	text?: string | number | TextProps[] | TableCellInternal[]
 }
 
 /**
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
  * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
- * @param {number | string | TextProps | TextProps[] | TableCell[][]} text - text to parse
+ * @param {number | string | TextProps | TextProps[] | TableCellInternal[][]} text - text to parse
  */
 export function createHyperlinkRels(
 	target: PresSlideInternal,
-	text: number | string | SlideObject | TextProps | TextProps[] | TableCell[] | TableCell[][],
+	text: number | string | SlideObject | TextProps | TextProps[] | TableCellInternal[] | TableCellInternal[][],
 	options?: TextPropsOptions[]
 ): void {
-	let textObjs: Array<HyperlinkTextObject | TableCell[]> = []
+	let textObjs: Array<HyperlinkTextObject | TableCellInternal[]> = []
 
 	// Only text objects can have hyperlinks, bail when text param is plain text
 	if (typeof text === 'string' || typeof text === 'number') return
@@ -72,7 +78,7 @@ export function createHyperlinkRels(
 	else if (Array.isArray(text)) textObjs = text
 	else if (typeof text === 'object') textObjs = [text]
 
-	textObjs.forEach((text: HyperlinkTextObject | TableCell[], idx: number) => {
+	textObjs.forEach((text: HyperlinkTextObject | TableCellInternal[], idx: number) => {
 		// NOTE: `text` can be an array of other `text` objects (table cell word-level formatting), continue parsing using recursion
 		if (Array.isArray(text)) {
 			const cellOpts: TextPropsOptions[] = []
@@ -94,9 +100,9 @@ export function createHyperlinkRels(
 			typeof text === 'object' &&
 			text.options &&
 			text.options.hyperlink &&
-			!text.options.hyperlink._rId
+			!(text.options.hyperlink as HyperlinkPropsInternal)._rId
 		) {
-			const hyperlink = text.options.hyperlink
+			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
 			// Only a `url` or a `slide` needs a relationship. Two other shapes reach here and mint
 			// nothing, for opposite reasons:
 			//   - A navigation action button (`action` alone) is legitimately rel-free — the
@@ -113,9 +119,9 @@ export function createHyperlinkRels(
 			typeof text === 'object' &&
 			text.options &&
 			text.options.hyperlink &&
-			text.options.hyperlink._rId
+			(text.options.hyperlink as HyperlinkPropsInternal)._rId
 		) {
-			const hyperlink = text.options.hyperlink
+			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
 			const hyperlinkRelId = hyperlink._rId
 			// NOTE: auto-paging will create new slides, but skip above as _rId exists, BUT this is a new slide, so add rels!
 			if (hyperlinkRelId && !target._rels.some((rel) => rel.rId === hyperlinkRelId)) {
