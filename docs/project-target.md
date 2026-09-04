@@ -16,7 +16,7 @@ JavaScript. The project target is a maintained, ESM-first library for
 applications that need to create presentations programmatically.
 
 This is an **independent derivative** of [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS),
-detached at its v6.0.0 (June 2025). Upstream tracking is retired: the project does
+detached at its v4.0.1 (June 2025). Upstream tracking is retired: the project does
 not sync from or mirror the original and sets its own direction. It descends from
 the original codebase and retains the original MIT copyright; it is not a
 drop-in-compatible continuation of the upstream release line.

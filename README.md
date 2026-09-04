@@ -10,12 +10,6 @@ ts-pptx generates PowerPoint `.pptx` files from TypeScript and modern
 JavaScript. This project targets ESM package consumers, typed application code,
 reproducible package verification, and agent-assisted OOXML development.
 
-> **Lineage.** ts-pptx descends from [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS)
-> (MIT), detached at its v6.0.0 (June 2025) and developed independently since. It
-> does not track, merge from, or mirror the original project, and pursues its own
-> Node-first direction (see _Project Target_). The original work remains under its
-> MIT license: see _License_ below.
-
 ## Project Target
 
 - Generate standards-based PowerPoint `.pptx` packages without requiring
@@ -102,6 +96,18 @@ await pptx.writeFile({ fileName: "example.pptx" })
   `.pptx` consumers such as Keynote, LibreOffice Impress, and Google Slides
   import.
 
+## What It Can Read
+
+- Report what a `.pptx` contains (slide count, dimensions, parts, media, fonts)
+  without parsing the deck into a model
+  ([inspection](docs/reference/pptx-inspection.md)).
+- Read a deck into an addressable object model, edit slides, shapes, text, and
+  metadata in place, and write the package back out
+  ([reading](docs/reference/pptx-read.md)).
+- Turn an existing deck into runnable TypeScript that rebuilds it, with the
+  constructs it could not express reported rather than dropped silently
+  ([deck to script](docs/reference/pptx-to-script.md)).
+
 ## Scope And Contributions
 
 This project is **Node-first**: it generates and is tested without a browser or any
@@ -174,7 +180,9 @@ Supported package surface:
 - `import { inspectPptx } from "pptx-ts/inspect"`
 - `import { measureText } from "pptx-ts/measure"`
 - `import { Presentation } from "pptx-ts/read"`
+- `import { readModelToIr, printScript } from "pptx-ts/script"`
 - `import { latexToOmml } from "pptx-ts/math"`
+- `import { ZipWriter, readZip } from "pptx-ts/zip"`
 - `import { tableToSlides } from "pptx-ts/html"`
 - `import TsPptx from "pptx-ts/node"`
 - `import TsPptx from "pptx-ts/browser"`:
@@ -298,12 +306,6 @@ pnpm run check:package
 - `demos/node` exercises Node.js ESM generation and stream output.
 - The [demos page](https://shbernal.github.io/ts-pptx/demos) builds the quarterly review in
   your browser and previews the slides: nothing to clone.
-
-## Relationship To Upstream
-
-ts-pptx builds on the original work of Brent Ely and the gitbrent/PptxGenJS
-contributors. The modernized package target is intentionally narrower than the
-original in order to simplify the runtime contract and keep maintenance focused.
 
 ## License
 
