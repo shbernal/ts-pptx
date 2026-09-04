@@ -14,6 +14,8 @@
 		"PRESET_MATERIALS",
 		"LIGHT_RIGS",
 		"LIGHT_RIG_DIRECTIONS",
+		"RADAR_STYLES",
+		"RADAR_STYLE_ALIASES",
 		"EXTRA_SHAPE_PRESETS",
 		"TextVerticalType",
 		"ExtractedSlides"

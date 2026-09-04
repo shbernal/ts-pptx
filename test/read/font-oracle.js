@@ -42,12 +42,17 @@
 //
 // Unset, both default to today's behaviour: use what is there, skip what is not. That is
 // the right default for a workstation and for a fork with no fonts installed.
+//
+// `FIXTURES` comes from `fixtures-dir.js`, not `corpus.js`: `resolveGenuineFontFile` is imported
+// by two write-side suites under `test/regression/text/` that want nothing else from this file,
+// and `corpus.js` enumerates the read corpus under a top-level `await` and throws below its
+// floor -- so a short corpus would have failed the collection of tests that never touch one.
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { parseFontMetrics } from '../../dist/measure.js'
-import { FIXTURES } from './corpus.js'
+import { FIXTURES } from './fixtures-dir.js'
 
 /** The committed metrics sidecar. */
 export const SIDECAR_PATH = path.join(FIXTURES, 'autofit-font-metrics.json')

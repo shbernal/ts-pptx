@@ -25,6 +25,10 @@ import {
 	GROUPINGS,
 	LEGEND_POSITIONS,
 	LINE_DATA_SYMBOLS,
+	RADAR_STYLE_ALIAS_NAMES,
+	RADAR_STYLE_ALIASES,
+	RADAR_STYLES,
+	type RadarStyleAlias,
 } from '../../ooxml/st-enums.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
@@ -174,11 +178,21 @@ function clampSymbolSize(value: number | undefined | null): number | undefined {
 }
 
 /**
- * The library's own vocabulary for `radarStyle`, which is NOT `ST_RadarStyle`: the three names
- * are mapped onto `standard`/`marker`/`filled` at emit time (`plot-cat-axis.ts`). Validating
- * against the schema's spelling here would reject every legal option.
+ * Both vocabularies `radarStyle` accepts: `ST_RadarStyle`'s own members and this library's two
+ * PowerPoint-UI aliases for them. Validated against the union and normalized to the wire member
+ * by {@link normalizeRadarStyle}, so the emitter reads an `ST_RadarStyle` value and nothing else.
  */
-const RADAR_STYLES = ['radar', 'markers', 'filled'] as const
+const RADAR_STYLE_INPUTS = [...RADAR_STYLES, ...RADAR_STYLE_ALIAS_NAMES] as const
+
+/**
+ * Resolve `radarStyle` to its wire spelling, defaulting an absent or rejected one to `standard`
+ * (the PowerPoint UI's plain "Radar"). The alias map is applied after the check rather than
+ * before it, so a diagnostic names the value the caller actually wrote.
+ */
+function normalizeRadarStyle(options: ChartOptsOverrides): void {
+	const stated = chartEnum(options.radarStyle, RADAR_STYLE_INPUTS, 'radarStyle')
+	options.radarStyle = stated ? (RADAR_STYLE_ALIASES[stated as RadarStyleAlias] ?? stated) : 'standard'
+}
 
 /**
  * `ST_BarGrouping` minus `standard`, which PowerPoint does not offer on a 2-D bar plot.
@@ -682,7 +696,7 @@ export function addChartDefinition(
 	if (!chartEnum(options.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) options.bar3DShape = 'box'
 	if (!chartEnum(options.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) options.lineDataSymbol = 'circle'
 	if (!chartEnum(options.displayBlanksAs, DISPLAY_BLANKS_AS, 'displayBlanksAs')) options.displayBlanksAs = 'gap'
-	if (!chartEnum(options.radarStyle, RADAR_STYLES, 'radarStyle')) options.radarStyle = 'radar'
+	normalizeRadarStyle(options)
 	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
 	// Out-of-range or non-integer values make PowerPoint report the file as needing
 	// repair, so round and clamp into range and warn when the input is coerced.

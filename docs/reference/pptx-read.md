@@ -346,6 +346,8 @@ class Presentation {
 	readonly embeddedFonts: EmbeddedFontInfo[]
 	/** Core document properties (docProps/core.xml); {} when the part is absent. See "Document properties". */
 	readonly coreProperties: CoreProperties
+	/** Extended document properties (docProps/app.xml); {} when the part is absent. See "Document properties". */
+	readonly appProperties: ExtendedProperties
 	/** User-defined custom document properties (docProps/custom.xml); [] when the part is absent. */
 	readonly customProperties: CustomProperty[]
 	/** Deck-level programmatic tags (p:custDataLst/p:tags → ppt/tags/tagN.xml); [] when none. See "Tags". */
@@ -462,7 +464,7 @@ interface ImportShapeOptions {
 }
 ```
 
-#### Document properties (core + custom)
+#### Document properties (core + extended + custom)
 
 `pres.coreProperties` decodes `docProps/core.xml`: the Dublin Core / OPC metadata
 (`title`, `subject`, `creator`, `keywords`, `revision`, `lastModifiedBy`, …) plus
@@ -472,6 +474,18 @@ appears only when its element is present; a present-but-empty element decodes to
 not parsed to a `Date`, to avoid timezone round-trip loss. A deck with no
 core-properties part reads as `{}`.
 
+`pres.appProperties` decodes `docProps/app.xml`: the **extended** properties, which
+are the producing application's account of the deck rather than the author's
+metadata. Four fields are reported -- `application`, `appVersion`, `company` and
+`titlesOfParts`. The statistics (`Slides`, `Words`, `Paragraphs`, `HiddenSlides`, …)
+are deliberately not: they are numbers the producer computed for the file it wrote,
+and this read model can hand back an edited deck, so reporting them would be
+reporting a fact about a document that no longer exists. `titlesOfParts` is the flat
+`vt:lpstr` vector as written -- fonts, then themes, then slide titles, in one list;
+`<HeadingPairs>` holds the counts that partition it and is not read, so a caller who
+wants the slide titles alone pairs the two itself. A deck with no extended-properties
+part reads as `{}`.
+
 `pres.customProperties` decodes `docProps/custom.xml`: the user-defined
 `{ name, value }` pairs from `pptx.setCustomProperty(...)`. Each value is typed
 from its `vt:` element: `vt:lpwstr`/`vt:lpstr`/`vt:bstr` → `string`, the integer
@@ -480,16 +494,18 @@ types (`vt:i4`, …) and reals (`vt:r8`, …) → `number`, `vt:bool` → `boole
 above). Order and count match the authored part; a deck with no custom-properties
 part reads as `[]`.
 
-Both are genuine round-trip surfaces (the write side authors both parts), so a
-consumer can set metadata with `pptx.title`/`subject`/`author` (→ `creator`)/
-`revision` and `pptx.setCustomProperty(...)`, then read it back through these
-getters. (Distinct from the `customXml/` item parts in the preserve-only boundary
+All three are genuine round-trip surfaces (the write side authors all three parts),
+so a consumer can set metadata with `pptx.title`/`subject`/`author` (→ `creator`)/
+`revision`/`company` and `pptx.setCustomProperty(...)`, then read it back through
+these getters. `company` is the only field of `appProperties` a caller supplies; the
+other three the write path states about itself. (Distinct from the `customXml/` item parts in the preserve-only boundary
 below, which are opaque application data, not document properties.)
 
 ```ts
 const pres = await Presentation.load(bytes)
 pres.coreProperties.title // 'Quarterly Review' | undefined
 pres.coreProperties.created // '2026-07-24T08:52:57Z' (raw W3CDTF string)
+pres.appProperties.company // 'Analytical Engines Ltd' | undefined
 pres.customProperties // [{ name: 'FiscalYear', value: 2025 }, …]
 ```
 

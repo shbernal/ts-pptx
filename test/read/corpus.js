@@ -19,10 +19,13 @@
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { corpusDecks } from '../../scripts/script-utils.mjs'
+import { FIXTURES } from './fixtures-dir.js'
 
-export const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures')
+// Re-exported so this module stays the one place a test reads the corpus from. The constant
+// itself lives in `fixtures-dir.js` because importing it should not also import the
+// enumeration and floor below -- see the note there.
+export { FIXTURES }
 
 /** Committed printer output, so codegen churn shows up in review rather than only as a pass. */
 export const SNAPSHOTS = path.resolve(FIXTURES, '..', 'snapshots')

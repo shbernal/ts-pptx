@@ -119,6 +119,7 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	'props.author': 'a deck that declares no author gets the write path’s own',
 	'props.subject': 'a deck that declares no subject gets the write path’s own',
 	'props.revision': 'a deck that declares no revision gets the write path’s own',
+	'props.company': 'a deck that declares no company gets the write path’s own',
 }
 
 export interface IrDifference {

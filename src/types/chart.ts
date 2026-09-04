@@ -5,6 +5,7 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { CHART_NAME } from '../enums.js'
+import type { RadarStyle, RadarStyleAlias } from '../ooxml/st-enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, FillOption, ShadowProps, StrokeProps } from './style.js'
@@ -692,13 +693,21 @@ export interface ChartPropsChartPie {
 	 */
 	firstSliceAng?: number
 }
+/**
+ * `ST_RadarStyle` and this library's two aliases for it, derived from the member tuples in
+ * `src/ooxml/st-enums.ts` — the same ones the definer validates a value against, so the type a
+ * caller is checked against and the list that gates the XML cannot disagree.
+ */
+export type { RadarStyle, RadarStyleAlias } from '../ooxml/st-enums.js'
 export interface ChartPropsChartRadar {
 	/**
-	 * Radar chart sub-type, named to match the PowerPoint UI ("Radar", "Radar with
-	 * Markers", "Filled Radar").
+	 * Radar chart sub-type. Two vocabularies are accepted and mean the same three things:
+	 * this library's PowerPoint-UI names (`radar`, `markers`, `filled`) and `ST_RadarStyle`'s
+	 * own wire spellings (`standard`, `marker`, `filled`), which is what the chart part shows.
+	 * `filled` is spelled the same in both.
 	 * @default radar
 	 */
-	radarStyle?: 'radar' | 'markers' | 'filled'
+	radarStyle?: RadarStyle | RadarStyleAlias
 }
 /**
  * Options for the modern (Office 2016) chartEx chart types.

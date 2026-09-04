@@ -244,6 +244,26 @@ export function addTextDefinition(
 	// STEP 1: Create/Clean object options
 	newObject.options = cleanOpts(objectOptions)
 
+	// STEP 1-A: A text box with no height stated anywhere gets 0.3in of it.
+	//
+	// `addShapeDefinition` defaults all four axes; this path defaulted none, so `addText('hi',
+	// { x, y, w })` emitted `<a:ext cy="0">` — the degenerate zero-size object the project's own
+	// API rules say to refuse. There WAS a rescue for it, in the text serializer, guarded by
+	// `!itemOpts.line`; step C above has written `itemOpts.line = itemOpts.line || {}` since
+	// before that guard existed, so the guard was never once true and the rescue never ran.
+	//
+	// Two things move it here rather than fixing the guard in place. It sits beside the other
+	// defaults, where the caller's own value is still distinguishable from silence — `h: 0`
+	// stated explicitly is kept, exactly as `addShapeDefinition` keeps it, which the serializer
+	// could not do because a stated zero and an absent height both arrive there as `cy === 0`.
+	// And the exemption the guard was reaching for is a *shape* question, not a line-options
+	// one: a `line` is drawn zero-height on purpose (a horizontal rule), and that is knowable
+	// here from `shape` alone.
+	//
+	// Read after `cleanOpts`, not before: a caller who named a layout placeholder inherits that
+	// placeholder's frame in step A.3, so a height can arrive without the caller stating one.
+	if (newObject.options.h === undefined && newObject.shape !== ShapeType.line) newObject.options.h = 0.3
+
 	// STEP 1a: Selection Pane identity (`objectName`). Set once here, on the shape-level object
 	// only — not inside `cleanOpts`, which also runs per text run (STEP 2 below). `Slide.addText`'s
 	// single-string convenience form reuses the same options object for both the shape and its lone

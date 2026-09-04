@@ -276,15 +276,16 @@ export interface ChromeIr {
 }
 
 /**
- * Deck-level properties, reduced to the four `docProps` fields that round-trip: they have a
- * write-API setter and the read model reports them. `company` had a field here that nothing ever
- * populated, because `Company` lives in `docProps/app.xml` and the read model does not open it.
+ * Deck-level properties, reduced to the five `docProps` fields that round-trip: they have a
+ * write-API setter and the read model reports them. Four are `docProps/core.xml`; `company` is
+ * `<Company>` in `docProps/app.xml`, which `Presentation.appProperties` reads.
  */
 export interface DeckPropsIr {
 	title?: string
 	author?: string
 	subject?: string
 	revision?: string
+	company?: string
 }
 
 /**

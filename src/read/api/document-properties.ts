@@ -1,20 +1,22 @@
 /**
  * Read a deck's document properties — the `docProps/core.xml` core properties
- * (Dublin Core title/subject/creator + OPC keywords/revision/timestamps) and the
- * `docProps/custom.xml` user-defined name/value pairs. These are the read
- * counterparts of the write-side `pptx.title`/`subject`/`author`/`revision`
- * setters (`makeXmlCore`) and `pptx.setCustomProperty(...)` (`makeXmlCustomProperties`),
+ * (Dublin Core title/subject/creator + OPC keywords/revision/timestamps), the
+ * `docProps/app.xml` extended properties, and the `docProps/custom.xml`
+ * user-defined name/value pairs. These are the read counterparts of the write-side
+ * `pptx.title`/`subject`/`author`/`revision` setters (`makeXmlCore`), `pptx.company`
+ * (`makeXmlApp`) and `pptx.setCustomProperty(...)` (`makeXmlCustomProperties`),
  * so a reader is verified by a genuine write→read round-trip.
  *
- * Both parts are declared at the package root (`/_rels/.rels`): core-properties
- * via the OPC `metadata/core-properties` rel, custom-properties via the
- * officeDocument `custom-properties` rel.
+ * All three parts are declared at the package root (`/_rels/.rels`): core-properties
+ * via the OPC `metadata/core-properties` rel, extended-properties and
+ * custom-properties via the officeDocument `extended-properties` /
+ * `custom-properties` rels.
  */
 import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
 import { singleRelPart } from '../opc/partnames.js'
 import { attr, childElements, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
-import { CORE_PROPS_REL, CUSTOM_PROPS_REL } from '../../ooxml/rel-types.js'
+import { CORE_PROPS_REL, CUSTOM_PROPS_REL, EXTENDED_PROPS_REL } from '../../ooxml/rel-types.js'
 import { boolValue } from '../../ooxml/xsd-boolean.js'
 
 // The two content types below are the fallback lookup for when the rel is absent, and this is
@@ -22,6 +24,8 @@ import { boolValue } from '../../ooxml/xsd-boolean.js'
 // declares (`gen/opc/content-types.ts`). The rel types themselves are shared with that side.
 /** Content type of the core-properties part. */
 const CORE_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.core-properties+xml'
+/** Content type of the extended-properties part. */
+const EXTENDED_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.extended-properties+xml'
 /** Content type of the custom-properties part. */
 const CUSTOM_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.custom-properties+xml'
 
@@ -56,6 +60,33 @@ export interface CoreProperties {
 	modified?: string
 	/** `cp:lastPrinted`, raw W3CDTF string. */
 	lastPrinted?: string
+}
+
+/**
+ * Decoded `docProps/app.xml` — the *extended* properties, which are the producer's own
+ * account of the deck rather than the author's metadata. Every field is optional (present
+ * only when the element is).
+ *
+ * Deliberately a subset. `<Slides>`, `<Words>`, `<Paragraphs>` and the rest are statistics
+ * the producing application computed for the file it wrote; reporting them from a read model
+ * that can hand back an edited deck would be reporting a number about a document that no
+ * longer exists. The four here identify the producer and name the deck's parts, which stay
+ * true, and `company` is the one this library's write API can set.
+ */
+export interface ExtendedProperties {
+	/** `<Application>` — the producing application, e.g. `Microsoft Office PowerPoint`. */
+	application?: string
+	/** `<AppVersion>` — that application's version, in its own `major.minor` spelling (`16.0000`). */
+	appVersion?: string
+	/** `<Company>` (the write-side `pptx.company`). */
+	company?: string
+	/**
+	 * `<TitlesOfParts>` — the flat `vt:lpstr` vector naming the deck's fonts, themes and slide
+	 * titles in one list. It is the vector as written, NOT split by section: `<HeadingPairs>`
+	 * holds the counts that partition it, and this library does not read them, so the caller
+	 * that wants the slide titles alone has to pair the two itself.
+	 */
+	titlesOfParts?: string[]
 }
 
 /** One user-defined custom document property (`docProps/custom.xml`). */
@@ -96,6 +127,47 @@ export function readCoreProperties(opc: OpcPackage): CoreProperties {
 	for (const [field, qname] of CORE_FIELDS) {
 		const el = firstChild(root, qname)
 		if (el) out[field] = el.textContent ?? ''
+	}
+	return out
+}
+
+/**
+ * Read the deck's extended document properties from `/docProps/app.xml`, resolved
+ * via the package-root `extended-properties` relationship (fallback: the part's
+ * content type). Missing part → `{}` (all fields undefined). Present-but-empty
+ * elements decode to the empty string.
+ *
+ * Children are matched by **local name**: the extended-properties namespace is not in the
+ * read model's qname registry, and its elements are unprefixed there, so this reads them the
+ * way {@link readCustomProperties} reads a `<property>`'s `vt:` child.
+ */
+export function readExtendedProperties(opc: OpcPackage): ExtendedProperties {
+	const part = singleRelPart(opc, '/', EXTENDED_PROPS_REL) ?? opc.partsByContentType(EXTENDED_PROPS_CONTENT_TYPE)[0]
+	const root = part?.dom.documentElement
+	if (!root) return {}
+	const out: ExtendedProperties = {}
+	for (const child of childElements(root)) {
+		switch (child.localName) {
+			case 'Application':
+				out.application = child.textContent ?? ''
+				break
+			case 'AppVersion':
+				out.appVersion = child.textContent ?? ''
+				break
+			case 'Company':
+				out.company = child.textContent ?? ''
+				break
+			case 'TitlesOfParts': {
+				// `<TitlesOfParts>` wraps exactly one `<vt:vector>`; the entries are its `vt:lpstr`
+				// children. An empty vector is still a stated one, so `[]` is reported rather than
+				// the key being left off.
+				const vector = firstChildElement(child)
+				if (vector) out.titlesOfParts = childElements(vector).map((item) => item.textContent ?? '')
+				break
+			}
+			default:
+				break
+		}
 	}
 	return out
 }

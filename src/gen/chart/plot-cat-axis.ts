@@ -25,6 +25,7 @@ import {
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
+import { RADAR_STYLE_ALIASES, type RadarStyleAlias } from '../../ooxml/st-enums.js'
 import {
 	catRefBlock,
 	chartDataLabels,
@@ -66,10 +67,11 @@ function plotGrouping(chartType: ChartType, opts: ChartOptsInternal): string {
 		return voidEl('c:barDir', { val: opts.barDir }) + voidEl('c:grouping', { val: opts.barGrouping || 'clustered' })
 	}
 	if (chartType === ChartType.radar) {
-		// Map the public PowerPoint-UI names to ST_RadarStyle wire values.
-		const radarStyleWire =
-			{ radar: 'standard', markers: 'marker', filled: 'filled' }[opts.radarStyle || 'radar'] ?? 'standard'
-		return voidEl('c:radarStyle', { val: radarStyleWire })
+		// `normalizeChartOptions` has already resolved this to an `ST_RadarStyle` member; the alias
+		// map is applied again here only because it is the one that types the value, and it is
+		// idempotent (no wire member is also an alias key).
+		const radarStyle = opts.radarStyle ?? 'standard'
+		return voidEl('c:radarStyle', { val: RADAR_STYLE_ALIASES[radarStyle as RadarStyleAlias] ?? radarStyle })
 	}
 	return ''
 }

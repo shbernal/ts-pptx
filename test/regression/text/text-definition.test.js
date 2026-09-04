@@ -107,6 +107,33 @@ defineRegressionSuite('Text definition', [
 		},
 	},
 	{
+		// The height default, and the three statements it has to keep apart. A text box that states
+		// no height at all is not asking for a zero-height box -- it emitted `<a:ext cy="0">`, the
+		// degenerate zero-size object the project's own API rules refuse. A text box that states
+		// `h: 0` IS asking for one and keeps it, the same way `addShapeDefinition` keeps a stated
+		// zero. And a `line` shape is drawn zero-height on purpose, so it is exempt from the
+		// default rather than rescued out of it.
+		//
+		// There was a rescue for the first of these in `gen/slide/objects/text.ts`, guarded by
+		// `!itemOpts.line`; the definer has written `itemOpts.line = itemOpts.line || {}` since
+		// before that guard existed, so it had never once fired.
+		name: 'an omitted height defaults to 0.3in, a stated zero and a line keep theirs',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('omitted', { x: 1, y: 1, w: 4 })
+				s.addText('stated zero', { x: 1, y: 2, w: 4, h: 0 })
+				s.addText('a line', { x: 1, y: 3, w: 4, shape: 'line' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const extents = (xml.match(/<a:ext cx="\d+" cy="(\d+)"\/>/g) || []).map((tag) =>
+				Number(/cy="(\d+)"/.exec(tag)[1])
+			)
+			// The first extent belongs to the slide's `p:grpSpPr`, not to a shape.
+			assertEqual(extents.slice(1).join(','), '274320,0,0', `expected 0.3in, 0, 0; got ${extents.join(',')}`)
+		},
+	},
+	{
 		// The ShapeLineProps defaults for a line-shaped text box are computed unconditionally but only
 		// *assigned* back when `itemOpts.line` is already an object -- and on a first pass over options
 		// that carry no `line` at all, it is not. STEP C's `itemOpts.line = itemOpts.line || {}` then

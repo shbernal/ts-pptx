@@ -113,12 +113,12 @@ export function readModelToIr(pres: Presentation): DeckIr {
 }
 
 /**
- * Deck properties, reduced to the four `docProps` fields this converter can carry: they have a
- * write-API setter AND the read model reports them. The other seven the read model exposes have
- * no setter, and `company` is the opposite case — `pptx.company` writes it, but it lives in
- * `docProps/app.xml`, which the read model does not open, so the converter never sees one to
- * carry. All of them survive anyway in a template-anchored output, since the source deck itself
- * becomes the template; this is only a loss for a standalone one.
+ * Deck properties, reduced to the five `docProps` fields this converter can carry: they have a
+ * write-API setter AND the read model reports them. Four come from `docProps/core.xml`; `company`
+ * comes from `docProps/app.xml` through `Presentation.appProperties`. The other seven core fields
+ * the read model exposes have no setter. All of them survive anyway in a template-anchored
+ * output, since the source deck itself becomes the template; this is only a loss for a standalone
+ * one.
  */
 function deckProps(pres: Presentation, notes: NoteScope): DeckPropsIr {
 	const core = pres.coreProperties
@@ -128,7 +128,7 @@ function deckProps(pres: Presentation, notes: NoteScope): DeckPropsIr {
 			'deck.docProps',
 			'dropped',
 			'unwritable',
-			'only title, author, subject and revision round-trip; keywords, description, category, content status and last-modified-by have no write-API setter, and `company` has one but lives in docProps/app.xml, which the read model does not open'
+			'only title, author, subject, revision and company round-trip; keywords, description, category, content status and last-modified-by have no write-API setter'
 		)
 	}
 	return (
@@ -137,6 +137,7 @@ function deckProps(pres: Presentation, notes: NoteScope): DeckPropsIr {
 			author: core.creator,
 			subject: core.subject,
 			revision: core.revision,
+			company: pres.appProperties.company,
 		}) ?? {}
 	)
 }

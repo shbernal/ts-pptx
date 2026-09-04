@@ -38,8 +38,10 @@ import {
 import {
 	readCoreProperties,
 	readCustomProperties,
+	readExtendedProperties,
 	type CoreProperties,
 	type CustomProperty,
+	type ExtendedProperties,
 } from './document-properties.js'
 import { readTagsForPart, type Tag } from './tags.js'
 import type {
@@ -288,6 +290,20 @@ export class Presentation {
 	 */
 	get coreProperties(): CoreProperties {
 		return readCoreProperties(this.opc)
+	}
+
+	/**
+	 * The deck's extended document properties (`docProps/app.xml`): the producing
+	 * application and its version, the company, and the flat `TitlesOfParts` vector.
+	 * `{}` when the deck carries no extended-properties part. The read counterpart of
+	 * the write-side `pptx.company` setter — the only one of the four this library
+	 * writes from a caller's value; the other three it states about itself.
+	 *
+	 * A deliberate subset of the part: see {@link ExtendedProperties} for why the
+	 * statistics (`Slides`, `Words`, `Paragraphs`, …) are not reported.
+	 */
+	get appProperties(): ExtendedProperties {
+		return readExtendedProperties(this.opc)
 	}
 
 	/**

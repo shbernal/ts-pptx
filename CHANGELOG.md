@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Presentation.appProperties` reads `docProps/app.xml`.** The write API has had a
+  `pptx.company` setter since the beginning and the read model could not see the part it
+  writes to, so `ts-pptx/script` had to declare `company` unreadable and a converter could
+  carry the other four `docProps` and never that one. The new accessor reports four fields
+  -- `application`, `appVersion`, `company` and `titlesOfParts` -- and `readExtendedProperties`
+  plus the `ExtendedProperties` type are published alongside the core/custom pair.
+
+  The part's *statistics* (`Slides`, `Words`, `Paragraphs`, `HiddenSlides`, …) are
+  deliberately not reported: they are numbers the producing application computed for the file
+  it wrote, and this read model can hand back an edited deck, so reporting them would state a
+  fact about a document that no longer exists. `titlesOfParts` is the flat `vt:lpstr` vector
+  as written -- fonts, themes and slide titles in one list -- because `<HeadingPairs>` holds
+  the counts that partition it and is not read; a caller who wants the slide titles alone
+  pairs the two itself.
+
+  `ts-pptx/script` carries `company` again as a result: `DeckPropsIr` has the field back, a
+  standalone script emits `pptx.company = …` when the source states one, and the
+  `deck.docProps` note no longer claims a property is lost that now round-trips. Five of the
+  thirteen document properties survive a standalone conversion, against four before.
+
 - **`StrokeProps`: one stroke, one vocabulary.** A stroke is width, dash, colour, cap and
   transparency, and the public type surface spelled it five ways -- `width` on a border,
   `size` on a gridline, `catAxisLineSize` on an axis; `type` + `dashType` on a border,
@@ -140,6 +160,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer needs one.
 
 ### Changed
+
+- **`radarStyle` accepts `ST_RadarStyle`'s own spellings.** The option had one vocabulary --
+  `radar` / `markers` / `filled`, the PowerPoint UI's words -- which the emitter mapped onto
+  the schema's `standard` / `marker` / `filled`. Since `filled` is spelled the same in both,
+  the other two read as typos rather than as a second vocabulary, and writing `marker` (what
+  the chart part itself shows) warned and silently fell back to a plain radar. Both
+  vocabularies are now accepted and normalized to the wire member at definition time, the
+  `RadarStyle` and `RadarStyleAlias` types are published, and an unknown value still warns
+  and falls back. No emitted bytes change for any spelling that already worked.
+
+- **A text box with no stated height gets 0.3in of one.** `addText('hi', { x, y, w })` used
+  to emit `<a:ext cy="0">` -- the degenerate zero-size object this project's own API rules
+  refuse -- because `addTextDefinition` defaulted no axis where `addShapeDefinition` defaults
+  all four. A rescue for it existed in the text serializer, guarded by `!itemOpts.line`, but
+  the definer has written `line = line || {}` onto every text object since before that guard
+  was added, so it had never once fired.
+
+  The default now lives beside the other definer defaults, where the three statements stay
+  distinct: silence takes 0.3in, a stated `h: 0` is kept (as `addShapeDefinition` keeps one),
+  and a `line` shape is exempt because a horizontal rule is a zero-height shape on purpose.
+  The serializer could not have drawn those distinctions -- an omitted height and a stated
+  zero both reach it as `cy === 0`.
+
+  **Migration:** a caller relying on a zero-height text box now states `h: 0` for it. All 47
+  byte-identity showcase decks are unchanged, so no deck in the corpus was relying on the old
+  behaviour.
 
 - **`ShapeLineProps` is deliberately not a `StrokeProps`.** A shape stroke is a *paint*, so
   its `type` names a fill kind (`gradient`, `pattern`, `inherit`, …) rather than the

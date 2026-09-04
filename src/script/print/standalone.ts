@@ -149,27 +149,35 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
  * declares — and unlike the template-anchored tier, here it is a real one, because nothing
  * else carries them.
  */
+/**
+ * `a`, `a and b`, `a, b and c` — a note is a sentence a human reads, and a bare
+ * `join(', ')` made a two-item one read as a list that had lost its last member.
+ */
+function andList(items: readonly string[]): string {
+	if (items.length < 2) return items.join('')
+	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
 function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
 	const entries = Object.entries(ir.props).filter(([, value]) => typeof value === 'string')
 
 	// A deck built through the write API is stamped with the library's own author, subject,
-	// title and revision in the constructor, and a property cannot be unset — writing `''` emits
-	// an empty element rather than removing it. So whatever the source left blank comes back
-	// filled in, which is a change to the deck rather than a formatting detail.
+	// title, revision and company in the constructor, and a property cannot be unset — writing
+	// `''` emits an empty element rather than removing it. So whatever the source left blank
+	// comes back filled in, which is a change to the deck rather than a formatting detail.
 	//
-	// `company` is NOT in this list, although the constructor stamps one: nothing populates it in
-	// the IR, so it was unconditionally "missing" and every standalone script carried a note
-	// claiming the source deck declared no company — a claim the converter never checked and one
-	// that is false for most real decks. A note that says something untrue is worse than a
-	// missing one. `Company` lives in `docProps/app.xml`, which the read model does not read at
-	// all; when it does, this list gains the key back.
-	const stamped = ['title', 'author', 'subject', 'revision'].filter((key) => !(key in ir.props))
+	// `company` sat outside this list while nothing populated it in the IR: it was
+	// unconditionally "missing", so every standalone script carried a note claiming the source
+	// deck declared no company — a claim the converter had never checked and one that is false
+	// for most real decks. Now that `Presentation.appProperties` reads `docProps/app.xml`, the
+	// key is populated when the source states one and the note is only raised when it does not.
+	const stamped = ['title', 'author', 'subject', 'revision', 'company'].filter((key) => !(key in ir.props))
 	if (stamped.length > 0) {
 		scopeNotes(collector, null).note(
 			'deck.docPropsDefault',
 			'approximated',
 			'unwritable',
-			`the source deck declares no ${stamped.join(', ')}, and a deck built through the write API is stamped with the library's own value for each in its constructor with no way to unset it, so the output declares ${stamped.length === 1 ? 'one' : 'these'} the source did not`
+			`the source deck declares no ${andList(stamped)}, and a deck built through the write API is stamped with the library's own value for each in its constructor with no way to unset it, so the output declares ${stamped.length === 1 ? 'one' : 'these'} the source did not`
 		)
 	}
 

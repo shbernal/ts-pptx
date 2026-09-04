@@ -15,7 +15,6 @@ import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
-import { EMU_PER_INCH } from '../../../units.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
@@ -27,19 +26,20 @@ export function renderTextObject(ctx: RenderContext): string {
 		obj: slideItemObj,
 		shapeId,
 		slide,
-		frame: { x, y, cx },
+		frame: { x, y, cx, cy },
 		placeholder: placeholderObj,
 		locationAttrs,
 		itemOpts,
 	} = ctx
-	// Reassigned below when a line-less text shape has no height, so it is not destructured const.
-	let cy = ctx.frame.cy
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.
-	// Lines can have zero cy, but text should not
-	if (!itemOpts.line && cy === 0) cy = EMU_PER_INCH * 0.3
+	//
+	// The zero-height rescue that used to sit here is gone: it read `!itemOpts.line`, and both
+	// definers write a `line` object onto every text object unconditionally, so it had never
+	// once fired. The default it was reaching for now lives in `addTextDefinition`, where an
+	// omitted height is still distinguishable from a stated `h: 0`.
 
 	// A: Start SHAPE =======================================================
 	strSlideXml += '<p:sp>'

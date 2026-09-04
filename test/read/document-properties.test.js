@@ -1,14 +1,15 @@
 // Write→read round-trip for the document-properties accessors: build a deck with
-// the write API's metadata setters (pptx.title/subject/author/revision) and
+// the write API's metadata setters (pptx.title/subject/author/revision/company) and
 // pptx.setCustomProperty across every value type, serialize it, reload it via
-// Presentation, and assert coreProperties / customProperties decode back to the
-// values (and JS types) that went in. Because both parts have writers, this needs
+// Presentation, and assert coreProperties / appProperties / customProperties decode
+// back to the values (and JS types) that went in. Because both parts have writers, this needs
 // no hand-crafted fixture — the writer is the oracle. Two authored fixtures cover
 // the missing-part and real-PowerPoint edges.
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
+import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
@@ -62,6 +63,53 @@ describe('Presentation.coreProperties', () => {
 		assert(typeof core === 'object' && core !== null, 'coreProperties is an object')
 		for (const v of Object.values(core))
 			assert(typeof v === 'string', `every present core field is a string, got ${typeof v}`)
+	})
+})
+
+describe('Presentation.appProperties', () => {
+	test('round-trips the write-side company', async () => {
+		const pres = await roundTrip((pptx) => {
+			pptx.company = 'Analytical Engines Ltd'
+		})
+		assertEqual(pres.appProperties.company, 'Analytical Engines Ltd', 'company')
+	})
+
+	test('reports the producing application and its version', async () => {
+		const app = (await roundTrip(() => {})).appProperties
+		// The write path states these about itself rather than taking them from a caller, so
+		// these are the values it hard-codes in `makeXmlApp` — pinned so a change to the part's
+		// identity is a decision rather than a silent one.
+		assertEqual(app.application, 'Microsoft Office PowerPoint', 'application')
+		assertEqual(app.appVersion, '16.0000', 'appVersion')
+	})
+
+	test('titlesOfParts is the flat vector, fonts and theme included', async () => {
+		// Deliberately NOT just the slide titles: `<HeadingPairs>` holds the counts that
+		// partition this vector and the read model does not report them, so a caller that wants
+		// the slide titles alone has to pair the two itself. Asserting the whole vector is what
+		// keeps that documented shape honest.
+		const app = (await roundTrip(() => {})).appProperties
+		assertEqual((app.titlesOfParts ?? []).join('|'), 'Arial|Calibri|Office Theme|Slide 1', 'the vector as written')
+	})
+
+	test('a PowerPoint-authored fixture decodes without throwing', async () => {
+		const app = (await openFixture('read-stress')).appProperties
+		assert(typeof app.application === 'string' && app.application.length > 0, 'a real deck names its producer')
+		assert(Array.isArray(app.titlesOfParts), 'titlesOfParts is an array')
+	})
+
+	test('a package with no app.xml → {}', async () => {
+		// Every fixture in the corpus has the part, so this edge is built rather than found:
+		// strip it from a written deck and reload. The rel and the content-type override are
+		// left dangling on purpose — that is what a producer that omitted the part looks like,
+		// and neither lookup may resolve to anything.
+		const pptx = new TsPptx()
+		pptx.company = 'gone'
+		pptx.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })
+		const zip = await JSZip.loadAsync(await pptx.toBytes())
+		zip.remove('docProps/app.xml')
+		const pres = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+		assertEqual(Object.keys(pres.appProperties).length, 0, 'no fields')
 	})
 })
 

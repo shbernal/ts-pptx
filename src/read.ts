@@ -54,8 +54,10 @@ export {
 export {
 	readCoreProperties,
 	readCustomProperties,
+	readExtendedProperties,
 	type CoreProperties,
 	type CustomProperty,
+	type ExtendedProperties,
 } from './read/api/document-properties.js'
 export type { CustomPropertyValue } from './types/index.js'
 export { readTagsForPart, type Tag } from './read/api/tags.js'

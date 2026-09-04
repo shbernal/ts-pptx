@@ -269,7 +269,7 @@ and will not yield to more converter work.
 `PrintedScript.notes` is **not** `DeckIr.fidelity`. A tier both suppresses and
 adds:
 
-- *Suppressed:* all twelve document properties ride in the template, so the IR's
+- *Suppressed:* all thirteen document properties ride in the template, so the IR's
   `deck.docProps` note does not describe a template-anchored output. A caveat
   that does not apply teaches the reader to skim the ones that do.
 - *Added:* a slide's own name (`p:cSld@name`) reads fine and would survive a byte
@@ -473,7 +473,7 @@ fixture, which is the honest headline of that tier:
 | `theme.fmtScheme` | 47/47 | the output carries Office's format scheme |
 | `master.txStyles` | 47/47 | placeholder text falls back to built-in defaults |
 | `master.placeholders` | 47/47 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 47/47 | 4 of 12 document properties round-trip |
+| `deck.docProps` | 47/47 | 5 of 13 document properties round-trip |
 | `deck.docPropsDefault` | 47/47 | the write path stamps its own value for each property the source left blank |
 | `master.default` | 47/47 | every presentation carries an unremovable blank `DEFAULT` layout |
 | `master.background` | 46/47 | a `p:bgRef` theme reference is baked to the colour it resolves to |

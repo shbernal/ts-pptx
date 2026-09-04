@@ -250,6 +250,33 @@ export const BAR_3D_SHAPES = ['cone', 'coneToMax', 'box', 'cylinder', 'pyramid',
 export type Bar3DShape = (typeof BAR_3D_SHAPES)[number]
 
 /**
+ * `ST_RadarStyle` — how a radar plot is drawn (`c:radarStyle/@val`).
+ * @see ECMA-376 Part 1 §21.2.3.33
+ */
+export const RADAR_STYLES = ['standard', 'marker', 'filled'] as const
+export type RadarStyle = (typeof RADAR_STYLES)[number]
+
+/**
+ * This library's own names for two of the three radar styles, mapped to the wire spelling each
+ * one means. They are the PowerPoint UI's words ("Radar", "Radar with Markers"), which is why
+ * they were chosen; `filled` needed no rename and is already the schema's own spelling, which is
+ * what made the other two read as typos rather than as a second vocabulary.
+ *
+ * Both spellings are accepted on the public option and normalized to the wire one at definition
+ * time. Before that, `radarStyle: 'marker'` — the schema's word, and the obvious guess for anyone
+ * reading a chart part — failed the enum check and silently fell back to `standard`, so a caller
+ * asking for markers got a plain radar.
+ */
+export const RADAR_STYLE_ALIASES = { radar: 'standard', markers: 'marker' } as const
+export type RadarStyleAlias = keyof typeof RADAR_STYLE_ALIASES
+/**
+ * The alias spellings alone, for the definer's enum check. Derived from the map rather than
+ * written out again — the whole point of this module is that the list a value is validated
+ * against and the union it is typed against cannot drift apart.
+ */
+export const RADAR_STYLE_ALIAS_NAMES = Object.keys(RADAR_STYLE_ALIASES) as readonly RadarStyleAlias[]
+
+/**
  * `ST_LegendPos` — where the legend sits relative to the plot area (`c:legendPos/@val`).
  * @see ECMA-376 Part 1 §21.2.3.24
  */
