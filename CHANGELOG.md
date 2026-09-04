@@ -589,6 +589,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An HTML row covered end to end by a rowspan was dropped, taking the table's shape with
+  it.** A source row states only the cells it *starts*, so a row every column of which is held
+  by a `rowspan` from above states none at all -- what `<tr></tr>` between two spanned rows
+  means. The auto-pager dropped it as an empty buffer while the table emitter went on
+  synthesizing that grid row's `vMerge` continuations, so they landed in the next row's
+  `<a:tr>`: a two-column table came out with a four-cell row, which is the malformation
+  PowerPoint offers to repair. An empty row that nothing covers is still dropped, for the same
+  reason it always was.
+
+  Found by a new end-to-end fixture set for ragged HTML tables
+  (`test/regression/html/html-ragged-tables.test.js`). The column-measuring helper was
+  unit-tested, but nothing pinned the end of the pipe -- whether its answer composes with the
+  emitter's own merge synthesis into a rectangular table -- and the byte-identity corpus holds
+  no imported HTML table at all.
+
 - **A layout placeholder no longer overrides an option the caller stated.**
   `addText(text, { placeholder: 'body', ... })` spread the layout placeholder's options over
   the caller's, so the placeholder won on every key it stated: `valign`, `margin`, `bullet`

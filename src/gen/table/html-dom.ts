@@ -39,6 +39,7 @@ import type { SlideLayoutInternal, TableCellInternal, TableToSlidesPropsInternal
 import { inch2Emu, resolveSlideMarginsInches } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
+import { createRowSpanOccupancy } from './grid.js'
 import { getSlidesForTableRows } from './autopage.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -407,32 +408,30 @@ function gridSpan(value: unknown): number {
  * the two is exactly the padding a ragged row needs; the merge cells for `colspan`/`rowspan` are
  * *not* padding — the table emitter synthesizes those itself, so they are counted as filled here.
  *
- * Spans are read through {@link gridSpan}, so a bad attribute cannot shift the whole grid.
+ * Spans are read through {@link gridSpan}, so a bad attribute cannot shift the whole grid. The
+ * occupancy bookkeeping underneath is {@link createRowSpanOccupancy}, shared with
+ * `walkTableGrid` -- the same rowspan rule, asked a different question: that one places authored
+ * cells into a grid whose width is already declared, this one measures how wide the grid *is*.
  * @param {readonly (readonly GridCellSpans[])[]} rows - per-row cell spans, in emission order
  * @returns {{ columns: number, filled: number[] }} grid width, and columns reached per row
  */
 export function measureGridColumns(rows: readonly (readonly GridCellSpans[])[]): { columns: number; filled: number[] } {
-	// carry[c] = how many further rows column c is still held by a rowspan started above.
-	const carry: number[] = []
+	const occupancy = createRowSpanOccupancy()
 	const filled: number[] = []
 
 	for (const row of rows) {
 		let col = 0
 		for (const cell of row) {
-			while ((carry[col] ?? 0) > 0) col++
+			col = occupancy.nextFree(col)
 			const colspan = gridSpan(cell?.colspan)
-			// Written now, decremented at the end of this row, so it leaves `rowspan - 1` behind.
-			for (let idx = 0; idx < colspan; idx++) carry[col + idx] = gridSpan(cell?.rowspan)
+			// Held now, aged at the end of this row, so it leaves `rowspan - 1` behind.
+			occupancy.hold(col, colspan, gridSpan(cell?.rowspan))
 			col += colspan
 		}
 		// Trailing columns held from above count too: a row whose last cells are all rowspan
 		// continuations reaches past its own final cell.
-		while ((carry[col] ?? 0) > 0) col++
-		filled.push(col)
-		for (let idx = 0; idx < carry.length; idx++) {
-			const held = carry[idx] ?? 0
-			if (held > 0) carry[idx] = held - 1
-		}
+		filled.push(occupancy.nextFree(col))
+		occupancy.endRow()
 	}
 
 	return { columns: filled.reduce((max, reached) => (reached > max ? reached : max), 0), filled }

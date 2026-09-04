@@ -341,12 +341,50 @@ defineRegressionSuite('Table autoPage option surface', [
 		},
 	},
 	{
+		// The other arm of the same rule, below: a row states only the cells it *starts*, so one
+		// whose every column is held by a rowspan from above states none. That row is real and the
+		// emitter fills it with `vMerge` continuations; dropping it moved every later row up one
+		// while those continuations went on being synthesized, so they landed in the next row's
+		// `<a:tr>` and a 2-column table came out with a 4-cell row.
+		name: 'a row with no cells is KEPT when a rowspan from above covers every column',
+		fn: async () => {
+			const rows = [
+				[
+					{ text: 'A0', options: { rowspan: 2 } },
+					{ text: 'B0', options: { rowspan: 2 } },
+				],
+				[],
+				[{ text: 'A2' }, { text: 'B2' }],
+			]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.5,
+					y: 0.5,
+					w: 9,
+					h: 3,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertEqual((xml.match(/<a:tr\b/g) || []).length, 3, 'the covered row is a real grid row')
+			const cellsPerRow = [...xml.matchAll(/<a:tr\b[\s\S]*?<\/a:tr>/g)].map(
+				(row) => [...row[0].matchAll(/<a:tc\b/g)].length
+			)
+			assertEqual(cellsPerRow.join(','), '2,2,2', 'every row carries one cell per grid column')
+			assertEqual((xml.match(/vMerge="1"/g) || []).length, 2, 'the covered row is two continuations')
+		},
+	},
+	{
 		name: 'a row with no cells is dropped instead of emitting a cell-less <a:tr>',
 		fn: async () => {
 			// An empty row reaches the pager with no cells to walk, so it produces no line and
 			// no row buffer to flush. A row element with fewer cells than the grid has columns
-			// is exactly the malformation PowerPoint offers to "repair", so the row must be
-			// dropped, not emitted empty.
+			// is exactly the malformation PowerPoint offers to "repair", so an empty row that
+			// nothing covers from above must be dropped, not emitted empty.
 			const rows = [[{ text: 'A0' }, { text: 'B0' }], [], [{ text: 'A2' }, { text: 'B2' }]]
 			const { zip } = await build((p) => {
 				p.addSlide().addTable(rows, {

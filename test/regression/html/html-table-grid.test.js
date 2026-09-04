@@ -1,6 +1,7 @@
 import { describe, test } from 'vitest'
 import { assert } from '../../helpers.js'
 import { extendColBasis, measureGridColumns } from '../../../src/gen/table/html-dom.ts'
+import { createRowSpanOccupancy } from '../../../src/gen/table/grid.ts'
 
 // Acceptance: an HTML table's rows do not state their own width — a `colspan` fills several grid
 // columns and a `rowspan` from above fills one the row never mentions — but `<a:tblGrid>` declares
@@ -90,5 +91,71 @@ describe('extendColBasis', () => {
 
 	test('an empty basis extends to all ones', () => {
 		assert(JSON.stringify(extendColBasis([], 2)) === '[1,1]', 'with nothing stated, every column is equal')
+	})
+})
+
+// The rowspan bookkeeping underneath both grid walks: `measureGridColumns` above, which measures
+// how wide an imported HTML table's grid *is*, and `walkTableGrid`, which places authored cells
+// into a grid whose width is already declared. Neither can be expressed as the other without
+// giving one of them a mode it does not want, so what they share is the bookkeeping, not the walk
+// — and it is unit-tested here rather than only through its two callers, because getting the
+// ageing off by one silently shifts every column below.
+describe('createRowSpanOccupancy', () => {
+	test('a column is free until something holds it', () => {
+		const occ = createRowSpanOccupancy()
+		assert(occ.nextFree(0) === 0, 'nothing is held to begin with')
+		occ.hold(0, 1, 2)
+		assert(occ.nextFree(0) === 1, 'column 0 is held, so the next free one is 1')
+	})
+
+	test('a hold covers every column of its colspan', () => {
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 3, 2)
+		occ.endRow()
+		assert(occ.nextFree(0) === 3, 'all three columns stay held into the next row')
+	})
+
+	test('a rowspan of 2 holds exactly one further row', () => {
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 1, 2)
+		occ.endRow()
+		assert(occ.nextFree(0) === 1, 'still held one row on')
+		occ.endRow()
+		assert(occ.nextFree(0) === 0, 'and free the row after that')
+	})
+
+	test('holds of different depths expire independently', () => {
+		// One shared "rows remaining" counter instead of one per column gets this wrong.
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 1, 3)
+		occ.hold(1, 1, 2)
+		occ.endRow()
+		assert(occ.nextFree(0) === 2, 'both columns still held')
+		occ.endRow()
+		assert(occ.nextFree(0) === 1, 'the 2-deep hold has expired and the 3-deep one has not')
+	})
+
+	test('a rowspan of 1 holds nothing beyond its own row', () => {
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 1, 1)
+		occ.endRow()
+		assert(occ.nextFree(0) === 0, 'an unspanned cell leaves nothing behind')
+	})
+
+	test('nextFree walks past a run of held columns, not just one', () => {
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 1, 2)
+		occ.hold(1, 1, 2)
+		occ.hold(2, 1, 2)
+		occ.endRow()
+		assert(occ.nextFree(0) === 3, 'three consecutive holds are skipped in one call')
+	})
+
+	test('a column past the end of the record is free', () => {
+		// The record is sparse and unbounded on purpose: a caller that knows its width clamps what
+		// it holds, and then nothing past that width is ever held.
+		const occ = createRowSpanOccupancy()
+		occ.hold(0, 1, 2)
+		assert(occ.nextFree(9) === 9, 'a column nothing ever touched is free')
 	})
 })

@@ -474,9 +474,14 @@ export function getSlidesForTableRows(
 	// cells are finally given.
 	const placements: GridPlacement[][] = tableRows.map(() => [])
 	for (const placement of walkTableGrid(tableRows, numCols)) placements[placement.row]?.push(placement)
+	/** How many of `iRow`'s grid columns are held by a rowspan opened above it. */
+	const coveredFromAbove = (iRow: number): number =>
+		placements.reduce(
+			(cols, row) => cols + row.reduce((n, p) => (p.row < iRow && p.row + p.rowSpan > iRow ? n + p.colSpan : n), 0),
+			0
+		)
 	/** Whether a rowspan opened above `iRow` is still covering it. */
-	const spannedFromAbove = (iRow: number): boolean =>
-		placements.some((row) => row.some((p) => p.row < iRow && p.row + p.rowSpan > iRow))
+	const spannedFromAbove = (iRow: number): boolean => coveredFromAbove(iRow) > 0
 
 	// STEP 3: Calculate width using tableProps.colW if possible
 	if (!tablePropW && tableProps.colW) {
@@ -729,8 +734,20 @@ export function getSlidesForTableRows(
 			if (brent === 0) isDone = true
 		}
 
-		// F: Flush/capture row buffer before it resets at the top of this loop
-		if (currTableRow.length > 0) {
+		// F: Flush/capture row buffer before it resets at the top of this loop.
+		//
+		// A row that states no cells is kept only when every one of its grid columns is held by a
+		// rowspan from above. That is a real row -- a source row states only the cells it *starts*,
+		// so one entirely covered from above states none at all, which is what `<tr></tr>` between
+		// two spanned rows means -- and the emitter fills it with `vMerge` continuations. Dropping
+		// it moved every later row up one while the emitter went on synthesizing that grid row's
+		// continuations, so they landed in the next row's `<a:tr>`: a 2-column table came out with
+		// a 4-cell row.
+		//
+		// An empty row NOT covered that way is a different thing and is still dropped: nothing
+		// would fill it, and a `<a:tr>` carrying fewer `<a:tc>` than the grid has columns is the
+		// malformation PowerPoint offers to repair.
+		if (currTableRow.length > 0 || (row.length === 0 && coveredFromAbove(iRow) === numCols)) {
 			newTableRowSlide.rows.push(currTableRow)
 			newTableRowSlide.rowH?.push(resolveRowH(iRow))
 		}
