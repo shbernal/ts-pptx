@@ -16,13 +16,14 @@
 import type { Presentation } from '../../read/api/presentation.js'
 import type { Slide } from '../../read/api/slide.js'
 import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
+import { backgroundIr, SLIDE_BACKGROUND } from './background.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
 import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
 import { shapeCall, unwritableFramePayload } from './shape.js'
 import type { AssetResolver, MapContext } from './context.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
-import { compact, compactRequired, inches, literalColor } from './values.js'
+import { compact, inches } from './values.js'
 import { STANDARD_LAYOUTS } from '../../units.js'
 import { assetFilenameExtension } from '../../media/content-type.js'
 
@@ -176,7 +177,7 @@ function slideToIr(
 		layout: (layoutPartName === undefined ? undefined : layouts.get(layoutPartName)) ?? null,
 		hidden: slide.hidden,
 		...(slide.name ? { name: slide.name } : {}),
-		...backgroundOf(slide, notes),
+		...backgroundOf(slide, notes, assets),
 		...notesOf(slide, notes),
 	}
 
@@ -230,30 +231,17 @@ function hasUnwritableContent(slide: Slide): boolean {
 	return check(slide.shapes)
 }
 
-function backgroundOf(slide: Slide, notes: NoteScope): { background?: BackgroundIr } {
+/**
+ * A slide's own background, as the write API's `background` option.
+ *
+ * Only a slide-scoped background is carried: an inherited one comes with the layout, so
+ * re-authoring it onto the slide would pin a colour that should keep following the layout.
+ */
+function backgroundOf(slide: Slide, notes: NoteScope, assets: AssetResolver): { background?: BackgroundIr } {
 	const background = slide.background
-	// An inherited background comes with the layout, so re-authoring it onto the slide would
-	// pin a colour that should keep following the layout.
 	if (!background || background.source !== 'slide') return {}
-
-	switch (background.type) {
-		case 'solid':
-			// `compactRequired`: the guard has already established there is a colour, so the IR object
-			// cannot come back empty, and `compact`'s "nothing survived" return does not apply here.
-			return background.color
-				? { background: compactRequired({ color: literalColor(background.color.effectiveHex) }) }
-				: {}
-		case 'none':
-			return {}
-		default:
-			notes.note(
-				'slide.background',
-				'dropped',
-				'unsupported',
-				`a ${background.type} slide background is not expressible through the write API's background option, so the slide takes its layout's background`
-			)
-			return {}
-	}
+	const ir = backgroundIr(background, notes, assets, SLIDE_BACKGROUND)
+	return ir ? { background: ir } : {}
 }
 
 function notesOf(slide: Slide, notes: NoteScope): { notesText?: string } {

@@ -146,7 +146,10 @@ export const NOTE_CONSTRUCTS = {
 	'shape.hidden': ['*'],
 	'shape.placeholder': ['placeholder'],
 	'slide.animation': [],
-	'slide.background': ['background', 'color', 'transparency', 'image'],
+	// `image` was never a key on either side -- `BackgroundIr` spells a picture background
+	// `data`, for the reason its own doc comment gives -- so that entry excused nothing. It is
+	// `data`/`$asset` now that the slide arm can actually produce one, matching `image.data`.
+	'slide.background': ['background', 'color', 'transparency', 'data', '$asset'],
 	'slide.carried': ['*'],
 	'slide.layout': ['layoutName'],
 	'slide.name': [],

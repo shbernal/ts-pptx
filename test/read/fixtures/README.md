@@ -46,6 +46,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
 | `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `slide-background.pptx` | Microsoft Office PowerPoint   | 16.0000    | 3      |
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
@@ -165,6 +166,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 527404b131935bc297c37a3305998162a14d908e6b83faf8dad519fae0329782  placeholder-inherit.pptx
 226a880870611c3f5e7a4760fc83bff7cc528360ffe197f6bcba75ccfdfc1265  placeholder-footer-trio.pptx
 34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
+cc17c7b216445435c30addbdf5c1aa042e10a22ccd46f9e71fc5d41efc9578c0  slide-background.pptx
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
@@ -479,6 +481,25 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   ground-truth values read directly off the fixture's slide XML. The
   raster-plus-SVG `both` and plain `raster` `mediaKind` cases live in
   `style-accessors.test.js` against `image.pptx`.
+- `slide-background.pptx` — three slides, each with a background that belongs to the
+  **slide** rather than to its layout or master, read by `slide-background.test.js`. Slide
+  1 is `p:bg/p:bgPr/a:blipFill` (Format Background → Picture or texture fill, applied to
+  one slide); slide 2 is a slide-scoped `p:bg/p:bgRef idx="1001"` with
+  `<a:schemeClr val="accent2"/>`, which the stock theme's first `a:bgFillStyleLst` entry
+  resolves to a flat accent2; slide 3 is `a:solidFill` with `<a:alpha val="60000"/>`, i.e.
+  a 40%-transparent background.
+
+  The corpus had **none** of these: across the other fixtures every `source: 'slide'`
+  background is `solid` or `none`, so the script converter's slide arm could claim a
+  picture background was "not expressible through the write API" and nothing contradicted
+  it. Slide 3 is likewise the only producer anywhere of a background transparency.
+
+  Authored 2026-09-04 (`authoring/author-slide-background.ps1`). Slides 1 and 3 are plain
+  COM; slide 2 takes the inject-then-reopen route `table-cell-horzoverflow.pptx` uses,
+  because `p:bgRef` is what the Design → Variants → Background Styles *gallery* writes and
+  a gallery has no `ExecuteMso` surface — `Slide.Background.Fill` reaches `p:bgPr` and only
+  `p:bgPr`. PowerPoint keeps the injected `p:bgRef` verbatim on the re-save, which is the
+  evidence that it is a construct PowerPoint accepts at slide scope.
 - `default-text-style.pptx` — a minimal one-slide deck for the two lowest
   run-resolution tiers, read by `default-text-style.test.js`. `PlainBox` is a plain
   text box (no placeholder, no `p:style`) whose sole run is bare

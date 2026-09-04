@@ -762,13 +762,14 @@ The gate is `validatorAvailable()` in `test/validator.js`.
 Every contract there runs against **every** `.pptx` in the corpus, via
 `fixtureNames` from `test/read/corpus.js`. It used to run against five decks
 named in a literal, with promotion asking for a manual edit to extend it, so
-the corpus grew to 44 while the OPC contract kept being proved against the same
-five, and the decks that actually stress it (chartEx, model3d, math-omml,
+the corpus grew past forty while the OPC contract kept being proved against the
+same five, and the decks that actually stress it (chartEx, model3d, math-omml,
 embedded fonts, av-media, modern comments) were never round-tripped here at all.
 
 The schema case asserts that a round-trip introduces **no new** validator
-errors, rather than that the output is clean. Those are the same claim for 43 of
-the 44 decks and only one of them is true of the 44th:
+errors, rather than that the output is clean. That is the same claim as "the
+output is clean" for every deck in the corpus but one, and only for that one is
+the weaker form doing any work:
 `bar-chart-data-labels.pptx` carries three Microsoft365 errors *as committed*,
 all in PowerPoint's own chart `c:extLst`, an undeclared `uri` on `c:ext`, a
 `chart:dataDisplayOptions16` where the SDK schema models only `dispNaAsBlank`,

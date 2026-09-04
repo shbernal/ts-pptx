@@ -20,7 +20,7 @@ export type { Document, Element, Node } from '@xmldom/xmldom'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { boolValue } from '../../ooxml/xsd-boolean.js'
-import { PERCENT_SCALE } from '../../units.js'
+import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE } from '../../units.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
 export const ELEMENT_NODE = 1
@@ -311,6 +311,31 @@ export function parsePercent(value: string | null): number | null {
 /** {@link parsePercent} over an attribute read by qname. */
 export function pctAttr(element: Element, qname: string): number | null {
 	return parsePercent(attr(element, qname))
+}
+
+/**
+ * DrawingML percentage → percent *points* (`55000` → `55`), or `null` when unparseable.
+ *
+ * Not `parsePercent(v) * 100`. The fixed-point form divides by 100000 and multiplying the
+ * result back by 100 re-introduces the rounding that division just took on: `55000` came out
+ * of three public accessors as `55.00000000000001`, and one of them wrote that into the
+ * committed inspect snapshot, where it made the sidecar unreproducible from its own generator.
+ * Dividing once by {@link FIXED_PCT_PER_PERCENT} is exact for every value Office writes.
+ * @param value - the raw attribute value, or `null` when the attribute is absent
+ */
+export function parsePercentPoints(value: string | null): number | null {
+	if (value === null || value === '') return null
+	if (value.endsWith('%')) {
+		const n = Number(value.slice(0, -1))
+		return Number.isFinite(n) ? n : null
+	}
+	const n = Number(value)
+	return Number.isFinite(n) ? n / FIXED_PCT_PER_PERCENT : null
+}
+
+/** {@link parsePercentPoints} over an attribute read by qname. */
+export function pctPointsAttr(element: Element, qname: string): number | null {
+	return parsePercentPoints(attr(element, qname))
 }
 
 /**

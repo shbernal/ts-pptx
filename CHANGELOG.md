@@ -491,6 +491,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three percentage accessors reported `55.00000000000001` for a `55%` attribute.**
+  `TextFrame.autofitFontScale`, `TextFrame.autofitLineSpaceReduction`, `Run.baselinePct`
+  and a paragraph's percent line spacing each read the attribute through `parsePercent` —
+  which divides the fixed-point form by 100000 to give a fraction — and then multiplied by
+  100 to get back to a percent, re-introducing the rounding the division had just taken on.
+
+  They now divide once, exactly, through a `parsePercentPoints` that reads the same union
+  (`55000` and `"55%"` both give `55`). The values move by a floating-point ulp, which
+  matters to an equality check and to a serialized snapshot: `inspect-surface.snapshot.json`
+  had drifted from what its own generator produces, so the sidecar could not be regenerated
+  without an unrelated diff.
+
+- **A slide's own picture or theme background is no longer dropped.** `ts-pptx/script` had
+  two background mappers and only one of them could carry a picture. The layout/master arm
+  handled `solid`, `image` and `themeRef`; the slide arm handled `solid` and `none` and
+  recorded everything else as
+
+  > a {type} slide background is not expressible through the write API's background option
+
+  which was not true for `image`: `SlideProps.background` takes the same `BackgroundProps`
+  the layout arm authors, four files away, and `BackgroundIr.data` was a declared and
+  documented IR field nothing could produce. There is now **one** mapper for both tiers, so a
+  slide-scoped picture background carries its bytes and a slide-scoped `p:bgRef` bakes its
+  resolved colour exactly as a layout's does. The note constructs stay tier-scoped
+  (`slide.background` vs `master.background`), so an existing declared loss keeps its key.
+
+  `BackgroundIr.transparency` gains its first producer at the same time, on both tiers: a
+  background colour carrying an `a:alpha` now reaches `BackgroundProps.transparency`. The
+  read model reports opacity as a 0-1 fraction and the write option takes transparency as a
+  0-100 percent, and that conversion is the one place the two conventions meet.
+
+  `slide.background`'s note-field list claimed `image`, which was never a key on either side
+  — the IR spells a picture background `data` — so that entry excused nothing. It is
+  `data`/`$asset` now, matching `image.data`.
+
+  **What blocked this was the fixture, and it is now in the corpus.** No deck under
+  `test/read/fixtures/` had a slide-scoped background that was not `solid` or `none`, so the
+  slide arm's claim had nothing to contradict it — and the round trip could not catch it
+  either, since it excludes exactly the *declared* losses and this loss was declared. The new
+  `slide-background.pptx` is three PowerPoint-authored slides: a picture background, a
+  slide-scoped `p:bgRef`, and a solid with an `a:alpha`.
+
 - **A combo chart's line markers took a different palette entry from the line they sit on.**
   Two lookups for one series: the line body read the series' position *within its own
   subchart* and the marker read its position *across all of them*. Those are the same number

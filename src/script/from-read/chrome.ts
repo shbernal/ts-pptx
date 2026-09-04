@@ -38,13 +38,13 @@
  */
 import type { Presentation } from '../../read/api/presentation.js'
 import type { SlideLayout, SlideMaster, Theme } from '../../read/api/chrome.js'
-import type { SlideBackground } from '../../read/api/slide-background.js'
 import { isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import type { ChromeIr, IrValue, MasterIr, ThemeIr } from '../ir.js'
 import { layoutShapeScope, type NoteScope } from '../fidelity.js'
 import { masterObject } from './shape.js'
-import type { AssetResolver, MapContext } from './context.js'
+import type { MapContext } from './context.js'
 import { hasDecorativeShapes, hasFormatScheme, hasTextStyles, isPlaceholderShape } from './detect.js'
+import { backgroundIr, MASTER_BACKGROUND } from './background.js'
 import { compact, literalColor, orUndefined } from './values.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 
@@ -177,7 +177,11 @@ function layoutsToIr(masters: SlideMaster[], ctx: MapContext): MasterIr[] {
 
 			// The layout's own background if it has one, else the master's — which is what a slide
 			// bound to that layout actually shows, and the only tier the write API can set it at.
-			const background = backgroundProps(layout.background ?? master.background, notes, assets)
+			// The cast is the one `print/common.ts` makes for the same value: a `BackgroundIr` is
+			// exactly the shape the write option takes, and the layout props bag is untyped.
+			const background = backgroundIr(layout.background ?? master.background, notes, assets, MASTER_BACKGROUND) as
+				| IrValue
+				| undefined
 			const objects = layoutObjects(layout, ctx)
 			out.push({
 				layoutIndex: index,
@@ -286,52 +290,4 @@ function collectObjects(shapes: AnyShape[], out: IrValue[], ctx: MapContext): vo
  */
 function flattenAttributeValue(value: string): string {
 	return value.replace(/[\t\r\n]+/g, ' ')
-}
-
-/** A master/layout background reduced to what `BackgroundProps` accepts. */
-function backgroundProps(
-	background: SlideBackground | null,
-	notes: NoteScope,
-	assets: AssetResolver
-): IrValue | undefined {
-	if (!background || background.type === 'none') return undefined
-
-	switch (background.type) {
-		case 'solid':
-			return background.color ? { color: literalColor(background.color.effectiveHex) } : undefined
-		case 'image': {
-			const asset = background.partName === null ? null : assets.assetFor(background.partName)
-			return asset ? { data: asset } : undefined
-		}
-		case 'themeRef': {
-			// `p:bgRef` indexes the theme's background fill list, which the write path cannot
-			// author. The read model resolves it, so the flat colour survives even though the
-			// reference — and therefore its response to a theme change — does not.
-			const fill = background.resolvedFill
-			if (fill?.type === 'solid' && fill.color) {
-				notes.note(
-					'master.background',
-					'flattened',
-					'unwritable',
-					"this layout's background is a theme reference (p:bgRef into the theme's background fill list), which has no write-API option; the colour it currently resolves to is baked in and stops following the theme"
-				)
-				return { color: literalColor(fill.color.effectiveHex) }
-			}
-			notes.note(
-				'master.background',
-				'dropped',
-				'unwritable',
-				"this layout's background is a theme reference to a non-solid fill, which has no write-API option; the layout is emitted with no background"
-			)
-			return undefined
-		}
-		default:
-			notes.note(
-				'master.background',
-				'dropped',
-				'unsupported',
-				`a ${background.type} layout background is not expressible through the write API's background option, so the layout is emitted with no background`
-			)
-			return undefined
-	}
 }

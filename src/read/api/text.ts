@@ -20,7 +20,7 @@ import {
 	getElements,
 	getOrAddChild,
 	numberValue,
-	pctAttr,
+	pctPointsAttr,
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
@@ -295,12 +295,11 @@ export class Run {
 	 * percentage (`@baseline` ÷ 1000).
 	 *
 	 * `@baseline` is `a:ST_Percentage`, a union that also admits `"62.5%"` — the only form the
-	 * Strict profile has — so it is read through `parsePercent` rather than as a bare number.
+	 * Strict profile has — so it is read through `parsePercentPoints` rather than as a bare number.
 	 */
 	get baselinePct(): number | null {
 		const rPr = this.#rPr()
-		const pct = rPr ? pctAttr(rPr, 'baseline') : null
-		return pct === null ? null : pct * 100
+		return rPr ? pctPointsAttr(rPr, 'baseline') : null
 	}
 
 	/**
@@ -659,8 +658,8 @@ export class Paragraph {
 		if (pct) {
 			// `ST_TextSpacingPercentOrPercentString`: the name says it, and the string half is the
 			// only spelling Strict has.
-			const val = pctAttr(pct, 'val')
-			return val === null ? null : { type: 'percent', percent: val * 100 }
+			const val = pctPointsAttr(pct, 'val')
+			return val === null ? null : { type: 'percent', percent: val }
 		}
 		return null
 	}
@@ -941,8 +940,7 @@ export class TextFrame {
 	#normAutofitPct(name: string): number | null {
 		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
 		const norm = bodyPr && firstChild(bodyPr, 'a:normAutofit')
-		const pct = norm ? pctAttr(norm, name) : null
-		return pct === null ? null : pct * 100
+		return norm ? pctPointsAttr(norm, name) : null
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */
