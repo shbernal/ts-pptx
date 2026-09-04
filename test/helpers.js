@@ -236,18 +236,14 @@ function bytesEqual(a, b) {
 }
 
 /**
- * True when `fn` throws. Deliberately says nothing about *what* it threw, so pair it with a
- * separate assertion on the message when the distinction matters — a bare `throws()` passes
- * just as happily on a `TypeError` from a typo in the test as on the guard under test.
- */
-/**
  * Assert that `fn` throws (or rejects), and that the message matches `expected`.
  *
- * Thirteen sites hand-rolled this as `let threw = false` around a `try`/`catch`, and the six
- * that asserted nothing about the message are why {@link throws}'s caveat stayed invisible:
- * "it threw" passes just as happily on a `TypeError` from a typo in the test as on the guard
- * under test. `expected` is required here for that reason -- pass `/(?:)/` where the message
- * genuinely does not matter, so that it is a decision rather than an omission.
+ * Thirteen sites hand-rolled this as `let threw = false` around a `try`/`catch`, and none of
+ * them do now. The six that asserted nothing about the message are why {@link throws}'s caveat
+ * stayed invisible: "it threw" passes just as happily on a `TypeError` from a typo in the test
+ * as on the guard under test. `expected` is required here for that reason -- pass `/(?:)/`
+ * where the message genuinely does not matter, so that it is a decision rather than an
+ * omission.
  *
  * @param {() => unknown} fn the call under test; may be async
  * @param {RegExp} expected pattern the error message must match
@@ -269,6 +265,14 @@ async function assertRejects(fn, expected, label) {
 	return error
 }
 
+/**
+ * True when `fn` throws. Deliberately says nothing about *what* it threw, so pair it with a
+ * separate assertion on the message when the distinction matters — a bare `throws()` passes
+ * just as happily on a `TypeError` from a typo in the test as on the guard under test.
+ *
+ * Synchronous only. Reach for {@link assertRejects} when there is a message worth pinning, or
+ * when the call under test is async.
+ */
 function throws(fn) {
 	try {
 		fn()

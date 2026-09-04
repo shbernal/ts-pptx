@@ -1,4 +1,4 @@
-import { assert, build, defineRegressionSuite, setDiagnosticHandler, slideXml } from '../../helpers.js'
+import { assert, assertRejects, build, defineRegressionSuite, setDiagnosticHandler, slideXml } from '../../helpers.js'
 
 // Regression: slide.addConnector emits a PowerPoint connector (<p:cxnSp>) — not a plain line
 // shape — with the correct connector preset, a min-corner origin + flip flags derived from the
@@ -88,16 +88,12 @@ defineRegressionSuite('Connector shapes', [
 	{
 		name: 'adj array length must match bends; non-finite adj throws',
 		fn: async () => {
-			let threw = false
-			try {
-				await build((p) =>
-					p.addSlide().addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, bends: 2, adj: [50] })
-				)
-			} catch (ex) {
-				threw = true
-				assert(/must supply 2 value/.test(ex.message), `expected a length-mismatch error; got: ${ex.message}`)
-			}
-			assert(threw, 'mismatched adj length must throw')
+			await assertRejects(
+				() =>
+					build((p) => p.addSlide().addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, bends: 2, adj: [50] })),
+				/must supply 2 value/,
+				'a mismatched adj length'
+			)
 
 			let threw2 = false
 			try {
@@ -199,31 +195,26 @@ defineRegressionSuite('Connector shapes', [
 	{
 		name: 'negative connection-site index throws',
 		fn: async () => {
-			let threw = false
-			try {
-				await build((p) => {
-					const s = p.addSlide()
-					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'b' })
-					s.addConnector({ x1: 1, y1: 1, x2: 2, y2: 2, startShape: 'b', startShapeIdx: -1 })
-				})
-			} catch (ex) {
-				threw = true
-				assert(/startShapeIdx.*non-negative integer/.test(ex.message), `expected an idx error; got: ${ex.message}`)
-			}
-			assert(threw, 'negative startShapeIdx must throw')
+			await assertRejects(
+				() =>
+					build((p) => {
+						const s = p.addSlide()
+						s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'b' })
+						s.addConnector({ x1: 1, y1: 1, x2: 2, y2: 2, startShape: 'b', startShapeIdx: -1 })
+					}),
+				/startShapeIdx.*non-negative integer/,
+				'a negative startShapeIdx'
+			)
 		},
 	},
 	{
 		name: 'missing endpoints throw',
 		fn: async () => {
-			let threw = false
-			try {
-				await build((p) => p.addSlide().addConnector({ x1: 1, y1: 1, x2: 4 }))
-			} catch (ex) {
-				threw = true
-				assert(/x1, y1, x2, y2/.test(ex.message), `expected an endpoint-required error; got: ${ex.message}`)
-			}
-			assert(threw, 'addConnector without all endpoints must throw')
+			await assertRejects(
+				() => build((p) => p.addSlide().addConnector({ x1: 1, y1: 1, x2: 4 })),
+				/x1, y1, x2, y2/,
+				'addConnector without all endpoints'
+			)
 		},
 	},
 ])

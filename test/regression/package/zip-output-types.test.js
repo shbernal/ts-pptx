@@ -6,7 +6,7 @@
 import { Buffer } from 'node:buffer'
 import { describe, test } from 'vitest'
 import TsPptx from '../../../dist/node.js'
-import { assert } from '../../helpers.js'
+import { assert, assertRejects } from '../../helpers.js'
 
 const PK_MAGIC = [0x50, 0x4b] // "PK" — local file header of any zip
 
@@ -70,13 +70,10 @@ describe('zip output types', () => {
 	})
 
 	test('an unsupported output type throws rather than emitting garbage', async () => {
-		let threw = false
-		try {
-			await makePres().write({ outputType: /** @type {any} */ ('bogus') })
-		} catch (ex) {
-			threw = true
-			assert(/Unsupported zip output type/.test(String(ex)), `unexpected error message: ${ex}`)
-		}
-		assert(threw, 'an unknown outputType must reject')
+		await assertRejects(
+			() => makePres().write({ outputType: /** @type {any} */ ('bogus') }),
+			/Unsupported zip output type/,
+			'an unknown outputType'
+		)
 	})
 })

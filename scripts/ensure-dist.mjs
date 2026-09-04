@@ -30,7 +30,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT, parseCliOrExit, run } from './script-utils.mjs'
+import { isMain, ROOT, parseCliOrExit, run } from './script-utils.mjs'
 
 const INPUT_FILES = ['tsdown.config.ts', 'tsconfig.base.json', 'tsconfig.json', 'package.json', 'pnpm-lock.yaml']
 const INPUT_DIR = 'src'
@@ -80,22 +80,32 @@ async function mtimeOf(file) {
  * One walk of the list rather than two: `missingOutputs` and `stale` each stat the whole set
  * and each derive the missing list from it, so the two answers came from two passes that could
  * see a different `dist/` if a build landed between them.
+ * @param {string} [root] tree to inspect; defaults to the repo, and is a parameter so the
+ *   staleness rule can be exercised against a fabricated tree with controlled mtimes.
  * @returns {Promise<{mtimes: number[], missing: string[]}>}
  */
-async function outputState() {
-	const mtimes = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))))
+async function outputState(root = ROOT) {
+	const mtimes = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(root, f))))
 	return { mtimes, missing: OUTPUT_FILES.filter((_, i) => mtimes[i] === 0) }
 }
 
-/** @returns {Promise<string | null>} why `dist/` is stale, or null if it is current. */
-async function stale() {
-	const { mtimes: outputs, missing } = await outputState()
+/**
+ * Why `dist/` is stale, or `null` if it is current.
+ *
+ * The one answer that is not acceptable is the false `null`: judging a stale `dist/` fresh
+ * runs the whole suite against yesterday's build and reports a pass. Exported, and taking its
+ * root as a parameter, so exactly that can be exercised against a fabricated tree.
+ * @param {string} [root] tree to inspect; defaults to the repo
+ * @returns {Promise<string | null>}
+ */
+export async function stale(root = ROOT) {
+	const { mtimes: outputs, missing } = await outputState(root)
 	if (missing.length > 0) return 'missing build output: ' + missing.join(', ')
 
 	const oldestOutput = Math.min(...outputs)
 	const inputMtimes = await Promise.all([
-		newestMtimeIn(path.join(ROOT, INPUT_DIR)),
-		...INPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))),
+		newestMtimeIn(path.join(root, INPUT_DIR)),
+		...INPUT_FILES.map((f) => mtimeOf(path.join(root, f))),
 	])
 	const newestInput = Math.max(...inputMtimes)
 	if (newestInput > oldestOutput) {
@@ -123,8 +133,9 @@ function runBuild() {
 	return run('pnpm', ['run', 'build'])
 }
 
-const { values } = parseCliOrExit(process.argv.slice(2), {
-	usage: `Build \`dist/\` if it is out of date with respect to its inputs.
+if (isMain(import.meta.url)) {
+	const { values } = parseCliOrExit(process.argv.slice(2), {
+		usage: `Build \`dist/\` if it is out of date with respect to its inputs.
 
   node scripts/ensure-dist.mjs                build when stale
   node scripts/ensure-dist.mjs --check        report staleness, never build (exit 1 if stale)
@@ -134,28 +145,29 @@ Options:
   --check       fail instead of building — for CI, where a stale dist/ is a mistake
   --if-missing  build an absent dist/, but leave a stale one alone — for \`prepare\`
   -h, --help    show this message`,
-	options: { check: { type: 'boolean', default: false }, 'if-missing': { type: 'boolean', default: false } },
-})
+		options: { check: { type: 'boolean', default: false }, 'if-missing': { type: 'boolean', default: false } },
+	})
 
-// `--if-missing` asks a different question from the freshness check: not "is this build
-// current?" but "is there a build at all?".
-//
-// It exists for the `prepare` script, which runs in two unrelated places. In this repo it
-// runs on every install, where rebuilding a *stale* dist/ would be wrong — `pnpm run build`
-// and `pnpm run watch` would then build twice, and every other script already front-loads
-// its own unconditional `ensure-dist`. In a consumer's `npm i github:shbernal/ts-pptx#<sha>`
-// it is the only build that will ever run: `dist/` is gitignored, so the checkout npm packs
-// has no build output at all unless `prepare` produces one. Absent means build; stale is
-// somebody else's question.
-if (values['if-missing'] && (await outputState()).missing.length === 0) process.exit(0)
+	// `--if-missing` asks a different question from the freshness check: not "is this build
+	// current?" but "is there a build at all?".
+	//
+	// It exists for the `prepare` script, which runs in two unrelated places. In this repo it
+	// runs on every install, where rebuilding a *stale* dist/ would be wrong — `pnpm run build`
+	// and `pnpm run watch` would then build twice, and every other script already front-loads
+	// its own unconditional `ensure-dist`. In a consumer's `npm i github:shbernal/ts-pptx#<sha>`
+	// it is the only build that will ever run: `dist/` is gitignored, so the checkout npm packs
+	// has no build output at all unless `prepare` produces one. Absent means build; stale is
+	// somebody else's question.
+	if (values['if-missing'] && (await outputState()).missing.length === 0) process.exit(0)
 
-const reason = await stale()
-if (reason === null) process.exit(0)
+	const reason = await stale()
+	if (reason === null) process.exit(0)
 
-if (values.check) {
-	console.error('dist/ is not current (' + reason + '). Run: pnpm run build')
-	process.exit(1)
+	if (values.check) {
+		console.error('dist/ is not current (' + reason + '). Run: pnpm run build')
+		process.exit(1)
+	}
+
+	console.log('dist/ is not current (' + reason + ') — building')
+	await runBuild()
 }
-
-console.log('dist/ is not current (' + reason + ') — building')
-await runBuild()

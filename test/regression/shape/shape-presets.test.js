@@ -6,6 +6,7 @@ import {
 	readEntry,
 	assert,
 	assertEqual,
+	assertRejects,
 	assertXmlOrder,
 } from '../../helpers.js'
 
@@ -70,17 +71,15 @@ defineRegressionSuite('Shape preset mapping [legacy bug-10]', [
 	{
 		name: 'addShape with an unknown preset throws instead of emitting invalid prst',
 		fn: async () => {
-			let threw = false
-			try {
-				await build((p) => {
-					const s = p.addSlide()
-					s.addShape('hexgon', { x: 1, y: 1, w: 2, h: 1 }) // typo for "hexagon"
-				})
-			} catch (err) {
-				threw = true
-				assert(/Invalid shape "hexgon"/.test(String(err.message)), 'unexpected error message: ' + err.message)
-			}
-			assert(threw, 'expected addShape("hexgon") to throw')
+			await assertRejects(
+				() =>
+					build((p) => {
+						const s = p.addSlide()
+						s.addShape('hexgon', { x: 1, y: 1, w: 2, h: 1 }) // typo for "hexagon"
+					}),
+				/Invalid shape "hexgon"/,
+				'addShape with an unknown preset'
+			)
 		},
 	},
 	{
@@ -120,17 +119,15 @@ defineRegressionSuite('Shape preset mapping [legacy bug-10]', [
 	{
 		name: 'addText with an invalid shape preset throws (gen-xml safety net)',
 		fn: async () => {
-			let threw = false
-			try {
-				await build((p) => {
-					const s = p.addSlide()
-					s.addText('hi', { shape: 'ellipsee', x: 1, y: 1, w: 1, h: 1 }) // typo
-				})
-			} catch (err) {
-				threw = true
-				assert(/Invalid shape "ellipsee"/.test(String(err.message)), 'unexpected error message: ' + err.message)
-			}
-			assert(threw, 'expected addText with invalid shape to throw')
+			await assertRejects(
+				() =>
+					build((p) => {
+						const s = p.addSlide()
+						s.addText('hi', { shape: 'ellipsee', x: 1, y: 1, w: 1, h: 1 }) // typo
+					}),
+				/Invalid shape "ellipsee"/,
+				'addText with an unknown shape preset'
+			)
 		},
 	},
 	{

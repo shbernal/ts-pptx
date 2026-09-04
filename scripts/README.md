@@ -44,6 +44,7 @@ are in every aggregate the repo has.
 | `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor; `prove-whitespace` discharges one recorded reformat | manual — see note below |
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
+| `coverage-project.mjs` | Library | Re-expresses the browser lane's hits in the Node report's own instrumentation maps, so merging can move counts but never the denominator | `coverage-merge.mjs` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
 | `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `verify` and `check:static`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |

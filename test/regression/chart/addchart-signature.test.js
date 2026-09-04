@@ -1,5 +1,5 @@
 import TsPptx, { ChartType } from '../../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../../helpers.js'
+import { defineRegressionSuite, build, readEntry, listEntries, assert, assertRejects } from '../../helpers.js'
 
 const DATA = [{ name: 'Sales', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }]
 
@@ -49,15 +49,12 @@ defineRegressionSuite('addChart signature', [
 		name: 'omitting the chart type on the options object throws',
 		fn: async () => {
 			const p = new TsPptx()
-			let threw = false
-			try {
+			await assertRejects(
 				// Negative test: `type` is intentionally omitted; cast past the required-`type` overload.
-				p.addSlide().addChart(DATA, /** @type {any} */ ({ x: 1, y: 1, w: 6, h: 3 }))
-			} catch (err) {
-				threw = true
-				assert(/type/.test(String(err && err.message)), 'error should mention the missing `type`; got: ' + err)
-			}
-			assert(threw, 'expected addChart without a type to throw')
+				() => p.addSlide().addChart(DATA, /** @type {any} */ ({ x: 1, y: 1, w: 6, h: 3 })),
+				/type/,
+				'addChart without a type'
+			)
 		},
 	},
 ])
