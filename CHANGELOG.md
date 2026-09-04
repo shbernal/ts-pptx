@@ -437,6 +437,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `buildFitParagraphs` takes the internal option shape, so that entry's `.d.ts` names
   `ObjectOptionsInternal`. That is now visible in the type's name instead of inlined.
 
+- **Three oversized read modules are split along the seams they already named.** Pure moves,
+  byte-identical, and the public export surface is unchanged — `package:lint`, the bundle
+  ratchet and `test:package` all pass without a budget edit.
+
+  `read/api/table.ts` (1064 lines) held `Table`, `TableRow` and `TableCell` with no shared
+  state; it is now `table.ts` / `table-row.ts` / `table-cell.ts`, chained rather than circular,
+  with `table.ts` re-exporting the other two and the cell value types. `read/api/text.ts` (1034)
+  becomes `text/run.ts` / `text/paragraph.ts` / `text/frame.ts` / `text/edit.ts` behind a
+  `text.ts` barrel. `read/api/shapes/base.ts` (959 → 880) hands its `a:effectLst` block to a new
+  `shapes/effects.ts` as free functions over `(effectLst, ctx)`, which is all those five getters
+  and two private helpers ever needed — their only reference to the class was `themeContext()`.
+
 ### Deprecated
 
 - **The chart option bag's older stroke spellings.** All of them still work, are still read,

@@ -17,11 +17,9 @@ import {
 	attr,
 	boolValue,
 	firstChild,
-	firstChildElement,
 	getElements,
 	getOrAddChild,
 	numberValue,
-	pctAttr,
 	removeAttr,
 	removeChildrenByQName,
 	setAttr,
@@ -30,7 +28,6 @@ import {
 import { composeGroupFrame, type GroupTransform } from './group-transform.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../../oxml/fill.js'
 import {
-	resolveColorElement,
 	resolveInheritedFrame,
 	resolveSolidFillColor,
 	resolveStyleFillColor,
@@ -42,6 +39,7 @@ import {
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from '../gradient.js'
 import { readPictureFill, type PictureFill } from '../picture-fill.js'
 import { readPatternFill } from '../pattern-fill.js'
+import { readGlow, readInnerShadow, readOuterShadow, readReflection, readSoftEdge } from './effects.js'
 import { TextFrame } from '../text.js'
 import type { ShapeHost } from './host.js'
 import {
@@ -70,26 +68,12 @@ import type {
 	SoftEdge,
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
-import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT } from '../../../units.js'
 import { checkFiniteEmu, checkPositiveEmu, ptFromEmu } from '../coords.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
 // against real PowerPoint output ("Mark as decorative").
 const ADEC_NS = 'http://schemas.microsoft.com/office/drawing/2017/decorative'
-
-/**
- * One scaled attribute of an effect element, or `null` when the element does not state it.
- *
- * `a:effectLst`'s children carry their measures in EMU and 60,000ths of a degree, and every
- * decoder below has to divide. Four of them did it inline and one built a local `put` helper
- * four lines from the last inline copy; naming the operation once is what keeps the divisor and
- * the "absent stays absent" rule from being restated per attribute.
- */
-function scaledAttr(el: Element, name: string, divisor: number): number | null {
-	const raw = numberValue(attr(el, name))
-	return raw === null ? null : raw / divisor
-}
 
 /** Common base for every shape in a shape tree — a slide's, a layout's, or a master's. */
 export abstract class Shape {
@@ -681,8 +665,7 @@ export abstract class Shape {
 	 * invisible in geometry/fill alone.
 	 */
 	get shadow(): OuterShadow | null {
-		const shdw = this.#effect('a:outerShdw')
-		return shdw ? this.#readShadow(shdw) : null
+		return readOuterShadow(this.#effectLst(), this.host.themeContext())
 	}
 
 	/**
@@ -692,8 +675,7 @@ export abstract class Shape {
 	 * emits it, and it is invisible in geometry/fill alone.
 	 */
 	get innerShadow(): InnerShadow | null {
-		const shdw = this.#effect('a:innerShdw')
-		return shdw ? this.#readShadow(shdw) : null
+		return readInnerShadow(this.#effectLst(), this.host.themeContext())
 	}
 
 	/**
@@ -702,13 +684,7 @@ export abstract class Shape {
 	 * glow emits, so its {@link Glow.radiusPt} and colour round-trip.
 	 */
 	get glow(): Glow | null {
-		const glow = this.#effect('a:glow')
-		if (!glow) return null
-		const out: Glow = { color: null }
-		this.#applyEffectColor(out, firstChildElement(glow))
-		const rad = scaledAttr(glow, 'rad', EMU_PER_POINT)
-		if (rad !== null) out.radiusPt = rad
-		return out
+		return readGlow(this.#effectLst(), this.host.themeContext())
 	}
 
 	/**
@@ -717,26 +693,7 @@ export abstract class Shape {
 	 * the part rather than regenerate it — see {@link Reflection}.
 	 */
 	get reflection(): Reflection | null {
-		const refl = this.#effect('a:reflection')
-		if (!refl) return null
-		const out: Reflection = {}
-		const put = (target: keyof Reflection, name: string, div: number): void => {
-			const v = scaledAttr(refl, name, div)
-			if (v !== null) out[target] = v
-		}
-		const putPct = (target: keyof Reflection, name: string): void => {
-			const v = pctAttr(refl, name)
-			if (v !== null) out[target] = v
-		}
-		put('blurPt', 'blurRad', EMU_PER_POINT)
-		put('offsetPt', 'dist', EMU_PER_POINT)
-		put('angleDeg', 'dir', ANGLE_UNITS_PER_DEGREE)
-		put('fadeAngleDeg', 'fadeDir', ANGLE_UNITS_PER_DEGREE)
-		putPct('startAlpha', 'stA')
-		putPct('startPos', 'stPos')
-		putPct('endAlpha', 'endA')
-		putPct('endPos', 'endPos')
-		return out
+		return readReflection(this.#effectLst())
 	}
 
 	/**
@@ -744,10 +701,7 @@ export abstract class Shape {
 	 * when it has none. Read-only like {@link reflection}: carry, don't regenerate.
 	 */
 	get softEdge(): SoftEdge | null {
-		const soft = this.#effect('a:softEdge')
-		if (!soft) return null
-		const rad = scaledAttr(soft, 'rad', EMU_PER_POINT)
-		return { radiusPt: rad ?? 0 }
+		return readSoftEdge(this.#effectLst())
 	}
 
 	/**
@@ -776,43 +730,10 @@ export abstract class Shape {
 		return props ? readPictureFill(props, this.host.relationships) : null
 	}
 
-	/** A named child of the shape's effect list (`spPr/a:effectLst/<qname>`), or `null`. */
-	#effect(qname: string): Element | null {
+	/** The shape's effect list (`spPr/a:effectLst`), or `null` — what `shapes/effects.ts` decodes. */
+	#effectLst(): Element | null {
 		const props = this.properties()
-		const effectLst = props && firstChild(props, 'a:effectLst')
-		return effectLst ? firstChild(effectLst, qname) : null
-	}
-
-	/** Resolve `colorEl` against the theme and stamp `color`/`colorToken`/`alpha` onto an effect result. */
-	#applyEffectColor(out: { color: string | null; colorToken?: string; alpha?: number }, colorEl: Element | null): void {
-		const resolved = resolveColorElement(colorEl, this.host.themeContext())
-		if (resolved) {
-			out.color = resolved.effectiveHex
-			if (resolved.alpha !== undefined) out.alpha = resolved.alpha
-		}
-		// A `schemeClr` with no `val` leaves `colorToken` off entirely, which is the read model's one
-		// spelling of "not a theme colour" — the same invariant `compact()` keeps downstream.
-		const token = colorEl && colorEl.localName === 'schemeClr' ? attr(colorEl, 'val') : null
-		if (token !== null) out.colorToken = token
-	}
-
-	/** Decode a shadow element (`a:outerShdw`/`a:innerShdw` share the fields), resolving its colour. */
-	#readShadow(shdw: Element): OuterShadow {
-		const out: OuterShadow = { color: null }
-		// `a:EG_ColorChoice` is a required, single-member group, so the colour element is the shadow's
-		// only child and taking the first one is both correct and total — the same thing `glow` above
-		// does. Naming `a:srgbClr` and `a:schemeClr` explicitly dropped the other four models on the
-		// floor: `a:sysClr` resolves everywhere else in the read model, and this library emits
-		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` now answers for five of the six
-		// (`a:scrgbClr` is the exception, and reports no colour rather than a guessed one).
-		this.#applyEffectColor(out, firstChildElement(shdw))
-		const blur = scaledAttr(shdw, 'blurRad', EMU_PER_POINT)
-		const dist = scaledAttr(shdw, 'dist', EMU_PER_POINT)
-		const dir = scaledAttr(shdw, 'dir', ANGLE_UNITS_PER_DEGREE)
-		if (blur !== null) out.blurPt = blur
-		if (dist !== null) out.offsetPt = dist
-		if (dir !== null) out.angleDeg = dir
-		return out
+		return props ? firstChild(props, 'a:effectLst') : null
 	}
 
 	/**
