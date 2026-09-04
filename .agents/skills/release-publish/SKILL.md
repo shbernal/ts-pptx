@@ -38,16 +38,16 @@ registry first ([npm/cli#8544](https://github.com/npm/cli/issues/8544)). Bootstr
 (since deprecated) purely to create the package; trusted publishing was enabled
 immediately after, and `1.0.0` onward went through CI with provenance.
 
-It has been spent twice: once for the scoped package, and once for `pptx-ts`, the
-unscoped alias. It applies again only if this project starts publishing under
-another **new name or scope**, and the runbook for that is "Bootstrapping a New
-Package Name" in `docs/RELEASING.md`. It is never part of cutting a release. For
+It has been spent twice, once for each of the two names this project publishes:
+`@shbernal/ts-pptx` and `pptx-ts`. It applies again only if this project starts
+publishing under another **new name or scope**, and the runbook for that is
+"Bootstrapping a New Package Name" in `docs/RELEASING.md`. It is never part of cutting a release. For
 every release of a name that already exists, the rule above holds without
 qualification: no local `npm publish`.
 
 ### Two names, one release
 
-A release publishes `@shbernal/ts-pptx` and then `pptx-ts`, which is the same
+A release publishes `pptx-ts` and then `@shbernal/ts-pptx`, which is the same
 build staged under a second name by `scripts/alias-package.mjs`. This changes
 nothing about the steps below: you do not bump, tag or stage the alias, and there
 is no second changelog. The only places it surfaces are the run you watch in
@@ -188,12 +188,12 @@ gh run list --workflow=publish.yml --limit 1
 gh run watch <run-id>      # or: gh run view <run-id> --log-failed
 ```
 
-Confirm it reaches "Publish to npm" **and** "Publish unscoped alias" and that
+Confirm it reaches "Publish to npm" **and** "Publish scoped alias" and that
 both succeed. Only then is the release done. Sanity check both names:
 
 ```bash
-npm view @shbernal/ts-pptx version
 npm view pptx-ts version
+npm view @shbernal/ts-pptx version
 ```
 
 Both should report `X.Y.Z`. A step reported as skipped rather than failed means

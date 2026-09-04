@@ -45,7 +45,7 @@ Read a deck through the typed object model:
 
 ```js
 import { readFile, writeFile } from 'node:fs/promises'
-import { Presentation } from '@shbernal/ts-pptx/read'
+import { Presentation } from 'pptx-ts/read'
 
 const presentation = await Presentation.load(await readFile('deck.pptx'))
 
@@ -63,7 +63,7 @@ await writeFile('deck-roundtrip.pptx', await presentation.save())
 Or work at the OPC layer directly:
 
 ```js
-import { OpcPackage } from '@shbernal/ts-pptx/read'
+import { OpcPackage } from 'pptx-ts/read'
 
 const pkg = await OpcPackage.load(await readFile('deck.pptx'))
 const slides = pkg.partsByContentType(
@@ -1813,7 +1813,7 @@ reserialized; everything else stays byte-identical.
 
 ```js
 import { readFile, writeFile } from 'node:fs/promises'
-import { Presentation } from '@shbernal/ts-pptx/read'
+import { Presentation } from 'pptx-ts/read'
 
 const presentation = await Presentation.load(await readFile('deck.pptx'))
 const shape = presentation.slides[0].shapes.find((s) => s.name === 'Title')
@@ -2419,8 +2419,8 @@ workflow. Two methods cover it:
   (`appendSlides` throws otherwise: size the generator to the deck).
 
 ```js
-import TsPptx from '@shbernal/ts-pptx'
-import { Presentation } from '@shbernal/ts-pptx/read'
+import TsPptx from 'pptx-ts'
+import { Presentation } from 'pptx-ts/read'
 
 const deck = await Presentation.load(await readFile('deck.pptx'))
 

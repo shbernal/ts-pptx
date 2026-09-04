@@ -41,7 +41,8 @@ wrong is in a file the typechecker reads.
 Two copies of the library, on purpose:
 
 - The **workspace** build (`dist/`, via `ts-pptx-demos-showcases`) writes the deck.
-- The **published** `@shbernal/ts-pptx` that `pptx-html` depends on reads it back.
+- The **published** `@shbernal/ts-pptx` (this package's scoped alias) that `pptx-html`
+  depends on reads it back.
 
 They meet as a `Uint8Array` and share no objects, so the duplication costs bytes and
 nothing else. Pinning `pptx-html` to the workspace copy instead would mean the first

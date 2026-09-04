@@ -43,7 +43,7 @@ export interface PrintedScript {
  * not its directory name. Getting it wrong produces a script that prints and typechecks and
  * then fails at `import`, so it is pinned by a test rather than left to a literal.
  */
-export const PACKAGE_NAME = '@shbernal/ts-pptx'
+export const PACKAGE_NAME = 'pptx-ts'
 
 /** The print options both tiers share, with their defaults applied. */
 export interface ResolvedPrintOptions {

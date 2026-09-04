@@ -11,7 +11,7 @@
  * needs is drawn rather than loaded. That is what lets the site's demos page (`www/demos/`)
  * import it and build the same deck in a browser: the deck is the deck, only the runner differs.
  */
-import TsPptx, { ChartType, ShapeType } from '@shbernal/ts-pptx'
+import TsPptx, { ChartType, ShapeType } from 'pptx-ts'
 import { CONTENT_W, MARGIN, WIDE, centeredRow, columns, signedPct } from '../lib/layout.mjs'
 import {
 	AGENDA,

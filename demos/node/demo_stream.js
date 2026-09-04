@@ -10,7 +10,7 @@
  *
  * USAGE: pnpm --dir demos/node run demo-stream   → http://localhost:3000/
  */
-import TsPptx, { SchemeColor } from '@shbernal/ts-pptx'
+import TsPptx, { SchemeColor } from 'pptx-ts'
 import express from 'express'
 
 const app = express()

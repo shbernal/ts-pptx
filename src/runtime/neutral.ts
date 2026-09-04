@@ -4,7 +4,7 @@ import { fetchFontBytes, fetchMediaBase64, placeholderSvgPreview } from './fetch
 
 /**
  * The adapter for a runtime that is neither Node nor a browser — Deno, Bun, an edge worker,
- * anything that imports the bare `@shbernal/ts-pptx` specifier without resolving the `node` or
+ * anything that imports the bare `pptx-ts` specifier without resolving the `node` or
  * `browser` export condition.
  *
  * It implements everything that is genuinely host-neutral and refuses only what is not.
@@ -33,7 +33,7 @@ async function writeFile(fileName: string): Promise<string> {
 	throw new UnsupportedFeatureError(
 		'runtime/file-output-unavailable',
 		`Cannot write "${fileName}": this runtime has neither a filesystem nor a DOM. ` +
-			'Import "@shbernal/ts-pptx/node" to write to disk or "@shbernal/ts-pptx/browser" to trigger a ' +
+			'Import "pptx-ts/node" to write to disk or "pptx-ts/browser" to trigger a ' +
 			'download; anywhere else, use write() and persist the bytes yourself.'
 	)
 }

@@ -8,7 +8,7 @@
  * Hand-written rather than generated — the deck is plain `.mjs` and the exported surface is
  * three values, so a build step to produce a handful of lines would cost more than it saves.
  */
-import type TsPptx from '@shbernal/ts-pptx'
+import type TsPptx from 'pptx-ts'
 
 /**
  * Assemble the deck and return the presentation, having written nothing.

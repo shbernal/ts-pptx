@@ -12,7 +12,7 @@
  * and a `.glb` from `demos/common` by path, so it cannot run in a browser without those assets
  * being served. That is the honest split between the two showcases, not an oversight.
  */
-import TsPptx, { ShapeType } from '@shbernal/ts-pptx'
+import TsPptx, { ShapeType } from 'pptx-ts'
 import { image, imageDataUri, media } from '../lib/assets.mjs'
 import { WIDE, centeredRow, columns } from '../lib/layout.mjs'
 import { BRAND, FONT, MASTER, TYPE, applyDesign, scrim, wordmark } from './design.mjs'

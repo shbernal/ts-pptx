@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Math Equations (LaTeX / MathML → OMML)"
-summary: "Author native PowerPoint equations from LaTeX or MathML via the @shbernal/ts-pptx/math subpath."
+summary: "Author native PowerPoint equations from LaTeX or MathML via the pptx-ts/math subpath."
 read_when:
   - Authoring PowerPoint equations from LaTeX or MathML
   - Changing the latexToOmml / mathmlToOmml converters (src/math.ts)
@@ -13,7 +13,7 @@ doc_type: "guide"
 
 The `math:` option on a text item emits a **native, editable PowerPoint equation**
 (OMML inside PowerPoint's `<a14:m>` markup-compatibility envelope). That option takes
-raw OMML. The `@shbernal/ts-pptx/math` subpath lets you author the equation in LaTeX
+raw OMML. The `pptx-ts/math` subpath lets you author the equation in LaTeX
 or MathML instead and get the OMML to hand it.
 
 ```
@@ -45,8 +45,8 @@ consumers with policies against LGPL can simply not install it.
 ## Usage
 
 ```js
-import TsPptx from '@shbernal/ts-pptx'
-import { latexToOmml } from '@shbernal/ts-pptx/math'
+import TsPptx from 'pptx-ts'
+import { latexToOmml } from 'pptx-ts/math'
 
 const pptx = new TsPptx()
 const slide = pptx.addSlide()
@@ -105,7 +105,7 @@ text item and give it the bare `<m:oMath>` form (`latexToOmml(tex, { display: fa
 or `mathmlToOmml(mathml)`):
 
 ```js
-import { latexToOmml } from '@shbernal/ts-pptx/math'
+import { latexToOmml } from 'pptx-ts/math'
 
 slide.addText(
   [

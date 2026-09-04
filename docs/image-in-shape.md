@@ -156,7 +156,7 @@ placeholder cuts) that it is available as data rather than as arithmetic.
 `clipPath(shape, w, h)` resolves a named `ClipShape` to the same `points` array:
 
 ```js
-import { clipPath } from '@shbernal/ts-pptx'
+import { clipPath } from 'pptx-ts'
 
 const w = 5.22, h = 7.5
 

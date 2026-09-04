@@ -1,5 +1,5 @@
 {
-	"name": "@shbernal/ts-pptx-api-docs",
+	"name": "pptx-ts-api-docs",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",

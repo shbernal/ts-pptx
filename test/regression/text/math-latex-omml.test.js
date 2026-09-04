@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { DOMParser, onErrorStopParsing } from '@xmldom/xmldom'
 import { latexToOmml, mathmlToOmml } from '../../../dist/math.js'
 
-// `@shbernal/ts-pptx/math` converts LaTeX/MathML to OMML for the `math:` option on
+// `pptx-ts/math` converts LaTeX/MathML to OMML for the `math:` option on
 // addText (upstream-issue-1456). Pipeline: LaTeX --temml--> MathML --mathml2omml--> OMML.
 // These tests pin the canonical output shape, well-formedness, the display/inline
 // distinction, and the throw-on-invalid-input policy. Schema validity of the emitted

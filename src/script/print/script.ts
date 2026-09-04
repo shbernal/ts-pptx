@@ -63,7 +63,7 @@ export interface PrintScriptOptions {
 	 * Import specifier the emitted script uses, with `/read` appended for the read half.
 	 * Defaults to this package's own published name; override it to point a generated
 	 * script at a local build or a fork.
-	 * @default '@shbernal/ts-pptx'
+	 * @default 'pptx-ts'
 	 */
 	packageName?: string
 }

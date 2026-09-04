@@ -53,7 +53,7 @@ The classes are a deliberately coarse bucket (they answer *"whose problem is thi
 The split is what lets a batch job react rather than just log:
 
 ```ts
-import { MediaError, PackageReadError, InvalidOptionError } from '@shbernal/ts-pptx'
+import { MediaError, PackageReadError, InvalidOptionError } from 'pptx-ts'
 
 try {
 	await buildDeck(spec)
@@ -106,7 +106,7 @@ builds its own deck, and filing: including the rule that a deck from a real proj
 public tracker:
 
 ```bash
-npx skills add ./node_modules/@shbernal/ts-pptx   # offline, matches your installed version
+npx skills add ./node_modules/pptx-ts   # offline, matches your installed version
 npx skills add shbernal/ts-pptx                   # or straight from the repo
 ```
 
@@ -136,7 +136,7 @@ catch (err) {
 
 ## Importing the classes
 
-The classes and the code types are re-exported from every entry point: `@shbernal/ts-pptx` and each
+The classes and the code types are re-exported from every entry point: `pptx-ts` and each
 subpath (`/read`, `/zip`, `/math`, …). They all resolve to one shared module, so `instanceof` works
 regardless of which subpath you imported from and which subpath threw.
 

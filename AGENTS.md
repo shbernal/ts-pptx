@@ -154,7 +154,7 @@ MCPs' corpora.
   defects, so triage still adds `bug` or `enhancement` after reading.
 - The `skills/ts-pptx-upstream/` skill is the consumer-side half of that form. It
   ships in the tarball (`files` includes `skills`), so it is what
-  `npx skills add ./node_modules/@shbernal/ts-pptx` installs — keep it in step with
+  `npx skills add ./node_modules/pptx-ts` installs — keep it in step with
   the taxonomy and the forms when either changes. Everything under `.agents/skills/`
   is for working *on* this repo and is flagged `metadata.internal: true` so the same
   command does not offer it to a consumer.

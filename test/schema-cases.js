@@ -1331,7 +1331,7 @@ export default [
 		},
 	},
 	{
-		// upstream-issue-1456 (LaTeX leg): the `@shbernal/ts-pptx/math` subpath converts LaTeX to
+		// upstream-issue-1456 (LaTeX leg): the `pptx-ts/math` subpath converts LaTeX to
 		// OMML via latexToOmml() (LaTeX --temml--> MathML --mathml2omml--> OMML). Feeding that OMML to
 		// the `math:` option must produce the same schema-valid a14 display-math envelope as raw OMML.
 		// A representative corpus (fraction, radical, sum/int limits, matrix, cases, greek, accents,

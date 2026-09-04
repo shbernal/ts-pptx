@@ -39,7 +39,7 @@ body:
     id: version-ts-pptx
     attributes:
       label: ts-pptx version
-      description: 'Exact installed version: `node -p "require(''@shbernal/ts-pptx/package.json'').version"`'
+      description: 'Exact installed version: `node -p "require(''pptx-ts/package.json'').version"`'
       placeholder: 3.0.0
     validations:
       required: true

@@ -54,7 +54,7 @@ office-suite interop quirks (WPS round-trips, etc.), which AGENTS.md puts out of
    per deck, and exits non-zero if any deck fails. Use it the same way on any single deck.
 
 3. **Bisect a failure.** If a showcase fails, narrow it with a minimal repro **written
-   inside `demos/showcases/`** (so the `@shbernal/ts-pptx` workspace dependency resolves)
+   inside `demos/showcases/`** (so the `pptx-ts` workspace dependency resolves)
    that adds just the suspect construct, and shrink it until a single `addX` call flips
    PASS→FAIL. `scripts/powerpoint-com-smoke.mjs` (`pnpm run test:com`) takes any deck with
    `--file <deck.pptx>` for the corruption-open check alone.

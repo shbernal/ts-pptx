@@ -51,7 +51,7 @@ export interface PrintStandaloneScriptOptions {
 	/**
 	 * Import specifier the emitted script uses. Defaults to this package's own published
 	 * name; override it to point a generated script at a local build or a fork.
-	 * @default '@shbernal/ts-pptx'
+	 * @default 'pptx-ts'
 	 */
 	packageName?: string
 }

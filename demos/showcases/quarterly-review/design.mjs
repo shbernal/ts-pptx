@@ -7,7 +7,7 @@
  * places is not a design system, it is forty coincidences — and it is exactly what makes
  * a generated deck look generated.
  */
-import { ShapeType } from '@shbernal/ts-pptx'
+import { ShapeType } from 'pptx-ts'
 import { WIDE } from '../lib/layout.mjs'
 
 export const BRAND = {

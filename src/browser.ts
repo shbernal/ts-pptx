@@ -5,7 +5,7 @@ import type { TableToSlidesProps } from './types/index.js'
 
 /**
  * The browser entry, reached through the `browser` export condition — a bundler resolving the
- * bare `@shbernal/ts-pptx` specifier for the web lands here without naming this subpath.
+ * bare `pptx-ts` specifier for the web lands here without naming this subpath.
  *
  * Same authoring API as every other entry (see `entry-surface.ts`), plus one method that only
  * makes sense with a live DOM: {@link TsPptx.tableToSlides}. `writeFile` triggers a download

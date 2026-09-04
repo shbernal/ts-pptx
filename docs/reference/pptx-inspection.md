@@ -11,12 +11,12 @@ doc_type: "reference"
 
 # PPTX Inspection
 
-The `@shbernal/ts-pptx/inspect` subpath answers one flat question about a PPTX
+The `pptx-ts/inspect` subpath answers one flat question about a PPTX
 package (*what is on the slides, and where*) for tools that examine a deck after
 generation or manual editing.
 
 ```ts
-import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/ts-pptx/inspect"
+import { inspectPptx, loadPptxPackage, listPptxParts } from "pptx-ts/inspect"
 ```
 
 `inspectPptx(input)` loads a PPTX package and returns:

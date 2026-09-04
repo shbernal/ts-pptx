@@ -1,11 +1,11 @@
 ---
 name: ts-pptx-upstream
-description: Report a ts-pptx (@shbernal/ts-pptx) bug, gap, or wrong output to its GitHub tracker from a project that depends on it. Use when ts-pptx throws an InternalError or an error whose message points at the issue tracker, when it cannot read a .pptx that opens cleanly in PowerPoint, when it writes a deck PowerPoint repairs or renders wrong, when a construct does not survive a round trip, when its types block correct code, or whenever you are about to write a workaround for ts-pptx behaving incorrectly. Filing the bug is the fix; the workaround is the stopgap.
+description: Report a ts-pptx (pptx-ts) bug, gap, or wrong output to its GitHub tracker from a project that depends on it. Use when ts-pptx throws an InternalError or an error whose message points at the issue tracker, when it cannot read a .pptx that opens cleanly in PowerPoint, when it writes a deck PowerPoint repairs or renders wrong, when a construct does not survive a round trip, when its types block correct code, or whenever you are about to write a workaround for ts-pptx behaving incorrectly. Filing the bug is the fix; the workaround is the stopgap.
 ---
 
 # Reporting a ts-pptx problem upstream
 
-You are in a project that *uses* `@shbernal/ts-pptx`, not the project that builds it.
+You are in a project that *uses* `pptx-ts`, not the project that builds it.
 This skill is how a defect you hit here becomes a permanent regression test there.
 
 The library's maintainers turn reports with a minimal reproduction into fixtures and
@@ -52,7 +52,7 @@ Not every defect throws. These are ours too, and are worth reporting:
 
 ### If you are holding a fidelity note, it already told you
 
-Anything that converts a deck through `@shbernal/ts-pptx/script` gets `FidelityNote`s
+Anything that converts a deck through `pptx-ts/script` gets `FidelityNote`s
 back, and `cause` is the library's own verdict on whose gap the loss is. Read it
 before deciding whether to file — it answers the same question the error table above
 answers for the throwing cases:
@@ -91,8 +91,8 @@ IIFE/global browser bundle will be closed — those are deliberately not support
 ## 2. Collect the facts
 
 ```bash
-node -p "require('@shbernal/ts-pptx/package.json').version"   # exact installed version
-node -v                                                       # runtime (>=24 required)
+node -p "require('pptx-ts/package.json').version" # exact installed version
+node -v                                           # runtime (>=24 required)
 ```
 
 Capture, verbatim: `err.name`, `err.code`, the full message, `err.detail` if present,
@@ -115,7 +115,7 @@ anonymously, never its name, its deck or client names, or a path from its tree.
 Instead, write a self-contained script that *constructs* its input and fails:
 
 ```ts
-import TsPptx from '@shbernal/ts-pptx'
+import TsPptx from 'pptx-ts'
 
 // build the smallest deck that shows the problem
 const pptx = new TsPptx()
@@ -130,7 +130,7 @@ For a read-side or round-trip defect, generate the input with the write side fir
 the script still owns everything it touches:
 
 ```ts
-import { Presentation } from '@shbernal/ts-pptx/read'
+import { Presentation } from 'pptx-ts/read'
 
 const pres = await Presentation.load(bytes) // bytes built above, not the user's file
 // ...the accessor that returns the wrong thing, or throws
@@ -158,7 +158,7 @@ permanent.
 not necessarily the current one:
 
 ```bash
-npm view @shbernal/ts-pptx version   # latest published
+npm view pptx-ts version # latest published
 ```
 
 If that is ahead of the version you collected in step 2, bump the pin and re-run the
@@ -292,9 +292,9 @@ removes becomes indistinguishable from a design decision, and the next reader in
 as one. Do this in one unit of work, on the release that carries the fix.
 
 ```bash
-npm view @shbernal/ts-pptx version                          # what is out
+npm view pptx-ts version                          # what is out
 gh issue list --repo shbernal/ts-pptx --state closed --limit 30
-rg 'ts-pptx#'                                               # every stopgap here
+rg 'ts-pptx#'                                     # every stopgap here
 ```
 
 **A closed issue is not a released fix.** A fix can sit merged and unreleased for weeks,

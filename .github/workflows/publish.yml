@@ -115,16 +115,18 @@ jobs:
         if: steps.targets.outputs.canonical == 'true'
         run: npm publish --access public --provenance --ignore-scripts
 
-      # The unscoped alias, `pptx-ts`: the same build staged under a second name, because
-      # npm has one package per name and no redirect. It has its own trusted-publisher
-      # configuration naming this workflow, so the OIDC exchange — which npm performs per
-      # package — succeeds for both names in one job.
+      # The scoped alias, `@shbernal/ts-pptx`: the same build staged under a second name,
+      # because npm has one package per name and no redirect. It is the name this project
+      # published under first, and it keeps being published so installs that already name
+      # it keep resolving. It has its own trusted-publisher configuration naming this
+      # workflow, so the OIDC exchange — which npm performs per package — succeeds for
+      # both names in one job.
       #
       # It runs *after* the canonical publish, and therefore only if that succeeded. The
       # order is the whole safety property: the alias is a convenience, and a failure in
       # it (a staging error, a registry hiccup, a trusted-publisher configuration that was
       # revoked) must cost at most a re-dispatch, never the release that already went out.
-      - name: Publish unscoped alias
+      - name: Publish scoped alias
         if: steps.targets.outputs.alias == 'true'
         run: |
           node scripts/alias-package.mjs --out .tmp/alias-package

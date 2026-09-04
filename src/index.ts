@@ -2,7 +2,7 @@ import PresentationCore from './presentation.js'
 import { createNeutralRuntime } from './runtime/neutral.js'
 
 /**
- * The runtime-agnostic entry: what a consumer gets from the bare `@shbernal/ts-pptx` specifier
+ * The runtime-agnostic entry: what a consumer gets from the bare `pptx-ts` specifier
  * when neither the `node` nor the `browser` export condition resolves — Deno, Bun, edge workers.
  * Node and browser consumers reach `ts-pptx/node` and `ts-pptx/browser` through those conditions
  * without naming them, and get the same class backed by an adapter that can reach their host.

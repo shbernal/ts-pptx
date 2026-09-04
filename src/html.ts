@@ -33,8 +33,8 @@
  * as the rows need — works the same wherever it runs.
  * @example
  * ```ts
- * import { TsPptx } from '@shbernal/ts-pptx'
- * import { tableToSlides } from '@shbernal/ts-pptx/html'
+ * import { TsPptx } from 'pptx-ts'
+ * import { tableToSlides } from 'pptx-ts/html'
  * import { Window } from 'happy-dom'
  *
  * const win = new Window()

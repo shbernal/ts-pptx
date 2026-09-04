@@ -22,10 +22,11 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@types/node@25.9.2'
   # The site's deck preview. `pptx-html` is a sibling project by the same author,
-  # and it depends on `@shbernal/ts-pptx` — this package — so a release here makes
-  # the docs build unresolvable for 24h unless both are excluded. The release-age
-  # delay exists to let a compromised or broken publish be caught by someone else
-  # first; that reasoning does not apply to a publish we performed ourselves.
+  # and it depends on `@shbernal/ts-pptx` — this package, under the scoped alias it
+  # still publishes — so a release here makes the docs build unresolvable for 24h
+  # unless both are excluded. The release-age delay exists to let a compromised or
+  # broken publish be caught by someone else first; that reasoning does not apply to
+  # a publish we performed ourselves.
   #
   # Note the default is not visible through `pnpm config get minimumReleaseAge`,
   # which reports `undefined` while pnpm still enforces 1440 minutes.

@@ -54,7 +54,7 @@ ts-pptx: text `columns` must be a number 1-16 (ignoring value)
 Install a handler to take that over:
 
 ```ts
-import { setDiagnosticHandler } from '@shbernal/ts-pptx'
+import { setDiagnosticHandler } from 'pptx-ts'
 
 setDiagnosticHandler((d) => logger.warn({ code: d.code }, d.message))
 ```
@@ -109,7 +109,7 @@ silent about anything the first already reported. That reads as "no problems fou
 as "already mentioned". Clear the record between builds:
 
 ```ts
-import { resetDiagnosticState } from '@shbernal/ts-pptx'
+import { resetDiagnosticState } from 'pptx-ts'
 
 resetDiagnosticState()
 ```

@@ -12,7 +12,7 @@ doc_type: "reference"
 # Layout Units
 
 ts-pptx exposes PowerPoint geometry constants and small conversion helpers
-from the root package (`@shbernal/ts-pptx`).
+from the root package (`pptx-ts`).
 
 ## Standard Layouts
 
@@ -29,7 +29,7 @@ PowerPoint widescreen is stored as `40 / 3 x 7.5 in`, which converts exactly to
 widths by hand.
 
 ```ts
-import TsPptx, { STANDARD_LAYOUTS } from "@shbernal/ts-pptx"
+import TsPptx, { STANDARD_LAYOUTS } from "pptx-ts"
 
 const pptx = new TsPptx()
 const wide = STANDARD_LAYOUTS.LAYOUT_WIDE

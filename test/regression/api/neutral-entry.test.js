@@ -1,4 +1,4 @@
-// The bare `@shbernal/ts-pptx` specifier resolves to `dist/index.js` only when neither the
+// The bare `pptx-ts` specifier resolves to `dist/index.js` only when neither the
 // `node` nor the `browser` export condition applies — Deno, Bun, an edge worker. That entry
 // used to re-export the browser class, so those runtimes silently got the DOM adapter and
 // `writeFile` tried to click an anchor that does not exist. It is now its own runtime-agnostic

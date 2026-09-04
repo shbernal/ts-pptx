@@ -19,6 +19,6 @@
 	"license": "MIT",
 	"dependencies": {
 		"express": "^5.2.1",
-		"@shbernal/ts-pptx": "workspace:*"
+		"pptx-ts": "workspace:*"
 	}
 }

@@ -19,8 +19,8 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import TsPptx from '@shbernal/ts-pptx'
-import { Presentation } from '@shbernal/ts-pptx/read'
+import TsPptx from 'pptx-ts'
+import { Presentation } from 'pptx-ts/read'
 
 /** Resolve a path against this script rather than against the working directory. */
 const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))

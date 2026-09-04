@@ -581,9 +581,9 @@ export interface TextProps {
 	 * `<m:oMathPara>…</m:oMathPara>`; the `m:` prefix is resolved by the wrapper, so the markup does
 	 * not need its own namespace declarations.
 	 * This is the raw-OMML entry point. To author from LaTeX or MathML, convert with
-	 * `latexToOmml()` / `mathmlToOmml()` from the `@shbernal/ts-pptx/math` subpath.
+	 * `latexToOmml()` / `mathmlToOmml()` from the `pptx-ts/math` subpath.
 	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // raw OMML
-	 * @example import { latexToOmml } from '@shbernal/ts-pptx/math'; ({ math: latexToOmml('x^2+1=y') })
+	 * @example import { latexToOmml } from 'pptx-ts/math'; ({ math: latexToOmml('x^2+1=y') })
 	 */
 	math?: string
 	/**

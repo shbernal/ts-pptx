@@ -123,16 +123,16 @@ importers:
 
   demos/node:
     dependencies:
-      '@shbernal/ts-pptx':
-        specifier: workspace:*
-        version: link:../..
       express:
         specifier: ^5.2.1
         version: 5.2.1
+      pptx-ts:
+        specifier: workspace:*
+        version: link:../..
 
   demos/showcases:
     dependencies:
-      '@shbernal/ts-pptx':
+      pptx-ts:
         specifier: workspace:*
         version: link:../..
 

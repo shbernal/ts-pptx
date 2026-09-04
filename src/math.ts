@@ -1,5 +1,5 @@
 /**
- * `@shbernal/ts-pptx/math` — author display equations in LaTeX or MathML and get
+ * `pptx-ts/math` — author display equations in LaTeX or MathML and get
  * OMML for the `math:` option on `addText` (see {@link TextProps.math}).
  *
  * Pipeline: LaTeX --temml--> MathML --mathml2omml--> OMML.
@@ -36,7 +36,7 @@ interface TemmlParseError extends Error {
 }
 
 const MISSING_DEPS_MESSAGE =
-	"@shbernal/ts-pptx/math requires the optional peer dependencies 'temml' and " +
+	"pptx-ts/math requires the optional peer dependencies 'temml' and " +
 	"'mathml2omml'. Install them with: npm install temml mathml2omml"
 
 /** Require an optional peer, remapping a not-found error to the install hint. */

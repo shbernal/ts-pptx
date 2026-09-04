@@ -161,6 +161,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`pptx-ts` is the package name; `@shbernal/ts-pptx` is now the alias.** The two names
+  swap roles. Both keep being published from the same commit at the same version with the
+  same contents, and nothing about installing, importing or resolving either one changes
+  -- an existing `@shbernal/ts-pptx` dependency keeps working and is not deprecated. What
+  changes is which name the project leads with: the README, the docs, the demos, the issue
+  forms and the shipped skill all say `pptx-ts` now, and the scoped name appears only where
+  it is the subject.
+
+  Install one or the other and never both. Two copies of this library in one dependency
+  tree are two module registries, and state such as the diagnostic handler is per-copy.
+
+  `package.json#homepage` moves with it, from a link back to a second rendering of this
+  README to <https://shbernal.github.io/ts-pptx/>, which is somewhere a reader has not
+  already been.
+
+- **`ts-pptx/script` emits `pptx-ts` as the import specifier.** A generated script's
+  `import TsPptx from '...'` line names the package it is meant to be run against, so it
+  follows the name above. Scripts generated before this still run: the specifier they carry
+  is the alias, and it resolves to the same package. Pass `packageName` to `printScript` or
+  `printStandaloneScript` to emit either name explicitly.
+
 - **`radarStyle` accepts `ST_RadarStyle`'s own spellings.** The option had one vocabulary --
   `radar` / `markers` / `filled`, the PowerPoint UI's words -- which the emitter mapped onto
   the schema's `standard` / `marker` / `filled`. Since `filled` is spelled the same in both,

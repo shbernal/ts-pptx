@@ -1,8 +1,8 @@
 # ts-pptx
 
-[![npm](https://img.shields.io/npm/v/%40shbernal%2Fts-pptx)](https://www.npmjs.com/package/@shbernal/ts-pptx)
-[![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Fts-pptx.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/ts-pptx)
-[![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Fts-pptx.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/ts-pptx)
+[![npm](https://img.shields.io/npm/v/pptx-ts)](https://www.npmjs.com/package/pptx-ts)
+[![weekly downloads](https://img.shields.io/npm/dw/pptx-ts.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/pptx-ts)
+[![total downloads](https://img.shields.io/npm/dt/pptx-ts.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/pptx-ts)
 [![CI](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -31,24 +31,25 @@ reproducible package verification, and agent-assisted OOXML development.
 ## Install
 
 ```bash
-pnpm add @shbernal/ts-pptx
+pnpm add pptx-ts
 ```
 
 ```bash
-npm install @shbernal/ts-pptx
+npm install pptx-ts
 ```
 
 ```bash
-yarn add @shbernal/ts-pptx
+yarn add pptx-ts
 ```
 
-The unscoped name [`pptx-ts`](https://www.npmjs.com/package/pptx-ts) is an alias
-for the same package: same contents, same version, published from the same
-commit by the same workflow. Take it if a scoped name is awkward somewhere in
-your toolchain. Install one or the other and never both, because two copies of
-this library in one dependency tree are two module registries and state such as
-the diagnostic handler is per-copy. The scoped name is canonical: the issue
-tracker, the changelog and every example in these docs use it.
+The scoped name [`@shbernal/ts-pptx`](https://www.npmjs.com/package/@shbernal/ts-pptx)
+is an alias for the same package: same contents, same version, published from the
+same commit by the same workflow. It is what this project published under first,
+and it keeps being published so installs that already name it keep resolving.
+Install one or the other and never both, because two copies of this library in one
+dependency tree are two module registries and state such as the diagnostic handler
+is per-copy. `pptx-ts` is the canonical name: the issue tracker, the changelog and
+every example in these docs use it.
 
 ### Installing an unreleased commit
 
@@ -74,7 +75,7 @@ is what identifies the build.
 ## Quick Start
 
 ```ts
-import TsPptx from "@shbernal/ts-pptx"
+import TsPptx from "pptx-ts"
 
 const pptx = new TsPptx()
 const slide = pptx.addSlide()
@@ -134,7 +135,7 @@ regression test here. It ships inside the package, so it is already on disk:
 ```bash
 # Name the skill and the runtimes, and take the defaults: this is the form that
 # completes unattended, which is how an agent will be running it.
-npx skills add ./node_modules/@shbernal/ts-pptx -s '*' -a claude-code -a codex -a universal -y
+npx skills add ./node_modules/pptx-ts -s '*' -a claude-code -a codex -a universal -y
 
 npx skills add shbernal/ts-pptx   # same flags, straight from the repo instead of node_modules
 ```
@@ -168,15 +169,15 @@ The package is ESM-only.
 
 Supported package surface:
 
-- `import TsPptx, { ShapeType } from "@shbernal/ts-pptx"` (enums, shared types, and
+- `import TsPptx, { ShapeType } from "pptx-ts"` (enums, shared types, and
   layout helpers ship from the main entry)
-- `import { inspectPptx } from "@shbernal/ts-pptx/inspect"`
-- `import { measureText } from "@shbernal/ts-pptx/measure"`
-- `import { Presentation } from "@shbernal/ts-pptx/read"`
-- `import { latexToOmml } from "@shbernal/ts-pptx/math"`
-- `import { tableToSlides } from "@shbernal/ts-pptx/html"`
-- `import TsPptx from "@shbernal/ts-pptx/node"`
-- `import TsPptx from "@shbernal/ts-pptx/browser"`:
+- `import { inspectPptx } from "pptx-ts/inspect"`
+- `import { measureText } from "pptx-ts/measure"`
+- `import { Presentation } from "pptx-ts/read"`
+- `import { latexToOmml } from "pptx-ts/math"`
+- `import { tableToSlides } from "pptx-ts/html"`
+- `import TsPptx from "pptx-ts/node"`
+- `import TsPptx from "pptx-ts/browser"`:
   the bare specifier resolves to one of these two by export condition, so Node
   and bundled browser apps get the right build without naming it. A runtime that
   sets neither (Deno, Bun, edge workers) gets a runtime-agnostic build that
@@ -188,7 +189,7 @@ Supported package surface:
 
 Deliberately not supported:
 
-- No CommonJS: no `require("@shbernal/ts-pptx")`, no CJS export condition, and no
+- No CommonJS: no `require("pptx-ts")`, no CJS export condition, and no
   `.cjs` artifact. Modern Node.js may provide `require()` interop for ESM, but it
   is not a maintained API.
 - No IIFE/global browser bundle: no classic-script global, no `dist/*.bundle.js`,
@@ -201,13 +202,13 @@ complete support contract.
 
 ## HTML Tables → Slides
 
-`@shbernal/ts-pptx/html` reproduces an existing HTML `<table>` as a PowerPoint
+`pptx-ts/html` reproduces an existing HTML `<table>` as a PowerPoint
 table, auto-paging across as many slides as its rows need. It works in the
 browser and under Node with any DOM implementation, from one artifact.
 
 ```ts
-import { TsPptx } from '@shbernal/ts-pptx'
-import { tableToSlides } from '@shbernal/ts-pptx/html'
+import { TsPptx } from 'pptx-ts'
+import { tableToSlides } from 'pptx-ts/html'
 import { Window } from 'happy-dom'
 
 const win = new Window()

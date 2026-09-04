@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Release Workflow"
-summary: "Maintained release path for publishing the scoped ESM-only package and its unscoped alias."
+summary: "Maintained release path for publishing the ESM-only package and its scoped alias."
 read_when:
   - Preparing a release
   - Updating npm publish or GitHub Release workflow documentation
@@ -11,9 +11,8 @@ doc_type: "runbook"
 
 # Release Workflow
 
-This guide documents the maintained release path for the scoped ESM-only
-package, `@shbernal/ts-pptx`, and for `pptx-ts`, the unscoped alias published
-beside it.
+This guide documents the maintained release path for the ESM-only package,
+`pptx-ts`, and for `@shbernal/ts-pptx`, the scoped alias published beside it.
 
 The alias is not a redirect. npm has one package per name and no forwarding, so
 an alias is a second publish of the same content under a second name: same
@@ -29,12 +28,12 @@ matching tag as a retry path.
 
 ## Release Prerequisites
 
-- The npm package is `@shbernal/ts-pptx`, and `pptx-ts` is its unscoped alias.
+- The npm package is `pptx-ts`, and `@shbernal/ts-pptx` is its scoped alias.
 - `package.json#repository.url` points at `shbernal/ts-pptx`.
 - npm trusted publishing is configured **once per package name**, because npm
   exchanges the OIDC token per package. Both configurations are identical apart
   from the package they sit on:
-  - package: `@shbernal/ts-pptx`, and again for `pptx-ts`
+  - package: `pptx-ts`, and again for `@shbernal/ts-pptx`
   - GitHub repository: `shbernal/ts-pptx`
   - workflow filename: `publish.yml`
   - GitHub environment: `npm-publish`
@@ -84,8 +83,7 @@ Still by hand, and unaffected by the above:
 - Demo package versions, when they intentionally track the release version.
   (Neither does today: `demos/node` is on 5.0.2 and `demos/showcases` on 1.0.0,
   so this is normally a no-op.)
-- Keep package import examples on the scoped package name:
-  `@shbernal/ts-pptx`.
+- Keep package import examples on the canonical package name: `pptx-ts`.
 
 If the constant ever does drift (a hand-edited `package.json`, or a bump made
 some other way), `pnpm run version:check` reports it and `pnpm run version:sync`
@@ -116,8 +114,8 @@ release is exactly the moment to confirm them explicitly.
 Check that the target version is not already published, under either name:
 
 ```bash
-npm view @shbernal/ts-pptx@X.Y.Z version
 npm view pptx-ts@X.Y.Z version
+npm view @shbernal/ts-pptx@X.Y.Z version
 ```
 
 Both commands should fail with a registry 404 for a new release version.
@@ -141,14 +139,14 @@ workflow:
 - refuses to run outside `shbernal/ts-pptx`
 - refuses branch publishes; `GITHUB_REF_TYPE` must be `tag`
 - requires the tag name to equal `v${package.json#version}`
-- checks that `@shbernal/ts-pptx@X.Y.Z` and `pptx-ts@X.Y.Z` are unpublished,
+- checks that `pptx-ts@X.Y.Z` and `@shbernal/ts-pptx@X.Y.Z` are unpublished,
   and fails only when **both** already exist (see "Retrying a half-published
   release" below)
 - installs with `pnpm install --frozen-lockfile`
 - installs the OOXML validator
 - runs lint, formatting, typecheck, tests, and the package boundary checks
   (`package:lint` + `test:package`)
-- publishes `@shbernal/ts-pptx` with
+- publishes `pptx-ts` with
   `npm publish --access public --provenance --ignore-scripts`
 - stages the alias with `node scripts/alias-package.mjs --out .tmp/alias-package`
   and publishes that directory the same way
@@ -188,8 +186,8 @@ and needs one re-dispatch to appear under the alias. Do not reach for a local
 Verify npm and GitHub agree on the release:
 
 ```bash
-npm view @shbernal/ts-pptx@X.Y.Z version dist-tags --json
 npm view pptx-ts@X.Y.Z version dist-tags --json
+npm view @shbernal/ts-pptx@X.Y.Z version dist-tags --json
 gh release view vX.Y.Z --repo shbernal/ts-pptx
 ```
 
@@ -244,12 +242,9 @@ The package should ship:
 - package `exports["."].types`
 - package subpaths for `./inspect`, `./measure`, `./read`, `./script`,
   `./math`, `./zip`, `./html`, `./node`, and `./browser`
-- scoped imports for `@shbernal/ts-pptx`,
-  `@shbernal/ts-pptx/inspect`, `@shbernal/ts-pptx/measure`,
-  `@shbernal/ts-pptx/read`, `@shbernal/ts-pptx/script`,
-  `@shbernal/ts-pptx/math`, `@shbernal/ts-pptx/zip`,
-  `@shbernal/ts-pptx/html`, `@shbernal/ts-pptx/node`, and
-  `@shbernal/ts-pptx/browser`
+- imports for `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/measure`,
+  `pptx-ts/read`, `pptx-ts/script`, `pptx-ts/math`, `pptx-ts/zip`,
+  `pptx-ts/html`, `pptx-ts/node`, and `pptx-ts/browser`
 
 (`pnpm run test:package` exercises all ten end-to-end, out of an installed
 tarball: every one is imported and checked for a sample of load-bearing named

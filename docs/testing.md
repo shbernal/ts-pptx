@@ -1150,8 +1150,8 @@ is the browser lane's `demo` fixture, so CI builds the site to run it. It is a
 fixture, not a showcase-with-assertions: nothing checks how the page *looks*, or
 that the preview it renders is a good likeness, only that the deck it builds is
 the right bytes. What it *shows* is drawn by a separate library (`pptx-html`)
-against the published `@shbernal/ts-pptx`, and this repo's gates make no claim
-about it. (The byte-identity harness likewise *builds* the showcase decks without
+against the published `@shbernal/ts-pptx` (this package's scoped alias), and this
+repo's gates make no claim about it. (The byte-identity harness likewise *builds* the showcase decks without
 asserting anything about them: a showcase that throws simply takes the harness
 down with it.)
 

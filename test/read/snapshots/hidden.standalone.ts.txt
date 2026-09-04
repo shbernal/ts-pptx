@@ -1,7 +1,7 @@
 /*
  * Generated from a .pptx by ts-pptx/script.
  *
- * Standalone: this script needs nothing but @shbernal/ts-pptx.
+ * Standalone: this script needs nothing but pptx-ts.
  * The deck's theme, layouts and slide content are all re-authored through the public write
  * API, so every one of them is editable here — and the parts of the original design the read
  * model cannot see are gone. They are listed below. For a byte-identical design at the cost
@@ -55,7 +55,7 @@
  */
 
 import { fileURLToPath } from 'node:url'
-import TsPptx from '@shbernal/ts-pptx'
+import TsPptx from 'pptx-ts'
 
 /** Resolve a path against this script rather than against the working directory. */
 const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))

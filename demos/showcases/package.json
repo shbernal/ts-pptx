@@ -14,6 +14,6 @@
 		"build": "node build.mjs"
 	},
 	"dependencies": {
-		"@shbernal/ts-pptx": "workspace:*"
+		"pptx-ts": "workspace:*"
 	}
 }

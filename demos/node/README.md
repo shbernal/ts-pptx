@@ -20,5 +20,5 @@ dependency.
 
 ## Notes
 
-- ESM only. `require("@shbernal/ts-pptx")` is not supported.
+- ESM only. `require("pptx-ts")` is not supported.
 - This is a showcase, not a test. Nothing here gates a commit.

@@ -1,6 +1,6 @@
 # Demos
 
-Showcases for `@shbernal/ts-pptx`, for someone who has cloned this repository and wants a
+Showcases for `pptx-ts`, for someone who has cloned this repository and wants a
 deck out of it. **None of this is a test.** No verification aggregate runs anything here,
 CI never builds a demo, and a broken demo fails no gate — the published package is covered
 by `pnpm run check:package`. See

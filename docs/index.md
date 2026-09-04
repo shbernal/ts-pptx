@@ -43,12 +43,13 @@ features:
 ## Install
 
 ```bash
-pnpm add @shbernal/ts-pptx
+pnpm add pptx-ts
 ```
 
-`pptx-ts` is an alias for the same package, published from the same commit at the
-same version. Take it if a scoped name is awkward in your toolchain, and install
-one or the other rather than both. These docs use the scoped name throughout.
+`@shbernal/ts-pptx` is an alias for the same package, published from the same commit
+at the same version. It is the name this project published under first, and installs
+that already use it keep resolving. Install one or the other rather than both. These
+docs use `pptx-ts` throughout.
 
 ## Start Here
 

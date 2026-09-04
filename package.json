@@ -1,12 +1,12 @@
 {
-	"name": "@shbernal/ts-pptx",
+	"name": "pptx-ts",
 	"version": "3.7.0",
 	"author": {
 		"name": "shbernal",
 		"url": "https://github.com/shbernal/"
 	},
 	"description": "Create PowerPoint presentations (.pptx) from TypeScript and modern JavaScript",
-	"homepage": "https://github.com/shbernal/ts-pptx#readme",
+	"homepage": "https://shbernal.github.io/ts-pptx/",
 	"license": "MIT",
 	"packageManager": "pnpm@11.3.0",
 	"type": "module",

@@ -1,6 +1,6 @@
 # Showcase decks
 
-Two full decks, generated end to end by `@shbernal/ts-pptx`. No slide here was touched in
+Two full decks, generated end to end by `pptx-ts`. No slide here was touched in
 PowerPoint.
 
 ```bash

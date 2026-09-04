@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Stage a publishable copy of this package under its unscoped alias name, `pptx-ts`.
+// Stage a publishable copy of this package under its scoped alias name, `@shbernal/ts-pptx`.
 //
 // npm has one package per name and no concept of a redirect, so an "alias" on the
 // registry is not a pointer: it is a second publish of the same content under a second
@@ -7,13 +7,13 @@
 //
 // It produces it by *copying* rather than by editing the working tree. The obvious
 // alternative — rewrite `package.json#name`, publish, put it back — leaves a repo whose
-// manifest says `pptx-ts` if anything between the two steps fails, and the thing between
-// them is a network call. A staged directory has no such half state, and it can be read
-// before it is published, which the bootstrap path below actually wants.
+// manifest says `@shbernal/ts-pptx` if anything between the two steps fails, and the thing
+// between them is a network call. A staged directory has no such half state, and it can be
+// read before it is published, which the bootstrap path below actually wants.
 //
 // Three things differ from the canonical package, and nothing else does:
 //   - `name`, which is the whole point.
-//   - `README.md`, which gains a banner naming the scoped package as canonical. npm
+//   - `README.md`, which gains a banner naming the unscoped package as canonical. npm
 //     renders the README on the package page, and an unannotated copy of this one opens
 //     by telling the reader to install a package they did not search for.
 //   - `scripts`, which is dropped. Not for tidiness: every script in it names `src/`,
@@ -34,10 +34,11 @@
 // Two callers:
 //   - `.github/workflows/publish.yml`, which stages and publishes the alias *after* the
 //     canonical publish has succeeded, so a failure here cannot cost the real release.
-//   - the one-time bootstrap. npm cannot configure a trusted publisher for a package that
-//     does not exist yet, because the setting lives on the package's settings page
-//     (npm/cli#8544), so the alias needs one manual `npm publish` to bring it into being
-//     before OIDC can take over. `docs/RELEASING.md` has the runbook.
+//   - the one-time bootstrap of a name nobody has published yet. npm cannot configure a
+//     trusted publisher for a package that does not exist, because the setting lives on
+//     the package's settings page (npm/cli#8544), so such a name needs one manual
+//     `npm publish` to bring it into being before OIDC can take over. Both names this
+//     repo publishes are long past that point; `docs/RELEASING.md` has the runbook.
 //
 // Usage:
 //   node scripts/alias-package.mjs                    stage into .tmp/alias-package
@@ -50,13 +51,14 @@ import path from 'node:path'
 import { ROOT, isMain, parseCliOrExit, run, runCli } from './script-utils.mjs'
 
 /**
- * The unscoped name.
+ * The scoped name, which the project published under until the unscoped one took over as
+ * canonical. It keeps being published so existing installs keep resolving.
  *
  * Single source of truth: the publish workflow reads it back with `--print-name` rather
  * than repeating the literal, so the "is this version already published?" guard and the
  * thing it guards can never name different packages.
  */
-export const ALIAS_NAME = 'pptx-ts'
+export const ALIAS_NAME = '@shbernal/ts-pptx'
 
 const DEFAULT_OUT = path.join('.tmp', 'alias-package')
 
@@ -107,8 +109,9 @@ export function aliasReadme(readme, { aliasName = ALIAS_NAME, canonicalName }) {
 		`> [\`${canonicalName}\`](https://www.npmjs.com/package/${canonicalName}), published from the\n` +
 		'> same commit at the same version with the same contents. Install one or the other,\n' +
 		'> never both: two copies of this library in one dependency tree are two module\n' +
-		'> registries, and state such as the diagnostic handler is per-copy. The scoped name is\n' +
-		'> canonical, and the issue tracker, the changelog and every example below use it.\n'
+		'> registries, and state such as the diagnostic handler is per-copy.\n' +
+		`> \`${canonicalName}\` is the canonical name, and the issue tracker, the changelog and\n` +
+		'> every example below use it.\n'
 
 	const lines = readme.split('\n')
 	const title = lines.findIndex((line) => line.startsWith('# '))
@@ -151,7 +154,7 @@ export async function stageAlias({ out = DEFAULT_OUT, version } = {}) {
 
 const USAGE = `Usage: node scripts/alias-package.mjs [--out <dir>] [--version <version>] [--print-name]
 
-Stages a publishable copy of this package under the unscoped alias name.
+Stages a publishable copy of this package under the scoped alias name.
 
   --out <dir>          where to stage (default ${DEFAULT_OUT})
   --version <version>  publish version override; bootstrap only

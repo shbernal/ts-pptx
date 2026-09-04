@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Path-citation gate — a backticked repo path must name a file that exists.
+ * Citation gate — a backticked repo path must name a file that exists, and no example may
+ * tell a reader to install or import a package name this project no longer leads with.
  *
  * This repo cites files constantly, and it does it in backticks rather than as
  * markdown links: a doc says "see `test/regression/shape/group-shapes.test.js`", a
@@ -17,6 +18,15 @@
  *
  *   node scripts/path-refs.mjs          # check (exit 1 on any dead citation)
  *   node scripts/path-refs.mjs --list   # every citation found, resolved or not
+ *
+ * ## The second check
+ *
+ * `@shbernal/ts-pptx` is an alias the project still publishes, so naming it in prose is
+ * correct and stays. Handing it to a reader as something to *type* is not: the canonical
+ * name is `pptx-ts`, and an install line or an import specifier carrying the alias sends
+ * a consumer to the name this project stopped leading with. The check draws that line by
+ * position rather than by wording — a quoted specifier, an `install`/`add` argument, a
+ * `node_modules/` path — so a backticked mention passes and a copy-pasteable one does not.
  *
  * ## What counts as a citation
  *
@@ -95,6 +105,18 @@ const CITED_EXT = /\.(ts|mts|tsx|js|mjs|cjs|jsx|vue|md|json|jsonc|yml|yaml|html|
 
 /** A backticked token that looks like a path, `./`- and `../`-relative forms included. */
 const CITATION_RE = /`((?:\.{1,2}\/)*[A-Za-z0-9_@][A-Za-z0-9_./@-]*\.[a-z]+)`/g
+
+/**
+ * The alias name in a position that asks the reader to type it. Single and double quotes
+ * only — a backtick is markdown prose, which is where the alias is legitimately named.
+ */
+const STALE_SPECIFIER_RE = /(?:['"]|node_modules\/|\b(?:add|install)\s+)@shbernal\/ts-pptx/
+
+/**
+ * Files where the quoted alias is the subject rather than an instruction. One entry: the
+ * script that stages the alias publish has to spell the name it stages under.
+ */
+const STALE_EXEMPT = new Set(['scripts/alias-package.mjs'])
 
 /**
  * This file, which cannot be scanned by itself: its header and `ALLOWLIST` quote dead paths
@@ -225,7 +247,7 @@ export function resolves(token, from, known) {
 	return false
 }
 
-/** Every citation in the scanned trees, with whether it resolved. */
+/** Every citation in the scanned trees, plus every alias name a reader is told to type. */
 function collect() {
 	const files = SCAN_ROOTS.flatMap((r) => walk(path.join(ROOT, r)))
 	for (const name of ROOT_FILES) {
@@ -236,12 +258,17 @@ function collect() {
 	const known = new Set(files.map(rel))
 	/** @type {{file: string, line: number, token: string, ok: boolean}[]} */
 	const citations = []
+	/** @type {{file: string, line: number, text: string}[]} */
+	const stale = []
 	for (const file of files) {
 		if (!CITED_EXT.test(file)) continue
 		const relFile = rel(file)
 		if (relFile === SELF) continue
 		const lines = readFileSync(file, 'utf8').split(/\r?\n/)
 		lines.forEach((line, index) => {
+			if (!STALE_EXEMPT.has(relFile) && STALE_SPECIFIER_RE.test(line)) {
+				stale.push({ file: relFile, line: index + 1, text: line.trim() })
+			}
 			for (const match of line.matchAll(CITATION_RE)) {
 				const token = match[1] ?? ''
 				if (!token.includes('/') || !CITED_EXT.test(token)) continue
@@ -251,7 +278,7 @@ function collect() {
 			}
 		})
 	}
-	return citations
+	return { citations, stale }
 }
 
 const USAGE = `Path-citation gate — a backticked repo path must name a file that exists.
@@ -275,11 +302,13 @@ function main(argv) {
 		options: { list: { type: 'boolean', default: false } },
 	})
 
-	const citations = collect()
+	const { citations, stale } = collect()
 
 	if (values.list) {
 		for (const c of citations) console.log(`${c.ok ? 'ok  ' : 'DEAD'} ${c.file}:${c.line}  ${c.token}`)
+		for (const line of stale) console.log(`STALE ${line.file}:${line.line}  ${line.text}`)
 		console.log(`\n${citations.length} citation(s), ${citations.filter((c) => !c.ok).length} unresolved`)
+		console.log(`${stale.length} line(s) handing over the alias name`)
 		return 0
 	}
 
@@ -302,6 +331,16 @@ function main(argv) {
 		console.error('scripts/path-refs.mjs with the reason.')
 	}
 
+	if (stale.length > 0) {
+		failed = true
+		console.error(
+			`${dead.length ? '\n' : ''}path-refs: line(s) telling a reader to install or import the alias name:\n`
+		)
+		for (const line of stale) console.error(`  ${line.file}:${line.line}  ${line.text}`)
+		console.error('\nUse `pptx-ts`. Naming `@shbernal/ts-pptx` in prose is correct; handing it over')
+		console.error('as something to type is not.')
+	}
+
 	const unused = ALLOWLIST.filter((e) => !used.has(e.where))
 	if (unused.length > 0) {
 		failed = true
@@ -310,7 +349,9 @@ function main(argv) {
 	}
 
 	if (failed) return 1
-	console.log(`path-refs: ok (${citations.length} citation(s) resolve, ${ALLOWLIST.length} exempt)`)
+	console.log(
+		`path-refs: ok (${citations.length} citation(s) resolve, ${ALLOWLIST.length} exempt, no stale specifiers)`
+	)
 	return 0
 }
 

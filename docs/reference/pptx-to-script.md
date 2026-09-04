@@ -25,8 +25,8 @@ account is data rather than log output: see [Fidelity notes](#fidelity-notes).
 
 ```ts
 import { copyFile, readFile, writeFile } from 'node:fs/promises'
-import { Presentation } from '@shbernal/ts-pptx/read'
-import { readModelToIr, printScript } from '@shbernal/ts-pptx/script'
+import { Presentation } from 'pptx-ts/read'
+import { readModelToIr, printScript } from 'pptx-ts/script'
 
 const deck = await Presentation.load(await readFile('source.pptx'))
 const { code, assets, notes } = printScript(readModelToIr(deck))

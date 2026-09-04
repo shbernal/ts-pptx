@@ -19,7 +19,7 @@ applications.
 Use the package export:
 
 ```ts
-import TsPptx from "@shbernal/ts-pptx"
+import TsPptx from "pptx-ts"
 ```
 
 The package publishes:
@@ -62,20 +62,20 @@ Supported environments are modern module-aware environments:
 Supported package imports:
 
 ```ts
-import TsPptx, { ShapeType } from "@shbernal/ts-pptx"
-import { inspectPptx } from "@shbernal/ts-pptx/inspect"
-import { measureText } from "@shbernal/ts-pptx/measure"
-import { Presentation } from "@shbernal/ts-pptx/read"
-import { readModelToIr, printScript } from "@shbernal/ts-pptx/script"
-import { latexToOmml } from "@shbernal/ts-pptx/math"
-import { tableToSlides } from "@shbernal/ts-pptx/html"
-import pptxgenNode from "@shbernal/ts-pptx/node"
-import pptxgenBrowser from "@shbernal/ts-pptx/browser"
+import TsPptx, { ShapeType } from "pptx-ts"
+import { inspectPptx } from "pptx-ts/inspect"
+import { measureText } from "pptx-ts/measure"
+import { Presentation } from "pptx-ts/read"
+import { readModelToIr, printScript } from "pptx-ts/script"
+import { latexToOmml } from "pptx-ts/math"
+import { tableToSlides } from "pptx-ts/html"
+import pptxgenNode from "pptx-ts/node"
+import pptxgenBrowser from "pptx-ts/browser"
 ```
 
 ## Which Build The Bare Import Gives You
 
-`import TsPptx from "@shbernal/ts-pptx"` resolves through export conditions, so
+`import TsPptx from "pptx-ts"` resolves through export conditions, so
 the artifact you get depends on the runtime doing the resolving:
 
 | the resolver sets | you get | `writeFile` |
@@ -94,9 +94,9 @@ needs nothing else. What it cannot do is *place a file for you*: there is no
 filesystem and no DOM, so `writeFile()` throws an `UnsupportedFeatureError` naming
 the two entries that can, instead of failing on a missing `document` deep inside
 the call. Live-DOM `tableToSlides` is likewise browser-only; the DOM-agnostic form
-is the free `tableToSlides` on `@shbernal/ts-pptx/html`.
+is the free `tableToSlides` on `pptx-ts/html`.
 
-Import `@shbernal/ts-pptx/node` or `@shbernal/ts-pptx/browser` directly whenever
+Import `pptx-ts/node` or `pptx-ts/browser` directly whenever
 you want a specific build regardless of how conditions resolve.
 
 ## What "Browser" Is Tested To Mean
@@ -197,7 +197,7 @@ Two gaps, stated rather than implied:
 
 ## What `/math` Costs In A Browser, And Why It Stays Node-Only
 
-`@shbernal/ts-pptx/math` is Node-only, permanently, unless a real consumer asks
+`pptx-ts/math` is Node-only, permanently, unless a real consumer asks
 otherwise. The decision is recorded here so it is not re-litigated per release.
 
 `src/math.ts` loads its two optional peers (`temml`, `mathml2omml`) through
@@ -273,7 +273,7 @@ CommonJS is not a supported package target.
 Unsupported:
 
 ```js
-const TsPptx = require("@shbernal/ts-pptx")
+const TsPptx = require("pptx-ts")
 ```
 
 The package does not ship:
@@ -290,7 +290,7 @@ package smoke test verifies the actual contract: no CJS artifacts and no
 ### IIFE And Global Browser Bundle
 
 The IIFE/global browser build is not supported.
-`@shbernal/ts-pptx/browser` is an ESM browser entry, not a
+`pptx-ts/browser` is an ESM browser entry, not a
 `window.TsPptx` global.
 
 Unsupported:
