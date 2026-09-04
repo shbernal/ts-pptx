@@ -1,0 +1,263 @@
+{
+	"generatedAt": "2026-09-04",
+	"subjects": {
+		"ts-pptx": {
+			"version": "3.7.0",
+			"source": "workspace dist/"
+		},
+		"pptxgenjs": {
+			"version": "4.0.1",
+			"published": "2025-06-26",
+			"source": "npm"
+		}
+	},
+	"coverage": [
+		{
+			"id": "text-run",
+			"label": "Text run",
+			"group": "shared",
+			"construct": "<a:t>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "table",
+			"label": "Table",
+			"group": "shared",
+			"construct": "<a:tbl>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "image",
+			"label": "Raster image",
+			"group": "shared",
+			"construct": "<p:pic>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "bar-chart",
+			"label": "Bar chart",
+			"group": "shared",
+			"construct": "<c:barChart>",
+			"part": "ppt/charts/chart1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "hyperlink",
+			"label": "External hyperlink",
+			"group": "shared",
+			"construct": "<a:hlinkClick",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "slide-master",
+			"label": "User-defined slide master",
+			"group": "shared",
+			"construct": "<p:ph",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "sections",
+			"label": "Sections",
+			"group": "shared",
+			"construct": "<p14:sectionLst",
+			"part": "ppt/presentation.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "speaker-notes",
+			"label": "Speaker notes",
+			"group": "shared",
+			"construct": "probe note",
+			"part": "ppt/notesSlides/notesSlide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "preset-shape",
+			"label": "Preset-geometry shape",
+			"group": "shared",
+			"construct": "<a:prstGeom",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "slide-background",
+			"label": "Slide background colour",
+			"group": "shared",
+			"construct": "<p:bg>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "emitted"
+			}
+		},
+		{
+			"id": "slide-transition",
+			"label": "Slide transition",
+			"group": "motion",
+			"construct": "<p:transition",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "build-animation",
+			"label": "Build animation on a shape",
+			"group": "motion",
+			"construct": "<p:timing>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "ole-object",
+			"label": "Embedded OLE object",
+			"group": "embedding",
+			"construct": "<p:oleObj",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "model-3d",
+			"label": "3D model",
+			"group": "embedding",
+			"construct": "am3d:model3d",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "embedded-font",
+			"label": "Embedded font face",
+			"group": "embedding",
+			"construct": "<p:embeddedFontLst>",
+			"part": "ppt/presentation.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "connector",
+			"label": "Connector between shapes",
+			"group": "shapes",
+			"construct": "<p:cxnSp>",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "inline-math",
+			"label": "Inline equation",
+			"group": "text",
+			"construct": "<a14:m",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "gradient-fill",
+			"label": "Gradient shape fill",
+			"group": "fills",
+			"construct": "<a:gradFill",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			},
+			"notes": {
+				"pptxgenjs": "appears only inside the bundled Office theme XML, which no API parameterises"
+			}
+		},
+		{
+			"id": "table-cell-bevel",
+			"label": "3D bevel on a table cell",
+			"group": "tables",
+			"construct": "<a:cell3D",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "chartex-funnel",
+			"label": "Funnel chart (chartEx)",
+			"group": "charts",
+			"construct": "<cx:chart>",
+			"part": "ppt/charts/chartEx1.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "slide-zoom",
+			"label": "Slide Zoom tile",
+			"group": "navigation",
+			"construct": "pslz:sldZm",
+			"part": "ppt/slides/slide2.xml",
+			"results": {
+				"ts-pptx": "emitted",
+				"pptxgenjs": "no-api"
+			}
+		},
+		{
+			"id": "smartart",
+			"label": "SmartArt diagram (write side)",
+			"group": "diagrams",
+			"construct": "<dgm:relIds",
+			"part": "ppt/slides/slide1.xml",
+			"results": {
+				"ts-pptx": "no-api",
+				"pptxgenjs": "no-api"
+			}
+		}
+	],
+	"upstreamAhead": [],
+	"sharedGaps": ["smartart"]
+}

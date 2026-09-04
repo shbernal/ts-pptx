@@ -78,6 +78,8 @@ are in every aggregate the repo has.
 | `com/contract.mjs` | Library | The shape names, `ProgID`s and `PpActionType` values the COM decks, VBScripts and verifiers all have to agree on | `powerpoint-com-smoke.mjs` |
 | `com/decks.mjs` | Library | Builds the four decks the COM smoke drives, from the current `dist/` | `powerpoint-com-smoke.mjs` |
 | `com/vbs.mjs` | Library | The VBScript sources that drive desktop PowerPoint, one per deck | `powerpoint-com-smoke.mjs` |
+| `comparison/measure.mjs` | Generator | Builds every probe with ts-pptx and with upstream pptxgenjs, reads the emitted parts, and writes `comparison/snapshot.json` | manual |
+| `comparison/probes.mjs` | Library | The construct-coverage corpus: one deck intent per probe, expressed in each library's own idiom | `comparison/measure.mjs` |
 | `gate-decks/chart-matrix.mjs` | Library | Gate deck reaching the chart emitters the showcase corpus never does | `byte-identity.mjs` |
 | `gate-decks/index.mjs` | Library | The gate-deck registry — one list, so a deck cannot go undiffed | `byte-identity.mjs` |
 | `gate-decks/shape-matrix.mjs` | Library | Gate deck reaching the slide-object constructs a presentation deck has no reason to carry | `byte-identity.mjs` |
