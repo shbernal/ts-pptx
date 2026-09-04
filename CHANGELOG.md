@@ -448,6 +448,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `text.ts` barrel. `read/api/shapes/base.ts` (959 → 880) hands its `a:effectLst` block to a new
   `shapes/effects.ts` as free functions over `(effectLst, ctx)`, which is all those five getters
   and two private helpers ever needed — their only reference to the class was `themeContext()`.
+  And `script/from-read/shape.ts` (955 → 701) hands its shared paint mappers — transform, fill,
+  line, arrows, shadow, glow, `p:style` — to `shape-paint.ts`, leaving the five per-kind call
+  builders behind. `script/verify/diff.ts` was on the same list and is not split: the construct
+  table it was mostly made of is now one table, and 565 lines is no longer oversized.
 
 ### Deprecated
 
