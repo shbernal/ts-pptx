@@ -206,21 +206,31 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 
 	// One `<c:ser>` per data row.
 	const sers = data
-		.map((obj, serIndex) => {
+		.map((obj) => {
+			// EVERY per-series lookup here keys on `_dataIndex`, the series' position across the whole
+			// chart -- the same number written to `<c:idx>`/`<c:order>` just below. For a single-type
+			// chart that is also its position within this subchart, so the two only part company on a
+			// combo, where each subchart's own loop restarts at 0.
+			//
+			// The palette used to key on that per-subchart position, so a bar(2) + line(1) combo painted
+			// the line with palette entry 0 -- the first bar's colour. PowerPoint does not restart the
+			// cycle per plot group: a three-series clustered-column chart whose third series is switched
+			// to a line keeps that series' third colour and merely moves it from the fill to the stroke
+			// (read back over COM; `test/regression/chart/combo-charts.test.js` carries the case).
+			// `lineDashValues` moved with it, for the same reason and by the same reading of "the series
+			// order in the `data` array".
 			const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
-			const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, serIndex)
+			const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, obj._dataIndex)
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
 				raw(strRefBlock(sheetCellRef(seriesColumn(obj, sheet), 1), obj.name ?? '')),
-				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, serIndex)),
+				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, obj._dataIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
-				// The marker takes the series' own colour, not a second palette lookup. These read
-				// two different entries -- `serIndex` is the position within this subchart and
-				// `_dataIndex` the position across all of them -- which is the same number for a
-				// single-type chart and not for a combo: bar(2) + line(1) drew a `C0504D` line with
-				// `9BBB59` dots, and a `seriesOptions.color` override moved the body and not the dots.
+				// The marker takes the series' own colour, not a second palette lookup — the two used to
+				// read different entries, so bar(2) + line(1) drew a `C0504D` line with `9BBB59` dots and
+				// a `seriesOptions.color` override moved the body and not the dots.
 				isLineLike(chartType) ? raw(serMarker(opts, seriesColor, seriesColor)) : null,
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` in CT_*Ser schema order.
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, barVaryColors)),

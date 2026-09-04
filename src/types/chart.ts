@@ -329,8 +329,11 @@ export interface ChartPropsBase {
 
 	/**
 	 * Per-series style overrides.
-	 * Element at index N applies to the series at data[N].
-	 * Missing indices or unset fields fall back to the chart-level option.
+	 *
+	 * Element at index N applies to the **Nth series of the chart** — the same number the series
+	 * carries in `<c:idx>`/`<c:order>`. For most plots that is its position in `data`; on a combo
+	 * it counts across every subchart in order, so a bar(2) + line(1) combo reaches the line at
+	 * index 2. Missing indices or unset fields fall back to the chart-level option.
 	 *
 	 * **Read by `bar`, `bar3d`, `line`, `area` and `radar` only.** The other classic plots build
 	 * their series colours straight from the palette, and a pie has no referent for a *series*
@@ -639,7 +642,8 @@ export interface ChartPropsChartLine {
 	 */
 	lineDash?: ChartLineDash
 	/**
-	 * Per-series dash type overrides; index matches the series order in the `data` array.
+	 * Per-series dash type overrides; index matches the series order in the `data` array — and on a
+	 * combo, the order across every subchart, the same index `seriesOptions` uses.
 	 * - entries shorter than the series count fall back to `lineDash`
 	 * - example: `['solid', 'dash', 'lgDash']` gives each series its own dash pattern
 	 */

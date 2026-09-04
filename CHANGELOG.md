@@ -589,6 +589,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo chart restarted the colour palette in every subchart.** Each subchart's series
+  builder looked its colour up by the series' position *within that subchart*, so a
+  bar(2) + line(1) combo painted the line with palette entry 0 -- the same colour as the
+  first bar -- while `<c:idx>`, `<c:order>` and `seriesOptions` were all keyed on the
+  position across the whole chart. Only the colour restarted.
+
+  Desktop PowerPoint does not restart it: a three-series clustered-column chart whose third
+  series is switched to a line keeps that series' third colour and merely moves it from
+  `Format.Fill` to `Format.Line`, read back over COM. Every per-series lookup in the
+  category-axis family now keys on the overall position, which also fixes `lineDashValues`,
+  whose entries past the longest subchart were unreachable. A single-type chart is
+  unaffected -- the two indices are the same number there -- so only combo decks move bytes.
+
+  `seriesOptions` and `lineDashValues` now document that index as "the Nth series of the
+  chart", the same number the series carries in `<c:idx>`/`<c:order>`, rather than as a
+  position in `data`, which a combo splits across subcharts.
+
 - **Three percentage accessors reported `55.00000000000001` for a `55%` attribute.**
   `TextFrame.autofitFontScale`, `TextFrame.autofitLineSpaceReduction`, `Run.baselinePct`
   and a paragraph's percent line spacing each read the attribute through `parsePercent` —
