@@ -78,6 +78,19 @@ import { checkFiniteEmu, checkPositiveEmu, ptFromEmu } from '../coords.js'
 // against real PowerPoint output ("Mark as decorative").
 const ADEC_NS = 'http://schemas.microsoft.com/office/drawing/2017/decorative'
 
+/**
+ * One scaled attribute of an effect element, or `null` when the element does not state it.
+ *
+ * `a:effectLst`'s children carry their measures in EMU and 60,000ths of a degree, and every
+ * decoder below has to divide. Four of them did it inline and one built a local `put` helper
+ * four lines from the last inline copy; naming the operation once is what keeps the divisor and
+ * the "absent stays absent" rule from being restated per attribute.
+ */
+function scaledAttr(el: Element, name: string, divisor: number): number | null {
+	const raw = numberValue(attr(el, name))
+	return raw === null ? null : raw / divisor
+}
+
 /** Common base for every shape in a shape tree — a slide's, a layout's, or a master's. */
 export abstract class Shape {
 	constructor(
@@ -693,8 +706,8 @@ export abstract class Shape {
 		if (!glow) return null
 		const out: Glow = { color: null }
 		this.#applyEffectColor(out, firstChildElement(glow))
-		const rad = numberValue(attr(glow, 'rad'))
-		if (rad !== null) out.radiusPt = rad / EMU_PER_POINT
+		const rad = scaledAttr(glow, 'rad', EMU_PER_POINT)
+		if (rad !== null) out.radiusPt = rad
 		return out
 	}
 
@@ -708,8 +721,8 @@ export abstract class Shape {
 		if (!refl) return null
 		const out: Reflection = {}
 		const put = (target: keyof Reflection, name: string, div: number): void => {
-			const v = numberValue(attr(refl, name))
-			if (v !== null) out[target] = v / div
+			const v = scaledAttr(refl, name, div)
+			if (v !== null) out[target] = v
 		}
 		const putPct = (target: keyof Reflection, name: string): void => {
 			const v = pctAttr(refl, name)
@@ -733,8 +746,8 @@ export abstract class Shape {
 	get softEdge(): SoftEdge | null {
 		const soft = this.#effect('a:softEdge')
 		if (!soft) return null
-		const rad = numberValue(attr(soft, 'rad'))
-		return { radiusPt: rad === null ? 0 : rad / EMU_PER_POINT }
+		const rad = scaledAttr(soft, 'rad', EMU_PER_POINT)
+		return { radiusPt: rad ?? 0 }
 	}
 
 	/**
@@ -793,12 +806,12 @@ export abstract class Shape {
 		// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` now answers for five of the six
 		// (`a:scrgbClr` is the exception, and reports no colour rather than a guessed one).
 		this.#applyEffectColor(out, firstChildElement(shdw))
-		const blur = numberValue(attr(shdw, 'blurRad'))
-		const dist = numberValue(attr(shdw, 'dist'))
-		const dir = numberValue(attr(shdw, 'dir'))
-		if (blur !== null) out.blurPt = blur / EMU_PER_POINT
-		if (dist !== null) out.offsetPt = dist / EMU_PER_POINT
-		if (dir !== null) out.angleDeg = dir / ANGLE_UNITS_PER_DEGREE
+		const blur = scaledAttr(shdw, 'blurRad', EMU_PER_POINT)
+		const dist = scaledAttr(shdw, 'dist', EMU_PER_POINT)
+		const dir = scaledAttr(shdw, 'dir', ANGLE_UNITS_PER_DEGREE)
+		if (blur !== null) out.blurPt = blur
+		if (dist !== null) out.offsetPt = dist
+		if (dir !== null) out.angleDeg = dir
 		return out
 	}
 
