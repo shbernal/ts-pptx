@@ -49,7 +49,6 @@ are in every aggregate the repo has.
 | `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `verify` and `check:static`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
-| `docs-init.mjs` | Generator | Scaffolds the docs kit; inert in this repo | manual (`docs:init`) |
 | `docs-list.mjs` | Diagnostic | Lists docs with their `read_when` hints | manual (`docs:list`) |
 | `docs-new.mjs` | Generator | Creates a new doc page from the template | manual (`docs:new`) |
 | `ensure-dist.mjs` | Gate | `dist/` freshness guard; builds, or `--check` fails | almost every `pnpm run` |

@@ -523,6 +523,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`scripts/docs-init.mjs` and the `docs:init` script are gone.** The scaffolder planted a
+  fresh repo's docs kit -- the `project-documentation` skill, `docs/docs.json`, four starter
+  pages and the `docs:*` script block -- and in this repo every file it wrote already
+  existed, so a run reported `preserve:` for all of them. What it still carried was two
+  liabilities: inline copies of four docs pages that had long since diverged from the real
+  ones with nothing checking, and a `PACKAGE_SCRIPTS` constant that, unlike the pages, was
+  *not* preserve-on-conflict -- `addPackageScripts` rewrote any `docs:*` script whose
+  command differed, so a stale entry there silently downgraded a real repo's docs pipeline,
+  which had already happened once. Nothing in this repo ran it. **Migration:** none; the
+  kit stays in git history if it is ever wanted as the seed of a template repo.
+
 - **`ChartOpts` no longer extends `OptsChartGridLine`.** That inheritance put `color`,
   `size`, `style` and `cap` on the chart option bag itself, where nothing read them: a
   caller who wrote `addChart(data, { style: 'dash' })` typechecked and got nothing. They
