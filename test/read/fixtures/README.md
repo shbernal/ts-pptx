@@ -63,8 +63,10 @@ compared against authentic XML in `test/schema-cases.js`. They are not consumed
 by the `ts-pptx/read` harness. Two groups:
 
 - **Placeholder / notes**: `layout-placeholder-bodypr.pptx`,
-  `table-placeholder.pptx`, `notes-slide-image.pptx` (master/layout placeholder
-  bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; table-in-placeholder →
+  `placeholder-override.pptx`, `table-placeholder.pptx`,
+  `notes-slide-image.pptx` (master/layout placeholder
+  bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; placeholder inheritance vs
+  override → the write-side rule in `gen/define/text.ts`; table-in-placeholder →
   `upstream-pr-1151`; notes `sldImg` → `upstream-issue-446`).
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
   `c:dPt`/`c:dLbl` + workbook cache), `math-omml.pptx` (native **display**
@@ -100,6 +102,7 @@ by the `ts-pptx/read` harness. Two groups:
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
 | `layout-placeholder-bodypr.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `placeholder-override.pptx`   | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
@@ -147,6 +150,7 @@ cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-sty
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
+073b6276ae435ee033c0b2411175e819041103d32aad5af54f9414fd72d0e1c0  placeholder-override.pptx
 f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
@@ -627,6 +631,17 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   is independently pinned). Slide 1 is inserted from that layout and inherits with
   an empty `<a:bodyPr/>` on each placeholder — the inheritance path the fix must
   honour.
+- `placeholder-override.pptx` — **authoring oracle** for what PowerPoint writes when
+  a slide placeholder *overrides* its layout's, which is the ground truth behind the
+  write-side rule that a placeholder **supplies** an option and never **imposes** one.
+  The "Title and Content" layout's content placeholder (`<p:ph idx="1"/>`) states a
+  frame, `anchor="b"` and `lIns="914400"` — a left inset an order of magnitude off the
+  default, so an inherited one is unmistakable. Slide 1's placeholder then overrides two
+  of the three, and PowerPoint writes exactly those two: `<a:bodyPr anchor="t"/>` plus
+  its own `a:xfrm`, with **no `lIns` at all**. The slide states only what it overrides,
+  and the stated value is the one that applies. Pairs with
+  `layout-placeholder-bodypr.pptx`, which pins the opposite half (a slide that states
+  nothing and inherits everything).
 - `table-placeholder.pptx` — **authoring oracle** for a table that lives in a
   layout placeholder (`upstream-pr-1151`). One slide from the "Title and Content"
   layout whose content placeholder hosts a 2×3 table (`placeholder-table`); the
@@ -1084,6 +1099,7 @@ fixtures opened clean with no repair prompt:
 - [x] `rotation-flip.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `custgeom.pptx` — Windows desktop PowerPoint, 2026-06-21 (authored + opened clean via COM)
 - [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `placeholder-override.pptx` — Windows desktop PowerPoint, 2026-09-04 (authored + reopened clean via COM, no repair prompt)
 - [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)

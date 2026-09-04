@@ -1,13 +1,22 @@
 import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
 
-// Which frame wins when an object names a placeholder AND states coordinates of its own.
+// What wins when an object names a placeholder AND states options of its own.
 //
-// Three states, and the middle one had no spelling: inherit the placeholder's box, override it,
-// or override part of it. The placeholder was applied last and unconditionally, so
-// `addText('x', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` had all four stated values
-// thrown away with no diagnostic — while the same object with a *partial* frame and no
-// placeholder warns loudly. The decision is that an explicit option beats an inherited one, as
-// it does everywhere else in this library; a placeholder's frame is an inherited one.
+// The rule: a placeholder **supplies** an option the caller left out; it never **imposes** one
+// over a stated value. Three states, and the middle one had no spelling: inherit the
+// placeholder's box, override it, or override part of it. The placeholder was applied last and
+// unconditionally, so `addText('x', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` had all four
+// stated values thrown away with no diagnostic — while the same object with a *partial* frame and
+// no placeholder warns loudly.
+//
+// It is PowerPoint's own model, and `placeholder-override.pptx` is the evidence: a layout
+// placeholder given a bottom anchor and a 1in left inset, with the slide's placeholder then
+// re-anchored to the top, comes back as `<a:bodyPr lIns="914400" anchor="b"/>` on the layout and
+// `<a:bodyPr anchor="t"/>` on the slide. The slide states only what it overrides, the inset is
+// absent because it was never overridden, and the anchor that applies is the stated one.
+//
+// The frame was fixed first, because that half had an unambiguous reading. The cases below the
+// frame ones are the rest of the same rule.
 
 /**
  * The `<a:off>`/`<a:ext>` of the first shape on slide 1.
@@ -86,6 +95,88 @@ defineRegressionSuite('placeholder frame vs the object own coordinates', [
 			assertEqual(frame.x, 0, 'x: 0 is not "said nothing"')
 			assertEqual(frame.y, 0, 'nor is y: 0')
 			assertEqual(frame.cx, 8 * EMU, 'and the unstated width still inherits')
+		},
+	},
+	{
+		name: "a stated valign beats the placeholder's",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'PH_VALIGN',
+					objects: [
+						{
+							placeholder: {
+								options: { name: 'body', type: 'body', x: 1, y: 1, w: 8, h: 4, valign: 'bottom' },
+								text: '',
+							},
+						},
+					],
+				})
+				p.addSlide({ masterTitle: 'PH_VALIGN' }).addText('own anchor', { placeholder: 'body', valign: 'top' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:bodyPr[^>]*anchor="t"/.test(xml), "the caller's valign wins; got: " + xml)
+		},
+	},
+	{
+		name: 'and an unstated one still comes from it',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'PH_VALIGN2',
+					objects: [
+						{
+							placeholder: {
+								options: { name: 'body', type: 'body', x: 1, y: 1, w: 8, h: 4, valign: 'bottom' },
+								text: '',
+							},
+						},
+					],
+				})
+				p.addSlide({ masterTitle: 'PH_VALIGN2' }).addText('inherited anchor', { placeholder: 'body' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:bodyPr[^>]*anchor="b"/.test(xml), 'the placeholder supplies it; got: ' + xml)
+		},
+	},
+	{
+		// The trap in reading "the caller stated nothing" off the options bag: `bullet` is
+		// defaulted to `false` for a placeholder-targeting object BEFORE the inheritance runs, so a
+		// presence test would let that default beat the layout's bullet. Letting a default win is
+		// not the same statement as letting a caller win.
+		name: 'a default does not count as the caller stating something',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'PH_BULLET',
+					objects: [
+						{
+							placeholder: { options: { name: 'body', type: 'body', x: 1, y: 1, w: 8, h: 4, bullet: true }, text: '' },
+						},
+					],
+				})
+				p.addSlide({ masterTitle: 'PH_BULLET' }).addText('bulleted', { placeholder: 'body' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:buChar/.test(xml), "the layout's bullet survives the internal default; got: " + xml)
+		},
+	},
+	{
+		name: 'but the caller stating it explicitly does',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'PH_BULLET2',
+					objects: [
+						{
+							placeholder: { options: { name: 'body', type: 'body', x: 1, y: 1, w: 8, h: 4, bullet: true }, text: '' },
+						},
+					],
+				})
+				p.addSlide({ masterTitle: 'PH_BULLET2' }).addText('plain', { placeholder: 'body', bullet: false })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(!/<a:buChar/.test(xml), 'an explicit `bullet: false` suppresses it; got: ' + xml)
 		},
 	},
 	{

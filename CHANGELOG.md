@@ -589,6 +589,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A layout placeholder no longer overrides an option the caller stated.**
+  `addText(text, { placeholder: 'body', ... })` spread the layout placeholder's options over
+  the caller's, so the placeholder won on every key it stated: `valign`, `margin`, `bullet`
+  and the text-style keys were all discarded without a word. The frame was fixed first
+  (3.4.0); this is the rest of the same shape.
+
+  The rule, now written on `TextPropsOptions.placeholder`: **a placeholder supplies an option
+  the caller left out, and never imposes one over a stated value.** It is PowerPoint's own
+  model. A layout placeholder given `anchor="b"` and `lIns="914400"`, with the slide's
+  placeholder then re-anchored to the top, is saved as `<a:bodyPr lIns="914400" anchor="b"/>`
+  on the layout and `<a:bodyPr anchor="t"/>` on the slide: only the overridden property is
+  stated there, the inset is absent because it was never overridden, and the stated anchor is
+  the one that applies. `placeholder-override.pptx` is that deck.
+
+  "Stated" means what the *caller* wrote, captured before this library defaults anything onto
+  the same bag. A placeholder-targeting object has its `bullet` defaulted to `false` on the
+  way past, so reading statedness off the bag would have let that default beat the layout's
+  bullet, which is a different claim from letting a caller beat it.
+
 - **`seriesOptions` reaches the XY and stock plots, and says which fields it cannot.** The
   option was read by the category-axis family alone, so `scatter`, `bubble`, `bubble3d` and
   `stock` took their series colours straight from the palette. All four now read it:

@@ -1793,6 +1793,23 @@
 		],
 		"diagnostics": []
 	},
+	"placeholder-override.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "slide body",
+				"wordCount": 2,
+				"elements": [
+					{"id":3,"name":"Content Placeholder 2","kind":"text","graphicKind":null,"zIndex":1,"box":{"x":5.555555555555555,"y":1.3888888888888888,"w":4.166666666666667,"h":2.7777777777777777},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"slide body","textWrap":null,"autofit":"none","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"slide body","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"slide body","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			}
+		],
+		"diagnostics": []
+	},
 	"preset-geometry.pptx": {
 		"slideSize": {"widthIn":13.333,"heightIn":7.5},
 		"slides": [

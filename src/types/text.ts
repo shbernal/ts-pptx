@@ -488,6 +488,17 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 *   a real `<p:ph type="...">`. Use `placeholder: 'title'` to give a slide an accessible
 	 *   title (PowerPoint's accessibility checker otherwise reports "Missing Slide Title")
 	 * - values: 'title' | 'body' | et. al.
+	 *
+	 * **The placeholder supplies, it does not impose.** Every option this bag states wins; the
+	 * layout placeholder fills in the ones it leaves out. So `{ placeholder: 'body' }` alone
+	 * takes the placeholder's frame, anchor, margins, bullet and text style, and
+	 * `{ placeholder: 'body', valign: 'top' }` takes all of that except the anchor. It matches
+	 * PowerPoint, where a slide placeholder's XML carries only the properties it overrides and
+	 * inherits the rest.
+	 *
+	 * The rule is about what the *caller* wrote, not about what the option bag holds by the time
+	 * inheritance runs: a value this library defaults on the way past does not count as the
+	 * caller stating one, and does not beat the layout.
 	 * @example 'title'
 	 * @see https://learn.microsoft.com/en-us/office/vba/api/powerpoint.ppplaceholdertype
 	 */

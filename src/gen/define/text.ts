@@ -61,6 +61,15 @@ export function addTextDefinition(
 	// shared: `bullet._rId` and the image fill's rel id are registered through those references and
 	// read back at emit time, and auto-paging relies on a cloned text object reaching the same bullet.
 	const owned = new Map<TextPropsOptions, ObjectOptionsInternal>()
+	/**
+	 * The keys the CALLER wrote on each owned copy, recorded before any default reaches it.
+	 *
+	 * `cleanOpts` defaults several keys (`color`, `bullet`, `line`, `_bodyProp`) on the way past,
+	 * so by the time the placeholder inheritance in A.3 runs, "the bag has this key" no longer
+	 * means "the caller asked for this". That distinction is the whole rule there: a placeholder
+	 * supplies an option the caller left out, and a *default* is not the caller leaving it out.
+	 */
+	const authoredKeys = new WeakMap<ObjectOptionsInternal, ReadonlySet<string>>()
 	/** Copy a caller-supplied options object once, returning the same copy for the same input. */
 	const own = (source?: TextPropsOptions): ObjectOptionsInternal => {
 		if (!source) return {}
@@ -68,6 +77,7 @@ export function addTextDefinition(
 		if (already) return already
 		const copy: ObjectOptionsInternal = { ...source }
 		owned.set(source, copy)
+		authoredKeys.set(copy, new Set(Object.keys(source)))
 		return copy
 	}
 
@@ -120,18 +130,32 @@ export function addTextDefinition(
 						item.options.placeholder === itemOpts.placeholder
 				)[0]
 				if (placeHold?.options) {
-					// The frame is inherited, not imposed: an axis the caller stated wins over the
-					// placeholder's. Every other option still comes from the placeholder, which is
-					// what "text targeting a placeholder inherits its options" has always meant here.
+					// A placeholder SUPPLIES an option; it never IMPOSES one. Every key the caller wrote
+					// on this bag wins, and the placeholder fills in the rest -- which is what "text
+					// targeting a placeholder inherits its options" means, and what makes a slide match
+					// its layout without silently discarding what the caller asked for.
 					//
-					// `{ ...itemOpts, ...placeHold.options }` overwrote all four coordinates, so
-					// `addText('x', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` lost every value
-					// it stated -- silently, while the same object with a partial frame and no
-					// placeholder warns. An explicit option beats an inherited one everywhere else in
-					// this library.
-					const inherited: typeof placeHold.options = { ...placeHold.options }
-					for (const axis of ['x', 'y', 'w', 'h'] as const) {
-						if (itemOpts[axis] !== undefined) delete inherited[axis]
+					// `{ ...itemOpts, ...placeHold.options }` was the other way round, so the placeholder
+					// won on every key it stated: `addText('x', { placeholder: 'body', valign: 'top' })`
+					// took the layout's anchor and the caller's `valign` did nothing.
+					//
+					// It is PowerPoint's own model. A layout placeholder given a bottom anchor and a 1in
+					// left inset, with the slide's placeholder then re-anchored to the top, writes
+					// `<a:bodyPr lIns="914400" anchor="b"/>` on the layout and `<a:bodyPr anchor="t"/>` on
+					// the slide: the slide states only what it overrides, the inset is simply absent, and
+					// the stated anchor is the one that applies (`placeholder-override.pptx`).
+					//
+					// `authoredKeys`, not "is the key present": `bullet` is defaulted to `false` a few
+					// lines above for exactly these objects, so testing presence would let that default
+					// beat the layout's bullet -- which is not the same statement as letting a caller
+					// beat it.
+					const stated = authoredKeys.get(itemOpts) ?? new Set<string>()
+					const inherited: Record<string, unknown> = {}
+					for (const [key, value] of Object.entries(placeHold.options)) {
+						// A key the placeholder carries as an explicit `undefined` supplies nothing, and
+						// copying it would turn "the layout said nothing" into a stated `undefined` on a
+						// bag that is spread further downstream.
+						if (value !== undefined && !stated.has(key)) inherited[key] = value
 					}
 					itemOpts = { ...itemOpts, ...inherited }
 				}
