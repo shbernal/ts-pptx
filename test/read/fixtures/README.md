@@ -68,6 +68,10 @@ by the `ts-pptx/read` harness. Two groups:
   bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; placeholder inheritance vs
   override → the write-side rule in `gen/define/text.ts`; table-in-placeholder →
   `upstream-pr-1151`; notes `sldImg` → `upstream-issue-446`).
+- **Effects**: `shadow-shape-vs-text.pptx` (a shape shadow, a text shadow, and both, one
+  text box each) -- the ground truth that `p:spPr/a:effectLst` and `a:rPr/a:effectLst` are two
+  separate gestures, behind the write-side rule that a run does not inherit its shape's
+  `shadow`.
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
   `c:dPt`/`c:dLbl` + workbook cache), `math-omml.pptx` (native **display**
   equation OMML `a14:m`/`m:oMathPara`), and `math-omml-inline.pptx` (an
@@ -103,6 +107,7 @@ by the `ts-pptx/read` harness. Two groups:
 | ----------------------------- | --------------------------- | ---------- | ------ |
 | `layout-placeholder-bodypr.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `placeholder-override.pptx`   | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `shadow-shape-vs-text.pptx`   | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
@@ -151,6 +156,7 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
 073b6276ae435ee033c0b2411175e819041103d32aad5af54f9414fd72d0e1c0  placeholder-override.pptx
+f6dcd2658c15c9559879452d6ce4d9c22db5101a92c532d59a3cd5d1c270d90b  shadow-shape-vs-text.pptx
 f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
@@ -642,6 +648,13 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   and the stated value is the one that applies. Pairs with
   `layout-placeholder-bodypr.pptx`, which pins the opposite half (a slide that states
   nothing and inherits everything).
+- `shadow-shape-vs-text.pptx` — **authoring oracle** for where PowerPoint puts a shadow.
+  Three text boxes, one gesture each: `ShapeShadowOnly` was given Shape Effects ▸ Shadow and
+  carries `<a:effectLst>` in its `p:spPr` alone; `TextShadowOnly` was given Text Effects ▸
+  Shadow and carries it in its run's `a:rPr` alone; `BothShadows` was given both and carries
+  both. The point is that no single gesture produces the pair — which is why a shape-level
+  `shadow` option does not reach the glyphs. Read (not merely cited) by
+  `test/regression/text/shadow-shape-vs-run.test.js`.
 - `table-placeholder.pptx` — **authoring oracle** for a table that lives in a
   layout placeholder (`upstream-pr-1151`). One slide from the "Title and Content"
   layout whose content placeholder hosts a 2×3 table (`placeholder-table`); the
@@ -1100,6 +1113,7 @@ fixtures opened clean with no repair prompt:
 - [x] `custgeom.pptx` — Windows desktop PowerPoint, 2026-06-21 (authored + opened clean via COM)
 - [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `placeholder-override.pptx` — Windows desktop PowerPoint, 2026-09-04 (authored + reopened clean via COM, no repair prompt)
+- [x] `shadow-shape-vs-text.pptx` — Windows desktop PowerPoint, 2026-09-04 (authored + reopened clean via COM, no repair prompt)
 - [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)

@@ -589,6 +589,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addText('hi', { shadow })` emitted two shadows.** One `<a:effectLst>` landed in the
+  shape's `p:spPr` and another in the run's `a:rPr`, because the bare-string overload handed a
+  single options object to the shape *and* to its lone run, and `shadow` was on the list of
+  options a run inherits from its shape.
+
+  `shadow` now means the shape's shadow on a shape's bag and the text shadow on a run's, and a
+  run does not inherit its shape's. That is PowerPoint's own division: Shape Effects and Text
+  Effects are separate gestures writing to separate elements, and only applying both gives both
+  (`shadow-shape-vs-text.pptx` is one text box per state). Stating it in both places still
+  works, and now takes two statements here as it takes two actions there.
+
+  The aliasing behind it is gone: the bare-string overload wraps its text into a run that
+  states nothing and inherits what a run inherits. Two things followed from that being the only
+  thing keeping them alive:
+
+  - **A shape-level hyperlink emitted `r:id="rIdundefined"`.** A shape and its runs carry two
+    `hlinkClick` elements resolving two relationship ids, and only the runs' were registered;
+    the shape read its id back off the object the run had minted one on. `addText([{ text }],
+    { hyperlink })` was already broken this way.
+  - **A line-shaped text box drew its 1pt default only through the string overload.** The
+    defaults were computed on a pass that had no `line` bag to assign them to and were only
+    seen by a *second* pass over the same object. The bag is installed first now, so one pass is
+    enough and `shape: 'line'` draws the same line through either overload.
+
+  `rtlMode` and `tabStops` gained the inherit list they never had -- the paragraph builder reads
+  them off a run's bag, and they used to arrive only through the shared object.
+
 - **An HTML row covered end to end by a rowspan was dropped, taking the table's shape with
   it.** A source row states only the cells it *starts*, so a row every column of which is held
   by a `rowspan` from above states none at all -- what `<tr></tr>` between two spanned rows

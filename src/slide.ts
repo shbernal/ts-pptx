@@ -469,13 +469,18 @@ export default class SlideBuilder {
 	 * @return {SlideBuilder} this Slide
 	 */
 	addText(text: string | number | TextProps[], options?: TextPropsOptions): SlideBuilder {
-		// The bare-string form is wrapped into a one-run list, and a call with no options produces a
-		// run with no `options` key — the same shape a caller writing `[{ text: 'x' }]` hands in.
-		// Writing the key as `undefined` would make the two arms differ where the emitters spread.
-		const textParam: TextProps[] =
-			typeof text === 'string' || typeof text === 'number'
-				? [options === undefined ? { text } : { text, options }]
-				: text
+		// The bare-string form is wrapped into a one-run list carrying NO options of its own — the
+		// same shape a caller writing `[{ text: 'x' }]` hands in, and for the same reason: a bare
+		// string authors no *run*, so its run states nothing and inherits everything.
+		//
+		// It used to hand `options` to both the shape and the run, which made one object play both
+		// roles. Every key on it was then read twice, once as a shape property and once as a run
+		// property, and `shadow` is a key that means something different in each place: the shape's
+		// `<a:effectLst>` and the run's are two separate gestures in PowerPoint (Shape Effects vs
+		// Text Effects, `shadow-shape-vs-text.pptx`), and `addText('hi', { shadow })` emitted both.
+		// A run inherits what a run inherits — `RUN_INHERITABLE_OPTIONS` and the paragraph list
+		// beside it in `gen/drawingml/text-run.ts` — and nothing else.
+		const textParam: TextProps[] = typeof text === 'string' || typeof text === 'number' ? [{ text }] : text
 		addTextDefinition(this, textParam, options || {}, false)
 		return this
 	}

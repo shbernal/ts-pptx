@@ -1,4 +1,6 @@
+import JSZip from 'jszip'
 import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../../helpers.js'
+import { readFixture } from '../../read/corpus.js'
 
 // What wins when an object names a placeholder AND states options of its own.
 //
@@ -177,6 +179,32 @@ defineRegressionSuite('placeholder frame vs the object own coordinates', [
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(!/<a:buChar/.test(xml), 'an explicit `bullet: false` suppresses it; got: ' + xml)
+		},
+	},
+	{
+		// The oracle, read rather than cited: a comment claiming what PowerPoint writes goes stale
+		// silently, and the fixture is evidence only for as long as it still says what it is said to
+		// say. The layout states three things and the slide overrides two of them; what makes the
+		// point is the `lIns` that is NOT on the slide.
+		name: 'the PowerPoint-authored oracle states only what the slide overrides',
+		fn: async () => {
+			const zip = await JSZip.loadAsync(await readFixture('placeholder-override'))
+			const bodyPrOf = async (part) => {
+				const xml = await zip.file(part).async('string')
+				const sp = (xml.match(/<p:sp>[\s\S]*?<\/p:sp>/g) || []).find((block) => /<p:ph idx="1"/.test(block))
+				assert(sp, `${part} has no body placeholder`)
+				return /<a:bodyPr[^>]*\/?>/.exec(sp)[0]
+			}
+			assertEqual(
+				await bodyPrOf('ppt/slideLayouts/slideLayout2.xml'),
+				'<a:bodyPr lIns="914400" anchor="b"/>',
+				'the layout states the inset and the anchor'
+			)
+			assertEqual(
+				await bodyPrOf('ppt/slides/slide1.xml'),
+				'<a:bodyPr anchor="t"/>',
+				'the slide states only the anchor it overrode; the inset is absent and inherits'
+			)
 		},
 	},
 	{

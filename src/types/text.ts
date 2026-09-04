@@ -521,6 +521,21 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @default false
 	 */
 	rtlMode?: boolean
+	/**
+	 * Shadow options. **Which shadow depends on which bag it is on**, and the two are different
+	 * effects rather than two spellings of one:
+	 *
+	 * - on the options passed to `addText` — the *shape's* bag — it is the shape's drop shadow
+	 *   (`p:spPr/a:effectLst`), PowerPoint's Shape Effects ▸ Shadow;
+	 * - on a run's own `options` inside the text array, it is the *text* shadow
+	 *   (`a:rPr/a:effectLst`), PowerPoint's Text Effects ▸ Shadow.
+	 *
+	 * A run therefore does **not** inherit the shape's shadow: PowerPoint's two gestures are
+	 * independent, and applying both is what darkens a shadow twice. State it in both places to
+	 * get both, exactly as it takes two actions there.
+	 * @example addText('hi', { shadow }) // the box has a shadow; its glyphs do not
+	 * @example addText([{ text: 'hi', options: { shadow } }]) // the glyphs do; the box does not
+	 */
 	shadow?: ShadowProps
 	shape?: SHAPE_NAME
 	/**

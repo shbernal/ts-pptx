@@ -94,8 +94,15 @@ export function createHyperlinkRels(
 		// IMPORTANT: `options` are lost due to recursion/copy!
 		if (options && options[idx] && options[idx].hyperlink) text.options = { ...text.options, ...options[idx] }
 		if (Array.isArray(text.text)) {
+			// A shape carrying a hyperlink AND a run list needs BOTH walked: its own `hlinkClick` goes
+			// on `p:cNvPr`, its runs' on their `a:rPr`, and they are two elements resolving two ids.
+			// Recursing without registering this object's own left the shape's `r:id` pointing at a
+			// relationship nothing had minted -- invisible while `addText`'s bare-string form handed
+			// one options object to both the shape and its run, because the run then minted the id the
+			// shape went on to read off the same object.
 			createHyperlinkRels(target, text.text, options && options[idx] ? [options[idx]] : undefined)
-		} else if (
+		}
+		if (
 			text &&
 			typeof text === 'object' &&
 			text.options &&

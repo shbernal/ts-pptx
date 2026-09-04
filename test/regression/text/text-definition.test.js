@@ -136,13 +136,14 @@ defineRegressionSuite('Text definition', [
 	{
 		// The ShapeLineProps defaults for a line-shaped text box are computed unconditionally but only
 		// *assigned* back when `itemOpts.line` is already an object -- and on a first pass over options
-		// that carry no `line` at all, it is not. STEP C's `itemOpts.line = itemOpts.line || {}` then
-		// installs a bare `{}`, which is what a SECOND pass over the same object sees. So the string
-		// shorthand, which cleans one shared options object twice, ends up with the full 1pt solid
-		// default, while the array form -- one pass over the shape's options -- emits an empty
-		// `<a:ln>`. Same call, same `shape: 'line'`, different line, decided entirely by which
-		// overload the caller reached for. Pinned as-is: these are the bytes today's callers get.
-		name: 'line defaults reach a line-shaped text box only on a second options pass',
+		// carrying no `line` at all, it was not, because the `itemOpts.line = itemOpts.line || {}` that
+		// installs the bag ran AFTER. So only a SECOND pass over the same object saw one, and the only
+		// caller that got a second pass was the bare-string form of `addText`, which used to hand one
+		// options object to both the shape and its lone run: the same call, with the same
+		// `shape: 'line'`, drew a 1pt solid stroke through the string overload and an empty `<a:ln>`
+		// through the array one. The bag is installed first now, so one pass is enough and both
+		// overloads draw the line.
+		name: 'a line-shaped text box gets its line defaults through either overload',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
@@ -153,9 +154,13 @@ defineRegressionSuite('Text definition', [
 			const shapes = xml.match(/<p:sp>[\s\S]*?<\/p:sp>/g) || []
 			assertEqual(shapes.length, 2, 'expected both line shapes')
 			// The defaults: 1pt (12700 EMU), DEF_SHAPE_LINE_COLOR, solid dash.
-			assertIncludes(shapes[0], '<a:ln w="12700"', 'the twice-cleaned shorthand')
-			assertIncludes(shapes[0], '<a:prstDash val="solid"/>', 'the twice-cleaned shorthand')
-			assertIncludes(shapes[1], '<a:ln></a:ln>', 'the once-cleaned array form')
+			for (const [idx, label] of [
+				[0, 'the string overload'],
+				[1, 'the array overload'],
+			]) {
+				assertIncludes(shapes[idx], '<a:ln w="12700"', label)
+				assertIncludes(shapes[idx], '<a:prstDash val="solid"/>', label)
+			}
 		},
 	},
 	{

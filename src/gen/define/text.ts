@@ -161,7 +161,18 @@ export function addTextDefinition(
 				}
 			}
 
-			// B:
+			// B: Line defaults for a line-shaped text box.
+			//
+			// The `line = line || {}` below used to run AFTER this block, and this block only
+			// *assigns* its result when `itemOpts.line` is already an object -- so a first pass over
+			// options carrying no `line` at all computed the defaults and threw them away, and only
+			// a SECOND pass over the same object saw the `{}` the line below had installed. The
+			// bare-string form of `addText` was the only caller that got one, because it handed one
+			// options object to both the shape and its run and so cleaned it twice: the same call,
+			// with the same `shape: 'line'`, emitted a 1pt solid stroke through the string overload
+			// and an empty `<a:ln>` through the array one. Installing the bag first makes one pass
+			// enough, and makes the two overloads agree on the visible line.
+			itemOpts.line = itemOpts.line || {}
 			if (itemOpts.shape === ShapeType.line) {
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
 				// ShapeLineProps defaults, the same block as define/shape.ts. Spread first,
@@ -184,8 +195,7 @@ export function addTextDefinition(
 				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
 			}
 
-			// C: Line opts
-			itemOpts.line = itemOpts.line || {}
+			// C: Line-spacing opts
 			// `NaN` is falsy, so the truthiness test is the whole guard; an out-of-range value is
 			// clamped and reported by `clamp.ts` at emit rather than dropped without a word here.
 			if (!itemOpts.lineSpacing) delete itemOpts.lineSpacing
@@ -327,8 +337,12 @@ export function addTextDefinition(
 	// STEP 2: Create/Clean text options
 	textObjects.forEach((item) => (item.options = cleanOpts(item.options || {})))
 
-	// STEP 3: Create hyperlinks
-	createHyperlinkRels(target, textObjects)
+	// STEP 3: Create hyperlinks — for the SHAPE and for its runs, which are two `hlinkClick`
+	// elements resolving two relationship ids (`p:cNvPr`'s and each `a:rPr`'s). Handing over the
+	// run list alone left the shape's `r:id` pointing at a relationship nothing had minted; it went
+	// unseen while `addText`'s bare-string form gave the shape's own options object to its one run,
+	// because the run then minted the id the shape read back off that same object.
+	createHyperlinkRels(target, newObject)
 
 	// STEP 4: Create picture-bullet image rels
 	createBulletImageRels(target, newObject.options, textObjects)

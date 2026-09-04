@@ -681,9 +681,41 @@ const RUN_INHERITABLE_OPTIONS = [
 	'fontFaceEA',
 	'outline',
 	'glow',
-	'shadow',
 	'highlight',
 	'hyperlink',
+] as const
+
+/**
+ * The paragraph-level options a run inherits from its shape -- exactly the keys
+ * `genXmlParagraphProperties` reads off a run's bag, which is where the `<a:pPr>` for the
+ * paragraph that run opens is built.
+ *
+ * A list rather than eight hand-written `setOrClear` calls because it has to be *complete*:
+ * `rtlMode` and `tabStops` were read there and inherited nowhere, and reached a run only because
+ * the bare-string form of `addText` handed the shape's own options object to its run. Once that
+ * stopped, an unlisted key stopped arriving at all -- so the list is now the statement of what a
+ * paragraph inherits, and the place to add to when `genXmlParagraphProperties` learns a new key.
+ *
+ * `bullet` is deliberately not here. It is inherited in STEP 4 of `text-body.ts`, onto the FIRST
+ * text object only, before the line split copies each line's bag -- a rule about which paragraph
+ * gets the shape's bullet, not about whether a paragraph inherits at all.
+ */
+const PARAGRAPH_INHERITABLE_OPTIONS = ['rtlMode', 'tabStops'] as const
+
+/**
+ * Of those, the ones whose zero is a value the caller meant. `paraMarginLeft: 0` is flush with the
+ * frame (and the override that suppresses a bullet's hanging indent) and `paraIndent: 0` likewise,
+ * where `align`/`lineSpacing`/`indentLevel`/the paragraph spacings have no zero worth stating. A
+ * falsy test would silently swap a run's explicit `0` for the shape's value.
+ */
+const PARAGRAPH_ZERO_IS_STATED = ['paraMarginLeft', 'paraIndent'] as const
+const PARAGRAPH_FALSY_IS_UNSTATED = [
+	'align',
+	'lineSpacing',
+	'lineSpacingMultiple',
+	'indentLevel',
+	'paraSpaceBefore',
+	'paraSpaceAfter',
 ] as const
 
 /**
@@ -731,22 +763,14 @@ export function renderTextParagraphsXml(
 			// the key stays off the run's bag rather than being written as an `undefined`. Run
 			// option bags are spread — `{ ...itext.options }` in `text-body.ts`, and a placeholder's
 			// options onto a slide's in `gen/define/text.ts` — and there the two are not the same.
-			setOrClear(textObj.options, 'align', textObj.options.align || opts.align)
-			setOrClear(textObj.options, 'lineSpacing', textObj.options.lineSpacing || opts.lineSpacing)
-			setOrClear(
-				textObj.options,
-				'lineSpacingMultiple',
-				textObj.options.lineSpacingMultiple || opts.lineSpacingMultiple
-			)
-			setOrClear(textObj.options, 'indentLevel', textObj.options.indentLevel || opts.indentLevel)
-			setOrClear(textObj.options, 'paraSpaceBefore', textObj.options.paraSpaceBefore || opts.paraSpaceBefore)
-			setOrClear(textObj.options, 'paraSpaceAfter', textObj.options.paraSpaceAfter || opts.paraSpaceAfter)
-			// `??`, not `||`, on these two: `0` is a meaningful margin (flush with the frame, and
-			// the override that suppresses a bullet's hanging indent), where the options above have
-			// no zero worth stating. A falsy test would silently swap a run's explicit `0` for the
-			// shape's value.
-			setOrClear(textObj.options, 'paraMarginLeft', textObj.options.paraMarginLeft ?? opts.paraMarginLeft)
-			setOrClear(textObj.options, 'paraIndent', textObj.options.paraIndent ?? opts.paraIndent)
+			const paraOptions = textObj.options as TextPropsOptions & Record<string, unknown>
+			const paraShapeOptions = opts as ObjectOptions & Record<string, unknown>
+			for (const key of PARAGRAPH_FALSY_IS_UNSTATED) {
+				setOrClear(paraOptions, key, paraOptions[key] || paraShapeOptions[key])
+			}
+			for (const key of [...PARAGRAPH_ZERO_IS_STATED, ...PARAGRAPH_INHERITABLE_OPTIONS]) {
+				setOrClear(paraOptions, key, paraOptions[key] ?? paraShapeOptions[key])
+			}
 
 			// OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
 			// The paragraph's properties are the FIRST run's, decided once: this used to retry on

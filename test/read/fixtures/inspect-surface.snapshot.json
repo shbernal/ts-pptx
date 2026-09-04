@@ -1893,6 +1893,25 @@
 		],
 		"diagnostics": []
 	},
+	"shadow-shape-vs-text.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "shape shadow text shadow both shadows",
+				"wordCount": 6,
+				"elements": [
+					{"id":2,"name":"ShapeShadowOnly","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.5555555555555556,"y":0.5555555555555556,"w":4.166666666666667,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"shape shadow","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"shape shadow","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"shape shadow","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":3,"name":"TextShadowOnly","kind":"text","graphicKind":null,"zIndex":1,"box":{"x":0.5555555555555556,"y":1.9444444444444444,"w":4.166666666666667,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"text shadow","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"text shadow","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"text shadow","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":4,"name":"BothShadows","kind":"text","graphicKind":null,"zIndex":2,"box":{"x":0.5555555555555556,"y":3.3333333333333335,"w":4.166666666666667,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"both shadows","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"both shadows","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"both shadows","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			}
+		],
+		"diagnostics": []
+	},
 	"slide-animation-basic.pptx": {
 		"slideSize": {"widthIn":13.333,"heightIn":7.5},
 		"slides": [
