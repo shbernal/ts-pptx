@@ -259,5 +259,176 @@
 		}
 	],
 	"upstreamAhead": [],
-	"sharedGaps": ["smartart"]
+	"sharedGaps": ["smartart"],
+	"validity": {
+		"oracle": {
+			"format": "Microsoft365",
+			"sdkVersion": "3.5.1"
+		},
+		"ts-pptx": {
+			"decks": 21,
+			"errors": 0,
+			"cleanDecks": 21,
+			"byType": {},
+			"diagnostics": [],
+			"notBuilt": {
+				"no-api": 1
+			}
+		},
+		"pptxgenjs": {
+			"decks": 10,
+			"errors": 12,
+			"cleanDecks": 0,
+			"byType": {
+				"Schema": 12
+			},
+			"diagnostics": [
+				{
+					"id": "Sch_UnexpectedElementContentExpectingComplex",
+					"type": "Schema",
+					"partUri": "/ppt/presentation.xml",
+					"description": "The element has unexpected child element 'http://schemas.openxmlformats.org/presentationml/2006/main:notesMasterIdLst'. List of possible elements expected: <http://schemas.openxmlformats.org/presentationml/2006/main:notesSz>.",
+					"decks": 10
+				},
+				{
+					"id": "Sch_UnexpectedElementContentExpectingComplex",
+					"type": "Schema",
+					"partUri": "/ppt/charts/chart1.xml",
+					"description": "The element has unexpected child element 'http://schemas.openxmlformats.org/drawingml/2006/chart:axId'.",
+					"decks": 1
+				},
+				{
+					"id": "Sch_AttributeValueDataTypeDetailed",
+					"type": "Schema",
+					"partUri": "/ppt/presentation.xml",
+					"description": "The attribute 'id' has invalid value '{c20c63a9-c643-1013-9457-821c050dc52c}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
+					"decks": 1
+				}
+			],
+			"notBuilt": {
+				"no-api": 12
+			}
+		}
+	},
+	"hygiene": {
+		"ts-pptx": {
+			"install": {
+				"bytes": 10648851,
+				"packageBytes": 5766436
+			},
+			"dependencies": {
+				"direct": ["@xmldom/xmldom", "fflate", "opentype.js"],
+				"transitive": 3
+			},
+			"entryPoints": [
+				".",
+				"./inspect",
+				"./measure",
+				"./read",
+				"./script",
+				"./math",
+				"./zip",
+				"./html",
+				"./node",
+				"./browser"
+			],
+			"moduleFormats": ["esm"],
+			"engines": ">=24",
+			"helloWorld": {
+				"initialBytes": 147312,
+				"totalBytes": 215405,
+				"chunks": 3
+			}
+		},
+		"pptxgenjs": {
+			"install": {
+				"bytes": 6999598,
+				"packageBytes": 2605307
+			},
+			"dependencies": {
+				"direct": ["@types/node", "https", "image-size", "jszip"],
+				"transitive": 18
+			},
+			"entryPoints": ["."],
+			"moduleFormats": ["cjs", "esm"],
+			"engines": null,
+			"helloWorld": {
+				"initialBytes": 126207,
+				"totalBytes": 126247,
+				"chunks": 3
+			}
+		}
+	},
+	"health": {
+		"ts-pptx": {
+			"repo": "shbernal/ts-pptx",
+			"defaultBranch": "master",
+			"lastDefaultBranchCommit": "2026-09-04",
+			"stars": 2,
+			"openIssues": 0,
+			"openPullRequests": 0,
+			"npm": {
+				"names": ["pptx-ts", "@shbernal/ts-pptx"],
+				"downloadsLastMonth": 2019,
+				"downloadsByName": {
+					"pptx-ts": 295,
+					"@shbernal/ts-pptx": 1724
+				},
+				"lastPublish": "2026-08-29"
+			},
+			"source": {
+				"lines": 61442,
+				"testLines": 64581,
+				"statementCoverage": {
+					"pct": 95.33,
+					"lane": "merged"
+				},
+				"testEvidence": {
+					"testScripts": [
+						"test",
+						"test:unit",
+						"test:schema",
+						"test:read",
+						"test:oracles",
+						"test:read:emit",
+						"test:read:emit:edits",
+						"test:watch",
+						"test:coverage",
+						"test:package",
+						"test:browser",
+						"test:com",
+						"test:lo"
+					],
+					"specFiles": 304,
+					"testDirs": ["test"]
+				}
+			}
+		},
+		"pptxgenjs": {
+			"repo": "gitbrent/PptxGenJS",
+			"defaultBranch": "master",
+			"lastDefaultBranchCommit": "2025-06-26",
+			"stars": 6114,
+			"openIssues": 230,
+			"openPullRequests": 64,
+			"npm": {
+				"names": ["pptxgenjs"],
+				"downloadsLastMonth": 11116327,
+				"downloadsByName": {
+					"pptxgenjs": 11116327
+				},
+				"lastPublish": "2025-06-26"
+			},
+			"source": {
+				"lines": 10125,
+				"testLines": 0,
+				"statementCoverage": "no automated suite",
+				"testEvidence": {
+					"testScripts": [],
+					"specFiles": 0,
+					"testDirs": []
+				}
+			}
+		}
+	}
 }

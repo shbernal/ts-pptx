@@ -113,10 +113,14 @@ const CITATION_RE = /`((?:\.{1,2}\/)*[A-Za-z0-9_@][A-Za-z0-9_./@-]*\.[a-z]+)`/g
 const STALE_SPECIFIER_RE = /(?:['"]|node_modules\/|\b(?:add|install)\s+)@shbernal\/ts-pptx/
 
 /**
- * Files where the quoted alias is the subject rather than an instruction. One entry: the
- * script that stages the alias publish has to spell the name it stages under.
+ * Files where the quoted alias is the subject rather than an instruction.
+ *
+ * The script that stages the alias publish has to spell the name it stages under, and the
+ * comparison snapshot records monthly downloads per npm package name — where the alias is a
+ * key in measured data, not a specifier offered to anyone. Its adoption row is only honest
+ * *because* both names are counted, so this cannot be fixed by dropping the name.
  */
-const STALE_EXEMPT = new Set(['scripts/alias-package.mjs'])
+const STALE_EXEMPT = new Set(['scripts/alias-package.mjs', 'scripts/comparison/snapshot.json'])
 
 /**
  * This file, which cannot be scanned by itself: its header and `ALLOWLIST` quote dead paths

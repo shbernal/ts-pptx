@@ -1,11 +1,25 @@
 #!/usr/bin/env node
 /**
- * Measure construct coverage by running both libraries and reading the bytes they emit.
+ * Measure both libraries by running them and reading what comes out.
  *
  * For every probe in `./probes.mjs`, this builds a deck with each library, opens the
  * package, and looks for the probe's construct in the probe's part. The result is one of
  * four outcomes per library, and `scripts/comparison/snapshot.json` is the committed
  * record of them. No row on the finished page comes from anywhere else.
+ *
+ * Three further families hang off that corpus, each in its own module and its own snapshot
+ * key:
+ *
+ *   - **`validity`** (`./validity.mjs`) runs the decks just built through the same schema
+ *     oracle `test:schema` uses.
+ *   - **`hygiene`** (`./hygiene.mjs`) installs each library clean into a temp directory and
+ *     weighs what a consumer gets.
+ *   - **`health`** (`./health.mjs`) is deliberately apart from the other three: it measures
+ *     *projects* rather than output, and belongs in its own section of the page for the
+ *     same reason it has its own key here.
+ *
+ * A `--probe` run measures coverage only. The other three say nothing about one probe, and
+ * two of them cost a pack, two installs and a clone to find that out.
  *
  * ## Why upstream is installed rather than depended on
  *
@@ -31,31 +45,41 @@
  *   - **A `sightings` entry nothing sighted.** An acknowledgement that has outlived the
  *     thing it acknowledged is a comment that has become false, and the next reader will
  *     believe it.
+ *   - **An unavailable measurement, unless `--allow-unavailable` says so.** Every fetch
+ *     records why it failed instead of aborting, so a rate limit cannot block a release —
+ *     and this is what stops a snapshot full of those holes being committed by reflex.
  *
  * The built decks stay on disk under the deck directory and their paths come back from
- * {@link measure}; the validity and install-size measurements read exactly these rather
- * than rebuilding a second corpus that would drift from this one.
+ * {@link measure}; the validity measurement reads exactly these rather than rebuilding a
+ * second corpus that would drift from this one.
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isMain, parseCli, ROOT, run, runCli } from '../script-utils.mjs'
+import { measureHealth } from './health.mjs'
+import { measureHygiene } from './hygiene.mjs'
 import { PROBES, SUBJECTS } from './probes.mjs'
+import { findUnavailable, isUnavailable, unavailable } from './unavailable.mjs'
+import { measureValidity } from './validity.mjs'
 
 const SNAPSHOT = path.join(ROOT, 'scripts', 'comparison', 'snapshot.json')
 const DEFAULT_WORK_DIR = path.join(ROOT, '.tmp', 'comparison')
 
 const USAGE = `Usage: node scripts/comparison/measure.mjs [options]
 
-Builds every probe with both libraries and writes scripts/comparison/snapshot.json.
+Builds every probe with both libraries, measures schema validity, package hygiene and
+project health, and writes scripts/comparison/snapshot.json.
 
 Options:
-  --probe <id>        measure one probe only; does not write the snapshot
-  --work-dir <dir>    where the upstream install and the built decks go
-                      (default: .tmp/comparison)
-  --reuse-upstream    skip the npm install and use whatever is already in the work dir
-  --out <file>        snapshot path (default: scripts/comparison/snapshot.json)
-  -h, --help          show this message`
+  --probe <id>          measure one probe's coverage only; does not write the snapshot
+  --work-dir <dir>      where the installs, the clone and the built decks go
+                        (default: .tmp/comparison)
+  --reuse-installs      skip the installs and the clone, and use what is already in the
+                        work dir
+  --allow-unavailable   write the snapshot even when a measurement could not be taken
+  --out <file>          snapshot path (default: scripts/comparison/snapshot.json)
+  -h, --help            show this message`
 
 /**
  * Where each library's shipped bundle lives, for the `no-api` verification grep.
@@ -87,7 +111,7 @@ async function unzipSync() {
  * Install upstream into `workDir` and report what npm resolved.
  * @param {string} workDir
  * @param {boolean} reuse - use an existing install instead of reinstalling
- * @returns {Promise<{root: string, version: string, published: string | null}>}
+ * @returns {Promise<{root: string, manifest: any, version: string, published: string | import('./unavailable.mjs').Unavailable}>}
  */
 async function installUpstream(workDir, reuse) {
 	const root = path.join(workDir, 'upstream', 'node_modules', 'pptxgenjs')
@@ -102,27 +126,33 @@ async function installUpstream(workDir, reuse) {
 			'--no-fund',
 		])
 	}
-	const manifest = path.join(root, 'package.json')
-	if (!fs.existsSync(manifest)) throw new Error('pptxgenjs is not installed at ' + manifest)
-	const { version } = JSON.parse(fs.readFileSync(manifest, 'utf8'))
-	return { root, version, published: await publishDate(version) }
+	const manifestPath = path.join(root, 'package.json')
+	if (!fs.existsSync(manifestPath)) throw new Error('pptxgenjs is not installed at ' + manifestPath)
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+	return { root, manifest, version: manifest.version, published: await publishDate(manifest.version) }
 }
 
 /**
- * When the registry says a version was published. `null` rather than a throw when the
- * registry is unreachable: an offline `--reuse-upstream` run should still produce a
- * snapshot, with the field visibly empty rather than invented.
+ * When the registry says the measured version was published.
+ *
+ * Not the same fact as `health.pptxgenjs.npm.lastPublish`, which is the *latest* version's
+ * date: this one dates the artifact every coverage row was read off, so a reader can tell
+ * how old the measurement is without trusting the file it is written in.
+ *
+ * An {@link unavailable} marker rather than a throw when the registry cannot be reached,
+ * on the same rule the rest of the snapshot follows.
  * @param {string} version
- * @returns {Promise<string | null>}
+ * @returns {Promise<string | import('./unavailable.mjs').Unavailable>}
  */
 async function publishDate(version) {
 	try {
 		const { stdout } = await run('npm', ['view', 'pptxgenjs@' + version, 'time', '--json'], { capture: true })
 		const times = JSON.parse(stdout)
 		const stamp = typeof times === 'string' ? times : times?.[version]
-		return typeof stamp === 'string' ? stamp.slice(0, 10) : null
-	} catch {
-		return null
+		if (typeof stamp === 'string') return stamp.slice(0, 10)
+		return unavailable('npm view returned no publish time for pptxgenjs@' + version)
+	} catch (error) {
+		return unavailable('npm view failed: ' + (error instanceof Error ? error.message.split('\n')[0] : String(error)))
 	}
 }
 
@@ -205,17 +235,17 @@ function bundleMentions(files, token) {
 /**
  * Run the whole corpus.
  * @param {object} [opts]
- * @param {string} [opts.workDir] - upstream install and built decks
- * @param {boolean} [opts.reuseUpstream]
- * @param {string | null} [opts.only] - a single probe id
+ * @param {string} [opts.workDir] - installs, clone and built decks
+ * @param {boolean} [opts.reuseInstalls]
+ * @param {string | null} [opts.only] - a single probe id; measures coverage alone
  * @returns {Promise<{snapshot: any, decks: Record<string, Record<string, string>>, failures: string[]}>}
  */
-export async function measure({ workDir = DEFAULT_WORK_DIR, reuseUpstream = false, only = null } = {}) {
+export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = false, only = null } = {}) {
 	const probes = only ? PROBES.filter((probe) => probe.id === only) : PROBES
 	if (probes.length === 0) throw new Error('no probe with id "' + only + '"')
 
 	fs.mkdirSync(workDir, { recursive: true })
-	const upstream = await installUpstream(workDir, reuseUpstream)
+	const upstream = await installUpstream(workDir, reuseInstalls)
 	const subjects = await loadSubjects(upstream.root)
 	const bundles = shippedBundles(upstream.root)
 
@@ -286,6 +316,17 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseUpstream = fals
 		// be distinguished from one whose corpus was picked so they would come out empty.
 		upstreamAhead: coverage.filter((row) => emitted(row, 'pptxgenjs') && !emitted(row, 'ts-pptx')).map((r) => r.id),
 		sharedGaps: coverage.filter((row) => !SUBJECTS.some((s) => emitted(row, s))).map((r) => r.id),
+		...(only
+			? {}
+			: {
+					validity: await measureValidity(coverage, decks),
+					hygiene: await measureHygiene({ workDir, upstreamRoot: upstream.root, reuse: reuseInstalls }),
+					health: await measureHealth({
+						workDir,
+						upstreamManifest: upstream.manifest,
+						reuse: reuseInstalls,
+					}),
+				}),
 	}
 	return { snapshot, decks, failures }
 }
@@ -320,6 +361,63 @@ function report(snapshot, whole) {
 	if (!whole) return
 	console.log('upstream ahead: ' + (snapshot.upstreamAhead.join(', ') || 'nothing'))
 	console.log('shared gaps:    ' + (snapshot.sharedGaps.join(', ') || 'nothing'))
+	reportFamilies(snapshot)
+}
+
+/** One value as a console cell: a number, a string, or why it is missing. */
+function cell(/** @type {any} */ value) {
+	if (isUnavailable(value)) return 'unavailable'
+	if (typeof value === 'number') return value.toLocaleString('en-US')
+	return String(value)
+}
+
+/** @param {number} bytes */
+const kb = (bytes) => (bytes / 1024).toFixed(0) + ' kB'
+
+/**
+ * The three families that are not the coverage table, one line each.
+ *
+ * A digest, not the page: this is what a human reads to decide whether the run is worth
+ * committing, and the rendered page in `docs/` is where the numbers get their framing.
+ * @param {any} snapshot
+ * @returns {void}
+ */
+function reportFamilies(snapshot) {
+	for (const subject of SUBJECTS) {
+		const validity = snapshot.validity?.[subject]
+		const hygiene = snapshot.hygiene?.[subject]
+		const health = snapshot.health?.[subject]
+		if (!validity && !hygiene && !health) continue
+		console.log('\n' + subject)
+		if (validity)
+			console.log(
+				'  validity   ' + `${validity.cleanDecks ?? 0}/${validity.decks} decks clean, ${validity.errors ?? 0} error(s)`
+			)
+		if (hygiene)
+			console.log(
+				'  hygiene    ' +
+					`${kb(hygiene.install.bytes)} installed, ${hygiene.dependencies.transitive} transitive dep(s), ` +
+					`${hygiene.entryPoints.length} entry point(s), hello-world ` +
+					(isUnavailable(hygiene.helloWorld)
+						? 'unavailable'
+						: `${kb(hygiene.helloWorld.initialBytes)} initial / ${kb(hygiene.helloWorld.totalBytes)} total`)
+			)
+		if (health) {
+			console.log(
+				'  health     ' +
+					`${cell(health.stars)} stars, ${cell(health.npm.downloadsLastMonth)} downloads/month, ` +
+					`last ${cell(health.defaultBranch)} commit ${cell(health.lastDefaultBranchCommit)}, ` +
+					`last publish ${cell(health.npm.lastPublish)}`
+			)
+			const coverage = health.source.statementCoverage
+			console.log(
+				'  source     ' +
+					`${cell(health.source.lines)} src lines, ${cell(health.source.testLines)} test lines, ` +
+					'statements ' +
+					(typeof coverage?.pct === 'number' ? `${coverage.pct}% (${coverage.lane} lane)` : cell(coverage))
+			)
+		}
+	}
 }
 
 async function main() {
@@ -328,7 +426,8 @@ async function main() {
 		options: {
 			probe: { type: 'string' },
 			'work-dir': { type: 'string' },
-			'reuse-upstream': { type: 'boolean', default: false },
+			'reuse-installs': { type: 'boolean', default: false },
+			'allow-unavailable': { type: 'boolean', default: false },
 			out: { type: 'string' },
 		},
 	})
@@ -336,7 +435,7 @@ async function main() {
 	const workDir = values['work-dir'] ? path.resolve(ROOT, values['work-dir']) : DEFAULT_WORK_DIR
 	const { snapshot, decks, failures } = await measure({
 		workDir,
-		reuseUpstream: Boolean(values['reuse-upstream']),
+		reuseInstalls: Boolean(values['reuse-installs']),
 		only: values.probe ?? null,
 	})
 
@@ -351,9 +450,21 @@ async function main() {
 	}
 
 	if (values.probe) {
-		console.log('\nsingle probe: snapshot not written')
+		console.log('\nsingle probe: coverage only, snapshot not written')
 		return 0
 	}
+
+	const holes = findUnavailable(snapshot)
+	if (holes.length > 0) {
+		const stream = values['allow-unavailable'] ? console.log : console.error
+		stream('\n' + holes.length + ' measurement(s) unavailable:')
+		for (const hole of holes) stream('  ' + hole.path + ': ' + hole.reason)
+		if (!values['allow-unavailable']) {
+			console.error('\nsnapshot not written. Pass --allow-unavailable to commit it with these holes in it.')
+			return 1
+		}
+	}
+
 	const out = values.out ? path.resolve(ROOT, values.out) : SNAPSHOT
 	fs.writeFileSync(out, JSON.stringify(snapshot, null, '\t') + '\n')
 	console.log('wrote ' + path.relative(ROOT, out))
