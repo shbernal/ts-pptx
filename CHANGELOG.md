@@ -662,6 +662,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     combo subchart, and the diagnostics name `chart.barSeriesLine.*` rather than pointing at
     an option the caller did not set.
 
+  - **A plot-area `layout` of zero width or height is rejected rather than inflated.**
+    `layout: { w: 0 }` passed the 0-1 range check and then became a full-bleed plot area, the
+    caller's zero silently becoming the largest value the option has. `w` and `h` now take the
+    open range and an out-of-range value warns and falls back, as every other coerced chart
+    option does; `x` and `y` still take `0`, which means the chart's own edge.
+
 - **A hyperlink could steal an online video's relationship.** A media item emits two
   relationships against one Target -- the ECMA one (`video`, `audio`) first, the Microsoft 2007
   `media` one second -- and which of the two a rel gets is decided by whether that Target has

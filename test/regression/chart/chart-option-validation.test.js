@@ -217,6 +217,27 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// `w: 0` is inside 0-1, so the range check passed it and `|| 1` then turned the caller's
+		// smallest value into the largest one the option has.
+		name: 'a zero-extent plot-area layout warns and falls back instead of going full-bleed',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, layout: { x: 0, y: 0, w: 0, h: 0.5 } })
+				})
+				return await chartXml(zip)
+			})
+			assertEqual(
+				codes.filter((code) => code === 'chart/layout-out-of-range').length,
+				1,
+				`only the zero width is rejected; got ${codes.join(', ')}`
+			)
+			assertIncludes(xml, '<c:x val="0" />', 'a zero x is a stated edge, not an out-of-range value')
+			assertIncludes(xml, '<c:w val="1" />', 'the rejected width falls back to the full plot area')
+			assertIncludes(xml, '<c:h val="0.5" />', 'the stated height is untouched')
+		},
+	},
+	{
 		// `typeof x === 'number'` is the one numeric guard `NaN` passes, and it was the guard on
 		// both axis-crossing decisions while every other numeric axis option used truthiness.
 		name: 'a non-finite axis crossing falls back to the rule instead of emitting NaN',

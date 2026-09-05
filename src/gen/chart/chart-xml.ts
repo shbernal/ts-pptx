@@ -166,10 +166,13 @@ function makePlotAreaLayoutXml(rel: SlideRelChart): string {
 		raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
 		raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
 		raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
-		raw(voidEl('c:x', { val: layout.x || 0 }, { closePrefix: ' ' })),
-		raw(voidEl('c:y', { val: layout.y || 0 }, { closePrefix: ' ' })),
-		raw(voidEl('c:w', { val: layout.w || 1 }, { closePrefix: ' ' })),
-		raw(voidEl('c:h', { val: layout.h || 1 }, { closePrefix: ' ' })),
+		// `??` and not `||`: the define layer has already deleted every value outside the range
+		// each key allows -- `x`/`y` take 0, `w`/`h` do not -- so what survives to here is either
+		// absent or meant, and `||` would have turned a stated `w: 0` into a full-bleed plot area.
+		raw(voidEl('c:x', { val: layout.x ?? 0 }, { closePrefix: ' ' })),
+		raw(voidEl('c:y', { val: layout.y ?? 0 }, { closePrefix: ' ' })),
+		raw(voidEl('c:w', { val: layout.w ?? 1 }, { closePrefix: ' ' })),
+		raw(voidEl('c:h', { val: layout.h ?? 1 }, { closePrefix: ' ' })),
 	])
 	return el('c:layout', null, raw(manualLayout))
 }

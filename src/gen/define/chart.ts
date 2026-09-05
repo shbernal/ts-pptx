@@ -756,8 +756,16 @@ export function addChartDefinition(
 		;(['x', 'y', 'w', 'h'] as const).forEach((key) => {
 			const val = chartLayout[key]
 			const numVal = Number(val)
-			if (!Number.isFinite(numVal) || numVal < 0 || numVal > 1) {
-				warn('chart/layout-out-of-range', 'chart.layout.' + key + ' can only be 0-1')
+			// `w`/`h` take the open range: a plot area of zero width or height is inside 0-1 and
+			// paints nothing, and the emitter used to turn it into a full-bleed plot with `|| 1`
+			// -- the caller's zero silently becoming the largest value the option has. Rejecting it
+			// here is what lets the emitter default with `??`.
+			const zeroAllowed = key === 'x' || key === 'y'
+			if (!Number.isFinite(numVal) || numVal > 1 || numVal < 0 || (!zeroAllowed && numVal === 0)) {
+				warn(
+					'chart/layout-out-of-range',
+					`chart.layout.${key} can only be ${zeroAllowed ? '0-1' : 'greater than 0 and at most 1'}`
+				)
 				delete chartLayout[key] // remove invalid value so that default will be used
 			}
 		})
