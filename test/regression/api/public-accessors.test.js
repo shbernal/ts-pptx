@@ -136,4 +136,51 @@ defineRegressionSuite('Public accessors', [
 			}
 		},
 	},
+	{
+		name: 'newAutoPagedSlides reports every table on the slide, each continuation once',
+		fn: async () => {
+			// The accessor was ASSIGNED per `addTable`, so a second table on the same slide erased
+			// the first table's report while its continuations stayed in the deck. It appends now,
+			// and by identity: a later table lands on the earlier one's continuations rather than
+			// making its own, so the same slide is spilled onto twice and named once.
+			const rows = (n) => Array.from({ length: n }, (_, i) => [`r${i}c0`, `r${i}c1`])
+			const opts = (y) => ({
+				x: 0.5,
+				y,
+				w: 9,
+				h: 2,
+				colW: [4.5, 4.5],
+				margin: 0,
+				slideMargin: 0,
+				autoPage: true,
+				fontSize: 12,
+			})
+
+			// Long, then SHORTER, then longer still. The short table in the middle is what makes
+			// this discriminating: it spills onto slides the first table already reached, so
+			// assignment would shrink the report while the first table's slides stayed in the
+			// deck, and appending must neither shrink it nor list those slides twice.
+			let afterLong = 0
+			let afterShort = 0
+			const { pres } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addTable(rows(60), opts(0.5))
+				afterLong = slide.newAutoPagedSlides.length
+				slide.addTable(rows(20), opts(3))
+				afterShort = slide.newAutoPagedSlides.length
+				slide.addTable(rows(120), opts(5))
+			})
+
+			const reported = pres.slides[0].newAutoPagedSlides
+			assert(afterLong > 0, 'the first table must page, or this case proves nothing')
+			assertEqual(afterShort, afterLong, 'a shorter second table must not shrink the report')
+			assert(
+				reported.length > afterShort,
+				`a third table reaching further must extend it; got ${reported.length} against ${afterShort}`
+			)
+			assertEqual(new Set(reported).size, reported.length, 'a slide spilled onto twice is named once')
+			assertEqual(reported.length, pres.slides.length - 1, 'every slide after this one is a continuation of it')
+			for (const made of reported) assert(pres.slides.includes(made), 'every reported slide is in pres.slides')
+		},
+	},
 ])

@@ -65,10 +65,14 @@ defineRegressionSuite('Deck argument guards', [
 		},
 	},
 	{
-		name: 'addSlide naming a section that does not exist warns, and still adds the slide',
+		name: 'addSlide naming a section that does not exist warns, and still sections the slide',
 		fn: async () => {
 			// Dropping the slide would be the worse failure: the caller asked for a slide and a
-			// typo in an unrelated option is not a reason not to get one.
+			// typo in an unrelated option is not a reason not to get one. But it must not be left
+			// LOOSE either -- a deck that uses sections has no place for a slide in none, which is
+			// the whole reason the default-section branch below exists. The failure path used to
+			// warn and return, producing exactly the state that branch prevents; it now falls
+			// through to it.
 			const { result, codes } = await captureDiagnostics(async () => {
 				const pres = withSection()
 				const slide = pres.addSlide({ sectionTitle: 'No Such Section' })
@@ -78,6 +82,13 @@ defineRegressionSuite('Deck argument guards', [
 			assertIncludes(codes, 'slide/section-not-found')
 			assert(result.slide, 'the slide is returned regardless')
 			assertEqual(result.pres.slides.length, 1, 'and it is on the deck')
+			const sectioned = result.pres.sections.flatMap((s) => s._slides ?? [])
+			assertEqual(
+				sectioned.length,
+				1,
+				`the slide must be in a section; sections: ${JSON.stringify(result.pres.sections.map((s) => s.title))}`
+			)
+			assertEqual(result.pres.sections[result.pres.sections.length - 1].title, 'Default-1', 'in a generated default')
 			assert(result.bytes.byteLength > 0)
 		},
 	},
@@ -115,10 +126,8 @@ defineRegressionSuite('Deck argument guards', [
 		name: 'defineLayout warns about a field it cannot use, then coerces what it can',
 		fn: async () => {
 			// A dimension given as a numeric string is still usable — `Number()` recovers it —
-			// so the warning is advice and the layout is defined anyway. A missing `name` is
-			// the same: the definition lands, under the key `undefined`.
+			// so the warning is advice and the layout is defined anyway.
 			const usable = [
-				{ width: 10, height: 7 }, // no name
 				{ name: 'StringHeight', width: 10, height: '7' },
 				{ name: 'StringWidth', width: '10', height: 7 },
 			]
@@ -133,6 +142,59 @@ defineRegressionSuite('Deck argument guards', [
 				assertEqual(codes[0], 'layout/invalid-definition')
 				assert(result.LAYOUTS[String(layout.name)], `${JSON.stringify(layout)} is still defined`)
 			}
+		},
+	},
+	{
+		name: 'defineLayout says everything that is wrong, not just the first thing',
+		fn: async () => {
+			// The arms used to be one `else if` cascade, so a definition with two problems was
+			// told about one of them. The two sides are independently wrong and both get said.
+			const { codes } = await captureDiagnostics(async () => {
+				new TsPptx().defineLayout(/** @type {never} */ ({ name: 'BothStrings', width: '10', height: '7.5' }))
+			})
+			assertEqual(codes.length, 2, `both sides must be reported; got ${JSON.stringify(codes)}`)
+		},
+	},
+	{
+		name: 'defineLayout without a name throws rather than registering a layout called "undefined"',
+		fn: async () => {
+			// There is nothing to key the registration on, so there is nothing to recover. It used
+			// to warn and register anyway: `LAYOUTS.undefined` was a real, selectable entry holding
+			// `name: undefined`, and a second unnamed call silently replaced the first.
+			for (const layout of [
+				{ width: 10, height: 7 },
+				{ name: '', width: 10, height: 7 },
+			]) {
+				const pres = new TsPptx()
+				let err = null
+				try {
+					pres.defineLayout(/** @type {never} */ (layout))
+				} catch (ex) {
+					err = ex
+				}
+				assert(err instanceof InvalidOptionError, `expected an InvalidOptionError; got: ${String(err)}`)
+				assertEqual(err.code, 'layout/invalid-definition')
+				// `LAYOUTS` is the private registry the phantom entry landed in; reading it is the
+				// only way to say "and nothing was registered", which is the half of this the throw
+				// does not state on its own.
+				const registry = /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (pres)).LAYOUTS
+				assert(
+					!Object.keys(registry).includes('undefined') && !Object.keys(registry).includes(''),
+					`no phantom layout may be registered; got ${JSON.stringify(Object.keys(registry))}`
+				)
+			}
+		},
+	},
+	{
+		name: 'a defineLayout dimension of 0 is out of range, not missing',
+		fn: async () => {
+			// `!width` was true for a stated `0`, so the caller was told they had not passed a
+			// width they had in fact passed, on top of the clamp diagnostic that says what really
+			// happened. One statement, one diagnostic.
+			const { codes } = await captureDiagnostics(async () => {
+				new TsPptx().defineLayout({ name: 'ZeroWidth', width: 0, height: 7 })
+			})
+			assertEqual(codes.join(','), 'layout/size-out-of-range', `got ${JSON.stringify(codes)}`)
 		},
 	},
 	{

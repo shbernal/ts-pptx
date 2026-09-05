@@ -218,6 +218,15 @@ export default class SlideBuilder {
 		return this._slideNumberProps ?? undefined
 	}
 
+	/**
+	 * Every continuation slide this slide's tables have spilled onto, in call order, each once.
+	 *
+	 * Across calls, not per call: a slide can carry more than one `addTable`, and each auto-paging
+	 * one appends whatever it spilled onto. The list was assigned rather than appended, so a second
+	 * table erased the first table's report while its slides stayed in the deck. "Spilled onto"
+	 * rather than "created" because a later table lands on the earlier one's continuations instead
+	 * of making its own, and those are reported once.
+	 */
 	public get newAutoPagedSlides(): Slide[] {
 		return this._newAutoPagedSlides
 	}
@@ -450,7 +459,16 @@ export default class SlideBuilder {
 	 * @return {SlideBuilder} this Slide
 	 */
 	addTable(tableRows: TableRow[], options?: TableProps): SlideBuilder {
-		this._newAutoPagedSlides = addTableDefinition(
+		// Appended, not assigned. Two `addTable` calls on one slide used to leave the accessor
+		// reporting only the second table's continuations; the first table's were in the deck and
+		// invisible through the one API that names them.
+		//
+		// Appended by identity, though. A table pages onto the slides after this one whether it
+		// created them or found them already there, so a second table on the same slide usually
+		// lands on the first table's continuations -- the same slide, spilled onto twice. The
+		// accessor names slides so a caller can address them; naming one twice is noise, not
+		// information.
+		const paged = addTableDefinition(
 			this,
 			tableRows,
 			options || {},
@@ -459,6 +477,7 @@ export default class SlideBuilder {
 			this.addSlide,
 			this.getSlide
 		)
+		for (const slide of paged) if (!this._newAutoPagedSlides.includes(slide)) this._newAutoPagedSlides.push(slide)
 		return this
 	}
 

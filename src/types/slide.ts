@@ -177,6 +177,16 @@ export interface Slide {
 	 */
 	readonly objects: readonly SlideObjectInfo[]
 
+	/**
+	 * Every continuation slide this slide's auto-paging tables have spilled onto, in call order.
+	 *
+	 * Across calls, and each slide once: a slide can carry several `addTable`s, each appends what
+	 * it spilled onto, and a later table lands on an earlier one's continuations rather than making
+	 * its own. So this names all of them rather than only the most recent table's.
+	 * @example
+	 * slide.addTable(rows, { autoPage: true })
+	 * for (const made of slide.newAutoPagedSlides) made.addText('continued', { x: 0.5, y: 0.2 })
+	 */
 	readonly newAutoPagedSlides?: Slide[]
 
 	/**

@@ -826,15 +826,26 @@ export default class PresentationCore {
 		// A: Add slide to pres
 		this._slides.push(newSlide)
 
-		// B: Sections
-		// B-1: Add slide to section (if any provided)
-		// B-2: Handle slides without a section when sections are already is use ("loose" slides arent allowed, they all need a section)
-		if (options?.sectionTitle) {
-			const sect = this._sections.find((section) => section.title === options.sectionTitle)
-			if (!sect)
-				warn('slide/section-not-found', `addSlide: unable to find section with title: "${options.sectionTitle}"`)
-			else sect._slides.push(newSlide)
-		} else if (this._sections && this._sections.length > 0 && !options?.sectionTitle) {
+		// B: Sections. A deck that uses sections at all has no place for a loose slide -- every
+		// slide needs one -- so there are two ways in and one way out.
+		//
+		// The named section is tried first, and a title that matches nothing falls THROUGH to the
+		// default handling rather than returning here. It used to warn and return, which produced
+		// exactly the loose slide the branch below exists to prevent: one `addSection({ title:
+		// 'One' })` and one `addSlide({ sectionTitle: 'Typo' })` left a slide in the deck and in no
+		// section. This stays a warning rather than the throw `groupObjects` uses for its analogous
+		// "a name that matches nothing", because the two failures differ in what is left of the
+		// request: a group with no members is not a group, so there is nothing to place, while a
+		// slide is a complete, renderable thing whose only open question is where it files. The
+		// default section is a real answer to that question; there is no equivalent for the group.
+		const namedSection = options?.sectionTitle
+			? this._sections.find((section) => section.title === options.sectionTitle)
+			: undefined
+		if (options?.sectionTitle && !namedSection)
+			warn('slide/section-not-found', `addSlide: unable to find section with title: "${options.sectionTitle}"`)
+
+		if (namedSection) namedSection._slides.push(newSlide)
+		else if (this._sections.length > 0) {
 			const lastSect = this._sections[this._sections.length - 1]
 
 			// CASE 1: The latest section is a default type - just add this one
@@ -861,23 +872,39 @@ export default class PresentationCore {
 	defineLayout(layout: PresLayout): void {
 		// @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
 		//
-		// Every arm below is advice about a value the conversion can still recover -- a numeric
-		// string, a missing name -- so they warn and the definition lands. The one thing that
-		// cannot be recovered is a non-object, which used to warn and then throw a raw
-		// `TypeError` on the next line's `layout.name`, breaking the contract that every failure
-		// this library raises is a `TsPptxError`.
+		// Two things here cannot be recovered, and both throw. A non-object used to warn and then
+		// throw a raw `TypeError` on the next line's `layout.name`, breaking the contract that
+		// every failure this library raises is a `TsPptxError`. A missing `name` is the same kind
+		// of unrecoverable: the registration is keyed on it, so warning and carrying on registered
+		// a layout literally called `"undefined"` -- selectable as `pptx.layout = 'undefined'`,
+		// carrying `name: undefined` into `<p:sldSz>`, and silently overwritten by the next
+		// unnamed `defineLayout`. There is nothing to key on, so there is nothing to recover.
 		if (!layout || typeof layout !== 'object')
 			throw new InvalidOptionError(
 				'layout/invalid-definition',
 				'defineLayout requires an object `{ name, width, height }` with the dimensions in inches'
 			)
-		if (!layout.name) warn('layout/invalid-definition', 'defineLayout requires `name`')
-		else if (!layout.width) warn('layout/invalid-definition', 'defineLayout requires `width`')
-		else if (!layout.height) warn('layout/invalid-definition', 'defineLayout requires `height`')
-		else if (typeof layout.height !== 'number')
-			warn('layout/invalid-definition', 'defineLayout `height` should be a number (inches)')
+		if (!layout.name)
+			throw new InvalidOptionError(
+				'layout/invalid-definition',
+				'defineLayout requires a non-empty `name`: it is the key the layout is registered and selected under'
+			)
+
+		// The two sides are checked independently, because they are independently true facts about
+		// the input: a `{ width: '10', height: '7.5' }` has two things wrong with it and used to be
+		// told about one. Within a side the two arms ARE exclusive -- an absent width is not also
+		// the wrong type -- so those stay an `else if`.
+		//
+		// `=== undefined` rather than `!width`: a stated `0` is a value out of range, not an absent
+		// one, and `layoutSideInches` already reports it as such by clamping to the 1in minimum
+		// with its own diagnostic. Reading `0` as missing produced a second, wrong message saying
+		// the caller had not passed a width they had in fact passed.
+		if (layout.width === undefined) warn('layout/invalid-definition', 'defineLayout requires `width`')
 		else if (typeof layout.width !== 'number')
 			warn('layout/invalid-definition', 'defineLayout `width` should be a number (inches)')
+		if (layout.height === undefined) warn('layout/invalid-definition', 'defineLayout requires `height`')
+		else if (typeof layout.height !== 'number')
+			warn('layout/invalid-definition', 'defineLayout `height` should be a number (inches)')
 
 		this.LAYOUTS[layout.name] = {
 			name: layout.name,

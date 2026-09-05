@@ -638,6 +638,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Three guards that noticed bad input and then did the broken thing anyway.**
+
+  - **`defineLayout` without a `name` now throws** (`InvalidOptionError`,
+    `layout/invalid-definition`) instead of warning and registering the layout anyway. It was
+    keyed on the missing name, so `LAYOUTS` gained a real entry literally called `"undefined"`:
+    selectable as `pptx.layout = 'undefined'`, carrying `name: undefined` into `<p:sldSz>`, and
+    silently replaced by the next unnamed call. **Migration: pass a `name`.** An empty string is
+    refused for the same reason. While there, the five checks stopped being one `else if`
+    cascade, so `{ width: '10', height: '7.5' }` is told about both sides rather than one; and a
+    stated `0` is now reported once, as the out-of-range value it is, rather than also being
+    called missing.
+
+  - **A slide naming a section that does not exist is no longer left loose.** A deck that uses
+    sections has no place for a slide in none -- which is why `addSlide` synthesizes a `Default-N`
+    section for a slide added without a `sectionTitle`. A slide whose `sectionTitle` matched
+    nothing warned and then returned before reaching that, producing exactly the state it exists
+    to prevent. It now falls through to the same handling: the warning still fires, and the slide
+    lands in the default section. It stays a warning rather than a throw because a slide is a
+    complete thing whose only open question is where it files, and the default section answers it.
+
+  - **`slide.newAutoPagedSlides` no longer forgets every table but the last.** It was assigned on
+    each `addTable`, so a second auto-paging table on the same slide erased the first table's
+    report while its continuation slides stayed in the deck. It now names every continuation the
+    slide's tables have spilled onto, in call order, each slide once -- a later table lands on an
+    earlier one's continuations rather than making its own, and those are not listed twice.
+
 - **Four in the table auto-pager.** They are unrelated to each other and they are listed
   together because they share one code path and one set of tests.
 
