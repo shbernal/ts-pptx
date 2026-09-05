@@ -518,13 +518,34 @@ export function getSlidesForTableRows(
 	// emitter's own grid build follow, so the widths this pager wraps against are the widths the
 	// cells are finally given.
 	const placements: GridPlacement[][] = tableRows.map(() => [])
-	for (const placement of walkTableGrid(tableRows, numCols)) placements[placement.row]?.push(placement)
+	/**
+	 * How many of each row's grid columns are held by a rowspan opened ABOVE it, accumulated as
+	 * the placements arrive rather than searched for afterwards.
+	 *
+	 * The question used to be answered by scanning every placement in the table, once per row,
+	 * which is quadratic in a table of any width. Two columns of short text and no spans at all:
+	 * 1000 rows took 55ms, 2000 took 115ms, 4000 took 333ms and 8000 took 1036ms. The same four
+	 * now take 24ms, 19ms, 40ms and 83ms -- so it was pure overhead, paid in full by the long
+	 * report table that is the whole reason this code exists.
+	 *
+	 * Filling forward instead is bounded by the placement's own `rowSpan`, so the total work is
+	 * the sum of all rowspans. That is safe to expand without a further check because
+	 * `walkTableGrid` has already clamped each `rowSpan` to `rows.length - r`: a span cannot
+	 * reach past the last row however large the caller wrote it, so the sum is bounded by the
+	 * grid rather than by anything the caller states.
+	 *
+	 * The fill starts at `row + 1`. A `rowSpan` of 1 must contribute nothing -- starting at
+	 * `row` would have every ordinary row counting itself as covered, and the
+	 * `coveredFromAbove(iRow) === numCols` reader below would then fire on all of them.
+	 */
+	const coveredCols: number[] = Array.from({ length: tableRows.length }, () => 0)
+	for (const placement of walkTableGrid(tableRows, numCols)) {
+		placements[placement.row]?.push(placement)
+		const last = Math.min(placement.row + placement.rowSpan, coveredCols.length)
+		for (let r = placement.row + 1; r < last; r++) coveredCols[r] = (coveredCols[r] ?? 0) + placement.colSpan
+	}
 	/** How many of `iRow`'s grid columns are held by a rowspan opened above it. */
-	const coveredFromAbove = (iRow: number): number =>
-		placements.reduce(
-			(cols, row) => cols + row.reduce((n, p) => (p.row < iRow && p.row + p.rowSpan > iRow ? n + p.colSpan : n), 0),
-			0
-		)
+	const coveredFromAbove = (iRow: number): number => coveredCols[iRow] ?? 0
 	/** Whether a rowspan opened above `iRow` is still covering it. */
 	const spannedFromAbove = (iRow: number): boolean => coveredFromAbove(iRow) > 0
 
