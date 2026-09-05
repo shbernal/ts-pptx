@@ -177,7 +177,7 @@ export default class SlideBuilder {
 						author(this, ...args)
 						return this
 					}
-				: (): never => familyMethodUnavailable(method)
+				: (): never => familyMethodUnavailable(`slide.${method}`, SLIDE_METHOD_FAMILIES[method])
 		}
 	}
 

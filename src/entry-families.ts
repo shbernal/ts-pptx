@@ -20,6 +20,7 @@ import { commentsFamily } from './families/comments.js'
 import { connectorFamily } from './families/connector.js'
 import { groupFamily } from './families/group.js'
 import { imageFamily } from './families/image.js'
+import { measureFamily } from './families/measure.js'
 import { mediaFamily } from './families/media.js'
 import { model3dFamily } from './families/model3d.js'
 import { notesFamily } from './families/notes.js'
@@ -38,6 +39,7 @@ export const ALL_CONSTRUCT_FAMILIES: readonly ConstructFamily[] = Object.freeze(
 	connectorFamily,
 	groupFamily,
 	imageFamily,
+	measureFamily,
 	mediaFamily,
 	model3dFamily,
 	notesFamily,

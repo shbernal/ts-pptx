@@ -22,12 +22,27 @@
  */
 
 import type { CHART_NAME } from '../enums.js'
-import type { ChartMulti, ChartOpts, OptsChartData, SlideMasterObject } from '../types/index.js'
+import type {
+	ChartMulti,
+	ChartOpts,
+	MeasureTextOptions,
+	OptsChartData,
+	OverflowBoxOptions,
+	SlideMasterObject,
+	TableLayoutResult,
+	TableProps,
+	TableRow,
+	TableToSlidesProps,
+	TextMeasurement,
+	TextProps,
+} from '../types/index.js'
 import type { Slide } from '../types/slide.js'
 import type { PresSlideInternal } from '../types/internal.js'
 import type { RendererTable } from '../gen/slide/objects/shared.js'
 import type { PartContributor } from '../package/parts/shared.js'
 import type SlideBuilder from '../slide.js'
+import type PresentationCore from '../presentation.js'
+import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { UnsupportedFeatureError } from '../errors.js'
 
 /**
@@ -117,6 +132,41 @@ export const SLIDE_METHOD_FAMILIES: Readonly<Record<SlideAuthorMethod, FamilyNam
 })
 
 /**
+ * What a presentation-level author is given: the deck it is authoring onto, and the write-side
+ * font metrics, which the presentation keeps private and a family cannot reach through the class.
+ */
+export interface PresentationAuthorContext {
+	readonly pres: PresentationCore
+	readonly fontMetrics: FontMetricsRegistry
+}
+
+/**
+ * The presentation methods that come from a family rather than from the presentation itself.
+ *
+ * Written out with their signatures rather than derived from the class, because the class is what
+ * they are being lifted out of. Each returns its own answer, so unlike a slide author there is
+ * nothing generic to apply on the way back.
+ */
+export interface PresentationAuthors {
+	measureText?: (
+		ctx: PresentationAuthorContext,
+		text: string | TextProps[],
+		opts: MeasureTextOptions
+	) => TextMeasurement
+	overflowsBox?: (ctx: PresentationAuthorContext, text: string | TextProps[], opts: OverflowBoxOptions) => boolean
+	tableLayout?: (ctx: PresentationAuthorContext, rows: TableRow[], opts: TableProps) => TableLayoutResult
+	tableToSlides?: (ctx: PresentationAuthorContext, eleId: string, options: TableToSlidesProps) => void
+}
+
+/** Which family supplies each presentation method. */
+export const PRESENTATION_METHOD_FAMILIES: Readonly<Record<keyof PresentationAuthors, FamilyName>> = Object.freeze({
+	measureText: 'measure',
+	overflowsBox: 'measure',
+	tableLayout: 'measure',
+	tableToSlides: 'table',
+})
+
+/**
  * The key-tagged child descriptors a slide master's `objects` and a group's `children` are written
  * with (`{ text: … }`, `{ rect: … }`, …). `placeholder` is not one: it is master-specific and needs
  * the object's index, so `createSlideMaster` handles it itself.
@@ -147,6 +197,8 @@ export interface ConstructFamily {
 	readonly renderers?: RendererTable
 	/** The parts this family puts in the written package. */
 	readonly parts?: PartContributor
+	/** Methods this family adds to the presentation itself. */
+	readonly presentationAuthors?: PresentationAuthors
 }
 
 /** What a presentation was composed with: every family's contribution, flattened per seam. */
@@ -155,6 +207,7 @@ export interface Composition {
 	readonly children: ChildAuthors
 	readonly renderers: RendererTable
 	readonly partContributors: readonly PartContributor[]
+	readonly presentationAuthors: PresentationAuthors
 }
 
 /**
@@ -170,28 +223,49 @@ export function composeFamilies(families: readonly ConstructFamily[]): Compositi
 	const children: ChildAuthors = {}
 	const renderers: RendererTable = {}
 	const partContributors: PartContributor[] = []
+	const presentationAuthors: PresentationAuthors = {}
 	for (const family of families) {
 		Object.assign(authors, family.authors)
 		Object.assign(children, family.children)
 		Object.assign(renderers, family.renderers)
+		Object.assign(presentationAuthors, family.presentationAuthors)
 		if (family.parts) partContributors.push(family.parts)
 	}
-	return { authors, children, renderers, partContributors }
+	return { authors, children, renderers, partContributors, presentationAuthors }
 }
 
 /**
- * The failure a slide method raises when its family was not composed.
+ * The failure a method raises when its family was not composed.
  *
- * A method that is not composed still exists, and says which family it needs. Leaving the property
- * off instead would report the same condition as `TypeError: slide.addChart is not a function`,
- * which names neither the family nor the fix; the family list this program was built with is not
- * something the property's absence could point at.
+ * A method that is not composed still exists, and says which family it needs. Leaving it off
+ * instead would report the same condition as `TypeError: slide.addChart is not a function`, which
+ * names neither the family nor the fix; the family list this program was built with is not
+ * something a missing property could point at.
+ * @param call - how the method is called, e.g. `slide.addChart`
+ * @param family - the family that supplies it
  */
-export function familyMethodUnavailable(method: SlideAuthorMethod): never {
-	const family = SLIDE_METHOD_FAMILIES[method]
+export function familyMethodUnavailable(call: string, family: FamilyName): never {
 	throw new UnsupportedFeatureError(
 		'family/not-composed',
-		`slide.${method}() needs the "${family}" construct family, and this presentation was composed without it. ` +
+		`${call}() needs the "${family}" construct family, and this presentation was composed without it. ` +
 			`Add the "${family}" family to the list the presentation is composed with.`
 	)
+}
+
+/**
+ * A presentation author with its context already supplied — what a method on the presentation
+ * calls, having nothing left to pass but its own arguments.
+ */
+export type BoundPresentationAuthor<F> = F extends (ctx: PresentationAuthorContext, ...args: infer A) => infer R
+	? (...args: A) => R
+	: never
+
+/** One presentation method's author, or the failure that names the family it came from. */
+export function requirePresentationAuthor<M extends keyof PresentationAuthors>(
+	authors: PresentationAuthors,
+	method: M
+): NonNullable<PresentationAuthors[M]> {
+	const author = authors[method]
+	if (!author) familyMethodUnavailable(`pptx.${method}`, PRESENTATION_METHOD_FAMILIES[method])
+	return author
 }

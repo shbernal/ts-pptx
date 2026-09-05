@@ -17,7 +17,8 @@ import PresentationCore from '../../../src/presentation.ts'
 import { createNodeRuntime } from '../../../src/runtime/node.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
 import { chartFamily } from '../../../src/families/chart.ts'
-import { composeFamilies, SLIDE_METHOD_FAMILIES } from '../../../src/families/shared.ts'
+import { measureFamily } from '../../../src/families/measure.ts'
+import { composeFamilies, PRESENTATION_METHOD_FAMILIES, SLIDE_METHOD_FAMILIES } from '../../../src/families/shared.ts'
 import { assert, assertEqual } from '../../helpers.js'
 
 const SERIES = [{ name: 'Rev', labels: ['Q1', 'Q2'], values: [1, 2] }]
@@ -101,6 +102,23 @@ describe('construct families', () => {
 		assert(slide.addText('still here', { x: 1, y: 1, w: 2, h: 1 }) === slide, 'addText chains')
 	})
 
+	test('a presentation method whose family was not composed names the family', () => {
+		const pres = composed(ALL_CONSTRUCT_FAMILIES.filter((family) => family !== measureFamily))
+		expect(() => pres.measureText('wide enough?', { wIn: 3, fontSize: 18 })).toThrow(/"measure"/)
+		try {
+			pres.tableLayout([[{ text: 'a' }]], { x: 1, y: 1, w: 4 })
+		} catch (err) {
+			assertEqual(err.code, 'family/not-composed', 'error code')
+		}
+		// Measuring is a convenience over the `ts-pptx/measure` subpath, so a presentation without it
+		// still authors and still writes.
+		assertEqual(
+			typeof composed(ALL_CONSTRUCT_FAMILIES).measureText('x', { wIn: 3, fontSize: 18 }).heightIn,
+			'number',
+			'measured'
+		)
+	})
+
 	test('every slide method the seam names is supplied by the full list', () => {
 		const { authors } = composeFamilies(ALL_CONSTRUCT_FAMILIES)
 		const names = new Set(ALL_CONSTRUCT_FAMILIES.map((family) => family.name))
@@ -110,6 +128,14 @@ describe('construct families', () => {
 			// bound to a thrower, which looks like a function from the outside and fails every call.
 			assert(names.has(family), `${method} is attributed to "${family}", which is not in the full list`)
 			assert(typeof authors[method] === 'function', `${method} is not supplied by any family`)
+		}
+		// Same for the presentation's own methods, minus the one that needs a DOM: `tableToSlides`
+		// comes from the table family's live-DOM half, which only the browser entry composes.
+		const { presentationAuthors } = composeFamilies(ALL_CONSTRUCT_FAMILIES)
+		for (const [method, family] of Object.entries(PRESENTATION_METHOD_FAMILIES)) {
+			assert(names.has(family), `${method} is attributed to "${family}", which is not in the full list`)
+			if (method === 'tableToSlides') continue
+			assert(typeof presentationAuthors[method] === 'function', `${method} is not supplied by any family`)
 		}
 	})
 })

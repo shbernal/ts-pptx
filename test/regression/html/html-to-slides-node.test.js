@@ -1,3 +1,4 @@
+import JSZip from 'jszip'
 import { Window } from 'happy-dom'
 import { tableToSlides } from '../../../dist/html.js'
 import BrowserTsPptx from '../../../dist/browser.js'
@@ -15,6 +16,17 @@ import { build, readEntry, listEntries, assert, assertEqual, defineRegressionSui
 // text/image/shape/group), so it cannot see any of this.
 
 const ONE_IN_EMU = 914400
+
+/**
+ * `build`, but on the browser entry's class. That is the only one composed with the table family's
+ * live-DOM half, so it is the only one whose `tableToSlides` resolves; `toBytes` needs nothing from
+ * the browser runtime adapter, so the deck it writes here is the deck a browser would write.
+ */
+async function buildBrowser(buildFn) {
+	const pres = new BrowserTsPptx()
+	buildFn(pres)
+	return { zip: await JSZip.loadAsync(await pres.toBytes()) }
+}
 
 /** A fresh window per test — no global DOM is installed, and no state leaks between cases. */
 function windowWith(html) {
@@ -633,8 +645,8 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 			const html = STYLED_TABLE
 			// The method takes an id and no element, so it can only be driven here by handing it
 			// the document explicitly — which is exactly the delegation being asserted.
-			const viaMethod = await build((pptx) => {
-				BrowserTsPptx.prototype.tableToSlides.call(pptx, 't', { document: windowWith(html).document })
+			const viaMethod = await buildBrowser((pptx) => {
+				pptx.tableToSlides('t', { document: windowWith(html).document })
 			})
 			const viaFunction = await build((pptx) => {
 				tableToSlides(pptx, tableOf(windowWith(html)))

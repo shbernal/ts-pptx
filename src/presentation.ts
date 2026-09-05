@@ -50,8 +50,6 @@ import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './measure/font-metrics.js'
 import { isFontCollection } from './measure/font-collection.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
-import { measureText } from './measure/fit.js'
-import { computeTableLayout } from './measure/table-fit.js'
 import { resolveFontBytes } from './font-source.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import { clampRangedInput } from './units-internal.js'
@@ -61,7 +59,15 @@ import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
 // What this presentation can author: one list of construct families, composed once here. See
 // `families/shared.ts` for why it is a list and not a set of imports.
-import { composeFamilies, type Composition, type ConstructFamily } from './families/shared.js'
+import {
+	composeFamilies,
+	requirePresentationAuthor,
+	type BoundPresentationAuthor,
+	type Composition,
+	type ConstructFamily,
+	type PresentationAuthorContext,
+	type PresentationAuthors,
+} from './families/shared.js'
 import { getUuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
@@ -351,6 +357,13 @@ export default class PresentationCore {
 	/** The construct families this presentation was composed with, flattened per seam. */
 	readonly #composition: Composition
 
+	/**
+	 * What a family's presentation-level author is handed. Assembled once: it carries the font
+	 * metrics registry, which is private to this class and therefore unreachable from a family
+	 * through the instance alone.
+	 */
+	readonly #authorContext: PresentationAuthorContext
+
 	/** Write-side font metrics for measured text fit (`fit:'shrink'`). @see registerFontMetrics */
 	private readonly _fontMetrics = new FontMetricsRegistry()
 
@@ -360,6 +373,7 @@ export default class PresentationCore {
 	constructor(runtime: RuntimeAdapter, families: readonly ConstructFamily[]) {
 		this._runtime = runtime
 		this.#composition = composeFamilies(families)
+		this.#authorContext = { pres: this, fontMetrics: this._fontMetrics }
 		// Set available layouts
 		this.LAYOUTS = {
 			LAYOUT_4x3: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_4x3),
@@ -518,6 +532,26 @@ export default class PresentationCore {
 	// FONT METRICS (measured text fit)
 
 	/**
+	 * One of this presentation's family-supplied methods, or the failure that names the family it
+	 * would have come from. The methods that call it stay on the class because their signatures are
+	 * the public contract; what they reach is what a family owns.
+	 *
+	 * `protected` for the browser entry, whose `tableToSlides` is one of these and is declared on
+	 * the subclass so that a Node build never links the DOM reader.
+	 */
+	protected familyAuthor<M extends keyof PresentationAuthors>(
+		method: M
+	): BoundPresentationAuthor<NonNullable<PresentationAuthors[M]>> {
+		const author = requirePresentationAuthor(this.#composition.presentationAuthors, method) as (
+			ctx: PresentationAuthorContext,
+			...args: never[]
+		) => unknown
+		return ((...args: never[]) => author(this.#authorContext, ...args)) as BoundPresentationAuthor<
+			NonNullable<PresentationAuthors[M]>
+		>
+	}
+
+	/**
 	 * Register a font's metrics so `fit:'shrink'` text boxes are measured and a real
 	 * `fontScale` is baked at export time (text renders pre-shrunk in headless
 	 * renderers and on plain file-open, with no manual edit/resize).
@@ -642,7 +676,7 @@ export default class PresentationCore {
 	 * @example if (pptx.measureText(runs, { wIn, fontSize, fontFace }).heightIn > cardHeightIn) growCard()
 	 */
 	measureText(text: string | TextProps[], opts: MeasureTextOptions): TextMeasurement {
-		return measureText(this._fontMetrics, text, opts)
+		return this.familyAuthor('measureText')(text, opts)
 	}
 
 	/**
@@ -656,8 +690,7 @@ export default class PresentationCore {
 	 * @returns {boolean} true if the text overflows the box
 	 */
 	overflowsBox(text: string | TextProps[], opts: OverflowBoxOptions): boolean {
-		const m = measureText(this._fontMetrics, text, opts)
-		return m.measurable && !m.fitsBox(opts.hIn)
+		return this.familyAuthor('overflowsBox')(text, opts)
 	}
 
 	/**
@@ -679,7 +712,7 @@ export default class PresentationCore {
 	 * slide.addImage({ path: 'logo.png', x: c.xIn, y: c.yIn, w: c.wIn, h: c.hIn })
 	 */
 	tableLayout(rows: TableRow[], opts: TableProps): TableLayoutResult {
-		return computeTableLayout(rows, opts, this._presLayout, this._fontMetrics)
+		return this.familyAuthor('tableLayout')(rows, opts)
 	}
 
 	// EXPORT METHODS
