@@ -3,11 +3,13 @@
  * Export-reachability sweep — which `export`s in `src/` nothing else in the repo names, and
  * which of those reach a consumer anyway through the published `.d.ts`.
  *
- * Why the second half matters. Run raw, the sweep reports ~48 exports that no other tracked
- * file mentions, and 40 of them are the public type surface (`types/chart.ts`, `inspect.ts`,
- * `clip.ts`, `types/core.ts`) — correct as they are, since a published type has no in-repo
- * caller by construction. A report that is 83% noise gets run once and never again, so the
- * bucketing is not a refinement of this tool: it is the tool.
+ * Why the second half matters. The run this was written against reported 48 exports that no
+ * other tracked file mentions, and 40 of them were the public type surface (`types/chart.ts`,
+ * `inspect.ts`, `clip.ts`, `types/core.ts`) — correct as they are, since a published type has
+ * no in-repo caller by construction. A report that is 83% noise gets run once and never again,
+ * so the bucketing is not a refinement of this tool: it is the tool. Those two numbers are
+ * that run and not a promise — they move with every export added, dropped or wired up, which
+ * is the whole reason this reports rather than freezes a count.
  *
  * Method, in three steps:
  *
