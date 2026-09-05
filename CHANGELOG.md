@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`createPresentation` composes a deck from the construct families it needs, and a program
+  pays for what it composes.** Every entry publishes it beside `TsPptx`, and the families are
+  values on the new `pptx-ts/families` subpath:
+
+  ```ts
+  import { createPresentation } from 'pptx-ts'
+  import { charts } from 'pptx-ts/families'
+
+  const pres = createPresentation({ use: [charts] })
+  pres.addSlide().addChart(data, { type: ChartType.bar })
+  ```
+
+  The core tier -- text, shapes, images, groups, speaker notes -- is composed for you; a family
+  is core when leaving it out would make the result something other than a deck. Both forms
+  write the same deck for the same slides, part for part: this is a reachability change, not a
+  second write path. Measured on the bundled programs `bundle-tier:check` gates, a text-only
+  program drops from 98.6 kB to 59.3 kB gzip of blocking download, and the chart family costs
+  21.1 kB to the program that composes it and nothing to the one that does not.
+
+  Nothing changes for `import TsPptx from 'pptx-ts'`: it is still composed with every family
+  and still authors everything. What changed underneath is that the slide's `add*` methods, the
+  renderer that emits each shape, the parts each family adds to the package, and the child
+  descriptors a slide master accepts all now travel *to* the write path from that family list
+  instead of being named by import along it.
+
+  The types follow the composition. `addSlide()` answers a slide carrying exactly the methods
+  the composed families supply, and calling one that was not composed raises
+  `family/not-composed` naming the family rather than failing as a missing property.
+
 - **A measured comparison with pptxgenjs, and a gate that keeps it honest.**
   `docs/comparison.md` states what ts-pptx and upstream pptxgenjs each emit, what
   validates against the OOXML schema, what each costs to install, and how the two

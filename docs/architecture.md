@@ -53,6 +53,18 @@ exports and let this repository own the internal OOXML generation details.
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
+- **A consumer composes a presentation from the families it needs.** `createPresentation({ use })`
+  sits beside `TsPptx` on every entry (`entry-compose.ts` is the shared body, `families.ts` the
+  `pptx-ts/families` subpath a caller takes the values from). It composes the core tier plus what
+  it is given, and both forms write the same deck for the same slides, part for part: this is a
+  reachability difference, not a second write path. There is no second lean entry point on
+  purpose -- one would need the same three-condition treatment `.` gets, for nothing
+  export-level shaking does not already give. The type follows the composition: `addSlide()`
+  answers a slide carrying exactly the composed methods, each of which answers that same slide,
+  so a chain cannot widen back to the full surface. What that costs and saves is not an argument
+  but a gate: `bundle-tier:check` bundles a composed program, a composed-plus-one-family
+  program, and the `TsPptx` ones, and the difference between two of those rows is what a family
+  costs a consumer.
 - **A construct family is one value, and a presentation is composed with a list of them.**
   What the library knows about charts, or tables, or speaker notes is a `ConstructFamily`
   (`families/shared.ts`): the methods it adds to a slide (`addChart`), the child descriptors it
@@ -69,7 +81,10 @@ exports and let this repository own the internal OOXML generation details.
   raises `family/not-composed` naming the family rather than being absent. What stays core is
   what no tier can drop: the slide background, `createSlideMaster` (handed the child-descriptor
   table rather than naming families itself), the shape-id allocator and `resolveObjectName`
-  every family calls, and the export-time autofit bake.
+  every family calls, and the export-time autofit bake. Slide *extraction*
+  (`gen/extract-slides.ts`, the path `appendSlides` reads) is handed a family table too, for the
+  same reason: it re-emits what a slide holds, so naming the chart emitters there put all of
+  `gen/chart/` in the graph of every program that can build a deck.
 - **The shape walk is handed its renderers; it does not import them.** Which renderer
   emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`) that
   travels down the write path with the deck state: from `PackageSource.renderers`,
