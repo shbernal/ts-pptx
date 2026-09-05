@@ -219,6 +219,17 @@ const localBinPackages = {
 }
 
 /**
+ * The commands that are `.cmd` shims on Windows rather than executables.
+ *
+ * Named, not inferred from the platform. The rule used to be "on Windows, everything that is not
+ * an absolute path", which is true of the package managers and false of `git`: `git.cmd` does not
+ * exist, so `cmd.exe` exited 1 with nothing on stderr, and the one caller that clones a repository
+ * reported the measurement as unavailable rather than as broken. A list is checkable; a platform
+ * test that stands in for one is not.
+ */
+const WINDOWS_CMD_SHIMS = new Set(['npm', 'npx', 'pnpm', 'pnpx', 'yarn'])
+
+/**
  * Absolute path to an installed package's own `package.json`, or `null` when it is not
  * installed.
  *
@@ -315,7 +326,7 @@ export function run(command, args, options = {}) {
 		let child
 		if (localBin) {
 			child = spawn(process.execPath, [localBin, ...args], spawnOptions)
-		} else if (process.platform === 'win32' && !path.isAbsolute(command)) {
+		} else if (process.platform === 'win32' && WINDOWS_CMD_SHIMS.has(command)) {
 			// pnpm/npm are .cmd shims on Windows: they need a shell, and Node 24 deprecates
 			// passing args alongside shell:true, so hand the shell one pre-quoted line.
 			const line = [command + '.cmd', ...args].map(quoteArg).join(' ')
