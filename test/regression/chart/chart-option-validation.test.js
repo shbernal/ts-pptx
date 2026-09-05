@@ -186,6 +186,37 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// `barSeriesLine` takes the same shape as the three gridlines and reaches the same emitter,
+		// and it was the one of the four that was never scrubbed, so this was coerced in silence.
+		name: 'an out-of-range barSeriesLine is scrubbed and named as barSeriesLine',
+		fn: async () => {
+			const {
+				result: xml,
+				codes,
+				messages,
+			} = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(SERIES, {
+						...BASE,
+						type: ChartType.bar,
+						barGrouping: 'stacked',
+						barSeriesLine: { width: 0, cap: 'bevel' },
+					})
+				})
+				return await chartXml(zip)
+			})
+			assert(codes.includes('chart/invalid-grid-line-size'), `the zero width warns; got ${codes.join(', ')}`)
+			assert(codes.includes('chart/invalid-grid-line-cap'), `the unknown cap warns; got ${codes.join(', ')}`)
+			assert(
+				messages.every((message) => !message.includes('chart.gridLine')),
+				`the diagnostic names the option the caller set; got ${messages.join(' | ')}`
+			)
+			assertNotIncludes(xml, 'bevel', 'the unrecognized cap must be scrubbed before emit')
+			assertIncludes(xml, '<c:serLines>', 'the series line is still emitted, at the default width')
+			assertNotIncludes(xml, '<a:ln w="0"', 'a zero width must not reach the part')
+		},
+	},
+	{
 		// `typeof x === 'number'` is the one numeric guard `NaN` passes, and it was the guard on
 		// both axis-crossing decisions while every other numeric axis option used truthiness.
 		name: 'a non-finite axis crossing falls back to the rule instead of emitting NaN',

@@ -94,29 +94,36 @@ export function axisLineStroke(opts: AxisLineOpts, axis: 'cat' | 'val' | 'ser'):
 }
 
 /**
- * Scrub a gridline stroke's out-of-range values so a default applies instead of a
+ * Scrub a gridline-shaped stroke's out-of-range values so a default applies instead of a
  * PowerPoint-invalid one reaching the part.
  *
  * `width` and `size` are the same measure under two names, so both are checked and both are
  * dropped together -- leaving one behind would let the scrubbed value come back through the
  * fold. `dashType` needs nothing here: `resolveDash` checks it against the whole
  * `ST_PresetLineDashVal` set at emit, which is the check `style` never had.
- * @param glOpts - the caller's gridline options, scrubbed in place
+ *
+ * `option` exists because `c:serLines` takes the same {@link OptsChartGridLine} shape through a
+ * different option, and a diagnostic naming `chart.gridLine.width` for a `barSeriesLine` mistake
+ * points the caller at an option they did not set. Every entry point that reaches
+ * `chartFurnitureLine` is scrubbed here, which is also what lets that emitter default a missing
+ * width with `??` -- an unscrubbed caller was the one path a zero could reach the part on.
+ * @param glOpts - the caller's line options, scrubbed in place
+ * @param option - the option path to name in a diagnostic, as the caller spells it
  */
-export function scrubGridLine(glOpts: OptsChartGridLine): void {
+export function scrubGridLine(glOpts: OptsChartGridLine, option = 'chart.gridLine'): void {
 	if (!glOpts || gridLineSuppressed(glOpts)) return
 	const width = glOpts.width ?? glOpts.size
 	if (width !== undefined && (!Number.isFinite(Number(width)) || width <= 0)) {
-		warn('chart/invalid-grid-line-size', 'chart.gridLine.width must be greater than 0.')
+		warn('chart/invalid-grid-line-size', `${option}.width must be greater than 0.`)
 		delete glOpts.width // delete prop to used defaults
 		delete glOpts.size
 	}
 	if (glOpts.style && !['solid', 'dash', 'dot'].includes(glOpts.style)) {
-		warn('chart/invalid-grid-line-style', 'chart.gridLine.style options: `solid`, `dash`, `dot`.')
+		warn('chart/invalid-grid-line-style', `${option}.style options: \`solid\`, \`dash\`, \`dot\`.`)
 		delete glOpts.style
 	}
 	if (glOpts.cap && !['flat', 'square', 'round'].includes(glOpts.cap)) {
-		warn('chart/invalid-grid-line-cap', 'chart.gridLine.cap options: `flat`, `square`, `round`.')
+		warn('chart/invalid-grid-line-cap', `${option}.cap options: \`flat\`, \`square\`, \`round\`.`)
 		delete glOpts.cap
 	}
 }

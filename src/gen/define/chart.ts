@@ -536,6 +536,7 @@ const SUBCHART_VALIDATED_KEYS = [
 	'lineDataSymbolSize',
 	'lineDataSymbolLineSize',
 	'dataLabelPosition',
+	'barSeriesLine',
 ] as const
 
 /**
@@ -598,6 +599,14 @@ function normalizeComboSubchartOptions(
 	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
 	// already been converted and doing it twice would emit a hairline.
 	if (sub.lineDataSymbolLineSize != null) fixed.lineDataSymbolLineSize = lineWidthToEmu(sub.lineDataSymbolLineSize)
+	// `barSeriesLine` is the one gridline-shaped option a subchart can override that the emitter
+	// then reads off the merged bag, so the chart-level scrub does not cover it. Scrubbed on a
+	// copy because `scrubGridLine` mutates and `sub` is the caller's own object.
+	if (sub.barSeriesLine && sub.barSeriesLine !== true) {
+		const serLine = { ...sub.barSeriesLine }
+		scrubGridLine(serLine, 'chart.barSeriesLine')
+		fixed.barSeriesLine = serLine
+	}
 
 	const result: ChartOptsOverrides = { ...sub }
 	for (const key of SUBCHART_VALIDATED_KEYS) {
@@ -764,6 +773,12 @@ export function addChartDefinition(
 	scrubGridLine(options.catGridLine)
 	scrubGridLine(options.valGridLine)
 	scrubGridLine(options.serGridLine)
+	// `barSeriesLine` is a fourth caller of the same emitter through the same option shape, and
+	// it was the one not scrubbed: `{ width: 0 }` or `{ cap: 'bevel' }` was coerced in silence
+	// where the gridline spelling of the identical mistake warned. `true` is the "let PowerPoint
+	// style it" spelling and carries nothing to scrub.
+	if (options.barSeriesLine && options.barSeriesLine !== true)
+		scrubGridLine(options.barSeriesLine, 'chart.barSeriesLine')
 	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
 
 	// C: Options: plotArea

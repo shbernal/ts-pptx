@@ -582,11 +582,11 @@ function chartFurnitureLine(
 	const line = el(
 		'a:ln',
 		{
-			// `||` and not `??`: a width of `0` is not a hairline anyone asked for. On the three
-			// gridline entry points `scrubGridLine` has already rejected `width <= 0` with a
-			// warning and deleted it, so the two operators cannot differ there; `c:serLines` is
-			// not scrubbed, and `||` is what keeps a zero from reaching the part undiagnosed.
-			w: ptsToEmuLenient(stroke.width || DEF_CHART_GRIDLINE.width || 1),
+			// `??`, because every entry point here is scrubbed: `scrubGridLine` rejects `width <= 0`
+			// with a warning and deletes it, on `barSeriesLine` as well as on the three gridlines.
+			// A zero therefore cannot arrive undiagnosed, and `||` would only be re-deciding a
+			// question the define layer already answered out loud.
+			w: ptsToEmuLenient(stroke.width ?? DEF_CHART_GRIDLINE.width ?? 1),
 			cap: createLineCap(stroke.cap || DEF_CHART_GRIDLINE.cap),
 		},
 		[

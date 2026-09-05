@@ -652,6 +652,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Two chart options were silently coerced where the same mistake elsewhere warned.**
+
+  - **`barSeriesLine` is validated like the gridline it is.** It takes the same
+    `OptsChartGridLine` shape as `catGridLine` / `valGridLine` / `serGridLine` and reaches the
+    same emitter, but it was the one of the four that was never scrubbed: `{ width: 0 }` or
+    `{ cap: 'bevel' }` was coerced in silence where the gridline spelling of the identical
+    mistake warned and fell back. It is now scrubbed at definition time, chart-level and per
+    combo subchart, and the diagnostics name `chart.barSeriesLine.*` rather than pointing at
+    an option the caller did not set.
+
 - **A hyperlink could steal an online video's relationship.** A media item emits two
   relationships against one Target -- the ECMA one (`video`, `audio`) first, the Microsoft 2007
   `media` one second -- and which of the two a rel gets is decided by whether that Target has
