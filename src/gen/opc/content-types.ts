@@ -16,14 +16,7 @@ import type { PresSlideInternal, SlideLayoutInternal, SlideRelChart, SlideRelMed
 import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import {
-	commentPath,
-	overrideName,
-	PRESENTATION_PATH,
-	slideLayoutPath,
-	SLIDE_MASTER_PATH,
-	slidePath,
-} from './part-paths.js'
+import { overrideName, PRESENTATION_PATH, slideLayoutPath, SLIDE_MASTER_PATH, slidePath } from './part-paths.js'
 
 /** Content-type prefixes; spelled out per part below so each entry stays greppable by its suffix. */
 const OD = 'application/vnd.openxmlformats-officedocument.'
@@ -207,17 +200,6 @@ export function makeXmlContTypes(opts: {
 
 	// STEP 5: Everything the deck's construct families put in the package past this point.
 	contributions.trailing.forEach((entry) => parts.push(contributedOverride(entry)))
-
-	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
-	// single presentation-level commentAuthors part Override when the deck has any comments.
-	let hasAnyComment = false
-	slides.forEach((slide, idx) => {
-		if ((slide._comments || []).length > 0) {
-			hasAnyComment = true
-			parts.push(override(overrideName(commentPath(idx + 1)), OD + 'presentationml.comments+xml'))
-		}
-	})
-	if (hasAnyComment) parts.push(override('/ppt/commentAuthors.xml', OD + 'presentationml.commentAuthors+xml'))
 
 	// STEP 6: Add rels
 	masterSlide?._relsChart.forEach((rel) => {

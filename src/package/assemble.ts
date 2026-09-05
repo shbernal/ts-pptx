@@ -31,14 +31,12 @@ import { makeXmlPresentationRels } from '../gen/pres/presentation-rels.js'
 import { makeXmlPresentation, makeXmlPresProps, makeXmlViewProps } from '../gen/pres/presentation.js'
 import { makeXmlTableStyles } from '../gen/pres/table-styles.js'
 import { makeXmlTheme } from '../gen/pres/theme.js'
-import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '../gen/slide/comments.js'
 import { makeXmlLayout } from '../gen/slide/layout.js'
 import type { RendererTable } from '../gen/slide/objects/shared.js'
 import { makeXmlMaster, makeXmlMasterRel } from '../gen/slide/master.js'
 import { makeXmlSlide, makeXmlSlideLayoutRel, makeXmlSlideRel } from '../gen/slide/slide.js'
 import { collectContentTypes, orderedContributors, type PartContributor, type PartTarget } from './parts/shared.js'
 import {
-	commentPath,
 	fontPath,
 	PRESENTATION_PATH,
 	relsPath,
@@ -326,19 +324,6 @@ export async function buildPackageParts(
 		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
 		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
 		contributors.forEach((contributor) => contributor.parts?.afterMaster?.(pres, zip))
-
-		// C.1: Comments — resolve the deck-wide author registry once, then emit the shared
-		// commentAuthors part plus a per-slide comment part for each slide that has comments.
-		const resolvedComments = resolveCommentAuthors(pres.slides)
-		if (resolvedComments.authors.length > 0) {
-			zip.add('ppt/commentAuthors.xml', makeXmlCommentAuthors(resolvedComments.authors))
-			pres.slides.forEach((slide, idx) => {
-				if ((slide._comments || []).length > 0) {
-					zip.add(commentPath(idx + 1), makeXmlComments(slide, resolvedComments.meta))
-				}
-			})
-		}
-
 		// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
 		// the media pass, which is the interleaving the zip has always had.
 		const addTargetRelParts = (target: PartTarget): void => {
