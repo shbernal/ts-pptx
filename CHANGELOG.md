@@ -638,6 +638,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An HTML table's border widths were a third too thick.** `tableToSlides` read a computed
+  CSS `border-width` in px and assigned the magnitude straight to `BorderProps.width`, which is
+  measured in points. A CSS pixel is 1/96in and a point is 1/72in, so a `1px` border came out
+  at 1pt -- 1.33px -- and every border in every converted table was 4/3 of what the browser
+  drew. The width is now converted: `1px` is 0.75pt, `2px` is 1.5pt, and `96px` is exactly
+  72pt. Fractional hairlines still survive the trip (`0.5px` is 0.375pt, not `0`), and a
+  computed `0`, `auto`, `3em` or `30%` still yields no line at all.
+
+  This was the third read in `gen/table/html-dom.ts` to copy px across as points -- the cell
+  font size and the cell padding were each corrected on their own -- and it is the last. All
+  three now go through one conversion, so the next one cannot drift alone.
+
+  **If you compensated by hand** -- scaling a stylesheet's border widths by 0.75 before
+  conversion, or dividing them back out afterwards -- remove the compensation.
+
 - **A chart could emit two readings of the same data-label font option.** Two builders
   produce the run properties a `<c:dLbls>` wraps, and they defaulted differently -- one read
   `opts.dataLabelFontSize ?? DEF`, the other `opts.dataLabelFontSize || DEF` -- so which

@@ -178,17 +178,24 @@ function rgbToHex(r: number, g: number, b: number): string {
  * Convert a computed CSS border (width string + color string) from `getComputedStyle` into a
  * pptx `BorderProps`.
  *
+ * `StrokeProps.width` is in **points**, so the px magnitude is converted through
+ * {@link htmlCssPxToPoints} rather than copied across: a `1px` CSS border is 0.75pt, not 1pt.
+ * This was the third read in this file to make that mistake and the last one left — the font
+ * size and the cell padding were each corrected against `DEFAULT_PX_PER_INCH` on their own, and
+ * routing this one through the same converter is what stops a fourth from drifting apart again.
+ *
  * Preserves *fractional* widths: a hairline CSS border such as `0.5px` must not be rounded to
  * `0pt` and silently vanish — the table serializer (`ptsToEmuLenient`) emits fractional points just
  * fine, so there is no reason to integer-round here. A
  * computed width of `0` (or a non-finite value) yields `{ type: 'none' }` so we never emit a
- * zero-width line.
+ * zero-width line. `''`, `auto` and `3em` are non-finite for the same reason
+ * {@link parseCssPx} says they are, and take the same exit.
  * @param {string} widthStr - computed `border-<side>-width`, e.g. `"0.5px"`
  * @param {string} colorStr - computed `border-<side>-color`, e.g. `"rgb(102, 102, 102)"`
  * @returns {BorderProps} border props for the cell side
  */
 export function htmlBorderToProps(widthStr: string, colorStr: string): BorderProps {
-	const pt = Number(String(widthStr).replace('px', ''))
+	const pt = htmlCssPxToPoints(widthStr)
 	if (!Number.isFinite(pt) || pt <= 0) return { type: 'none' }
 	return { width: pt, color: cssColorToHex(colorStr) ?? '000000' }
 }
@@ -286,19 +293,25 @@ export function parseCssPx(value: string): number {
 }
 
 /**
- * A computed CSS `font-size` in px as the points `TableCellProps.fontSize` is measured in, or
- * `NaN` when the value is not an absolute px length.
+ * A computed CSS px length as the points every `pt`-measured table property is in, or `NaN` when
+ * the value is not an absolute px length.
  *
- * The magnitude used to be copied straight across under a "px to pt 1:1" reading, so a default
- * `16px` cell emitted `sz="1600"` — 16pt, a third larger than the 12pt the browser rendered.
- * The sibling padding read a few lines below was corrected to `DEFAULT_PX_PER_INCH` and left a
- * note saying the same stale assumption had been there; the font size was not corrected with it.
+ * This is the file's **one** px→pt conversion, and it is one because the same mistake was made
+ * three separate times under the same stale "px to pt 1:1" note. A default `16px` cell emitted
+ * `sz="1600"` — 16pt, a third larger than the 12pt the browser rendered; the cell padding read
+ * a px magnitude as the inches `TableCellProps.margin` wants, until 2026-07-31; and a `1px`
+ * border was emitted as 1pt, a third too thick. Each was found and corrected on its own, and
+ * the next went on being wrong, because there was no shared converter for a sweep to land on.
+ * Now there is, for the two properties measured in points. The padding is not one of them --
+ * it resolves to inches -- so it divides by `DEFAULT_PX_PER_INCH` at its own site and this
+ * comment is the link between them.
  *
  * CSS defines the reference pixel as 1/96in, so the conversion is the same density the `"<n>px"`
  * coordinate unit uses. An `em`, a `%` or a keyword has no absolute size here and comes back
- * `NaN`, which the caller leaves off the cell rather than writing.
+ * `NaN`, which each caller reads as its own kind of absence — the font size is left off the
+ * cell, and a border becomes `{ type: 'none' }`.
  * @param value - computed CSS value, e.g. `"16px"`
- * @returns the size in points, or `NaN` when the value is not an absolute px length
+ * @returns the length in points, or `NaN` when the value is not an absolute px length
  */
 export function htmlCssPxToPoints(value: string): number {
 	return (parseCssPx(value) * POINTS_PER_INCH) / DEFAULT_PX_PER_INCH

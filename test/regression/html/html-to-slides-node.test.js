@@ -409,7 +409,7 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 		},
 	},
 	{
-		name: 'computed borders map through, including a hex border color',
+		name: 'computed borders map through as points, including a hex border color',
 		fn: async () => {
 			const win = windowWith(`
 				<style>#t td { border-top: 2px solid #663399; border-right-width: 1px; border-right-color: #112233; }</style>
@@ -418,8 +418,11 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 				tableToSlides(pptx, tableOf(win))
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			assert(/<a:lnT w="25400"[\s\S]*?663399/.test(xml), `expected a 2pt #663399 top border; got: ${xml}`)
-			assert(/<a:lnR w="12700"[\s\S]*?112233/.test(xml), `expected a 1pt #112233 right border; got: ${xml}`)
+			// A CSS px is 1/96in and `<a:ln w>` is EMU, so 2px is 1.5pt (19050) and 1px is 0.75pt
+			// (9525). Reading the px magnitude as points instead made every border a third too
+			// thick, and these two widths are what pinned it.
+			assert(/<a:lnT w="19050"[\s\S]*?663399/.test(xml), `expected a 1.5pt #663399 top border; got: ${xml}`)
+			assert(/<a:lnR w="9525"[\s\S]*?112233/.test(xml), `expected a 0.75pt #112233 right border; got: ${xml}`)
 			// Unstated sides compute to '' and must stay absent rather than becoming a black hairline.
 			assert(/<a:lnB w="0"/.test(xml), `an unstated border must emit no line; got: ${xml}`)
 		},
