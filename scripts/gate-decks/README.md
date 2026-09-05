@@ -38,12 +38,20 @@ when a diff needs reading.
 
 ## Adding one
 
-`chart-matrix.mjs` is the only deck here because charts are what needed it first, but the
-coverage gap it closes is not specific to charts: `byte-identity` gates every `src/gen/`
-refactor, and its showcase corpus reaches whatever two presentation decks happen to reach.
+Charts needed a deck first, but the coverage gap is not specific to charts: `byte-identity`
+gates every `src/gen/` refactor, and its showcase corpus reaches whatever two presentation
+decks happen to reach. There are three decks now, and each arrived the same way, from a PASS
+that turned out to be a statement about nothing:
+
+- `chart-matrix.mjs` for the six chart emitters the showcases never construct.
+- `shape-matrix.mjs` for the slide objects a business deck has no reason to carry.
+- `html-table.mjs` for `tableToSlides`, which is a whole public entry point rather than one
+  emitter: no showcase and no other gate deck called it, so a change moving every HTML-table
+  border width by a third reported PASS.
+
 The next refactor that runs into "the showcases never emit this" should add a deck rather
 than proceed on an unproven PASS. Registering one is a `gateDeck` export like the one at the
-foot of `chart-matrix.mjs`; the harness picks it up from there.
+foot of `chart-matrix.mjs`; the harness picks it up from `index.mjs`.
 
 Note that adding a deck changes the part count, so it needs a fresh
 `pnpm run byte-identity:baseline` — take the baseline *before* the refactor it is meant to

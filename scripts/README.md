@@ -86,6 +86,7 @@ are in every aggregate the repo has.
 | `comparison/unavailable.mjs` | Library | The one shape a measurement takes when a fetch failed, and the walk that finds them in a finished snapshot | `comparison/measure.mjs` |
 | `comparison/validity.mjs` | Library | Runs the decks the corpus built through the `test:schema` oracle, per library | `comparison/measure.mjs` |
 | `gate-decks/chart-matrix.mjs` | Library | Gate deck reaching the chart emitters the showcase corpus never does | `byte-identity.mjs` |
+| `gate-decks/html-table.mjs` | Library | Gate deck reaching the HTML-table conversion, the one entry point with no deck of any kind behind it | `byte-identity.mjs` |
 | `gate-decks/index.mjs` | Library | The gate-deck registry — one list, so a deck cannot go undiffed | `byte-identity.mjs` |
 | `gate-decks/shape-matrix.mjs` | Library | Gate deck reaching the slide-object constructs a presentation deck has no reason to carry | `byte-identity.mjs` |
 

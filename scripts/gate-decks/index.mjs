@@ -10,7 +10,8 @@
  * the emitter being refactored goes undiffed.
  */
 import { gateDeck as chartMatrix } from './chart-matrix.mjs'
+import { gateDeck as htmlTable } from './html-table.mjs'
 import { gateDeck as shapeMatrix } from './shape-matrix.mjs'
 
 /** Every gate deck, in the order `byte-identity.mjs` builds them. */
-export const GATE_DECKS = [chartMatrix, shapeMatrix]
+export const GATE_DECKS = [chartMatrix, shapeMatrix, htmlTable]
