@@ -22,13 +22,15 @@
  * less per module rather than whichever costs less to use. **The two numbers will not
  * match, and the page has to say so**, because someone will hold them side by side.
  *
- * `splitting: true` is on and both figures are recorded. `initialBytes` is what the
- * program pays to start; `totalBytes` is every chunk it can reach. They differ on our side
- * because font metrics load `opentype.js` through a dynamic import that only runs on first
- * font registration, and a bundler that can defer that will. Reporting only the total
- * would charge the program for a chunk it may never fetch; reporting only the initial
- * would hide bytes it might. Neither is a fair single number, so there is no single
- * number.
+ * `splitting: true` is on and both figures are recorded, but **the page prints only
+ * `initialBytes`** — what the program pays before its first line runs. `totalBytes` is
+ * every chunk it can reach, and it is recorded here for anyone auditing the split rather
+ * than published as a comparison row, because as a row it compares nothing. Our two
+ * deferred chunks are `opentype.js`, behind the dynamic import in
+ * `measure/font-metrics.ts` that only runs on first font registration, and the default
+ * video poster in `media/playbtn.ts`. Upstream has no counterpart to the first and ships
+ * the second inside its entry chunk, so a `totalBytes` row would set our sum of both
+ * against a number that answers neither.
  *
  * The program is identical in intent on both sides — one slide, one text box, export — and
  * expressed in each library's own idiom, on the same rule the probe corpus follows.

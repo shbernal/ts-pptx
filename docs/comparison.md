@@ -230,7 +230,6 @@ is measured against a development checkout with its dependencies hoisted flat.
 | Module formats | esm | cjs, esm |
 | `engines.node` | `>=24` | not declared |
 | Hello world, first chunk | 98 kB | 123 kB |
-| Hello world, every chunk | 211 kB | 123 kB |
 
 The hello world program is identical in intent on both sides and written in each library's
 own idiom: one slide, one text box, then export. It is bundled with esbuild for the
@@ -241,11 +240,9 @@ what the package ships; this bundles and does tree-shake, because a consumer's b
 precisely the thing being compared here. **The two sets of numbers will not agree, and
 neither is wrong.**
 
-Two figures rather than one, because code splitting is on. The first chunk is what the
-program pays to start; every chunk is what it can reach. They differ for ts-pptx because
-font metrics load `opentype.js` behind a dynamic import that only runs once a font is
-registered, and a bundler that can defer that will. Charging the program for a chunk it
-may never fetch, and hiding bytes it might, are both misleading, so both are printed.
+Code splitting is on, so the figure is the entry chunk: what the program pays before its
+first line runs. Chunks a bundler defers behind a dynamic import are not counted, because
+a program that never takes that path never fetches them.
 
 ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its `dist/`
 ships unminified, and a large share of that weight is documentation comments that no

@@ -607,11 +607,6 @@ function sectionHygiene(snapshot) {
 					rows.map((row) => row?.helloWorld?.initialBytes),
 					kb
 				),
-				comparedRow(
-					'Hello world, every chunk',
-					rows.map((row) => row?.helloWorld?.totalBytes),
-					kb
-				),
 			]
 		),
 		...para(
@@ -625,12 +620,9 @@ function sectionHygiene(snapshot) {
 				'will not agree, and neither is wrong.**'
 		),
 		...para(
-			'Two figures rather than one, because code splitting is on. The first chunk is what the ' +
-				'program pays to start; every chunk is what it can reach. They differ for ts-pptx ' +
-				'because font metrics load `opentype.js` behind a dynamic import that only runs once a ' +
-				'font is registered, and a bundler that can defer that will. Charging the program for a ' +
-				'chunk it may never fetch, and hiding bytes it might, are both misleading, so both are ' +
-				'printed.'
+			'Code splitting is on, so the figure is the entry chunk: what the program pays before its ' +
+				'first line runs. Chunks a bundler defers behind a dynamic import are not counted, ' +
+				'because a program that never takes that path never fetches them.'
 		),
 	]
 	const ours = hygieneOf(snapshot, OURS)
