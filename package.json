@@ -97,6 +97,7 @@
 		"test:read:emit": "pnpm run ensure-dist && node scripts/read-emit-roundtrip.mjs",
 		"test:read:emit:edits": "pnpm run ensure-dist && node scripts/read-emit-edits.mjs",
 		"read:census": "pnpm run ensure-dist && node scripts/read-blindness-census.mjs",
+		"exports:reach": "pnpm run ensure-dist && node scripts/export-reach.mjs",
 		"read:append-ceiling": "pnpm run ensure-dist && node scripts/append-ceiling.mjs",
 		"script:roundtrip": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs",
 		"script:roundtrip:a": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs --tier a",
