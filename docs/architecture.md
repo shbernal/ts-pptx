@@ -40,7 +40,9 @@ exports and let this repository own the internal OOXML generation details.
   emission order are a stability-guaranteed observable contract**, adding a part later
   is back-compatible if existing paths/order do not shift; renaming/reordering is
   breaking. The per-part bytes are identical to what `write()` compresses.
-- `src/slide.ts` owns slide-level object collection and public slide methods.
+- `src/slide.ts` owns slide-level state: the object list, the rel arrays, the slide number,
+  the background, and the geometry accessors over them. The `add*` methods are not written
+  there; they are bound on from the construct families the presentation was composed with.
 - `src/gen/` holds the internal OOXML generators as a layered tree mirroring
   `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
@@ -51,6 +53,23 @@ exports and let this repository own the internal OOXML generation details.
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
+- **A construct family is one value, and a presentation is composed with a list of them.**
+  What the library knows about charts, or tables, or speaker notes is a `ConstructFamily`
+  (`families/shared.ts`): the methods it adds to a slide (`addChart`), the child descriptors it
+  recognises inside a slide master or a group (`{ chart: ... }`), the renderer that emits its
+  XML, the part contributor that puts its parts in the package, and for two families a method
+  on the presentation itself (`measureText`, `tableToSlides`). `entry-families.ts` is the full
+  list, and all three entries compose it; the browser entry adds the table family's live-DOM
+  half (`families/table-dom.ts`), which is the only piece that needs a `document`. This is the
+  bundling constraint the two seams below record, one level up: a class method body is never
+  shaken, so `SlideBuilder.addChart` calling `addChartDefinition` linked every plot module into
+  every program that can make a slide. The methods are bound onto each slide instance rather
+  than registered on the prototype or into a module map, so two presentations composed
+  differently in one process each get their own, and a method whose family was not composed
+  raises `family/not-composed` naming the family rather than being absent. What stays core is
+  what no tier can drop: the slide background, `createSlideMaster` (handed the child-descriptor
+  table rather than naming families itself), the shape-id allocator and `resolveObjectName`
+  every family calls, and the export-time autofit bake.
 - **The shape walk is handed its renderers; it does not import them.** Which renderer
   emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`) that
   travels down the write path with the deck state: from `PackageSource.renderers`,
