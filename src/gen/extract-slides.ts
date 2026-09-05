@@ -22,13 +22,10 @@ import { isHyperlinkRel } from './utils.js'
 import { msMediaRid, previewRid } from './define/media.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { avContentType, imageContentType } from '../media/content-type.js'
-import { makeXmlCharts } from './chart/chart-xml.js'
-import { makeXmlChartEx } from './chart/chartex-xml.js'
-import { makeChartExColorsXml, makeChartExStyleXml } from './chart/chartex-style.js'
-import { buildEmbeddedWorksheet } from './chart/embed-xlsx.js'
 import { bakeSlideContent, encodeMediaForTargets } from './prepare.js'
 import { makeXmlSlide } from './slide/slide.js'
 import type { RendererTable } from './slide/objects/shared.js'
+import type { SlideExtractors } from '../families/shared.js'
 import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './slide/notes.js'
 import { makeXmlTheme } from './pres/theme.js'
 
@@ -47,6 +44,12 @@ interface ExtractSource {
 	 * `RendererTable` in `slide/objects/shared.ts`.
 	 */
 	readonly renderers: RendererTable
+	/**
+	 * What each construct family adds to an extracted slide beyond that XML. Handed in for the same
+	 * reason the renderers are: naming the chart emitters here put every plot module in the graph of
+	 * any program that can build a deck, because this path is reachable from all of them.
+	 */
+	readonly extract: SlideExtractors
 }
 
 /** One slide's `_relsMedia`, indexed by `rId`, for the media descriptors that resolve rels by id. */
@@ -173,30 +176,6 @@ function slideLinksOf(slide: PresSlideInternal): ExtractedSlide['slideLinks'] {
 }
 
 /**
- * Charts: the chart part XML plus its embedded workbook bytes. The chart part's own `.rels`
- * (workbook reference) is rebuilt on injection.
- *
- * chartEx charts are a different part (`makeXmlChartEx`) behind a different rel type and
- * content type, and PowerPoint reports one as corrupt without its style/colors sidecars
- * (see gen/chart/chartex-style.ts). Both ride in the descriptor's `chartEx` slot, which
- * is what tells `appendSlides` the two shapes apart: it cannot be inferred from the XML,
- * and building one as a classic chart is what used to produce a `<c:chartSpace>` with
- * axes and no plot behind a slide still pointing at it through `<cx:chart>`.
- */
-function chartsOf(slide: PresSlideInternal): ExtractedSlide['charts'] {
-	return (slide._relsChart || []).map((rel) => {
-		const base = { rId: rel.rId, embeddingBytes: buildEmbeddedWorksheet(rel) }
-		return rel.isChartEx
-			? {
-					...base,
-					chartXml: makeXmlChartEx(rel),
-					chartEx: { styleXml: makeChartExStyleXml(), colorsXml: makeChartExColorsXml() },
-				}
-			: { ...base, chartXml: makeXmlCharts(rel) }
-	})
-}
-
-/**
  * Speaker notes, or `undefined` when the slide has none. makeXmlNotesSlide calls
  * buildNotesSlideRels itself (and caches on the slide), so the rels are read back afterwards
  * rather than rebuilt — the body and the rels file must agree on every hyperlink rId. Notes
@@ -242,7 +221,7 @@ export async function extractSlides(
 			xml: makeXmlSlide(slide, source.renderers),
 			media: imageMediaOf(slide, new Set(avMedia.map((item) => item.previewRid))),
 			hyperlinks: hyperlinksOf(slide),
-			charts: chartsOf(slide),
+			charts: source.extract.charts?.(slide) ?? [],
 			slideLinks: slideLinksOf(slide),
 			avMedia,
 			onlineMedia: onlineMediaOf(slide, relByRid),

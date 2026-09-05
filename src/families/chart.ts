@@ -6,6 +6,7 @@
  * names it by import.
  */
 
+import { chartsOf } from '../gen/extract-charts.js'
 import { chartContributor } from '../package/parts/chart.js'
 import { SlideObjectType, type CHART_NAME } from '../enums.js'
 import { renderChartObject } from '../gen/slide/objects/chart.js'
@@ -62,4 +63,5 @@ export const chartFamily: ConstructFamily = {
 		[SlideObjectType.chart]: renderChartObject,
 	},
 	parts: chartContributor,
+	extract: { charts: chartsOf },
 }

@@ -525,6 +525,7 @@ export default class PresentationCore {
 				presentation: this.internalPresentation,
 				fontMetrics: this._fontMetrics,
 				renderers: this.#composition.renderers,
+				extract: this.#composition.extract,
 			},
 			opts
 		)

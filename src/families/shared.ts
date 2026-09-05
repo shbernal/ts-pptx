@@ -40,6 +40,7 @@ import type { Slide } from '../types/slide.js'
 import type { PresSlideInternal } from '../types/internal.js'
 import type { RendererTable } from '../gen/slide/objects/shared.js'
 import type { PartContributor } from '../package/parts/shared.js'
+import type { ExtractedSlide } from '../read/api/presentation-types.js'
 import type SlideBuilder from '../slide.js'
 import type PresentationCore from '../presentation.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
@@ -185,6 +186,18 @@ export type ChildAuthors = {
 	[K in ChildDescriptorKey]?: (target: PresSlideInternal, child: ChildDescriptor<K>) => void
 }
 
+/**
+ * What a family contributes to an *extraction* -- the second emission path, which serializes a
+ * slide for injection into a deck read from bytes rather than for a package of its own.
+ *
+ * One slot so far. Extraction re-emits a slide's shapes through the same renderer table a write
+ * uses, so a family with only shapes to draw needs nothing here; charts are the exception because
+ * an extracted chart carries its part XML and its workbook alongside the slide body.
+ */
+export interface SlideExtractors {
+	readonly charts?: (slide: PresSlideInternal) => ExtractedSlide['charts']
+}
+
 /** One construct family. Every slot is optional; a family fills the ones it has something to say about. */
 export interface ConstructFamily {
 	/** This family's name, for the diagnostic a program without it raises. */
@@ -199,6 +212,8 @@ export interface ConstructFamily {
 	readonly parts?: PartContributor
 	/** Methods this family adds to the presentation itself. */
 	readonly presentationAuthors?: PresentationAuthors
+	/** What this family adds to an extracted slide, beyond the shape XML its renderer emits. */
+	readonly extract?: SlideExtractors
 }
 
 /** What a presentation was composed with: every family's contribution, flattened per seam. */
@@ -208,6 +223,7 @@ export interface Composition {
 	readonly renderers: RendererTable
 	readonly partContributors: readonly PartContributor[]
 	readonly presentationAuthors: PresentationAuthors
+	readonly extract: SlideExtractors
 }
 
 /**
@@ -224,14 +240,16 @@ export function composeFamilies(families: readonly ConstructFamily[]): Compositi
 	const renderers: RendererTable = {}
 	const partContributors: PartContributor[] = []
 	const presentationAuthors: PresentationAuthors = {}
+	const extract: SlideExtractors = {}
 	for (const family of families) {
 		Object.assign(authors, family.authors)
 		Object.assign(children, family.children)
 		Object.assign(renderers, family.renderers)
 		Object.assign(presentationAuthors, family.presentationAuthors)
+		Object.assign(extract, family.extract)
 		if (family.parts) partContributors.push(family.parts)
 	}
-	return { authors, children, renderers, partContributors, presentationAuthors }
+	return { authors, children, renderers, partContributors, presentationAuthors, extract }
 }
 
 /**
