@@ -29,14 +29,16 @@ export function renderImageObject(ctx: RenderContext): string {
 	const { obj: slideItemObj, shapeId, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
 	const { x, y } = ctx.frame
 	// The frame, read twice into two pairs that then diverge: `_szAuto` backfills an omitted
-	// dimension from the image's natural ratio, and `sizing` splits the two apart for good — `cx`/
-	// `cy` stay the box the caller asked for, which is what the source rectangle is cropped
-	// against, while `imgWidth`/`imgHeight` become the box actually drawn and emitted. The second
-	// pair used to arrive as a separate argument, but the dispatch built it from the same two
-	// variables as the frame, two statements away, so it never carried anything else.
-	let { cx, cy } = ctx.frame
-	let imgWidth = ctx.frame.cx
-	let imgHeight = ctx.frame.cy
+	// dimension from the image's natural ratio, and `sizing` splits the two apart for good —
+	// `frameW`/`frameH` stay the box the caller asked for, which is what the source rectangle is
+	// cropped against, while `drawnW`/`drawnH` become the box actually drawn and emitted. Neither
+	// pair is the image's own size; that is the third quantity here, and only `naturalSize()`
+	// answers it. The second pair used to arrive as a separate argument, but the dispatch built it
+	// from the same two variables as the frame, two statements away, so it never carried anything
+	// else.
+	let { cx: frameW, cy: frameH } = ctx.frame
+	let drawnW = ctx.frame.cx
+	let drawnH = ctx.frame.cy
 	const { sizing, rounding } = itemOpts
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
@@ -56,17 +58,17 @@ export function renderImageObject(ctx: RenderContext): string {
 		const natural = naturalSize()
 		if (natural) {
 			if (szAuto.w && szAuto.h) {
-				cx = pixelsToEmu(natural.w, 96)
-				cy = pixelsToEmu(natural.h, 96)
+				frameW = pixelsToEmu(natural.w, 96)
+				frameH = pixelsToEmu(natural.h, 96)
 			} else if (szAuto.h) {
 				// Width supplied, derive height
-				cy = Math.round(cx * (natural.h / natural.w))
+				frameH = Math.round(frameW * (natural.h / natural.w))
 			} else if (szAuto.w) {
 				// Height supplied, derive width
-				cx = Math.round(cy * (natural.w / natural.h))
+				frameW = Math.round(frameH * (natural.w / natural.h))
 			}
-			imgWidth = cx
-			imgHeight = cy
+			drawnW = frameW
+			drawnH = frameH
 		}
 	}
 	const imgOpts = itemOpts
@@ -177,8 +179,8 @@ export function renderImageObject(ctx: RenderContext): string {
 			)
 		strSlideXml += genXmlImageCrop(itemOpts.crop, itemOpts.objectName)
 	} else if (sizing?.type) {
-		const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : cx
-		const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : cy
+		const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : frameW
+		const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : frameH
 		const boxX = getSmartParseNumber(sizing.x || 0, 'X', slide._presLayout)
 		const boxY = getSmartParseNumber(sizing.y || 0, 'Y', slide._presLayout)
 
@@ -186,7 +188,7 @@ export function renderImageObject(ctx: RenderContext): string {
 		// image's natural pixel ratio — not the displayed box (options.w/h). Measure it from the
 		// embedded media bytes; if unmeasurable (SVG/unknown format) fall back to display dims + warn.
 		// `crop` keeps display EMU: its contract treats the displayed extent as the crop frame.
-		let cropSize: { w: number; h: number } = { w: imgWidth, h: imgHeight }
+		let cropSize: { w: number; h: number } = { w: drawnW, h: drawnH }
 		if (sizing.type === 'cover' || sizing.type === 'contain') {
 			const natural = naturalSize()
 			if (natural) {
@@ -200,8 +202,8 @@ export function renderImageObject(ctx: RenderContext): string {
 		}
 
 		strSlideXml += ImageSizingXml[sizing.type](cropSize, { w: boxW, h: boxH, x: boxX, y: boxY })
-		imgWidth = boxW
-		imgHeight = boxH
+		drawnW = boxW
+		drawnH = boxH
 	} else {
 		// No `sizing` at all. A raster fills its box — that box was chosen for it, and PowerPoint
 		// does the same. A vector does not: an SVG states its own aspect ratio in a viewBox, and a
@@ -210,12 +212,12 @@ export function renderImageObject(ctx: RenderContext): string {
 		// Unmeasurable vectors (no viewBox, no width/height) fall through silently: nothing was
 		// asked for, so there is nothing to warn about.
 		const natural = isVector ? naturalSize() : null
-		const aspectFit = natural ? genXmlVectorAspectFit(natural, { w: imgWidth, h: imgHeight }) : null
+		const aspectFit = natural ? genXmlVectorAspectFit(natural, { w: drawnW, h: drawnH }) : null
 		strSlideXml += aspectFit ?? el('a:stretch', null, raw(voidEl('a:fillRect')), { openPrefix: '  ' })
 	}
 	strSlideXml += '</p:blipFill>'
 	strSlideXml += '<p:spPr>'
-	strSlideXml += xfrmEl('a:xfrm', { x, y, cx: imgWidth, cy: imgHeight }, locationAttrs, {
+	strSlideXml += xfrmEl('a:xfrm', { x, y, cx: drawnW, cy: drawnH }, locationAttrs, {
 		openPrefix: ' ',
 		childPrefix: '  ',
 		closePrefix: ' ',
@@ -223,10 +225,9 @@ export function renderImageObject(ctx: RenderContext): string {
 	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
 	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
 	if (itemOpts.points) {
-		strSlideXml += ' ' + genXmlCustGeom(itemOpts, imgWidth, imgHeight, slide._presLayout)
+		strSlideXml += ' ' + genXmlCustGeom(itemOpts, drawnW, drawnH, slide._presLayout)
 	} else {
-		strSlideXml +=
-			' ' + genXmlPresetGeom(itemOpts.shape ?? (rounding ? 'ellipse' : 'rect'), itemOpts, imgWidth, imgHeight)
+		strSlideXml += ' ' + genXmlPresetGeom(itemOpts.shape ?? (rounding ? 'ellipse' : 'rect'), itemOpts, drawnW, drawnH)
 	}
 
 	// BORDER: `<a:ln>` outline (must precede `<a:effectLst>` per CT_ShapeProperties order)
