@@ -16,9 +16,11 @@ import TsPptx from '../../../src/node.ts'
 import { buildPackageParts } from '../../../src/package/assemble.ts'
 import { composeFamilies } from '../../../src/families/shared.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
-import { ALL_PART_CONTRIBUTORS } from '../../../src/package/contributors.ts'
 import { chartContributor } from '../../../src/package/parts/chart.ts'
 import { assert, assertEqual } from '../../helpers.js'
+
+const composed = composeFamilies(ALL_CONSTRUCT_FAMILIES)
+const ALL_PART_CONTRIBUTORS = composed.partContributors
 
 const SERIES = [{ name: 'Rev', labels: ['Q1', 'Q2'], values: [1, 2] }]
 
@@ -50,7 +52,7 @@ function sourceWith(pres, partContributors) {
 		presentation: pres.internalPresentation,
 		customProperties: pres._customProperties,
 		fontMetrics: pres._fontMetrics,
-		renderers: composeFamilies(ALL_CONSTRUCT_FAMILIES).renderers,
+		renderers: composed.renderers,
 		partContributors,
 	}
 }

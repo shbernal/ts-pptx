@@ -26,6 +26,7 @@ import type { ChartMulti, ChartOpts, OptsChartData, SlideMasterObject } from '..
 import type { Slide } from '../types/slide.js'
 import type { PresSlideInternal } from '../types/internal.js'
 import type { RendererTable } from '../gen/slide/objects/shared.js'
+import type { PartContributor } from '../package/parts/shared.js'
 import type SlideBuilder from '../slide.js'
 import { UnsupportedFeatureError } from '../errors.js'
 
@@ -144,6 +145,8 @@ export interface ConstructFamily {
 	readonly children?: ChildAuthors
 	/** The shape kinds this family emits XML for, keyed by `SlideObjectType`. */
 	readonly renderers?: RendererTable
+	/** The parts this family puts in the written package. */
+	readonly parts?: PartContributor
 }
 
 /** What a presentation was composed with: every family's contribution, flattened per seam. */
@@ -151,25 +154,29 @@ export interface Composition {
 	readonly authors: SlideAuthors
 	readonly children: ChildAuthors
 	readonly renderers: RendererTable
+	readonly partContributors: readonly PartContributor[]
 }
 
 /**
  * Flatten a family list into the tables the write path reads.
  *
- * The list's order does not reach the output. Authors and child descriptors are addressed by name,
- * so two families can only collide by claiming the same one, and none do; the ordering that *is*
- * byte-significant belongs to the part contributors, which sort themselves by declared rank.
+ * The list's order does not reach the output. Authors, child descriptors and renderers are all
+ * addressed by name, so two families can only collide by claiming the same one, and none do; the
+ * part contributors come out in list order and the packager sorts them by the rank each one
+ * declares, which is the ordering that is byte-significant.
  */
 export function composeFamilies(families: readonly ConstructFamily[]): Composition {
 	const authors: SlideAuthors = {}
 	const children: ChildAuthors = {}
 	const renderers: RendererTable = {}
+	const partContributors: PartContributor[] = []
 	for (const family of families) {
 		Object.assign(authors, family.authors)
 		Object.assign(children, family.children)
 		Object.assign(renderers, family.renderers)
+		if (family.parts) partContributors.push(family.parts)
 	}
-	return { authors, children, renderers }
+	return { authors, children, renderers, partContributors }
 }
 
 /**

@@ -5,6 +5,7 @@
  * deck-wide author list.
  */
 
+import { commentsContributor } from '../package/parts/comments.js'
 import { addCommentDefinition } from '../gen/define/comment.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -15,4 +16,5 @@ export const commentsFamily: ConstructFamily = {
 			addCommentDefinition(slide, options)
 		},
 	},
+	parts: commentsContributor,
 }

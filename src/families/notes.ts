@@ -6,6 +6,7 @@
  * reason to wire it directly.
  */
 
+import { notesContributor } from '../package/parts/notes.js'
 import { addNotesDefinition } from '../gen/define/notes.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -16,4 +17,5 @@ export const notesFamily: ConstructFamily = {
 			addNotesDefinition(slide, notes)
 		},
 	},
+	parts: notesContributor,
 }

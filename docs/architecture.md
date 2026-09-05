@@ -71,8 +71,8 @@ exports and let this repository own the internal OOXML generation details.
 - **The packager is handed its part contributors; it does not import them.** Which
   construct families put parts in a package is a `PartContributor[]`
   (`package/parts/shared.ts`) carried on `PackageSource` beside the renderer table, and
-  the authoring class supplies `ALL_PART_CONTRIBUTORS` (`package/contributors.ts`), the
-  one module that names all three (charts, comments, speaker notes).
+  the presentation collects them from the construct families it was composed with, three of
+  which have parts to add (charts, comments, speaker notes).
   `package/assemble.ts` keeps the skeleton every deck has, calls those contributors at
   fixed points in it, and names no family itself. Same bundling constraint as the shape
   walk, on the other axis: it is about which parts land in the zip rather than which XML

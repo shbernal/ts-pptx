@@ -6,6 +6,7 @@
  * names it by import.
  */
 
+import { chartContributor } from '../package/parts/chart.js'
 import { SlideObjectType, type CHART_NAME } from '../enums.js'
 import { renderChartObject } from '../gen/slide/objects/chart.js'
 
@@ -60,4 +61,5 @@ export const chartFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.chart]: renderChartObject,
 	},
+	parts: chartContributor,
 }

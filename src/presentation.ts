@@ -64,8 +64,6 @@ import { createSlideMaster } from './gen/define/master.js'
 import { composeFamilies, type Composition, type ConstructFamily } from './families/shared.js'
 import { getUuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
-// Same argument on the packaging axis: the families whose parts this class can put in a package.
-import { ALL_PART_CONTRIBUTORS } from './package/contributors.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 import { pickDefined, setOrClear } from './options-internal.js'
 
@@ -488,7 +486,7 @@ export default class PresentationCore {
 			customProperties: this._customProperties,
 			fontMetrics: this._fontMetrics,
 			renderers: this.#composition.renderers,
-			partContributors: ALL_PART_CONTRIBUTORS,
+			partContributors: this.#composition.partContributors,
 		}
 	}
 
