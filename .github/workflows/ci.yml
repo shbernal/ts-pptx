@@ -420,7 +420,7 @@ jobs:
   # scripts are its only exercise. Until this leg existed, that code was
   # unreachable from CI and a Windows-only break in it shipped green.
   #
-  # `check:package` also carries the bundle-size budget, which belongs with the
+  # `check:package` also carries the two size budgets, which belong with the
   # other "what actually ships" gates rather than with the tests.
   package:
     name: Package (${{ matrix.os }})

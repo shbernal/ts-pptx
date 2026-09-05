@@ -101,7 +101,7 @@ Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
 pnpm run check:static   # lint, lint:chars, format:check, all four typechecks, the two ratchets, and the docs build
-pnpm run check:package  # package:lint, test:package, bundle-size:check
+pnpm run check:package  # package:lint, test:package, bundle-size:check, bundle-tier:check
 ```
 
 `bundle-size:check` freezes what each published entry point and its chunks weigh,
@@ -113,6 +113,14 @@ breakdown; `pnpm run bundle-size:freeze` re-baselines deliberately. Minified bec
 `dist/` is roughly half doc comments and a gate on the raw bytes charges a commit for
 prose. The number is still an upper bound rather than a download size: see
 [Bundle Size](runtime-and-package-support.md#bundle-size).
+
+`bundle-tier:check` answers the other half of the question. It bundles three consumer
+programs against `dist/browser.js` with esbuild (a text-only slide; that plus a shape and
+an image; and one that also charts, tables and embeds media), recording both the entry
+chunk and every chunk each program can reach. Because it bundles, a bundler can
+tree-shake it, which makes it the only gate that moves when code stops being *reachable*
+rather than stopping being *shipped*. `pnpm run bundle-tier:list` shows the per-chunk
+breakdown and `pnpm run bundle-tier:freeze` re-baselines `scripts/bundle-tier-budget.json`.
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
 pnpm forwards the `--` **literally** to the underlying binary: `pnpm run lint -- --fix`
@@ -165,8 +173,9 @@ successfully and is caught only by `typecheck`. Never substitute one for the oth
 
 The individual gates (`build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
 `test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
-`test:package`, `raw-xml:check`, `bundle-size:check`) all still exist and are
-worth running alone when iterating on one specific thing. `pnpm run` lists them.
+`test:package`, `raw-xml:check`, `bundle-size:check`, `bundle-tier:check`) all still
+exist and are worth running alone when iterating on one specific thing. `pnpm run`
+lists them.
 
 One gate is in neither aggregate: `pnpm run test:browser`, the Playwright lane
 that runs the package in a real Chromium (CI job `browser`). It needs a ~120 MB

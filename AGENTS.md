@@ -179,9 +179,9 @@ MCPs' corpora.
   same suite twice.
 - **`pnpm run verify:full`** (~77s) before pushing or for a release/package-boundary
   change: everything in `verify`, plus `docs:build`, `script:roundtrip:all`,
-  `package:lint`, `test:package` and `bundle-size:check`. The split is only about cost —
-  those pack and install the tarball, build the production site, or run the whole read
-  corpus twice; everything cheaper already lives in `verify`.
+  `package:lint`, `test:package`, `bundle-size:check` and `bundle-tier:check`. The split
+  is only about cost — those pack and install the tarball, build the production site, or
+  run the whole read corpus twice; everything cheaper already lives in `verify`.
 - **`docs:build` is in `verify:full`, not `verify`.** 19.7s of its 26.6s is
   `vitepress build`, a production static-site build that proves something about the
   *site*, not the library; `docs:check` keeps the docs themselves validated every
@@ -230,12 +230,18 @@ MCPs' corpora.
   because a note that excuses a difference and a note that never fires look identical to
   it. Run it after closing a reader gap, retiring a note, or landing a fixture, and
   refresh that page's tables in the same commit.
-- Two of those are **ratchets**, and both fail on a change you did not intend as much as
-  on one you did: `raw-xml:check` (in `verify`) and `bundle-size:check` (in
-  `verify:full`). A ratchet failure is not automatically a defect — it is a prompt to
-  decide whether the number moved for a reason, then re-freeze in the same commit
-  (`raw-xml:freeze`, `bundle-size:freeze`) if it did. Do not re-freeze to make a gate
-  quiet without knowing which change moved it.
+- Three of those are **ratchets**, and each fails on a change you did not intend as much
+  as on one you did: `raw-xml:check` (in `verify`), `bundle-size:check` and
+  `bundle-tier:check` (both in `verify:full`). A ratchet failure is not automatically a
+  defect — it is a prompt to decide whether the number moved for a reason, then re-freeze
+  in the same commit (`raw-xml:freeze`, `bundle-size:freeze`, `bundle-tier:freeze`) if it
+  did. Do not re-freeze to make a gate quiet without knowing which change moved it.
+- **The two size gates answer different questions and neither replaces the other.**
+  `bundle-size:check` weighs the closure of each published entry without bundling, so its
+  figure is an upper bound on what the package *ships* and does not move when code merely
+  becomes unreachable. `bundle-tier:check` bundles three real consumer programs against
+  `dist/` and lets a bundler shake them, so it is the only gate that can see reachability
+  change. Expect the two numbers to disagree.
 - Builds are never something you sequence by hand. Every gate starts with
   `scripts/ensure-dist.mjs`, which rebuilds only when `src/` or a build config is newer
   than `dist/` and is otherwise a ~0.1s no-op. Do not prefix anything with

@@ -241,6 +241,40 @@ chunk split going wrong.
 `scripts/bundle-size-budget.json` and is raised or lowered deliberately with
 `pnpm run bundle-size:freeze`.
 
+## What A Program Downloads
+
+`scripts/bundle-tier-size.mjs` measures the other thing: not what the package
+ships, but what one program pays. It bundles three consumer programs against
+`dist/browser.js` with esbuild (minified, gzipped, code-split) and freezes both
+figures each one produces in `scripts/bundle-tier-budget.json`. `check:package`
+enforces it alongside the entry-point budget.
+
+The three programs are cumulative: `text` writes one slide with one text box,
+`text-shape-image` adds a shape and a base64 image, and `full` adds a chart, a
+table and an embedded video. Real programs rather than the smallest call the
+types accept, because a synthetic minimum measures the type checker.
+
+Two figures per program, not one. `initial` is the entry chunk: what the program
+pays to start. `total` is every chunk it can reach, which matters because font
+metrics load `opentype.js` through a dynamic import that runs only on first font
+registration: charging a program for a chunk it may never fetch is as wrong as
+hiding bytes it might.
+
+Each program is executed against `dist/` before it is measured. esbuild resolves
+modules and does not care whether `slide.addChart` exists, so a renamed or
+dropped method would leave the program bundleable while the family it reached
+fell out of the graph, and the number would go *down*, which is the shape of a
+win. Running the program first makes that a failure instead.
+
+This one bundles, so a bundler tree-shakes it, which is exactly what the
+entry-point budget refuses to do. That makes it the gate that can see a construct
+family become unreachable, work that removes no byte from `dist/` and therefore
+moves the entry-point number not at all. The two will not agree, and are not
+meant to.
+
+`pnpm run bundle-tier:list` prints the per-chunk breakdown;
+`pnpm run bundle-tier:freeze` re-baselines.
+
 ## Using The Browser Entry Without A Bundler
 
 Supported environments assume a bundler, and that remains the maintained target.

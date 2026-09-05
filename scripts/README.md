@@ -41,6 +41,7 @@ are in every aggregate the repo has.
 | `append-ceiling.mjs` | Diagnostic | What survives appending an authored slide to a template deck | manual (`read:append-ceiling`) |
 | `browser-harness-server.mjs` | Library | Static server for the Playwright harness | started by `playwright.config.ts` |
 | `bundle-size-ratchet.mjs` | Gate | Gzipped size of the browser entry's closure vs `bundle-size-budget.json` | `verify:full`, `check:package` |
+| `bundle-tier-size.mjs` | Gate | Gzipped size of three bundled consumer programs vs `bundle-tier-budget.json` | `verify:full`, `check:package` |
 | `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor; `prove-whitespace` discharges one recorded reformat | manual — see note below |
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |

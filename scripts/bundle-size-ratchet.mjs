@@ -88,11 +88,17 @@ const ENTRIES = [
 	'zip.js',
 ]
 
-/** Room `--freeze` leaves above the measurement, so ordinary work is not a re-freeze. */
-const HEADROOM_PCT = 5
+/**
+ * Room `--freeze` leaves above the measurement, so ordinary work is not a re-freeze.
+ *
+ * Exported because `bundle-tier-size.mjs` runs the same ratchet mechanics over a different
+ * measurement, and two gates that disagree about what counts as ordinary work would teach a
+ * reader that the numbers are arbitrary.
+ */
+export const HEADROOM_PCT = 5
 
 /** Re-freeze is only worth asking for when an entry comes in this far under budget. */
-const SLACK_PCT = 15
+export const SLACK_PCT = 15
 
 /**
  * ...and this far under in absolute terms, which is what keeps the small entries usable.
@@ -103,7 +109,7 @@ const SLACK_PCT = 15
  * same 6 kB. A percentage of a tiny number is noise; asking for a re-freeze over 1 kB is asking
  * for a gate to be switched off.
  */
-const SLACK_MIN_BYTES = 2048
+export const SLACK_MIN_BYTES = 2048
 
 /**
  * Relative specifiers, static and dynamic. Bare ones are the consumer's to resolve.
