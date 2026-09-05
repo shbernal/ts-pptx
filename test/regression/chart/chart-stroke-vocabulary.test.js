@@ -69,7 +69,6 @@ defineRegressionSuite('Chart stroke vocabulary', [
 		name: "an axis line's type: 'none' is what *AxisLineShow: false used to say",
 		fn: async () => {
 			const nested = await chartFor({ type: ChartType.bar, catAxisLine: { type: 'none' } })
-			// oxlint-disable-next-line typescript/no-deprecated -- the point of the case is that both spellings agree.
 			const flat = await chartFor({ type: ChartType.bar, catAxisLineShow: false })
 			assertIncludes(axisLineBlock(nested, 'cat'), '<a:noFill/>', "type: 'none' paints no line")
 			assertEqual(axisLineBlock(nested, 'cat'), axisLineBlock(flat, 'cat'), 'the two spellings emit the same block')
@@ -122,7 +121,6 @@ defineRegressionSuite('Chart stroke vocabulary', [
 				type: ChartType.bar,
 				valGridLine: { width: 2, dashType: 'dash', color: 'CCCCCC', cap: 'round' },
 			})
-			// oxlint-disable-next-line typescript/no-deprecated -- the point of the case is that both spellings agree.
 			const legacy = await chartFor({
 				type: ChartType.bar,
 				valGridLine: { size: 2, style: 'dash', color: 'CCCCCC', cap: 'round' },
