@@ -70,10 +70,22 @@ for (const rel of walkDocs(docsDir, OUTPUT_NAME)) {
 	})
 }
 
+/**
+ * A frontmatter string on its way into markdown prose.
+ *
+ * Angle brackets are the whole of it: a generated API page for a generic (`ComposeOptions<Fs>`)
+ * carries one in its title, and vitepress hands markdown to the Vue compiler, which reads `<Fs>`
+ * as an element and fails the site build on a missing end tag. Escaping here rather than in the
+ * frontmatter because the frontmatter is YAML, where the brackets are fine and a backslash is not.
+ * @param {string} text
+ * @returns {string}
+ */
+const forProse = (text) => text.replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+
 const lines = [...HEADER]
 for (const entry of entries) {
-	lines.push(`## [${entry.title}](${entry.rel})`, '')
-	if (entry.summary) lines.push(entry.summary, '')
+	lines.push(`## [${forProse(entry.title)}](${entry.rel})`, '')
+	if (entry.summary) lines.push(forProse(entry.summary), '')
 	lines.push('Read when:', '')
 	for (const hint of entry.readWhen) lines.push(`- ${hint}`)
 	lines.push('')

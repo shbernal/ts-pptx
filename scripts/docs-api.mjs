@@ -59,7 +59,15 @@ function walkMarkdown(dir) {
  */
 function titleFromMarkdown(markdown, filePath) {
 	const heading = markdown.match(/^#\s+(.+)$/m)
-	if (heading?.[1]) return heading[1].replace(/\s+\|.*$/, '').trim()
+	// Un-escape the heading before it becomes a YAML scalar. TypeDoc writes markdown, so a generic
+	// in the public surface arrives as `ComposeOptions\<Fs\>`, and `\<` is not a legal escape inside
+	// a double-quoted YAML string -- vitepress refuses to parse the frontmatter and the whole site
+	// build fails on a page nobody hand-wrote.
+	if (heading?.[1])
+		return heading[1]
+			.replace(/\s+\|.*$/, '')
+			.replaceAll(/\\([^A-Za-z0-9])/g, '$1')
+			.trim()
 	const basename = path.basename(filePath, '.md')
 	return basename === 'index' ? 'Public API Reference' : basename
 }
