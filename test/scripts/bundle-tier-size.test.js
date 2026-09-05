@@ -29,11 +29,31 @@ describe('programFor', () => {
 		for (const call of ['addChart(', 'addTable(', 'addMedia(', 'addImage(']) expect(text).not.toContain(call)
 	})
 
+	test('the composed rows are a different program, and name only the families they compose', () => {
+		const core = programFor('composed')
+		const withCharts = programFor('composed-charts')
+
+		// Not `new TsPptx()`: the whole point of the row is that the class, and the families it names,
+		// are never reached.
+		expect(core).toContain('createPresentation({ use: [] })')
+		expect(core).not.toContain('TsPptx')
+		expect(core).not.toContain('dist/families.js')
+		expect(core).not.toContain('addChart(')
+
+		// One family added, and the same calls plus the one it enables -- so the difference between
+		// the two rows is that family and nothing else.
+		expect(withCharts).toContain('import { charts }')
+		expect(withCharts).toContain('dist/families.js')
+		expect(withCharts).toContain('createPresentation({ use: [charts] })')
+		expect(withCharts).toContain('addChart(')
+		expect(withCharts).toContain('addText(')
+	})
+
 	// The export is parked on a global on purpose: a discarded result is dead code a
 	// minifier may drop the whole call graph behind, which would turn every row into a
 	// measurement of side-effect annotations.
 	test('every program consumes what it writes', () => {
-		for (const tier of ['text', 'text-shape-image', 'full'])
+		for (const tier of ['composed', 'composed-charts', 'text', 'text-shape-image', 'full'])
 			expect(programFor(tier)).toMatch(/globalThis\.\w+ = await pres\.write\(/)
 	})
 

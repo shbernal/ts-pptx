@@ -18,8 +18,9 @@
  *
  * **Method.** `scripts/comparison/hygiene.mjs` already argues these conventions and this
  * does not re-derive them: bundle one plausible consumer program with esbuild, minify,
- * gzip at level 9, and record two figures rather than one. `initial` is the entry chunk,
- * what the program pays to start. `total` is every chunk it can reach,
+ * gzip at level 9, and record two figures rather than one. `initial` is what the program pays
+ * to start: the entry chunk plus every chunk reachable from it by `import` statements, which is
+ * what a browser fetches before the first line runs. `total` is every chunk it can reach,
  * because font metrics load `opentype.js` through a dynamic import that only runs on first
  * font registration: charging a program for a chunk it may never fetch is as wrong as
  * hiding bytes it might. There is no fair single number, so there is no single number.
@@ -41,6 +42,13 @@
  * chunking is if anything a shade cheaper than the flat graph. The gate is here for the
  * day that stops being true.
  *
+ * **Two program shapes, not one.** The three `new TsPptx()` rows measure the default class,
+ * which is composed with every family and always will be. The `composed-*` rows measure
+ * `createPresentation`, which is composed with the core tier plus what it names — the surface
+ * the whole split exists to make possible. Both shapes are real programs a consumer writes,
+ * and the difference between the two `composed-*` rows is what one family costs, on `dist/`
+ * bytes, with no stub anywhere.
+ *
  * **No per-family stub mode.** "What would removing this family save" is a different
  * measurement: it bundles `src/` with whole modules stubbed out, and it is only interesting
  * while the family is still unconditionally reachable. Once a family can be left out, the
@@ -58,6 +66,7 @@ import { HEADROOM_PCT, SLACK_MIN_BYTES, SLACK_PCT } from './bundle-size-ratchet.
 import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
 
 const DIST_ENTRY = path.join(ROOT, 'dist', 'browser.js')
+const DIST_FAMILIES = path.join(ROOT, 'dist', 'families.js')
 const BUDGET = path.join(ROOT, 'scripts', 'bundle-tier-budget.json')
 const WORK = path.join(ROOT, '.tmp', 'bundle-tier')
 
@@ -100,6 +109,32 @@ const TIERS = {
 	],
 }
 
+/**
+ * The composed programs: `createPresentation` with the core tier and the families each names.
+ *
+ * Not cumulative, and deliberately a pair. `composed` is the floor the split exists to reach;
+ * `composed-charts` is the same program with one family added, so the difference between the two
+ * rows is what that family costs a consumer who wants it. A single row could only say "the floor
+ * moved" without saying what moved it.
+ * @type {Record<string, {use: string[], calls: string[]}>}
+ */
+const COMPOSED = {
+	composed: {
+		use: [],
+		calls: ["slide.addText('hello', { x: 1, y: 1, w: 4, h: 1 })"],
+	},
+	'composed-charts': {
+		use: ['charts'],
+		calls: [
+			"slide.addText('hello', { x: 1, y: 1, w: 4, h: 1 })",
+			"slide.addChart([{ name: 'Series 1', labels: ['a', 'b', 'c'], values: [1, 2, 3] }], { type: 'bar', x: 1, y: 4, w: 4, h: 2 })",
+		],
+	},
+}
+
+/** Every tier this gate measures, in report order: the composed programs, then the class ones. */
+const TIER_NAMES = [...Object.keys(COMPOSED), ...Object.keys(TIERS)]
+
 /** The two figures budgeted per tier, in report order. */
 const FIGURES = /** @type {const} */ (['initial', 'total'])
 
@@ -111,17 +146,18 @@ const FIGURES = /** @type {const} */ (['initial', 'total'])
 const tierDir = (tier) => path.join(WORK, tier)
 
 /**
- * How a tier's program names `dist/browser.js`: relative, POSIX, explicitly so.
+ * How a tier's program names a built entry: relative, POSIX, explicitly so.
  *
  * A Windows absolute path would satisfy esbuild, which resolves a specifier as a path, and
  * would leave the program unrunnable by Node, which refuses `import('C:/...')` because `C:`
  * reads as a URL scheme. The program has to satisfy both, because {@link measureTier} runs
  * it before it measures it.
- * @param {string} tier - a key of {@link TIERS}
+ * @param {string} tier - a tier name
+ * @param {string} file - the built file to name (defaults to the browser entry)
  * @returns {string}
  */
-function entrySpecifier(tier) {
-	const relative = path.relative(tierDir(tier), DIST_ENTRY).split(path.sep).join('/')
+function entrySpecifier(tier, file = DIST_ENTRY) {
+	const relative = path.relative(tierDir(tier), file).split(path.sep).join('/')
 	return relative.startsWith('.') ? relative : './' + relative
 }
 
@@ -131,6 +167,19 @@ function entrySpecifier(tier) {
  * @returns {string}
  */
 export function programFor(tier) {
+	const composed = COMPOSED[tier]
+	if (composed)
+		return [
+			`import { createPresentation } from ${JSON.stringify(entrySpecifier(tier))}`,
+			...(composed.use.length > 0
+				? [`import { ${composed.use.join(', ')} } from ${JSON.stringify(entrySpecifier(tier, DIST_FAMILIES))}`]
+				: []),
+			`const pres = createPresentation({ use: [${composed.use.join(', ')}] })`,
+			'const slide = pres.addSlide()',
+			...composed.calls,
+			`globalThis.${SINK} = await pres.write({ outputType: 'arraybuffer' })`,
+			'',
+		].join('\n')
 	const keys = Object.keys(TIERS)
 	const upto = keys.indexOf(tier)
 	if (upto < 0) throw new Error(`no such tier: ${tier}`)
@@ -196,6 +245,7 @@ export async function measureTier(tier) {
 		entryPoints: [PROGRAM_FILE],
 		format: 'esm',
 		legalComments: 'none',
+		metafile: true,
 		minify: true,
 		outdir: 'bundle',
 		platform: 'browser',
@@ -208,18 +258,47 @@ export async function measureTier(tier) {
 		name: path.basename(file.path),
 		bytes: zlib.gzipSync(Buffer.from(file.contents), { level: 9 }).byteLength,
 	}))
-	const initial = chunks.find((chunk) => chunk.name === entryChunk)
+	const upFront = blockingChunks(result.metafile, entryChunk)
 	// Defaulting to zero here would report the cheapest tier the gate can express, and pass.
-	if (!initial)
+	if (!chunks.some((chunk) => chunk.name === entryChunk))
 		throw new Error(
 			`the \`${tier}\` bundle has no ${entryChunk} to charge as the entry chunk; esbuild emitted ` +
 				chunks.map((chunk) => chunk.name).join(', ')
 		)
 	return {
-		initial: initial.bytes,
+		initial: chunks.reduce((sum, chunk) => (upFront.has(chunk.name) ? sum + chunk.bytes : sum), 0),
 		total: chunks.reduce((sum, chunk) => sum + chunk.bytes, 0),
 		chunks,
 	}
+}
+
+/**
+ * Every chunk a browser must have before the program's first line runs: the entry chunk and
+ * everything reachable from it by `import` statements, stopping at each `import()`.
+ *
+ * The entry chunk alone is not that figure, and reporting it as one is a trap the gate walked
+ * into: the moment a module inside the library defers something with a dynamic import, esbuild
+ * splits the shared code out of the entry chunk, and a row that had been reporting ~98 kB
+ * reported 0.9 kB for the same program with the same download. Nothing got cheaper; the
+ * measurement stopped counting the part that was still being fetched first.
+ * @param {import('esbuild').Metafile} metafile
+ * @param {string} entryChunk - the entry chunk's base name
+ * @returns {Set<string>} chunk base names, entry included
+ */
+function blockingChunks(metafile, entryChunk) {
+	/** @type {Map<string, string>} */
+	const byName = new Map(Object.keys(metafile.outputs).map((out) => [path.basename(out), out]))
+	const reached = new Set()
+	const queue = [entryChunk]
+	while (queue.length > 0) {
+		const name = queue.pop()
+		if (name === undefined || reached.has(name)) continue
+		reached.add(name)
+		const out = byName.get(name)
+		for (const imported of (out && metafile.outputs[out]?.imports) || [])
+			if (imported.kind === 'import-statement') queue.push(path.basename(imported.path))
+	}
+	return reached
 }
 
 /** @param {number} bytes */
@@ -234,7 +313,7 @@ export async function measureTiers() {
 		throw new Error(`${path.relative(ROOT, DIST_ENTRY)} is missing — run \`pnpm run build\` first`)
 	/** @type {Map<string, Awaited<ReturnType<typeof measureTier>>>} */
 	const measured = new Map()
-	for (const tier of Object.keys(TIERS)) measured.set(tier, await measureTier(tier))
+	for (const tier of TIER_NAMES) measured.set(tier, await measureTier(tier))
 	return measured
 }
 
@@ -271,7 +350,7 @@ const USAGE = `Tier-size budget — what a consumer program actually downloads.
   node scripts/bundle-tier-size.mjs --freeze   rewrite the budget from dist/
   node scripts/bundle-tier-size.mjs --list     per-chunk breakdown
 
-Tiers: ${Object.keys(TIERS).join(', ')}. Each bundles a consumer program against dist/browser.js
+Tiers: ${TIER_NAMES.join(', ')}. Each bundles a consumer program against dist/browser.js
 and records the entry chunk (initial) and every chunk it can reach (total).
 
 Options:
