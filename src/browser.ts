@@ -1,4 +1,6 @@
 import PresentationCore from './presentation.js'
+import { composePresentation, type ComposeOptions, type Composed } from './entry-compose.js'
+import type { ConstructFamily } from './families/shared.js'
 import { ALL_CONSTRUCT_FAMILIES } from './entry-families.js'
 import { createBrowserRuntime } from './runtime/browser.js'
 import { tableDomFamily } from './families/table-dom.js'
@@ -32,6 +34,25 @@ export class TsPptx extends PresentationCore {
 	tableToSlides(eleId: string, options: TableToSlidesProps = {}): void {
 		this.familyAuthor('tableToSlides')(eleId, options)
 	}
+}
+
+/**
+ * Compose a presentation from the construct families it needs, on the browser adapter.
+ *
+ * The counterpart to {@link TsPptx}, which is composed with every family there is. This one costs
+ * what it carries: the core tier (text, shapes, images, groups, speaker notes) plus whatever
+ * `use` names, and nothing else reaches the bundle. `tableToSlides` is one of those families
+ * (`domTables`), so a deck that wants it composes it.
+ * @param {ComposeOptions} opts - the families to compose in, from `pptx-ts/families`
+ * @example
+ * import { createPresentation } from 'pptx-ts/browser'
+ * import { charts, domTables } from 'pptx-ts/families'
+ * const pres = createPresentation({ use: [charts, domTables] })
+ */
+export function createPresentation<const Fs extends readonly ConstructFamily[] = []>(
+	opts?: ComposeOptions<Fs>
+): Composed<Fs> {
+	return composePresentation(createBrowserRuntime(), opts)
 }
 
 export { TsPptx as default }

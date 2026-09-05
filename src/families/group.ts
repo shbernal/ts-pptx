@@ -9,7 +9,7 @@
 import { addGroupDefinition, groupObjectsDefinition } from '../gen/define/group.js'
 import type { ConstructFamily } from './shared.js'
 
-export const groupFamily: ConstructFamily = {
+export const groupFamily = {
 	name: 'group',
 	authors: {
 		addGroup(slide, children, options) {
@@ -21,4 +21,4 @@ export const groupFamily: ConstructFamily = {
 			groupObjectsDefinition(slide, objectNames, options || {})
 		},
 	},
-}
+} satisfies ConstructFamily

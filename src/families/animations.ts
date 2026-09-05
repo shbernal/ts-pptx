@@ -8,11 +8,11 @@
 
 import type { ConstructFamily } from './shared.js'
 
-export const animationsFamily: ConstructFamily = {
+export const animationsFamily = {
 	name: 'animations',
 	authors: {
 		addAnimation(slide, options) {
 			slide._animations.push(options)
 		},
 	},
-}
+} satisfies ConstructFamily

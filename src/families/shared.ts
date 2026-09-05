@@ -229,7 +229,7 @@ export interface Composition {
 /**
  * Flatten a family list into the tables the write path reads.
  *
- * The list's order does not reach the output. Authors, child descriptors and renderers are all
+ * A family listed twice is composed once. The list's order does not reach the output. Authors, child descriptors and renderers are all
  * addressed by name, so two families can only collide by claiming the same one, and none do; the
  * part contributors come out in list order and the packager sorts them by the rank each one
  * declares, which is the ordering that is byte-significant.
@@ -241,7 +241,10 @@ export function composeFamilies(families: readonly ConstructFamily[]): Compositi
 	const partContributors: PartContributor[] = []
 	const presentationAuthors: PresentationAuthors = {}
 	const extract: SlideExtractors = {}
-	for (const family of families) {
+	// By identity, because a family is a singleton value: listing one twice is a thing a caller will
+	// do (`use: [tables]` on a tier that already has tables), and a part contributor collected twice
+	// would write its parts twice -- a deck PowerPoint reports as corrupt, from a harmless spelling.
+	for (const family of new Set(families)) {
 		Object.assign(authors, family.authors)
 		Object.assign(children, family.children)
 		Object.assign(renderers, family.renderers)

@@ -11,7 +11,7 @@
 import { genTableToSlides } from '../gen/table/html-dom.js'
 import type { ConstructFamily } from './shared.js'
 
-export const tableDomFamily: ConstructFamily = {
+export const tableDomFamily = {
 	name: 'table',
 	presentationAuthors: {
 		tableToSlides(ctx, eleId, options) {
@@ -20,4 +20,4 @@ export const tableDomFamily: ConstructFamily = {
 			genTableToSlides(ctx.pres, eleId, options)
 		},
 	},
-}
+} satisfies ConstructFamily

@@ -57,6 +57,10 @@
 			"types": "./dist/html.d.ts",
 			"default": "./dist/html.js"
 		},
+		"./families": {
+			"types": "./dist/families.d.ts",
+			"default": "./dist/families.js"
+		},
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"node": "./dist/node.js",

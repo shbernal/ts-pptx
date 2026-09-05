@@ -9,7 +9,7 @@ import { renderImageObject } from '../gen/slide/objects/image.js'
 import { addImageDefinition } from '../gen/define/image.js'
 import type { ConstructFamily } from './shared.js'
 
-export const imageFamily: ConstructFamily = {
+export const imageFamily = {
 	name: 'image',
 	authors: {
 		addImage(slide, options) {
@@ -24,4 +24,4 @@ export const imageFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.image]: renderImageObject,
 	},
-}
+} satisfies ConstructFamily

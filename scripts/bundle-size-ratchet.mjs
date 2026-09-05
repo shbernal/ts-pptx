@@ -77,6 +77,7 @@ const BUDGET = path.join(ROOT, 'scripts', 'bundle-size-budget.json')
  */
 const ENTRIES = [
 	'browser.js',
+	'families.js',
 	'html.js',
 	'index.js',
 	'inspect.js',

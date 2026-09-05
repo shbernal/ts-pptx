@@ -15,7 +15,7 @@ import { measureText } from '../measure/fit.js'
 import { computeTableLayout } from '../measure/table-fit.js'
 import type { ConstructFamily } from './shared.js'
 
-export const measureFamily: ConstructFamily = {
+export const measureFamily = {
 	name: 'measure',
 	presentationAuthors: {
 		measureText(ctx, text, opts) {
@@ -29,4 +29,4 @@ export const measureFamily: ConstructFamily = {
 			return computeTableLayout(rows, opts, ctx.pres.presLayout, ctx.fontMetrics)
 		},
 	},
-}
+} satisfies ConstructFamily

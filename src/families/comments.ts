@@ -9,7 +9,7 @@ import { commentsContributor } from '../package/parts/comments.js'
 import { addCommentDefinition } from '../gen/define/comment.js'
 import type { ConstructFamily } from './shared.js'
 
-export const commentsFamily: ConstructFamily = {
+export const commentsFamily = {
 	name: 'comments',
 	authors: {
 		addComment(slide, options) {
@@ -17,4 +17,4 @@ export const commentsFamily: ConstructFamily = {
 		},
 	},
 	parts: commentsContributor,
-}
+} satisfies ConstructFamily

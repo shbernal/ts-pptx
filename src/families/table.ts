@@ -11,7 +11,7 @@ import { renderTableObject } from '../gen/slide/objects/table.js'
 import { addTableDefinition } from '../gen/define/table.js'
 import type { ConstructFamily } from './shared.js'
 
-export const tableFamily: ConstructFamily = {
+export const tableFamily = {
 	name: 'table',
 	authors: {
 		addTable(slide, tableRows, options) {
@@ -39,4 +39,4 @@ export const tableFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.table]: renderTableObject,
 	},
-}
+} satisfies ConstructFamily

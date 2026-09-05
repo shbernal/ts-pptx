@@ -10,7 +10,7 @@ import { renderModel3dObject } from '../gen/slide/objects/model3d.js'
 import { addModel3dDefinition } from '../gen/define/model3d.js'
 import type { ConstructFamily } from './shared.js'
 
-export const model3dFamily: ConstructFamily = {
+export const model3dFamily = {
 	name: 'model3d',
 	authors: {
 		addModel3d(slide, options) {
@@ -20,4 +20,4 @@ export const model3dFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.model3d]: renderModel3dObject,
 	},
-}
+} satisfies ConstructFamily

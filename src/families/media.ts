@@ -10,7 +10,7 @@ import { renderMediaObject } from '../gen/slide/objects/media.js'
 import { addMediaDefinition } from '../gen/define/media.js'
 import type { ConstructFamily } from './shared.js'
 
-export const mediaFamily: ConstructFamily = {
+export const mediaFamily = {
 	name: 'media',
 	authors: {
 		addMedia(slide, options) {
@@ -20,4 +20,4 @@ export const mediaFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.media]: renderMediaObject,
 	},
-}
+} satisfies ConstructFamily

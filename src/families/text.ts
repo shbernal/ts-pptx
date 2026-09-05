@@ -11,7 +11,7 @@ import { renderTextObject } from '../gen/slide/objects/text.js'
 import { addTextDefinition } from '../gen/define/text.js'
 import type { ConstructFamily } from './shared.js'
 
-export const textFamily: ConstructFamily = {
+export const textFamily = {
 	name: 'text',
 	authors: {
 		addText(slide, text, options) {
@@ -46,4 +46,4 @@ export const textFamily: ConstructFamily = {
 		[SlideObjectType.placeholder]: renderTextObject,
 		[SlideObjectType.text]: renderTextObject,
 	},
-}
+} satisfies ConstructFamily

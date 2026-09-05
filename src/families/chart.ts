@@ -22,7 +22,7 @@ function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] 
 	return !!first && typeof first === 'object' && 'type' in first && 'data' in first
 }
 
-export const chartFamily: ConstructFamily = {
+export const chartFamily = {
 	name: 'chart',
 	authors: {
 		addChart(slide, arg1, arg2) {
@@ -64,4 +64,4 @@ export const chartFamily: ConstructFamily = {
 	},
 	parts: chartContributor,
 	extract: { charts: chartsOf },
-}
+} satisfies ConstructFamily

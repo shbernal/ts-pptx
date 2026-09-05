@@ -10,7 +10,7 @@ import { ShapeType } from '../enums.js'
 import { addShapeDefinition } from '../gen/define/shape.js'
 import type { ConstructFamily } from './shared.js'
 
-export const shapeFamily: ConstructFamily = {
+export const shapeFamily = {
 	name: 'shape',
 	authors: {
 		addShape(slide, shapeName, options) {
@@ -32,4 +32,4 @@ export const shapeFamily: ConstructFamily = {
 			addShapeDefinition(target, child.type, child.options || {})
 		},
 	},
-}
+} satisfies ConstructFamily

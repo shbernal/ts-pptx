@@ -69,9 +69,37 @@ import { Presentation } from "pptx-ts/read"
 import { readModelToIr, printScript } from "pptx-ts/script"
 import { latexToOmml } from "pptx-ts/math"
 import { tableToSlides } from "pptx-ts/html"
+import { charts, tables } from "pptx-ts/families"
 import pptxgenNode from "pptx-ts/node"
 import pptxgenBrowser from "pptx-ts/browser"
 ```
+
+## Paying For What You Author
+
+Every entry publishes two ways to start a deck. `TsPptx` is composed with every
+construct family the library has, so it authors everything and costs everything.
+`createPresentation` is composed with the core tier (text, shapes, images, groups,
+speaker notes) plus the families you name, and a family you do not name is not in
+your bundle:
+
+```ts
+import { createPresentation } from "pptx-ts"
+import { charts } from "pptx-ts/families"
+
+const pres = createPresentation({ use: [charts] })
+pres.addSlide().addChart(data, { type: ChartType.bar })
+```
+
+Both write the same deck for the same slides, part for part. The difference is
+reach: a text-and-charts program bundles about a fifth less than the same program
+written against `TsPptx`, and a text-only one about two fifths less. The families
+are values, not strings, so naming one is what puts its code in the graph, and a
+bundler needs no configuration to leave the rest out.
+
+Calling a method whose family you did not compose raises `family/not-composed`
+naming the family, at the call, rather than failing as a missing property. The
+types say the same thing first: the slide `createPresentation` hands you carries
+only the methods the families you composed supply.
 
 ## Which Build The Bare Import Gives You
 

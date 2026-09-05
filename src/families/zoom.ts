@@ -11,7 +11,7 @@ import { renderZoomObject } from '../gen/slide/objects/zoom.js'
 import { addSectionZoomDefinition, addSlideZoomDefinition, addSummaryZoomDefinition } from '../gen/define/zoom.js'
 import type { ConstructFamily } from './shared.js'
 
-export const zoomFamily: ConstructFamily = {
+export const zoomFamily = {
 	name: 'zoom',
 	authors: {
 		addSlideZoom(slide, options) {
@@ -27,4 +27,4 @@ export const zoomFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.zoom]: renderZoomObject,
 	},
-}
+} satisfies ConstructFamily

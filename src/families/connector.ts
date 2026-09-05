@@ -9,7 +9,7 @@ import { renderConnectorObject } from '../gen/slide/objects/connector.js'
 import { addConnectorDefinition } from '../gen/define/connector.js'
 import type { ConstructFamily } from './shared.js'
 
-export const connectorFamily: ConstructFamily = {
+export const connectorFamily = {
 	name: 'connector',
 	authors: {
 		addConnector(slide, options) {
@@ -19,4 +19,4 @@ export const connectorFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.connector]: renderConnectorObject,
 	},
-}
+} satisfies ConstructFamily

@@ -10,7 +10,7 @@ import { renderOleObject } from '../gen/slide/objects/ole.js'
 import { addOleObjectDefinition } from '../gen/define/ole.js'
 import type { ConstructFamily } from './shared.js'
 
-export const oleFamily: ConstructFamily = {
+export const oleFamily = {
 	name: 'ole',
 	authors: {
 		addOleObject(slide, options) {
@@ -20,4 +20,4 @@ export const oleFamily: ConstructFamily = {
 	renderers: {
 		[SlideObjectType.oleObject]: renderOleObject,
 	},
-}
+} satisfies ConstructFamily

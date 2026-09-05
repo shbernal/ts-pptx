@@ -19,3 +19,7 @@ export * from './clip.js'
 export * from './types/index.js'
 export * from './entry-diagnostics.js'
 export * from './entry-errors.js'
+// Types only: the values behind them are each entry's own `createPresentation`, and the families
+// themselves are the `pptx-ts/families` subpath.
+export type { Composed, ComposedPresentation, ComposedSlide, ComposeOptions } from './entry-compose.js'
+export type { ConstructFamily } from './families/shared.js'

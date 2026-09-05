@@ -10,7 +10,7 @@ import { notesContributor } from '../package/parts/notes.js'
 import { addNotesDefinition } from '../gen/define/notes.js'
 import type { ConstructFamily } from './shared.js'
 
-export const notesFamily: ConstructFamily = {
+export const notesFamily = {
 	name: 'notes',
 	authors: {
 		addNotes(slide, notes) {
@@ -18,4 +18,4 @@ export const notesFamily: ConstructFamily = {
 		},
 	},
 	parts: notesContributor,
-}
+} satisfies ConstructFamily

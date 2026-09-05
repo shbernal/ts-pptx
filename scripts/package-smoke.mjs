@@ -37,6 +37,7 @@ const EXPORT_MATRIX = [
 		hasDefault: true,
 		exports: {
 			TsPptx: 'function',
+			createPresentation: 'function',
 			ShapeType: 'object',
 			inchesToEmu: 'function',
 			EMU_PER_INCH: 'number',
@@ -86,8 +87,17 @@ const EXPORT_MATRIX = [
 	{ subpath: '/math', hasDefault: false, exports: { latexToOmml: 'function', mathmlToOmml: 'function' } },
 	{ subpath: '/zip', hasDefault: false, exports: { ZipWriter: 'function', readZip: 'function' } },
 	{ subpath: '/html', hasDefault: false, exports: { tableToSlides: 'function' } },
-	{ subpath: '/node', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
-	{ subpath: '/browser', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
+	{ subpath: '/families', hasDefault: false, exports: { charts: 'object', tables: 'object', text: 'object' } },
+	{
+		subpath: '/node',
+		hasDefault: true,
+		exports: { TsPptx: 'function', createPresentation: 'function', ShapeType: 'object' },
+	},
+	{
+		subpath: '/browser',
+		hasDefault: true,
+		exports: { TsPptx: 'function', createPresentation: 'function', ShapeType: 'object' },
+	},
 ]
 
 /**
