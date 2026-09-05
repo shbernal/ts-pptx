@@ -330,6 +330,17 @@ self-consistency: pages of equal usable height get equal row budgets. Continuati
 start at `autoPageSlideStartY`, or at the top margin when it is unset, so a first page
 placed lower with `y` is the one page that legitimately holds fewer rows.
 
+A word wider than its column **overflows it**. The pager never breaks inside a word: it fills
+a line word by word and starts a new one when the next word would not fit, so a single word
+that fits on no line is emitted whole and runs past the column edge in PowerPoint. This is a
+decision, not an oversight, and the alternative was weighed. A hard break at the column width
+(what a browser's `overflow-wrap: break-word` does) would have to break at the same estimate
+everything else here is measured against, so it would land mid-word at a position the renderer
+does not agree with, and the broken text would then have to keep the line count and the emitted
+text in step or the row is priced for lines it does not have. Overflowing is at least
+predictable, and it is visible. Where it matters, widen the column with `colW`, lower the
+cell's `fontSize`, or insert the break yourself with `breakLine`.
+
 ## Reading and editing an existing table
 
 `ts-pptx/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.

@@ -228,7 +228,11 @@ function parseTextToLines(
 			// cell's text survived -- the pager concatenates lines back together -- but its height
 			// did not, because `_lines.length` is what prices the row. Twelve single-word rows in a
 			// 0.4in column paged onto two slides when the word was long and one when it was short.
-			// The word still overflows its column: nothing here breaks inside a word.
+			// The word still overflows its column: nothing here breaks inside a word, which is the
+			// stated behaviour rather than a gap (`docs/tables.md`, "Sizing and overflow"). A hard
+			// break would have to land at the `CPL` estimate, which is not where the renderer wraps,
+			// and would then have to keep `_lines.length` and the emitted text in step -- the exact
+			// pairing the phantom-line bug above got wrong.
 			if (strCurrLine.length + wordText.length > CPL) {
 				if (lineCells.length > 0) parsedLines.push(lineCells)
 				lineCells = []
