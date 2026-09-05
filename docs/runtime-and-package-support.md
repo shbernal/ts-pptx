@@ -266,26 +266,34 @@ requests it until a font is registered, so an app that never calls
 
 ## Dropped Compared To Upstream
 
-### CommonJS
+### A CommonJS Build
 
-CommonJS is not a supported package target.
-
-Unsupported:
-
-```js
-const TsPptx = require("pptx-ts")
-```
-
-The package does not ship:
+No CommonJS build ships. The package does not ship:
 
 - `dist/pptxgen.cjs.js`
 - a CJS export condition
 - a CJS-specific Node demo target
 
-Modern Node.js versions can sometimes load ESM packages through `require()` as a
-runtime interop feature. That behavior is not this package's maintained API. The
-package smoke test verifies the actual contract: no CJS artifacts and no
-`require` export condition.
+`require("pptx-ts")` works anyway. Node loads ESM through `require()` from
+22.12 onward, and this package floors at Node `>=24`, so the interop is always
+available on a supported runtime:
+
+```js
+const { default: TsPptx, ShapeType } = require("pptx-ts")
+const pptx = new TsPptx()
+```
+
+Every subpath loads the same way. The one difference from a package that ships
+a real CJS build is that `require()` returns a module *namespace*, so the class
+arrives on `.default` rather than as the export itself. Destructure it, as
+above, and the rest of the API reads identically.
+
+This is tested, not incidental. `pnpm run test:package` asserts both halves of
+the contract: that no CJS artifact and no `require` export condition ship, and
+that `require()` resolves every published subpath with its default and named
+exports intact. The interop has one failure mode worth naming. A top-level
+await anywhere in an entry's chunk graph makes `require()` of that entry throw
+while every ESM suite stays green, and that assertion is what catches it.
 
 ### IIFE And Global Browser Bundle
 

@@ -356,12 +356,34 @@ console.log('  conditions [' + label + ']: "." -> ' + sameAs)
 	)
 	await fs.writeFile(
 		path.join(fixtureDir, 'cjs-contract.cjs'),
-		[
-			`const pkg = require(${JSON.stringify(packageImport('/package.json'))})`,
-			"if (JSON.stringify(pkg.exports).includes('\"require\"')) throw new Error('unexpected require export condition')",
-			"if (pkg.main || pkg.module) throw new Error('unexpected legacy main/module field')",
-			'',
-		].join('\n')
+		`const MATRIX = ${JSON.stringify(matrixRows, null, 1)}
+const pkg = require(${JSON.stringify(packageImport('/package.json'))})
+
+// No CommonJS build ships, and these two assertions are the whole of that promise:
+// no "require" condition anywhere in the exports map, and no legacy main/module
+// field for a bundler to fall back to.
+if (JSON.stringify(pkg.exports).includes('"require"')) throw new Error('unexpected require export condition')
+if (pkg.main || pkg.module) throw new Error('unexpected legacy main/module field')
+
+// What a CommonJS caller does get is Node's require(esm) interop, which landed in
+// 22.12 and so is always present at this package's >=24 engine floor. That makes
+// require(${JSON.stringify(packageName)}) a real way in, and it is tested here rather than assumed.
+// The failure it guards against is a quiet one: a top-level await introduced
+// anywhere in an entry's chunk graph breaks every require() below while leaving
+// the ESM suites and the export matrix green.
+for (const row of MATRIX) {
+	const ns = require(row.specifier)
+	if (row.hasDefault && typeof ns.default !== 'function') throw new Error(row.label + ': require() lost the default export')
+	if (!row.hasDefault && ns.default !== undefined) throw new Error(row.label + ': require() added a default export')
+	for (const [name, kind] of Object.entries(row.exports)) {
+		if (typeof ns[name] !== kind)
+			throw new Error(row.label + ': require() gave ' + name + ' as ' + typeof ns[name] + ', expected ' + kind)
+	}
+}
+const Required = require(${JSON.stringify(packageImport())}).default
+if (typeof new Required().version !== 'string') throw new Error('require() default export is not constructible')
+console.log('  require(esm): ' + MATRIX.length + ' subpaths loaded from CommonJS')
+`
 	)
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),

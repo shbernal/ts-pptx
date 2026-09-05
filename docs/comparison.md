@@ -58,9 +58,10 @@ refreshed on release cadence and carries the date above. Nothing here is edited 
 
 ## What ts-pptx gives up
 
-- **No CommonJS.** `require('pptx-ts')` does not work. pptxgenjs ships both CommonJS and
-  ESM, so it runs unchanged in older toolchains that ts-pptx cannot serve at all. See
-  [runtime and package support](runtime-and-package-support.md).
+- **No CommonJS build.** pptxgenjs ships one, so it runs unchanged on Node versions and
+  toolchains ts-pptx cannot serve at all. `require('pptx-ts')` does work, through the ESM
+  interop Node has had since 22.12, which every Node ts-pptx supports has. See [runtime
+  and package support](runtime-and-package-support.md).
 - **No global bundle, and no CDN script tag.** pptxgenjs can be dropped into a page with a
   `<script>` tag and used from a global. ts-pptx requires a bundler or a runtime that
   loads ES modules.

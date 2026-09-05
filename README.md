@@ -221,12 +221,16 @@ Supported package surface:
 - generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks
+- `const { default: TsPptx } = require("pptx-ts")` from CommonJS. Node loads ESM
+  through `require()` from 22.12 onward, which every supported Node has, so this
+  works on all published subpaths. `require()` hands back a module namespace, so
+  the class is on `.default`. `pnpm run test:package` asserts it.
 
 Deliberately not supported:
 
-- No CommonJS: no `require("pptx-ts")`, no CJS export condition, and no
-  `.cjs` artifact. Modern Node.js may provide `require()` interop for ESM, but it
-  is not a maintained API.
+- No CommonJS *build*: no CJS export condition and no `.cjs` artifact. The
+  `require()` line above is Node's ESM interop loading the one build that ships,
+  not a second copy of the library.
 - No IIFE/global browser bundle: no classic-script global, no `dist/*.bundle.js`,
   and no `dist/*.min.js`.
 

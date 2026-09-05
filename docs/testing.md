@@ -886,8 +886,19 @@ pnpm run check:package   # package:lint + test:package
 `package:lint` runs package export/type validation. `test:package` creates a packed package with pnpm,
 installs it with npm and pnpm, verifies that the ESM entries and declarations
 are present, verifies that old generated artifacts are absent, runs an ESM
-import smoke test, checks that the package has no CJS export condition, and
+import smoke test, checks that the package has no CJS export condition, checks
+that `require()` still loads every subpath through Node's ESM interop, and
 typechecks a minimal TypeScript consumer.
+
+`cjs-contract.cjs` carries both directions of the CommonJS story and reuses
+`EXPORT_MATRIX` to do it, so a new subpath is covered by adding the one row the
+matrix already needs. The negative half asserts no `require` export condition
+and no legacy `main`/`module` field. The positive half `require()`s every
+subpath and checks its default and named exports, because `require("pptx-ts")`
+is documented as working and only this fixture would notice it stopping. The
+way it stops is worth knowing: a top-level await anywhere in an entry's chunk
+graph makes `require()` of that entry throw, and nothing under `test/` would
+fail, since those suites import.
 
 The TypeScript consumer fixture is generated inline by `scripts/package-smoke.mjs`
 (`type-smoke.ts`). It is the only consumer of the public API that is not in
