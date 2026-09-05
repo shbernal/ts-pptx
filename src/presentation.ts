@@ -65,6 +65,8 @@ import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 // places it hands that table over are the only two that decide which shape families this program
 // links; see `RendererTable` in `gen/slide/objects/shared.ts`.
 import { ALL_OBJECT_RENDERERS } from './gen/slide/renderers.js'
+// Same argument on the packaging axis: the families whose parts this class can put in a package.
+import { ALL_PART_CONTRIBUTORS } from './package/contributors.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 import { pickDefined, setOrClear } from './options-internal.js'
 
@@ -483,6 +485,7 @@ export default class PresentationCore {
 			customProperties: this._customProperties,
 			fontMetrics: this._fontMetrics,
 			renderers: ALL_OBJECT_RENDERERS,
+			partContributors: ALL_PART_CONTRIBUTORS,
 		}
 	}
 

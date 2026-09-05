@@ -2,8 +2,13 @@
  * ts-pptx: `[Content_Types].xml`
  *
  * Emit the package content-types part: Default entries for the media extensions
- * actually used by the deck (plus xlsx/font defaults when present) and Override
- * entries for every written part.
+ * actually used by the deck (plus the font default when faces are embedded) and
+ * Override entries for every part the package skeleton writes.
+ *
+ * Entries that exist only because a construct family put a part in the package arrive as
+ * {@link ContentTypeContributions} — already resolved to data and grouped by where they land.
+ * The order below is a property of the format, not of whoever assembled that list, so a deck
+ * written by a program that links three families and one that links ten emit the same bytes.
  */
 
 import { CRLF, XML_DECL } from '../../constants-internal.js'
@@ -13,8 +18,6 @@ import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	commentPath,
-	NOTES_MASTER_PATH,
-	notesSlidePath,
 	overrideName,
 	PRESENTATION_PATH,
 	slideLayoutPath,
@@ -40,6 +43,48 @@ const CT_THEME = OD + 'theme+xml'
  */
 const LEADING_SPACE = { openPrefix: ' ' }
 
+/** One `Default` entry: a file extension, and the content type every part named with it carries. */
+export interface ContentTypeDefault {
+	readonly extension: string
+	readonly contentType: string
+}
+
+/**
+ * One `Override` entry: an absolute part name and its content type. `leadingSpace` asks for the
+ * historic insignificant space before the tag — see {@link LEADING_SPACE}; which entries carry it
+ * is a fact about the bytes already shipped, not a style choice.
+ */
+export interface ContentTypeOverride {
+	readonly partName: string
+	readonly contentType: string
+	readonly leadingSpace?: boolean
+}
+
+/**
+ * The entries a deck needs beyond the skeleton every package has, grouped by the point in the
+ * emission order they belong to. `perSlide` and `perLayout` are index-aligned with the deck's
+ * slides and layouts; an entry is emitted immediately after that slide's or layout's own Override.
+ */
+export interface ContentTypeContributions {
+	/** Default entries, merged after the deck's own media extensions. */
+	readonly defaults: readonly ContentTypeDefault[]
+	/** Overrides sitting between the presentation part and the slide master. */
+	readonly presentation: readonly ContentTypeOverride[]
+	readonly perSlide: ReadonlyArray<readonly ContentTypeOverride[]>
+	readonly perLayout: ReadonlyArray<readonly ContentTypeOverride[]>
+	/** Overrides after the layout block, before docProps closes the part. */
+	readonly trailing: readonly ContentTypeOverride[]
+}
+
+/** Nothing beyond the skeleton — the shape a deck written with no construct families contributes. */
+export const NO_CONTENT_TYPE_CONTRIBUTIONS: ContentTypeContributions = Object.freeze({
+	defaults: [],
+	presentation: [],
+	perSlide: [],
+	perLayout: [],
+	trailing: [],
+})
+
 function contentDefault(extension: string, contentType: string): string {
 	return voidEl('Default', { Extension: extension, ContentType: contentType })
 }
@@ -62,20 +107,26 @@ function chartOverrides(rel: SlideRelChart, fmt?: { openPrefix: string }): strin
 	]
 }
 
+/** Render a contributed Override, honouring its leading-space flag. */
+function contributedOverride(entry: ContentTypeOverride): string {
+	return override(entry.partName, entry.contentType, entry.leadingSpace ? LEADING_SPACE : undefined)
+}
+
 /**
  * Generate XML ContentType
- * @param {PresSlideInternal[]} slides - slides
- * @param {SlideLayoutInternal[]} slideLayouts - slide layouts
- * @param {PresSlideInternal} masterSlide - master slide
+ * @param opts - the deck's parts, plus whatever the construct families it was written with add
  * @returns XML
  */
-export function makeXmlContTypes(
-	slides: PresSlideInternal[],
-	slideLayouts: SlideLayoutInternal[],
-	masterSlide?: PresSlideInternal,
-	hasCustomProps?: boolean,
+export function makeXmlContTypes(opts: {
+	slides: PresSlideInternal[]
+	slideLayouts: SlideLayoutInternal[]
+	masterSlide?: PresSlideInternal
+	hasCustomProps?: boolean
 	embeddedFonts?: EmbeddedFont[]
-): string {
+	contributions?: ContentTypeContributions
+}): string {
+	const { slides, slideLayouts, masterSlide, hasCustomProps, embeddedFonts } = opts
+	const contributions = opts.contributions ?? NO_CONTENT_TYPE_CONTRIBUTIONS
 	const parts: string[] = [contentDefault('xml', 'application/xml'), contentDefault('rels', PKG + 'relationships+xml')]
 
 	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
@@ -105,6 +156,14 @@ export function makeXmlContTypes(
 	extnTypeMap.forEach((type, extn) => {
 		parts.push(contentDefault(extn, type))
 	})
+	// Contributed Defaults land after the deck's own media extensions, and only if nothing has
+	// claimed the extension: one Extension may appear once, and an OLE payload can beat a chart's
+	// embedded workbook to `xlsx`.
+	contributions.defaults.forEach((entry) => {
+		if (extnTypeMap.has(entry.extension)) return
+		extnTypeMap.set(entry.extension, entry.contentType)
+		parts.push(contentDefault(entry.extension, entry.contentType))
+	})
 	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present —
 	// and only if an OLE object hasn't already contributed the same `xlsx` Default above (one
 	// Extension may appear once).
@@ -116,7 +175,7 @@ export function makeXmlContTypes(
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
 	parts.push(override(overrideName(PRESENTATION_PATH), OD + 'presentationml.presentation.main+xml'))
-	parts.push(override(overrideName(NOTES_MASTER_PATH), OD + 'presentationml.notesMaster+xml'))
+	contributions.presentation.forEach((entry) => parts.push(contributedOverride(entry)))
 	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
 	parts.push(override(overrideName(SLIDE_MASTER_PATH), OD + 'presentationml.slideMaster+xml'))
@@ -126,6 +185,7 @@ export function makeXmlContTypes(
 		slide._relsChart.forEach((rel) => {
 			parts.push(...chartOverrides(rel))
 		})
+		;(contributions.perSlide[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
 	// STEP 3: Core PPT
@@ -142,12 +202,11 @@ export function makeXmlContTypes(
 		;(layout._relsChart || []).forEach((rel) => {
 			parts.push(...chartOverrides(rel, LEADING_SPACE))
 		})
+		;(contributions.perLayout[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
-	// STEP 5: Add notes slide(s)
-	slides.forEach((_slide, idx) => {
-		parts.push(override(overrideName(notesSlidePath(idx + 1)), OD + 'presentationml.notesSlide+xml'))
-	})
+	// STEP 5: Everything the deck's construct families put in the package past this point.
+	contributions.trailing.forEach((entry) => parts.push(contributedOverride(entry)))
 
 	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
 	// single presentation-level commentAuthors part Override when the deck has any comments.

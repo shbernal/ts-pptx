@@ -3,7 +3,9 @@
  * OOXML package parts and hand the bytes to the ZIP writer. This is the write-side
  * "packaging" layer — `[Content_Types].xml`, the `_rels` graph, docProps, theme, the
  * per-slide/layout/master parts, comments, and chart/media rels — split out of the
- * authoring class (`TsPptx`) so that class stays a façade over slide authoring.
+ * authoring class (`TsPptx`) so that class stays a façade over slide authoring. The parts
+ * a construct family adds on top of that skeleton come from the part contributors it is
+ * handed, so each family that moves across stops being named here.
  *
  * The entry point `writePackage` takes a structural {@link PackageSource} that the
  * authoring class satisfies; it does not depend on the class itself, so the same pipeline
@@ -11,7 +13,7 @@
  */
 import { ZipWriter } from '../zip.js'
 import type { CustomPropertyValue, WriteProps } from '../types/index.js'
-import type { PresentationPropsInternal, PresSlideInternal, SlideLayoutInternal } from '../types/internal.js'
+import type { PresentationPropsInternal, PresSlideInternal } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
@@ -33,18 +35,11 @@ import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '.
 import { makeXmlLayout } from '../gen/slide/layout.js'
 import type { RendererTable } from '../gen/slide/objects/shared.js'
 import { makeXmlMaster, makeXmlMasterRel } from '../gen/slide/master.js'
-import {
-	makeXmlNotesMaster,
-	makeXmlNotesMasterRel,
-	makeXmlNotesSlide,
-	makeXmlNotesSlideRel,
-} from '../gen/slide/notes.js'
 import { makeXmlSlide, makeXmlSlideLayoutRel, makeXmlSlideRel } from '../gen/slide/slide.js'
+import { collectContentTypes, orderedContributors, type PartContributor, type PartTarget } from './parts/shared.js'
 import {
 	commentPath,
 	fontPath,
-	NOTES_MASTER_PATH,
-	notesSlidePath,
 	PRESENTATION_PATH,
 	relsPath,
 	slideLayoutPath,
@@ -70,6 +65,13 @@ export interface PackageSource {
 	 * `RendererTable` in `gen/slide/objects/shared.ts`.
 	 */
 	readonly renderers: RendererTable
+	/**
+	 * Which construct families add parts to the package — the chart parts and their embedded
+	 * workbooks, the comment parts, the notes slides. Travels with the deck state for the same
+	 * reason `renderers` does: naming the emitters here would link every family's part builders
+	 * into every program that writes a deck. See `PartContributor` in `parts/shared.ts`.
+	 */
+	readonly partContributors: readonly PartContributor[]
 }
 
 /**
@@ -153,15 +155,11 @@ function registerTransitionSounds(slides: PresSlideInternal[]): void {
 
 /**
  * Create all chart and media rels for this Presentation
- * @param {PresSlideInternal | SlideLayoutInternal} slide - slide with rels
+ * @param {PartTarget} slide - slide, layout or master carrying the rels
  * @param {ZipWriter} zip - zip writer
- * @param {Promise<string>[]} chartPromises - promise array
+ * @param {Promise<unknown>[]} chartPromises - promise array
  */
-function createChartMediaRels(
-	slide: PresSlideInternal | SlideLayoutInternal,
-	zip: ZipWriter,
-	chartPromises: Promise<string>[]
-): void {
+function createChartMediaRels(slide: PartTarget, zip: ZipWriter, chartPromises: Promise<unknown>[]): void {
 	slide._relsChart.forEach((rel) => chartPromises.push(createExcelWorksheet(rel, zip)))
 	slide._relsMedia.forEach((rel) => {
 		if (rel.type !== 'online' && rel.type !== 'hyperlink') {
@@ -213,7 +211,10 @@ export async function buildPackageParts(
 	props: { onMediaError?: WriteProps['onMediaError'] }
 ): Promise<InternalPackagePart[]> {
 	const pres = source.presentation
-	const arrChartPromises: Promise<string>[] = []
+	// One pool for every contributor's async part work, awaited once at the end: a family that
+	// awaited its own would make the write serial.
+	const partPromises: Promise<unknown>[] = []
+	const contributors = orderedContributors(source.partContributors)
 	const zip = new ZipWriter()
 
 	// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
@@ -283,7 +284,14 @@ export async function buildPackageParts(
 		const hasCustomProps = source.customProperties.length > 0
 		zip.add(
 			'[Content_Types].xml',
-			makeXmlContTypes(pres.slides, pres.slideLayouts, pres.masterSlide, hasCustomProps, pres.embeddedFonts)
+			makeXmlContTypes({
+				slides: pres.slides,
+				slideLayouts: pres.slideLayouts,
+				masterSlide: pres.masterSlide,
+				hasCustomProps,
+				embeddedFonts: pres.embeddedFonts,
+				contributions: collectContentTypes(contributors, pres),
+			})
 		)
 		zip.add('_rels/.rels', makeXmlRootRels(hasCustomProps))
 		zip.add('docProps/app.xml', makeXmlApp(pres.slides, pres.company))
@@ -313,14 +321,11 @@ export async function buildPackageParts(
 		pres.slides.forEach((slide, idx) => {
 			zip.add(slidePath(idx + 1), makeXmlSlide(slide, source.renderers))
 			zip.add(relsPath(slidePath(idx + 1)), makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
-			// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
-			zip.add(notesSlidePath(idx + 1), makeXmlNotesSlide(slide))
-			zip.add(relsPath(notesSlidePath(idx + 1)), makeXmlNotesSlideRel(slide, idx + 1))
+			contributors.forEach((contributor) => contributor.parts?.withEachSlide?.(slide, idx + 1, zip))
 		})
 		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
 		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
-		zip.add(NOTES_MASTER_PATH, makeXmlNotesMaster())
-		zip.add(relsPath(NOTES_MASTER_PATH), makeXmlNotesMasterRel())
+		contributors.forEach((contributor) => contributor.parts?.afterMaster?.(pres, zip))
 
 		// C.1: Comments — resolve the deck-wide author registry once, then emit the shared
 		// commentAuthors part plus a per-slide comment part for each slide that has comments.
@@ -334,18 +339,22 @@ export async function buildPackageParts(
 			})
 		}
 
-		// D: Create all Rels (images, media, chart data)
-		pres.slideLayouts.forEach((layout) => {
-			createChartMediaRels(layout, zip, arrChartPromises)
-		})
-		pres.slides.forEach((slide) => {
-			createChartMediaRels(slide, zip, arrChartPromises)
-		})
-		createChartMediaRels(pres.masterSlide, zip, arrChartPromises)
+		// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
+		// the media pass, which is the interleaving the zip has always had.
+		const addTargetRelParts = (target: PartTarget): void => {
+			contributors.forEach((contributor) => {
+				const pending = contributor.parts?.fromTargetRels?.(target, zip)
+				if (pending) partPromises.push(...pending)
+			})
+			createChartMediaRels(target, zip, partPromises)
+		}
+		pres.slideLayouts.forEach(addTargetRelParts)
+		pres.slides.forEach(addTargetRelParts)
+		addTargetRelParts(pres.masterSlide)
 
-		// E: Wait for the chart-embed Promises (if any), then snapshot the accumulated
+		// E: Wait for the contributed async parts (if any), then snapshot the accumulated
 		// parts in emission order. Zipping is deferred to `zipPackageParts`.
-		return await Promise.all(arrChartPromises).then(() => zip.entries())
+		return await Promise.all(partPromises).then(() => zip.entries())
 	})
 }
 
