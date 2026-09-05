@@ -12,7 +12,7 @@
  */
 
 import { CRLF, XML_DECL } from '../../constants-internal.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideRelChart, SlideRelMedia } from '../../types/internal.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../../types/internal.js'
 import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -21,12 +21,6 @@ import { overrideName, PRESENTATION_PATH, slideLayoutPath, SLIDE_MASTER_PATH, sl
 /** Content-type prefixes; spelled out per part below so each entry stays greppable by its suffix. */
 const OD = 'application/vnd.openxmlformats-officedocument.'
 const PKG = 'application/vnd.openxmlformats-package.'
-const CT_CHART = OD + 'drawingml.chart+xml'
-// chartEx (cx:) parts use Microsoft content types, NOT the `OD` (openxmlformats) prefix. Each
-// chartEx chart part also requires a chart-style + color-style sidecar part.
-const CT_CHARTEX = 'application/vnd.ms-office.chartex+xml'
-const CT_CHARTEX_STYLE = 'application/vnd.ms-office.chartstyle+xml'
-const CT_CHARTEX_COLORS = 'application/vnd.ms-office.chartcolorstyle+xml'
 const CT_THEME = OD + 'theme+xml'
 
 /**
@@ -86,20 +80,6 @@ function override(partName: string, contentType: string, fmt?: { openPrefix: str
 	return voidEl('Override', { PartName: partName, ContentType: contentType }, fmt)
 }
 
-/**
- * Content-type Override(s) for a chart rel. A classic chart is one Override; a chartEx chart is
- * three: the `chartEx{N}.xml` part plus its mandatory `style{N}.xml` and `colors{N}.xml` sidecars
- * (keyed to the same `globalId`).
- */
-function chartOverrides(rel: SlideRelChart, fmt?: { openPrefix: string }): string[] {
-	if (!rel.isChartEx) return [override(rel.Target, CT_CHART, fmt)]
-	return [
-		override(rel.Target, CT_CHARTEX, fmt),
-		override(`/ppt/charts/style${rel.globalId}.xml`, CT_CHARTEX_STYLE, fmt),
-		override(`/ppt/charts/colors${rel.globalId}.xml`, CT_CHARTEX_COLORS, fmt),
-	]
-}
-
 /** Render a contributed Override, honouring its leading-space flag. */
 function contributedOverride(entry: ContentTypeOverride): string {
 	return override(entry.partName, entry.contentType, entry.leadingSpace ? LEADING_SPACE : undefined)
@@ -126,11 +106,10 @@ export function makeXmlContTypes(opts: {
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
 	// Skip 'online' rels (no part written) and rels missing extn/type.
 	const extnTypeMap = new Map<string, string>()
-	const ctTargets: Array<{ _relsMedia?: SlideRelMedia[]; _relsChart?: SlideRelChart[] }> = []
+	const ctTargets: Array<{ _relsMedia?: SlideRelMedia[] }> = []
 	;(slides || []).forEach((s) => ctTargets.push(s))
 	;(slideLayouts || []).forEach((l) => ctTargets.push(l))
 	if (masterSlide) ctTargets.push(masterSlide)
-	let ctHasChart = false
 	ctTargets.forEach((target) => {
 		;(target._relsMedia || []).forEach((rel) => {
 			if (rel.type === 'online' || !rel.extn || !rel.type) return
@@ -144,7 +123,6 @@ export function makeXmlContTypes(opts: {
 					: rel.type
 			if (!extnTypeMap.has(rel.extn)) extnTypeMap.set(rel.extn, contentType)
 		})
-		if ((target._relsChart || []).length > 0) ctHasChart = true
 	})
 	extnTypeMap.forEach((type, extn) => {
 		parts.push(contentDefault(extn, type))
@@ -157,10 +135,6 @@ export function makeXmlContTypes(opts: {
 		extnTypeMap.set(entry.extension, entry.contentType)
 		parts.push(contentDefault(entry.extension, entry.contentType))
 	})
-	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present —
-	// and only if an OLE object hasn't already contributed the same `xlsx` Default above (one
-	// Extension may appear once).
-	if (ctHasChart && !extnTypeMap.has('xlsx')) parts.push(contentDefault('xlsx', OD + 'spreadsheetml.sheet'))
 	// Embedded fonts: one Default covers every `.fntdata` part (emitted only when fonts are embedded).
 	if ((embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes))) {
 		parts.push(contentDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE))
@@ -172,12 +146,8 @@ export function makeXmlContTypes(opts: {
 	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
 	parts.push(override(overrideName(SLIDE_MASTER_PATH), OD + 'presentationml.slideMaster+xml'))
-	slides.forEach((slide, idx) => {
+	slides.forEach((_slide, idx) => {
 		parts.push(override(overrideName(slidePath(idx + 1)), OD + 'presentationml.slide+xml'))
-		// Add charts if any
-		slide._relsChart.forEach((rel) => {
-			parts.push(...chartOverrides(rel))
-		})
 		;(contributions.perSlide[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
@@ -190,22 +160,13 @@ export function makeXmlContTypes(opts: {
 	parts.push(override('/ppt/tableStyles.xml', OD + 'presentationml.tableStyles+xml'))
 
 	// STEP 4: Add Slide Layouts
-	slideLayouts.forEach((layout, idx) => {
+	slideLayouts.forEach((_layout, idx) => {
 		parts.push(override(overrideName(slideLayoutPath(idx + 1)), OD + 'presentationml.slideLayout+xml'))
-		;(layout._relsChart || []).forEach((rel) => {
-			parts.push(...chartOverrides(rel, LEADING_SPACE))
-		})
 		;(contributions.perLayout[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
 	// STEP 5: Everything the deck's construct families put in the package past this point.
 	contributions.trailing.forEach((entry) => parts.push(contributedOverride(entry)))
-
-	// STEP 6: Add rels
-	masterSlide?._relsChart.forEach((rel) => {
-		parts.push(...chartOverrides(rel, LEADING_SPACE))
-	})
-	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
 
 	// LAST: Finish XML (Resume core)
 	parts.push(override('/docProps/core.xml', PKG + 'core-properties+xml', LEADING_SPACE))

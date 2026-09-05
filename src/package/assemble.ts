@@ -2,10 +2,10 @@
  * Package assembly: turn an authored presentation's internal state into the full set of
  * OOXML package parts and hand the bytes to the ZIP writer. This is the write-side
  * "packaging" layer — `[Content_Types].xml`, the `_rels` graph, docProps, theme, the
- * per-slide/layout/master parts, comments, and chart/media rels — split out of the
- * authoring class (`TsPptx`) so that class stays a façade over slide authoring. The parts
- * a construct family adds on top of that skeleton come from the part contributors it is
- * handed, so each family that moves across stops being named here.
+ * per-slide/layout/master parts, and media rels — split out of the authoring class
+ * (`TsPptx`) so that class stays a façade over slide authoring. The parts a construct
+ * family adds on top of that skeleton — charts, comments, notes — come from the part
+ * contributors it is handed, so nothing here names a family.
  *
  * The entry point `writePackage` takes a structural {@link PackageSource} that the
  * authoring class satisfies; it does not depend on the class itself, so the same pipeline
@@ -20,7 +20,6 @@ import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { getNewRelId, nextMediaTarget } from '../gen/utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
-import { createExcelWorksheet } from '../gen/chart/embed-xlsx.js'
 import { bakeSlideContent, encodeMediaForTargets } from '../gen/prepare.js'
 import { makeXmlApp } from '../gen/opc/app.js'
 import { makeXmlContTypes } from '../gen/opc/content-types.js'
@@ -152,13 +151,13 @@ function registerTransitionSounds(slides: PresSlideInternal[]): void {
 }
 
 /**
- * Create all chart and media rels for this Presentation
+ * Write the media parts one target's rels point at. Images are how every deck carries a picture,
+ * so this stays on the core path; the chart half of what used to be one function is a part
+ * contributor (`parts/chart.ts`) and runs just before it, per target, so part order is unchanged.
  * @param {PartTarget} slide - slide, layout or master carrying the rels
  * @param {ZipWriter} zip - zip writer
- * @param {Promise<unknown>[]} chartPromises - promise array
  */
-function createChartMediaRels(slide: PartTarget, zip: ZipWriter, chartPromises: Promise<unknown>[]): void {
-	slide._relsChart.forEach((rel) => chartPromises.push(createExcelWorksheet(rel, zip)))
+function createMediaParts(slide: PartTarget, zip: ZipWriter): void {
 	slide._relsMedia.forEach((rel) => {
 		if (rel.type !== 'online' && rel.type !== 'hyperlink') {
 			// A: fflate needs decoded bytes (no base64 convenience), so decode the payload
@@ -324,6 +323,7 @@ export async function buildPackageParts(
 		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
 		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
 		contributors.forEach((contributor) => contributor.parts?.afterMaster?.(pres, zip))
+
 		// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
 		// the media pass, which is the interleaving the zip has always had.
 		const addTargetRelParts = (target: PartTarget): void => {
@@ -331,7 +331,7 @@ export async function buildPackageParts(
 				const pending = contributor.parts?.fromTargetRels?.(target, zip)
 				if (pending) partPromises.push(...pending)
 			})
-			createChartMediaRels(target, zip, partPromises)
+			createMediaParts(target, zip)
 		}
 		pres.slideLayouts.forEach(addTargetRelParts)
 		pres.slides.forEach(addTargetRelParts)

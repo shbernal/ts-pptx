@@ -13,9 +13,14 @@
  * parts it does ship. Nothing else belongs here — this module stays a list of names.
  */
 
+import { chartContributor } from './parts/chart.js'
 import { commentsContributor } from './parts/comments.js'
 import { notesContributor } from './parts/notes.js'
 import type { PartContributor } from './parts/shared.js'
 
 /** Every construct family that adds parts to a package — the list the full authoring surface writes with. */
-export const ALL_PART_CONTRIBUTORS: readonly PartContributor[] = Object.freeze([commentsContributor, notesContributor])
+export const ALL_PART_CONTRIBUTORS: readonly PartContributor[] = Object.freeze([
+	chartContributor,
+	commentsContributor,
+	notesContributor,
+])
