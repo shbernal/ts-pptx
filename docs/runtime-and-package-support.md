@@ -47,10 +47,13 @@ The package publishes:
   `browser`/`node` condition split, because the entry works with whatever DOM
   the caller has (see
   [HTML tables → slides](https://github.com/shbernal/ts-pptx/blob/master/README.md#html-tables--slides)).
+- `dist/families.js` and `dist/families.d.ts` for the construct families a
+  `createPresentation({ use })` call names (see [Bundle Size](bundle-size.md)).
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
-  `./script`, `./math`, `./zip`, `./html`, `./node`, and `./browser`.
+  `./script`, `./math`, `./zip`, `./html`, `./families`, `./node`, and
+  `./browser`.
 
 Supported environments are modern module-aware environments:
 
@@ -78,9 +81,8 @@ import pptxgenBrowser from "pptx-ts/browser"
 
 Every entry publishes two ways to start a deck. `TsPptx` is composed with every
 construct family the library has, so it authors everything and costs everything.
-`createPresentation` is composed with the core tier (text, shapes, images, groups,
-speaker notes) plus the families you name, and a family you do not name is not in
-your bundle:
+`createPresentation({ use })` is composed with the core tier plus the families you
+name, and a family you do not name is not in your bundle:
 
 ```ts
 import { createPresentation } from "pptx-ts"
@@ -90,22 +92,9 @@ const pres = createPresentation({ use: [charts] })
 pres.addSlide().addChart(data, { type: ChartType.bar })
 ```
 
-Both write the same deck for the same slides, part for part. The difference is
-reach: a text-and-charts program bundles about a fifth less than the same program
-written against `TsPptx`, and a text-only one about two fifths less. The families
-are values, not strings, so naming one is what puts its code in the graph, and a
-bundler needs no configuration to leave the rest out.
-
-Calling a method whose family you did not compose raises `family/not-composed`
-naming the family, at the call, rather than failing as a missing property. The
-types say the same thing first: the slide `createPresentation` hands you carries
-only the methods the families you composed supply.
-
-Child descriptors -- the `{ chart: ... }`, `{ image: ... }`, `{ text: ... }` forms
-a slide master's `objects` and a group's children are written with -- cannot be
-caught that way. The types reject a key no family anywhere claims, so a key some
-family claims type-checks whether or not you composed it. Those warn instead:
-`family/child-not-composed`, naming the family, on both walks.
+Both write the same deck for the same slides, part for part. Which families are core
+and which you ask for, what each one costs, and the diagnostic a method you did not
+compose raises are in [Bundle Size](bundle-size.md).
 
 ## Which Build The Bare Import Gives You
 
@@ -250,80 +239,6 @@ other file importing `node:*`, and it is contained behind the `RuntimeAdapter`.
 (`dist/zip.js` also carries a lazy `import('node:fs/promises')`, which a bundler
 will warn about; it is on the read-a-package-from-a-path branch only and never
 executes on the write path.)
-
-## Bundle Size
-
-`scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point
-`package.json` publishes and the chunks each one pulls in, minified and then
-gzipped, and `pnpm run check:package` enforces it. Per entry rather than for the
-package as a whole, because the question a consumer asks is what importing *one*
-subpath costs; the shared chunks are counted once per entry that reaches them.
-
-Minified, because `dist/` ships unminified and is close to half doc comments by
-weight, none of which survives a consumer's build. Gating on the raw bytes made
-the number track how much the code was *documented*: the refactor series between
-v3.7.0 and 147951de took 14.5 kB of code out of the browser closure, added 26.9 kB
-of comments explaining the consolidations, and the gate reported the net as a
-10.2 kB regression. Minifying first takes prose out of the measurement.
-
-It is still an upper bound rather than a download size, because a consumer's
-bundler also tree-shakes across the closure and this deliberately does not. What
-the gate is for is the step change: a dependency reaching the browser entry, or a
-chunk split going wrong.
-
-`pnpm run bundle-size:list` prints the per-chunk breakdown; the budget lives in
-`scripts/bundle-size-budget.json` and is raised or lowered deliberately with
-`pnpm run bundle-size:freeze`.
-
-## What A Program Downloads
-
-`scripts/bundle-tier-size.mjs` measures the other thing: not what the package
-ships, but what one program pays. It bundles three consumer programs against
-`dist/browser.js` with esbuild (minified, gzipped, code-split) and freezes both
-figures each one produces in `scripts/bundle-tier-budget.json`. `check:package`
-enforces it alongside the entry-point budget.
-
-The three programs are cumulative: `text` writes one slide with one text box,
-`text-shape-image` adds a shape and a base64 image, and `full` adds a chart, a
-table and an embedded video. Real programs rather than the smallest call the
-types accept, because a synthetic minimum measures the type checker.
-
-Two figures per program, not one. `initial` is the entry chunk: what the program
-pays to start. `total` is every chunk it can reach, which matters because font
-metrics load `opentype.js` through a dynamic import that runs only on first font
-registration: charging a program for a chunk it may never fetch is as wrong as
-hiding bytes it might.
-
-The library's own largest deferred chunk is the default video poster. The
-play-button overlay `addMedia` falls back to when the caller passes no `cover`
-is 19,312 base64 characters, and `addMedia` is a class method, so nothing
-tree-shakes it: naming the artwork where the media object is defined charged that
-payload to every consumer, text-only ones included. It is resolved during the
-async media pass instead, from `src/media/playbtn.ts`, which holds nothing else
-so that the chunker can give it a chunk of its own. A program that writes no
-media never fetches it, and one that does fetches it only at export.
-
-The artwork used to be nearly four times that. It was a pasted blob, and a pasted
-blob carries no evidence of whether its size is detail or noise: 74,380 characters
-for a frame holding four flat colours, plus a stray olive border nobody had looked
-closely enough to see. `scripts/gen-playbtn.mjs` draws it instead, from geometry
-measured off the original, and `test/scripts/gen-playbtn.test.js` holds the module
-and the generator together.
-
-Each program is executed against `dist/` before it is measured. esbuild resolves
-modules and does not care whether `slide.addChart` exists, so a renamed or
-dropped method would leave the program bundleable while the family it reached
-fell out of the graph, and the number would go *down*, which is the shape of a
-win. Running the program first makes that a failure instead.
-
-This one bundles, so a bundler tree-shakes it, which is exactly what the
-entry-point budget refuses to do. That makes it the gate that can see a construct
-family become unreachable, work that removes no byte from `dist/` and therefore
-moves the entry-point number not at all. The two will not agree, and are not
-meant to.
-
-`pnpm run bundle-tier:list` prints the per-chunk breakdown;
-`pnpm run bundle-tier:freeze` re-baselines.
 
 ## Using The Browser Entry Without A Bundler
 

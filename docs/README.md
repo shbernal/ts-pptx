@@ -21,6 +21,8 @@ artifacts.
   validates and costs, measured by running both.
 - [Runtime and package support](runtime-and-package-support.md): supported
   imports, dropped upstream support, and shipped artifacts.
+- [Bundle size](bundle-size.md): the two ways to construct a presentation, which
+  construct families you pay for, and the two size gates.
 - [Development guide](development.md): setup, source layout, generated outputs,
   and contribution rules.
 - [Testing guide](testing.md): regression, schema, package, demo, and manual

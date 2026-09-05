@@ -64,7 +64,8 @@ exports and let this repository own the internal OOXML generation details.
   so a chain cannot widen back to the full surface. What that costs and saves is not an argument
   but a gate: `bundle-tier:check` bundles a composed program, a composed-plus-one-family
   program, and the `TsPptx` ones, and the difference between two of those rows is what a family
-  costs a consumer.
+  costs a consumer. The measured numbers, the core tier and what a consumer sees when a family
+  is missing are in [Bundle Size](bundle-size.md).
 - **A construct family is one value, and a presentation is composed with a list of them.**
   What the library knows about charts, or tables, or speaker notes is a `ConstructFamily`
   (`families/shared.ts`): the methods it adds to a slide (`addChart`), the child descriptors it
@@ -90,7 +91,10 @@ exports and let this repository own the internal OOXML generation details.
   travels down the write path with the deck state: from `PackageSource.renderers`,
   through `makeXmlSlide` / `makeXmlLayout` / `makeXmlMaster`, into the walk. The
   presentation assembles that table from the construct families it was composed with,
-  each of which names its own renderer. This is a bundling constraint written into the code: a
+  each of which names its own renderer. It is a table keyed by object kind rather than a
+  `switch`, and every renderer takes one `RenderContext` and nothing else, so the table
+  has a single signature and `gen/slide/object.ts` stays the only module that knows which
+  object kinds exist. This is a bundling constraint written into the code: a
   named import inside a reachable function body is retained unconditionally, so a
   dispatch that called `renderChartObject` itself would link the chart emitter into
   every program that writes a slide, text-only ones included. It is passed rather than
@@ -218,6 +222,33 @@ exports and let this repository own the internal OOXML generation details.
   [PPTX To Script](reference/pptx-to-script.md).
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
+
+## The Rule That Keeps The Tiers Real
+
+Three seams carry a construct family to the write path instead of importing it: the
+family list a presentation is composed with (`families/shared.ts`), the renderer table
+the shape walk is handed (`gen/slide/objects/shared.ts`), and the part contributors the
+packager is handed (`package/parts/shared.ts`). All three exist for one reason, and one
+sentence states the whole maintenance burden of the design:
+
+> **A static import from `slide.ts`, `gen/slide/object.ts` or `package/assemble.ts` into
+> a family module is what the tier budget is watching for.**
+
+Those three files are what every program that builds a deck reaches. A named import
+inside a reachable function body is retained unconditionally, and a class method body is
+never shaken at all, so one import added at any of the three puts that family in every
+program's graph again, including the ones that compose without it.
+
+Nothing else catches it. The types still check, every test still passes, the emitted
+bytes are identical, and `bundle-size:check` does not move, because the package ships
+exactly what it shipped before. The one signal is `bundle-tier:check`: the composed rows
+climb toward the `TsPptx` rows, and the gate fails on the budget. That is why the tier
+budget measures composed programs rather than only class ones, and why the `full` row is
+kept beside them as a control.
+
+The rule is about the three composition points, not about families in general. A family
+module importing from `gen/` is ordinary and expected; that is where its emitters live.
+What it must never do is get named *by* the core path.
 
 ## Where Does X Live? (task → file → function)
 

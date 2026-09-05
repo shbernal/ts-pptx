@@ -211,6 +211,9 @@ Supported package surface:
 - `import { latexToOmml } from "pptx-ts/math"`
 - `import { ZipWriter, readZip } from "pptx-ts/zip"`
 - `import { tableToSlides } from "pptx-ts/html"`
+- `import { charts, tables } from "pptx-ts/families"`, the construct families a
+  `createPresentation({ use })` call names so a program pays only for what it
+  authors. See [bundle size](docs/bundle-size.md).
 - `import TsPptx from "pptx-ts/node"`
 - `import TsPptx from "pptx-ts/browser"`:
   the bare specifier resolves to one of these two by export condition, so Node

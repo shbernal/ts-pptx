@@ -37,10 +37,11 @@
  * measuring `dist/` also puts chunk granularity under the gate: a consumer's bundler can
  * only shake what the chunk boundary lets it, so a chunking change is a size lever that
  * moves nothing in `src/` and would be invisible to a `src/`-based measurement. It is not
- * costing anything today — the same text program bundles to 139.2 kB gzip from `dist/`
- * against 139.8 kB from `src/`, dependencies external on both sides, so tsdown's current
- * chunking is if anything a shade cheaper than the flat graph. The gate is here for the
- * day that stops being true.
+ * costing anything: measured when this gate was written, the same text program came to
+ * 139.2 kB gzip from `dist/` against 139.8 kB from `src/`, dependencies external on both
+ * sides, so tsdown's chunking is if anything a shade cheaper than the flat graph. Only the
+ * gap is the claim — the absolutes have moved since, and the rows the gate prints are the
+ * current ones. It is here for the day the gap stops falling `dist/`'s way.
  *
  * **Two program shapes, not one.** The three `new TsPptx()` rows measure the default class,
  * which is composed with every family and always will be. The `composed-*` rows measure
@@ -48,6 +49,15 @@
  * the whole split exists to make possible. Both shapes are real programs a consumer writes,
  * and the difference between the two `composed-*` rows is what one family costs, on `dist/`
  * bytes, with no stub anywhere.
+ *
+ * **What it is watching for.** Now that a family can be left out, the regression only this
+ * gate can see is a static import from `slide.ts`, `gen/slide/object.ts` or
+ * `package/assemble.ts` into a family module: that puts the family back in the graph of
+ * every program, the ones composed without it included. Nothing else reports it. The types
+ * check, the tests pass, the emitted bytes are identical, and `bundle-size-ratchet.mjs` does
+ * not move, because `dist/` ships exactly what it shipped before. Here, the `composed-*` rows
+ * climb toward the `full` one and the budget fails. `docs/bundle-size.md` states that rule
+ * for a reader and carries the numbers a consumer cares about.
  *
  * **No per-family stub mode.** "What would removing this family save" is a different
  * measurement: it bundles `src/` with whole modules stubbed out, and it is only interesting
@@ -92,7 +102,6 @@ const PNG_1X1 =
  * value is discarded is dead code, and a minifier that proves it drops the call graph
  * behind it, which would turn each row into a measurement of side-effect annotations
  * instead of size. Hygiene uses `console.log` for this; a property assignment is equally
- * undroppable and stays quiet while {@link measureTier} runs the program for real. Hygiene uses `console.log` for this; a property assignment is equally
  * undroppable and stays quiet when {@link measureTier} runs the program for real.
  * @type {Record<string, string[]>}
  */
@@ -140,7 +149,7 @@ const FIGURES = /** @type {const} */ (['initial', 'total'])
 
 /**
  * Where one tier's program is written, and bundled from.
- * @param {string} tier - a key of {@link TIERS}
+ * @param {string} tier - a name in {@link TIER_NAMES}
  * @returns {string}
  */
 const tierDir = (tier) => path.join(WORK, tier)
@@ -162,8 +171,11 @@ function entrySpecifier(tier, file = DIST_ENTRY) {
 }
 
 /**
- * One tier's program source, accumulating every tier declared before it.
- * @param {string} tier - a key of {@link TIERS}
+ * One tier's program source.
+ *
+ * A {@link COMPOSED} name prints a `createPresentation` program that names its own families; a
+ * {@link TIERS} name prints a `TsPptx` program accumulating every tier declared before it.
+ * @param {string} tier - a name in {@link TIER_NAMES}
  * @returns {string}
  */
 export function programFor(tier) {
@@ -202,7 +214,7 @@ export function programFor(tier) {
  * reached falls out of the graph, and the number goes **down** — indistinguishable from the
  * win this gate exists to measure. Running the program first turns that into a failure.
  * The decks are tiny and the whole pass costs a fraction of a second.
- * @param {string} tier - a key of {@link TIERS}
+ * @param {string} tier - a name in {@link TIER_NAMES}
  * @param {string} program - the written program file
  * @returns {Promise<void>}
  */
@@ -230,7 +242,7 @@ async function runProgram(tier, program) {
  * and two tiers cannot read each other's output. `write: false` keeps the bundles in
  * memory — nothing reads them back, and files left behind from an earlier shape of the
  * graph would sit in `.tmp/` forever.
- * @param {string} tier - a key of {@link TIERS}
+ * @param {string} tier - a name in {@link TIER_NAMES}
  * @returns {Promise<{initial: number, total: number, chunks: Array<{name: string, bytes: number}>}>}
  */
 export async function measureTier(tier) {

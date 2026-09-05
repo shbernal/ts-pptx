@@ -25,8 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is core when leaving it out would make the result something other than a deck. Both forms
   write the same deck for the same slides, part for part: this is a reachability change, not a
   second write path. Measured on the bundled programs `bundle-tier:check` gates, a text-only
-  program drops from 98.6 kB to 59.3 kB gzip of blocking download, and the chart family costs
+  program drops from 98.7 kB to 59.4 kB gzip of blocking download, and the chart family costs
   21.1 kB to the program that composes it and nothing to the one that does not.
+  `docs/bundle-size.md` carries the full table, the core tier, and the line between them.
 
   Nothing changes for `import TsPptx from 'pptx-ts'`: it is still composed with every family
   and still authors everything. What changed underneath is that the slide's `add*` methods, the
@@ -243,10 +244,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is now registered without its bytes and resolved during the async media pass, out of a
   module that holds nothing else so the chunker can give it a chunk of its own.
 
-  A bundled browser program writing one text box drops from 144.5 kB to 96.9 kB gzipped in
-  its entry chunk. A program that does write media pays the same total as before, fetched at
-  export rather than at load. Nothing about the artwork or the emitted package changed: the
-  byte-identity gate is clean across all 1312 parts.
+  A bundled browser program writing one text box dropped from 144.5 kB to 96.9 kB gzipped in
+  its entry chunk when this landed. A program that does write media pays the same total as
+  before, fetched at export rather than at load: nothing about when a caller may read the
+  bytes changed, because `write`, `toBytes` and `toParts` were already async. Nothing about
+  the artwork or the emitted package changed either: the byte-identity gate is clean across
+  all 1312 parts.
 
 - **The default video poster is drawn now, and is a quarter the size.** The play-button
   artwork was a pasted base64 blob: 74,380 characters, 55,784 bytes of PNG, for a frame

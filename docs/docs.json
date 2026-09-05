@@ -10,6 +10,7 @@
         "project-target",
         "comparison",
         "runtime-and-package-support",
+        "bundle-size",
         "development",
         "testing"
       ]

@@ -307,6 +307,23 @@ exception is an **empty** registry (see below). Source: `src/measure.ts` (subpat
 
 ### Instance methods (inches/points, reuse registered metrics)
 
+The three methods below come from the `measure` construct family, which is not part of
+the core tier. `new TsPptx()` has them, because the class is composed with every family.
+A deck built with `createPresentation` has them only if it asks:
+
+```ts
+import { createPresentation } from 'pptx-ts'
+import { measure } from 'pptx-ts/families'
+
+const pptx = createPresentation({ use: [measure] })
+```
+
+Calling one without it raises `family/not-composed` naming `measure`, and the type does
+not offer the method in the first place. The export-time bake is unaffected either way:
+`fit:'shrink'` and `fit:'resize'` are applied on the ordinary write path, so a composed
+deck that never measures anything still gets its autofit. See
+[Bundle Size](bundle-size.md#everything-else-is-asked-for).
+
 ```ts
 await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')
 
