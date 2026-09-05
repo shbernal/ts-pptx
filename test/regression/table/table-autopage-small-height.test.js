@@ -18,6 +18,25 @@ function slideCount(zip) {
 	return listEntries(zip).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n)).length
 }
 
+/** How many `<a:tr>` each slide carries, in slide order. */
+async function rowsPerSlide(zip) {
+	const names = listEntries(zip)
+		.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+		.sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]))
+	const counts = []
+	for (const name of names) counts.push(((await readEntry(zip, name)).match(/<a:tr[ />]/g) || []).length)
+	return counts
+}
+
+/** A long table under the unusable-`h` fallback, so every page's height comes from it. */
+async function pagedRowCounts(opts) {
+	const many = Array.from({ length: 120 }, (_, i) => [{ text: `Row ${i} col A` }, { text: `Row ${i} col B` }])
+	const { zip } = await build((p) => {
+		p.addSlide().addTable(many, { x: 0.5, w: 9, h: 0.1, colW: [4.5, 4.5], autoPage: true, fontSize: 12, ...opts })
+	})
+	return rowsPerSlide(zip)
+}
+
 defineRegressionSuite('Table autoPage tiny-height guard', [
 	{
 		name: 'h smaller than one line of text does not crash and emits no empty page (warns instead)',
@@ -149,6 +168,48 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 				const xml = await readEntry(zip, name)
 				assert(xml.includes('<a:tr '), `${name} has a table with no rows`)
 			}
+		},
+	},
+	// The fallback above computes its own start-Y, and it used to compute it differently from the
+	// main path in the same function -- the shape that function's own comment records having
+	// already fixed once. Two of the three cases below are what the difference cost.
+	{
+		name: 'autoPageSlideStartY: 0 is honoured by the fallback, not read as unset',
+		fn: async () => {
+			const stated = await pagedRowCounts({ y: 1.2, autoPageSlideStartY: 0 })
+			const unset = await pagedRowCounts({ y: 1.2 })
+			// Starting a continuation page at the very top of the slide buys height, so it must
+			// fit MORE rows than letting it start at the top margin. The fallback spelled this
+			// `autoPageSlideStartY || topMargin`, and `0` is falsy, so the two were identical.
+			assert(
+				stated[1] > unset[1],
+				`a stated start-Y of 0 must give a taller continuation page; got ${stated} against ${unset}`
+			)
+		},
+	},
+	{
+		name: 'a `y` above the top margin is not lost when the fallback pages',
+		fn: async () => {
+			// RULE: paging must not push a table DOWN past a `y` that is already above the margin.
+			// The main path says so with `Math.min(y, topMargin)`; the fallback had no such clause,
+			// so page one started at `y` and every page after it at the margin -- identical rows
+			// that disagreed about how many of them fit.
+			const counts = await pagedRowCounts({ y: 0.1 })
+			const [first, ...rest] = counts
+			for (const [idx, count] of rest.slice(0, -1).entries())
+				assert(
+					count === first,
+					`continuation page ${idx + 2} holds ${count} rows against the first page's ${first}: ${counts}`
+				)
+		},
+	},
+	{
+		name: 'a `y` below the top margin still starts continuations at the margin',
+		fn: async () => {
+			// The other side of that `Math.min`: `y` below the margin does NOT pull continuation
+			// pages down with it, so they are taller than the first page rather than equal to it.
+			const counts = await pagedRowCounts({ y: 1.2 })
+			assert(counts[1] > counts[0], `continuation pages must reclaim the space below y; got ${counts}`)
 		},
 	},
 ])

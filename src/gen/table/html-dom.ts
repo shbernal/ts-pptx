@@ -891,9 +891,18 @@ export function genTableToSlides(
 		// A: Create new Slide
 		const newSlide = pptx.addSlide(opts.masterTitle ? { masterTitle: opts.masterTitle } : {})
 
-		// B: DESIGN: Reset `y` to startY or margin after first Slide
+		// B: DESIGN: Reset `y` to startY or margin after first Slide.
+		// This is the same rule the pager applies when it decides how much height each page has
+		// (`startYEmu` in `autopage.ts`), and it has to stay the same rule: this one places the
+		// table, that one budgets it, and a disagreement puts a table where it was not measured.
+		// It had drifted on both counts -- `autoPageSlideStartY: 0` is a stated top-of-slide that
+		// `||` discarded, and a `y` already ABOVE the top margin was pushed back down to the
+		// margin rather than kept, which is the space `Math.min` exists to protect.
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
-		if (idxTr > 0) opts.y = opts.autoPageSlideStartY || arrInchMargins[0]
+		if (idxTr > 0)
+			opts.y =
+				opts.autoPageSlideStartY ??
+				(typeof opts.y === 'number' ? Math.min(opts.y, arrInchMargins[0]) : arrInchMargins[0])
 		if (opts.verbose)
 			console.log(
 				`| opts.autoPageSlideStartY: ${opts.autoPageSlideStartY} / arrInchMargins[0]: ${arrInchMargins[0]} => opts.y = ${opts.y}`

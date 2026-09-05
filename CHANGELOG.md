@@ -638,6 +638,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four in the table auto-pager.** They are unrelated to each other and they are listed
+  together because they share one code path and one set of tests.
+
+  - **A word wider than its column cost an extra line.** The wrap pushes the buffered line and
+    starts a new one whenever the next word will not fit; on the first word of a cell the buffer
+    is empty, so a word too wide on its own pushed an *empty* line before it. The text still
+    reached the slide -- the pager concatenates its lines back -- but `_lines.length` is what
+    prices the row, so every such cell was budgeted one line too tall and its table paged early.
+    Twelve identical one-word rows in a 0.4in column took two slides when the word was long and
+    one when it was short. Such a word still overflows its column: nothing here breaks inside a
+    word.
+
+  - **Continuation pages disagreed about where the table starts.** The rule is stated in three
+    places -- the pager's main path, its fallback for an unusably small `h`, and `tableToSlides`,
+    which places what the pager measured -- and only the first was right. The other two read
+    `autoPageSlideStartY: 0` as unset, so a caller asking for the top of the slide got the top
+    margin; and both dropped the clause that keeps a `y` already *above* the top margin from
+    being pushed down to it, so page one held more rows than every page after it. One rule now,
+    read from one place.
+
+  - **`addTable` no longer writes to the cell options you hand it.** The pager stamped the
+    table's `autoPageCharWeight` onto each cell's option bag and `delete`d the key from cells
+    whose table stated none. Your own objects were safe -- `addTable` copies them first -- but
+    the stamping also decided the option's precedence, and it decided it differently in the two
+    places that measure a cell. In the loop that actually chooses where a page breaks, an
+    `autoPageCharWeight` set on a cell alone did nothing at all, although `TableCellProps`
+    declares it. **The cell's value now wins over the table's**, as it does for `fontSize`, and a
+    stated `0` is a stated weight rather than silence to inherit through. A table that sets the
+    option and cells that do not is unaffected.
+
+  - **`colW: []` threw a raw `TypeError`.** An empty array is truthy, so it reached an unseeded
+    `reduce` -- "Reduce of empty array with no initial value", which is not the `TsPptxError`
+    this library promises is the only thing it raises. It is seeded now: an empty array is a
+    caller stating no columns, and falls through to the usable slide width exactly where
+    `colW: undefined` lands. Neither public entry point could reach the throw (`addTable`
+    rejects a mismatched `colW` first, and `tableToSlides` refuses a table with no cells), so
+    this is a guard on the shared core rather than a bug anyone hit.
+
 - **An HTML table's border widths were a third too thick.** `tableToSlides` read a computed
   CSS `border-width` in px and assigned the magnitude straight to `BorderProps.width`, which is
   measured in points. A CSS pixel is 1/96in and a point is 1/72in, so a `1px` border came out

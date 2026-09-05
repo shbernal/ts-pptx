@@ -60,18 +60,32 @@ function workingCell(text: string | TableCellInternal[], options: TableCellProps
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
+ *
+ * `charWeight` arrives as an argument rather than being read off `cell.options` because the
+ * caller used to *stamp* it there: the table's weight was written onto the caller's own cell
+ * options bag, or `delete`d from it when the table stated none. That mutated caller input --
+ * which the chart path has a dedicated guard against -- and it made the option's precedence
+ * differ by call site: the row-height probe read the cell's own value while the main loop had
+ * just overwritten it with the table's. Both callers now resolve it the same way, and the more
+ * specific statement wins, as it does everywhere else in this codebase.
  * @param {TableCellInternal} cell - table cell
  * @param {number} colWidth - table column width (inches)
+ * @param {number} charWeight - resolved `autoPageCharWeight`: the cell's, else the table's, else 0
  * @param {boolean} [verbose] - dump the four wrapping stages; carries `addTable({ verbose })`
  *   down, which is the only stage of the pager that flag did not reach
  * @return {TableRowInternal[]} - cell's text objects grouped into lines
  */
-function parseTextToLines(cell: TableCellInternal, colWidth: number, verbose?: boolean): TableCellInternal[][] {
+function parseTextToLines(
+	cell: TableCellInternal,
+	colWidth: number,
+	charWeight: number,
+	verbose?: boolean
+): TableCellInternal[][] {
 	// FYI: CPL = Width / (font-size / font-constant)
 	// FYI: CHAR:2.3, colWidth:10, fontSize:12 => CPL=138, (actual chars per line in PPT)=145 [14.5 CPI]
 	// FYI: CHAR:2.3, colWidth:7 , fontSize:12 => CPL= 97, (actual chars per line in PPT)=100 [14.3 CPI]
 	// FYI: CHAR:2.3, colWidth:9 , fontSize:16 => CPL= 96, (actual chars per line in PPT)=84  [ 9.3 CPI]
-	const FOCO = 2.3 + (cell.options?.autoPageCharWeight ? cell.options.autoPageCharWeight : 0) // Character Constant
+	const FOCO = 2.3 + charWeight // Character Constant
 	// `colWidth` is inches, so the column's width in points is `colWidth * 72`. This used to be
 	// spelled `(colWidth / EMU_PER_POINT) * EMU_PER_INCH`, which is the same 72 with two EMU
 	// constants that cancel -- except that the detour through EMU is not exact in binary floating
@@ -207,9 +221,16 @@ function parseTextToLines(cell: TableCellInternal, colWidth: number, verbose?: b
 
 		line.forEach((word) => {
 			const wordText = String(word.text || '')
-			// A: create new line when horizontal space is exhausted
+			// A: create new line when horizontal space is exhausted.
+			// `lineCells.length > 0` is the same guard the flush below carries, and for the same
+			// reason: on the first word `strCurrLine` is `''`, so a word wider than the column on
+			// its own fires this branch with nothing buffered and used to push an EMPTY line. The
+			// cell's text survived -- the pager concatenates lines back together -- but its height
+			// did not, because `_lines.length` is what prices the row. Twelve single-word rows in a
+			// 0.4in column paged onto two slides when the word was long and one when it was short.
+			// The word still overflows its column: nothing here breaks inside a word.
 			if (strCurrLine.length + wordText.length > CPL) {
-				parsedLines.push(lineCells)
+				if (lineCells.length > 0) parsedLines.push(lineCells)
 				lineCells = []
 				strCurrLine = ''
 			}
@@ -245,6 +266,25 @@ function resolveCellFontSize(
 ): number {
 	const size = cellOpts?.fontSize ?? tableOpts.fontSize
 	return typeof size === 'number' ? size : DEF_FONT_SIZE
+}
+
+/**
+ * The `autoPageCharWeight` a cell wraps at: its own, else the table's, else none.
+ *
+ * The sibling of {@link resolveCellFontSize}, and named for the same reason -- the two call
+ * sites of {@link parseTextToLines} had resolved this one differently. The row-height probe
+ * read the cell's own value; the main loop stamped the table's over it first, and `delete`d the
+ * cell's when the table stated none, so a weight set on a cell alone was accepted and dropped.
+ * The precedence here is the one every other paired option in this codebase uses.
+ * @param cellOpts - the cell's own options, if any
+ * @param tableOpts - the table's options
+ */
+function resolveCellCharWeight(
+	cellOpts: TableCellProps | undefined | null,
+	tableOpts: TableToSlidesPropsInternal
+): number {
+	const weight = cellOpts?.autoPageCharWeight ?? tableOpts.autoPageCharWeight
+	return typeof weight === 'number' ? weight : 0
 }
 
 // ===== Auto-page engine =====
@@ -315,7 +355,7 @@ function headerRowHeightEmu(
 		colCursor = Math.min(colCursor + cellColspan, numCols)
 		const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
 
-		const lines = parseTextToLines(cell, totalColW, false).length
+		const lines = parseTextToLines(cell, totalColW, resolveCellCharWeight(cellOpts, tableProps), false).length
 		if (lines > maxLines) maxLines = lines
 		const lineHeightEmu = autoPageLineHeightEmu(
 			resolveCellFontSize(cellOpts, tableProps),
@@ -362,25 +402,34 @@ export function getSlidesForTableRows(
 	const tablePropH = getSmartParseNumber(tableProps.h, 'Y', presLayout)
 	let tableCalcW: number = tablePropW
 
+	/**
+	 * Where this page's table starts, in EMU from the top of the slide.
+	 *
+	 * There used to be three rules for two cases. The first page and "every page after it"
+	 * were handled together, then a block gated on `tableRowSlides.length > 1` overrode the
+	 * result -- so despite its own comment it began on the THIRD page, and its first arm
+	 * recomputed exactly what had just been computed. Page 2 therefore got a different usable
+	 * height from pages 3 and up: with `y` above the top margin and an explicit `h`, a
+	 * 60-row table paged 9 / 7 / 9 / 9 / 9 / 9 / 8, which is the same "pages disagree about
+	 * how many identical rows fit" symptom the margin-reset note in `calcSlideTabH` records.
+	 *
+	 * It is a function rather than two expressions because the too-small-height fallback in
+	 * `calcSlideTabH` had spelled the continuation arm its own way and drifted the same way
+	 * twice over: `autoPageSlideStartY || margin` discarded an explicit `0` that the main rule
+	 * honoured, and the `Math.min` clause below was missing outright. Two readings of one rule
+	 * is what the paragraph above is about; there is now one.
+	 */
+	function startYEmu(): number {
+		if (tableRowSlides.length === 0) return tablePropY || inch2Emu(arrInchMargins[0])
+		if (typeof tableProps.autoPageSlideStartY === 'number') return inch2Emu(tableProps.autoPageSlideStartY)
+		// RULE: after the first page the table starts at the top margin rather than at its
+		// own `y` -- unless `y` is ABOVE the margin, in which case paging must not push the
+		// table down and lose the space. Whichever is higher on the slide wins.
+		return inch2Emu(tablePropY ? Math.min(tablePropY / EMU_PER_INCH, arrInchMargins[0]) : arrInchMargins[0])
+	}
+
 	function calcSlideTabH(): void {
-		// Where this page's table starts, in EMU from the top of the slide.
-		//
-		// There used to be three rules for two cases. The first page and "every page after it"
-		// were handled together, then a block gated on `tableRowSlides.length > 1` overrode the
-		// result -- so despite its own comment it began on the THIRD page, and its first arm
-		// recomputed exactly what had just been computed. Page 2 therefore got a different usable
-		// height from pages 3 and up: with `y` above the top margin and an explicit `h`, a
-		// 60-row table paged 9 / 7 / 9 / 9 / 9 / 9 / 8, which is the same "pages disagree about
-		// how many identical rows fit" symptom the margin-reset note below records.
-		const isFirstPage = tableRowSlides.length === 0
-		const emuStartY = isFirstPage
-			? tablePropY || inch2Emu(arrInchMargins[0])
-			: typeof tableProps.autoPageSlideStartY === 'number'
-				? inch2Emu(tableProps.autoPageSlideStartY)
-				: // RULE: after the first page the table starts at the top margin rather than at its
-					// own `y` -- unless `y` is ABOVE the margin, in which case paging must not push the
-					// table down and lose the space. Whichever is higher on the slide wins.
-					inch2Emu(tablePropY ? Math.min(tablePropY / EMU_PER_INCH, arrInchMargins[0]) : arrInchMargins[0])
+		const emuStartY = startYEmu()
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
 		// EXPLICIT-H FIX: an explicit `h` is the table's height (an extent), not a bottom
 		// coordinate, so -- unlike `presLayout.height` -- the start-Y must not be subtracted from
@@ -399,11 +448,7 @@ export function getSlidesForTableRows(
 			tableProps.autoPageLineWeight || 0
 		)
 		if (emuSlideTabH < emuBaseLineH) {
-			const emuStartY =
-				tableRowSlides.length === 0
-					? tablePropY || inch2Emu(arrInchMargins[0])
-					: inch2Emu(tableProps.autoPageSlideStartY || arrInchMargins[0])
-			const fallbackH = presLayout.height - emuStartY - inch2Emu(arrInchMargins[2])
+			const fallbackH = presLayout.height - startYEmu() - inch2Emu(arrInchMargins[2])
 			if (!warnedNoTabH) {
 				warn(
 					'table/autopage-height-too-small',
@@ -485,8 +530,13 @@ export function getSlidesForTableRows(
 
 	// STEP 3: Calculate width using tableProps.colW if possible
 	if (!tablePropW && tableProps.colW) {
+		// The `0` seed is what `colW: []` needs: an empty array is truthy, so it reached an
+		// unseeded `reduce` and threw a raw `TypeError` — a failure this library did not raise as
+		// a `TsPptxError`. Seeded, it totals `0`, which falls through to `usableTableWidthEmu`
+		// exactly where `colW: undefined` lands. That is the reading intended: an empty array is a
+		// caller stating no columns, not a table of width zero.
 		tableCalcW = Array.isArray(tableProps.colW)
-			? tableProps.colW.reduce((p, n) => p + n) * EMU_PER_INCH
+			? tableProps.colW.reduce((p, n) => p + n, 0) * EMU_PER_INCH
 			: tableProps.colW * numCols || 0
 		if (tableProps.verbose)
 			console.log(`| tableCalcW ...................................... = ${tableCalcW / EMU_PER_INCH}`)
@@ -576,24 +626,20 @@ export function getSlidesForTableRows(
 			// E-1: Exempt cells with `rowspan` from increasing lineHeight (or we could create a new slide when unecessary!)
 			if (newCellOptions.rowspan) newCell._lineHeight = 0
 
-			// E-2: The parseTextToLines method uses `autoPageCharWeight`, so inherit from table options
-			// The table's weight replaces whatever the cell carried, and a table that sets none
-			// leaves the cell with no key at all — `parseTextToLines` reads it with `||`, so absent
-			// and a written `undefined` are the same to it, and absent is the spelling this
-			// codebase keeps to. Note this writes onto the CALLER's cell options bag, which is
-			// pre-existing behaviour of `newCellOptions`.
-			if (tableProps.autoPageCharWeight) newCellOptions.autoPageCharWeight = tableProps.autoPageCharWeight
-			else delete newCellOptions.autoPageCharWeight
-
-			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc.
+			// E-2: **MAIN** Parse cell contents into lines based upon col width, font, etc.
 			// A spanning cell is as wide as the columns it covers; the seed keeps a row longer
 			// than the grid from throwing on an empty slice.
 			const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
 
-			// E-4: Create lines based upon available column width
-			newCell._lines = parseTextToLines(cell, totalColW, tableProps.verbose)
+			// E-3: Create lines based upon available column width
+			newCell._lines = parseTextToLines(
+				cell,
+				totalColW,
+				resolveCellCharWeight(cell.options, tableProps),
+				tableProps.verbose
+			)
 
-			// E-5: Add cell to array
+			// E-4: Add cell to array
 			rowCellLines.push(newCell)
 		})
 
