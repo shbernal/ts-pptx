@@ -28,6 +28,11 @@ export class TsPptx extends PresentationCore {
 	 * available anywhere there is a DOM as the free `tableToSlides` on `ts-pptx/html`, which
 	 * also takes the element directly. The in-memory `slide.addTable(rows, opts)` path remains
 	 * the platform-agnostic way to build a table from data you already hold.
+	 *
+	 * That global lookup is why this stays rather than folding into the free function: reaching
+	 * `document` without being handed one is the affordance the browser entry exists to give, and
+	 * it is the one thing the platform-agnostic form deliberately will not do. The conversion
+	 * itself lives in one place either way — both spellings call `genTableToSlides`.
 	 * @param {string} eleId - table HTML element ID
 	 * @param {TableToSlidesProps} options - generation options
 	 */

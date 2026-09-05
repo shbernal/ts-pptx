@@ -2,9 +2,15 @@
  * ts-pptx: the measurement construct family
  *
  * The three presentation methods that measure without authoring anything: `measureText`,
- * `overflowsBox` and `tableLayout`. They are a convenience over what the `ts-pptx/measure` subpath
- * already exports as free functions, and they are the only reason `measure/fit.ts` and
+ * `overflowsBox` and `tableLayout`. They are the only reason `measure/fit.ts` and
  * `measure/table-fit.ts` are reachable from a deck that never asks for a measurement.
+ *
+ * Only one of the three is a second spelling of something the `ts-pptx/measure` subpath also
+ * exports, and even that one differs where it matters: the subpath's `measureText` takes a
+ * `FontMetricsRegistry`, this binds the presentation's own. `overflowsBox` and `tableLayout` have
+ * no subpath equivalent at all -- the first composes two of the subpath's primitives, and the
+ * second needs `pres.presLayout`, which a free function has no way to reach. So the pair is a
+ * primitive and its bound convenience, not one capability written twice.
  *
  * The export-time autofit bake is NOT here. `applyMeasuredFit` (`gen/prepare.ts`) runs on the
  * ordinary write path for `fit:'shrink'` text, so it belongs to the core rather than to a family a
