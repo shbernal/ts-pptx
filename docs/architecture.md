@@ -55,8 +55,8 @@ exports and let this repository own the internal OOXML generation details.
   emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`) that
   travels down the write path with the deck state: from `PackageSource.renderers`,
   through `makeXmlSlide` / `makeXmlLayout` / `makeXmlMaster`, into the walk. The
-  authoring class supplies `ALL_OBJECT_RENDERERS` (`gen/slide/renderers.ts`), the one
-  module that names all ten. This is a bundling constraint written into the code: a
+  presentation assembles that table from the construct families it was composed with,
+  each of which names its own renderer. This is a bundling constraint written into the code: a
   named import inside a reachable function body is retained unconditionally, so a
   dispatch that called `renderChartObject` itself would link the chart emitter into
   every program that writes a slide, text-only ones included. It is passed rather than

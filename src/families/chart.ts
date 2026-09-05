@@ -6,7 +6,9 @@
  * names it by import.
  */
 
-import type { CHART_NAME } from '../enums.js'
+import { SlideObjectType, type CHART_NAME } from '../enums.js'
+import { renderChartObject } from '../gen/slide/objects/chart.js'
+
 import { InvalidOptionError } from '../errors.js'
 import type { ChartMulti, OptsChartData } from '../types/index.js'
 import { addChartDefinition } from '../gen/define/chart.js'
@@ -54,5 +56,8 @@ export const chartFamily: ConstructFamily = {
 		chart(target, child) {
 			addChartDefinition(target, child.type, child.data, child.options || {})
 		},
+	},
+	renderers: {
+		[SlideObjectType.chart]: renderChartObject,
 	},
 }

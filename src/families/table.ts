@@ -6,6 +6,8 @@
  * composed separately by the browser entry.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderTableObject } from '../gen/slide/objects/table.js'
 import { addTableDefinition } from '../gen/define/table.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -33,5 +35,8 @@ export const tableFamily: ConstructFamily = {
 			)
 			for (const made of paged) if (!slide._newAutoPagedSlides.includes(made)) slide._newAutoPagedSlides.push(made)
 		},
+	},
+	renderers: {
+		[SlideObjectType.table]: renderTableObject,
 	},
 }

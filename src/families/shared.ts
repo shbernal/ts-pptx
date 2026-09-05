@@ -25,6 +25,7 @@ import type { CHART_NAME } from '../enums.js'
 import type { ChartMulti, ChartOpts, OptsChartData, SlideMasterObject } from '../types/index.js'
 import type { Slide } from '../types/slide.js'
 import type { PresSlideInternal } from '../types/internal.js'
+import type { RendererTable } from '../gen/slide/objects/shared.js'
 import type SlideBuilder from '../slide.js'
 import { UnsupportedFeatureError } from '../errors.js'
 
@@ -141,12 +142,15 @@ export interface ConstructFamily {
 	readonly authors?: SlideAuthors
 	/** Child descriptors this family recognises inside a slide master or a group. */
 	readonly children?: ChildAuthors
+	/** The shape kinds this family emits XML for, keyed by `SlideObjectType`. */
+	readonly renderers?: RendererTable
 }
 
 /** What a presentation was composed with: every family's contribution, flattened per seam. */
 export interface Composition {
 	readonly authors: SlideAuthors
 	readonly children: ChildAuthors
+	readonly renderers: RendererTable
 }
 
 /**
@@ -159,11 +163,13 @@ export interface Composition {
 export function composeFamilies(families: readonly ConstructFamily[]): Composition {
 	const authors: SlideAuthors = {}
 	const children: ChildAuthors = {}
+	const renderers: RendererTable = {}
 	for (const family of families) {
 		Object.assign(authors, family.authors)
 		Object.assign(children, family.children)
+		Object.assign(renderers, family.renderers)
 	}
-	return { authors, children }
+	return { authors, children, renderers }
 }
 
 /**

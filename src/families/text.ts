@@ -6,6 +6,8 @@
  * exception in it is a list nobody trusts.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderTextObject } from '../gen/slide/objects/text.js'
 import { addTextDefinition } from '../gen/define/text.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -37,5 +39,11 @@ export const textFamily: ConstructFamily = {
 				false
 			)
 		},
+	},
+	// A text box and a layout placeholder are one emitter with two entry kinds: the placeholder
+	// differences it does draw come off `ctx.placeholder`, not off the object's `_type`.
+	renderers: {
+		[SlideObjectType.placeholder]: renderTextObject,
+		[SlideObjectType.text]: renderTextObject,
 	},
 }

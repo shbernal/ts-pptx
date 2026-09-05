@@ -5,6 +5,8 @@
  * inside the `.pptx`, so a double-click opens the source document in place.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderOleObject } from '../gen/slide/objects/ole.js'
 import { addOleObjectDefinition } from '../gen/define/ole.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -14,5 +16,8 @@ export const oleFamily: ConstructFamily = {
 		addOleObject(slide, options) {
 			addOleObjectDefinition(slide, options)
 		},
+	},
+	renderers: {
+		[SlideObjectType.oleObject]: renderOleObject,
 	},
 }

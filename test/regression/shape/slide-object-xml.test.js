@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
-import { ALL_OBJECT_RENDERERS } from '../../../src/gen/slide/renderers.ts'
+import { composeFamilies } from '../../../src/families/shared.ts'
+import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
+
+/** Every renderer the full authoring surface writes with, assembled the way a presentation does. */
+const ALL_OBJECT_RENDERERS = composeFamilies(ALL_CONSTRUCT_FAMILIES).renderers
 import { SlideObjectType } from '../../../src/enums.ts'
 import { InternalError } from '../../../src/errors.ts'
 
@@ -401,10 +405,28 @@ describe('relationships', () => {
 
 describe('renderer table', () => {
 	// The dispatch is handed its renderers rather than importing them, so that a program links only
-	// the shape families it writes. Nothing in the published surface can reach a table with a
-	// family missing — `ALL_OBJECT_RENDERERS` is complete by its type — so these drive the walk
-	// directly, which is the only place the partial case exists.
+	// the shape families it writes. A table with a family missing is what a presentation composed
+	// without that family writes with; these drive the walk directly rather than through a
+	// composition, so the partial case is stated rather than arranged.
 	const textOnly = { [SlideObjectType.text]: ALL_OBJECT_RENDERERS[SlideObjectType.text] }
+
+	test('the full family list renders every shape kind', () => {
+		// A composed table is partial by construction, so its completeness is no longer something the
+		// type can promise. These five enum members are not shapes: `group` recurses back into the walk
+		// and belongs to the dispatch, and the other four emit nothing at all. A new member fails here
+		// until someone says which kind it is -- the same question `RenderedObjectType` asks in `src/`.
+		const notShapes = new Set([
+			SlideObjectType.group,
+			SlideObjectType.hyperlink,
+			SlideObjectType.notes,
+			SlideObjectType.online,
+			SlideObjectType.tablecell,
+		])
+		for (const kind of Object.values(SlideObjectType)) {
+			if (notShapes.has(kind)) continue
+			expect(typeof ALL_OBJECT_RENDERERS[kind], `no family renders ${kind}`).toBe('function')
+		}
+	})
 
 	test('a partial table emits the families it does carry', () => {
 		const xml = slideObjectToXml(mkSlide([textObj()]), textOnly)

@@ -6,6 +6,8 @@
  * section list the slide carries.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderZoomObject } from '../gen/slide/objects/zoom.js'
 import { addSectionZoomDefinition, addSlideZoomDefinition, addSummaryZoomDefinition } from '../gen/define/zoom.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -21,5 +23,8 @@ export const zoomFamily: ConstructFamily = {
 		addSummaryZoom(slide, options) {
 			addSummaryZoomDefinition(slide, options, slide.getSections())
 		},
+	},
+	renderers: {
+		[SlideObjectType.zoom]: renderZoomObject,
 	},
 }

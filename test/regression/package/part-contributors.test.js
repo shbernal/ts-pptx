@@ -14,7 +14,8 @@
 import { describe, test } from 'vitest'
 import TsPptx from '../../../src/node.ts'
 import { buildPackageParts } from '../../../src/package/assemble.ts'
-import { ALL_OBJECT_RENDERERS } from '../../../src/gen/slide/renderers.ts'
+import { composeFamilies } from '../../../src/families/shared.ts'
+import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
 import { ALL_PART_CONTRIBUTORS } from '../../../src/package/contributors.ts'
 import { chartContributor } from '../../../src/package/parts/chart.ts'
 import { assert, assertEqual } from '../../helpers.js'
@@ -49,7 +50,7 @@ function sourceWith(pres, partContributors) {
 		presentation: pres.internalPresentation,
 		customProperties: pres._customProperties,
 		fontMetrics: pres._fontMetrics,
-		renderers: ALL_OBJECT_RENDERERS,
+		renderers: composeFamilies(ALL_CONSTRUCT_FAMILIES).renderers,
 		partContributors,
 	}
 }

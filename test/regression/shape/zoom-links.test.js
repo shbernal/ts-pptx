@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
-import { ALL_OBJECT_RENDERERS } from '../../../src/gen/slide/renderers.ts'
+import { composeFamilies } from '../../../src/families/shared.ts'
+import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
+
+/** Every renderer the full authoring surface writes with, assembled the way a presentation does. */
+const ALL_OBJECT_RENDERERS = composeFamilies(ALL_CONSTRUCT_FAMILIES).renderers
 import { SlideObjectType } from '../../../src/enums.ts'
 
 // Byte-pin for Slide / Section / Summary Zoom (dn-zoom-links). These emit `<mc:AlternateContent>`

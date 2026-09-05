@@ -5,6 +5,8 @@
  * than with the library; this is the rest of it.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderMediaObject } from '../gen/slide/objects/media.js'
 import { addMediaDefinition } from '../gen/define/media.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -14,5 +16,8 @@ export const mediaFamily: ConstructFamily = {
 		addMedia(slide, options) {
 			addMediaDefinition(slide, options)
 		},
+	},
+	renderers: {
+		[SlideObjectType.media]: renderMediaObject,
 	},
 }

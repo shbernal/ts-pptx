@@ -4,6 +4,8 @@
  * Raster and SVG pictures, and the `image` descriptor a slide master or a group is written with.
  */
 
+import { SlideObjectType } from '../enums.js'
+import { renderImageObject } from '../gen/slide/objects/image.js'
 import { addImageDefinition } from '../gen/define/image.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -18,5 +20,8 @@ export const imageFamily: ConstructFamily = {
 		image(target, child) {
 			addImageDefinition(target, child)
 		},
+	},
+	renderers: {
+		[SlideObjectType.image]: renderImageObject,
 	},
 }
