@@ -1,4 +1,5 @@
 import PresentationCore from './presentation.js'
+import { ALL_CONSTRUCT_FAMILIES } from './entry-families.js'
 import { createNodeRuntime } from './runtime/node.js'
 
 /**
@@ -11,7 +12,7 @@ import { createNodeRuntime } from './runtime/node.js'
  */
 export class TsPptx extends PresentationCore {
 	constructor() {
-		super(createNodeRuntime())
+		super(createNodeRuntime(), ALL_CONSTRUCT_FAMILIES)
 	}
 }
 

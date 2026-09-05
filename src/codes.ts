@@ -345,6 +345,8 @@ export type UnsupportedFeatureErrorCode =
 	// Runtime capabilities
 	| 'zip/filesystem-unavailable'
 	| 'runtime/file-output-unavailable'
+	// A construct family this presentation was not composed with
+	| 'family/not-composed'
 
 /**
  * Conditions carried by `PackageReadError`: the bytes handed to the library are not a package it

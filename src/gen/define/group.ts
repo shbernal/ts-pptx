@@ -6,46 +6,47 @@
  * top-level objects into a group, and `addChildDefinition` is the shared child-descriptor
  * dispatch (also used by the slide-master definition).
  */
-import { ShapeType, SlideObjectType } from '../../enums.js'
+import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
-import { addChartDefinition } from './chart.js'
-import { addImageDefinition } from './image.js'
-import { addShapeDefinition } from './shape.js'
-import { addTextDefinition } from './text.js'
+import type { ChildAuthors, ChildDescriptorKey } from '../../families/shared.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
 
 /**
  * Dispatch a key-tagged child-object descriptor (`{ text }`, `{ image }`, `{ shape }`, …) to the
- * matching `add*Definition`. Shared by `createSlideMaster` (slide master `objects`) and
+ * family that recognizes it. Shared by `createSlideMaster` (slide master `objects`) and
  * `addGroupDefinition` (group children) so the descriptor mapping lives in one place.
+ *
+ * The mapping is handed in rather than spelled here. It used to be an `if` chain naming four
+ * `add*Definition` functions, which put the chart definer — and every plot module under it — in the
+ * graph of any program that can define a slide master, which is all of them.
  *
  * `placeholder` is intentionally not handled here — it is master-specific and needs the object's
  * index for `_placeholderIdx`, so `createSlideMaster` handles that case itself.
  * @param target - slide (or master) the object is appended to
  * @param object - the child descriptor
+ * @param children - the child-descriptor authors this presentation was composed with
  * @returns `true` if the descriptor was recognized and added, else `false`
  */
-export function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject | GroupChildProps): boolean {
-	if ('chart' in object) addChartDefinition(target, object.chart.type, object.chart.data, object.chart.options || {})
-	else if ('image' in object) addImageDefinition(target, object.image)
-	else if ('line' in object) addShapeDefinition(target, ShapeType.line, object.line)
-	else if ('rect' in object) addShapeDefinition(target, ShapeType.rect, object.rect)
-	else if ('roundRect' in object) addShapeDefinition(target, ShapeType.roundRect, object.roundRect)
-	else if ('shape' in object) addShapeDefinition(target, object.shape.type, object.shape.options || {})
-	else if ('text' in object)
-		addTextDefinition(
-			target,
-			Array.isArray(object.text.text) ? object.text.text : [{ text: object.text.text }],
-			object.text.options || {},
-			false
-		)
-	else return false
-	return true
+export function addChildDefinition(
+	target: PresSlideInternal,
+	object: SlideMasterObject | GroupChildProps,
+	children: ChildAuthors
+): boolean {
+	// A descriptor carries exactly one key, so this reads it rather than testing the table's keys in
+	// whatever order the family list produced them: which family was composed first is not allowed to
+	// decide anything.
+	for (const key of Object.keys(object) as ChildDescriptorKey[]) {
+		const author = children[key] as ((t: PresSlideInternal, child: unknown) => void) | undefined
+		if (!author) continue
+		author(target, (object as Record<string, unknown>)[key])
+		return true
+	}
+	return false
 }
 
 /**
@@ -64,15 +65,21 @@ export function addChildDefinition(target: PresSlideInternal, object: SlideMaste
  * @param target - slide the group's leaf children register rels against
  * @param children - the child-object descriptors
  * @param opts - group position/size/name options
+ * @param childAuthors - the child-descriptor authors this presentation was composed with
  */
-function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): SlideObject {
+function buildGroupObject(
+	target: PresSlideInternal,
+	children: GroupChildProps[],
+	opts: GroupProps,
+	childAuthors: ChildAuthors
+): SlideObject {
 	const groupObjects: SlideObject[] = []
 
 	;(children || []).forEach((child) => {
 		// Nested group: recurse and embed the child group object directly (no slide splice — its own
 		// leaf descendants still register against `target` inside the recursive call).
 		if ('group' in child) {
-			groupObjects.push(buildGroupObject(target, child.group.children, child.group.options || {}))
+			groupObjects.push(buildGroupObject(target, child.group.children, child.group.options || {}, childAuthors))
 			return
 		}
 		// Reject object types grouping does not support yet (rels/ID/transform work pending).
@@ -84,7 +91,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		// correctly — grouped children still reference slide-level relationships), then move the
 		// just-appended object(s) off the slide's top-level list into this group's child list.
 		const before = target._slideObjects.length
-		if (!addChildDefinition(target, child)) {
+		if (!addChildDefinition(target, child, childAuthors)) {
 			warn(
 				'group/unrecognized-child',
 				`addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`
@@ -151,9 +158,15 @@ function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[],
  * @param target - slide the group is added to
  * @param children - the child-object descriptors
  * @param opts - group position/size/name options
+ * @param childAuthors - the child-descriptor authors this presentation was composed with
  */
-export function addGroupDefinition(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): void {
-	target._slideObjects.push(buildGroupObject(target, children, opts))
+export function addGroupDefinition(
+	target: PresSlideInternal,
+	children: GroupChildProps[],
+	opts: GroupProps,
+	childAuthors: ChildAuthors
+): void {
+	target._slideObjects.push(buildGroupObject(target, children, opts, childAuthors))
 }
 
 /**

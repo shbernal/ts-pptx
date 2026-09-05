@@ -1,4 +1,5 @@
 import PresentationCore from './presentation.js'
+import { ALL_CONSTRUCT_FAMILIES } from './entry-families.js'
 import { createNeutralRuntime } from './runtime/neutral.js'
 
 /**
@@ -15,7 +16,7 @@ import { createNeutralRuntime } from './runtime/neutral.js'
  */
 export class TsPptx extends PresentationCore {
 	constructor() {
-		super(createNeutralRuntime())
+		super(createNeutralRuntime(), ALL_CONSTRUCT_FAMILIES)
 	}
 }
 

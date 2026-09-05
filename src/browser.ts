@@ -1,4 +1,5 @@
 import PresentationCore from './presentation.js'
+import { ALL_CONSTRUCT_FAMILIES } from './entry-families.js'
 import { createBrowserRuntime } from './runtime/browser.js'
 import { genTableToSlides } from './gen/table/html-dom.js'
 import type { TableToSlidesProps } from './types/index.js'
@@ -13,7 +14,7 @@ import type { TableToSlidesProps } from './types/index.js'
  */
 export class TsPptx extends PresentationCore {
 	constructor() {
-		super(createBrowserRuntime())
+		super(createBrowserRuntime(), ALL_CONSTRUCT_FAMILIES)
 	}
 
 	/**

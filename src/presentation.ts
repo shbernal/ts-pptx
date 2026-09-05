@@ -59,6 +59,9 @@ import type { ExtractedSlides } from './read/api/presentation-types.js'
 
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
+// What this presentation can author: one list of construct families, composed once here. See
+// `families/shared.ts` for why it is a list and not a set of imports.
+import { composeFamilies, type Composition, type ConstructFamily } from './families/shared.js'
 import { getUuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 // This class is the full authoring surface, so it writes with the full renderer table. The two
@@ -351,14 +354,18 @@ export default class PresentationCore {
 
 	private readonly _runtime: RuntimeAdapter
 
+	/** The construct families this presentation was composed with, flattened per seam. */
+	readonly #composition: Composition
+
 	/** Write-side font metrics for measured text fit (`fit:'shrink'`). @see registerFontMetrics */
 	private readonly _fontMetrics = new FontMetricsRegistry()
 
 	/** Author-side embedded font faces, accumulated by {@link embedFont} and emitted at write time. */
 	private readonly _embeddedFonts: EmbeddedFont[] = []
 
-	constructor(runtime: RuntimeAdapter) {
+	constructor(runtime: RuntimeAdapter, families: readonly ConstructFamily[]) {
 		this._runtime = runtime
+		this.#composition = composeFamilies(families)
 		// Set available layouts
 		this.LAYOUTS = {
 			LAYOUT_4x3: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_4x3),
@@ -837,6 +844,8 @@ export default class PresentationCore {
 			getSlide: this.getSlide,
 			getSections: this.getSections,
 			presLayout: this.presLayout,
+			authors: this.#composition.authors,
+			childAuthors: this.#composition.children,
 			setSlideNum: this.setSlideNumber,
 			slideId: this._slides.length + 256,
 			slideRId: this._slides.length + 2,
@@ -968,7 +977,7 @@ export default class PresentationCore {
 		}
 
 		// STEP 1: Create the Slide Master/Layout
-		createSlideMaster(propsClone, newLayout)
+		createSlideMaster(propsClone, newLayout, this.#composition.children)
 
 		// STEP 1b: Master text styles (<p:txStyles>) live on the single shared slide master, not per-layout.
 		// Merge each provided group (title/body/other) onto the master, last-call-wins (deck-wide).

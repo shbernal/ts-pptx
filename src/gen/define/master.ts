@@ -8,19 +8,21 @@
 import type { SlideMasterProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { addChildDefinition } from './group.js'
+import type { ChildAuthors } from '../../families/shared.js'
 import { addTextDefinition } from './text.js'
 
 /**
  * Transforms a slide definition to a slide object that is then passed to the XML transformation process.
  * @param {SlideMasterProps} props - slide definition
  * @param {PresSlideInternal|SlideLayoutInternal} target - empty slide object that should be updated by the passed definition
+ * @param {ChildAuthors} children - the child-descriptor authors this presentation was composed with
  */
-export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutInternal): void {
+export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutInternal, children: ChildAuthors): void {
 	// STEP 1: Add all Slide Master objects in the order they were given
 	if (props.objects && Array.isArray(props.objects) && props.objects.length > 0) {
 		props.objects.forEach((object, idx) => {
 			const tgt = target as PresSlideInternal
-			if (addChildDefinition(tgt, object)) {
+			if (addChildDefinition(tgt, object, children)) {
 				// handled by the shared chart/image/shape/text dispatch
 			} else if ('placeholder' in object) {
 				const placeholder = object.placeholder

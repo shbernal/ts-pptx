@@ -1,38 +1,26 @@
 /**
  * ts-pptx: SlideBuilder — write-side implementation of the public `Slide` interface
+ *
+ * What a slide is, and nothing about what can go on one. Every `add*` method comes from the
+ * construct family that owns it, bound onto the instance from the list the presentation was
+ * composed with (`families/shared.ts`); this class owns the slide's own state — its rels, its
+ * objects, its number, its background — and the geometry accessors over it.
+ *
+ * The methods are bound rather than written here because a class method body is never shaken: one
+ * that called `addChartDefinition` would put every plot module under `gen/chart/` in the graph of
+ * any program that can make a slide, which is all of them.
  */
 
-import type { CHART_NAME, SHAPE_NAME } from './enums.js'
 import type {
 	AddSlideProps,
 	AnimationProps,
 	BackgroundProps,
-	CommentProps,
-	ConnectorProps,
-	GroupChildProps,
-	GroupProps,
 	HexColor,
-	ChartMulti,
-	ChartOpts,
 	SlideComment,
-	ImageProps,
-	MediaProps,
-	Model3dProps,
-	NotesProps,
-	OleObjectProps,
 	PresLayout,
-	ShapeProps,
 	SlideNumberProps,
 	SlideObjectInfo,
-	OptsChartData,
-	TableProps,
-	TableRow,
-	TextProps,
-	TextPropsOptions,
 	TransitionProps,
-	SlideZoomProps,
-	SectionZoomProps,
-	SummaryZoomProps,
 } from './types/index.js'
 import type { Slide } from './types/slide.js'
 import type {
@@ -46,21 +34,15 @@ import type {
 } from './types/internal.js'
 import { emuToInches } from './units.js'
 import { decodeXmlAttrValue } from './gen/utils.js'
-import { InvalidOptionError } from './errors.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
-import { addChartDefinition } from './gen/define/chart.js'
-import { addCommentDefinition } from './gen/define/comment.js'
-import { addConnectorDefinition } from './gen/define/connector.js'
-import { addGroupDefinition, groupObjectsDefinition, isGroupableObject } from './gen/define/group.js'
-import { addImageDefinition } from './gen/define/image.js'
-import { addMediaDefinition } from './gen/define/media.js'
-import { addModel3dDefinition } from './gen/define/model3d.js'
-import { addNotesDefinition } from './gen/define/notes.js'
-import { addOleObjectDefinition } from './gen/define/ole.js'
-import { addShapeDefinition } from './gen/define/shape.js'
-import { addTableDefinition } from './gen/define/table.js'
-import { addTextDefinition } from './gen/define/text.js'
-import { addSectionZoomDefinition, addSlideZoomDefinition, addSummaryZoomDefinition } from './gen/define/zoom.js'
+import { isGroupableObject } from './gen/define/group.js'
+import {
+	familyMethodUnavailable,
+	SLIDE_METHOD_FAMILIES,
+	type ChildAuthors,
+	type SlideAuthorMethod,
+	type SlideAuthors,
+} from './families/shared.js'
 
 /**
  * Project one authored render-object onto the public {@link SlideObjectInfo}, recursing into a
@@ -87,12 +69,6 @@ function toSlideObjectInfo(obj: SlideObject): SlideObjectInfo {
 	}
 }
 
-/** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
-function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] {
-	const first = arg[0] as Partial<ChartMulti> | undefined
-	return !!first && typeof first === 'object' && 'type' in first && 'data' in first
-}
-
 export default class SlideBuilder {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
 
@@ -114,6 +90,38 @@ export default class SlideBuilder {
 	public _newAutoPagedSlides: PresSlideInternal[] = []
 	public _animations: AnimationProps[] = []
 
+	/**
+	 * The child-descriptor authors this presentation was composed with, for the group family: a
+	 * group's children resolve through the same table a slide master's `objects` do, so a group can
+	 * hold exactly the kinds this presentation can author.
+	 */
+	public readonly _childAuthors: ChildAuthors
+
+	/**
+	 * The authoring methods, one per construct family, bound in the constructor.
+	 *
+	 * Declared here and assigned there: the signature each one keeps is the public one on
+	 * {@link Slide}, and a method the presentation was not composed with still answers — with the
+	 * name of the family it needs, rather than `undefined is not a function`.
+	 */
+	declare public addAnimation: Slide['addAnimation']
+	declare public addChart: Slide['addChart']
+	declare public addComment: Slide['addComment']
+	declare public addConnector: Slide['addConnector']
+	declare public addGroup: Slide['addGroup']
+	declare public addImage: Slide['addImage']
+	declare public addMedia: Slide['addMedia']
+	declare public addModel3d: Slide['addModel3d']
+	declare public addNotes: Slide['addNotes']
+	declare public addOleObject: Slide['addOleObject']
+	declare public addSectionZoom: Slide['addSectionZoom']
+	declare public addShape: Slide['addShape']
+	declare public addSlideZoom: Slide['addSlideZoom']
+	declare public addSummaryZoom: Slide['addSummaryZoom']
+	declare public addTable: Slide['addTable']
+	declare public addText: Slide['addText']
+	declare public groupObjects: Slide['groupObjects']
+
 	constructor(params: {
 		addSlide: (options?: AddSlideProps) => PresSlideInternal
 		getSlide: (slideNum: number) => PresSlideInternal | undefined
@@ -124,6 +132,8 @@ export default class SlideBuilder {
 		slideRId: number
 		slideNumber: number
 		slideLayout?: SlideLayoutInternal
+		authors: SlideAuthors
+		childAuthors: ChildAuthors
 	}) {
 		this.addSlide = params.addSlide
 		this.getSlide = params.getSlide
@@ -139,11 +149,36 @@ export default class SlideBuilder {
 		this._slideLayout = params.slideLayout || null
 		this._slideNum = params.slideNumber
 		this._slideObjects = []
+		this._childAuthors = params.childAuthors
+		this.#bindFamilyMethods(params.authors)
 		/** NOTE: Slide Numbers: In order for Slide Numbers to function they need to be in all 3 files: master/layout/slide
 		 * `defineSlideMaster` and `addNewSlide.slideNumber` will add {slideNumber} to `this.masterSlide` and `this.slideLayouts`
 		 * so, lastly, add to the Slide now.
 		 */
 		this._slideNumberProps = this._slideLayout?._slideNumberProps ? this._slideLayout._slideNumberProps : null
+	}
+
+	/**
+	 * Put this presentation's family methods on the slide.
+	 *
+	 * Per instance rather than on the prototype: the family set belongs to the presentation, not to
+	 * the class, and two presentations composed differently in one process each get their own. A
+	 * slide count is small enough that per-instance function properties are not a memory question.
+	 *
+	 * Chaining is applied here, once, rather than by each author: every `add*` answers the slide, so
+	 * an author has nothing to say about the return value and cannot get it wrong.
+	 */
+	#bindFamilyMethods(authors: SlideAuthors): void {
+		const slide = this as unknown as Record<SlideAuthorMethod, unknown>
+		for (const method of Object.keys(SLIDE_METHOD_FAMILIES) as SlideAuthorMethod[]) {
+			const author = authors[method] as ((target: SlideBuilder, ...args: never[]) => void) | undefined
+			slide[method] = author
+				? (...args: never[]): SlideBuilder => {
+						author(this, ...args)
+						return this
+					}
+				: (): never => familyMethodUnavailable(method)
+		}
 	}
 
 	/**
@@ -251,306 +286,5 @@ export default class SlideBuilder {
 	/** Slide height in inches (resolved from the active presentation layout). */
 	public get height(): number {
 		return emuToInches(this._presLayout.height)
-	}
-
-	/**
-	 * Add chart to Slide
-	 * @param {OptsChartData[]} data - chart data
-	 * @param {ChartOpts & { type: CHART_NAME }} options - chart options; `type` is required here
-	 * @return {SlideBuilder} this Slide
-	 */
-	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): SlideBuilder
-	/**
-	 * Add a multi-type (combo) chart to Slide
-	 * @param {ChartMulti[]} charts - per-type chart definitions (each carries its own `type`/`data`)
-	 * @param {ChartOpts} options - shared chart options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addChart(charts: ChartMulti[], options?: ChartOpts): SlideBuilder
-	addChart(arg1: OptsChartData[] | ChartMulti[], arg2?: ChartOpts & { type?: CHART_NAME }): SlideBuilder {
-		let type: CHART_NAME | ChartMulti[]
-		let data: OptsChartData[]
-		let options: ChartOpts
-
-		if (Array.isArray(arg1) && isMultiChart(arg1)) {
-			// Multi-type (combo) chart: addChart(ChartMulti[], options?)
-			type = arg1
-			data = []
-			options = arg2 ?? {}
-		} else {
-			// Canonical single-type form: addChart(data, { type, ...options })
-			data = arg1 ?? []
-			options = arg2 ?? {}
-			const optType = (options as ChartOpts & { type?: CHART_NAME }).type
-			if (!optType) {
-				throw new InvalidOptionError(
-					'chart/missing-type',
-					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: ChartType.bar }).'
-				)
-			}
-			type = optType
-		}
-
-		// `_type` is set by `addChartDefinition` on its own copy of the options — stamping it here
-		// too would write an internal field onto the caller's object for no gain.
-		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
-		if (Array.isArray(type)) {
-			addChartDefinition(this, type, options, undefined)
-		} else {
-			addChartDefinition(this, type, data, options)
-		}
-		return this
-	}
-
-	/**
-	 * Add image to Slide
-	 * @param {ImageProps} options - image options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addImage(options: ImageProps): SlideBuilder {
-		addImageDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add media (audio/video) to Slide
-	 * @param {MediaProps} options - media options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addMedia(options: MediaProps): SlideBuilder {
-		addMediaDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add an embedded OLE object (PowerPoint's Insert ▸ Object ▸ Create from File) to the Slide.
-	 *
-	 * The payload's bytes ship inside the `.pptx`, so a double-click in PowerPoint opens the source
-	 * document in place. Supply a `cover` screenshot for what the slide shows; without one a neutral
-	 * gray placeholder is embedded (PowerPoint draws the live object over it, other consumers do not).
-	 * @param {OleObjectProps} options - OLE object options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addOleObject({ path: 'budget.xlsx', cover: { path: 'budget.png' }, x: 1, y: 1, w: 6, h: 3 })
-	 */
-	addOleObject(options: OleObjectProps): SlideBuilder {
-		addOleObjectDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add an embedded 3D model (PowerPoint's Insert ▸ 3D Models) to the Slide.
-	 *
-	 * The `.glb` bytes ship inside the `.pptx`, so PowerPoint 2019+ renders the model live and lets
-	 * the viewer orbit it. Everything else — older PowerPoint, thumbnails, PDF export — draws the
-	 * `preview` picture instead; without one a neutral gray placeholder is embedded.
-	 *
-	 * Most models also need `meterPerModelUnit`: ts-pptx does not parse the `.glb`, so it cannot
-	 * measure the bounding box PowerPoint would have scaled the scene by. Set it to
-	 * `1 / <largest bounding-box dimension in model units>`.
-	 * @param {Model3dProps} options - 3D model options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addModel3d({ path: 'engine.glb', preview: { path: 'engine.png' }, x: 1, y: 1, w: 6, h: 4 })
-	 */
-	addModel3d(options: Model3dProps): SlideBuilder {
-		addModel3dDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add speaker notes to Slide
-	 * @param {string | NotesProps | NotesProps[]} notes - notes text, or rich runs with inline
-	 * formatting / hyperlinks. A plain string is the single-run case; pass run objects to add
-	 * hyperlinks (external `url` only) or per-run bold/italic/underline/color/fontSize/fontFace.
-	 * @example slide.addNotes('Remember to smile')
-	 * @example slide.addNotes([{ text: 'See ' }, { text: 'the docs', options: { hyperlink: { url: 'https://example.com/' } } }])
-	 * @return {SlideBuilder} this Slide
-	 */
-	addNotes(notes: string | NotesProps | NotesProps[]): SlideBuilder {
-		addNotesDefinition(this, notes)
-		return this
-	}
-
-	/**
-	 * Add a review comment to the Slide (legacy PowerPoint comment).
-	 * Comments by the same author (name + initials) are grouped under one author entry in the deck.
-	 * @param {CommentProps} options - comment author, text, and optional marker position/date
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addComment({ author: 'Ada Lovelace', text: 'Tighten this headline', x: 1, y: 0.5 })
-	 */
-	addComment(options: CommentProps): SlideBuilder {
-		addCommentDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add shape to Slide
-	 * @param {SHAPE_NAME} shapeName - shape name
-	 * @param {ShapeProps} options - shape options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): SlideBuilder {
-		// `shapeName` is a plain string preset name (e.g. `ShapeType.rect` === "rect").
-		addShapeDefinition(this, shapeName, options || {})
-		return this
-	}
-
-	/**
-	 * Group slide objects into a single PowerPoint group (`<p:grpSp>`).
-	 *
-	 * Children keep their slide-absolute `x/y/w/h` (identity child coordinate space at every depth),
-	 * and the objects become one selectable/movable group in PowerPoint. A `group` child nests
-	 * another group. The group's frame is all-or-nothing: pass all four of `options.x/y/w/h`, or none
-	 * to have the bounds be the bounding box of the children (recursing into nested groups). A
-	 * partial frame warns and uses auto-bounds. Charts, media, tables, and placeholders are not
-	 * supported as group children yet (each is skipped with a warning).
-	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`, `{ group }`)
-	 * @param {GroupProps} options - group position/size/name options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } }, { text: { text: 'Hi', options: { x: 1, y: 1, w: 2, h: 1 } } }])
-	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 4, h: 3 } }, { group: { children: [{ text: { text: 'Hi', options: { x: 1.5, y: 1.5, w: 2, h: 1 } } }] } }])
-	 */
-	addGroup(children: GroupChildProps[], options?: GroupProps): SlideBuilder {
-		addGroupDefinition(this, children, options || {})
-		return this
-	}
-
-	/**
-	 * Group objects already added to this slide into a single PowerPoint group (`<p:grpSp>`),
-	 * addressed by their `objectName`. The counterpart to {@link SlideBuilder.addGroup} for slides composed
-	 * from independent renderers, where the objects exist already and replaying their descriptors just
-	 * to group them is not practical.
-	 *
-	 * Grouping is visually a no-op: children keep their slide-absolute geometry and their relative
-	 * z-order, and the group takes the topmost member's former slot in the stack. Name the objects in
-	 * any order — z-order decides the children's order, not the array. Groups may be named, so groups
-	 * can be nested into larger logical groups. Charts, media, tables, and placeholders cannot be
-	 * grouped yet.
-	 *
-	 * Unlike `addGroup()`, every problem throws: a name that matches nothing, matches an object
-	 * already inside another group, is ambiguous across two same-named objects, or names an
-	 * ungroupable kind. Each would otherwise leave the object loose on the slide, silently.
-	 * @param {string[]} objectNames - `objectName`s of the top-level objects to group
-	 * @param {GroupProps} options - group position/size/name options (frame is all-or-nothing, as with `addGroup`)
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addText('Hi', { x: 1, y: 1, w: 2, h: 1, objectName: 'Caption' })
-	 * @example slide.addImage({ path: 'logo.png', x: 1, y: 2, w: 2, h: 2, objectName: 'Logo' })
-	 * @example slide.groupObjects(['Caption', 'Logo'], { objectName: 'Branding' })
-	 */
-	groupObjects(objectNames: string[], options?: GroupProps): SlideBuilder {
-		groupObjectsDefinition(this, objectNames, options || {})
-		return this
-	}
-
-	/**
-	 * Add a connector (a line drawn between two points, emitted as a PowerPoint `<p:cxnSp>`).
-	 * @param {ConnectorProps} options - connector endpoints (`x1,y1,x2,y2`) and line styling
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, endArrowType: 'triangle' })
-	 */
-	addConnector(options: ConnectorProps): SlideBuilder {
-		addConnectorDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add table to Slide
-	 * @param {TableRow[]} tableRows - table rows
-	 * @param {TableProps} options - table options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addTable(tableRows: TableRow[], options?: TableProps): SlideBuilder {
-		// Appended, not assigned. Two `addTable` calls on one slide used to leave the accessor
-		// reporting only the second table's continuations; the first table's were in the deck and
-		// invisible through the one API that names them.
-		//
-		// Appended by identity, though. A table pages onto the slides after this one whether it
-		// created them or found them already there, so a second table on the same slide usually
-		// lands on the first table's continuations -- the same slide, spilled onto twice. The
-		// accessor names slides so a caller can address them; naming one twice is noise, not
-		// information.
-		const paged = addTableDefinition(
-			this,
-			tableRows,
-			options || {},
-			this._slideLayout,
-			this._presLayout,
-			this.addSlide,
-			this.getSlide
-		)
-		for (const slide of paged) if (!this._newAutoPagedSlides.includes(slide)) this._newAutoPagedSlides.push(slide)
-		return this
-	}
-
-	/**
-	 * Add text to Slide
-	 * @param {string|TextProps[]} text - text string or complex object
-	 * @param {TextPropsOptions} options - text options
-	 * @return {SlideBuilder} this Slide
-	 */
-	addText(text: string | number | TextProps[], options?: TextPropsOptions): SlideBuilder {
-		// The bare-string form is wrapped into a one-run list carrying NO options of its own — the
-		// same shape a caller writing `[{ text: 'x' }]` hands in, and for the same reason: a bare
-		// string authors no *run*, so its run states nothing and inherits everything.
-		//
-		// It used to hand `options` to both the shape and the run, which made one object play both
-		// roles. Every key on it was then read twice, once as a shape property and once as a run
-		// property, and `shadow` is a key that means something different in each place: the shape's
-		// `<a:effectLst>` and the run's are two separate gestures in PowerPoint (Shape Effects vs
-		// Text Effects, `shadow-shape-vs-text.pptx`), and `addText('hi', { shadow })` emitted both.
-		// A run inherits what a run inherits — `RUN_INHERITABLE_OPTIONS` and the paragraph list
-		// beside it in `gen/drawingml/text-run.ts` — and nothing else.
-		const textParam: TextProps[] = typeof text === 'string' || typeof text === 'number' ? [{ text }] : text
-		addTextDefinition(this, textParam, options || {}, false)
-		return this
-	}
-
-	/**
-	 * Add a preset build animation (entrance/emphasis/exit) to a shape on this slide.
-	 * Effects play in the order added and are grouped into click steps by `trigger`.
-	 * Target the shape by its 0-based add order (`shapeIndex`) or by `objectName`.
-	 * @param {AnimationProps} options - preset, target shape, trigger, and duration
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addAnimation({ preset: 'fadeIn', shapeIndex: 0 })
-	 * @example slide.addAnimation({ preset: 'grow', objectName: 'logo', trigger: 'afterPrevious' })
-	 */
-	addAnimation(options: AnimationProps): SlideBuilder {
-		this._animations.push(options)
-		return this
-	}
-
-	/**
-	 * Add a Slide Zoom — a clickable tile that zooms to a single target slide (Insert ▸ Zoom).
-	 * The tile shows a neutral placeholder until PowerPoint regenerates the live thumbnail
-	 * (once the target slide is next edited); pass `coverImage` to ship a fixed thumbnail.
-	 * @param {SlideZoomProps} options - target slide (`Slide` or 1-based number), position, and options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addSlideZoom({ target: intro, x: 1, y: 1, w: 3, h: 1.7 })
-	 */
-	addSlideZoom(options: SlideZoomProps): SlideBuilder {
-		addSlideZoomDefinition(this, options)
-		return this
-	}
-
-	/**
-	 * Add a Section Zoom — a clickable tile that zooms to the start of a named section.
-	 * @param {SectionZoomProps} options - target `sectionTitle`, position, and options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addSectionZoom({ sectionTitle: 'Results', x: 1, y: 1, w: 3, h: 1.7 })
-	 */
-	addSectionZoom(options: SectionZoomProps): SlideBuilder {
-		addSectionZoomDefinition(this, options, this.getSections())
-		return this
-	}
-
-	/**
-	 * Add a Summary Zoom — a grid of tiles, one per section (excluding this slide's own section),
-	 * each zooming to that section's start.
-	 * @param {SummaryZoomProps} options - grid position/size and options
-	 * @return {SlideBuilder} this Slide
-	 * @example slide.addSummaryZoom({ x: 0.5, y: 1.5, w: 11, h: 4.5 })
-	 */
-	addSummaryZoom(options: SummaryZoomProps): SlideBuilder {
-		addSummaryZoomDefinition(this, options, this.getSections())
-		return this
 	}
 }
