@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A measured comparison with pptxgenjs, and a gate that keeps it honest.**
+  `docs/comparison.md` states what ts-pptx and upstream pptxgenjs each emit, what
+  validates against the OOXML schema, what each costs to install, and how the two
+  projects are run. Nothing on the page is asserted from reading source: a corpus of
+  22 deck intents is built twice, once through each library's own idiom, and the
+  emitted parts are read for the token the probe names. `no API` is the one outcome
+  that is a claim rather than a reading, so it is checked against the other library's
+  shipped bundle and a hit fails the run unless the corpus carries a written reason.
+  The corpus deliberately carries a probe neither library satisfies, and reports the
+  set of constructs upstream emits and ts-pptx does not even when that set is empty.
+
+  The page and the generated region of `README.md` are rendered from
+  `scripts/comparison/snapshot.json`, and `comparison:check` is now part of `verify`:
+  drift between the snapshot and either rendered file fails the build for every
+  contributor. Refreshing the snapshot (`comparison:measure`) needs the network and
+  is a release step, documented in `docs/RELEASING.md`.
+
 - **`Presentation.appProperties` reads `docProps/app.xml`.** The write API has had a
   `pptx.company` setter since the beginning and the read model could not see the part it
   writes to, so `ts-pptx/script` had to declare `company` unreadable and a converter could

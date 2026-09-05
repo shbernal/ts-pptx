@@ -55,7 +55,39 @@ publish unless the tag matches it. The `VERSION` constant in
 `src/presentation.ts` that backs `pres.version` is *derived* from it and is not
 edited by hand.
 
-Write the `CHANGELOG.md` entry first (release date and summary), stage it, then
+Refresh the pptxgenjs comparison first, so the new numbers land in the release
+commit beside the changelog entry rather than a commit behind it:
+
+```bash
+pnpm run comparison:measure      # network: npm install + GitHub/npm APIs
+pnpm run comparison:render
+git add scripts/comparison/snapshot.json docs/comparison.md README.md
+```
+
+`comparison:measure` installs upstream pptxgenjs into a scratch directory and
+calls the GitHub and npm APIs, which is why it is a release step and not part of
+`verify`; `comparison:check` (in `verify`) only asserts that the committed page
+still matches the committed snapshot.
+
+Read the resulting diff rather than staging it blind. A snapshot whose only
+changes are `generatedAt` and a download count is the normal case and needs no
+thought. What is worth stopping on:
+
+- a **coverage row that flipped** in either direction -- a construct one library
+  emits and the other does not is the substance of the page, and a flip means
+  either a real capability moved or a probe stopped measuring what it claims to
+- a **validity count that moved**, ours especially: the page states how many of
+  the probe decks pass the schema oracle, and a release is not the moment to
+  discover that number went down
+- an **upstream version bump**, which re-dates every claim on the page and makes
+  the two bullets above worth a closer look
+
+`measure.mjs` refuses to write a snapshot with a hole in it. `--allow-unavailable`
+overrides that for local experiments and must not be used for a release snapshot:
+a published table missing rows because an API rate-limited is worse than a table
+one release out of date. If a fetch fails, re-run it later.
+
+Then write the `CHANGELOG.md` entry (release date and summary), stage it, and
 bump:
 
 ```bash
