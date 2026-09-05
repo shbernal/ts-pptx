@@ -174,13 +174,32 @@ export const PRESENTATION_METHOD_FAMILIES: Readonly<Record<keyof PresentationAut
  */
 export type ChildDescriptorKey = 'chart' | 'image' | 'line' | 'rect' | 'roundRect' | 'shape' | 'text'
 
+/**
+ * Which family supplies each child descriptor, as data — the counterpart to
+ * {@link SLIDE_METHOD_FAMILIES}, and for the same reason: a descriptor key that reaches a
+ * presentation composed without its family has to be able to name the family it is missing.
+ *
+ * Four of the seven keys are the shape family's, because `line`, `rect` and `roundRect` are the
+ * shorthands `shape` spells out.
+ */
+export const CHILD_DESCRIPTOR_FAMILIES: Readonly<Record<ChildDescriptorKey, FamilyName>> = Object.freeze({
+	chart: 'chart',
+	image: 'image',
+	line: 'shape',
+	rect: 'shape',
+	roundRect: 'shape',
+	shape: 'shape',
+	text: 'text',
+})
+
 /** The payload behind one descriptor key, taken from the descriptor union so it cannot drift. */
 type ChildDescriptor<K extends ChildDescriptorKey> = Extract<SlideMasterObject, Record<K, unknown>>[K]
 
 /**
- * The child descriptors a list of families recognises. A descriptor whose key is missing is
- * unrecognised — `createSlideMaster` skips it and `addGroup` warns, which is what they already did
- * for a key no family ever claimed.
+ * The child descriptors a list of families recognises. A descriptor whose key is missing is one
+ * nothing composed can author, and both walks warn — naming the family behind the key when
+ * {@link CHILD_DESCRIPTOR_FAMILIES} has one, so a `{ chart: … }` in a master's `objects` on a
+ * chartless presentation says what to compose rather than disappearing from the deck.
  */
 export type ChildAuthors = {
 	[K in ChildDescriptorKey]?: (target: PresSlideInternal, child: ChildDescriptor<K>) => void

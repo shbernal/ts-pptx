@@ -18,7 +18,15 @@ import { createNodeRuntime } from '../../../src/runtime/node.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
 import { chartFamily } from '../../../src/families/chart.ts'
 import { measureFamily } from '../../../src/families/measure.ts'
-import { composeFamilies, PRESENTATION_METHOD_FAMILIES, SLIDE_METHOD_FAMILIES } from '../../../src/families/shared.ts'
+import {
+	CHILD_DESCRIPTOR_FAMILIES,
+	composeFamilies,
+	PRESENTATION_METHOD_FAMILIES,
+	SLIDE_METHOD_FAMILIES,
+} from '../../../src/families/shared.ts'
+// From `src/`, not `dist/`: `warn` here is the src-side module, and `test/helpers.js`'s
+// `captureDiagnostics` installs its handler on the built one, which is a different singleton.
+import { setDiagnosticHandler } from '../../../src/diagnostics.ts'
 import { assert, assertEqual } from '../../helpers.js'
 
 const SERIES = [{ name: 'Rev', labels: ['Q1', 'Q2'], values: [1, 2] }]
@@ -137,5 +145,76 @@ describe('construct families', () => {
 			if (method === 'tableToSlides') continue
 			assert(typeof presentationAuthors[method] === 'function', `${method} is not supplied by any family`)
 		}
+	})
+
+	test('every child descriptor the seam names is supplied by the full list', () => {
+		const { children } = composeFamilies(ALL_CONSTRUCT_FAMILIES)
+		const names = new Set(ALL_CONSTRUCT_FAMILIES.map((family) => family.name))
+		// Both directions, as for the methods above: nothing claims a descriptor key the full list
+		// cannot author, and nothing authors one the seam cannot attribute to a family.
+		for (const [key, family] of Object.entries(CHILD_DESCRIPTOR_FAMILIES)) {
+			assert(names.has(family), `the '${key}' descriptor is attributed to "${family}", which is not in the full list`)
+			assert(typeof children[key] === 'function', `the '${key}' descriptor is not supplied by any family`)
+		}
+		for (const key of Object.keys(children))
+			assert(CHILD_DESCRIPTOR_FAMILIES[key] !== undefined, `the '${key}' descriptor is attributed to no family`)
+	})
+
+	// The condition the seam made reachable: a descriptor key is only rejected by the *types* when
+	// nothing claims it, and every key here is claimed by some family. So `{ chart: … }` on a
+	// presentation composed without charts type-checks, and used to leave the deck silently.
+	describe('a child descriptor whose family was not composed', () => {
+		/** Collect the src-side diagnostics `fn` raises. */
+		function diagnosticsOf(fn) {
+			const seen = []
+			setDiagnosticHandler((d) => seen.push(d))
+			try {
+				fn()
+			} finally {
+				setDiagnosticHandler(null)
+			}
+			return seen
+		}
+
+		/** @type {import('../../../src/types/index.ts').SlideMasterObject} */
+		const chartChild = { chart: { type: 'bar', data: SERIES, options: { x: 1, y: 1, w: 3, h: 2 } } }
+
+		test('warns from a slide master, naming the family', () => {
+			const pres = composed(withoutCharts)
+			const seen = diagnosticsOf(() =>
+				pres.defineSlideMaster({ title: 'MASTER', objects: [{ rect: { x: 0, y: 0, w: 10, h: 0.4 } }, chartChild] })
+			)
+			assertEqual(seen.length, 1, 'one diagnostic')
+			assertEqual(seen[0].code, 'family/child-not-composed', 'code')
+			assert(seen[0].message.includes('"chart"'), `message names the family: ${seen[0].message}`)
+			assert(seen[0].message.includes('defineSlideMaster()'), `message names the call: ${seen[0].message}`)
+			// The descriptor the composed families *do* claim still landed. Read off the layout the
+			// master became, which is internal state a cast reaches rather than the public surface.
+			const [layout] = /** @type {any} */ (pres)._slideLayouts.slice(-1)
+			assertEqual(layout._slideObjects.length, 1, 'only the rect was authored')
+		})
+
+		test('warns from addGroup, naming the family', () => {
+			const slide = composed(ALL_CONSTRUCT_FAMILIES.filter((family) => family.name !== 'image')).addSlide()
+			const seen = diagnosticsOf(() =>
+				slide.addGroup([
+					{ text: { text: 'kept', options: { x: 1, y: 1, w: 2, h: 0.5 } } },
+					{ image: { data: 'image/png;base64,iVBORw0KGgo=', x: 1, y: 2, w: 1, h: 1 } },
+				])
+			)
+			const [first] = seen
+			assertEqual(first.code, 'family/child-not-composed', 'code')
+			assert(first.message.includes('"image"'), `message names the family: ${first.message}`)
+			assert(first.message.includes('addGroup()'), `message names the call: ${first.message}`)
+		})
+
+		test('a key no family has ever claimed still reports the typo, not a family', () => {
+			const slide = composed(ALL_CONSTRUCT_FAMILIES).addSlide()
+			// The cast is the point: with no family claiming it, the types reject this key outright,
+			// which is exactly the protection a claimed-but-uncomposed key does not get.
+			const seen = diagnosticsOf(() => slide.addGroup([/** @type {any} */ ({ notAThing: { x: 1, y: 1 } })]))
+			assertEqual(seen[0].code, 'group/unrecognized-child', 'code')
+			assert(seen[0].message.includes('notAThing'), `message names the key: ${seen[0].message}`)
+		})
 	})
 })

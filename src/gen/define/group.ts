@@ -12,7 +12,7 @@ import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../types
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
-import type { ChildAuthors, ChildDescriptorKey } from '../../families/shared.js'
+import { CHILD_DESCRIPTOR_FAMILIES, type ChildAuthors, type ChildDescriptorKey } from '../../families/shared.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
 
@@ -47,6 +47,36 @@ export function addChildDefinition(
 		return true
 	}
 	return false
+}
+
+/**
+ * Warn about a child descriptor {@link addChildDefinition} did not author, from `call`.
+ *
+ * Two conditions arrive here and they have different fixes, so they get different codes. A key
+ * {@link CHILD_DESCRIPTOR_FAMILIES} claims is valid and typed and was simply left uncomposed —
+ * the family that would have drawn it is not in this presentation's list, so the message names it
+ * the way `familyMethodUnavailable` names the family behind a missing method. Any other key is a
+ * typo, which is all this walk used to be able to say, because before the split a descriptor that
+ * matched nothing could not type-check in the first place.
+ * @param object - the descriptor nothing authored
+ * @param call - the public call the descriptor was written for, e.g. `addGroup()`
+ */
+export function warnUnauthoredChild(object: SlideMasterObject | GroupChildProps, call: string): void {
+	const keys = Object.keys(object)
+	const uncomposed = (keys as ChildDescriptorKey[]).find((key) => CHILD_DESCRIPTOR_FAMILIES[key])
+	if (uncomposed) {
+		const family = CHILD_DESCRIPTOR_FAMILIES[uncomposed]
+		warn(
+			'family/child-not-composed',
+			`${call}: the '${uncomposed}' child descriptor needs the "${family}" construct family, and this presentation ` +
+				`was composed without it; skipping. Add the "${family}" family to the list the presentation is composed with.`
+		)
+	} else {
+		warn(
+			'group/unrecognized-child',
+			`${call} received an unrecognized child descriptor (${keys.join(', ')}); skipping.`
+		)
+	}
 }
 
 /**
@@ -92,10 +122,7 @@ function buildGroupObject(
 		// just-appended object(s) off the slide's top-level list into this group's child list.
 		const before = target._slideObjects.length
 		if (!addChildDefinition(target, child, childAuthors)) {
-			warn(
-				'group/unrecognized-child',
-				`addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`
-			)
+			warnUnauthoredChild(child, 'addGroup()')
 			return
 		}
 		groupObjects.push(...target._slideObjects.splice(before))

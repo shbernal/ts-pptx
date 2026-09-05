@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the composed families supply, and calling one that was not composed raises
   `family/not-composed` naming the family rather than failing as a missing property.
 
+- **`family/child-not-composed`, for a slide-master or group child no composed family can
+  author.** The composition made a new condition reachable: a child descriptor is rejected by
+  the *types* only when no family anywhere claims its key, so `{ chart: … }` inside a slide
+  master's `objects` type-checks on a presentation composed without the chart family -- and
+  `createSlideMaster` used to skip it without a word, so it simply vanished from the deck.
+  Both walks now warn, and the message names the family to compose, the way
+  `family/not-composed` does for a missing method. A key no family has ever claimed still
+  reports `group/unrecognized-child`, which is the typo it always was.
+
 - **A measured comparison with pptxgenjs, and a gate that keeps it honest.**
   `docs/comparison.md` states what ts-pptx and upstream pptxgenjs each emit, what
   validates against the OOXML schema, what each costs to install, and how the two

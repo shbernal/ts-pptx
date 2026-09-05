@@ -7,7 +7,7 @@
  */
 import type { SlideMasterProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
-import { addChildDefinition } from './group.js'
+import { addChildDefinition, warnUnauthoredChild } from './group.js'
 import type { ChildAuthors } from '../../families/shared.js'
 import { addTextDefinition } from './text.js'
 
@@ -37,6 +37,12 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 				const placeholderRun: TextProps = placeholder.text === undefined ? {} : { text: placeholder.text }
 				addTextDefinition(tgt, [placeholderRun], placeholderOptions, true)
 				// NOTE: only text placeholders are supported (image/other placeholder kinds are not emitted)
+			} else {
+				// A descriptor nothing composed can author used to fall out of this walk without a word.
+				// That was harmless only while the recognised set was fixed, because a descriptor matching
+				// nothing could not type-check; on a presentation composed without the chart family,
+				// `{ chart: … }` here type-checks and would otherwise vanish from the deck.
+				warnUnauthoredChild(object, 'defineSlideMaster()')
 			}
 		})
 	}

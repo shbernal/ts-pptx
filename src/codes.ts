@@ -73,6 +73,8 @@ export type DiagnosticCode =
 	| 'group/unrecognized-child'
 	| 'group/no-children'
 	| 'group/partial-frame'
+	// A construct family this presentation was not composed with
+	| 'family/child-not-composed'
 	// Images and image fills
 	| 'image-fill/missing-source'
 	| 'image-fill/missing-base64-header'

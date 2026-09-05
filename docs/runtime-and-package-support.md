@@ -101,6 +101,12 @@ naming the family, at the call, rather than failing as a missing property. The
 types say the same thing first: the slide `createPresentation` hands you carries
 only the methods the families you composed supply.
 
+Child descriptors -- the `{ chart: ... }`, `{ image: ... }`, `{ text: ... }` forms
+a slide master's `objects` and a group's children are written with -- cannot be
+caught that way. The types reject a key no family anywhere claims, so a key some
+family claims type-checks whether or not you composed it. Those warn instead:
+`family/child-not-composed`, naming the family, on both walks.
+
 ## Which Build The Bare Import Gives You
 
 `import TsPptx from "pptx-ts"` resolves through export conditions, so
