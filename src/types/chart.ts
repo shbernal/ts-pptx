@@ -5,11 +5,37 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { CHART_NAME } from '../enums.js'
-import type { RadarStyle, RadarStyleAlias } from '../ooxml/st-enums.js'
+import type {
+	Bar3DShape,
+	BarDirection,
+	BarGrouping,
+	DataLabelPosition,
+	DisplayBlanksAs,
+	LegendPosition,
+	LineDataSymbol,
+	RadarStyle,
+	RadarStyleAlias,
+} from '../ooxml/st-enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, FillOption, ShadowProps, StrokeProps } from './style.js'
 import type { TextBaseProps } from './text.js'
+
+/**
+ * The seven `ST_` unions the chart option bag takes directly, re-exported so a caller can name
+ * the type their option is checked against -- a narrowed union that cannot be imported is one a
+ * caller can satisfy but not annotate. Same reason and same shape as the `RadarStyle` re-export
+ * below.
+ */
+export type {
+	Bar3DShape,
+	BarDirection,
+	BarGrouping,
+	DataLabelPosition,
+	DisplayBlanksAs,
+	LegendPosition,
+	LineDataSymbol,
+} from '../ooxml/st-enums.js'
 
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
 /**
@@ -235,7 +261,11 @@ export interface ChartPropsBase {
 	 */
 	chartColorsOpacity?: number
 	dataBorder?: BorderProps
-	displayBlanksAs?: 'gap' | 'span' | 'zero'
+	/**
+	 * What a plot draws where a value is missing (`ST_DispBlanksAs`).
+	 * @default 'gap'
+	 */
+	displayBlanksAs?: DisplayBlanksAs
 	invertedColors?: HexColor[]
 	lang?: string
 	layout?: PositionProps
@@ -600,8 +630,16 @@ export interface ChartPropsAxisVal {
 	valLabelFormatCode?: string
 }
 export interface ChartPropsChartBar {
-	bar3DShape?: string
-	barDir?: string
+	/**
+	 * The solid a 3-D bar is drawn as (`ST_Shape`).
+	 * @default 'box'
+	 */
+	bar3DShape?: Bar3DShape
+	/**
+	 * Whether bars run horizontally (`bar`) or vertically (`col`) (`ST_BarDir`).
+	 * @default 'col'
+	 */
+	barDir?: BarDirection
 	barGapDepthPct?: number
 	/**
 	 * MS-PPT > Format chart > Format Data Point > Series Options >  "Gap Width"
@@ -610,7 +648,13 @@ export interface ChartPropsChartBar {
 	 * @default 150
 	 */
 	barGapWidthPct?: number
-	barGrouping?: string
+	/**
+	 * How the plot stacks its series (`ST_BarGrouping`). A 2-D bar plot takes every member but
+	 * `standard`, which is the 3-D form's own default; an out-of-range value falls back to the
+	 * default for the plot with a warning.
+	 * @default 'clustered' (2-D), 'standard' (3-D)
+	 */
+	barGrouping?: BarGrouping
 	/**
 	 * MS-PPT > Format chart > Format Data Point > Series Options >  "Series Overlap"
 	 * - overlap (percent)
@@ -662,7 +706,7 @@ export interface ChartPropsChartLine {
 	 * - marker type
 	 * @default circle
 	 */
-	lineDataSymbol?: 'circle' | 'dash' | 'diamond' | 'dot' | 'none' | 'square' | 'triangle'
+	lineDataSymbol?: LineDataSymbol
 	/**
 	 * MS-PPT > Chart format > Format Data Series > [Marker Options] > Border > Color
 	 * - border color
@@ -885,7 +929,15 @@ export interface ChartPropsDataLabel {
 	 */
 	dataLabelFormatCode?: string
 	dataLabelFormatScatter?: 'custom' | 'customXY' | 'XY'
-	dataLabelPosition?: 'b' | 'bestFit' | 'ctr' | 'l' | 'r' | 't' | 'inEnd' | 'outEnd'
+	/**
+	 * Where a data label sits relative to its point (`ST_DLblPos`).
+	 *
+	 * The whole set is legal on the attribute, but only a subset of it is legal *per plot type*
+	 * -- a pie takes `bestFit`/`ctr`/`inEnd`/`outEnd` and nothing else, a stacked bar takes
+	 * `inBase` and not `outEnd`. A value outside this plot's subset is dropped with a warning
+	 * rather than emitted, because PowerPoint reports the file as needing repair.
+	 */
+	dataLabelPosition?: DataLabelPosition
 }
 export interface ChartPropsDataTable {
 	dataTableFontSize?: number
@@ -924,7 +976,11 @@ export interface ChartPropsLegend {
 	 * @example { x: 0.7, y: 0.3, w: 0.25, h: 0.4 }
 	 */
 	legendLayout?: PositionProps
-	legendPos?: 'b' | 'l' | 'r' | 't' | 'tr'
+	/**
+	 * Where the legend sits (`ST_LegendPos`).
+	 * @default 'r'
+	 */
+	legendPos?: LegendPosition
 }
 export interface ChartPropsTitle extends TextBaseProps {
 	title?: string

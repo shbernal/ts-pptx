@@ -192,6 +192,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as a *floor* rather than a ceiling is a third reading, and if that is what is wanted it
   belongs in a stated option rather than in a precedence accident.
 
+- **Seven chart options are checked against the schema's own value lists.** `barDir`,
+  `barGrouping` and `bar3DShape` were typed as bare `string`, and `displayBlanksAs`,
+  `lineDataSymbol`, `dataLabelPosition` and `legendPos` as hand-written unions beside the
+  option. All seven now read the `ST_` tuples in `src/ooxml/st-enums.ts` that the runtime
+  validator already checks against, so the type a caller is checked against and the list a
+  value is validated against are one declaration.
+
+  Three of them narrow from `string`, which is a breaking type change for a caller passing a
+  computed string; the runtime already rejected anything outside the list and fell back to the
+  default with a warning, so no accepted value stops working. `dataLabelPosition` gains
+  `inBase`, which the validator has always accepted on a stacked bar and the hand-written
+  union rejected. `DisplayBlanksAs`, `LineDataSymbol`, `DataLabelPosition`, `LegendPosition`,
+  `BarDirection`, `BarGrouping` and `Bar3DShape` are exported from the package.
+
 - **`pptx-ts` is the package name; `@shbernal/ts-pptx` is now the alias.** The two names
   swap roles. Both keep being published from the same commit at the same version with the
   same contents, and nothing about installing, importing or resolving either one changes

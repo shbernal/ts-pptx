@@ -22,15 +22,14 @@
  * Values are listed in **schema declaration order**, which is the order the diagnostics print
  * when they tell a caller what is legal.
  *
- * **Seven of the unions below have no consumer yet**, and they are exported anyway:
- * `BarDirection`, `BarGrouping`, `Bar3DShape`, `LegendPosition`, `DisplayBlanksAs`,
- * `DataLabelPosition` and `LineDataSymbol`. They are not dead code — they are the half of this
- * consolidation that was never finished. `src/types/chart.ts` still hand-writes each of those
- * unions beside the option that takes it, which is exactly the duplication the paragraphs above
- * describe ending, and three of them (`barDir`, `barGrouping`, `bar3DShape`) are typed as bare
- * `string` there, so they carry no compile-time check at all. Wiring the options onto these is a
- * breaking type change and belongs in its own edit; deleting them instead would throw away the
- * work and leave the duplication.
+ * **The chart option bag reads seven of these directly**: `BarDirection`, `BarGrouping`,
+ * `Bar3DShape`, `LegendPosition`, `DisplayBlanksAs`, `DataLabelPosition` and `LineDataSymbol`.
+ * They were the half of this consolidation that went unfinished for a while. `src/types/chart.ts`
+ * hand-wrote four of those unions beside the option that takes them and typed the other three as
+ * bare `string`, so `barDir` carried no compile-time check at all, and `dataLabelPosition`'s
+ * hand-written union was missing `inBase` — a value the validator accepts on a stacked bar, so
+ * the two spellings had already diverged in content. Both are gone: for every option here, the
+ * type a caller is checked against and the tuple the validator checks are one declaration.
  */
 
 /**
