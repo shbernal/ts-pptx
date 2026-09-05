@@ -638,6 +638,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A hyperlink could steal an online video's relationship.** A media item emits two
+  relationships against one Target -- the ECMA one (`video`, `audio`) first, the Microsoft 2007
+  `media` one second -- and which of the two a rel gets is decided by whether that Target has
+  been emitted already. The check substring-scanned the emitted XML of every relationship on the
+  slide, hyperlinks included, so an online video plus a hyperlink to the same URL -- an ordinary
+  thing to author -- produced two MS-media rels and no ECMA `video` rel at all, with
+  `<a:videoFile r:link>` pointing at the wrong type. The check now looks at media targets only,
+  which is the collection the pairing lives in.
+
 - **Three guards that noticed bad input and then did the broken thing anyway.**
 
   - **`defineLayout` without a `name` now throws** (`InvalidOptionError`,

@@ -124,7 +124,9 @@ function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal): boo
  * Warn about duplicate Selection Pane identities on this slide.
  *
  * Unique `objectName` values are what consumers (e.g. semantic manifests) rely on, so
- * collisions are flagged loudly. Groups are recursed into: a group's children are
+ * collisions are flagged loudly. Deliberately NOT `warnOnce`: this runs per emit, and two
+ * `write()` calls are two separate exports — a caller capturing diagnostics around the second
+ * would otherwise be told its deck is clean because the first one had already said otherwise. Groups are recursed into: a group's children are
  * `<p:cNvPr>`-named on this same slide, so a child colliding with a top-level object (or with a
  * child of another group) is a collision the Selection Pane shows, and checking only the top
  * level cannot see it.
@@ -415,9 +417,10 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				)[0] ?? null
 		}
 
-		// A: Set option vars
-		slideItemObj.options = slideItemObj.options || {}
-		const itemOpts = slideItemObj.options
+		// A: Set option vars. Resolved to a LOCAL, never assigned back: a serializer does not
+		// normalize the authored model, which is the contract `RenderContext.itemOpts` and
+		// `slideNumberPlaceholderXml` both state, and these were the last two writes against it.
+		const itemOpts = slideItemObj.options ?? {}
 
 		// Each axis, most specific source first: what the caller stated on this object, else what
 		// the layout placeholder it names states, else the default already in the variable.
@@ -434,10 +437,10 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		const phOpts = placeholderObj?.options ?? {}
 		const inherited = <T>(own: T | undefined, ph: T | undefined): T | undefined =>
 			own !== undefined ? own : (ph ?? undefined)
-		const ownX = inherited(slideItemObj.options.x, phOpts.x)
-		const ownY = inherited(slideItemObj.options.y, phOpts.y)
-		const ownW = inherited(slideItemObj.options.w, phOpts.w)
-		const ownH = inherited(slideItemObj.options.h, phOpts.h)
+		const ownX = inherited(itemOpts.x, phOpts.x)
+		const ownY = inherited(itemOpts.y, phOpts.y)
+		const ownW = inherited(itemOpts.w, phOpts.w)
+		const ownH = inherited(itemOpts.h, phOpts.h)
 		if (ownX !== undefined) x = getSmartParseNumber(ownX, 'X', slide._presLayout)
 		if (ownY !== undefined) y = getSmartParseNumber(ownY, 'Y', slide._presLayout)
 		if (ownW !== undefined) cx = getSmartParseNumber(ownW, 'X', slide._presLayout)
@@ -464,9 +467,9 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// A flip derived from a negative extent XORs with the author's own: `{ w: -2, flipH: true }`
 		// is a box mirrored twice, i.e. not mirrored at all.
 		const locationAttrs: XmlAttrs = {
-			flipH: xsdBoolIfTrue(Boolean(slideItemObj.options.flipH) !== normX.flip),
-			flipV: xsdBoolIfTrue(Boolean(slideItemObj.options.flipV) !== normY.flip),
-			rot: slideItemObj.options.rotate ? convertRotationDegrees(slideItemObj.options.rotate) : null,
+			flipH: xsdBoolIfTrue(Boolean(itemOpts.flipH) !== normX.flip),
+			flipV: xsdBoolIfTrue(Boolean(itemOpts.flipV) !== normY.flip),
+			rot: itemOpts.rotate ? convertRotationDegrees(itemOpts.rotate) : null,
 		}
 
 		// B: Add OBJECT to the current Slide.
@@ -525,8 +528,9 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				// `childIdxAlloc` (children are not in `_slideObjects`); the shared counter keeps ids
 				// collision-free across nesting depth.
 				let innerXml = ''
+				// No `child.options = child.options || {}` here: `renderSlideObjectXml` resolves its
+				// own options on entry, so the parent has nothing to prepare for the child.
 				groupChildren.forEach((child) => {
-					child.options = child.options || {}
 					innerXml += renderSlideObjectXml(child)
 				})
 
@@ -535,15 +539,15 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				// else the bounding box of the children (recursing into nested auto-sized groups).
 				// A partial frame warns and falls back whole rather than letting the unset axes take the
 				// per-object defaults above (`cy` = 0 among them) and emit a degenerate group.
-				const givenAxes = givenGroupFrameAxes(slideItemObj.options)
+				const givenAxes = givenGroupFrameAxes(itemOpts)
 				if (givenAxes.length > 0 && givenAxes.length < GROUP_FRAME_AXES.length) {
 					const missingAxes = GROUP_FRAME_AXES.filter((axis) => !givenAxes.includes(axis))
 					warn(
 						'group/partial-frame',
-						`addGroup: group "${slideItemObj.options.objectName ?? ''}" has a partial frame (${givenAxes.join('/')} given, ${missingAxes.join('/')} missing); using auto-bounds (the bounding box of its children) instead. Pass all of x/y/w/h, or none.`
+						`addGroup: group "${itemOpts.objectName ?? ''}" has a partial frame (${givenAxes.join('/')} given, ${missingAxes.join('/')} missing); using auto-bounds (the bounding box of its children) instead. Pass all of x/y/w/h, or none.`
 					)
 				}
-				const gb = hasCompleteGroupFrame(slideItemObj.options) ? { x, y, cx, cy } : resolveObjBounds(slideItemObj)
+				const gb = hasCompleteGroupFrame(itemOpts) ? { x, y, cx, cy } : resolveObjBounds(slideItemObj)
 				const gx: number = gb.x
 				const gy: number = gb.y
 				const gcx: number = gb.cx
@@ -552,12 +556,12 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				const grpLockXml = genXmlObjectLock(
 					'a:grpSpLocks',
 					GROUP_SHAPE_LOCK_ATTRS,
-					slideItemObj.options.objectLock,
-					slideItemObj.options.objectName
+					itemOpts.objectLock,
+					itemOpts.objectName
 				)
 				strSlideXml += '<p:grpSp>'
 				strSlideXml += el('p:nvGrpSpPr', null, [
-					raw(cNvPrOpen(shapeId, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'),
+					raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
 					// Paired only when there are locks to carry; otherwise self-closing.
 					raw(grpLockXml ? el('p:cNvGrpSpPr', null, raw(grpLockXml)) : voidEl('p:cNvGrpSpPr')),
 					raw(voidEl('p:nvPr')),
@@ -606,8 +610,14 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	// used to reach. A hardcoded id here (formerly 25) aliases a shape or group-child id once a
 	// slide holds enough objects, which PowerPoint repairs. Resolved here rather than inside the
 	// emitter so a part with no slide number does not consume an id.
-	if (slide._slideNumberProps)
-		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, Math.max(1, ...shapeIds.values()) + 1)
+	//
+	// A loop rather than `Math.max(1, ...shapeIds.values())`: spreading a collection as arguments
+	// is an argument-count ceiling written as arithmetic, and `shapeIds` is sized by the slide.
+	if (slide._slideNumberProps) {
+		let maxShapeId = 1
+		for (const id of shapeIds.values()) if (id > maxShapeId) maxShapeId = id
+		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, maxShapeId + 1)
+	}
 
 	// STEP 5: Close spTree and finalize slide XML
 	strSlideXml += '</p:spTree>'
@@ -633,13 +643,22 @@ export function slideObjectRelationsToXml(
 	const rels: string[] = []
 
 	/**
-	 * Has a rel with this Target already been emitted? Media items produce *TWO* rels
-	 * sharing one Target, and the second is told from the first by the Target already
-	 * being present. `target` must therefore be the ESCAPED form — what actually got
-	 * written — or an online-video link carrying `&` never matches its own first rel
-	 * and the pair is mistyped (media emitted as video). See `SlideRel.Target`.
+	 * The Targets emitted so far *from the media loop below*, which is the only place the
+	 * question is asked: a media item produces TWO rels sharing one Target, and the second is
+	 * told from the first by the first already being there.
+	 *
+	 * Two things about the shape. It holds raw Targets rather than escaped ones, because this
+	 * asks about the model and not about markup — the probe used to substring-scan the emitted
+	 * XML for ` Target="…"`, which forced the caller to escape by hand with the same escaper the
+	 * builder uses or the two drifted apart, and cost O(rels squared) in string scanning.
+	 *
+	 * And it is scoped to the media loop rather than to every rel. Scanning all of them meant a
+	 * hyperlink could answer a question about media, which is not a hypothetical: an online video
+	 * and a hyperlink to the same URL is an ordinary thing to author, and the hyperlink came
+	 * first, so the video pair came out as two MS-media rels with no ECMA `video` rel at all and
+	 * `<a:videoFile r:link>` pointing at the wrong type.
 	 */
-	const hasTarget = (target: string): boolean => rels.some((xml) => xml.includes(` Target="${target}"`))
+	const mediaTargets = new Set<string>()
 
 	// STEP 1: Add all rels for this Slide
 	slide._rels.forEach((rel: SlideRel) => {
@@ -663,10 +682,11 @@ export function slideObjectRelationsToXml(
 	})
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relType = rel.type.toLowerCase()
-		// `voidEl` escapes the Target on the way out; the probe has to compare against
-		// those emitted bytes, so it needs the escaped form computed separately here —
-		// with the SAME escaper the builder uses, or the two drift apart.
-		const relTarget = encodeXmlAttrValue(rel.Target)
+		// Recorded at the point of emission, never earlier: "first one wins the ECMA type, second
+		// gets the MS type" is the whole pairing rule for audio, video and online video, so the
+		// probe must see only what is already out.
+		const seen = mediaTargets.has(rel.Target)
+		mediaTargets.add(rel.Target)
 		const media = (type: string, targetMode?: string): string =>
 			relationshipEl(rel.rId, type, rel.Target, { targetMode })
 		lastRid = Math.max(lastRid, rel.rId)
@@ -682,14 +702,14 @@ export function slideObjectRelationsToXml(
 		} else if (relType.includes('image')) {
 			rels.push(media(IMAGE_REL))
 		} else if (relType.includes('audio')) {
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(AUDIO_REL))
+			rels.push(seen ? media(MS_MEDIA_REL) : media(AUDIO_REL))
 		} else if (relType.includes('video')) {
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(VIDEO_REL))
+			rels.push(seen ? media(MS_MEDIA_REL) : media(VIDEO_REL))
 		} else if (relType.includes('online')) {
 			// Online video has *TWO* external rels sharing the link Target: the ECMA video
 			// rel (first) and the MS-2007 media rel (second). Both TargetMode="External",
 			// no media binary part.
-			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL, 'External') : media(VIDEO_REL, 'External'))
+			rels.push(seen ? media(MS_MEDIA_REL, 'External') : media(VIDEO_REL, 'External'))
 		}
 	})
 
