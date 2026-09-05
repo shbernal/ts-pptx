@@ -10,14 +10,14 @@ read_when:
 doc_type: "reference"
 ---
 
-# Reading and round-tripping existing decks (`ts-pptx/read`)
+# Reading and round-tripping existing decks (`pptx-ts/read`)
 
-The `ts-pptx/read` subpath opens an **existing** `.pptx` file, exposes its
+The `pptx-ts/read` subpath opens an **existing** `.pptx` file, exposes its
 OPC package structure, and saves it back losslessly. It is the foundation for
 python-pptx-style editing of decks this library did not generate.
 
 It is a separate subsystem from the generator (`ts-pptx`) and the inspector
-(`ts-pptx/inspect`): those are one-way and lossy, while `read` keeps the
+(`pptx-ts/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
 Status: **Phase 4, rich content & structural edits**. On top of the Phase 1
@@ -963,7 +963,7 @@ typically a placeholder inheriting its box from the layout), or one of
 or a zero `a:chExt` with no child-space ratio to map through. `absoluteFrameFailure`
 is `null` when the frame resolved. Only a caller that wants to *report* an
 unresolvable shape needs the distinction, since the first reason is normal while the
-other two say the deck is malformed. That is what `ts-pptx/inspect` warns on
+other two say the deck is malformed. That is what `pptx-ts/inspect` warns on
 (`inspect/group-transform-missing`, `inspect/group-transform-degenerate`) while
 staying silent about an inherited box. A missing group transform outranks a
 degenerate one wherever the two meet in one chain.
@@ -1094,7 +1094,7 @@ shape mirrors the write API's `startShape`/`endShape` split.
   (a genuinely dangling id) keeps `shapeId`/`siteIndex` but leaves `boundShape`
   `null` (faithful degradation, no throw).
 - Omitting `startShapeIdx`/`endShapeIdx` writes `idx="0"`, so a single-idx bind
-  reads `siteIndex: 0`. `ConnectionSite` is exported from `ts-pptx/read`.
+  reads `siteIndex: 0`. `ConnectionSite` is exported from `pptx-ts/read`.
 
 #### Fill and line colour
 

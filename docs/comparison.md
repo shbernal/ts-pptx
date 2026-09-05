@@ -58,14 +58,14 @@ refreshed on release cadence and carries the date above. Nothing here is edited 
 
 ## What ts-pptx gives up
 
-- **No CommonJS build.** pptxgenjs ships one, so it runs unchanged on Node versions and
-  toolchains ts-pptx cannot serve at all. `require('pptx-ts')` does work, through the ESM
-  interop Node has had since 22.12, which every Node ts-pptx supports has. See [runtime
-  and package support](runtime-and-package-support.md).
-- **No global bundle, and no CDN script tag.** pptxgenjs can be dropped into a page with a
-  `<script>` tag and used from a global. ts-pptx requires a bundler or a runtime that
-  loads ES modules.
-- **Node.js `>=24` only.** pptxgenjs declares no engine floor and runs much further back.
+- **One ESM build, where pptxgenjs also ships CommonJS.** `require('pptx-ts')` works,
+  through the ESM interop Node has had since 22.12, which every Node ts-pptx supports has.
+  What upstream reaches that ts-pptx does not is the Node versions and toolchains below
+  that line. See [runtime and package support](runtime-and-package-support.md).
+- **A browser loads it as a module.** A bundler, or `<script type="module">` against an
+  ESM CDN such as esm.sh. pptxgenjs additionally ships a classic-script bundle that
+  defines a global, which is the older shape and the one ts-pptx replaced.
+- **Node.js `>=24`.** pptxgenjs declares no engine floor and runs on much older releases.
 - **Not a drop-in continuation of the upstream release line.** The API is close by
   descent, not by contract, and it has moved since. Migrating is a port, not an upgrade.
 - **No SmartArt on the write side.** Neither library generates it, so this is not a

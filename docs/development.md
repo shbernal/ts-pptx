@@ -454,7 +454,7 @@ pnpm run test:schema
 
 ## Package Boundary Changes
 
-The package is ESM-only. Changes to package exports, generated filenames, or
+The package ships one ESM build. Changes to package exports, generated filenames, or
 package contents should preserve the support contract documented in
 [runtime and package support](runtime-and-package-support.md).
 

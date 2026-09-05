@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Release Workflow"
-summary: "Maintained release path for publishing the ESM-only package and its scoped alias."
+summary: "Maintained release path for publishing the ESM package and its scoped alias."
 read_when:
   - Preparing a release
   - Updating npm publish or GitHub Release workflow documentation
@@ -11,7 +11,7 @@ doc_type: "runbook"
 
 # Release Workflow
 
-This guide documents the maintained release path for the ESM-only package,
+This guide documents the maintained release path for the ESM package,
 `pptx-ts`, and for `@shbernal/ts-pptx`, the scoped alias published beside it.
 
 The alias is not a redirect. npm has one package per name and no forwarding, so
@@ -292,11 +292,13 @@ exports, and all but `./browser` are additionally put through esbuild on the
 `scripts/package-smoke.mjs`, so a new subpath is covered by being added there,
 but it still has to be added *here* by hand, and this list has drifted before.)
 
-The package should not ship or document:
+One ESM build is what ships, and it is what `require()`, a bundler and an ESM CDN
+all load. A release should therefore carry none of the upstream shapes it replaced:
+a second CommonJS build, an IIFE bundle defining a global, or the artifact names a
+classic script tag pointed at.
 
-- CommonJS support
-- IIFE/global browser bundle support
-- direct CDN script-tag support as a maintained workflow
+Absent from the tarball, and checked:
+
 - `types/`
 - `src/bld/`
 - `dist/pptxgen.cjs.js`

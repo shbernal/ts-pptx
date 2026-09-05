@@ -343,7 +343,7 @@ cell's `fontSize`, or insert the break yourself with `breakLine`.
 
 ## Reading and editing an existing table
 
-`ts-pptx/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.
+`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.
 Reading covers the cell model, the six borders, both fills, the spans and the style graph;
 `TableCell.resolvedFill` reports the colour a cell *renders* as, folding in the style's
 banding, and `TableCell.hasOwnFill` says whether that colour is the cell's own: which is

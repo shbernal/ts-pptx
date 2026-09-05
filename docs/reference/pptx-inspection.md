@@ -30,10 +30,10 @@ import { inspectPptx, loadPptxPackage, listPptxParts } from "pptx-ts/inspect"
   `fill`, `line`, `shapeType`, `textWrap`, `autofit`, `autofitFontScale`, and
   `bodyInsets`.
 
-## Its relationship to `ts-pptx/read`
+## Its relationship to `pptx-ts/read`
 
 This is a **shallow projection over the read model**, not a second reader.
-[`ts-pptx/read`](./pptx-read.md) gives a navigable, mutable model shaped like the
+[`pptx-ts/read`](./pptx-read.md) gives a navigable, mutable model shaped like the
 OOXML tree; this flattens it to one array per slide, which is the shape an overlap
 check, a layout linter, or a deck diff wants. Both reach the same package through
 `OpcPackage` and the same parser, so they cannot disagree about what a deck says.

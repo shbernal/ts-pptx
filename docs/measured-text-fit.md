@@ -117,7 +117,7 @@ overwritten, nothing moved).
 Because a collection has no single answer to "which font", one has to be chosen:
 
 ```ts
-import { listFontFaces } from 'ts-pptx/measure'
+import { listFontFaces } from 'pptx-ts/measure'
 
 listFontFaces(bytes) // [{ index: 0, family: 'MS Gothic', postScriptName: 'MS-Gothic', ... }, ...]
 
@@ -358,7 +358,7 @@ the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render: right fo
 over-reporting) check suited to a build-time **warning**, not a hard gate. An
 unmeasurable face makes `overflowsBox` return `false` (no false positive).
 
-### Standalone primitives (`ts-pptx/measure`)
+### Standalone primitives (`pptx-ts/measure`)
 
 For a consumer that lays out without a `TsPptx` instance, the subpath re-exports
 the pure pieces so it can build its own resolver/registry and measure directly:

@@ -43,16 +43,15 @@ reference section numbers or source pages when they matter.
 
 ## Package Support Guardrails
 
-Do not reintroduce the dropped upstream targets unless the project direction is
-explicitly changed:
+The package ships one ESM build, and every consumer reaches it through that:
+`require()` on Node 24+ goes through Node's own ESM interop, and a browser loads it
+from a bundler or an ESM CDN. Keep it that way unless the project direction is
+explicitly changed. A second CommonJS artifact, an IIFE bundle assigning a `window`
+global, and a classic CDN script tag are all upstream shapes this package replaced
+rather than kept.
 
-- CommonJS support;
-- IIFE/global browser bundle support;
-- direct CDN script-tag support as a maintained package workflow.
-
-The package smoke test should continue to prove that old artifacts are absent
-and that `pptx-ts`, `pptx-ts/inspect`,
-`pptx-ts/node`, and `pptx-ts/browser` resolve.
+The package smoke test should continue to prove that those old artifacts are absent
+and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and `pptx-ts/browser` resolve.
 The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
 exports but are not yet covered by `pnpm run test:package`: see
 [Runtime And Package Support](runtime-and-package-support.md).

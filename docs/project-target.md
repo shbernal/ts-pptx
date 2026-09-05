@@ -26,7 +26,8 @@ drop-in-compatible continuation of the upstream release line.
 - Generate `.pptx` packages without requiring PowerPoint at runtime.
 - Keep the public package boundary explicit and easy to verify.
 - Provide TypeScript declarations that work in modern app code.
-- Support Node.js `>=24` and modern bundler-driven front-end applications.
+- Support Node.js `>=24`, modern bundler-driven front-end applications, and a
+  browser loading the module straight from an ESM CDN.
 - Support the **browser as a runtime**, and prove it rather than assert it: the
   browser build and its runtime adapter are exercised in CI against a real
   Chromium, and the deck a browser assembles is compared part-for-part against
@@ -41,16 +42,17 @@ drop-in-compatible continuation of the upstream release line.
 
 ## Non-Goals
 
-- Shipping a CommonJS build.
-- Shipping a standalone IIFE/global browser build.
-- Supporting direct CDN script tags as the primary browser story.
-- Rebuilding the upstream release matrix around every historical artifact name,
-  or keeping compatibility with the upstream build system.
+- Shipping more than one build. The published ESM artifact is what Node, bundlers,
+  browsers and `require()` callers all load; see
+  [Runtime And Package Support](runtime-and-package-support.md#one-build-and-everything-that-loads-it).
+- Reproducing the upstream release matrix: its historical artifact names, its
+  `window.TsPptx` global, or compatibility with its build system. A browser reaches
+  this package as a module, from a bundler or an ESM CDN.
 - Treating generated `dist/` outputs as hand-edited source.
 
 ### What Stays In The Consumer
 
-Distinct from the bullets above, which are package *shapes* this project dropped.
+Distinct from the bullets above, which are about the *shape* of the package.
 The following encode a specific consumer's brand, content, or deck workflow. They
 are not candidates for this package at any priority, and the boundary holds even
 when the code involved looks generic: do not raise them:
@@ -125,7 +127,7 @@ supported.
 
   HTML `<table>` → slides is **not** in that category any more. `tableToSlides`
   is a supported, tested, portable path: it ships as a free function on
-  `ts-pptx/html`, runs under Node with any DOM implementation, and is covered
+  `pptx-ts/html`, runs under Node with any DOM implementation, and is covered
   end-to-end against happy-dom (`test/regression/html/html-to-slides-node.test.js`).
   What it cannot do without a browser is *measure* (`offsetWidth` is `0` where
   nothing laid the table out), so column widths fall back to the computed CSS

@@ -384,7 +384,7 @@ note rather than re-deriving it if the number ever comes up again.
 The section above is about the read model, where the dominant question is whether
 an input is even possible. The emitters fail differently: their input is whatever
 a caller passes to the public builder, and every `src/gen/**` file sits behind one
-or more *doors* (`addTable`, `addChart`, the `ts-pptx/measure` subpath) that
+or more *doors* (`addTable`, `addChart`, the `pptx-ts/measure` subpath) that
 normalize before the emitter runs. So the write-side question is not "can this
 input exist?" but **"which door reaches this, and is that door in scope?"**
 
@@ -409,7 +409,7 @@ Ask these in order before writing a case for a red emitter branch:
 - **A branch dead from one door can be live from another.** `text-fit.ts`'s newline
   handling and its `lineSpacingPct` / `spaceBefore` / `spaceAfter` defaults are
   genuinely unreachable from a deck, because `buildFitParagraphs` pre-splits every
-  `\n` and always fills those fields, and fully reachable from `ts-pptx/measure`,
+  `\n` and always fills those fields, and fully reachable from `pptx-ts/measure`,
   a published subpath that exists precisely so a consumer can hand-build
   `FitParagraph[]`. Covering it *there* took the file to 100%. Same shape in
   `normalizeRuns`, unreachable from `addTable` (which normalizes) and reachable
@@ -740,7 +740,7 @@ validator that silently stopped running.
 Not part of `verify`: seven validator spawns per fixture, and it asserts nothing
 about emitted markup that `test:schema` does not already assert at `Microsoft365`.
 
-## Read/Round-Trip Suite (`ts-pptx/read`)
+## Read/Round-Trip Suite (`pptx-ts/read`)
 
 The lossless read/edit subsystem (`src/read/`) has its own harness:
 
@@ -816,7 +816,7 @@ matches what it claims to produce.
 
 ## Converter And Read-Coverage Harnesses
 
-Four runnable measurement tools back the `ts-pptx/script` subsystem. Run them
+Four runnable measurement tools back the `pptx-ts/script` subsystem. Run them
 directly to iterate or to point them at your own decks.
 
 `script:roundtrip` is the exception among them in one way worth stating: it is
@@ -830,7 +830,7 @@ The script kept the job because it is the more capable copy (`--fixture`,
 failure string). What stayed in those two suites is what the round trip *rests
 on* and cannot itself establish: that the diff fails when perturbed, that a note
 excuses only its own field, that the canonicaliser is an equivalence, and (in
-the standalone file) the chrome expectations read against `ts-pptx/read`'s own
+the standalone file) the chrome expectations read against `pptx-ts/read`'s own
 accessors rather than against the converter.
 
 The practical consequence: **`pnpm run verify` no longer runs the corpus round

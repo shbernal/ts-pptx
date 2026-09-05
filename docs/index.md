@@ -34,8 +34,8 @@ features:
     details: "Turn a .pptx into the TypeScript that would rebuild it, with a fidelity note for everything the conversion could not carry."
     link: /reference/pptx-to-script
     linkText: pptx → script
-  - title: Node-first
-    details: "ESM only, Node 24+, no browser and no office application in the loop. It runs in a browser too, and that lane is tested: it is simply not what the project is aimed at."
+  - title: Runs where you do
+    details: "One ESM build. Node 24+, where require() reaches it through Node's own interop; any bundler; a browser, straight from an ESM CDN if you have no build step. No office application in the loop anywhere."
     link: /runtime-and-package-support
     linkText: Runtime support
 ---
@@ -54,8 +54,8 @@ docs use `pptx-ts` throughout.
 ## Start Here
 
 - [Project target](project-target.md): what this project is optimized for.
-- [Runtime and package support](runtime-and-package-support.md): supported
-  package imports and dropped upstream surfaces.
+- [Runtime and package support](runtime-and-package-support.md): supported package
+  imports, and how each runtime loads the one build.
 - [Development guide](development.md): setup, source layout, and generated
   output rules.
 - [Testing guide](testing.md): regression, schema, package, browser, and manual

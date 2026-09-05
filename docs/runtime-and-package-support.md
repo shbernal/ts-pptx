@@ -1,18 +1,18 @@
 ---
 doc-schema-version: 1
 title: "Runtime And Package Support"
-summary: "Supported imports, dropped upstream support, and shipped artifacts."
+summary: "Supported imports, how every runtime loads the one ESM build, and shipped artifacts."
 read_when:
   - Changing package exports or runtime support
-  - Explaining ESM-only package behavior
+  - Explaining how the ESM build loads in Node, a browser, or from CommonJS
   - Updating shipped artifact policy
 doc_type: "reference"
 ---
 
 # Runtime And Package Support
 
-This project ships an ESM-only package for TypeScript and modern JavaScript
-applications.
+This project ships one ESM package for TypeScript and modern JavaScript applications.
+Node, bundlers, browsers and `require()` callers all load that one build.
 
 ## Supported Surface
 
@@ -45,8 +45,7 @@ The package publishes:
 - `dist/html.js` and `dist/html.d.ts` for converting an existing HTML `<table>`
   into slides. One artifact serves both runtimes: there is deliberately no
   `browser`/`node` condition split, because the entry works with whatever DOM
-  the caller has (see
-  [HTML tables → slides](https://github.com/shbernal/ts-pptx/blob/master/README.md#html-tables--slides)).
+  the caller has (see [HTML tables to slides](html-tables.md)).
 - `dist/families.js` and `dist/families.d.ts` for the construct families a
   `createPresentation({ use })` call names (see [Bundle Size](bundle-size.md)).
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
@@ -263,68 +262,64 @@ which is exactly what the adapter harness does
 requests it until a font is registered, so an app that never calls
 `registerFontMetrics` or `embedFont` will not notice its absence until it does.
 
-## Dropped Compared To Upstream
+## One Build, And Everything That Loads It
 
-### A CommonJS Build
+One ESM build ships, and it is what every consumer gets: Node, bundlers, browsers,
+and CommonJS callers alike. This section is what that means for each of them, and
+what upstream artifact names are gone.
 
-No CommonJS build ships. The package does not ship:
+### `require()` From CommonJS
 
-- `dist/pptxgen.cjs.js`
-- a CJS export condition
-- a CJS-specific Node demo target
-
-`require("pptx-ts")` works anyway. Node loads ESM through `require()` from
-22.12 onward, and this package floors at Node `>=24`, so the interop is always
-available on a supported runtime:
+`require("pptx-ts")` works. Node loads ESM through `require()` from 22.12 onward,
+and this package floors at Node `>=24`, so the interop is always available on a
+supported runtime:
 
 ```js
 const { default: TsPptx, ShapeType } = require("pptx-ts")
 const pptx = new TsPptx()
 ```
 
-Every subpath loads the same way. The one difference from a package that ships
-a real CJS build is that `require()` returns a module *namespace*, so the class
-arrives on `.default` rather than as the export itself. Destructure it, as
-above, and the rest of the API reads identically.
+Every subpath loads the same way. The one difference from a package that ships a
+separate CJS build is that `require()` returns a module *namespace*, so the class
+arrives on `.default` rather than as the export itself. Destructure it, as above, and
+the rest of the API reads identically.
 
-This is tested, not incidental. `pnpm run test:package` asserts both halves of
-the contract: that no CJS artifact and no `require` export condition ship, and
-that `require()` resolves every published subpath with its default and named
-exports intact. The interop has one failure mode worth naming. A top-level
-await anywhere in an entry's chunk graph makes `require()` of that entry throw
-while every ESM suite stays green, and that assertion is what catches it.
+This is tested, not incidental. `pnpm run test:package` asserts both halves of the
+contract: that one build ships (no `dist/pptxgen.cjs.js`, no `require` export
+condition, no CJS-specific demo target), and that `require()` resolves every published
+subpath with its default and named exports intact. The interop has one failure mode
+worth naming. A top-level await anywhere in an entry's chunk graph makes `require()` of
+that entry throw while every ESM suite stays green, and that assertion is what catches
+it.
 
-### IIFE And Global Browser Bundle
+### A Browser, With A `<script>` Tag
 
-The IIFE/global browser build is not supported.
-`pptx-ts/browser` is an ESM browser entry, not a
-`window.TsPptx` global.
-
-Unsupported:
+`pptx-ts/browser` is an ES module, so a browser loads it from
+`<script type="module">` and binds it to whatever name the `import` gives it. An ESM
+CDN resolves the dependency graph and serves it in one request:
 
 ```html
-<script src="pptxgen.bundle.js"></script>
-<script>
+<script type="module">
+  import TsPptx from "https://esm.sh/pptx-ts/browser"
+
   const pptx = new TsPptx()
+  pptx.addSlide().addText("Built in the browser", { x: 1, y: 1, w: 8, h: 1 })
+  await pptx.writeFile({ fileName: "example.pptx" })
 </script>
 ```
 
-The package does not ship:
+jsDelivr serves the same build from `https://cdn.jsdelivr.net/npm/pptx-ts/+esm`, which
+resolves to `dist/browser.js` through the same export condition a bundler uses.
+[Using The Browser Entry Without A Bundler](#using-the-browser-entry-without-a-bundler)
+above covers the self-hosted equivalent, where you supply the import map yourself.
 
-- `dist/pptxgen.bundle.js`
-- `dist/pptxgen.bundle.js.map`
-- `dist/pptxgen.min.js`
-- `dist/pptxgen.min.js.map`
-
-Classic CDN script tags and `window.TsPptx` are legacy upstream workflows,
-not the supported package target for this project.
-The legacy upstream browser demo for that workflow is not included in this
-repository.
-
-## Artifact Name Changes
-
-The old named ESM artifacts `dist/pptxgen.es.js` and `dist/pptxgen.js` are not
-shipped. Use the package exports instead of direct artifact paths.
+The classic-script form upstream shipped, a `dist/pptxgen.bundle.js` assigning a
+`window.TsPptx` global, has no equivalent here: the module script above is the whole
+replacement for it, and nothing in the package writes to `window`. The named artifacts
+`dist/pptxgen.bundle.js`, `dist/pptxgen.min.js`, their source maps, and the older ESM
+names `dist/pptxgen.es.js` and `dist/pptxgen.js` are all gone. Reach the package
+through its exports rather than an artifact path, which is what keeps a file rename
+from being a breaking change.
 
 The maintained browser integration target is a module-aware app such as the site's own
 demos page (`www/demos/`).

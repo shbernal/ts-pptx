@@ -6,21 +6,17 @@
 [![CI](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-ts-pptx generates PowerPoint `.pptx` files from TypeScript and modern
-JavaScript. This project targets ESM package consumers, typed application code,
-reproducible package verification, and agent-assisted OOXML development.
+**Write a program, get a PowerPoint file.**
 
-## Project Target
+A `.pptx` is a zip full of XML. ts-pptx writes that zip for you, so you describe
+slides in TypeScript and a `.pptx` comes out the other end. PowerPoint never runs, no
+Office licence is involved, and nothing has to be installed on the machine doing the
+writing. The file it produces is the real format: it opens in PowerPoint on Windows
+and on a Mac, and imports into Google Slides, Keynote and LibreOffice Impress.
 
-- Generate standards-based PowerPoint `.pptx` packages without requiring
-  PowerPoint at runtime.
-- Support TypeScript-first workflows with checked declarations and modern
-  bundler resolution.
-- Ship a small, explicit ESM package boundary for Node.js, Vite, React,
-  Angular, Electron, and similar modern toolchains.
-- Keep OOXML changes grounded in fixtures, schema validation, and PowerPoint
-  compatibility evidence.
-- Make the repository practical for human and agent-driven maintenance.
+Reach for it when a deck has to be built from data that changes: a monthly report,
+one deck per customer, a hundred decks per night, or a download button on a page that
+hands the user a deck built from what they are looking at.
 
 ## Install
 
@@ -28,43 +24,11 @@ reproducible package verification, and agent-assisted OOXML development.
 pnpm add pptx-ts
 ```
 
-```bash
-npm install pptx-ts
-```
-
-```bash
-yarn add pptx-ts
-```
-
 The scoped name [`@shbernal/ts-pptx`](https://www.npmjs.com/package/@shbernal/ts-pptx)
-is an alias for the same package: same contents, same version, published from the
-same commit by the same workflow. It is what this project published under first,
-and it keeps being published so installs that already name it keep resolving.
-Install one or the other and never both, because two copies of this library in one
-dependency tree are two module registries and state such as the diagnostic handler
-is per-copy. `pptx-ts` is the canonical name: the issue tracker, the changelog and
-every example in these docs use it.
-
-### Installing an unreleased commit
-
-Any commit is installable directly from GitHub, without waiting for a release:
-
-```bash
-npm install github:shbernal/ts-pptx#<commit-sha>
-```
-
-`master` (`github:shbernal/ts-pptx`) works too, but pin the sha: a branch spec
-re-resolves to whatever is at the head of it when the lockfile is next written.
-
-`dist/` is not committed, so this builds the package on install: your package
-manager clones the repo, installs this package's `devDependencies`, and runs its
-`prepare` script. That makes the install slow (a couple of minutes) and heavier
-than a registry install, and it needs a working Node toolchain. It is meant for
-trying a fix before it ships, not for production dependencies.
-
-Note that `pres.version` reports the version in `package.json` at that commit, so
-several different commits report the same number. The sha in your `package.json`
-is what identifies the build.
+is the same package, same version, published from the same commit. It is the name this
+project shipped under first, so installs that already use it keep working. Pick one of
+the two names and stay on it: two copies of the library in one dependency tree are two
+separate libraries as far as your program is concerned. Everything here uses `pptx-ts`.
 
 ## Quick Start
 
@@ -86,27 +50,66 @@ slide.addText("Hello from ts-pptx", {
 await pptx.writeFile({ fileName: "example.pptx" })
 ```
 
-## What It Can Generate
+That is the whole shape of it. Make a presentation, add a slide, put things on the
+slide, write the file. Positions are in inches by default, so `x: 1, y: 1` is an inch
+in from the top-left corner of a 10 by 5.625 inch slide.
 
-- Slides, layouts, masters, sections, notes, and metadata.
-- Text, tables, shapes, images, SVGs, charts, and media.
-- Browser-downloadable, streamed, buffered, Blob, base64, or file outputs,
-  depending on the runtime.
-- OOXML that is intended to open cleanly in Microsoft PowerPoint and other
-  `.pptx` consumers such as Keynote, LibreOffice Impress, and Google Slides
-  import.
+## What You Can Put On A Slide
 
-## What It Can Read
+Text and rich paragraphs. Tables, including ones that spill onto as many slides as
+they need. Shapes and connectors between them. Pictures, SVGs, video and audio.
+Charts, with a real embedded workbook behind them, so double-clicking a chart in
+PowerPoint opens its data the way it does for a chart a human made. Speaker notes,
+sections, slide masters and layouts, gradients, an image clipped to a shape, a
+spreadsheet embedded as an object, a 3D model, and LaTeX maths.
 
-- Report what a `.pptx` contains (slide count, dimensions, parts, media, fonts)
-  without parsing the deck into a model
-  ([inspection](docs/reference/pptx-inspection.md)).
-- Read a deck into an addressable object model, edit slides, shapes, text, and
-  metadata in place, and write the package back out
-  ([reading](docs/reference/pptx-read.md)).
-- Turn an existing deck into runnable TypeScript that rebuilds it, with the
-  constructs it could not express reported rather than dropped silently
-  ([deck to script](docs/reference/pptx-to-script.md)).
+Two features worth knowing about by name:
+
+- **[An HTML table becomes slides](docs/html-tables.md).** Point `tableToSlides` at a
+  `<table>` you already have and it comes out as a PowerPoint table, paged across
+  slides. Works in a browser and under Node.
+- **[Text that has to fit](docs/measured-text-fit.md).** ts-pptx can measure the text
+  against the real font and shrink or grow the box before it writes the file, instead
+  of leaving you to guess at font sizes.
+
+## Reading Decks, Not Just Writing Them
+
+Writing is half of it. ts-pptx also opens a `.pptx` you already have, which is
+unusual: the library it descends from generates decks and does not read them.
+
+- **[Look inside one](docs/reference/pptx-inspection.md)** and get slide count, size,
+  parts, media and fonts, without loading the whole thing into a model.
+- **[Edit one](docs/reference/pptx-read.md)**. Open a deck, change the text on slide
+  four, save it back. Parts you did not touch come out byte for byte as they went in.
+- **[Turn one into code](docs/reference/pptx-to-script.md)**. Point it at a deck and
+  get TypeScript that rebuilds it. Anything it could not express is reported to you
+  rather than dropped in silence. It is the fastest way to learn the API: build a
+  slide by hand in PowerPoint, then read the script for it.
+
+## Where It Runs
+
+- **Node 24 and up.** `import` it, or `require()` it. Node loads ES modules through
+  `require()` since 22.12, so `const { default: TsPptx } = require("pptx-ts")` works
+  on every version of Node this package supports.
+- **Browsers.** Import it in any app built with Vite, Webpack, Rollup, or any bundler
+  at all. With no build step, an ESM CDN serves it straight to a module script:
+
+  ```html
+  <script type="module">
+    import TsPptx from "https://esm.sh/pptx-ts/browser"
+    const pptx = new TsPptx()
+    pptx.addSlide().addText("Built in your browser", { x: 1, y: 1, w: 8, h: 1 })
+    await pptx.writeFile({ fileName: "example.pptx" }) // downloads the file
+  </script>
+  ```
+
+  The browser build is checked in CI against a real Chromium, and the deck a browser
+  assembles is compared part for part against the one Node builds. They are identical.
+- **Deno, Bun, edge workers.** They author and hand back bytes like anywhere else.
+  `writeFile()` is the one thing they cannot do, because there is no disk to write to
+  and no page to download onto.
+
+Full detail is in [runtime and package support](docs/runtime-and-package-support.md).
 
 <!-- comparison:start -->
 <!-- GENERATED REGION. Do not edit by hand.
@@ -130,216 +133,43 @@ the bytes that came out.
 - **Activity:** last commit on the default branch, 2026-09-05 for ts-pptx and 2025-06-26
   for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
 
-The full tables, the method behind them, and what ts-pptx gives up (no CommonJS, no CDN
-script tag, Node.js `>=24` only) are on the [comparison page](docs/comparison.md).
+The full tables, the method behind them, and where the two libraries part company are on
+the [comparison page](docs/comparison.md).
 
 <!-- comparison:end -->
 
-## Scope And Contributions
-
-This project is **Node-first**: it generates and is tested without a browser or any
-office application. Two areas are out of *active* maintenance scope, not because
-they lack merit, but because there is no in-house use case driving them, so the
-maintainer generally will not pick up bugs or feature requests there:
-
-- **Live-DOM / browser-layout features**, anything whose answer comes from a
-  *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts as
-  the browser actually chose them. (Converting an HTML `<table>` is *not* in this
-  category: see [HTML tables → slides](#html-tables--slides) below. Only real
-  measurement needs a browser.)
-- **Third-party office-suite interop quirks** that appear only after a file is
-  round-tripped through another application (for example, copy/paste inside WPS
-  Office, then opening in PowerPoint) when the generated package is itself valid
-  OOXML. The supported bar is that output opens cleanly in Microsoft PowerPoint.
-
-**Contributions in these areas are welcome**: issues and pull requests are
-encouraged even though the maintainer is not actively developing them. See
-[`docs/project-target.md`](docs/project-target.md) for the full scope statement
-and suggested testing approaches.
-
-## Hit A Bug? There Is A Skill For That
-
-Most code that uses this library is written by an agent, and an agent that hits a
-library defect will usually route around it silently, so the defect is never
-reported and never fixed. `ts-pptx-upstream` is a skill that turns that moment into
-a filed issue with a minimal reproduction, which is what becomes a permanent
-regression test here. It ships inside the package, so it is already on disk:
-
-```bash
-# Name the skill and the runtimes, and take the defaults: this is the form that
-# completes unattended, which is how an agent will be running it.
-npx skills add ./node_modules/pptx-ts -s '*' -a claude-code -a codex -a universal -y
-
-npx skills add shbernal/ts-pptx   # same flags, straight from the repo instead of node_modules
-```
-
-Drop the flags for an interactive prompt if you are at a terminal yourself. Do not reach
-for `--all` to avoid the prompt: it installs into every runtime the CLI knows about,
-around seventy of them, and leaves an `agent/` directory at your repository root for
-runtimes nobody there uses. Name the ones you have.
-
-Two things about living with the installed copy. It is a copy, so **a version bump does
-not update it**: re-run the command above, or `npx skills update ts-pptx-upstream`, in
-the same commit as the bump. And if you track it, track `skills-lock.json` and ignore the
-copy: `skills experimental_install` restores the file from that lock but creates none of
-the runtime links, so it is a record, not a restore command.
-
-It covers triage (is this ours, your deck's, or out of scope?), reducing a failure to
-a script that builds its own deck, and (because presentations carry client names and
-unreleased numbers) never uploading one to a public tracker. Once the reproduction
-stands on its own it files without interrupting you, and tells you the issue number
-afterwards. It also covers the far end of the cycle, which is the half that usually
-rots: when a release lands, finding every workaround it retires and deleting them.
-
-You do not need it to report something: <https://github.com/shbernal/ts-pptx/issues>
-is open, and errors the library knows are its own fault print that link themselves.
-See [errors](docs/errors.md#which-failures-are-worth-reporting) for which failures are
-worth a report.
-
-## Runtime And Package Support
-
-The package is ESM-only.
-
-Supported package surface:
-
-- `import TsPptx, { ShapeType } from "pptx-ts"` (enums, shared types, and
-  layout helpers ship from the main entry)
-- `import { inspectPptx } from "pptx-ts/inspect"`
-- `import { measureText } from "pptx-ts/measure"`
-- `import { Presentation } from "pptx-ts/read"`
-- `import { readModelToIr, printScript } from "pptx-ts/script"`
-- `import { latexToOmml } from "pptx-ts/math"`
-- `import { ZipWriter, readZip } from "pptx-ts/zip"`
-- `import { tableToSlides } from "pptx-ts/html"`
-- `import { charts, tables } from "pptx-ts/families"`, the construct families a
-  `createPresentation({ use })` call names so a program pays only for what it
-  authors. See [bundle size](docs/bundle-size.md).
-- `import TsPptx from "pptx-ts/node"`
-- `import TsPptx from "pptx-ts/browser"`:
-  the bare specifier resolves to one of these two by export condition, so Node
-  and bundled browser apps get the right build without naming it. A runtime that
-  sets neither (Deno, Bun, edge workers) gets a runtime-agnostic build that
-  authors and exports bytes normally but has no `writeFile` destination; see
-  [Runtime And Package Support](docs/runtime-and-package-support.md#which-build-the-bare-import-gives-you).
-- generated runtime and declaration artifacts under `dist/`
-- Node.js `>=24`
-- modern bundlers and module-aware app frameworks
-- `const { default: TsPptx } = require("pptx-ts")` from CommonJS. Node loads ESM
-  through `require()` from 22.12 onward, which every supported Node has, so this
-  works on all published subpaths. `require()` hands back a module namespace, so
-  the class is on `.default`. `pnpm run test:package` asserts it.
-
-Deliberately not supported:
-
-- No CommonJS *build*: no CJS export condition and no `.cjs` artifact. The
-  `require()` line above is Node's ESM interop loading the one build that ships,
-  not a second copy of the library.
-- No IIFE/global browser bundle: no classic-script global, no `dist/*.bundle.js`,
-  and no `dist/*.min.js`.
-
-Use the package exports rather than direct `dist/` artifact paths.
-
-See [runtime and package support](docs/runtime-and-package-support.md) for the
-complete support contract.
-
-## HTML Tables → Slides
-
-`pptx-ts/html` reproduces an existing HTML `<table>` as a PowerPoint
-table, auto-paging across as many slides as its rows need. It works in the
-browser and under Node with any DOM implementation, from one artifact.
-
-```ts
-import { TsPptx } from 'pptx-ts'
-import { tableToSlides } from 'pptx-ts/html'
-import { Window } from 'happy-dom'
-
-const win = new Window()
-win.document.body.innerHTML = '<table id="report">…</table>'
-
-const pptx = new TsPptx()
-tableToSlides(pptx, win.document.getElementById('report'))
-await pptx.writeFile({ fileName: 'report.pptx' })
-```
-
-Pass the element itself and no global DOM is consulted at all. To pass a string
-id instead, say which document it belongs to:
-
-```ts
-tableToSlides(pptx, 'report', { document: win.document })
-```
-
-In a browser, `options.document` defaults to the global `document`, so
-`tableToSlides(pptx, 'report')` is enough. The equivalent method form,
-`pptx.tableToSlides('report', options)`, remains on the browser build and
-delegates to the same implementation.
-
-**Column widths need a layout engine.** In a browser the columns are sized from
-each cell's rendered `offsetWidth`, reproducing the table's real proportions.
-Nothing outside a browser lays a table out, so `offsetWidth` is `0` there and
-the conversion falls back in two steps: it uses the computed CSS `width`s when the
-stylesheet states them for every column in one unit (all `px` or all `%`), and
-an equal split when it does not.
-
-The first step is a *fallback*, not a graceful loss of precision: `offsetWidth` is
-the border box and computed `width` the content box, so padding alone can put the
-two bases in different proportions. The same table can therefore come out with
-different column widths in a browser and outside one.
-
-To pin widths regardless of runtime, annotate the `<thead>` header cells, which
-win outright on every path:
-
-```html
-<thead>
-  <tr>
-    <th data-pptx-width="2.5">Name</th>
-    <th data-pptx-min-width="1">Qty</th>
-  </tr>
-</thead>
-```
-
-Everything else behaves the same wherever it runs: cell text (with `<br>` kept
-as a line break), `colspan`/`rowspan`, computed colors, weight, alignment,
-padding and borders, and auto-paging.
-
 ## Documentation
 
-The full documentation site is published at
-**<https://shbernal.github.io/ts-pptx/>**, including the generated API reference.
+The full documentation site, including the generated API reference, is at
+**<https://shbernal.github.io/ts-pptx/>**.
+
+The [demos page](https://shbernal.github.io/ts-pptx/demos) builds a quarterly review
+deck in your browser and previews the slides. Nothing to clone, nothing to install.
 
 - [Documentation index](docs/README.md)
-- [Project target](docs/project-target.md)
-- [Runtime and package support](docs/runtime-and-package-support.md)
-- [Development guide](docs/development.md)
-- [Testing guide](docs/testing.md)
-- [Agent development guide](docs/agent-development.md)
-- [OOXML agent context](docs/ooxml-agent-context.md)
-- [Evidence and fixtures](docs/evidence-and-fixtures.md)
+- [Tables](docs/tables.md), [groups](docs/groups.md),
+  [connectors](docs/connectors.md), [HTML tables to slides](docs/html-tables.md)
+- [Errors](docs/errors.md) and [diagnostics](docs/diagnostics.md): what the library
+  throws, what it warns about, and how to route or silence the warnings
+- [Troubleshooting](docs/troubleshooting.md)
 
-## Repository Development
+## Something Wrong, Or Missing?
 
-This repository uses `pnpm` and requires Node.js `>=24`.
+Open an issue: <https://github.com/shbernal/ts-pptx/issues>. Errors the library knows
+are its own fault print that link themselves.
 
-```bash
-pnpm install
-pnpm run verify
-```
-
-OOXML serialization changes should also add or update a schema fixture in
-`test/schema-cases.js`. The schema suite validates through `ooxml-validate`, which
-fetches and caches its oracle binary on first use, so there is nothing to install.
-
-Package-boundary changes should run:
+If an agent writes most of your code, install the `ts-pptx-upstream` skill that ships
+inside the package. An agent that hits a library defect usually routes around it in
+silence, and nobody ever hears about it. The skill turns that moment into a filed issue
+with a reproduction small enough to become a regression test here:
 
 ```bash
-pnpm run check:package
+npx skills add ./node_modules/pptx-ts -s '*' -a claude-code -a codex -a universal -y
 ```
 
-## Demos
-
-- `demos/showcases` builds the two flagship decks from one command.
-- `demos/node` exercises Node.js ESM generation and stream output.
-- The [demos page](https://shbernal.github.io/ts-pptx/demos) builds the quarterly review in
-  your browser and previews the slides: nothing to clone.
+Name the runtimes you actually use, as above. [CONTRIBUTING.md](CONTRIBUTING.md) covers
+what the skill does with the report, keeping your decks off a public tracker, and
+refreshing the installed copy after a version bump.
 
 ## License
 

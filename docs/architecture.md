@@ -164,7 +164,7 @@ exports and let this repository own the internal OOXML generation details.
   those two parts would be a second answer to what a notesMaster is. Everything else
   under `ops/` moves parts that already exist.
 - `src/measure/` holds the calibrated text-measurement engine behind the
-  `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
+  `pptx-ts/measure` subpath and the export-time autofit bake: `font-metrics.ts`
   (advance widths + the registry), `text-fit.ts` (the wrap simulator and the
   shrink/resize solvers), `paragraphs.ts` (authored object → simulator inputs),
   `table-fit.ts` (`computeTableLayout` and the cell-grid walk), and `fit.ts` (the
@@ -202,7 +202,7 @@ exports and let this repository own the internal OOXML generation details.
   It is its own subsystem because it depends on **both** halves, the read model
   and the write option types, so it fits inside neither, and because `src/read/`
   is documented as isomorphic (bytes in, bytes out), which a converter emitting
-  source text would quietly break for every `ts-pptx/read` consumer. Losses are
+  source text would quietly break for every `pptx-ts/read` consumer. Losses are
   data, not log lines: anything that cannot survive is a `FidelityNote` on the
   IR, which is what lets a round-trip check exclude exactly the declared losses
   and treat every other difference as a defect. `verify/` is that check:
@@ -277,15 +277,17 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | n/a |
 | Colors, fills, borders, shadows | n/a | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
 | Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `presentation.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
-| HTML `<table>` → slides | `html.ts` `tableToSlides` (the `ts-pptx/html` subpath, any DOM); `browser.ts` `tableToSlides` (method form, delegates) | `gen/table/html-dom.ts` `genTableToSlides` |
+| HTML `<table>` → slides | `html.ts` `tableToSlides` (the `pptx-ts/html` subpath, any DOM); `browser.ts` `tableToSlides` (method form, delegates) | `gen/table/html-dom.ts` `genTableToSlides` |
 | Public API surface | `presentation.ts` (class), `slide.ts` (slide methods) | n/a |
 | Option / type definitions | `types/index.ts` (barrel over `types/*`) | n/a |
 | Enums & shared constants | `enums.ts` (public); `constants-internal.ts` (generator-only) | n/a |
 
 ## Boundaries
 
-- The maintained runtime package is ESM-only.
-- CommonJS and IIFE/global browser bundles are not maintained package targets.
+- The maintained runtime package is one ESM build, and every consumer loads it:
+  Node (including through `require()`), bundlers, and browsers reaching it from a
+  bundler or an ESM CDN. Upstream also shipped a CommonJS build and an IIFE global;
+  this package replaced both with that single artifact.
 - `dist/` is generated release output, not hand-edited source.
 - Internal OOXML generators are implementation details unless deliberately
   exposed through `package.json` exports and public declarations.
@@ -307,7 +309,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   slide and a notes master through `gen/slide/notes.ts`. Adding a notes page to a
   loaded deck has to produce the same part the write path produces, and having two
   builders for one part is how they come to disagree. The cost is that
-  `ts-pptx/read` pulls `gen/slide/notes.ts` and its `drawingml`/`opc` graph into its
+  `pptx-ts/read` pulls `gen/slide/notes.ts` and its `drawingml`/`opc` graph into its
   bundle; that is the trade, and it is stated here so it stays a decision rather
   than an observation. Everything else the two halves share lives in the
   import-free `src/ooxml/` modules (`namespaces.ts`, `sequence.ts`,

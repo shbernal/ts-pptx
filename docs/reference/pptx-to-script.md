@@ -10,9 +10,9 @@ read_when:
 doc_type: "guide"
 ---
 
-# Turning a deck back into source (`ts-pptx/script`)
+# Turning a deck back into source (`pptx-ts/script`)
 
-The `ts-pptx/script` subpath reads an existing `.pptx` through `ts-pptx/read`
+The `pptx-ts/script` subpath reads an existing `.pptx` through `pptx-ts/read`
 and emits **TypeScript source** that rebuilds an equivalent deck through this
 library's public write API. The deck stops being an opaque binary and becomes
 something you can diff, parameterize, and regenerate.

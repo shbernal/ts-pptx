@@ -195,7 +195,7 @@ Details worth knowing, all transcribed from a PowerPoint-authored deck
 
 ## Reading a deck that contains a model
 
-There is no typed read accessor. A model read through `ts-pptx/read` surfaces as
+There is no typed read accessor. A model read through `pptx-ts/read` surfaces as
 an inert `graphicFrame` shape carrying its `objectName`: visible to anything
 enumerating shapes, and preserved byte-intact through load → save and through
 `importSlide`, but with no camera or payload accessor. That is deliberate for

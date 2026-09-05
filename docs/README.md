@@ -42,6 +42,9 @@ artifacts.
 - [Tables](tables.md): the cell model, the styling precedence chain, borders
   (per-cell default vs. perimeter, dash styles, diagonals), merges, auto-paging,
   reading/editing an existing table, and what PowerPoint will not keep.
+- [HTML tables to slides](html-tables.md): convert an existing `<table>` with
+  `tableToSlides`, and how column widths are decided with and without a layout
+  engine.
 - [Grouping objects](groups.md): `addGroup()` / `groupObjects()`, the identity
   child space, framing, nesting, and cross-references into a group.
 - [Connectors](connectors.md): `addConnector()` straight/elbow/curved lines,
@@ -71,7 +74,8 @@ artifacts.
 ## Documentation Rules
 
 - Keep docs aligned with the current package target.
-- Do not document CJS or IIFE as supported workflows.
+- Describe the package as it loads: one ESM build, `require()` on Node 24+ through
+  Node's own ESM interop, and a browser reaching it through a bundler or an ESM CDN.
 - Keep release runtime and declaration artifacts under `dist/` treated as
   generated outputs unless a task explicitly asks to refresh them.
 - For OOXML behavior, prefer small repo-specific notes with section references

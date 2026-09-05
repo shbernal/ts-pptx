@@ -27,6 +27,7 @@
         "errors",
         "diagnostics",
         "tables",
+        "html-tables",
         "groups",
         "connectors",
         "image-in-shape",

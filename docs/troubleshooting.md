@@ -24,7 +24,9 @@ Checks:
 
 Likely causes:
 
-- A consumer is using a removed CommonJS or IIFE/global workflow.
+- A consumer is loading a legacy upstream artifact by path (`dist/pptxgen.bundle.js`,
+  `dist/pptxgen.cjs.js`) or expecting a `window.TsPptx` global, instead of importing
+  the package through its exports.
 - A consumer is deep-importing an internal source file.
 - Generated declarations or package exports are stale.
 
