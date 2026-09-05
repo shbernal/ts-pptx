@@ -146,7 +146,7 @@ export function autoPageLineHeightEmu(fontSizePt: number, lineWeight = 0): numbe
  * The four slide margins in inches, `[top, right, bottom, left]`, from the master's own margin
  * and the caller's `slideMargin`.
  *
- * Precedence is master, then caller, then {@link DEF_SLIDE_MARGIN_IN}. A scalar broadcasts to
+ * Precedence is caller, then master, then {@link DEF_SLIDE_MARGIN_IN}. A scalar broadcasts to
  * all four sides; an array is taken as-is.
  *
  * Three sites derived this and they already disagreed. Two gated the master on
@@ -155,14 +155,14 @@ export function autoPageLineHeightEmu(fontSizePt: number, lineWeight = 0): numbe
  * `_margin: 0` took the master branch in two of them and the caller branch in the third, and
  * a master with `_margin: "0.25"` resolved in two and was ignored in the third.
  *
- * **The master-first order is inherited, not chosen**, and it is the reverse of the rule stated
- * everywhere else here -- an explicit option beats an inherited one. All three sites already had
- * it and the consolidation kept it rather than deciding it, so on a deck whose master defines a
- * `margin`, `addTable(rows, { slideMargin: 2 })` is discarded with nothing said. It only bites
- * that deck: a slide on the built-in layout carries no `_margin`, so the caller's value wins
- * there. Flipping it is a breaking change for anyone relying on a master to hold the line against
- * a per-table override, so it is not made in passing -- but it is written down here so the next
- * reader does not have to re-derive whether it was deliberate. It was not.
+ * **The caller-first order was decided, the master-first one it replaced was not.** All three
+ * pre-consolidation sites read the master first, inherited from upstream, and the consolidation
+ * kept that order rather than deciding it -- so on a deck whose master defined a `margin`,
+ * `addTable(rows, { slideMargin: 2 })` was discarded with nothing said, which is the reverse of
+ * the rule stated everywhere else here: an explicit option beats an inherited one. The master's
+ * `margin` is now the deck-wide default a per-table `slideMargin` overrides. A master margin as
+ * a *floor* rather than a ceiling is a third reading, and if anyone needs it, it wants a stated
+ * option rather than a precedence accident.
  *
  * @param masterMargin - the master/layout's `_margin`, in inches
  * @param slideMargin - the caller's `slideMargin`, in inches
@@ -179,12 +179,12 @@ export function resolveSlideMarginsInches(
 		const n = Number(value)
 		return Number.isFinite(n) ? [n, n, n, n] : null
 	}
-	if (masterMargin !== undefined && masterMargin !== null) {
-		const resolved = broadcast(masterMargin)
-		if (resolved) return resolved
-	}
 	if (slideMargin !== undefined && slideMargin !== null) {
 		const resolved = broadcast(slideMargin)
+		if (resolved) return resolved
+	}
+	if (masterMargin !== undefined && masterMargin !== null) {
+		const resolved = broadcast(masterMargin)
 		if (resolved) return resolved
 	}
 	return [...DEF_SLIDE_MARGIN_IN]

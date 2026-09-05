@@ -178,6 +178,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A per-table `slideMargin` now beats a master's `margin`.** `resolveSlideMarginsInches`
+  resolved the master's margin first, so on a deck whose master declares one,
+  `addTable(rows, { slideMargin: 2 })` was discarded with nothing said -- the pager, the
+  un-paged width calculation and `tableToSlides` all read the master's value instead. That is
+  the reverse of the precedence this library states everywhere else, and it was never decided:
+  all three pre-consolidation derivations already had master-first, inherited from upstream,
+  and the consolidation preserved the order while unifying the three readings of it.
+
+  A master `margin` is now the deck-wide **default** a per-call `slideMargin` overrides, and a
+  deck that states neither is unchanged. **Migration:** a deck relying on a master margin to
+  hold the line against a per-table override has to stop passing the override. A master margin
+  as a *floor* rather than a ceiling is a third reading, and if that is what is wanted it
+  belongs in a stated option rather than in a precedence accident.
+
 - **`pptx-ts` is the package name; `@shbernal/ts-pptx` is now the alias.** The two names
   swap roles. Both keep being published from the same commit at the same version with the
   same contents, and nothing about installing, importing or resolving either one changes

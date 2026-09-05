@@ -82,6 +82,30 @@ defineRegressionSuite('Table geometry under asymmetric input', [
 		},
 	},
 	{
+		// Precedence used to run master-first, inherited from upstream and never decided, so a deck
+		// whose master declared a `margin` discarded a per-table `slideMargin` with no diagnostic —
+		// the reverse of the rule everywhere else here. Both halves are asserted: the caller's value
+		// wins where one is given, and the master's still applies where none is.
+		name: 'an explicit slideMargin beats a master margin, which still applies without one',
+		fn: async () => {
+			// An un-paged table with no `w` takes whole inches from its left edge (`x`, defaulting
+			// to 0.5) to the right margin, so its width is a direct reading of which margin won.
+			const widthFor = async (margin, slideMargin) => {
+				const { zip } = await build((p) => {
+					p.defineLayout({ name: 'TEN', width: 10, height: 5.625 })
+					p.layout = 'TEN'
+					p.defineSlideMaster({ title: 'M', margin })
+					p.addSlide({ masterTitle: 'M' }).addTable([['a', 'b']], { autoPage: false, slideMargin })
+				})
+				return gridWidthEmu(await readEntry(zip, SLIDE_XML)) / 914400
+			}
+			assertEqual(await widthFor(0.5, undefined), 9, 'the master margin applies when the caller states none')
+			assertEqual(await widthFor(1, undefined), 8, 'and a different master margin gives a different width')
+			// Master-first would have read the master's 1in here and emitted 8.
+			assertEqual(await widthFor(1, 2), 7, 'a stated slideMargin wins over the master')
+		},
+	},
+	{
 		// `headerRow` is inline styling for row 0, baked into the cells at definition time. It was
 		// carried onto every continuation page, where the recursive `addTable` re-ran the sugar
 		// against THAT page's row 0 — an arbitrary body row — painting it as a header.

@@ -496,9 +496,10 @@ export function getSlidesForTableRows(
 
 	// STEP 1: Calculate margins
 	{
-		// Important: Use default size as zero cell margin is causing our tables to be too large and touch bottom of slide!
-		const slideMargin = tableProps.slideMargin ?? DEF_SLIDE_MARGIN_IN[0]
-		arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, slideMargin)
+		// The caller's value goes through unaltered, including an absent one: `resolveSlideMarginsInches`
+		// owns all three tiers, and defaulting to `DEF_SLIDE_MARGIN_IN[0]` here handed it a stated
+		// caller margin that no caller had stated, which suppressed the master's own `margin`.
+		arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, tableProps.slideMargin)
 
 		if (tableProps.verbose)
 			console.log(`| arrInchMargins .................................. = [${arrInchMargins.join(', ')}]`)

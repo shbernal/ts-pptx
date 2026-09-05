@@ -290,9 +290,10 @@ defineRegressionSuite('Table autoPage option surface', [
 	{
 		name: "a master's scalar `margin` applies to all four sides of the paging area",
 		fn: async () => {
-			// A master margin outranks `slideMargin`, and may be a single number rather than the
-			// [T,R,B,L] array. Only the bottom margin narrows the paging area, so comparing two
-			// masters is what proves the scalar was fanned out rather than merely accepted.
+			// A master margin applies where the table states no `slideMargin` of its own, and may be
+			// a single number rather than the [T,R,B,L] array. Only the bottom margin narrows the
+			// paging area, so comparing two masters is what proves the scalar was fanned out rather
+			// than merely accepted.
 			// No `h`: with an explicit height the paging area is clamped to it and the margin
 			// would not show.
 			async function pageCount(margin) {
@@ -314,6 +315,34 @@ defineRegressionSuite('Table autoPage option surface', [
 			const narrow = await pageCount(0.25)
 			const wide = await pageCount(2)
 			assert(wide > narrow, `a 2" master margin should leave room for fewer rows; got ${wide} vs ${narrow}`)
+		},
+	},
+	{
+		name: 'a stated `slideMargin` outranks the master margin the paging area would otherwise take',
+		fn: async () => {
+			// Precedence used to run master-first, so on a deck whose master declared a margin the
+			// per-table `slideMargin` was discarded with no diagnostic and the page count did not
+			// move. Two very different margins against one master is what makes that visible.
+			async function pageCount(slideMargin) {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({ title: 'AP_OVERRIDE', margin: 0.25 })
+					p.addSlide({ masterTitle: 'AP_OVERRIDE' }).addTable(bodyRows(60), {
+						x: 0.5,
+						y: 0.5,
+						w: 9,
+						colW: [4.5, 4.5],
+						margin: 0,
+						autoPage: true,
+						fontSize: 12,
+						slideMargin,
+					})
+				})
+				return slideFiles(zip).length
+			}
+
+			const narrow = await pageCount(0.25)
+			const wide = await pageCount(2)
+			assert(wide > narrow, `the table's own 2" margin must reach the pager; got ${wide} vs ${narrow}`)
 		},
 	},
 	{

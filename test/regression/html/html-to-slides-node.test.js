@@ -617,9 +617,10 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 				tableToSlides(pptx, tableOf(win), { masterTitle: 'REPORT' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			// The master's 1.25in margin becomes the table's x/y origin. Reading it back proves
-			// the lookup happened: without it the default 0.5in margin would be used. Anchor on
-			// the graphic frame's own <p:xfrm> — the slide's group transform is an <a:off> too.
+			// The master's 1.25in margin becomes the table's x/y origin, since this call states no
+			// `slideMargin` of its own. Reading it back proves the lookup happened: without it the
+			// default 0.5in margin would be used. Anchor on the graphic frame's own <p:xfrm> —
+			// the slide's group transform is an <a:off> too.
 			const off = /<p:xfrm><a:off x="(\d+)" y="(\d+)"\/>/.exec(xml)
 			assert(off, `expected a positioned graphic frame; got: ${xml}`)
 			assertEqual(Number(off[1]), Math.round(1.25 * ONE_IN_EMU), 'x must come from the master margin')

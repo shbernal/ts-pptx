@@ -655,7 +655,6 @@ export function genTableToSlides(
 	// call's *second* page did.
 	const opts: TableToSlidesPropsInternal = { ...options }
 	const masterSlide = resolveMasterSlide(pptx, opts.masterTitle)
-	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
 	const arrObjTabHeadRows: TableCellInternal[][] = []
 	const arrObjTabBodyRows: TableCellInternal[][] = []
@@ -670,7 +669,10 @@ export function genTableToSlides(
 	// also where a missing/unresolvable table id fails.
 	const ctx = resolveDomContext(target, opts)
 
-	// STEP 1: Set margins
+	// STEP 1: Set margins. The caller's `slideMargin` is passed as given, absent included:
+	// `resolveSlideMarginsInches` owns the caller/master/default tiers, and substituting 0.5
+	// for an unstated one here made every deck look like it had asked for the default margin,
+	// which outranks and so suppresses the master's own.
 	arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, opts.slideMargin)
 	emuSlideTabW = (opts.w ? inch2Emu(opts.w) : pptx.presLayout.width) - inch2Emu(arrInchMargins[1] + arrInchMargins[3])
 
