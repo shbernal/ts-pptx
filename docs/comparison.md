@@ -21,7 +21,7 @@ ts-pptx is an independent derivative of
 trusted over it, so every difference below was produced by running both libraries and
 reading what came out.
 
-Measured on 2026-09-04: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-05: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm (published 2025-06-26).
 
 ## What this measures, and how
@@ -211,7 +211,7 @@ own cannot tell them apart.
 - `/ppt/charts/chart1.xml`: `The element has unexpected child element
   'http://schemas.openxmlformats.org/drawingml/2006/chart:axId'.`
 - `/ppt/presentation.xml`: `The attribute 'id' has invalid value
-  '{c20c63a9-c643-1013-9457-821c050dc52c}'. The Pattern constraint failed. The expected
+  '{330cb67d-fbfb-48b5-949e-fd4f459a0ebb}'. The Pattern constraint failed. The expected
   pattern is \{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}.`
 
 ## Package hygiene
@@ -222,15 +222,15 @@ is measured against a development checkout with its dependencies hoisted flat.
 
 |  | ts-pptx | pptxgenjs |
 |---|---|---|
-| Installed size, with dependencies | 10.2 MB | 6.7 MB |
-| Installed size, the package alone | 5.5 MB | 2.5 MB |
+| Installed size, with dependencies | 10.3 MB | 6.7 MB |
+| Installed size, the package alone | 5.7 MB | 2.5 MB |
 | Runtime dependencies, transitive | 3 | 18 |
 | Runtime dependencies, direct | `@xmldom/xmldom`, `fflate`, `opentype.js` | `@types/node`, `https`, `image-size`, `jszip` |
-| Entry points | `.`, `./inspect`, `./measure`, `./read`, `./script`, `./math`, `./zip`, `./html`, `./node`, `./browser` | `.` |
+| Entry points | `.`, `./inspect`, `./measure`, `./read`, `./script`, `./math`, `./zip`, `./html`, `./families`, `./node`, `./browser` | `.` |
 | Module formats | esm | cjs, esm |
 | `engines.node` | `>=24` | not declared |
-| Hello world, first chunk | 144 kB | 123 kB |
-| Hello world, every chunk | 210 kB | 123 kB |
+| Hello world, first chunk | 98 kB | 123 kB |
+| Hello world, every chunk | 211 kB | 123 kB |
 
 The hello world program is identical in intent on both sides and written in each library's
 own idiom: one slide, one text box, then export. It is bundled with esbuild for the
@@ -280,16 +280,16 @@ construct a library does or does not write.
 |---|---|---|
 | Repository | [shbernal/ts-pptx](https://github.com/shbernal/ts-pptx) | [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS) |
 | Default branch | `master` | `master` |
-| Last commit on the default branch | 2026-09-04 | 2025-06-26 |
+| Last commit on the default branch | 2026-09-05 | 2025-06-26 |
 | Last npm publish | 2026-08-29 | 2025-06-26 |
 | Downloads, last month | 2,019 | 11,116,327 |
-| Stars | 2 | 6,114 |
+| Stars | 2 | 6,117 |
 | Open issues | 0 | 230 |
 | Open pull requests | 0 | 64 |
-| Source lines | 61,442 | 10,125 |
-| Test lines | 64,581 | 0 |
-| Test suite | 13 test scripts, 304 spec files under `test/` | no test script, no spec file, no test directory |
-| Statement coverage | 95.33% (Node and browser lanes merged) | no automated suite |
+| Source lines | 63,275 | 10,125 |
+| Test lines | 66,339 | 0 |
+| Test suite | 13 test scripts, 316 spec files under `test/` | no test script, no spec file, no test directory |
+| Statement coverage | 95.31% (Node and browser lanes merged) | no automated suite |
 
 The last commit on the default branch is reported rather than the repository's last push,
 which the same API offers and which counts activity on any branch. The two disagree for

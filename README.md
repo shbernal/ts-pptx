@@ -117,7 +117,7 @@ await pptx.writeFile({ fileName: "example.pptx" })
 
 ts-pptx is an independent derivative of
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1. Both were
-measured on 2026-09-04 by building the same 22 deck intents with each library and reading
+measured on 2026-09-05 by building the same 22 deck intents with each library and reading
 the bytes that came out.
 
 - **Construct coverage:** ts-pptx emitted 21 of 22, pptxgenjs 10 of 22. Nothing in the
@@ -127,7 +127,7 @@ the bytes that came out.
 - **Adoption:** pptxgenjs is downloaded 11,116,327 times a month, against 2,019 for
   ts-pptx. If a large installed base matters to you more than the differences above, use
   pptxgenjs.
-- **Activity:** last commit on the default branch, 2026-09-04 for ts-pptx and 2025-06-26
+- **Activity:** last commit on the default branch, 2026-09-05 for ts-pptx and 2025-06-26
   for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
 
 The full tables, the method behind them, and what ts-pptx gives up (no CommonJS, no CDN

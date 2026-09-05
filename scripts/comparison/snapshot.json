@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-09-04",
+	"generatedAt": "2026-09-05",
 	"subjects": {
 		"ts-pptx": {
 			"version": "3.7.0",
@@ -301,7 +301,7 @@
 					"id": "Sch_AttributeValueDataTypeDetailed",
 					"type": "Schema",
 					"partUri": "/ppt/presentation.xml",
-					"description": "The attribute 'id' has invalid value '{c20c63a9-c643-1013-9457-821c050dc52c}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
+					"description": "The attribute 'id' has invalid value '{330cb67d-fbfb-48b5-949e-fd4f459a0ebb}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
 					"decks": 1
 				}
 			],
@@ -313,8 +313,8 @@
 	"hygiene": {
 		"ts-pptx": {
 			"install": {
-				"bytes": 10648851,
-				"packageBytes": 5766436
+				"bytes": 10848536,
+				"packageBytes": 5966121
 			},
 			"dependencies": {
 				"direct": ["@xmldom/xmldom", "fflate", "opentype.js"],
@@ -329,15 +329,16 @@
 				"./math",
 				"./zip",
 				"./html",
+				"./families",
 				"./node",
 				"./browser"
 			],
 			"moduleFormats": ["esm"],
 			"engines": ">=24",
 			"helloWorld": {
-				"initialBytes": 147312,
-				"totalBytes": 215405,
-				"chunks": 3
+				"initialBytes": 100802,
+				"totalBytes": 215701,
+				"chunks": 4
 			}
 		},
 		"pptxgenjs": {
@@ -363,7 +364,7 @@
 		"ts-pptx": {
 			"repo": "shbernal/ts-pptx",
 			"defaultBranch": "master",
-			"lastDefaultBranchCommit": "2026-09-04",
+			"lastDefaultBranchCommit": "2026-09-05",
 			"stars": 2,
 			"openIssues": 0,
 			"openPullRequests": 0,
@@ -377,10 +378,10 @@
 				"lastPublish": "2026-08-29"
 			},
 			"source": {
-				"lines": 61442,
-				"testLines": 64581,
+				"lines": 63275,
+				"testLines": 66339,
 				"statementCoverage": {
-					"pct": 95.33,
+					"pct": 95.31,
 					"lane": "merged"
 				},
 				"testEvidence": {
@@ -399,7 +400,7 @@
 						"test:com",
 						"test:lo"
 					],
-					"specFiles": 304,
+					"specFiles": 316,
 					"testDirs": ["test"]
 				}
 			}
@@ -408,7 +409,7 @@
 			"repo": "gitbrent/PptxGenJS",
 			"defaultBranch": "master",
 			"lastDefaultBranchCommit": "2025-06-26",
-			"stars": 6114,
+			"stars": 6117,
 			"openIssues": 230,
 			"openPullRequests": 64,
 			"npm": {
