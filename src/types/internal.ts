@@ -306,6 +306,14 @@ export interface SlideRelMedia {
 	path?: string
 	extn?: string
 	data?: string | ArrayBuffer
+	/**
+	 * An `addMedia` poster frame the caller supplied no `cover` for, so it takes the library's
+	 * default play-button artwork. `addMediaDefinition` pushes the rel with this flag and no
+	 * `data`; `encodeSlideMediaRels` fills the bytes in during the async media pass, behind the
+	 * dynamic import that keeps 54 kB of PNG out of every consumer's entry chunk. Every rel
+	 * carrying it has its `data` resolved before any part is emitted.
+	 */
+	isDefaultCover?: boolean
 	/** used to indicate that a media file has already been read/enocded (PERF) */
 	isDuplicate?: boolean
 	isSvgPng?: boolean

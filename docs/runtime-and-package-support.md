@@ -260,6 +260,15 @@ metrics load `opentype.js` through a dynamic import that runs only on first font
 registration: charging a program for a chunk it may never fetch is as wrong as
 hiding bytes it might.
 
+The library's own largest deferred chunk is the default video poster. The
+play-button overlay `addMedia` falls back to when the caller passes no `cover`
+is 54 kB of base64 PNG, and `addMedia` is a class method, so nothing tree-shakes
+it: naming the artwork where the media object is defined charged that payload to
+every consumer, text-only ones included. It is resolved during the async media
+pass instead, from `src/media/playbtn.ts`, which holds nothing else so that the
+chunker can give it a chunk of its own. A program that writes no media never
+fetches it, and one that does fetches it only at export.
+
 Each program is executed against `dist/` before it is measured. esbuild resolves
 modules and does not care whether `slide.addChart` exists, so a renamed or
 dropped method would leave the program bundleable while the family it reached

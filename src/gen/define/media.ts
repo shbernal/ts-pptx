@@ -6,7 +6,6 @@
  * use the external-link variant. The timing / `<p:pic>` XML is emitted later.
  */
 import { SlideObjectType } from '../../enums.js'
-import { IMG_PLAYBTN } from '../../media/placeholders.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget, previousMediaTarget } from '../utils.js'
@@ -57,7 +56,10 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strPath = opt.path || ''
 	const strType = opt.type || 'audio'
 	let strExtn = ''
-	const strCover = opt.cover || IMG_PLAYBTN
+	// Empty when the caller passed no cover: the default play-button poster is resolved later,
+	// by the async media pass, so that a deck carrying no media never links the artwork. The
+	// base64-header check below still guards a cover the caller *did* pass.
+	const strCover = opt.cover || ''
 	const objectName = resolveObjectName(target, SlideObjectType.media, {
 		label: 'Media',
 		kind: 'media',
@@ -149,6 +151,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			data: strCover,
 			type: 'image/png',
 			extn: 'png',
+			isDefaultCover: !strCover,
 			rId: relId3,
 			Target: nextMediaTarget(target, 'image', 'png'),
 		})
@@ -195,6 +198,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			type: 'image/png',
 			extn: 'png',
 			data: strCover,
+			isDefaultCover: !strCover,
 			rId: relId3,
 			Target: nextMediaTarget(target, 'image', 'png'),
 		})

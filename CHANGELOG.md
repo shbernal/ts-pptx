@@ -178,6 +178,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The default video poster no longer rides in every consumer's entry chunk.** The
+  play-button overlay `addMedia` falls back to when the caller supplies no `cover` is 54 kB
+  of base64 PNG, and `addMedia` is a class method, so no bundler could shake it out: a
+  program that only ever wrote text boxes downloaded the artwork regardless. The poster rel
+  is now registered without its bytes and resolved during the async media pass, out of a
+  module that holds nothing else so the chunker can give it a chunk of its own.
+
+  A bundled browser program writing one text box drops from 144.5 kB to 96.9 kB gzipped in
+  its entry chunk. A program that does write media pays the same total as before, fetched at
+  export rather than at load. Nothing about the artwork or the emitted package changed: the
+  byte-identity gate is clean across all 1312 parts.
+
 - **An empty colour string is a missing value, and one rule now says so everywhere.**
   `color: ''` had four readings depending on which path it fell down. `fill: ''` emitted
   nothing and inherited. `fill: { color: '' }` -- the same intent in the object spelling --
