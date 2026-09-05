@@ -31,7 +31,7 @@ exports and let this repository own the internal OOXML generation details.
 - `src/package/assemble.ts` owns package assembly, split into two composable halves:
   `buildPackageParts` turns an authored deck into every OOXML part in emission order
   (`[Content_Types].xml`, the rels graph, docProps, theme, per-slide/layout/master
-  parts, comments, chart/media rels), and `zipPackageParts` compresses that ordered
+  parts, media rels, and whatever the part contributors add), and `zipPackageParts` compresses that ordered
   list to the requested output shape. `writePackage` is their composition: the entry
   behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the
   presentation class satisfies, so it does not depend on the class. The assembly half
@@ -68,6 +68,29 @@ exports and let this repository own the internal OOXML generation details.
   has already reserved a `<p:cNvPr>` id that connector bindings, animation targets and
   group bounds may point at, so a silent omission is a dangling reference PowerPoint
   reports as a repair.
+- **The packager is handed its part contributors; it does not import them.** Which
+  construct families put parts in a package is a `PartContributor[]`
+  (`package/parts/shared.ts`) carried on `PackageSource` beside the renderer table, and
+  the authoring class supplies `ALL_PART_CONTRIBUTORS` (`package/contributors.ts`), the
+  one module that names all three (charts, comments, speaker notes).
+  `package/assemble.ts` keeps the skeleton every deck has, calls those contributors at
+  fixed points in it, and names no family itself. Same bundling constraint as the shape
+  walk, on the other axis: it is about which parts land in the zip rather than which XML
+  lands in a slide, and naming `createExcelWorksheet` from the packager linked the whole
+  of `gen/chart/` (plot modules, axes, chartEx sidecars, the embedded-workbook writer)
+  into every program that wrote a deck. Both the zip's part order and
+  `[Content_Types].xml` are byte-significant, so neither may depend on the order a
+  caller lists contributors in: each contributor declares an `order` and the packager
+  sorts by it, and content-type entries arrive as data grouped by the slot they land in,
+  so `gen/opc/content-types.ts` keeps its fixed sequence and never learns which family
+  asked. Three things stay on the core path deliberately. The chart-part-id pass is
+  package-wide ordering rather than chart knowledge (it must number identically for a
+  deck with no charts, and `gen/chart/chartex-xml.ts` derives its series GUIDs from the
+  id it assigns); the media half of what used to be one chart-and-media function stays
+  because images are how any deck carries a picture, with the chart contributor running
+  immediately before it per target so the zip keeps its chart-then-media interleaving;
+  and `ppt/theme/theme2.xml` stays with the theme it pairs with even though only
+  `notesMaster1.xml.rels` references it.
 - `src/ooxml/` holds the schema facts that belong to **neither** half of the library:
   relationship-type URIs (`rel-types.ts`), the child-sequence order of each complexType
   a writer or an editor inserts into (`sequence.ts`), the `ST_` enumerations
