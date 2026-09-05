@@ -86,7 +86,7 @@ export function newOwnedScope(): OwnedScope {
 }
 
 /** Which pages of one source package an import is materializing, and where each is headed. */
-export interface SelectionPlan {
+interface SelectionPlan {
 	/** Source slide partname → the destination partname reserved for it. */
 	readonly destinations: ReadonlyMap<string, string>
 }
@@ -249,7 +249,7 @@ export function copyPart(
  * and whether the notes subgraph will pull a `notesMaster` with it. Handed to
  * {@link checkSelectionCopyable} so the dry run walks what `carryNotes` will walk.
  */
-export interface NotesSelection {
+interface NotesSelection {
 	/** Source partnames of the selected pages whose request asked for `importNotes`. */
 	readonly pages: ReadonlySet<string>
 	/**

@@ -34,7 +34,7 @@ export type RunOpts = TextPropsOptions & ObjectOptionsInternal
  * `text` is deliberately loose: `normalizeRuns` accepts a bare string, a number, one
  * `TextProps`, or an array of them, and branches on the shape at runtime.
  */
-export interface RunSource {
+interface RunSource {
 	text?: unknown
 	options?: RunOpts
 }

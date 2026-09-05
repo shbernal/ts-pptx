@@ -64,6 +64,10 @@ type LockAttrName =
  * added to the interface and to no table makes the second entry `never`, and a name in a table
  * that is not a key of the interface makes the first one `never`; either way `true` stops being
  * assignable and this fails to compile.
+ *
+ * Nothing imports it and nothing ever will: the `export` is what keeps it from being reported as
+ * an unused binding, which is the one thing that would get an assertion like this deleted. Left
+ * exported deliberately rather than by oversight — this note is the difference between the two.
  */
 export const LOCK_ATTRS_MATCH_OBJECT_LOCK_PROPS: [
 	LockAttrName extends keyof ObjectLockProps ? true : never,

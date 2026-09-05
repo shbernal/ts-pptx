@@ -102,7 +102,7 @@ export function strokePaint(stroke: StrokeProps, defaultColor: Color): string {
  * @param label - how the diagnostic names the option, e.g. `'line: beginArrowType'`
  * @returns a value legal for the attribute, or `null` to omit it
  */
-export function resolveLineEnd(value: string | undefined | null, label: string): string | null {
+function resolveLineEnd(value: string | undefined | null, label: string): string | null {
 	return checkEnumOrWarn(value, LINE_END_TYPES, 'line/invalid-arrow-type', label)
 }
 

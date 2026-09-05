@@ -46,7 +46,7 @@ export const PACKAGE_REL_NS = SCHEMA_BASE + 'package/2006/relationships'
  * Prefix for the Microsoft rel types this library emits and reads. Exported for the same reason
  * as {@link OFFICE_REL}: the write side builds one-off MS rel types at their call sites.
  */
-export const MS_REL = 'http://schemas.microsoft.com/office/'
+const MS_REL = 'http://schemas.microsoft.com/office/'
 
 /** `p:sldIdLst` → a slide part. */
 export const SLIDE_REL = OFFICE_REL + 'slide'

@@ -317,7 +317,7 @@ export const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
  * @param serIndex - the series' 0-based index
  * @returns a value legal for `a:prstDash/@val`
  */
-export function seriesDash(opts: ChartOptsInternal, serIndex: number): string {
+function seriesDash(opts: ChartOptsInternal, serIndex: number): string {
 	return resolveDash(opts.lineDashValues?.[serIndex] ?? opts.lineDash, 'solid', 'lineDash')
 }
 

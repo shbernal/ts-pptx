@@ -37,7 +37,7 @@ import { makeXmlTheme } from './pres/theme.js'
  * supplies the slides, the canvas size and the embedded fonts, and is what the notes master's
  * theme is built from.
  */
-export interface ExtractSource {
+interface ExtractSource {
 	readonly runtime: RuntimeAdapter
 	readonly presentation: PresentationPropsInternal
 	readonly fontMetrics: FontMetricsRegistry

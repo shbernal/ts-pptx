@@ -174,7 +174,7 @@ export function genXmlImageFill(props: ShapeFillPropsInternal | undefined): stri
 }
 
 /** The fill kinds a `ShapeFillProps`/`ShapeLineProps` can ask for. */
-export type FillKind = NonNullable<ShapeFillProps['type']>
+type FillKind = NonNullable<ShapeFillProps['type']>
 
 /**
  * Resolve which fill kind a set of fill or line props asks for.
@@ -205,7 +205,7 @@ export function resolveFillKind(props: Color | ShapeFillProps | ShapeLineProps |
 }
 
 /** The paint kinds a stroke can ask for: {@link FillKind} without the one `<a:ln>` has no slot for. */
-export type LineFillKind = Exclude<FillKind, 'image'>
+type LineFillKind = Exclude<FillKind, 'image'>
 
 /**
  * {@link resolveFillKind} for a stroke, which has one kind fewer.

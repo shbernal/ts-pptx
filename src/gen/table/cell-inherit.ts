@@ -37,7 +37,7 @@ export const CELL_INHERITED_TEXT_KEYS = [
 ] as const
 
 /** The keys only the emitter inherits: they paint, or the fitter does not model them. */
-export const CELL_INHERITED_EMIT_KEYS = ['border', 'color', 'fill', 'textDirection', 'underline'] as const
+const CELL_INHERITED_EMIT_KEYS = ['border', 'color', 'fill', 'textDirection', 'underline'] as const
 
 /** Every key the emitter inherits from the table onto a cell. */
 export const CELL_INHERITED_KEYS = [...CELL_INHERITED_TEXT_KEYS, ...CELL_INHERITED_EMIT_KEYS] as const

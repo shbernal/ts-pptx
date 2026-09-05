@@ -265,7 +265,7 @@ export const FALLBACK_PICTURE_LOCKS = Object.freeze({
  * @param prefix - which namespace the two wrapper elements take; a zoom tile's live in `p166`
  */
 /** Which namespace `previewPicBody`'s two wrapper elements take, and whether to declare it. */
-export interface PreviewPicPrefix {
+interface PreviewPicPrefix {
 	ns: string
 	nsUri?: string
 }

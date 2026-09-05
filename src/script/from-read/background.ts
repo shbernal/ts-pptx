@@ -26,7 +26,7 @@ import type { NoteScope } from '../fidelity.js'
 import { literalColor } from './values.js'
 
 /** How one tier names itself in the note it records when a background cannot be carried. */
-export interface BackgroundTier {
+interface BackgroundTier {
 	/** The fidelity construct this tier's losses are recorded under. */
 	construct: 'slide.background' | 'master.background'
 	/** How a note names the thing losing its background, e.g. `"this layout"`. */

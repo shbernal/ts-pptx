@@ -100,6 +100,13 @@ export function pixelsToEmu(pixels: number, dpi: number): Emu {
 
 /**
  * Resolve a percentage of an axis length to EMU.
+ *
+ * **Published for consumers, and reached from one place inside `src/` on purpose.** Internally
+ * only `parseCoord` needs it, because every `'50%'` a caller writes comes through there; it is
+ * exported because a consumer computing its own geometry against a slide axis needs the same
+ * arithmetic, and it belongs with the rest of the conversion set beside it rather than hidden
+ * behind the one caller. Left exported deliberately rather than by oversight — this note is the
+ * difference between the two, as it is on {@link emuToPixels}.
  * @param percent - percentage value (e.g. `50` for 50%)
  * @param axisEmu - the axis length in EMU (slide width for x/w, height for y/h)
  */
@@ -171,6 +178,15 @@ export function emuToInches(emu: number): number {
  * `emu / EMU_PER_POINT` had grown around it — the read model's `null`-propagating `ptFromEmu`,
  * the script mapper's `points`, and a dozen inline divisions — while this stayed published and
  * uncalled.
+ *
+ * **The policy, and its one exception.** Every EMU→points conversion goes through here or through
+ * {@link ./read/api/coords.ptFromEmu}, which is this with a `null` passed along. The exception is
+ * `measure/*` — `fit.ts`, `paragraphs.ts`, `table-fit.ts` — where an inner box is computed as
+ * `(extent - inset - inset) / EMU_PER_POINT` and then guarded with `!(x > 0)`. That guard is
+ * written NaN-first on purpose: a box that cannot be measured is skipped, not reported. This
+ * function asserts a finite input and throws instead, which is the right answer for a caller
+ * stating a value and the wrong one for a pass whose whole job is to degrade quietly. Those
+ * sites keep the division; nothing else may.
  */
 export function emuToPoints(emu: number): number {
 	assertFiniteNumber(emu, 'emu')

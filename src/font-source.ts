@@ -19,7 +19,7 @@ import { decodeBase64ToBytes } from './media/base64.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 
 /** Anything a caller may hand a font-taking method: a path/URL, raw bytes, or base64 text. */
-export type FontSource = string | Uint8Array | ArrayBuffer
+type FontSource = string | Uint8Array | ArrayBuffer
 
 /**
  * Resolve a caller's font source to bytes.

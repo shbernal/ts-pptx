@@ -48,9 +48,10 @@ export function checkPositiveEmu(value: number, field: string): number {
  * insets in points while the DOM stores EMU, so `x === null ? null : x / EMU_PER_POINT` stood at
  * five getters across `chart.ts`, `shapes/base.ts`, `table.ts` and `text.ts`.
  *
- * The accumulator sites that read `if (v !== null) out.k = v / EMU_PER_POINT` keep their own
- * expression: their target is `number | undefined`, so propagating a `null` through here would
- * only have to be unwrapped again.
+ * The accumulator sites whose target is `number | undefined` do not come through here —
+ * propagating a `null` would only have to be unwrapped again — but they do not open-code the
+ * division either: they unwrap the `null` themselves and call `emuToPoints`. {@link emuToPoints}
+ * states the whole policy and names the one place still allowed to divide inline.
  */
 export function ptFromEmu(emu: number | null): number | null {
 	return emu === null ? null : emuToPoints(emu)

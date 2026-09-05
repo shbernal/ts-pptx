@@ -97,10 +97,10 @@ export function scaleCellFontSizes(cell: TableCellInternal, eff: RunOpts, f: num
  * the auto-pager and the measured-fit pass stamp on — so the parameter is the intersection
  * rather than either type, and every caller's own bag satisfies it structurally.
  */
-export type TableGridOpts = Pick<TableProps, 'w' | 'h' | 'colW' | 'rowH'> & { cy?: Coord }
+type TableGridOpts = Pick<TableProps, 'w' | 'h' | 'colW' | 'rowH'> & { cy?: Coord }
 
 /** A table's resolved grid: how many columns, how wide each is, and how tall each row is. */
-export interface TableGridEmu {
+interface TableGridEmu {
 	/** Grid columns, counting colspans. */
 	numCols: number
 	/** Per-column width in EMU, length {@link numCols}. */

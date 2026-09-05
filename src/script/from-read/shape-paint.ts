@@ -89,7 +89,7 @@ export function fillOption(shape: AnyShape, ctx: MapContext): IrValue | undefine
  * far more than this, and naming the six keys is what makes "a shape, a table and a cell answer
  * the same six questions" a checked statement rather than an observation.
  */
-export function fillAccessors(shape: AnyShape): FillSubject {
+function fillAccessors(shape: AnyShape): FillSubject {
 	return {
 		gradientFill: shape.gradientFill,
 		patternFill: shape.patternFill,
@@ -108,7 +108,7 @@ export function fillAccessors(shape: AnyShape): FillSubject {
  *
  * @param values - the outline's already-read parts, so this does not re-read the DOM
  */
-export function noteLineLosses(
+function noteLineLosses(
 	shape: AnyShape,
 	values: {
 		widthPt: number | null
@@ -196,7 +196,7 @@ export function lineOption(shape: AnyShape, notes: NoteScope): Record<string, Ir
 }
 
 /** Arrowheads. Types map directly; the `sm`/`med`/`lg` size classes have no option. */
-export function arrowOptions(shape: AnyShape, notes: NoteScope): Record<string, IrValue | undefined> {
+function arrowOptions(shape: AnyShape, notes: NoteScope): Record<string, IrValue | undefined> {
 	const ends = shape.lineEnds
 	if (!ends) return {}
 	const sized = [ends.head, ends.tail].some((end) => end && (end.width !== null || end.length !== null))

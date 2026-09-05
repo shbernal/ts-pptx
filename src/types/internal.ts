@@ -224,7 +224,7 @@ export interface TableToSlidesPropsInternal extends TableToSlidesProps {
  * a cell's options are `TableCellProps`, which is deliberately narrower than the full text
  * bag (`columns` means something else on a table).
  */
-export interface TableCellPropsInternal extends TableCellProps {
+interface TableCellPropsInternal extends TableCellProps {
 	_bodyProp?: TextPropsOptionsInternal['_bodyProp']
 }
 
@@ -384,7 +384,7 @@ export interface Model3dInternal {
 	meterPerModelUnitN: number
 }
 /** Resolved OLE payload carried on a {@link SlideObject} until `gen/slide/objects/ole.ts` emits it. */
-export interface OleInternal {
+interface OleInternal {
 	/** rId of the embedded object part rel (see {@link SlideRelMedia.oleRelType}). */
 	objectRid: number
 	/** rId of the preview picture's image rel (`p:pic > a:blip@r:embed`). */
@@ -423,7 +423,7 @@ export interface ZoomInternal {
 	/** `zmPr@transitionDur` (ms). */
 	transitionDur: number
 }
-export interface SlideBaseProps {
+interface SlideBaseProps {
 	_bkgdImgRid?: number
 	_margin?: Margin
 	_name?: string

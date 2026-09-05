@@ -155,6 +155,15 @@ export function autoPageLineHeightEmu(fontSizePt: number, lineWeight = 0): numbe
  * `_margin: 0` took the master branch in two of them and the caller branch in the third, and
  * a master with `_margin: "0.25"` resolved in two and was ignored in the third.
  *
+ * **The master-first order is inherited, not chosen**, and it is the reverse of the rule stated
+ * everywhere else here -- an explicit option beats an inherited one. All three sites already had
+ * it and the consolidation kept it rather than deciding it, so on a deck whose master defines a
+ * `margin`, `addTable(rows, { slideMargin: 2 })` is discarded with nothing said. It only bites
+ * that deck: a slide on the built-in layout carries no `_margin`, so the caller's value wins
+ * there. Flipping it is a breaking change for anyone relying on a master to hold the line against
+ * a per-table override, so it is not made in passing -- but it is written down here so the next
+ * reader does not have to re-derive whether it was deliberate. It was not.
+ *
  * @param masterMargin - the master/layout's `_margin`, in inches
  * @param slideMargin - the caller's `slideMargin`, in inches
  */

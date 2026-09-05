@@ -43,10 +43,10 @@ export interface PrintedScript {
  * not its directory name. Getting it wrong produces a script that prints and typechecks and
  * then fails at `import`, so it is pinned by a test rather than left to a literal.
  */
-export const PACKAGE_NAME = 'pptx-ts'
+const PACKAGE_NAME = 'pptx-ts'
 
 /** The print options both tiers share, with their defaults applied. */
-export interface ResolvedPrintOptions {
+interface ResolvedPrintOptions {
 	/** Where the emitted script writes its deck, resolved against the script's own location. */
 	outputPath: string
 	/** Where the emitted script reads image assets from, with any trailing slash stripped. */

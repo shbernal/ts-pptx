@@ -30,7 +30,7 @@ export function tableColCount(rows: TableCellInternal[][]): number {
 }
 
 /** The bookkeeping a row-major grid walk needs to route around rowspans; see {@link createRowSpanOccupancy}. */
-export interface RowSpanOccupancy {
+interface RowSpanOccupancy {
 	/** The first column at or after `col` that no rowspan from above is holding. */
 	nextFree: (col: number) => number
 	/** Record that `colSpan` columns from `col` are held for `rowSpan` rows, this one included. */

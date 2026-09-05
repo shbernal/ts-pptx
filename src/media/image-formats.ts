@@ -18,7 +18,7 @@
  */
 
 /** One image format, in every spelling the library needs it in. */
-export interface ImageFormat {
+interface ImageFormat {
 	/**
 	 * The extension a *media part* carries (`/ppt/media/image1.<ext>`), and the canonical answer
 	 * when a content type is turned back into an extension. Changing one of these changes emitted

@@ -50,7 +50,7 @@ export function isHexColor(value: string): boolean {
  * The 8-digit form is RGB followed by one alpha byte; {@link splitRgbaHex} is what takes it apart.
  * @param value - the caller's colour, with or without a leading `#`
  */
-export function isArgbHex(value: string): boolean {
+function isArgbHex(value: string): boolean {
 	return REGEX_ARGB_HEX.test(stripHash(value))
 }
 

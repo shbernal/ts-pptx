@@ -313,7 +313,7 @@ export function parseCssPx(value: string): number {
  * @param value - computed CSS value, e.g. `"16px"`
  * @returns the length in points, or `NaN` when the value is not an absolute px length
  */
-export function htmlCssPxToPoints(value: string): number {
+function htmlCssPxToPoints(value: string): number {
 	return (parseCssPx(value) * POINTS_PER_INCH) / DEFAULT_PX_PER_INCH
 }
 

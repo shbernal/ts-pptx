@@ -78,7 +78,7 @@ type PlacedSlide = {
  * @param layout - the caller's layout name or handle
  * @param api - the method name, opening each error message
  */
-export function resolveLayoutTarget(
+function resolveLayoutTarget(
 	deck: Presentation,
 	layout: AppendSlidesOptions['layout'],
 	api = 'appendSlides'

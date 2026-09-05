@@ -9,7 +9,7 @@ import type { Relationships } from '../../opc/relationships.js'
 import { attr, type Element, firstChild, getElements, numberValue, pctPointsAttr } from '../../oxml/dom.js'
 import { type ThemeContext } from '../../oxml/theme.js'
 import { resolveInheritedAnchor } from '../theme-context.js'
-import { EMU_PER_POINT } from '../../../units.js'
+import { emuToPoints } from '../../../units.js'
 import type { PlaceholderTextContext } from './run.js'
 import { Paragraph } from './paragraph.js'
 import { setTextBodyText } from './edit.js'
@@ -79,7 +79,7 @@ export class TextFrame {
 		const insetsPt: BodyProperties['insetsPt'] = {}
 		const inset = (qn: string, key: keyof BodyProperties['insetsPt']): void => {
 			const v = numberValue(attr(bodyPr, qn))
-			if (v !== null) insetsPt[key] = v / EMU_PER_POINT
+			if (v !== null) insetsPt[key] = emuToPoints(v)
 		}
 		inset('lIns', 'left')
 		inset('rIns', 'right')

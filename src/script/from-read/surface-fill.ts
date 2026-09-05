@@ -84,7 +84,7 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
  * Both colours are emitted as literals rather than scheme tokens: `PatternFillProps` types
  * `fgColor`/`bgColor` as hex, so a token would not survive the write side anyway.
  */
-export function patternOption(pattern: PatternFill | null): IrValue | undefined {
+function patternOption(pattern: PatternFill | null): IrValue | undefined {
 	if (!pattern?.preset) return undefined
 	return {
 		type: 'pattern',
@@ -116,7 +116,7 @@ const FILL_SURFACES: Record<FillSurface, { label: string; picture: PictureFillSu
 }
 
 /** The surfaces {@link surfaceFill} serves; `line` is a stroke and has its own ladder. */
-export type FillSurface = 'fill' | 'table.fill' | 'table.cell.fill'
+type FillSurface = 'fill' | 'table.fill' | 'table.cell.fill'
 
 /**
  * What {@link surfaceFill} reads. Structural rather than a union of the three read-model
