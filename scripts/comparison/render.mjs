@@ -48,6 +48,7 @@ import { isUnavailable } from './unavailable.mjs'
 
 const SNAPSHOT = path.join(ROOT, 'scripts', 'comparison', 'snapshot.json')
 const PAGE = path.join(ROOT, 'docs', 'comparison.md')
+const SYNTAX_PAGE = path.join(ROOT, 'docs', 'comparison-syntax.md')
 const README = path.join(ROOT, 'README.md')
 
 /** The generated region inside `README.md`. Everything between these lines is rewritten. */
@@ -72,8 +73,8 @@ const COLUMNS = [OURS, UPSTREAM]
 
 const USAGE = `Usage: node scripts/comparison/render.mjs [--check]
 
-Renders scripts/comparison/snapshot.json into docs/comparison.md and the generated region
-of README.md.
+Renders scripts/comparison/snapshot.json into docs/comparison.md,
+docs/comparison-syntax.md and the generated region of README.md.
 
 Options:
   --check   report drift and exit 1; write nothing
@@ -82,7 +83,8 @@ Options:
 /**
  * @typedef {{version: string, published?: string, source: string}} Subject
  * @typedef {{id: string, label: string, group: string, construct: string, part: string,
- *   results: Record<string, string>, notes?: Record<string, string>}} CoverageRow
+ *   results: Record<string, string>, source?: Record<string, string>,
+ *   notes?: Record<string, string>}} CoverageRow
  * @typedef {{id: string, type: string, partUri?: string, description: string, decks: number}} Diagnostic
  * @typedef {{decks: number, errors: number, cleanDecks: number, byType: Record<string, number>,
  *   diagnostics: Diagnostic[], notBuilt: Record<string, number>}} SubjectValidity
@@ -407,6 +409,7 @@ function sectionCoverage(snapshot) {
 	const total = snapshot.coverage.length
 	const labelOf = (/** @type {string} */ id) => snapshot.coverage.find((row) => row.id === id)?.label ?? id
 	const baseline = snapshot.coverage.filter((row) => row.group === 'shared').length
+	const { both, identical } = armAgreement(snapshot)
 
 	const lines = [
 		'## Construct coverage',
@@ -416,6 +419,12 @@ function sectionCoverage(snapshot) {
 			'The middle column is the token the harness looks for. It is the OOXML element in every ' +
 				'case but one, where the intent is speaker notes and the token is the note text itself; ' +
 				'the part each token has to appear in is recorded in the snapshot.'
+		),
+		...para(
+			'[Side-by-side syntax](comparison-syntax.md) prints the calls behind every row, each one the ' +
+				`code that produced the outcome beside it. Of the ${both.length} intents both libraries ` +
+				`build, ${identical.length} are called with identical code. The rest are where a port stops ` +
+				'being a rename.'
 		),
 	]
 
@@ -672,6 +681,184 @@ function sectionReadSide() {
 		'',
 		...para('If you only generate decks, none of this is a reason to choose either library.'),
 	]
+}
+
+/**
+ * The probes both libraries have an arm for, and how many of those arms are the same code.
+ *
+ * Both figures are read off the recorded sources rather than asserted, because the second
+ * one is a claim about how close the two APIs still are and that is exactly the kind of
+ * claim a comparison written by one of the two parties should not be making by hand.
+ * @param {Snapshot} snapshot
+ * @returns {{both: CoverageRow[], identical: CoverageRow[]}}
+ */
+function armAgreement(snapshot) {
+	const both = snapshot.coverage.filter((row) => COLUMNS.every((subject) => row.source?.[subject]))
+	return { both, identical: both.filter((row) => row.source?.[OURS] === row.source?.[UPSTREAM]) }
+}
+
+/**
+ * One fenced JavaScript block.
+ * @param {string} source
+ * @returns {string[]}
+ */
+function fence(source) {
+	return ['```js', ...source.split('\n'), '```', '']
+}
+
+/**
+ * One probe, as the two libraries express it.
+ *
+ * Three shapes, and which one a probe gets is decided by the snapshot rather than by an
+ * editor: two blocks where the arms differ, one block where they are character-identical,
+ * and our arm alone where upstream has no API. The identical case is collapsed on purpose --
+ * printing the same line twice under two headings would make a reader compare two things
+ * that are the same, and the heading is the finding.
+ * @param {CoverageRow} row
+ * @returns {string[]}
+ */
+function probeSection(row) {
+	const ours = row.source?.[OURS]
+	const upstream = row.source?.[UPSTREAM]
+	const outcome = (/** @type {string} */ subject) =>
+		OUTCOME_LABELS[row.results[subject] ?? ''] ?? row.results[subject] ?? 'not measured'
+	const lines = [
+		`### ${row.label}`,
+		'',
+		...para(
+			`${code(row.construct)} in ${code(row.part)}. ` + `${OURS}: ${outcome(OURS)}. ${UPSTREAM}: ${outcome(UPSTREAM)}.`
+		),
+	]
+
+	if (ours && upstream && ours === upstream) {
+		lines.push(...para('Both libraries, called identically:'), ...fence(ours))
+	} else if (ours && upstream) {
+		lines.push(`**${OURS}**`, '', ...fence(ours), `**${UPSTREAM}**`, '', ...fence(upstream))
+	} else if (ours) {
+		lines.push(`**${OURS}**`, '', ...fence(ours))
+	}
+
+	// No sentence for the ordinary "upstream has no API" case: the status line above already
+	// said so, and eleven repetitions of it would train a reader to skip the line that carries
+	// the sighting note on the one probe that has one.
+	if (!ours && !upstream) lines.push(...para('Neither library has an API for this intent, so neither has a block.'))
+	else if (!upstream && row.notes?.[UPSTREAM])
+		lines.push(...para(`The token is in the ${UPSTREAM} bundle regardless. It ${row.notes[UPSTREAM]}.`))
+	// A note on a subject that *does* have an arm is the harness reporting what happened when
+	// that code ran -- a throw, or a part that came back without the construct in it. It belongs
+	// under the block it is about, since the block alone would read as working code.
+	const ran = COLUMNS.filter((subject) => row.source?.[subject] && row.notes?.[subject])
+	if (ran.length > 0) lines.push(...ran.flatMap((subject) => bullet(`${subject}: ${row.notes?.[subject]}.`)), '')
+	return lines
+}
+
+/**
+ * The whole corpus as code, one page.
+ * @param {Snapshot} snapshot
+ * @returns {string}
+ */
+export function renderSyntaxPage(snapshot) {
+	const ours = snapshot.subjects[OURS]
+	const upstream = snapshot.subjects[UPSTREAM]
+	const { both, identical } = armAgreement(snapshot)
+
+	const lines = [
+		'---',
+		'doc-schema-version: 1',
+		'title: "Side-By-Side Syntax"',
+		`summary: "Every intent in the comparison corpus as code: the calls ts-pptx ${ours?.version ?? ''} and ` +
+			`pptxgenjs ${upstream?.version ?? ''} were each given to produce the rows on the comparison page."`,
+		'read_when:',
+		'  - Reading a comparison row and wanting the calls behind it',
+		'  - Porting a deck script from pptxgenjs to ts-pptx',
+		'  - Looking for the ts-pptx call that emits a particular construct',
+		'doc_type: "reference"',
+		'---',
+		'',
+		...banner('FILE'),
+		'',
+		'# Side-By-Side Syntax',
+		'',
+		...para(
+			'Every row of the [comparison](comparison.md) comes from running both libraries over a ' +
+				'corpus of deck intents. This page is that corpus as code: for each intent, the calls each ' +
+				'library was given. The harness lifts them out of the build functions as it measures and ' +
+				'records them in the snapshot beside the outcome they produced, so no snippet here can ' +
+				'illustrate a row that some earlier version of it produced.'
+		),
+		...para(
+			`Measured on ${snapshot.generatedAt}: ts-pptx ${ours?.version ?? ''} built from this ` +
+				`repository, against pptxgenjs ${upstream?.version ?? ''} installed from npm.`
+		),
+		...para(
+			"Each intent is written in the library's own idiom rather than transcribed from one into the " +
+				'other. Transcribing is how a comparison of two APIs becomes a comparison of one API and ' +
+				'its translation. Where the two arms come out the same anyway the page prints one block ' +
+				`and says so, which is ${identical.length} of the ${both.length} intents both libraries build. ` +
+				'The rest are where a port stops being a rename.'
+		),
+		'## How to read a snippet',
+		'',
+		...para(
+			'Each block is the body of a build function. The harness puts the same frame around every ' +
+				'one of them, so this page states the frame once rather than repeating it on every intent:'
+		),
+		...fence(
+			[
+				"import TsPptx from 'pptx-ts/node'",
+				'',
+				'const pres = new TsPptx()',
+				'// the snippet goes here',
+				"await pres.writeFile({ fileName: 'probe.pptx' })",
+			].join('\n')
+		),
+		...para('and, for the other column:'),
+		...fence(
+			[
+				"import PptxGenJS from 'pptxgenjs'",
+				'',
+				'const pres = new PptxGenJS()',
+				'// the snippet goes here',
+				"await pres.writeFile({ fileName: 'probe.pptx' })",
+			].join('\n')
+		),
+		...para(
+			'A snippet that needs a value the corpus declares once, such as a data URL or a chart ' +
+				'series, carries that declaration above it. Those lines come from the value the ' +
+				'measurement used, cut short with an ellipsis past 60 characters, and a path is written ' +
+				'relative to the repository root.'
+		),
+		...para(
+			'A library with no API for an intent has no block. The line under each heading says what the ' +
+				'harness read for both of them.'
+		),
+	]
+
+	/** @type {string[]} */
+	const groups = []
+	for (const row of snapshot.coverage) if (!groups.includes(row.group)) groups.push(row.group)
+	for (const group of groups) {
+		lines.push(`## ${groupLabel(group)}`, '')
+		for (const row of snapshot.coverage.filter((row) => row.group === group)) lines.push(...probeSection(row))
+	}
+
+	lines.push(
+		'## Adding one',
+		'',
+		...para(
+			'The corpus is `scripts/comparison/probes.mjs`, one object per intent, and both arms of a ' +
+				'probe are ordinary code. A pull request that adds an intent is welcome, including one ' +
+				'ts-pptx fails. The harness reports the four outcomes it reads, and the comparison page ' +
+				'prints an intent upstream emits and we do not rather than dropping it.'
+		)
+	)
+
+	return (
+		lines
+			.join('\n')
+			.replace(/\n{3,}/g, '\n\n')
+			.trimEnd() + '\n'
+	)
 }
 
 /**
@@ -934,7 +1121,9 @@ export function renderReadmeRegion(snapshot) {
 		'',
 		...para(
 			'The full tables, the method behind them, and where the two libraries part company are ' +
-				'on the [comparison page](docs/comparison.md).'
+				'on the [comparison page](docs/comparison.md). Every intent as each library expresses ' +
+				'it, including the calls that differ, is on ' +
+				'[side-by-side syntax](docs/comparison-syntax.md).'
 		),
 		REGION_END
 	)
@@ -970,13 +1159,14 @@ function main() {
 	/** @type {Array<[string, string]>} */
 	const outputs = [
 		[PAGE, renderPage(snapshot)],
+		[SYNTAX_PAGE, renderSyntaxPage(snapshot)],
 		[README, spliceRegion(fs.readFileSync(README, 'utf8'), renderReadmeRegion(snapshot))],
 	]
 	const stale = outputs.filter(([file, text]) => !fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== text)
 
 	if (values.check) {
 		if (stale.length === 0) {
-			console.log('comparison: docs/comparison.md and README.md match the snapshot.')
+			console.log('comparison: docs/comparison.md, docs/comparison-syntax.md and README.md match the snapshot.')
 			return 0
 		}
 		for (const [file] of stale) console.error(path.relative(ROOT, file) + ' does not match the snapshot.')

@@ -85,7 +85,8 @@ are in every aggregate the repo has.
 | `comparison/hygiene.mjs` | Library | What each library costs to install and to ship, from clean per-library installs | `comparison/measure.mjs` |
 | `comparison/measure.mjs` | Generator | Builds every probe with ts-pptx and with upstream pptxgenjs, reads the emitted parts, measures the other three families, and writes `comparison/snapshot.json` | manual (release step, see `docs/RELEASING.md`) |
 | `comparison/probes.mjs` | Library | The construct-coverage corpus: one deck intent per probe, expressed in each library's own idiom | `comparison/measure.mjs` |
-| `comparison/render.mjs` | Generator + Gate | Renders `comparison/snapshot.json` into `docs/comparison.md` and the generated region of `README.md`; `--check` re-renders in memory and fails on drift | manual (`comparison:render`); `--check` in `verify` (`comparison:check`) |
+| `comparison/render.mjs` | Generator + Gate | Renders `comparison/snapshot.json` into `docs/comparison.md`, `docs/comparison-syntax.md` and the generated region of `README.md`; `--check` re-renders in memory and fails on drift | manual (`comparison:render`); `--check` in `verify` (`comparison:check`) |
+| `comparison/source.mjs` | Library | Recovers a probe's build function as printable code, with the corpus constants it names declared above it | `comparison/probes.mjs` |
 | `comparison/unavailable.mjs` | Library | The one shape a measurement takes when a fetch failed, and the walk that finds them in a finished snapshot | `comparison/measure.mjs` |
 | `comparison/validity.mjs` | Library | Runs the decks the corpus built through the `test:schema` oracle, per library | `comparison/measure.mjs` |
 | `gate-decks/chart-matrix.mjs` | Library | Gate deck reaching the chart emitters the showcase corpus never does | `byte-identity.mjs` |

@@ -59,9 +59,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The corpus deliberately carries a probe neither library satisfies, and reports the
   set of constructs upstream emits and ts-pptx does not even when that set is empty.
 
-  The page and the generated region of `README.md` are rendered from
+  A second page carries the code. `docs/comparison-syntax.md` prints both arms of every
+  intent, lifted from the build functions the harness ran and recorded in the snapshot
+  beside the outcome they produced, so no snippet there can illustrate a row that some
+  earlier version of it produced. Where the two arms come out identical it prints one
+  block and says so, which is 8 of the 10 intents both libraries build; the rest are the
+  calls a port has to change, and the two that differ inside the shared baseline are
+  `addChart` (`type` in the options object here, first argument upstream) and `addImage`
+  (a whole `data:` URL here, the MIME and payload without the scheme upstream).
+
+  Both pages and the generated region of `README.md` are rendered from
   `scripts/comparison/snapshot.json`, and `comparison:check` is now part of `verify`:
-  drift between the snapshot and either rendered file fails the build for every
+  drift between the snapshot and any rendered file fails the build for every
   contributor. Refreshing the snapshot (`comparison:measure`) needs the network and
   is a release step, documented in `docs/RELEASING.md`.
 

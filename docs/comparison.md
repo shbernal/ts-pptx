@@ -84,6 +84,10 @@ The middle column is the token the harness looks for. It is the OOXML element in
 case but one, where the intent is speaker notes and the token is the note text itself; the
 part each token has to appear in is recorded in the snapshot.
 
+[Side-by-side syntax](comparison-syntax.md) prints the calls behind every row, each one
+the code that produced the outcome beside it. Of the 10 intents both libraries build, 8
+are called with identical code. The rest are where a port stops being a rename.
+
 ### Shared baseline
 
 | Intent | Looked for | ts-pptx | pptxgenjs |

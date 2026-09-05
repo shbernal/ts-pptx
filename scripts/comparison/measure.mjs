@@ -59,7 +59,7 @@ import { pathToFileURL } from 'node:url'
 import { isMain, parseCli, ROOT, run, runCli } from '../script-utils.mjs'
 import { measureHealth } from './health.mjs'
 import { measureHygiene } from './hygiene.mjs'
-import { PROBES, SUBJECTS } from './probes.mjs'
+import { PROBES, probeSource, SUBJECTS } from './probes.mjs'
 import { findUnavailable, isUnavailable, unavailable } from './unavailable.mjs'
 import { measureValidity } from './validity.mjs'
 
@@ -292,6 +292,16 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = fals
 				if (sighted && acknowledged) notes[subject] = acknowledged
 			}
 		}
+		// The code each arm ran, recorded here rather than re-derived at render time. The page
+		// that prints these snippets is explaining the outcomes in this same row, and a corpus
+		// edited without re-measuring would otherwise put code on the page beside a result some
+		// earlier version of it produced.
+		/** @type {Record<string, string>} */
+		const source = {}
+		for (const subject of SUBJECTS) {
+			const text = probeSource(probe, subject)
+			if (text !== null) source[subject] = text
+		}
 		coverage.push({
 			id: probe.id,
 			label: probe.label,
@@ -299,6 +309,7 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = fals
 			construct: probe.construct,
 			part: probe.part,
 			results,
+			...(Object.keys(source).length > 0 ? { source } : {}),
 			...(Object.keys(notes).length > 0 ? { notes } : {}),
 		})
 	}

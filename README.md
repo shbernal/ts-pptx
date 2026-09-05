@@ -134,7 +134,8 @@ the bytes that came out.
   for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
 
 The full tables, the method behind them, and where the two libraries part company are on
-the [comparison page](docs/comparison.md).
+the [comparison page](docs/comparison.md). Every intent as each library expresses it,
+including the calls that differ, is on [side-by-side syntax](docs/comparison-syntax.md).
 
 <!-- comparison:end -->
 

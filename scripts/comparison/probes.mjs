@@ -28,6 +28,7 @@
  */
 import path from 'node:path'
 import { ROOT } from '../script-utils.mjs'
+import { renderSource } from './source.mjs'
 
 /** A 1x1 transparent PNG. Inline, so an image probe reads nothing off disk. */
 const PNG_1PX_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -52,6 +53,26 @@ const PRESENTATION = 'ppt/presentation.xml'
 
 /** Chart data both libraries accept unchanged: the shape is one they share by descent. */
 const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [12, 19, 7] }]
+
+/**
+ * The values above, by the names the builds call them, for {@link probeSource}.
+ *
+ * A snippet on the syntax page is only worth printing if a reader can see what it operates
+ * on, so the declaration of every constant an arm names is printed above it -- formatted
+ * from the value here rather than transcribed, so it cannot fall out of step with the value
+ * the measurement used. `PNG_1PX_B64` is absent because no build names it: it exists so the
+ * two image arms can differ in exactly the way the two libraries differ, which is what the
+ * pair of names below is for.
+ */
+const CORPUS_CONSTANTS = {
+	PNG_1PX_URL,
+	PNG_1PX_BARE,
+	OLE_BLOB_B64,
+	OMML_INLINE,
+	CUBE_GLB,
+	SILKSCREEN_TTF,
+	BAR_DATA,
+}
 
 /**
  * One deck intent, measured against both libraries.
@@ -469,6 +490,20 @@ export const PROBES = [
 
 /** Every library the corpus measures, in the order the table shows them. */
 export const SUBJECTS = ['ts-pptx', 'pptxgenjs']
+
+/**
+ * One arm of a probe as printable source, or `null` where that library has no API.
+ *
+ * The snapshot records this beside the outcome, so `docs/comparison-syntax.md` prints the
+ * code that produced the row rather than a hand-written illustration of it.
+ * @param {Probe} probe
+ * @param {string} subject
+ * @returns {string | null}
+ */
+export function probeSource(probe, subject) {
+	const build = probe.build[subject]
+	return build ? renderSource(build, CORPUS_CONSTANTS) : null
+}
 
 /**
  * One probe by id, or a throw naming the ones that exist. Backs `--probe`.

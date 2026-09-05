@@ -9,6 +9,7 @@
         "demos",
         "project-target",
         "comparison",
+        "comparison-syntax",
         "runtime-and-package-support",
         "bundle-size",
         "development",

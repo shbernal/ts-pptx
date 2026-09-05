@@ -21,6 +21,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addText('probe', { x: 1, y: 1, w: 4, h: 1 })",
+				"pptxgenjs": "pres.addSlide().addText('probe', { x: 1, y: 1, w: 4, h: 1 })"
 			}
 		},
 		{
@@ -32,6 +36,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addTable(\n\t[\n\t\t[{ text: 'Region' }, { text: 'Units' }],\n\t\t[{ text: 'North' }, { text: '41' }],\n\t],\n\t{ x: 1, y: 1, w: 6 }\n)",
+				"pptxgenjs": "pres.addSlide().addTable(\n\t[\n\t\t[{ text: 'Region' }, { text: 'Units' }],\n\t\t[{ text: 'North' }, { text: '41' }],\n\t],\n\t{ x: 1, y: 1, w: 6 }\n)"
 			}
 		},
 		{
@@ -43,6 +51,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "const PNG_1PX_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA…'\n\npres.addSlide().addImage({ data: PNG_1PX_URL, x: 1, y: 1, w: 2, h: 2 })",
+				"pptxgenjs": "const PNG_1PX_BARE = 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcS…'\n\npres.addSlide().addImage({ data: PNG_1PX_BARE, x: 1, y: 1, w: 2, h: 2 })"
 			}
 		},
 		{
@@ -54,6 +66,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [12, 19, 7] }]\n\npres.addSlide().addChart(BAR_DATA, { type: 'bar', x: 1, y: 1, w: 6, h: 4 })",
+				"pptxgenjs": "const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [12, 19, 7] }]\n\npres.addSlide().addChart('bar', BAR_DATA, { x: 1, y: 1, w: 6, h: 4 })"
 			}
 		},
 		{
@@ -65,6 +81,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addText('docs', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'https://example.com/' } })",
+				"pptxgenjs": "pres.addSlide().addText('docs', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'https://example.com/' } })"
 			}
 		},
 		{
@@ -76,6 +96,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.defineSlideMaster({\n\ttitle: 'PROBE_MASTER',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 } } }],\n})\npres.addSlide({ masterName: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })",
+				"pptxgenjs": "pres.defineSlideMaster({\n\ttitle: 'PROBE_MASTER',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 } } }],\n})\npres.addSlide({ masterName: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })"
 			}
 		},
 		{
@@ -87,6 +111,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSection({ title: 'Findings' })\npres.addSlide({ sectionTitle: 'Findings' }).addText('probe', { x: 1, y: 1, w: 4, h: 1 })",
+				"pptxgenjs": "pres.addSection({ title: 'Findings' })\npres.addSlide({ sectionTitle: 'Findings' }).addText('probe', { x: 1, y: 1, w: 4, h: 1 })"
 			}
 		},
 		{
@@ -98,6 +126,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addNotes('probe note')",
+				"pptxgenjs": "pres.addSlide().addNotes('probe note')"
 			}
 		},
 		{
@@ -109,6 +141,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addShape('roundRect', { x: 1, y: 1, w: 3, h: 2, fill: { color: '4472C4' } })",
+				"pptxgenjs": "pres.addSlide().addShape('roundRect', { x: 1, y: 1, w: 3, h: 2, fill: { color: '4472C4' } })"
 			}
 		},
 		{
@@ -120,6 +156,10 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "emitted"
+			},
+			"source": {
+				"ts-pptx": "const slide = pres.addSlide()\nslide.background = { color: 'F2F2F2' }\nslide.addText('probe', { x: 1, y: 1, w: 4, h: 1 })",
+				"pptxgenjs": "const slide = pres.addSlide()\nslide.background = { color: 'F2F2F2' }\nslide.addText('probe', { x: 1, y: 1, w: 4, h: 1 })"
 			}
 		},
 		{
@@ -131,6 +171,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const slide = pres.addSlide()\nslide.transition = { type: 'push', speed: 'slow', variant: { dir: 'd' } }\nslide.addText('probe', { x: 1, y: 1, w: 4, h: 1 })"
 			}
 		},
 		{
@@ -142,6 +185,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const slide = pres.addSlide()\nslide.addText('probe', { x: 1, y: 1, w: 4, h: 1, objectName: 'Headline' })\nslide.addAnimation({ preset: 'fadeIn', objectName: 'Headline' })"
 			}
 		},
 		{
@@ -153,6 +199,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const OLE_BLOB_B64 = 'dHMtcHB0eCBjb21wYXJpc29uIHByb2JlIHBheWxvYWQ='\n\npres.addSlide().addOleObject({ data: OLE_BLOB_B64, extn: 'bin', x: 1, y: 1, w: 4, h: 3 })"
 			}
 		},
 		{
@@ -164,6 +213,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const CUBE_GLB = 'demos/common/media/cube.glb'\n\npres.addSlide().addModel3d({ path: CUBE_GLB, meterPerModelUnit: 0.5, x: 1, y: 1, w: 4, h: 3 })"
 			}
 		},
 		{
@@ -175,6 +227,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const SILKSCREEN_TTF = 'test/read/fixtures/fonts/Silkscreen-Regular.ttf'\n\nawait pres.embedFont({ path: SILKSCREEN_TTF, typeface: 'Silkscreen' })\npres.addSlide().addText('probe', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen' })"
 			}
 		},
 		{
@@ -186,6 +241,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const slide = pres.addSlide()\nslide.addText('A', { objectName: 'BoxA', x: 1, y: 1, w: 1.5, h: 1 })\nslide.addText('B', { objectName: 'BoxB', x: 5, y: 1, w: 1.5, h: 1 })\nslide.addConnector({ type: 'elbow', x1: 2.5, y1: 1.5, x2: 5, y2: 1.5, startShape: 'BoxA', endShape: 'BoxB' })"
 			}
 		},
 		{
@@ -197,6 +255,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "const OMML_INLINE = '<m:oMath><m:r><m:t>n-1</m:t></m:r></m:oMath>'\n\npres.addSlide().addText([{ text: 'for all ' }, { math: OMML_INLINE, inline: true }, { text: ' terms' }], {\n\tx: 1,\n\ty: 1,\n\tw: 6,\n\th: 1,\n})"
 			}
 		},
 		{
@@ -208,6 +269,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addShape('rect', {\n\tx: 1,\n\ty: 1,\n\tw: 4,\n\th: 2,\n\tfill: {\n\t\tgradient: {\n\t\t\tkind: 'linear',\n\t\t\tangle: 45,\n\t\t\tstops: [\n\t\t\t\t{ position: 0, color: '4472C4' },\n\t\t\t\t{ position: 100, color: 'ED7D31' },\n\t\t\t],\n\t\t},\n\t},\n})"
 			},
 			"notes": {
 				"pptxgenjs": "appears only inside the bundled Office theme XML, which no API parameterises"
@@ -222,6 +286,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "pres\n\t.addSlide()\n\t.addTable([[{ text: 'raised', options: { cell3D: { bevel: 'circle', width: 6, height: 6 } } }]], {\n\t\tx: 1,\n\t\ty: 1,\n\t\tw: 4,\n\t})"
 			}
 		},
 		{
@@ -233,6 +300,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addChart([{ name: 'Stage', labels: ['Lead', 'Trial', 'Won'], values: [120, 48, 17] }], {\n\ttype: 'funnel',\n\tx: 1,\n\ty: 1,\n\tw: 6,\n\th: 4,\n})"
 			}
 		},
 		{
@@ -244,6 +314,9 @@
 			"results": {
 				"ts-pptx": "emitted",
 				"pptxgenjs": "no-api"
+			},
+			"source": {
+				"ts-pptx": "pres.addSlide().addText('target', { x: 1, y: 1, w: 4, h: 1 })\npres.addSlide().addSlideZoom({ target: 1, x: 1, y: 1, w: 3, h: 1.7 })"
 			}
 		},
 		{
