@@ -1,5 +1,5 @@
 /**
- * `addMedia` no longer names the default play-button poster. The artwork is 54 kB of PNG that a
+ * `addMedia` no longer names the default play-button poster. The artwork is 14 kB of PNG that a
  * deck carrying no media never needs, so the rel goes out flagged and empty and the async media
  * pass fills the bytes in.
  *
@@ -12,8 +12,8 @@
 import JSZip from 'jszip'
 import { TsPptx, assert, assertEqual, build, defineRegressionSuite } from '../../helpers.js'
 
-/** Smaller than the play-button artwork (55,784 bytes), far larger than any 1x1 test PNG. */
-const POSTER_FLOOR = 40_000
+/** Smaller than the play-button artwork (14,484 bytes), far larger than any 1x1 test PNG (69). */
+const POSTER_FLOOR = 5_000
 
 const LINK = 'https://www.youtube.com/embed/Dph6ynRVyUc'
 

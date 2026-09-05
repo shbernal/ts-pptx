@@ -248,6 +248,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export rather than at load. Nothing about the artwork or the emitted package changed: the
   byte-identity gate is clean across all 1312 parts.
 
+- **The default video poster is drawn now, and is a quarter the size.** The play-button
+  artwork was a pasted base64 blob: 74,380 characters, 55,784 bytes of PNG, for a frame
+  holding four flat colours. It is now rendered by `scripts/gen-playbtn.mjs` from geometry
+  measured off that original, and comes to 19,312 characters (14,484 bytes). Every deck
+  that embeds a video without its own `cover` gets 41 kB smaller, and a browser program that
+  calls `addMedia` fetches a quarter of what it used to.
+
+  **The poster looks slightly different**, in three ways, and one of them is why this is a
+  `Changed` rather than a size note. The frame is 960x692 where it was 1920x1383 -- it is
+  stretched to the media object's box either way, and the disc is still 316 pixels across,
+  so it upscales by under 2x on a full-slide video. The button is centred, where the
+  original sat 22 pixels left of centre. And the stray six-pixel olive border the original
+  carried around all four edges is gone. If your decks depend on the old artwork, pass your
+  own `cover` to `addMedia`.
+
+  A pasted blob carries no evidence of what it depicts or why it is that size, which is how
+  the noise and the border went unnoticed for as long as they did. `test/scripts/gen-playbtn.test.js`
+  holds the committed module and the generator together, so neither can drift.
+
 - **An empty colour string is a missing value, and one rule now says so everywhere.**
   `color: ''` had four readings depending on which path it fell down. `fill: ''` emitted
   nothing and inherited. `fill: { color: '' }` -- the same intent in the object spelling --

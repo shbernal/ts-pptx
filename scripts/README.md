@@ -56,6 +56,7 @@ are in every aggregate the repo has.
 | `export-reach.mjs` | Diagnostic | Exports in `src/` no other tracked file names, bucketed by whether they reach the published `.d.ts` | manual (`exports:reach`) |
 | `font-oracle-probe.mjs` | Gate | Which faces the measurement oracles resolve, and from where; fails when `FONT_ORACLES_GENUINE` names a family this machine does not have installed | `test:oracles`, CI (`font-oracles` job) |
 | `gen-inspect-snapshot.mjs` | Generator | The inspect-surface snapshot | manual; asserted by a regression test |
+| `gen-playbtn.mjs` | Generator | Draws the default video poster into `src/media/playbtn.ts` | manual (`media:playbtn`); asserted by `test/scripts/gen-playbtn.test.js` |
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
 | `libreoffice-render-smoke.mjs` | Gate | Renders decks in LibreOffice, the one renderer here with no SmartArt layout engine, and reads the painted text back | manual, needs LibreOffice + `pdftotext` (`test:lo`) |

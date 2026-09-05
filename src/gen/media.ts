@@ -30,10 +30,10 @@ export function encodeSlideMediaRels(
 	const imageProms: Array<Promise<string>> = []
 
 	// STEP 0: The default video poster, resolved here rather than where `addMedia` runs. A class
-	// method body is never tree-shaken, so naming the artwork in `addMediaDefinition` charged 54 kB
-	// of base64 to every consumer, including one who only ever wrote text boxes. The import is
-	// dynamic on purpose: a static one would pull `media/playbtn.ts` back into this chunk, which
-	// the write path always reaches.
+	// method body is never tree-shaken, so naming the artwork in `addMediaDefinition` charged its
+	// whole base64 payload to every consumer, including one who only ever wrote text boxes. The
+	// import is dynamic on purpose: a static one would pull `media/playbtn.ts` back into this
+	// chunk, which the write path always reaches.
 	const defaultCoverRels = layout._relsMedia.filter((rel) => rel.isDefaultCover && !rel.data)
 	if (defaultCoverRels.length > 0)
 		imageProms.push(

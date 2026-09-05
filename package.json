@@ -139,6 +139,7 @@
 		"raw-xml:list": "node scripts/raw-xml-ratchet.mjs --list",
 		"path-refs:check": "node scripts/path-refs.mjs",
 		"path-refs:list": "node scripts/path-refs.mjs --list",
+		"media:playbtn": "node scripts/gen-playbtn.mjs",
 		"byte-identity:baseline": "node scripts/byte-identity.mjs baseline",
 		"byte-identity:check": "node scripts/byte-identity.mjs check",
 		"prepack": "pnpm run build",

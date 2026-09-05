@@ -296,12 +296,19 @@ hiding bytes it might.
 
 The library's own largest deferred chunk is the default video poster. The
 play-button overlay `addMedia` falls back to when the caller passes no `cover`
-is 54 kB of base64 PNG, and `addMedia` is a class method, so nothing tree-shakes
-it: naming the artwork where the media object is defined charged that payload to
-every consumer, text-only ones included. It is resolved during the async media
-pass instead, from `src/media/playbtn.ts`, which holds nothing else so that the
-chunker can give it a chunk of its own. A program that writes no media never
-fetches it, and one that does fetches it only at export.
+is 19,312 base64 characters, and `addMedia` is a class method, so nothing
+tree-shakes it: naming the artwork where the media object is defined charged that
+payload to every consumer, text-only ones included. It is resolved during the
+async media pass instead, from `src/media/playbtn.ts`, which holds nothing else
+so that the chunker can give it a chunk of its own. A program that writes no
+media never fetches it, and one that does fetches it only at export.
+
+The artwork used to be nearly four times that. It was a pasted blob, and a pasted
+blob carries no evidence of whether its size is detail or noise: 74,380 characters
+for a frame holding four flat colours, plus a stray olive border nobody had looked
+closely enough to see. `scripts/gen-playbtn.mjs` draws it instead, from geometry
+measured off the original, and `test/scripts/gen-playbtn.test.js` holds the module
+and the generator together.
 
 Each program is executed against `dist/` before it is measured. esbuild resolves
 modules and does not care whether `slide.addChart` exists, so a renamed or

@@ -7,7 +7,7 @@
  * and the rest of the vocabulary all of `src/gen/` imports. The rule that follows: a payload
  * measured in kilobytes does not share a module with vocabulary, however tidy that grouping reads.
  *
- * The default video poster obeys the same rule one size up. At 54 kB it does not share a module
+ * The default video poster obeys the same rule one size up. At 14 kB it does not share a module
  * with these two either: it lives alone in `src/media/playbtn.ts`, which is what lets the media
  * pass reach it dynamically instead of linking it into every consumer's entry chunk.
  */
