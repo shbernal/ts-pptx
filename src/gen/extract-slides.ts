@@ -28,19 +28,25 @@ import { makeChartExColorsXml, makeChartExStyleXml } from './chart/chartex-style
 import { buildEmbeddedWorksheet } from './chart/embed-xlsx.js'
 import { bakeSlideContent, encodeMediaForTargets } from './prepare.js'
 import { makeXmlSlide } from './slide/slide.js'
+import type { RendererTable } from './slide/objects/shared.js'
 import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './slide/notes.js'
 import { makeXmlTheme } from './pres/theme.js'
 
 /**
- * The slice of a deck's state an extraction reads — the same three fields `PackageSource`
- * carries for a write, minus the custom properties, which reach no slide. `presentation`
- * supplies the slides, the canvas size and the embedded fonts, and is what the notes master's
- * theme is built from.
+ * The slice of a deck's state an extraction reads — the same fields `PackageSource` carries for a
+ * write, minus the custom properties, which reach no slide. `presentation` supplies the slides,
+ * the canvas size and the embedded fonts, and is what the notes master's theme is built from.
  */
 interface ExtractSource {
 	readonly runtime: RuntimeAdapter
 	readonly presentation: PresentationPropsInternal
 	readonly fontMetrics: FontMetricsRegistry
+	/**
+	 * Which renderer emits each shape family. An extracted body is the same XML a write would put
+	 * in the slide part, so it is emitted through the same table rather than a fixed one — see
+	 * `RendererTable` in `slide/objects/shared.ts`.
+	 */
+	readonly renderers: RendererTable
 }
 
 /** One slide's `_relsMedia`, indexed by `rId`, for the media descriptors that resolve rels by id. */
@@ -233,7 +239,7 @@ export async function extractSlides(
 		const avMedia = avMediaOf(slide, relByRid)
 		const notes = notesOf(slide)
 		return {
-			xml: makeXmlSlide(slide),
+			xml: makeXmlSlide(slide, source.renderers),
 			media: imageMediaOf(slide, new Set(avMedia.map((item) => item.previewRid))),
 			hyperlinks: hyperlinksOf(slide),
 			charts: chartsOf(slide),

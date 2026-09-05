@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
+import { ALL_OBJECT_RENDERERS } from '../../../src/gen/slide/renderers.ts'
 import { SlideObjectType } from '../../../src/enums.ts'
 
 // Byte-pin for Slide / Section / Summary Zoom (dn-zoom-links). These emit `<mc:AlternateContent>`
@@ -19,7 +20,7 @@ const mkSlide = (objects, extra = {}) => ({
 	_relsMedia: [],
 	...extra,
 })
-const render = (objects, extra = {}) => slideObjectToXml(mkSlide(objects, extra))
+const render = (objects, extra = {}) => slideObjectToXml(mkSlide(objects, extra), ALL_OBJECT_RENDERERS)
 
 const zoomObj = (variant, zoom, options = {}) => ({
 	_type: SlideObjectType.zoom,

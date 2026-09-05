@@ -61,6 +61,10 @@ import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
 import { getUuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
+// This class is the full authoring surface, so it writes with the full renderer table. The two
+// places it hands that table over are the only two that decide which shape families this program
+// links; see `RendererTable` in `gen/slide/objects/shared.ts`.
+import { ALL_OBJECT_RENDERERS } from './gen/slide/renderers.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 import { pickDefined, setOrClear } from './options-internal.js'
 
@@ -478,6 +482,7 @@ export default class PresentationCore {
 			presentation: this.internalPresentation,
 			customProperties: this._customProperties,
 			fontMetrics: this._fontMetrics,
+			renderers: ALL_OBJECT_RENDERERS,
 		}
 	}
 
@@ -497,7 +502,12 @@ export default class PresentationCore {
 	 */
 	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> =>
 		extractSlidesFrom(
-			{ runtime: this._runtime, presentation: this.internalPresentation, fontMetrics: this._fontMetrics },
+			{
+				runtime: this._runtime,
+				presentation: this.internalPresentation,
+				fontMetrics: this._fontMetrics,
+				renderers: ALL_OBJECT_RENDERERS,
+			},
 			opts
 		)
 

@@ -2,8 +2,10 @@
  * ts-pptx: slide object serialization
  *
  * The per-shape `<p:spTree>` builder: `slideObjectToXml` walks a slide/layout's objects
- * (recursing into groups, allocating `<p:cNvPr>` ids as it goes) and dispatches each one to the
- * matching renderer under `objects/`. The group render and the slide-number placeholder stay
+ * (recursing into groups, allocating `<p:cNvPr>` ids as it goes) and looks each one up in the
+ * renderer table its caller supplied. This module knows which object kinds are shapes; it does
+ * not know what any of their XML looks like, and importing a renderer here would undo that — see
+ * `RendererTable` in `objects/shared.ts`. The group render and the slide-number placeholder stay
  * here because both consume the slide-wide child-id counter the walk maintains.
  * `slideObjectRelationsToXml` emits the matching `.rels` targets.
  */
@@ -30,17 +32,9 @@ import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { cNvPrOpen, grpXfrmEl, type RenderContext } from './objects/shared.js'
-import { renderChartObject } from './objects/chart.js'
-import { renderConnectorObject } from './objects/connector.js'
-import { renderImageObject } from './objects/image.js'
-import { renderMediaObject } from './objects/media.js'
-import { renderModel3dObject } from './objects/model3d.js'
-import { renderOleObject } from './objects/ole.js'
-import { renderTableObject } from './objects/table.js'
-import { renderTextObject } from './objects/text.js'
-import { renderZoomObject } from './objects/zoom.js'
+import { cNvPrOpen, grpXfrmEl, type RenderContext, type RendererTable } from './objects/shared.js'
 import { collectSlideShapeIds } from './shape-ids.js'
+import { InternalError } from '../../errors.js'
 import {
 	AUDIO_REL,
 	CHART_REL,
@@ -333,10 +327,12 @@ function slideNumberPlaceholderXml(
 
 /**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
- * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
- * @return {string} XML string with <p:cSld> as the root
+ * @param slide - slide object created within createSlideObject
+ * @param renderers - which renderer emits each shape family; see {@link RendererTable} for why
+ *   this arrives as an argument rather than being imported here
+ * @return XML string with `<p:cSld>` as the root
  */
-export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
+export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal, renderers: RendererTable): string {
 	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
 	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
 	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
@@ -459,10 +455,6 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		y = normY.off
 		cy = normY.ext
 
-		// Set w/h now that smart parse is done
-		const imgWidth = cx
-		const imgHeight = cy
-
 		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
 		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
 		// stays absent, matching the truthiness test this replaced.
@@ -486,6 +478,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		const ctx: RenderContext = {
 			obj: slideItemObj,
 			shapeId,
+			shapeIds,
 			slide,
 			frame: { x, y, cx, cy },
 			placeholder: placeholderObj,
@@ -494,34 +487,35 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		}
 
 		switch (slideItemObj._type) {
-			case SlideObjectType.table:
-				strSlideXml += renderTableObject(ctx)
-				break
-			case SlideObjectType.text:
-			case SlideObjectType.placeholder:
-				strSlideXml += renderTextObject(ctx)
-				break
-			case SlideObjectType.connector:
-				strSlideXml += renderConnectorObject(ctx, shapeIds)
-				break
-			case SlideObjectType.image:
-				strSlideXml += renderImageObject(ctx, { imgWidth, imgHeight })
-				break
-			case SlideObjectType.media:
-				strSlideXml += renderMediaObject(ctx)
-				break
+			// The ten shape families, all routed the same way. The arms are still spelled out —
+			// `_type` is what tells a shape family from a group or from a non-shape member, and the
+			// `never` at the bottom only holds while every member is named — but the *code* each one
+			// reaches is `renderers`', not this module's. That is the whole point of the indirection:
+			// a program that writes text boxes should not link the chart emitter, and a named import
+			// in a reachable function body is retained whether the branch runs or not.
 			case SlideObjectType.chart:
-				strSlideXml += renderChartObject(ctx)
-				break
-			case SlideObjectType.oleObject:
-				strSlideXml += renderOleObject(ctx)
-				break
-			case SlideObjectType.zoom:
-				strSlideXml += renderZoomObject(ctx)
-				break
+			case SlideObjectType.connector:
+			case SlideObjectType.image:
+			case SlideObjectType.media:
 			case SlideObjectType.model3d:
-				strSlideXml += renderModel3dObject(ctx)
+			case SlideObjectType.oleObject:
+			case SlideObjectType.placeholder:
+			case SlideObjectType.table:
+			case SlideObjectType.text:
+			case SlideObjectType.zoom: {
+				const render = renderers[slideItemObj._type]
+				// A family with no renderer is a routing bug, not an empty shape. The object was
+				// authored, so it has already reserved a `<p:cNvPr>` id, and anything that referred to
+				// it — a connector binding, an animation target, a group's bounding box — is emitted
+				// against a shape that would silently not be there.
+				if (!render)
+					throw new InternalError(
+						'slide/object-type-not-routed',
+						`slideObjectToXml: no renderer registered for slide object type "${slideItemObj._type}"`
+					)
+				strSlideXml += render(ctx)
 				break
+			}
 
 			case SlideObjectType.group: {
 				const groupChildren = slideItemObj._groupObjects || []

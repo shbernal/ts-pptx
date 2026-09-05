@@ -178,6 +178,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The shape-tree walk is handed its renderers instead of importing them.** Which renderer
+  emits each shape family is now a table (`ALL_OBJECT_RENDERERS`) that travels down the write
+  path with the deck state, rather than ten named imports inside the walk's own `switch`. A
+  named import in a reachable function body is retained whether its branch runs or not, so
+  every program that wrote a slide linked every shape family: a text box carried the chart
+  emitter, the table emitter and the rest. Nothing gets smaller yet -- the authoring class is
+  the full surface and hands over the full table -- but the emitters are no longer wired to
+  the walk, which is what a smaller table will need.
+
+  Every renderer now takes one argument. The connector's shape-id map moved onto the render
+  context, where it belongs; the image renderer's second argument turned out to be the frame
+  it was already given, under another name. The emitted bytes are unchanged, attribute order
+  included.
+
+  One condition is new: `slide/object-type-not-routed`, thrown when an object's family has no
+  entry in the table it was rendered with. It is unreachable through the published surface,
+  whose table is complete by construction. Emitting nothing would be the worse answer -- the
+  object has already reserved a `<p:cNvPr>` id that connector bindings, animation targets and
+  group bounds may refer to, and PowerPoint reports a dangling reference as a repair.
+
 - **The default video poster no longer rides in every consumer's entry chunk.** The
   play-button overlay `addMedia` falls back to when the caller supplies no `cover` is 54 kB
   of base64 PNG, and `addMedia` is a class method, so no bundler could shake it out: a

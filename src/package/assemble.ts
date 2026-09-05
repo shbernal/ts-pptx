@@ -31,6 +31,7 @@ import { makeXmlTableStyles } from '../gen/pres/table-styles.js'
 import { makeXmlTheme } from '../gen/pres/theme.js'
 import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '../gen/slide/comments.js'
 import { makeXmlLayout } from '../gen/slide/layout.js'
+import type { RendererTable } from '../gen/slide/objects/shared.js'
 import { makeXmlMaster, makeXmlMasterRel } from '../gen/slide/master.js'
 import {
 	makeXmlNotesMaster,
@@ -62,6 +63,13 @@ export interface PackageSource {
 	readonly presentation: PresentationPropsInternal
 	readonly customProperties: Array<{ name: string; value: CustomPropertyValue }>
 	readonly fontMetrics: FontMetricsRegistry
+	/**
+	 * Which renderer emits each shape family, handed down to every part that carries a shape tree
+	 * (slides, layouts, the master). It travels with the deck state rather than being imported by
+	 * the shape walk so that the set of families a program links is the caller's to decide — see
+	 * `RendererTable` in `gen/slide/objects/shared.ts`.
+	 */
+	readonly renderers: RendererTable
 }
 
 /**
@@ -299,17 +307,17 @@ export async function buildPackageParts(
 
 		// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
 		pres.slideLayouts.forEach((layout, idx) => {
-			zip.add(slideLayoutPath(idx + 1), makeXmlLayout(layout))
+			zip.add(slideLayoutPath(idx + 1), makeXmlLayout(layout, source.renderers))
 			zip.add(relsPath(slideLayoutPath(idx + 1)), makeXmlSlideLayoutRel(idx + 1, pres.slideLayouts))
 		})
 		pres.slides.forEach((slide, idx) => {
-			zip.add(slidePath(idx + 1), makeXmlSlide(slide))
+			zip.add(slidePath(idx + 1), makeXmlSlide(slide, source.renderers))
 			zip.add(relsPath(slidePath(idx + 1)), makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
 			// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
 			zip.add(notesSlidePath(idx + 1), makeXmlNotesSlide(slide))
 			zip.add(relsPath(notesSlidePath(idx + 1)), makeXmlNotesSlideRel(slide, idx + 1))
 		})
-		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts))
+		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
 		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
 		zip.add(NOTES_MASTER_PATH, makeXmlNotesMaster())
 		zip.add(relsPath(NOTES_MASTER_PATH), makeXmlNotesMasterRel())

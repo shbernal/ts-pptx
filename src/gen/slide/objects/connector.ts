@@ -6,7 +6,6 @@
  * falls back to the static endpoint geometry rather than emitting a dangling id.
  */
 
-import type { SlideObject } from '../../../types/internal.js'
 import { warn } from '../../../diagnostics.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
@@ -15,10 +14,11 @@ import { cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared
 /**
  * Render a `connector` slide object to its `<p:cxnSp>` XML (start/end shape bindings via shapeIds).
  */
-export function renderConnectorObject(ctx: RenderContext, shapeIds: Map<SlideObject, number>): string {
+export function renderConnectorObject(ctx: RenderContext): string {
 	const {
 		obj: slideItemObj,
 		shapeId,
+		shapeIds,
 		frame: { x, y, cx, cy },
 		locationAttrs,
 		itemOpts,

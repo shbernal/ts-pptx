@@ -25,13 +25,18 @@ import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl 
 /**
  * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
  */
-export function renderImageObject(ctx: RenderContext, imgSize: { imgWidth: number; imgHeight: number }): string {
+export function renderImageObject(ctx: RenderContext): string {
 	const { obj: slideItemObj, shapeId, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
 	const { x, y } = ctx.frame
-	// Both pairs are reassigned below: `_szAuto` backfills an omitted dimension from the image's
-	// natural ratio, and `sizing` then picks the box actually drawn.
+	// The frame, read twice into two pairs that then diverge: `_szAuto` backfills an omitted
+	// dimension from the image's natural ratio, and `sizing` splits the two apart for good — `cx`/
+	// `cy` stay the box the caller asked for, which is what the source rectangle is cropped
+	// against, while `imgWidth`/`imgHeight` become the box actually drawn and emitted. The second
+	// pair used to arrive as a separate argument, but the dispatch built it from the same two
+	// variables as the frame, two statements away, so it never carried anything else.
 	let { cx, cy } = ctx.frame
-	let { imgWidth, imgHeight } = imgSize
+	let imgWidth = ctx.frame.cx
+	let imgHeight = ctx.frame.cy
 	const { sizing, rounding } = itemOpts
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in

@@ -16,6 +16,7 @@ import { HUNDREDTHS_PER_POINT } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
+import type { RendererTable } from './objects/shared.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
@@ -318,11 +319,16 @@ function makeXmlMasterDefaultTxStyles(): string {
 
 /**
  * Creates Slide Master 1 (`ppt/slideMasters/slideMaster1.xml`)
- * @param {PresSlideInternal} slide - slide object that represents master slide layout
- * @param {SlideLayoutInternal[]} layouts - slide layouts
- * @return {string} XML
+ * @param slide - slide object that represents master slide layout
+ * @param layouts - slide layouts
+ * @param renderers - which renderer emits each shape family, passed through to the shape walk
+ * @return XML
  */
-export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInternal[]): string {
+export function makeXmlMaster(
+	slide: PresSlideInternal,
+	layouts: SlideLayoutInternal[],
+	renderers: RendererTable
+): string {
 	// NOTE: Pass layouts as static rels because they are not referenced any time
 	const layoutDefs = layouts
 		.map((_layoutDef, idx) =>
@@ -348,7 +354,7 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 				...PML_ROOT_NS,
 			},
 			[
-				raw(slideObjectToXml(slide)),
+				raw(slideObjectToXml(slide, renderers)),
 				raw(clrMap),
 				raw(el('p:sldLayoutIdLst', null, raw(layoutDefs))),
 				raw(hf),

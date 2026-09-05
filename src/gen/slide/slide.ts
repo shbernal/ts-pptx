@@ -11,6 +11,7 @@ import { slideTimingToXml } from '../anim/timing.js'
 import { slideTransitionToXml } from '../anim/transition.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
+import type { RendererTable } from './objects/shared.js'
 import { InternalError } from '../../errors.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { NOTES_SLIDE_REL, OFFICE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
@@ -18,10 +19,11 @@ import { commentPath, notesSlidePath, slideLayoutPath, targetFromPptSubpart } fr
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
- * @param {PresSlideInternal} slide - the slide object to transform into XML
- * @return {string} XML
+ * @param slide - the slide object to transform into XML
+ * @param renderers - which renderer emits each shape family, passed through to the shape walk
+ * @return XML
  */
-export function makeXmlSlide(slide: PresSlideInternal): string {
+export function makeXmlSlide(slide: PresSlideInternal, renderers: RendererTable): string {
 	return (
 		XML_DECL +
 		CRLF +
@@ -32,7 +34,7 @@ export function makeXmlSlide(slide: PresSlideInternal): string {
 				show: slide?.hidden ? '0' : null,
 			},
 			[
-				raw(slideObjectToXml(slide)),
+				raw(slideObjectToXml(slide, renderers)),
 				raw(el('p:clrMapOvr', null, raw(voidEl('a:masterClrMapping')))),
 				raw(slideTransitionToXml(slide)),
 				raw(slideTimingToXml(slide)),

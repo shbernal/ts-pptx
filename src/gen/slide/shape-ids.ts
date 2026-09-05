@@ -96,7 +96,7 @@ export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObje
  * @param objectName - the raw `objectName` to resolve, as the caller spelled it
  * @returns the object's `<p:cNvPr>` id, or `null` when unresolved
  */
-export function resolveObjectNameToId(shapeIds: Map<SlideObject, number>, objectName: string): number | null {
+export function resolveObjectNameToId(shapeIds: ReadonlyMap<SlideObject, number>, objectName: string): number | null {
 	const key = encodeXmlAttrValue(objectName)
 	for (const [obj, id] of shapeIds) {
 		if (obj.options?.objectName === key) return id

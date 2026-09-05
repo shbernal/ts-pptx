@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
+import { ALL_OBJECT_RENDERERS } from '../../../src/gen/slide/renderers.ts'
 import { SlideObjectType } from '../../../src/enums.ts'
+import { InternalError } from '../../../src/errors.ts'
 
 // Characterization tests for slide-object XML that the byte-identity harness CANNOT see. The demo
 // deck emits ZERO parts containing `<a:duotone>`, `<a:stCxn>`, `mc:AlternateContent`,
@@ -22,7 +24,7 @@ const mkSlide = (objects, extra = {}) => ({
 	...extra,
 })
 
-const render = (objects, extra = {}) => slideObjectToXml(mkSlide(objects, extra))
+const render = (objects, extra = {}) => slideObjectToXml(mkSlide(objects, extra), ALL_OBJECT_RENDERERS)
 
 const textObj = (options = {}) => ({
 	_type: SlideObjectType.text,
@@ -305,13 +307,22 @@ describe('slide number placeholder', () => {
 		// is a page number, so neither belongs in the field's cached `<a:t>` — which is what
 		// PowerPoint reads back if it does not recompute. The child must stay non-null: the element
 		// builder skips a null child, and an `a:fld` with no `a:t` is a different construct.
-		const master = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: null })
+		const master = slideObjectToXml(
+			{ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: null },
+			ALL_OBJECT_RENDERERS
+		)
 		expect(master).toContain('<a:t>‹#›</a:t>')
 
-		const layout = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 1004 })
+		const layout = slideObjectToXml(
+			{ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 1004 },
+			ALL_OBJECT_RENDERERS
+		)
 		expect(layout).toContain('<a:t>‹#›</a:t>')
 
-		const slide = slideObjectToXml({ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 7 })
+		const slide = slideObjectToXml(
+			{ ...mkSlide([], { _slideNumberProps: { x: 1, y: 1 } }), _slideNum: 7 },
+			ALL_OBJECT_RENDERERS
+		)
 		expect(slide).toContain('<a:t>7</a:t>')
 	})
 
@@ -385,5 +396,46 @@ describe('relationships', () => {
 			{ target: 't.xml', type: 'http://x/theme' },
 		])
 		expect(xml).toContain('Id="rId8" Type="http://x/theme" Target="t.xml"')
+	})
+})
+
+describe('renderer table', () => {
+	// The dispatch is handed its renderers rather than importing them, so that a program links only
+	// the shape families it writes. Nothing in the published surface can reach a table with a
+	// family missing — `ALL_OBJECT_RENDERERS` is complete by its type — so these drive the walk
+	// directly, which is the only place the partial case exists.
+	const textOnly = { [SlideObjectType.text]: ALL_OBJECT_RENDERERS[SlideObjectType.text] }
+
+	test('a partial table emits the families it does carry', () => {
+		const xml = slideObjectToXml(mkSlide([textObj()]), textOnly)
+		expect(xml).toContain('<p:txBody>')
+	})
+
+	test('an object whose family is not in the table throws rather than emitting nothing', () => {
+		const chart = { _type: SlideObjectType.chart, options: { objectName: 'C' }, chartRid: 3 }
+		let err
+		try {
+			slideObjectToXml(mkSlide([chart]), textOnly)
+		} catch (e) {
+			err = e
+		}
+		// Emitting nothing would be worse than failing: the object has already reserved a
+		// `<p:cNvPr>` id, so a connector binding or an animation target would point at a shape that
+		// is not in the tree, and PowerPoint reports that as a repair rather than as a missing shape.
+		expect(err).toBeInstanceOf(InternalError)
+		expect(err.code).toBe('slide/object-type-not-routed')
+		expect(err.message).toContain('chart')
+	})
+
+	test('a group child goes through the same table as a top-level object', () => {
+		const chart = { _type: SlideObjectType.chart, options: { objectName: 'C' }, chartRid: 3 }
+		const group = { _type: SlideObjectType.group, _groupObjects: [chart], options: { objectName: 'G' } }
+		let err
+		try {
+			slideObjectToXml(mkSlide([group]), textOnly)
+		} catch (e) {
+			err = e
+		}
+		expect(err?.code).toBe('slide/object-type-not-routed')
 	})
 })

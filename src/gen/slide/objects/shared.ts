@@ -6,6 +6,7 @@
  * renderer never has to import from its own caller.
  */
 
+import type { SlideObjectType } from '../../../enums.js'
 import type { ShapeLineProps } from '../../../types/index.js'
 import type {
 	HyperlinkPropsInternal,
@@ -32,9 +33,12 @@ import { prstGeomRect } from '../../drawingml/geometry.js'
  * nothing outside a rendered slide would have flagged. Named fields make that transposition
  * impossible to write.
  *
- * A renderer takes a second argument only for what genuinely is not here: the connector's
- * `shapeIds` map, and the image's natural pixel size (captured *before* a placeholder overrides
- * the frame, so it is not `frame.cx`/`frame.cy`).
+ * Everything a renderer needs is here, and that is now a requirement rather than an observation:
+ * a renderer is called through {@link RendererTable}, so it takes this and nothing else. Two used
+ * to take a second argument. The connector's `shapeIds` map is genuine context and moved onto this
+ * interface; the image's `{ imgWidth, imgHeight }` was `frame.cx`/`frame.cy` under another name —
+ * the dispatch captured them from the same two variables the frame is built from, two statements
+ * apart — so it reads the frame instead.
  */
 export interface RenderContext {
 	/** The slide object being emitted. */
@@ -48,6 +52,14 @@ export interface RenderContext {
 	 * derivations that had to be kept in step by hand.
 	 */
 	shapeId: number
+	/**
+	 * Every object's id, not just this one's — the whole map `shapeId` was read out of.
+	 *
+	 * A forward reference resolves through it: a connector names its endpoints by `objectName`
+	 * and has to answer with the id the target will be emitted with, which the walk has not
+	 * reached yet.
+	 */
+	shapeIds: ReadonlyMap<SlideObject, number>
 	/** The page it belongs to — a slide or a layout. */
 	slide: PresSlideInternal | SlideLayoutInternal
 	/** The resolved box in EMU: normalized for negative extents, then overridden by a placeholder. */
@@ -63,6 +75,48 @@ export interface RenderContext {
 	 */
 	itemOpts: ObjectOptionsInternal
 }
+
+/**
+ * The `SlideObjectType` members that a renderer emits a shape for.
+ *
+ * Not every member is one. `group` recurses back into the walk and owns the frame and bounds
+ * logic that belongs to the dispatch, so it stays there; `notes`, `tablecell`, `hyperlink` and
+ * `online` are not shapes at all and emit nothing. Those five are spelled out in the dispatch
+ * beside this union's members, which is what makes a new enum member fail to compile until
+ * someone says which kind it is.
+ */
+export type RenderedObjectType =
+	| SlideObjectType.chart
+	| SlideObjectType.connector
+	| SlideObjectType.image
+	| SlideObjectType.media
+	| SlideObjectType.model3d
+	| SlideObjectType.oleObject
+	| SlideObjectType.placeholder
+	| SlideObjectType.table
+	| SlideObjectType.text
+	| SlideObjectType.zoom
+
+/** One shape family's emitter: everything it needs is in the {@link RenderContext}. */
+export type ObjectRenderer = (ctx: RenderContext) => string
+
+/**
+ * Which renderer emits each shape family — the dispatch's whole knowledge of what a family's XML
+ * looks like, supplied to it from outside.
+ *
+ * It has to come from outside. A named import inside a reachable function body is retained
+ * unconditionally, so a `switch` that calls `renderChartObject` links the chart emitter into every
+ * program that writes a slide, text-only ones included; a table built in the dispatch module would
+ * import the same ten names and change nothing. Passed down the write path alongside the deck
+ * state rather than registered into a module-level map: a mutable global populated at import time
+ * is how the same input came to produce different bytes once already (see the chart-part-id
+ * counter in `package/assemble.ts`), and it would also stop two decks built from different sets of
+ * families in one process from each getting their own.
+ *
+ * `Partial` because a caller may legitimately supply fewer than ten. An object whose family is
+ * absent is a routing bug rather than a silent omission, and the dispatch throws.
+ */
+export type RendererTable = Partial<Record<RenderedObjectType, ObjectRenderer>>
 
 /**
  * The `<p:cNvPr>` OPEN tag shared by every shape renderer. Callers append `/>` or

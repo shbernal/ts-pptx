@@ -51,6 +51,23 @@ exports and let this repository own the internal OOXML generation details.
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
+- **The shape walk is handed its renderers; it does not import them.** Which renderer
+  emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`) that
+  travels down the write path with the deck state: from `PackageSource.renderers`,
+  through `makeXmlSlide` / `makeXmlLayout` / `makeXmlMaster`, into the walk. The
+  authoring class supplies `ALL_OBJECT_RENDERERS` (`gen/slide/renderers.ts`), the one
+  module that names all ten. This is a bundling constraint written into the code: a
+  named import inside a reachable function body is retained unconditionally, so a
+  dispatch that called `renderChartObject` itself would link the chart emitter into
+  every program that writes a slide, text-only ones included. It is passed rather than
+  registered into a module-level map for a reason the chart-part-id counter in
+  `package/assemble.ts` already records (a never-reset module global made the same
+  input produce different bytes), and because two decks built in one process must be
+  able to disagree about which families they carry. A slide object whose family the
+  table omits throws `slide/object-type-not-routed` rather than emitting nothing: it
+  has already reserved a `<p:cNvPr>` id that connector bindings, animation targets and
+  group bounds may point at, so a silent omission is a dangling reference PowerPoint
+  reports as a repair.
 - `src/ooxml/` holds the schema facts that belong to **neither** half of the library:
   relationship-type URIs (`rel-types.ts`), the child-sequence order of each complexType
   a writer or an editor inserts into (`sequence.ts`), the `ST_` enumerations

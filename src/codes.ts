@@ -419,6 +419,12 @@ export type InternalErrorCode =
 	// `ChartType` between them and the caller picks by `isChartExType`, so reaching either one
 	// off-catalog is a routing bug, not bad input.
 	| 'chart/type-not-routed'
+	// A slide object reached the shape-tree walk in a family the renderer table it was handed has
+	// no entry for. The table decides which shape families a program can emit, and an object of a
+	// family it omits has already reserved a `<p:cNvPr>` id that connectors, animations and group
+	// bounds may point at — so the alternative to throwing is a dangling reference to a shape that
+	// was quietly never written.
+	| 'slide/object-type-not-routed'
 	// A successor list was asked for a child that is not in the sequence it names. The lists
 	// decide where a new child is inserted, and an empty one silently APPENDS -- which is the
 	// schema-invalid part these declarations exist to prevent -- so a typo has to fail at
