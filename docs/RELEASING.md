@@ -255,6 +255,13 @@ So: release, then open an issue on `pptx-html`. Do not hold a release for it, an
 pin the site to the workspace copy to avoid it: that trade makes the first breaking change
 break the docs *deploy* of the release introducing it, which is strictly worse.
 
+That dependency is also why `@shbernal/ts-pptx` -- the alias, not the canonical name --
+is the one listed in `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`. If `pptx-html`
+ever moves its dependency to `pptx-ts`, the exclusion has to move with it, or the first
+release after that leaves the docs build unresolvable for the 24h the release-age hold
+lasts. Nothing on this side detects the move; it is for whoever publishes the next
+`pptx-html` to carry across.
+
 ## Package Surface Checks
 
 The package should ship:
