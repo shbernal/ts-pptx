@@ -300,8 +300,8 @@ function makeChartExAxes(type: ChartType): string {
 /** Build a minimal `<cx:title>` from the chart title options (only when `showTitle`). */
 function makeChartExTitle(rel: SlideRelChart): string {
 	if (!rel.opts.showTitle) return ''
-	const color = rel.opts.titleColor || DEF_FONT_COLOR
-	const face = rel.opts.titleFontFace || 'Calibri'
+	const color = rel.opts.titleColor ?? DEF_FONT_COLOR
+	const face = rel.opts.titleFontFace ?? 'Calibri'
 	const rPr = el('a:defRPr', null, [raw(genXmlColorSelection(color)), raw(createChartTextFonts(face))])
 	const rich = el('cx:rich', null, [
 		raw(voidEl('a:bodyPr')),

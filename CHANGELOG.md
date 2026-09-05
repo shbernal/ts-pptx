@@ -638,6 +638,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chart could emit two readings of the same data-label font option.** Two builders
+  produce the run properties a `<c:dLbls>` wraps, and they defaulted differently -- one read
+  `opts.dataLabelFontSize ?? DEF`, the other `opts.dataLabelFontSize || DEF` -- so which
+  contract a caller got was decided by the chart's type and label format. `dataLabelFontSize: 0`
+  had three answers: a bar warned and clamped to the 1pt schema minimum, a pie dropped the
+  value silently and drew 12pt, and an `XY` scatter reached both builders and emitted
+  `sz="100"` on one label block beside `sz="1200"` on another of the same chart.
+
+  Both builders now read every one of the five data-label font options the same way, and the
+  same correction was applied to the other chart options whose value can legitimately be `0`
+  or an empty string: axis tick-label size, colour and typeface; chart, axis and `chartEx`
+  title size, colour and typeface; and the data-table font size and leader-line colour. Options
+  spelling a string enum (`barGrouping`, `catAxisLabelPos`, `lang`, the format codes) keep
+  `||`, where an empty string has no reachable meaning of its own.
+
+  **What this changes for a caller.** Omitting an option is now the only spelling of "use the
+  default"; a stated falsy value is a stated value and is diagnosed rather than replaced:
+
+  - `dataLabelFontSize: 0`, `catAxisLabelFontSize: 0`, `titleFontSize: 0`,
+    `catAxisTitleFontSize: 0`, `dataTableFontSize: 0` -- warns (`font/size-out-of-range`) and clamps to 1pt, everywhere,
+    instead of quietly meaning 12pt (or 18pt for a title) on some chart types.
+  - `dataLabelColor: ''`, `catAxisLabelColor: ''`, `titleColor: ''`, `catAxisTitleColor: ''`,
+    `leaderLineColor: ''` --
+    leaves the fill inherited rather than silently painting `000000` (or `808080`).
+  - `dataLabelFontFace: ''`, `catAxisLabelFontFace: ''`, `titleFontFace: ''` -- emits an empty
+    typeface rather than silently substituting `Arial` (or `Calibri`). This was already what
+    the `??` half did, on every chart that reached it.
+
+  If a deck relied on a falsy value to mean "default", drop the option.
+
 - **`addText('hi', { shadow })` emitted two shadows.** One `<a:effectLst>` landed in the
   shape's `p:spPr` and another in the run's `a:rPr`, because the bare-string overload handed a
   single options object to the shape *and* to its lone run, and `shadow` was on the list of

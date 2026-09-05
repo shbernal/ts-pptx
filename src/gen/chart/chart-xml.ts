@@ -121,7 +121,7 @@ function makeChartHeaderXml(rel: SlideRelChart): string {
 					title: rel.opts.title || 'Chart Title',
 					color: rel.opts.titleColor,
 					fontFace: rel.opts.titleFontFace,
-					fontSize: rel.opts.titleFontSize || DEF_FONT_TITLE_SIZE,
+					fontSize: rel.opts.titleFontSize ?? DEF_FONT_TITLE_SIZE,
 					titleAlign: rel.opts.titleAlign,
 					titleBold: rel.opts.titleBold,
 					titleItalic: rel.opts.titleItalic,
@@ -379,7 +379,7 @@ function makeDataTableXml(rel: SlideRelChart): string {
 	const defRPr = el(
 		'a:defRPr',
 		{
-			sz: clampFontSizeSz(rel.opts.dataTableFontSize || DEF_FONT_SIZE, 'dataTableFontSize'),
+			sz: clampFontSizeSz(rel.opts.dataTableFontSize ?? DEF_FONT_SIZE, 'dataTableFontSize'),
 			b: 0,
 			i: 0,
 			u: 'none',

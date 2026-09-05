@@ -109,13 +109,13 @@ function axisLabelDefRPr(font: AxisLabelFont): string {
 	return el(
 		'a:defRPr',
 		{
-			sz: clampFontSizeSz(font.size || DEF_FONT_SIZE, font.option),
+			sz: clampFontSizeSz(font.size ?? DEF_FONT_SIZE, font.option),
 			b: xsdBool(font.bold),
 			i: xsdBool(font.italic),
 			u: 'none',
 			strike: 'noStrike',
 		},
-		[raw(genXmlColorSelection(font.color || DEF_FONT_COLOR)), raw(createChartTextFonts(font.fontFace || 'Arial'))]
+		[raw(genXmlColorSelection(font.color ?? DEF_FONT_COLOR)), raw(createChartTextFonts(font.fontFace ?? 'Arial'))]
 	)
 }
 

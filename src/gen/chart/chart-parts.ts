@@ -89,7 +89,7 @@ export function dLblShowFlags(flags: {
  */
 export function labelFontAttrs(opts: ChartOptsInternal, over?: ChartSeriesOpts): Record<string, string | number> {
 	return {
-		sz: clampFontSizeSz(over?.dataLabelFontSize ?? (opts.dataLabelFontSize || DEF_FONT_SIZE), 'dataLabelFontSize'),
+		sz: clampFontSizeSz(over?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE, 'dataLabelFontSize'),
 		b: xsdBool(over?.dataLabelFontBold ?? opts.dataLabelFontBold),
 		i: xsdBool(over?.dataLabelFontItalic ?? opts.dataLabelFontItalic),
 		u: 'none',
@@ -99,15 +99,19 @@ export function labelFontAttrs(opts: ChartOptsInternal, over?: ChartSeriesOpts):
 
 /**
  * The colour and typeface children of those run properties.
+ *
+ * The fill goes through {@link genXmlColorSelection} rather than a hand-built `<a:solidFill>`
+ * around {@link createColorElement} so that both data-label builders answer an empty
+ * `dataLabelColor` the same way — that helper's contract is that a value naming nothing to
+ * paint emits nothing. For any colour that names something the two spellings are the same
+ * bytes.
  * @param opts - the chart's normalized options
  * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
 export function labelFontChildren(opts: ChartOptsInternal, over?: ChartSeriesOpts): XmlChild[] {
 	return [
-		raw(
-			el('a:solidFill', null, raw(createColorElement(over?.dataLabelColor ?? (opts.dataLabelColor || DEF_FONT_COLOR))))
-		),
-		raw(createChartTextFonts(over?.dataLabelFontFace ?? (opts.dataLabelFontFace || 'Arial'))),
+		raw(genXmlColorSelection(over?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR)),
+		raw(createChartTextFonts(over?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial')),
 	]
 }
 
@@ -134,12 +138,17 @@ export function labelTextProps(defRPr: string): string {
  * chart-level and bubble label blocks share. See {@link labelFontAttrs} for why there are two
  * orderings and why they stay apart.
  *
- * The per-series `<c:dLbls>` builder had a second copy of this, identical but for the operator:
- * `||` here against `??` there, so one chart could carry both readings of the same option and
- * `dataLabelFontSize: 0` emitted `sz="0"` beside `sz="1200"`. `??` is the reading kept — the
- * caller stating a value and the caller saying nothing are different — and the size goes through
- * {@link clampFontSizeSz}, so an explicit `0` is corrected to the `ST_TextFontSize` minimum with
- * a warning instead of reaching the part outside its own type.
+ * This and {@link labelFontAttrs} read the same five options and read them the same way:
+ * `over?.X ?? opts.X ?? DEFAULT`. Attribute order is the only difference left between them.
+ *
+ * They disagreed on the operator once — `??` here against `||` there — and which one a chart
+ * reached was decided by its type and its label format, so `dataLabelFontSize: 0` had three
+ * answers: a bar warned and clamped, a pie dropped the value with no diagnostic at all, and an
+ * `XY` scatter, which reaches both builders, emitted `sz="100"` on one label block and
+ * `sz="1200"` on another of the same chart. `??` is the reading kept everywhere, because the
+ * caller stating a value and the caller saying nothing are different. An explicit `0` therefore
+ * goes through {@link clampFontSizeSz} and is corrected to the `ST_TextFontSize` minimum with a
+ * warning, and **omitting the option is the only spelling of "use the default"**.
  * @param opts - the chart's normalized options
  * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
@@ -471,10 +480,14 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	// `prove-whitespace` freezes intra-tag whitespace so it stays visible. See
 	// `docs/chart-whitespace-flatten.md`. Two other sites in this directory are in the same
 	// position; the ratchet header lists them.
-	const sizeAttr = opts.fontSize ? `sz="${clampFontSizeSz(opts.fontSize, 'title fontSize')}"` : ''
+	// An empty `sizeAttr` spells one state and only one: the caller stated no size, which the
+	// axis-title path still reaches (`catAxisTitleFontSize` and its two siblings are optional).
+	// A stated `0` is a stated value, so it clamps and warns like every other size rather than
+	// falling through to the same silence.
+	const sizeAttr = opts.fontSize == null ? '' : `sz="${clampFontSizeSz(opts.fontSize, 'title fontSize')}"`
 	const runAttrs = ` ${sizeAttr} b="${xsdBool(opts.titleBold)}" i="${xsdBool(opts.titleItalic)}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
-		genXmlColorSelection(opts.color || DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace || 'Arial')
+		genXmlColorSelection(opts.color ?? DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace ?? 'Arial')
 
 	// NOTE: manualLayout x/y vals are *relative to the entire slide*. Each axis is independent in
 	// CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that axis on automatic layout, so a
@@ -569,6 +582,10 @@ function chartFurnitureLine(
 	const line = el(
 		'a:ln',
 		{
+			// `||` and not `??`: a width of `0` is not a hairline anyone asked for. On the three
+			// gridline entry points `scrubGridLine` has already rejected `width <= 0` with a
+			// warning and deleted it, so the two operators cannot differ there; `c:serLines` is
+			// not scrubbed, and `||` is what keeps a zero from reaching the part undiagnosed.
 			w: ptsToEmuLenient(stroke.width || DEF_CHART_GRIDLINE.width || 1),
 			cap: createLineCap(stroke.cap || DEF_CHART_GRIDLINE.cap),
 		},
@@ -874,7 +891,7 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	if (!opts.showLeaderLines) return ''
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
 	const w = ptsToEmuLenient(opts.leaderLineSize ?? 0.75)
-	const color = opts.leaderLineColor || '808080'
+	const color = opts.leaderLineColor ?? '808080'
 	const line = el('a:ln', { w, cap: 'flat' }, [
 		raw(genXmlColorSelection(color)),
 		raw(voidEl('a:prstDash', { val: 'solid' })),
