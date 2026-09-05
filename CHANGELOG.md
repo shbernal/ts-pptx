@@ -178,6 +178,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **An empty colour string is a missing value, and one rule now says so everywhere.**
+  `color: ''` had four readings depending on which path it fell down. `fill: ''` emitted
+  nothing and inherited. `fill: { color: '' }` -- the same intent in the object spelling --
+  fell through to `createColorElement` and painted `000000`, so a shape the caller expected to
+  keep the theme's paint came out visible black. `line: { color: '' }` resolved quietly to the
+  line default through `||`. A chart's `dataLabelColor: ''` emitted no colour at all while an
+  omitted one painted `000000`. Inside one file, `fillNamesPaint` answered "names no paint"
+  for `{ color: '' }` while `genXmlColorSelection`, three functions down, painted it.
+
+  The decision is that `''` is not a fourth spelling of silence beside omission, `'inherit'`
+  and `'none'`: it is the caller's own missing value, arriving from an unset template field or
+  a `row.accent` on a row that has none. Every site that consumes a caller-supplied colour now
+  reports it under the new **`color/empty-string`** diagnostic and then resolves it to
+  **whatever omitting that option resolves to** -- which is the surface's own rule, so a text
+  box still gets its `<a:noFill/>`, a stroke still gets the line default, and a chart label
+  still gets `DEF_FONT_COLOR`. No colour that names something changed: the byte-identity gate
+  is clean across all 1312 parts.
+
+  The one place `''` still paints is a slot that *requires* a colour and has no absent state
+  to fall back to -- a gradient stop, a duotone half, a `buClr`. Those keep the `000000`
+  fallback, but report it under `color/empty-string` rather than under `color/invalid-value`,
+  whose message complained that `""` is not a scheme colour and named neither the option nor
+  the real problem.
+
+  **Migration:** a deck passing `''` to mean *leave this unpainted* has to omit the option or
+  spell the state it wants (`fill: { type: 'inherit' }`, `fill: { type: 'none' }`). Two inputs
+  change what they emit: `fill: { color: '' }` no longer paints black, and a chart's
+  `dataLabelColor: ''` / `catAxisLabelColor: ''` / `titleColor: ''` now paint the same default
+  an omitted option paints instead of emitting no colour.
+
 - **A per-table `slideMargin` now beats a master's `margin`.** `resolveSlideMarginsInches`
   resolved the master's margin first, so on a deck whose master declares one,
   `addTable(rows, { slideMargin: 2 })` was discarded with nothing said -- the pager, the

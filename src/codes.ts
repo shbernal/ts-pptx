@@ -120,6 +120,7 @@ export type DiagnosticCode =
 	// Colour, shadow, geometry, locks
 	| 'color/not-a-string'
 	| 'color/invalid-value'
+	| 'color/empty-string'
 	| 'shadow/invalid-type'
 	| 'shadow/angle-out-of-range'
 	| 'glow/size-out-of-range'

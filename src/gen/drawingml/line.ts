@@ -12,6 +12,7 @@
 
 import type { BorderProps, Color, LineCap, ShapeLineProps, StrokeProps } from '../../types/index.js'
 import { fillNamesPaint, genXmlColorSelection, resolveLineKind, solidPaint } from './fill.js'
+import { namedColorOr } from './color.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
@@ -89,7 +90,7 @@ export function resolveBorderDash(border: BorderProps): string {
  */
 export function strokePaint(stroke: StrokeProps, defaultColor: Color): string {
 	if (stroke.type === 'none') return voidEl('a:noFill')
-	return genXmlColorSelection(solidPaint(stroke.color || defaultColor, stroke.transparency))
+	return genXmlColorSelection(solidPaint(namedColorOr(stroke.color, defaultColor, 'line.color'), stroke.transparency))
 }
 
 /**
@@ -255,7 +256,9 @@ export function borderLine(
 		name,
 		{ w: lineWidthToEmu(resolveBorderWidth(border, spec.defaultWidth)), cap: spec.cap, ...spec.extraAttrs },
 		[
-			genXmlColorSelection(solidPaint(border.color || spec.defaultColor, border.transparency)),
+			genXmlColorSelection(
+				solidPaint(namedColorOr(border.color, spec.defaultColor, 'border.color'), border.transparency)
+			),
 			...(spec.dash === null ? [] : [voidEl('a:prstDash', { val: spec.dash })]),
 			...spec.tail,
 		].map(raw)

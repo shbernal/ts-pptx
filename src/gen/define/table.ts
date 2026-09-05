@@ -5,6 +5,7 @@
  * fully-resolved `TableCellInternal`s (incl. 4-side borders), computes width, and — when `autoPage` is
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
+import { namedColorOr } from '../drawingml/color.js'
 import { SlideObjectType } from '../../enums.js'
 import { DEF_CELL_BORDER, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
@@ -63,7 +64,7 @@ function withBorderDefaults(side: BorderProps): BorderProps {
 	return {
 		...side,
 		type: side.type || DEF_CELL_BORDER.type,
-		color: side.color || DEF_CELL_BORDER.color,
+		color: namedColorOr(side.color, DEF_CELL_BORDER.color, 'border.color'),
 		width: typeof side.width === 'number' ? side.width : DEF_CELL_BORDER.width,
 	}
 }

@@ -5,6 +5,7 @@
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range
  * clamps. The chart *XML* is emitted later by `gen/chart/chart-xml.ts`.
  */
+import { namedColorOr } from '../drawingml/color.js'
 import {
 	asChartType,
 	type CHART_NAME,
@@ -455,7 +456,7 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 		// copied only when the caller set one, so the rebuilt border spells "no transparency" the
 		// same absent way the caller's own bag did.
 		const border: BorderProps = {
-			color: chartAreaBorder.color || DEF_CHART_BORDER.color,
+			color: namedColorOr(chartAreaBorder.color, DEF_CHART_BORDER.color, 'border.color'),
 			width: chartAreaBorder.width || DEF_CHART_BORDER.width,
 		}
 		if (chartAreaBorder.transparency !== undefined) border.transparency = chartAreaBorder.transparency

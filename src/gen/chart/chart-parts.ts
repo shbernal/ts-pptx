@@ -28,7 +28,7 @@ import type {
 } from '../../types/index.js'
 import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
-import { alphaEl, createColorElement } from '../drawingml/color.js'
+import { alphaEl, createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
@@ -98,19 +98,39 @@ export function labelFontAttrs(opts: ChartOptsInternal, over?: ChartSeriesOpts):
 }
 
 /**
+ * The colour a data label paints: the series' own `dataLabelColor`, else the chart's, else
+ * {@link DEF_FONT_COLOR}.
+ *
+ * Both spellings of the option run through here so an empty string resolves once, and to the
+ * same thing an omitted option resolves to. It used to reach {@link genXmlColorSelection} as
+ * `''` and emit no colour at all, which made a blank `dataLabelColor` inherit while an absent
+ * one painted black.
+ * @param opts - the chart's normalized options
+ * @param over - this series' `seriesOptions` entry, whose stated field wins over the chart's
+ */
+function resolveDataLabelColor(opts: ChartOptsInternal, over?: ChartSeriesOpts): string {
+	return namedColorOr(
+		over?.dataLabelColor,
+		namedColorOr(opts.dataLabelColor, DEF_FONT_COLOR, 'dataLabelColor'),
+		'dataLabelColor'
+	)
+}
+
+/**
  * The colour and typeface children of those run properties.
  *
  * The fill goes through {@link genXmlColorSelection} rather than a hand-built `<a:solidFill>`
  * around {@link createColorElement} so that both data-label builders answer an empty
- * `dataLabelColor` the same way — that helper's contract is that a value naming nothing to
- * paint emits nothing. For any colour that names something the two spellings are the same
- * bytes.
+ * `dataLabelColor` the same way. What that answer *is* comes from
+ * {@link resolveDataLabelColor}: an empty string is the caller's missing value, so it paints
+ * what omitting the option paints. For any colour that names something the two spellings are
+ * the same bytes.
  * @param opts - the chart's normalized options
  * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
  */
 export function labelFontChildren(opts: ChartOptsInternal, over?: ChartSeriesOpts): XmlChild[] {
 	return [
-		raw(genXmlColorSelection(over?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR)),
+		raw(genXmlColorSelection(resolveDataLabelColor(opts, over))),
 		raw(createChartTextFonts(over?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial')),
 	]
 }
@@ -163,7 +183,7 @@ export function dataLabelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts)
 			u: 'none',
 		},
 		[
-			raw(genXmlColorSelection(over?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR)),
+			raw(genXmlColorSelection(resolveDataLabelColor(opts, over))),
 			raw(createChartTextFonts(over?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial')),
 		]
 	)
@@ -410,7 +430,7 @@ export function serMarker(opts: ChartOptsInternal, markerColor: string, seriesCo
 		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
 		raw(
 			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
-				raw(chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)),
+				raw(chartColorLineFill(namedColorOr(opts.lineDataSymbolLineColor, seriesColor, 'lineDataSymbolLineColor'))),
 				raw(voidEl('a:prstDash', { val: 'solid' })),
 				raw(voidEl('a:round')),
 			])
@@ -487,7 +507,8 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	const sizeAttr = opts.fontSize == null ? '' : `sz="${clampFontSizeSz(opts.fontSize, 'title fontSize')}"`
 	const runAttrs = ` ${sizeAttr} b="${xsdBool(opts.titleBold)}" i="${xsdBool(opts.titleItalic)}" u="${opts.titleUnderline ? 'sng' : 'none'}" strike="noStrike">`
 	const runChildren =
-		genXmlColorSelection(opts.color ?? DEF_FONT_COLOR) + createChartTextFonts(opts.fontFace ?? 'Arial')
+		genXmlColorSelection(namedColorOr(opts.color, DEF_FONT_COLOR, 'chart text color')) +
+		createChartTextFonts(opts.fontFace ?? 'Arial')
 
 	// NOTE: manualLayout x/y vals are *relative to the entire slide*. Each axis is independent in
 	// CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that axis on automatic layout, so a
@@ -891,7 +912,7 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	if (!opts.showLeaderLines) return ''
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
 	const w = ptsToEmuLenient(opts.leaderLineSize ?? 0.75)
-	const color = opts.leaderLineColor ?? '808080'
+	const color = namedColorOr(opts.leaderLineColor, '808080', 'leaderLineColor')
 	const line = el('a:ln', { w, cap: 'flat' }, [
 		raw(genXmlColorSelection(color)),
 		raw(voidEl('a:prstDash', { val: 'solid' })),

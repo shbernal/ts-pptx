@@ -8,6 +8,7 @@
  * dispatch.
  */
 
+import { namedColorOr } from '../drawingml/color.js'
 import { BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
@@ -218,7 +219,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// `seriesOptions` is documented against. `data[0]` is the shared X row and is not a series,
 			// so it has no entry: `seriesOptions[0]` styles the FIRST Y series, `data[1]`.
 			const over = opts.seriesOptions?.[idx]
-			const serColor = over?.color ?? paletteColor(chartColors, idx)
+			const serColor = namedColorOr(over?.color, paletteColor(chartColors, idx), 'seriesOptions color')
 			const yValues = dataValues(obj)
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.

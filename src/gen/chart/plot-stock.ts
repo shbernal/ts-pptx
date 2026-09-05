@@ -9,6 +9,7 @@
  * the stock branch of `makeChartAxesXml` (which reuses {@link ./chart-axes}).
  */
 
+import { namedColorOr } from '../drawingml/color.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
@@ -146,7 +147,15 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 				el(
 					'c:spPr',
 					null,
-					raw(genXmlColorSelection(opts.seriesOptions?.[volumeSeries._dataIndex]?.color ?? chartColors[0] ?? '4472C4'))
+					raw(
+						genXmlColorSelection(
+							namedColorOr(
+								opts.seriesOptions?.[volumeSeries._dataIndex]?.color,
+								chartColors[0] ?? '4472C4',
+								'seriesOptions color'
+							)
+						)
+					)
 				)
 			),
 			raw(voidEl('c:invertIfNegative', { val: 0 })),
@@ -173,7 +182,11 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 			// visual -- so a `seriesOptions.color` has exactly two referents on a stock chart: the
 			// volume bar above, and the dot that marks the close series where there are no up-down bars.
 			const markColor = isClose
-				? (opts.seriesOptions?.[obj._dataIndex]?.color ?? paletteColor(chartColors, obj._dataIndex, 'ED7D31'))
+				? namedColorOr(
+						opts.seriesOptions?.[obj._dataIndex]?.color,
+						paletteColor(chartColors, obj._dataIndex, 'ED7D31'),
+						'seriesOptions color'
+					)
 				: null
 			return makeStockLineSer(obj, opts, valFmtCode, markColor, sheet)
 		})

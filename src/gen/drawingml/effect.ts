@@ -14,7 +14,7 @@ import type { ShadowPropsInternal } from '../../types/internal.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { clampRangedInput, convertAngleUnits, opacityToAlpha, positiveCoordinateEmu } from '../../units-internal.js'
 import { splitRgbaHex, stripHash } from '../../hex-color.js'
-import { alphaEl, createColorElement } from './color.js'
+import { alphaEl, createColorElement, namedColorOr } from './color.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
@@ -33,7 +33,7 @@ export function createGlowElement(options: TextGlowProps, defaults: TextGlowProp
 	// measure two functions down was clamped and reported -- the asymmetry was inside this one
 	// function, with the opacity beside it already guarded.
 	const size = positiveCoordinateEmu(opts.size, 'glow/size-out-of-range', 'glow.size')
-	const color = opts.color || DEF_FONT_COLOR
+	const color = namedColorOr(opts.color, DEF_FONT_COLOR, 'glow.color')
 	const opacity = opacityToAlpha(opts.opacity ?? 0)
 
 	return el('a:glow', { rad: size }, raw(createColorElement(color, alphaEl(opacity))))
@@ -63,7 +63,7 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 	const offset = positiveCoordinateEmu(opts.offset ?? 0, 'shadow/offset-out-of-range', 'shadow.offset')
 	const angle = convertAngleUnits(opts.angle ?? 0, 'shadow.angle')
 	const opacity = Math.round((opts._alpha ?? 0.75) * PERCENT_SCALE)
-	const color = opts.color || DEF_FONT_COLOR
+	const color = namedColorOr(opts.color, DEF_FONT_COLOR, 'shadow.color')
 
 	// sx/sy/kx/ky/algn/rotWithShape are valid only on `a:outerShdw` (CT_OuterShadowEffect);
 	// `a:innerShdw` (CT_InnerShadowEffect) accepts only blurRad/dist/dir.

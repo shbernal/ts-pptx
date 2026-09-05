@@ -6,6 +6,7 @@
  * and pushes a `text` / `placeholder` object. `createBulletImageRels` handles the picture-bullet
  * media rels.
  */
+import { namedColorOr, rejectEmptyColor } from '../drawingml/color.js'
 import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../enums.js'
 import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
@@ -105,6 +106,11 @@ export function addTextDefinition(
 				// when the run carries no explicit fill. Defaulting it to DEF_FONT_COLOR would emit a
 				// solidFill plus hlinkClr="tx", pinning the link to black and suppressing the theme
 				// hyperlink/visited colors. Only non-hyperlink text falls back to DEF_FONT_COLOR.
+				// `''` at either level resolves the way an omitted colour resolves, through the same
+				// `||` chain; it is reported first so the caller hears about their own missing value
+				// rather than silently getting the default. See `rejectEmptyColor`.
+				rejectEmptyColor(itemOpts.color, 'color')
+				rejectEmptyColor(objectOptions.color, 'color')
 				setOrClear(
 					itemOpts,
 					'color',
@@ -191,7 +197,8 @@ export function addTextDefinition(
 				// Only the solid arm writes `color`. The spread already carried whatever colour the
 				// other kinds stated, so re-writing it would turn an unstated one into a present
 				// `undefined` — a distinction the next spread of this bag can see.
-				if (itemLineKind === 'solid') newLineOpts.color = itemLine.color || DEF_SHAPE_LINE_COLOR
+				if (itemLineKind === 'solid')
+					newLineOpts.color = namedColorOr(itemLine.color, DEF_SHAPE_LINE_COLOR, 'line.color')
 				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
 			}
 

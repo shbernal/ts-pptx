@@ -19,7 +19,7 @@ import type {
 import type { ShapeFillPropsInternal } from '../../types/internal.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { clampRangedInput, convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
-import { alphaEl, createColorElement } from './color.js'
+import { alphaEl, createColorElement, namedColorOr, rejectEmptyColor } from './color.js'
 import { genXmlImageCropRect, STRETCH_FILL_RECT } from './src-rect.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -137,8 +137,8 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
  */
 export function genXmlPatternFill(pattern: PatternFillProps | undefined): string {
 	if (!pattern) throw new InvalidOptionError('pattern-fill/missing-pattern', 'Pattern fill requires a pattern object.')
-	const fgColor = pattern.fgColor ?? '000000'
-	const bgColor = pattern.bgColor ?? 'FFFFFF'
+	const fgColor = namedColorOr(pattern.fgColor, '000000', 'pattern.fgColor')
+	const bgColor = namedColorOr(pattern.bgColor, 'FFFFFF', 'pattern.bgColor')
 	return el('a:pattFill', { prst: pattern.preset }, [
 		raw(el('a:fgClr', null, raw(createColorElement(fgColor)))),
 		raw(el('a:bgClr', null, raw(createColorElement(bgColor)))),
@@ -242,14 +242,36 @@ export function resolveLineKind(props: ShapeLineProps | undefined): LineFillKind
  * same silence and is false here. `'none'` is a statement — `<a:noFill/>` — and is true.
  * A `'solid'` kind needs a `color` to be saying anything; every other kind carries its
  * payload in its own sub-object, so its presence is the statement.
+ *
+ * An empty `color` string answers false as well, but is reported on the way out
+ * ({@link rejectEmptyColor}): it is the caller's own missing value rather than a third
+ * spelling of silence, and it used to reach here from sites that painted it black.
  */
 export function fillNamesPaint(props: Color | ShapeFillProps | ShapeLineProps | undefined): boolean {
 	if (!props) return false
-	if (typeof props === 'string') return props.length > 0
+	if (typeof props === 'string') return !rejectEmptyColor(props, 'color') && props.length > 0
 	const kind = resolveFillKind(props)
 	if (kind === 'inherit') return false
-	if (kind === 'solid') return Boolean(props.color)
+	if (kind === 'solid') return !rejectEmptyColor(props.color, 'color') && Boolean(props.color)
 	return true
+}
+
+/**
+ * Reject the empty-colour spelling of a missing value, in either shape a fill can wear.
+ *
+ * `''` and `{ color: '' }` say the same thing — the caller had no colour — and only the
+ * second used to reach {@link createColorElement} and paint black. Both fold back onto
+ * *absence* here, which is not the same as "emit nothing": what an absent fill means is the
+ * surface's own rule, and a text box's absent fill is `<a:noFill/>`. So a site whose absence
+ * rule is anything other than silence calls this before it branches, rather than letting
+ * {@link genXmlColorSelection} answer for it.
+ * @param props - the caller's fill or line props, in any shape the option accepts
+ * @param option - the option's name, for the message
+ * @returns true when the props carried the empty colour string
+ */
+export function rejectEmptyFill(props: Color | ShapeFillProps | ShapeLineProps | undefined, option: string): boolean {
+	if (props === undefined || typeof props === 'string') return rejectEmptyColor(props, option)
+	return resolveFillKind(props) === 'solid' && rejectEmptyColor(props.color, option)
 }
 
 /**
@@ -277,6 +299,14 @@ export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLinePr
 	let colorVal = ''
 	let internalElements = ''
 	let outText = ''
+
+	// Both spellings of the caller's missing value, folded onto the one answer. A bare `''`
+	// is falsy and would otherwise fall past the guard below and emit nothing without a word;
+	// `{ color: '' }` is truthy and used to fall through to `createColorElement`, which
+	// painted DEF_FONT_COLOR — visible black on a shape the caller expected to inherit,
+	// while the bare spelling of the same intent inherited silently. `fillNamesPaint` already
+	// answered "names no paint" for both, so the two functions disagreed about one input.
+	if (rejectEmptyFill(props, 'color')) return ''
 
 	if (props) {
 		const fillType = resolveFillKind(props)

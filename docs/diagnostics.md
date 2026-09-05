@@ -166,6 +166,35 @@ back at its inherited size. `bullet.size`, `fit.fontScale`, `fit.lnSpcReduction`
 `shadow.transparency` and `shadow.angle` behaved that way until they were routed through the
 shared clamp.
 
+### The rule applied: an empty colour string
+
+Every option that takes a colour has one answer for `''`, and it is not "paint nothing".
+
+A paint has three states and three spellings: omit the option, `{ type: 'inherit' }`, or
+`{ type: 'none' }`. `''` is not a fourth. It reaches the library from the caller's own missing
+value -- an unset template field, a `row.accent` on a row that has none -- so it is **reported
+under `color/empty-string` and then resolved to whatever omitting the option resolves to**.
+
+What omission resolves to is the surface's own rule, and the surfaces disagree, deliberately:
+
+| Option | Omitted, and so also `''` |
+| --- | --- |
+| a text box's `fill` | `<a:noFill/>` -- an unfilled box is what a text box is |
+| a shape's `line.color` | the shape line default |
+| a chart's `dataLabelColor` | `DEF_FONT_COLOR` |
+| a slide `background` | inherits from the layout |
+
+That is the whole rule, and the reason it is worth stating is that the alternatives are both
+tempting and both wrong. *Painting a default* on an empty string -- which the colour element
+builder did, falling back to `000000` -- puts visible black on a shape the caller expected to
+keep the theme's paint. *Emitting nothing* looks harmless but is a different state again: on
+the paths where omission means `<a:noFill/>` or a stated default, silence is not what the
+caller would have got by leaving the option out, so `''` and omission diverge.
+
+One slot is exempt, because it has no absent state to resolve to: a gradient stop, a duotone
+half and a `buClr` each *require* a colour, and there is nothing to inherit. Those still paint
+`DEF_FONT_COLOR`, and report it under the same code.
+
 Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
 rejects it under `eslint/no-console`: such a line cannot be captured, silenced, or branched on. The only
 exemptions are `diagnostics.ts`, which owns the default handler, and the two `verbose: true`

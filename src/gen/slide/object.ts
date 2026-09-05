@@ -23,6 +23,7 @@ import type {
 } from '../../types/internal.js'
 import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../utils.js'
 import { fillNamesPaint, genXmlColorSelection } from '../drawingml/fill.js'
+import { rejectEmptyColor } from '../drawingml/color.js'
 import { convertRotationDegrees, getSmartParseNumber, resolveInsetsEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
@@ -285,6 +286,7 @@ function slideNumberPlaceholderXml(
 		anchor: resolveTextAnchor(snProps.valign),
 	})
 	let defRPr = ''
+	rejectEmptyColor(snProps.color, 'slideNumber color')
 	if (snProps.fontFace || snProps.fontSize || snProps.color) {
 		// The typeface is caller-supplied via `slide.slideNumber({ fontFace })`; the element builder
 		// escapes it, so a `"`/`&` in the name cannot close the attribute early.

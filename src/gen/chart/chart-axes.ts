@@ -28,6 +28,7 @@ import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { createLineCap, strokeDash, strokePaint } from '../drawingml/line.js'
 import { axisLineStroke } from './chart-stroke.js'
+import { namedColorOr } from '../drawingml/color.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT } from '../../units.js'
@@ -115,7 +116,10 @@ function axisLabelDefRPr(font: AxisLabelFont): string {
 			u: 'none',
 			strike: 'noStrike',
 		},
-		[raw(genXmlColorSelection(font.color ?? DEF_FONT_COLOR)), raw(createChartTextFonts(font.fontFace ?? 'Arial'))]
+		[
+			raw(genXmlColorSelection(namedColorOr(font.color, DEF_FONT_COLOR, 'axis label color'))),
+			raw(createChartTextFonts(font.fontFace ?? 'Arial')),
+		]
 	)
 }
 

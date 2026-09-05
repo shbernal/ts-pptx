@@ -35,6 +35,7 @@ import type {
 import type { BorderProps, FillOption } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
+import { namedColorOr } from '../drawingml/color.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { borderLine, noStrokeLine } from '../drawingml/line.js'
 
@@ -473,7 +474,7 @@ function makeLegendXml(rel: SlideRelChart): string {
 			'a:defRPr',
 			{ sz: rel.opts.legendFontSize ? clampFontSizeSz(rel.opts.legendFontSize, 'legendFontSize') : undefined },
 			[
-				raw(rel.opts.legendColor ? genXmlColorSelection(rel.opts.legendColor) : ''),
+				raw(genXmlColorSelection(namedColorOr(rel.opts.legendColor, undefined, 'legendColor'))),
 				raw(rel.opts.legendFontFace ? createChartTextFonts(rel.opts.legendFontFace) : ''),
 			]
 		)

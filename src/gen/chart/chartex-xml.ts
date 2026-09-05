@@ -17,6 +17,7 @@
  * ({@link ./embed-xlsx}); the cell mapping lives in {@link ./chartex-data} / {@link ./data-refs}.
  */
 
+import { namedColorOr } from '../drawingml/color.js'
 import { ChartType } from '../../enums.js'
 import { InternalError } from '../../errors.js'
 import { DEF_FONT_COLOR, XML_DECL } from '../../constants-internal.js'
@@ -300,7 +301,7 @@ function makeChartExAxes(type: ChartType): string {
 /** Build a minimal `<cx:title>` from the chart title options (only when `showTitle`). */
 function makeChartExTitle(rel: SlideRelChart): string {
 	if (!rel.opts.showTitle) return ''
-	const color = rel.opts.titleColor ?? DEF_FONT_COLOR
+	const color = namedColorOr(rel.opts.titleColor, DEF_FONT_COLOR, 'titleColor')
 	const face = rel.opts.titleFontFace ?? 'Calibri'
 	const rPr = el('a:defRPr', null, [raw(genXmlColorSelection(color)), raw(createChartTextFonts(face))])
 	const rich = el('cx:rich', null, [

@@ -8,6 +8,7 @@
  * children. Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
+import { namedColorOr } from '../drawingml/color.js'
 import { ChartType } from '../../enums.js'
 import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
@@ -220,7 +221,11 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// `lineDashValues` moved with it, for the same reason and by the same reading of "the series
 			// order in the `data` array".
 			const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
-			const seriesColor = seriesOverride?.color ?? paletteColor(chartColors, obj._dataIndex)
+			const seriesColor = namedColorOr(
+				seriesOverride?.color,
+				paletteColor(chartColors, obj._dataIndex),
+				'seriesOptions color'
+			)
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),

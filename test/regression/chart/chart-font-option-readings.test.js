@@ -96,17 +96,26 @@ defineRegressionSuite(
 			},
 		},
 	]).concat([
-		// The other two spellings of "stated, but empty". `??` lets both through where `||`
-		// silently substituted a default, so what they now mean has to be the same on both
-		// builders -- and it is, because the colour goes through the one helper whose contract
-		// says a value naming nothing to paint emits nothing.
+		// The other two spellings of "stated, but empty", and they are not the same kind of
+		// thing. An empty *typeface* is a value PowerPoint accepts, so it is emitted as
+		// written. An empty *colour* is not a colour at all: it is the caller's own missing
+		// value, so it resolves to whatever omitting the option resolves to and is reported
+		// under `color/empty-string`. It used to emit no fill here, which meant a blank
+		// `dataLabelColor` inherited while an absent one painted black.
 		{
-			name: "an empty dataLabelColor leaves the label's fill inherited, on either builder",
+			name: 'an empty dataLabelColor resolves the way an omitted one does, on either builder, and says so',
 			fn: async () => {
-				const bar = await labelDefRPrFor(BAR, { dataLabelColor: '' })
+				const barOmitted = await labelDefRPrFor(BAR, {})
+				const pieOmitted = await labelDefRPrFor(PIE, {})
+				const { result: bar, codes } = await captureDiagnostics(() => labelDefRPrFor(BAR, { dataLabelColor: '' }))
 				const pie = await labelDefRPrFor(PIE, { dataLabelColor: '' })
-				assert(!bar.includes('<a:solidFill>'), `bar emitted a fill for an empty colour: ${bar}`)
-				assert(!pie.includes('<a:solidFill>'), `pie emitted a fill for an empty colour: ${pie}`)
+				assertEqual(bar, barOmitted, 'bar: an empty dataLabelColor must paint what omitting it paints')
+				assertEqual(pie, pieOmitted, 'pie: an empty dataLabelColor must paint what omitting it paints')
+				assert(bar.includes('<a:srgbClr val="000000"/>'), `bar dropped the default label colour: ${bar}`)
+				assert(
+					codes.includes('color/empty-string'),
+					`an empty dataLabelColor must be reported; got ${JSON.stringify(codes)}`
+				)
 			},
 		},
 		{
@@ -125,6 +134,9 @@ defineRegressionSuite(
 // size, a colour or a typeface read its default through `||`, so a stated `0` or `''` meant
 // "the caller said nothing" on options where those are values a caller can mean. Absence is now
 // the only spelling of the default, and a stated falsy value is diagnosed rather than replaced.
+//
+// A colour is the one exception, and deliberately so: `''` is not a colour a caller can mean,
+// so it is diagnosed AND replaced, landing on the same default an absent option lands on.
 
 /** Build a chart carrying a title, an axis title and a data table, and report what it warned. */
 async function sweepChart(opts) {
@@ -173,16 +185,21 @@ defineRegressionSuite('A stated falsy font option is a stated value', [
 		})
 	),
 	{
-		name: 'an empty colour leaves the fill inherited rather than painting a default',
+		name: 'an empty colour resolves the way an omitted one does, and is reported',
 		fn: async () => {
-			const { xml } = await sweepChart({
+			const { xml: omitted } = await sweepChart({})
+			const { xml, codes } = await sweepChart({
 				catAxisLabelColor: '',
 				catAxisTitleColor: '',
 				titleColor: '',
 			})
 			for (const tag of ['c:catAx', 'c:title'])
-				for (const defRPr of defRPrsIn(xml, tag))
-					assert(!defRPr.includes('<a:solidFill>'), `<${tag}> kept a fill for an empty colour: ${defRPr}`)
+				assertEqual(
+					defRPrsIn(xml, tag).join(''),
+					defRPrsIn(omitted, tag).join(''),
+					`<${tag}>: an empty colour must resolve the way an omitted one does`
+				)
+			assert(codes.includes('color/empty-string'), `an empty colour must be reported; got ${JSON.stringify(codes)}`)
 		},
 	},
 	{

@@ -6,6 +6,7 @@
  * series. Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
+import { namedColorOr } from '../drawingml/color.js'
 import { ChartType } from '../../enums.js'
 import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
@@ -107,7 +108,12 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 			// `idx` counts the value series, so it is this series' own `<c:idx>` -- the index
 			// `seriesOptions` is documented against. `data[0]` is the shared X row, not a series.
 			const over: ChartSeriesOpts | undefined = opts.seriesOptions?.[idx]
-			const spPr = bubbleSerShapeProps(opts, over?.color ?? paletteColor(chartColors, idx), idx, over?.lineSize)
+			const spPr = bubbleSerShapeProps(
+				opts,
+				namedColorOr(over?.color, paletteColor(chartColors, idx), 'seriesOptions color'),
+				idx,
+				over?.lineSize
+			)
 			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
 			// values than X leaves gaps rather than a short cache.
 			const yValues = dataValues(obj)

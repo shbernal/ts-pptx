@@ -9,7 +9,7 @@
 import { CRLF, LAYOUT_IDX_SERIES_BASE, LEVEL_MARGINS_EMU, XML_DECL } from '../../constants-internal.js'
 import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
-import { createColorElement } from '../drawingml/color.js'
+import { createColorElement, rejectEmptyColor } from '../drawingml/color.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { clampFontSizeSz, clampParaIndentInchesEmu, clampParaMarginInchesEmu } from '../drawingml/clamp.js'
 import { HUNDREDTHS_PER_POINT } from '../../units.js'
@@ -201,6 +201,9 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 			)
 		else sz = clampFontSizeSz(levelOverride.fontSize, 'master textStyles fontSize')
 	}
+	// `''` takes the same `tx1` an omitted colour takes; it is reported rather than silently
+	// resolved, because it is the caller's missing value and not a way to ask for the default.
+	rejectEmptyColor(levelOverride.color, 'textStyles color')
 	const colorXml = levelOverride.color ? createColorElement(levelOverride.color) : voidEl('a:schemeClr', { val: 'tx1' })
 	const latinXml = levelOverride.fontFace
 		? voidEl('a:latin', { typeface: levelOverride.fontFace })

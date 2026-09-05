@@ -18,7 +18,7 @@ import type {
 	TextBulletPropsInternal,
 	TextPropsOptionsInternal,
 } from '../../types/internal.js'
-import { createColorElement } from './color.js'
+import { createColorElement, namedColorOr, rejectEmptyColor } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
@@ -245,6 +245,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			defaultMarL = bulletHangMarL(bulletMarL, indentLevel)
 			defaultIndent = -bulletMarL
 			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
+			rejectEmptyColor(opts.bullet.color, 'bullet.color')
 			if (opts.bullet.color && !isPictureBullet)
 				strXmlBulletColor = el('a:buClr', null, raw(createColorElement(opts.bullet.color)))
 
@@ -447,9 +448,10 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 			runProps += el(
 				'a:ln',
 				{ w: lineWidthToEmu(opts.outline.size || 0.75) },
-				raw(genXmlColorSelection(opts.outline.color || 'FFFFFF'))
+				raw(genXmlColorSelection(namedColorOr(opts.outline.color, 'FFFFFF', 'outline.color')))
 			)
 		}
+		rejectEmptyColor(opts.color, 'color')
 		if (opts.color) runProps += genXmlColorSelection(solidPaint(opts.color, opts.transparency))
 		// EFFECTS: glow and shadow share a single <a:effectLst> (only one is allowed per CT_TextCharacterProperties; glow precedes shadow per CT_EffectList)
 		if (opts.glow || hasShadow) {
@@ -458,7 +460,9 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 				hasShadow ? raw(createShadowElement(opts.shadow, DEF_TEXT_SHADOW)) : null,
 			])
 		}
+		rejectEmptyColor(opts.highlight, 'highlight')
 		if (opts.highlight) runProps += el('a:highlight', null, raw(createColorElement(opts.highlight)))
+		if (typeof opts.underline === 'object') rejectEmptyColor(opts.underline.color, 'underline.color')
 		if (typeof opts.underline === 'object' && opts.underline.color)
 			runProps += el('a:uFill', null, raw(genXmlColorSelection(opts.underline.color)))
 		if (opts.fontFace) {

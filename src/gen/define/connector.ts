@@ -5,6 +5,7 @@
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as
  * `<p:cxnSp>`.
  */
+import { namedColorOr } from '../drawingml/color.js'
 import { connectorPresetFor, SlideObjectType } from '../../enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
@@ -146,7 +147,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			...pickDefined({ _startCxn: startCxn, _endCxn: endCxn }, ['_startCxn', '_endCxn']),
 			line: {
 				type: 'solid',
-				color: opts.color || DEF_SHAPE_LINE_COLOR,
+				color: namedColorOr(opts.color, DEF_SHAPE_LINE_COLOR, 'connector color'),
 				width: typeof opts.width === 'number' ? opts.width : 1,
 				dashType: opts.dashType || 'solid',
 				...pickDefined(opts, ['beginArrowType', 'endArrowType']),

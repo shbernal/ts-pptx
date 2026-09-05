@@ -5,6 +5,7 @@
  * presets PowerPoint can't parse), applies line defaults, registers hyperlink + image-fill rels,
  * and pushes a `text`-type shape object.
  */
+import { namedColorOr } from '../drawingml/color.js'
 import { type SHAPE_NAME, ShapeType, SlideObjectType } from '../../enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
@@ -106,7 +107,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// Only the solid arm writes `color`. The spread already carried whatever colour the other kinds
 	// stated, so re-writing the key would turn an unstated one into a present `undefined` — which
 	// the next spread of this bag can tell apart from an absent one.
-	if (lineType === 'solid') newLineOpts.color = options.line.color || DEF_SHAPE_LINE_COLOR
+	if (lineType === 'solid') newLineOpts.color = namedColorOr(options.line.color, DEF_SHAPE_LINE_COLOR, 'line.color')
 	if (typeof options.line === 'object' && options.line.type !== 'none') options.line = newLineOpts
 
 	// 2: Set options defaults

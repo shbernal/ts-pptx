@@ -9,7 +9,7 @@
 import { SlideObjectType } from '../../../enums.js'
 import { DEF_TEXT_SHADOW } from '../../../constants-internal.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'
-import { genXmlColorSelection } from '../../drawingml/fill.js'
+import { rejectEmptyFill, genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
 import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
@@ -87,7 +87,12 @@ export function renderTextObject(ctx: RenderContext): string {
 	// is also why omission cannot mean *inherit* on this path: `fill: { type: 'inherit' }` is
 	// the spelling that emits no fill child and lets `p:style/a:fillRef` or the placeholder
 	// paint the interior.
-	strSlideXml += itemOpts.fill ? genXmlColorSelection(itemOpts.fill) : '<a:noFill/>'
+	// `fill: ''` and `fill: { color: '' }` land on that same default, and are reported on the
+	// way: they are the caller's missing value rather than a third spelling of *no fill*. Both
+	// fold onto absence *here*, because on this path absence is `<a:noFill/>` and not the
+	// silence {@link genXmlColorSelection} would answer with.
+	const statedFill = rejectEmptyFill(itemOpts.fill, 'fill') ? undefined : itemOpts.fill
+	strSlideXml += statedFill ? genXmlColorSelection(statedFill) : '<a:noFill/>'
 
 	// shape Type: LINE: line color
 	if (itemOpts.line) strSlideXml += genXmlShapeLine(itemOpts.line)

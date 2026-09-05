@@ -15,7 +15,7 @@
 import { SchemeColor, type SCHEME_COLORS } from '../../enums.js'
 import { DEF_FONT_COLOR } from '../../constants-internal.js'
 import { isHexColor, splitRgbaHex, stripHash } from '../../hex-color.js'
-import { warn } from '../../diagnostics.js'
+import { warn, warnOnce } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -49,6 +49,17 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		)
 		colorStr = DEF_FONT_COLOR
 	}
+	// An empty string reaches here only from a slot that *requires* a colour — a gradient
+	// stop, a duotone half, a `buClr`. There is no "inherit" state to fall back to, so this
+	// is the one place `''` still paints: it is reported under its own code, with a message
+	// that names the real problem rather than `"" is not a valid scheme color`.
+	if (colorStr === '') {
+		warnOnce(
+			'color/empty-string',
+			`An empty string is not a color. "${DEF_FONT_COLOR}" used instead: this position requires one, so there is nothing to inherit. Omit the whole option if you meant to paint nothing.`
+		)
+		colorStr = DEF_FONT_COLOR
+	}
 	let colorVal = stripHash(colorStr || '')
 
 	// 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
@@ -79,6 +90,49 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	// Paired vs self-closing is decided by whether there is anything to nest, so this
 	// is one of the few places `el`/`voidEl` are chosen at runtime rather than by tag.
 	return innerElements ? el(name, attrs, raw(innerElements)) : voidEl(name, attrs)
+}
+
+/**
+ * Reject an empty colour string, reporting it once per option that named one.
+ *
+ * `''` is not a spelling of "no paint": omission already spells that, and `'inherit'` and
+ * `'none'` spell the other two states a paint can be in. It reaches the library from the
+ * caller's own missing value — an unset template field, `row.accent` on a row that has none
+ * — so the useful answer is to say so and then behave exactly as omitting the option would
+ * have. What it must not do is coerce to {@link DEF_FONT_COLOR}, which paints visible black
+ * on a shape the caller expected to keep the theme's paint.
+ *
+ * Every site that consumes a caller-supplied colour calls this *before* its own fallback, so
+ * the diagnostic names the option that carried the empty string rather than whichever
+ * emitter happened to see it last. {@link createColorElement} is the exception and reports
+ * the same code itself: its slot has no absent state to fall back to.
+ * @param value - a colour option's value, whatever shape the option accepts
+ * @param option - the option's name, for the message
+ * @returns true when `value` was the empty string
+ */
+export function rejectEmptyColor(value: unknown, option: string): boolean {
+	if (value !== '') return false
+	warnOnce(
+		'color/empty-string',
+		`\`${option}\` is an empty string, which is not a color — the option was ignored, exactly as omitting it would be. Pass 6-digit hex RGB (e.g. "FF3399") or a SchemeColor value.`
+	)
+	return true
+}
+
+/**
+ * The colour the caller named for `option`, or `fallback` when they named none.
+ *
+ * The `x ?? DEFAULT` and `x || DEFAULT` this replaces disagreed about `''`: the first passed
+ * it through to be painted black or dropped, the second quietly resolved it to the default.
+ * Here it is one rule — an empty string is a missing value, reported and then resolved the
+ * way an absent option is.
+ * @param value - the caller's colour option, possibly absent or empty
+ * @param fallback - what an absent option resolves to at this site
+ * @param option - the option's name, for the message
+ */
+export function namedColorOr<T>(value: string | undefined, fallback: T, option: string): string | T {
+	if (value === undefined || rejectEmptyColor(value, option)) return fallback
+	return value
 }
 
 /**

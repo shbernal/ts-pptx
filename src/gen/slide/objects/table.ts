@@ -11,6 +11,7 @@ import type { TableCellInternal } from '../../../types/internal.js'
 import type { BorderProps, ObjectOptions, TableCellProps } from '../../../types/index.js'
 import { checkEnumOrWarn } from '../../../ooxml/check-enum.js'
 import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
+import { rejectEmptyColor } from '../../drawingml/color.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
@@ -218,6 +219,7 @@ export function renderTableObject(ctx: RenderContext): string {
 		// then the tableStyle/tableStyleId choice — so a table background precedes the style id.
 		// (No effects surface: PowerPoint's UI exposes no table-level effect, so a source deck
 		// will not contain one and there would be nothing to reproduce.)
+		rejectEmptyColor(objTabOpts.tableFill, 'tableFill')
 		const tableFillXml = objTabOpts.tableFill ? genXmlColorSelection(objTabOpts.tableFill) : ''
 		const tblPrChildren =
 			tableFillXml + (objTabOpts.tableStyle ? el('a:tableStyleId', null, objTabOpts.tableStyle) : '')
@@ -373,6 +375,7 @@ export function renderTableObject(ctx: RenderContext): string {
 					// diverge deliberately: a covered cell is never rendered — the origin spans over it —
 					// so copying the fill is invisible either way, and keeping it uniform with the solid
 					// case avoids a branch that would change nothing on screen.
+					rejectEmptyColor(originOpts.fill, 'cell fill')
 					const spanFill = originOpts.fill || ''
 					if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
 				}
@@ -392,6 +395,7 @@ export function renderTableObject(ctx: RenderContext): string {
 			const cellValign = resolveTextAnchor(cellOpts.valign)
 			const cellTextDir = cellOpts.textDirection && cellOpts.textDirection !== 'horz' ? cellOpts.textDirection : null
 
+			rejectEmptyColor(cellOpts.fill, 'cell fill')
 			const fillColor = cellOpts.fill || ''
 			const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
 

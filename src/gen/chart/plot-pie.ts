@@ -12,7 +12,7 @@ import { DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartDataPointStyle } from '../../types/chart.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
-import { createColorElement } from '../drawingml/color.js'
+import { createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { categoryRange, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
@@ -56,7 +56,13 @@ function pieDataPoint(
 			? createDataBorderLine(opts.dataBorder, 'flat')
 			: ''
 	const spPr = el('c:spPr', null, [
-		raw(el('a:solidFill', null, raw(createColorElement(ptStyle?.fill || fallbackColor)))),
+		raw(
+			el(
+				'a:solidFill',
+				null,
+				raw(createColorElement(namedColorOr(ptStyle?.fill, fallbackColor, 'dataPointStyle fill')))
+			)
+		),
 		raw(border),
 		raw(createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)),
 	])
