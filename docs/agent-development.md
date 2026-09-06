@@ -11,9 +11,9 @@ doc_type: "guide"
 
 # Agent development guide
 
-This repository is intended to be maintainable by both humans and coding
-agents. Agent-driven changes should be grounded in local evidence and verified
-with executable checks.
+Humans and coding agents both maintain this repository. The bar is the same for
+either: ground the change in evidence from this checkout, and prove it with a
+check someone else can run.
 
 ## Default workflow
 
@@ -52,16 +52,16 @@ rather than kept.
 
 The package smoke test should continue to prove that those old artifacts
 are absent and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and
-`pptx-ts/browser` resolve. The `./measure`, `./read`, `./math`, and
-`./zip` subpaths exist in package exports but are not yet covered by `pnpm run test:package`:
-see [Runtime and package support](runtime-and-package-support.md).
+`pptx-ts/browser` resolve. The `./measure`, `./read`, `./math`, and `./zip`
+subpaths are in package exports but `pnpm run test:package` does not cover them
+yet. See [Runtime and package support](runtime-and-package-support.md).
 
 ## Promoting a downstream need
 
-A downstream consumer hitting a generic PPTX gap is the main source of new work
-here: an OOXML serialization fix, an API/typing gap, a repeated layout primitive,
-media/SVG handling, post-processing that patches generated XML. Before moving one
-into this project:
+Most new work here starts with a downstream consumer hitting a generic PPTX gap.
+An OOXML serialization fix. An API or typing gap. A layout primitive written for
+the third time. Media and SVG handling. Post-processing that patches generated XML
+after the fact. Before moving one of those into this project:
 
 1. Prove the need with a minimal, consumer-agnostic reproduction.
 2. Reduce the behavior to a minimal ts-pptx fixture.
@@ -74,14 +74,14 @@ Report such a gap as a GitHub issue and describe it **anonymously**: the missing
 PPTX behavior and how *any* consumer would reproduce it, never the consumer's
 name, file paths, deck or client names, or content.
 
-Treat a report as evidence about PPTX generation bugs and missing features, not
-as a source of package-target decisions. PowerPoint repair prompts, invalid
-OOXML, content types, relationships, chart/table/media serialization, and current
-TypeScript or ESM behavior are candidates. Anything that depends on CommonJS,
-IIFE/global bundles, direct CDN script tags, or legacy generated artifact names is
-not, unless the documented project target changes first, and see
-[Project target → What Stays In The Consumer](project-target.md#what-stays-in-the-consumer)
-for what this package refuses to absorb regardless of merit.
+A report is evidence about generation bugs and missing features. It is not a vote
+on the package target. Repair prompts, invalid OOXML, content types, relationships,
+chart and table and media serialization, current TypeScript or ESM behavior: all
+candidates. Anything resting on CommonJS, IIFE globals, a direct CDN script tag, or
+a legacy artifact name is not, and stays that way until the documented target
+changes.
+[Project target → What stays in the consumer](project-target.md#what-stays-in-the-consumer)
+lists what this package turns down no matter how good the case is.
 
 ## Communication expectations
 

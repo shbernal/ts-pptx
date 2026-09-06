@@ -187,7 +187,7 @@ browser download (`pnpm exec playwright install chromium`, once) and putting
 that in the per-change loop would tax every iteration for a surface that changes
 rarely. Run it when you touch `src/runtime/browser.ts`, `src/browser.ts`, the zip
 writer, or anything that could plausibly emit different bytes on a different
-runtime. See [Browser Lane](testing.md#browser-lane).
+runtime. See [Browser lane](testing.md#browser-lane).
 
 It starts two servers of its own (a `vite preview` for the demo and
 `scripts/browser-harness-server.mjs` for the adapter harness), both on fixed
@@ -352,10 +352,10 @@ normalizer that rejects a value removes it.
 `src/options-internal.ts` has the two helpers for that. `setOrClear` is for a
 write-back; `pickDefined` is for a literal that projects a key list off a bag
 that may not state them all. Its module header is the long form of this rule.
-It is the write-side twin of `compact()` in `src/script/from-read/values.ts`,
-which keeps the same invariant on the read side, for the same reason: two IRs
-describing one deck must not compare unequal because one wrote `{ bold: undefined }`
-and the other wrote `{}`.
+It is the write-side twin of `compact()` in `src/script/from-read/values.ts`, which
+keeps the same invariant on the read side. Same reason, too: two IRs describing one
+deck must not compare unequal because one wrote `{ bold: undefined }` and the other
+wrote `{}`.
 
 **Three kinds of declaration say `| undefined`, and each says why where it is
 written.**
@@ -474,7 +474,7 @@ pnpm run check:package
 
 The demos are showcases, not tests. Nothing under `demos/` gates a commit, and no
 verification aggregate runs them: the published-package contract is covered by
-`check:package` alone (see [Package Boundary Changes](#package-boundary-changes)).
+`check:package` alone (see [Package boundary changes](#package-boundary-changes)).
 
 Build the two showcase decks:
 

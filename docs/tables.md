@@ -349,7 +349,12 @@ yourself with `breakLine`.
 
 ## Reading and editing an existing table
 
-`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element. Reading covers the cell model, the six borders, both fills, the spans and the style graph. `TableCell.resolvedFill` reports the colour a cell *renders* as, banding folded in. `TableCell.hasOwnFill` says whether that colour is the cell's own. Anything reproducing a table needs that second answer: bake an inherited banding colour into a copy and the copy stops responding to its own style.
+`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM
+element. Reading covers the cell model, the six borders, both fills, the spans and the
+style graph. `TableCell.resolvedFill` reports the colour a cell *renders* as, banding
+folded in. `TableCell.hasOwnFill` says whether that colour is the cell's own. Anything
+reproducing a table needs that second answer. Bake an inherited banding colour into a
+copy and the copy stops responding to its own style.
 
 Editing covers cell properties (`setAnchor`, `setVerticalText`, `setHorzOverflow`,
 `setAnchorCtr`, `setMarginsEmu`, `setBorder`, `setFillColor`, `setFillSchemeColor`,

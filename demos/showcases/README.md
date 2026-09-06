@@ -12,25 +12,25 @@ Output goes to `output/` (git-ignored).
 
 ## The decks
 
-### `quarterly-review/` — Kestrel Q3 FY26 Business Review
+### `quarterly-review/`: Kestrel Q3 FY26 Business Review
 
 Eleven slides. The corporate flagship: a themed `<a:clrScheme>`, five slide masters, native
 linear gradients on the cover and closing, KPI cards assembled as groups, a stacked column
 chart, a doughnut with a text well in its hole, a line chart with a callout, a hand-styled
 table with a totals row, chevron timeline, and speaker notes throughout.
 
-It imports nothing from `node:` — every mark on every slide is drawn rather than loaded.
+It imports nothing from `node:`. Every mark on every slide is drawn rather than loaded.
 That is what lets the site's demos page (`www/demos/`) import this same module and build the
 identical deck in a browser.
 
-### `field-notes/` — Four Cities After Dark
+### `field-notes/`: Four Cities After Dark
 
 Eight slides. The visual flagship: full-bleed photography, gradient scrims over images (the
 standard editorial fix for putting white type on an unpredictable photo), a duotone picture
 effect, a three-up image grid, an embedded video with a poster frame, and a radial-gradient
 colophon carrying a real hyperlink relationship.
 
-Node-only by nature — it loads photographs and a video from `demos/common` by path.
+Node-only by nature, since it loads photographs and a video from `demos/common` by path.
 
 ## Layout
 
@@ -61,5 +61,5 @@ Iterating it afterwards to build a legend yields one nested array instead of thr
 `quarterly-review/data.mjs` keeps a plain `SEGMENTS` source of truth and derives the chart
 shape from it; do the same rather than reusing a chart's arrays.
 
-**`addMedia`'s `cover` takes base64, not a path** — unlike `addImage`, which takes either.
+**`addMedia`'s `cover` takes base64, not a path**, unlike `addImage`, which takes either.
 `lib/assets.mjs` exports `imageDataUri()` for exactly that one call site.

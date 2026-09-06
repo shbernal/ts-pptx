@@ -1,6 +1,6 @@
 # Node stream demo
 
-Generating a deck per request and streaming it straight to an HTTP response — no temp file,
+Generating a deck per request and streaming it straight to an HTTP response. No temp file,
 nothing to clean up.
 
 The showcase decks in [`../showcases`](../showcases/README.md) all end in `writeFile()`.

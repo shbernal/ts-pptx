@@ -12,9 +12,9 @@ doc_type: "architecture"
 
 # Architecture
 
-ts-pptx is a TypeScript library that turns a presentation object model into an
-OOXML `.pptx` package. Consumer projects should import only the public package
-exports and let this repository own the internal OOXML generation details.
+ts-pptx turns a presentation object model into an OOXML `.pptx` package.
+Consumers import the public package exports and nothing else. Everything about
+how the OOXML gets built stays on this side of that line.
 
 ## Responsibilities
 
@@ -30,11 +30,19 @@ exports and let this repository own the internal OOXML generation details.
   `write`/`writeFile`/`stream` are thin façades over the packaging layer.
 - `src/package/assemble.ts` owns package assembly, in two composable halves.
   `buildPackageParts` turns an authored deck into every OOXML part in emission
-  order: `[Content_Types].xml`, the rels graph, docProps, theme, per-slide, layout and master parts, media rels, and whatever the part contributors add. `zipPackageParts` compresses that ordered list to the requested output shape. `writePackage` is their composition, and the entry behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the presentation class satisfies, so it does not depend on the class.
+  order: `[Content_Types].xml`, the rels graph, docProps, theme, the per-slide,
+  layout and master parts, media rels, and whatever the part contributors add.
+  `zipPackageParts` compresses that ordered list into the requested output shape.
+  `writePackage` composes the two, and is the entry behind
+  `write`/`writeFile`/`stream`. It takes a structural `PackageSource` that the
+  presentation class happens to satisfy, so it never depends on the class.
 
-  The assembly half is public too, as `pptx.toParts()`. It returns
-  `PackagePart[]`, which is `{ path, data }`, dropping the internal-only STORE/DEFLATE hint. **Part paths and their emission order are a stability-guaranteed observable contract.** Adding a part later is back-compatible as long as existing paths and order do not shift. Renaming or reordering is breaking. The per-part bytes are identical to what `write()`
-  compresses.
+  The assembly half is public too, as `pptx.toParts()`. It hands back
+  `PackagePart[]`, which is `{ path, data }`, minus the internal STORE/DEFLATE
+  hint. **Part paths and their emission order are a stability-guaranteed
+  observable contract.** Adding a part later stays back-compatible as long as the
+  existing paths and order hold. Renaming or reordering breaks. Per-part bytes
+  match what `write()` compresses, exactly.
 - `src/slide.ts` owns slide-level state: the object list, the rel arrays, the slide number,
   the background, and the geometry accessors over them. The `add*` methods are not written
   there; they are bound on from the construct families the presentation was composed with.
@@ -109,11 +117,11 @@ exports and let this repository own the internal OOXML generation details.
   This is a bundling constraint written into the code. A named import inside a
   reachable function body is retained unconditionally, so a dispatch that called
   `renderChartObject` itself would link the chart emitter into every program that
-  writes a slide, text-only ones included. It is passed rather than registered
-  into a module-level map for two reasons: the chart-part-id counter in
-  `package/assemble.ts` already records the first (a never-reset module global
-  made the same input produce different bytes), and two decks built in one
-  process must be able to disagree about which families they carry.
+  writes a slide, text-only ones included. Two reasons it is passed rather than
+  registered into a module-level map. The chart-part-id counter in
+  `package/assemble.ts` already records the first: a never-reset module global made
+  the same input produce different bytes. And two decks built in one process must be
+  able to disagree about which families they carry.
 
   A slide object whose family the table omits throws
   `slide/object-type-not-routed` rather than emitting nothing. It has already
@@ -134,7 +142,12 @@ exports and let this repository own the internal OOXML generation details.
   `gen/chart/` into every program that wrote a deck: plot modules, axes, chartEx
   sidecars, the embedded-workbook writer.
 
-  Both the zip's part order and `[Content_Types].xml` are byte-significant, so neither may depend on the order a caller lists contributors in. Each contributor declares an `order`, and the packager sorts by it. Content-type entries arrive as data grouped by the slot they land in, so `gen/opc/content-types.ts` keeps its fixed sequence and never learns which family asked.
+  The zip's part order and `[Content_Types].xml` are both byte-significant, so
+  neither can depend on the order a caller happened to list contributors in. Each
+  contributor declares an `order` and the packager sorts by it. Content-type
+  entries arrive as data, grouped by the slot they land in, so
+  `gen/opc/content-types.ts` keeps its fixed sequence and never learns which
+  family asked.
 
   Three things stay on the core path deliberately. The chart-part-id pass is
   package-wide ordering rather than chart knowledge: it must number identically
@@ -195,10 +208,10 @@ exports and let this repository own the internal OOXML generation details.
 - `src/types/index.ts` and `src/enums.ts` define the public typed contract.
   `types/index.ts` is a re-export barrel over its siblings in `src/types/*` (split
   by domain). The generator-internal `*Internal` wire shapes live in
-  `src/types/internal.ts` and are **not** re-exported: internal code imports them
-  from there directly, the same non-published convention as `units-internal.ts`
+  `src/types/internal.ts` and are **not** re-exported. Internal code imports them from
+  there directly. It is the same non-published convention as `units-internal.ts`
   (lenient unit conversion) and `constants-internal.ts` (generator defaults, fixed
-  ids, colour palettes), each of which sits beside the published module it extends.
+  ids, colour palettes), each sitting beside the published module it extends.
 - `src/script/` turns a deck read through `src/read/` into a serializable
   description of the write-API calls that would rebuild it (`readModelToIr`), and
   prints that description as a runnable TypeScript module. The two halves meet
@@ -254,8 +267,8 @@ exports and let this repository own the internal OOXML generation details.
 Three seams carry a construct family to the write path instead of importing it: the
 family list a presentation is composed with (`families/shared.ts`), the renderer table
 the shape walk is handed (`gen/slide/objects/shared.ts`), and the part contributors the
-packager is handed (`package/parts/shared.ts`). All three exist for one reason, and one
-sentence states the whole maintenance burden of the design:
+packager is handed (`package/parts/shared.ts`). All three exist for one reason, and
+one sentence covers the whole maintenance burden:
 
 > **A static import from `slide.ts`, `gen/slide/object.ts` or `package/assemble.ts` into
 > a family module is what the tier budget is watching for.**
@@ -265,16 +278,16 @@ inside a reachable function body is retained unconditionally, and a class method
 never shaken at all, so one import added at any of the three puts that family in every
 program's graph again, including the ones that compose without it.
 
-Nothing else catches it. The types still check, every test still passes, the emitted
-bytes are identical, and `bundle-size:check` does not move, because the package ships
-exactly what it shipped before. The one signal is `bundle-tier:check`: the composed rows
-climb toward the `TsPptx` rows, and the gate fails on the budget. That is why the tier
-budget measures composed programs rather than only class ones, and why the `full` row is
-kept beside them as a control.
+Nothing else catches it. The types still check. Every test still passes. The emitted
+bytes are identical, and `bundle-size:check` does not budge, because the package ships
+exactly what it shipped before. One signal survives, `bundle-tier:check`, where the
+composed rows climb toward the `TsPptx` rows until the gate fails on budget. That is
+why the tier budget measures composed programs and not only class ones, and why the
+`full` row sits beside them as a control.
 
-The rule is about the three composition points, not about families in general. A family
-module importing from `gen/` is ordinary and expected; that is where its emitters live.
-What it must never do is get named *by* the core path.
+The rule is about those three composition points, not about families in general. A
+family module importing from `gen/` is ordinary and expected. That is where its
+emitters live. What it must never do is get named *by* the core path.
 
 ## Where does X live? (task → file → function)
 
@@ -320,16 +333,16 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 - Platform differences go through the `RuntimeAdapter` seam (`src/runtime/*`): the
   `node`/`browser`/neutral entry subclasses inject the matching adapter into the
   shared core class. Live-DOM features that only work in a browser (currently
-  `tableToSlides`) are defined on the browser entry subclass, not the core class,
-  so they stay off the Node build and out of the shared chunk: their code bundles
-  into the browser chunk alone.
+  `tableToSlides`) are defined on the browser entry subclass, not the core class. That
+  keeps them off the Node build and out of the shared chunk. Their code bundles into
+  the browser chunk alone.
 - A runtime that resolves neither the `node` nor the `browser` condition gets
-  `runtime/neutral.ts`, which implements what is genuinely host-neutral (`fetch`,
-  `btoa`, `TextEncoder`, so remote media and fonts load) and throws
-  `runtime/file-output-unavailable` from `writeFile` rather than substituting a
-  host it does not have. The neutral adapter is the fallback, never a default the
-  other two fall back *to*: a capability missing from a real host is a bug in that
-  host's adapter, not something the neutral one should paper over.
+  `runtime/neutral.ts`. It implements what is genuinely host-neutral (`fetch`, `btoa`,
+  `TextEncoder`, so remote media and fonts load), and throws
+  `runtime/file-output-unavailable` from `writeFile` rather than substituting a host it
+  does not have. The neutral adapter is the fallback, never a default the other two fall
+  back *to*. A capability missing from a real host is a bug in that host's adapter, not
+  something the neutral one should paper over.
 - `src/read/` imports from `src/gen/` in exactly two places, and both are deliberate:
   `read/api/ops/notes-author.ts` and `read/api/ops/notes-master.ts` build a notes
   slide and a notes master through `gen/slide/notes.ts`. Adding a notes page to a
@@ -346,12 +359,12 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 
 ## Data and control flow
 
-1. Consumers create a presentation through a public ts-pptx entry point.
-2. Public methods collect slides and slide objects into internal structures.
-3. The export flow calls internal generators to create package parts and OOXML.
-4. Runtime adapters write the result for Node or browser environments.
-5. Package smoke tests verify that consumers can import only supported public
-   entry points.
+1. A consumer creates a presentation through one of the three entry points.
+2. `add*` calls pile slides and slide objects into the internal model. No XML yet.
+3. Export walks that model, and the generators turn it into package parts.
+4. The runtime adapter writes the result, in Node or in a browser.
+5. The package smoke test then checks that only the supported entry points
+   resolve from outside.
 
 ## Extension points
 

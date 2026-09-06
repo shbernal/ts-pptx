@@ -21,7 +21,7 @@ hand:
 
 ```bash
 pnpm run verify       # per-change loop: typechecks, ratchets, docs check, all suites
-pnpm run verify:full  # before pushing / at the package boundary: the above plus site build, package + demos
+pnpm run verify:full  # before pushing, and at the package boundary: adds the site build and package suites
 ```
 
 They are defined in `package.json` and described in
@@ -395,12 +395,12 @@ Ask these in order before writing a case for a red emitter branch:
 - **Is the file low on _statements_, not just branches?** That is a different
   signal, and a stronger one. A branch gap means arms are unexercised; a statement
   gap means a whole input shape or a whole outcome has never run. Both of the big
-  finds in this area were statement gaps: `gen/define/hyperlinks.ts` sat at 48%
-  statements because nothing anywhere put a hyperlink on a *table cell*, and
+  finds in this area were statement gaps. `gen/define/hyperlinks.ts` sat at 48%
+  statements because nothing anywhere put a hyperlink on a *table cell*.
   `gen/define/zoom.ts` and `comment.ts` were low because every existing fixture fed
-  them *valid* input, so the entire refusal half of each definer (the guards that
-  drop an unresolvable target with a warning) had never executed. Estimate the
-  phase from the statement number; the branch percentage will understate it.
+  them *valid* input, so the entire refusal half of each definer had never executed:
+  the guards that drop an unresolvable target with a warning. Estimate the phase
+  from the statement number. The branch percentage will understate it.
 - **On a small pure emitter, low statements means a caller never arrives.** The
   first question there is "which caller is supposed to reach this and doesn't?",
   not "which test am I missing?". `gen/drawingml/line.ts` at 65% statements looked
@@ -410,8 +410,8 @@ Ask these in order before writing a case for a red emitter branch:
   literal zero execution count on an arm a fixture demonstrably exercised.
 - **A branch dead from one door can be live from another.** `text-fit.ts`'s newline
   handling and its `lineSpacingPct` / `spaceBefore` / `spaceAfter` defaults are
-  genuinely unreachable from a deck, because `buildFitParagraphs` pre-splits every
-  `\n` and always fills those fields, and fully reachable from `pptx-ts/measure`,
+  genuinely unreachable from a deck. `buildFitParagraphs` pre-splits every `\n` and
+  always fills those fields. They are fully reachable from `pptx-ts/measure`, though,
   a published subpath that exists precisely so a consumer can hand-build
   `FitParagraph[]`. Covering it *there* took the file to 100%. Same shape in
   `normalizeRuns`, unreachable from `addTable` (which normalizes) and reachable
@@ -430,11 +430,11 @@ Ask these in order before writing a case for a red emitter branch:
   inputs"* and must say so in its header. It is not a substitute for the engine
   branches underneath.
 - **Is the red arm dead code you could delete instead?** Two functions in
-  `gen/drawingml/color.ts` were callable only from the browser path and measured on
-  the Node chunk anyway; moving them into their sole caller (`gen/table/html-dom.ts`,
+  `gen/drawingml/color.ts` were callable only from the browser path, and measured on
+  the Node chunk anyway. Moving them into their sole caller (`gen/table/html-dom.ts`,
   already coverage-excluded) removed the false signal with no fence and no test.
   Thirteen `x = x || !x ? x : <default>` ternaries in `gen/define/chart.ts` were
-  identity assignments whose alternative no value of `x` can reach; deleting them
+  identity assignments whose alternative no value of `x` can reach. Deleting them
   removed thirteen permanently-red branches and changed no emitted byte. Deleting a
   false signal beats fencing it, and beats testing it. Gate any such `src` edit on
   `byte-identity:baseline` / `byte-identity:check` (see AGENTS.md).
@@ -612,7 +612,10 @@ and pin a failure to a single fixture by hand.
 
 Every fixture in `test/schema-cases.js` asserts **zero** errors. So no fixture
 can tell "this deck is valid" apart from "the validator reported nothing".
-Suppose `validateBuf` started returning `[]` unconditionally, through a keying bug in the batcher, a spawn failure the report parse swallows, or an output-shape change on an `ooxml-validate` bump. The entire tier would go green while proving nothing, and no other step in `verify` would notice.
+Suppose `validateBuf` started returning `[]` unconditionally. A keying bug in the
+batcher would do it, so would a spawn failure the report parse swallows, or an
+output-shape change on an `ooxml-validate` bump. The entire tier would go green while
+proving nothing, and no other step in `verify` would notice.
 
 Two cases at the end of that file close the hole from both sides, and they are the
 only ones there that expect a non-zero count:
@@ -729,11 +732,11 @@ chartEx pareto (2016 feature)            0     0     0     4     4     4     4
 core-construct corruption (control)      1     1     1     1     1     1     1
 ```
 
-Two uses: re-verifying monotonicity after a validator bump (the script exits
-non-zero if any row *decreases*, which would break the premise the pin rests on),
-and dating a known divergence to the schema generation that introduced it, row 3
-locates chartEx at Office2016, and those 4 errors are the tolerated
-`cx:axisId` divergence documented in `test/schema-cases.js`.
+Two uses. One is re-verifying monotonicity after a validator bump: the script exits
+non-zero if any row *decreases*, which would break the premise the pin rests on. The
+other is dating a known divergence to the schema generation that introduced it. Row 3
+locates chartEx at Office2016, and those 4 errors are the tolerated `cx:axisId`
+divergence documented in `test/schema-cases.js`.
 
 The last row is a control: a deliberately corrupted `<p:sp>` attribute that every
 schema generation catches. Without it an all-zero table is indistinguishable from a
@@ -755,27 +758,26 @@ in `test/read/fixtures/` (provenance in that directory's README): part-set
 stability, per-part byte-identity for untouched parts, lazy-parse guarantees,
 save idempotence, content-type/relationship resolution, the dirty
 (mutate-and-reserialize) path, and schema validity. The schema cases require
-the OOXML validator above. When it is missing they are
-skipped locally (with an unmissable notice on stderr, because a green run that
-skipped a few hundred schema assertions must not read as a complete one) and
-they **fail hard under `CI`**, where installing the validator is part of the job.
+the OOXML validator above. When it is missing they skip locally, with an unmissable
+notice on stderr, because a green run that quietly skipped a few hundred schema
+assertions must not read as a complete one. Under `CI` they **fail hard**, where
+installing the validator is part of the job.
 The gate is `validatorAvailable()` in `test/validator.js`.
 
 Every contract there runs against **every** `.pptx` in the corpus, via
-`fixtureNames` from `test/read/corpus.js`. It used to run against five decks
-named in a literal, with promotion asking for a manual edit to extend it, so
-the corpus grew past forty while the OPC contract kept being proved against the
-same five, and the decks that actually stress it (chartEx, model3d, math-omml,
-embedded fonts, av-media, modern comments) were never round-tripped here at all.
+`fixtureNames` from `test/read/corpus.js`. It used to run against five decks named
+in a literal, and extending that list meant a manual edit nobody made. So the corpus
+grew past forty while the OPC contract kept being proved against the same five. The
+decks that actually stress it, chartEx and model3d and math-omml and embedded fonts
+and av-media and modern comments, were never round-tripped here at all.
 
-The schema case asserts that a round-trip introduces **no new** validator
-errors, rather than that the output is clean. That is the same claim as "the
-output is clean" for every deck in the corpus but one, and only for that one is
-the weaker form doing any work:
-`bar-chart-data-labels.pptx` carries three Microsoft365 errors *as committed*,
-all in PowerPoint's own chart `c:extLst`, an undeclared `uri` on `c:ext`, a
-`chart:dataDisplayOptions16` where the SDK schema models only `dispNaAsBlank`,
-and a 2012-namespace `chart:leaderLines` under `c:dLbls`. The SDK does not model
+The schema case asserts that a round-trip introduces **no new** validator errors,
+rather than that the output is clean. For every deck in the corpus but one, those are
+the same claim. One deck is why the weaker form exists.
+`bar-chart-data-labels.pptx` carries three Microsoft365 errors *as committed*, all in
+PowerPoint's own chart `c:extLst`: an undeclared `uri` on `c:ext`, a
+`chart:dataDisplayOptions16` where the SDK schema models only `dispNaAsBlank`, and a
+2012-namespace `chart:leaderLines` under `c:dLbls`. The SDK does not model
 those extension namespaces and PowerPoint wrote them anyway, so this is the same
 class of blind spot as "The validator does not descend into `mc:Choice`" below.
 Comparing verdicts keeps the assertion honest without excluding the fixture or
@@ -829,11 +831,11 @@ fidelity notes as the exclusion list, same failure condition), so `verify:full`
 paid for the identical 44-deck × 2-tier subprocess sweep twice, about 35 s of it.
 The script kept the job because it is the more capable copy (`--fixture`,
 `--dir`, `--verbose`, `--json`, and a per-deck table instead of one joined
-failure string). What stayed in those two suites is what the round trip *rests
-on* and cannot itself establish: that the diff fails when perturbed, that a note
-excuses only its own field, that the canonicaliser is an equivalence, and (in
-the standalone file) the chrome expectations read against `pptx-ts/read`'s own
-accessors rather than against the converter.
+failure string). What stayed in those two suites is what the round trip *rests on*
+and cannot itself establish. That the diff fails when perturbed. That a note excuses
+only its own field. That the canonicaliser is an equivalence. And, in the standalone
+file, the chrome expectations read against `pptx-ts/read`'s own accessors rather than
+against the converter.
 
 The practical consequence: **`pnpm run verify` no longer runs the corpus round
 trip.** `verify:full` and CI do, via `script:roundtrip:all`. Run that before
@@ -848,10 +850,10 @@ pnpm run read:append-ceiling                  # what survives fromTemplate + app
 ```
 
 All four take `--json`, so a test can assert on them rather than re-derive the
-numbers. All but `append-ceiling` take `--dir`, so a corpus of your own decks can
-be measured in place; `script:roundtrip` and `read:census` add `--fixture`,
-`read:census` adds `--all` (include layouts, masters, theme and notes),
-`script:census` adds `--names <count>` (name the decks behind the long tail), and
+numbers. All but `append-ceiling` take `--dir`, so a corpus of your own decks can be measured
+in place. Beyond that they diverge. `script:roundtrip` and `read:census` add
+`--fixture`. `read:census` adds `--all`, to include layouts, masters, theme and notes.
+`script:census` adds `--names <count>`, to name the decks behind the long tail. And
 `append-ceiling` takes `--template <path>` instead.
 
 `script:roundtrip` gates on **undeclared** differences: the printer's fidelity
@@ -885,12 +887,12 @@ file is enough to get it run.
 pnpm run check:package   # package:lint + test:package
 ```
 
-`package:lint` runs package export/type validation. `test:package` creates a packed package with pnpm,
-installs it with npm and pnpm, verifies that the ESM entries and declarations
-are present, verifies that old generated artifacts are absent, runs an ESM
-import smoke test, checks that the package has no CJS export condition, checks
-that `require()` still loads every subpath through Node's ESM interop, and
-typechecks a minimal TypeScript consumer.
+`package:lint` runs package export and type validation. `test:package` does the rest,
+and it does a lot. It packs the package with pnpm, then installs that tarball with both
+npm and pnpm. It verifies the ESM entries and declarations are present and that the old
+generated artifacts are absent. It runs an ESM import smoke test, checks the package
+carries no CJS export condition, checks that `require()` still loads every subpath
+through Node's ESM interop, and typechecks a minimal TypeScript consumer.
 
 `cjs-contract.cjs` carries both directions of the CommonJS story and reuses
 `EXPORT_MATRIX` to do it, so a new subpath is covered by adding the one row the
@@ -921,11 +923,11 @@ already ensured `dist/` is current. Note the spelling: pnpm 11 rejects a plain
 ### Running scripts that spawn subprocesses
 
 Every script subprocess goes through `run()` in `scripts/script-utils.mjs`. It
-deliberately avoids a shell where it can, because Windows cannot exec the
-`.cmd`/`.ps1` shims that package managers and `node_modules/.bin` entries ship
-as: a bare name fails with `ENOENT`, and appending `.cmd` fails with `EINVAL`
-(Node >=18.20/20.12 refuses to exec batch files without a shell, per the
-CVE-2024-27980 hardening).
+deliberately avoids a shell where it can, because Windows cannot exec the `.cmd` and
+`.ps1` shims that package managers and `node_modules/.bin` entries ship as. A bare
+name fails with `ENOENT`. Appending `.cmd` fails with `EINVAL`, since Node
+>=18.20/20.12 refuses to exec batch files without a shell, per the CVE-2024-27980
+hardening.
 
 So `run()` resolves a bin one of three ways:
 
@@ -948,7 +950,7 @@ exists for. The `static`, `test` and `browser` jobs remain Linux-only: they are
 platform-independent, and the validator installer is a bash script.
 
 A second job runs on `windows-latest`, `font-oracles`, but it is there for the
-runner's fonts rather than for its platform (see [Font Oracles](#font-oracles)).
+runner's fonts rather than for its platform (see [Font oracles](#font-oracles)).
 It does exercise the Windows font-resolution path in `test/read/font-oracle.js`,
 which nothing else does, but it runs three test files and proves nothing about
 the rest of the suite on Windows.
@@ -1068,16 +1070,18 @@ hidden it; an unbundled consumer needs it in an import map, and now
 | `table-widths.spec.mjs` | html-table | `tableToSlides` against a table a browser laid out: the **measured** arm of `pickColWidthBasis` drives the emitted grid, `data-pptx-width` still wins outright (including divided across a `colspan`), and Node falls back to the CSS basis on the same markup, a *different* proportion, not a coarser one, because the two bases measure different boxes |
 | `table-autopage.spec.mjs` | html-table | a table too tall for one slide pages with **one row budget on every page**, carries every row across exactly once, and (the assertion no other lane can make) reaches the *same* pagination in Chromium as on a DOM that renders nothing |
 
-`table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. It was
-written as the headless repro a report dismissed as out of scope had invited
-(`gitbrent/PptxGenJS#1200`, `tableToSlides` auto-paging overflow), it reproduced, and the
-bug it found was **DOM-free**: the pager dropped one row's cell margins at every page
-break, so a continuation slide accepted a row it had no room for. The browser's
-contribution was the cross-runtime assertion: proving the report was never about a
-rendered page, and moving it out of the browser bucket rather than deeper into it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
-(`test/regression/table/table-autopage-continuation-budget.test.js`). The triage rule that came
-out of it (ask what the browser actually supplies to a code path before accepting a
-report as a layout report) is stated with the scope line in
+`table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. A report
+had been dismissed as out of scope (`gitbrent/PptxGenJS#1200`, `tableToSlides`
+auto-paging overflow), on the invitation that someone build the headless repro. This
+spec is that repro. It reproduced, and the bug it found was **DOM-free**: the pager
+dropped one row's cell margins at every page break, so a continuation slide accepted a
+row it had no room for. The browser's
+contribution was the cross-runtime assertion. It proved the report was never about a
+rendered page, and moved it out of the browser bucket rather than deeper into it. The
+fix is in `src/gen/table/autopage.ts`, and the regression guarding it is DOM-free too
+(`test/regression/table/table-autopage-continuation-budget.test.js`). One triage rule
+came out of it: ask what the browser actually supplies to a code path before accepting a
+report as a layout report. It is stated with the scope line in
 [project target](project-target.md).
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
@@ -1143,9 +1147,9 @@ What this lane does **not** cover, and must not be read as covering:
   from Node is.
 - **Engines other than Chromium.** A deliberate decision, written down in
   [Runtime and package support](runtime-and-package-support.md#which-browsers-the-lane-runs)
-  so it is not re-opened every time CI time is discussed: the APIs in play are
-  uncontroversial across engines, and a matrix would cost CI time to re-answer
-  a question nothing has asked. Add Firefox or WebKit when something concrete
+  so it is not re-opened every time CI time is discussed. The APIs in play are
+  uncontroversial across engines, and a matrix would spend CI time re-answering a
+  question nothing has asked. Add Firefox or WebKit when something concrete
   surfaces. (`adapter-coverage.spec.mjs` is Chromium-only by construction:
   `page.coverage` is a CDP feature, which is a consequence of that decision,
   not a reason for it.)
@@ -1164,31 +1168,31 @@ fixture, not a showcase-with-assertions: nothing checks how the page *looks*, or
 that the preview it renders is a good likeness, only that the deck it builds is
 the right bytes. What it *shows* is drawn by a separate library (`pptx-html`)
 against the published `@shbernal/ts-pptx` (this package's scoped alias), and this
-repo's gates make no claim about it. (The byte-identity harness likewise *builds* the showcase decks without
-asserting anything about them: a showcase that throws simply takes the harness
-down with it.)
+repo's gates make no claim about it. The byte-identity harness likewise *builds* the
+showcase decks without asserting anything about them. A showcase that throws simply takes
+the harness down with it.
 
 That is also why the harness's corpus is exactly what those decks happen to emit,
 and why a PASS is evidence only about the parts they reach. Two constructs the
 library authors are known to be outside it: **zoom** frames and **OLE** objects,
-neither of which any showcase creates. A refactor that touches
-`gen/slide/objects/zoom.ts` or `ole.ts` therefore gets a green gate for free and
-has to earn its evidence some other way: build a probe deck that exercises the
-construct, capture its slide XML before and after, and diff with the per-build
-GUIDs (`zmPr@id`) normalized, having first made the probe fail on a deliberate
-one-attribute change. `test:com` covers OLE from the other direction: it opens
-the deck in PowerPoint and reads each `progId` back. Charts, tables and 3D models
+neither of which any showcase creates. A refactor touching
+`gen/slide/objects/zoom.ts` or `ole.ts` therefore gets a green gate for free, and has
+to earn its evidence some other way. Build a probe deck that exercises the construct,
+capture its slide XML before and after, and diff with the per-build GUIDs (`zmPr@id`)
+normalized. Make the probe fail on a deliberate one-attribute change first. `test:com`
+covers OLE from the other direction: it opens the deck in PowerPoint and reads each
+`progId` back. Charts, tables and 3D models
 *are* in the corpus, as is the theme inside a chart's embedded workbook, since the
 harness recurses into each `.xlsx`.
 
 The test role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
-from `demos/node` and ran `vite build`. Both signals it produced are now covered
-directly, and more precisely: `test:package` imports all ten export subpaths out
-of an installed tarball and forces the `browser` condition, `package:lint`
-validates types resolution with attw, and the browser lane puts a real bundler
-(Vite/Rolldown) in front of the package and then *runs what it emitted*. That
-closes a gap this section previously recorded as accepted: nothing proved
-Rollup/esbuild could resolve and tree-shake the runtime entry.
+from `demos/node` and ran `vite build`. Three checks now cover both of its signals,
+and cover them more precisely. `test:package` imports all ten export subpaths out of
+an installed tarball and forces the `browser` condition. `package:lint` validates
+types resolution with attw. The browser lane puts a real bundler (Vite/Rolldown) in
+front of the package and then *runs what it emitted*. That closes a gap this section
+used to record as accepted: nothing proved Rollup or esbuild could resolve and
+tree-shake the runtime entry.
 
 ### Bundling the package for Node
 
@@ -1208,10 +1212,10 @@ import is the canonical case, because Node just finds it and a bundler must
 resolve it. That is not hypothetical: it is exactly what the browser harness hit
 with `opentype.js`, and nothing had asked the same question of the `node` entry.
 
-Three assertions, red for different reasons: it builds with **no warnings** (a
-warning is a failure here, allow one by name if it ever must be, never mute the
-channel); **nothing but a Node builtin stayed external**; and the emitted bundle
-**runs and writes a real `.pptx`**. It runs against the npm *and* pnpm fixtures,
+Three assertions, each red for a different reason. It builds with **no warnings**, and
+a warning is a failure here: allow one by name if it ever must be, never mute the
+channel. **Nothing but a Node builtin stayed external.** And the emitted bundle **runs
+and writes a real `.pptx`**. All three run against the npm fixture *and* the pnpm one,
 since pnpm's symlinked store is a different shape for a bundler to walk.
 
 Two things worth knowing before editing it:
@@ -1247,10 +1251,10 @@ free to disagree, and when a construct is unimplemented it does exactly that: th
 property round-trips perfectly and nothing paints.
 
 This is not hypothetical. Custom table styles were designed, implemented, shipped and
-then removed, and a COM read-back agreed with them the whole way: `Table.Style.Name`,
+then removed, and a COM read-back agreed with them the whole way. `Table.Style.Name`,
 `Table.Style.Id`, `Cell().Shape.Fill.ForeColor.RGB` and `Cell().Borders()` all reported
-the custom style's own values on decks that render completely unstyled, a black
-hairline grid on white. The read-back was accurate and useless.
+the custom style's own values. The decks render completely unstyled, a black hairline
+grid on white. The read-back was accurate and useless.
 
 Export the slide and read pixels instead:
 

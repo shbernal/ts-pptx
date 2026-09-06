@@ -16,9 +16,9 @@ doc_type: "guide"
 A group is a single selectable PowerPoint object (`<p:grpSp>`) that contains other
 objects. ts-pptx offers two entry points:
 
-- `slide.addGroup(children, options?)`:build a group from child *descriptors*
-  (the same shorthand `addShape`/`addText`/`addImage` accept), in one call.
-- `slide.groupObjects(objectNames, options?)`:wrap objects that are **already on
+- `slide.addGroup(children, options?)` builds a group from child *descriptors*,
+  the same shorthand `addShape` / `addText` / `addImage` accept, in one call.
+- `slide.groupObjects(objectNames, options?)` wraps objects that are **already on
   the slide**, addressed by their `objectName`. Use this when independent renderers
   each added their own objects and you want to group them after the fact without
   replaying their descriptors.
@@ -60,9 +60,9 @@ inches, exactly as the top-level `add*` methods take them.
 
 **Not supported as children yet:** `chart`, `table`, `media`, and `placeholder`.
 Each is skipped with a warning (the relationship/id/transform plumbing to nest them
-is pending). A group left with no renderable children: e.g. because every child
-was an unsupported kind: warns and emits a degenerate zero-size group rather than
-silently producing one.
+is pending). A group left with no renderable children, because every child was an
+unsupported kind, warns and emits a degenerate zero-size group rather than
+producing one in silence.
 
 ### Framing: auto-bounds or an explicit frame (all-or-nothing)
 
@@ -139,10 +139,11 @@ groups you already made.
 
 ### Failure is a throw, not a warn
 
-Unlike `addGroup` (which warns and skips), every `groupObjects` failure **throws**,
-because each one would otherwise leave the intended object silently loose on the
-slide: the footgun the group was meant to remove. Resolution runs fully *before*
-anything moves, so a bad name leaves the slide untouched rather than half-grouped:
+Unlike `addGroup`, which warns and skips, every `groupObjects` failure **throws**.
+Each one would otherwise leave the intended object loose on the slide without
+saying so, which is the footgun the group was meant to remove. Resolution runs
+fully *before* anything moves, so a bad name leaves the slide untouched rather
+than half-grouped:
 
 - a name no top-level object has (distinguished from one that is already inside
   another group),

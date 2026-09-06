@@ -24,22 +24,22 @@ import TsPptx from "pptx-ts"
 
 The package publishes:
 
-- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry, it
-  also exports the public enums, shared types, layout constants, and unit helpers.
-  See [Which Build The Bare Import Gives You](#which-build-the-bare-import-gives-you),
-  under Node and in a browser bundle the same import gives you `dist/node.js` /
-  `dist/browser.js` instead.
+- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry. It also
+  exports the public enums, shared types, layout constants, and unit helpers.
+  Under Node, and in a browser bundle, the same bare import resolves to
+  `dist/node.js` or `dist/browser.js` instead. See
+  [Which build the bare import gives you](#which-build-the-bare-import-gives-you).
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
   inspection, slide/object extraction, and geometry helpers.
 - `dist/measure.js` and `dist/measure.d.ts` for headless text-measurement and
-  autofit helpers (see [Measured Text Fit](measured-text-fit.md)).
+  autofit helpers (see [Measured text fit](measured-text-fit.md)).
 - `dist/read.js` and `dist/read.d.ts` for opening, editing, and round-tripping
-  an existing `.pptx` (see [PPTX Read / Round-Trip](reference/pptx-read.md)).
+  an existing `.pptx` (see [PPTX read and round-trip](reference/pptx-read.md)).
 - `dist/script.js` and `dist/script.d.ts` for turning an existing `.pptx` into
   TypeScript source that rebuilds it through the write API (see
-  [PPTX To Script](reference/pptx-to-script.md)).
+  [PPTX to script](reference/pptx-to-script.md)).
 - `dist/math.js` and `dist/math.d.ts` for LaTeX/MathML → OMML conversion (see
-  [Math Equations](math-latex.md)).
+  [Math and LaTeX](math-latex.md)).
 - `dist/zip.js` and `dist/zip.d.ts` for the shared OPC/zip package plumbing
   used by `read` and `inspect`.
 - `dist/html.js` and `dist/html.d.ts` for converting an existing HTML `<table>`
@@ -121,47 +121,46 @@ is the free `tableToSlides` on `pptx-ts/html`.
 Import `pptx-ts/node` or `pptx-ts/browser` directly whenever
 you want a specific build regardless of how conditions resolve.
 
-## What "Browser" is tested to mean
+## What "browser" is tested to mean
 
-The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
-(`pnpm run test:browser`: Playwright, headless Chromium). It is not "supported by
-construction". Three fixtures: the site's own demos page (`www/demos/`) for the bundled
-path a real consumer takes, a static server handing the browser the shipped `dist/browser.js` unbundled
-for the runtime adapter itself, and a page that renders a real `<table>` so
-`tableToSlides` reads a measured `offsetWidth`.
+Nothing here is supported by construction. The `browser` job in
+`.github/workflows/ci.yml` runs `pnpm run test:browser`, which is Playwright driving
+headless Chromium over three fixtures. The site's own demos page (`www/demos/`), for
+the bundled path a real consumer takes. A static server handing the browser the
+shipped `dist/browser.js` unbundled, for the runtime adapter itself. And a page
+rendering a real `<table>`, so `tableToSlides` reads a measured `offsetWidth`.
 
 Two claims, kept separate on purpose:
 
 - **The browser is a supported *runtime*.** A real browser runs the emission core
-  and produces a `.pptx` you can download. The stronger form of that assertion is
-  what CI actually checks: the demo imports the same showcase module the Node
-  target builds, and the deck the browser assembles is compared **part for part**
-  against the Node-built one. They are byte-identical. So every serializer, the zip
-  writer, part ordering and relationship numbering are runtime-invariant: not by
-  inspection, by comparison.
+  and produces a `.pptx` you can download. CI checks the stronger form of that.
+  The demo imports the same showcase module the Node target builds, and the deck
+  the browser assembles is compared part for part against the Node-built one.
+  They come out byte-identical. Every serializer, the zip writer, part ordering
+  and relationship numbering are runtime-invariant by comparison, not by
+  inspection.
 - **Browser *layout* is not an oracle this library answers to.** The resolved CSS
-  cascade and fonts as the browser chose them remain out of active scope: see
-  [Project Target](project-target.md). `tableToSlides()` runs anywhere there is a
-  DOM, and only *measurement* is lost without a layout engine: `offsetWidth` is
-  `0`, column widths fall back to computed CSS widths and then to an equal split,
-  and `data-pptx-width` / `data-pptx-min-width` let you pin them.
+  cascade, and fonts as the browser chose them, stay out of active scope (see
+  [Project target](project-target.md)). `tableToSlides()` runs anywhere there is a
+  DOM. Only *measurement* is lost without a layout engine. `offsetWidth` reads `0`,
+  column widths fall back to computed CSS widths and then to an equal split, and
+  `data-pptx-width` / `data-pptx-min-width` pin them.
 
-  Losing the measurement is not the same as losing precision, and this page used
-  to say "degrades" as though it were. `offsetWidth` is the border box; computed
-  `width` is the content box. Padding alone is enough to make the two disagree
-  (the `html-table` fixture is built to, at 1:1 measured against 2:1 from CSS) so
-  one table converted in Chromium and under happy-dom can emit different column
-  *proportions*, not the same proportions coarsened. Where both runtimes must
-  agree on a column, state it with `data-pptx-width`.
+  Losing the measurement is not the same as losing precision, whatever this page
+  used to say. `offsetWidth` is the border box. Computed `width` is the content
+  box. Padding alone makes the two disagree, and the `html-table` fixture is built
+  to do exactly that, at 1:1 measured against 2:1 from CSS. So one table converted
+  in Chromium and under happy-dom can emit different column *proportions*, not the
+  same proportions coarsened. Where both runtimes have to agree on a column, state
+  it with `data-pptx-width`.
 
-  One part of the job does now drive a rendered page, and the line it holds is
-  worth stating exactly. A `<table>` is laid out in Chromium and converted, and the
-  lane asserts that the measured `offsetWidth` is what sizes the emitted columns:
-  that the measurement is *taken and honoured*, proportionally, with
-  `data-pptx-width` still overriding it. It asserts nothing about whether that
-  measurement is *correct*, or whether Firefox would agree. The library's contract
-  is "we use what your DOM reports"; it is not "your DOM reports what PowerPoint
-  will draw".
+  One part of the job does drive a rendered page, and the line it holds is worth
+  stating exactly. Chromium lays a `<table>` out, the conversion runs, and the lane
+  asserts that the measured `offsetWidth` is what sizes the emitted columns.
+  Proportionally, with `data-pptx-width` still overriding it. It asserts nothing
+  about whether that measurement is *correct*, or whether Firefox would agree. The
+  contract is "we use what your DOM reports". It is not "your DOM reports what
+  PowerPoint will draw".
 
 A layout difference between two browsers is therefore not a defect in this
 package's browser support. A `.pptx` a browser builds differently from Node is.
@@ -169,9 +168,8 @@ package's browser support. A `.pptx` a browser builds differently from Node is.
 ### The runtime adapter, function by function
 
 Everything that differs between Node and the browser lives in one four-function
-`RuntimeAdapter`. All four now run in a real Chromium, and what each is checked
-against is worth stating precisely, because "covered" is a weaker word than what
-these actually assert:
+`RuntimeAdapter`. All four run in a real Chromium. "Covered" undersells what the
+lane asserts, so here is each one exactly:
 
 | adapter function | what the browser lane checks |
 | --- | --- |
@@ -210,7 +208,7 @@ cross-engine history. Not pre-emptively.
 Two gaps, stated rather than implied:
 
 - **Live-DOM layout**, as above: deliberate, and the subject of
-  [Project Target](project-target.md).
+  [Project target](project-target.md).
 - **Two arms of `createSvgPngPreview`**: a missing 2d context and a
   `toDataURL` that throws. Neither is reachable in a browser that has a working
   canvas and is drawing a same-origin data URI; reaching them means stubbing DOM
@@ -242,9 +240,9 @@ executes on the write path.)
 ## Using the browser entry without a bundler
 
 Supported environments assume a bundler, and that remains the maintained target.
-But `dist/browser.js` does load in a browser as-is, over a plain
-`<script type="module">`, provided you resolve the two bare specifiers it reaches:
-which is exactly what the adapter harness does
+Even so, `dist/browser.js` loads in a browser as-is, over a plain
+`<script type="module">`, as long as you resolve the two bare specifiers it reaches.
+That is exactly what the adapter harness does
 (`test/browser/harness/index.html`):
 
 ```html
@@ -310,7 +308,7 @@ CDN resolves the dependency graph and serves it in one request:
 
 jsDelivr serves the same build from `https://cdn.jsdelivr.net/npm/pptx-ts/+esm`, which
 resolves to `dist/browser.js` through the same export condition a bundler uses.
-[Using The Browser Entry Without A Bundler](#using-the-browser-entry-without-a-bundler)
+[Using the browser entry without a bundler](#using-the-browser-entry-without-a-bundler)
 above covers the self-hosted equivalent, where you supply the import map yourself.
 
 The classic-script form upstream shipped, a `dist/pptxgen.bundle.js` assigning a

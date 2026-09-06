@@ -193,10 +193,10 @@ Two limitations are recorded rather than fixed:
 - **No kinsoku.** PowerPoint will not start a line with `。` or `、` and hangs them
   past the right inset instead; this model breaks before them. Same line count,
   narrower widest line, so the height stays conservative.
-- **No font fallback.** PowerPoint silently substitutes another face for a code
-  point the named font lacks and lays the run out in *that* face's advances; the
-  model has no fallback and charges the named font's `.notdef` advance instead: one
-  flat number unrelated to the glyph that paints. That is a metrics gap rather than a
+- **No font fallback.** PowerPoint silently substitutes another face for a code point
+  the named font lacks, and lays the run out in *that* face's advances. The model has
+  no fallback. It charges the named font's `.notdef` advance instead, one flat number
+  unrelated to the glyph that paints. That is a metrics gap rather than a
   break-class one, and it is why the two fixture cases whose glyphs Malgun Gothic
   lacks are skipped by the oracle test.
 

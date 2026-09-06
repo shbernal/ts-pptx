@@ -25,11 +25,12 @@ space runs scattered through it:
 <c:ser>  <c:idx val="0"/><c:order val="0"/>  <c:tx>    <c:strRef>      <c:f>Sheet1!$B$1</c:f>
 ```
 
-Of 351 prefix arguments, 337 were same-line runs of 1, 2, 3, 5, 7, 9 … spaces, not aligned to
-depth or to each other: `chart-axes.ts` emitted sibling elements at one space a dozen lines
-after emitting their neighbours at two. Fourteen, around `<c:title>`, carried the only real
-newlines in the directory. The runs were residue from the template literals the emitters were
-migrated off, preserved through that migration precisely because
+Of 351 prefix arguments, 337 were same-line runs of 1, 2, 3, 5, 7, 9 … spaces. Not aligned
+to depth, and not aligned to each other. `chart-axes.ts` emitted sibling elements at one
+space a dozen lines after emitting their neighbours at two. Fourteen of them, around
+`<c:title>`, carried the only real newlines in the directory. The runs were residue from
+the template literals the emitters were migrated off, preserved through that migration
+precisely because
 [byte identity](./development.md) was the thing being proved at the time.
 
 That is the fact that decided this. Flattening did not trade a readable part for a shorter
@@ -37,12 +38,14 @@ diff, because there was no readable part. It removed leftovers.
 
 ## What it cost, and why it was worth paying
 
-Two call sites building the same element at different depths cannot share a helper unless the
-helper takes indentation as a parameter, so every shared builder in the directory grew one:
-`axisTextParagraph(defRPr, lang, pPrClosePrefix, openPrefix)`, `labelFontChildren(opts, indent)`,
-`chartShapeProps(fill, border, effectIndent, fmt)`. `strRefBlock` had a whole exported type,
-`StrRefLayout = 'indented' | 'compact' | 'expanded'`, whose only job was to name which of three
-whitespace spellings a caller wanted. `plot-scatter.ts` passed a 24-space string counted by hand.
+Two call sites building the same element at different depths cannot share a helper unless
+the helper takes indentation as a parameter. So every shared builder in the directory grew
+one. `axisTextParagraph(defRPr, lang, pPrClosePrefix, openPrefix)`.
+`labelFontChildren(opts, indent)`. `chartShapeProps(fill, border, effectIndent, fmt)`.
+
+`strRefBlock` had a whole exported type, `StrRefLayout = 'indented' | 'compact' | 'expanded'`,
+whose only job was to name which of three whitespace spellings a caller wanted.
+`plot-scatter.ts` passed a 24-space string counted by hand.
 
 All of it is deleted. The helpers now take the arguments they are actually about.
 
@@ -68,16 +71,16 @@ whitespace cannot be content. It is deliberately stricter than an XML canonicali
   bytes; `el()` vs `voidEl()` decides it by arity so that it cannot drift on a value.
 - **Intra-tag whitespace is significant.** The space in `<c:xMode val="edge" />` is inside the
   tag, not between elements, so it is outside this change's claim and is frozen.
-- **Whitespace relaxes only where it cannot be content.** An element with no element children is
-  frozen whatever it holds, so a `<c:v> </c:v>` carrying a single significant space is safe from
-  a blanket strip; so is anything with a non-whitespace text child (mixed content), and so is
-  anything named in the module's text-bearing list.
+- **Whitespace relaxes only where it cannot be content.** An element with no element children
+  is frozen whatever it holds, so a `<c:v> </c:v>` carrying one significant space survives a
+  blanket strip. So does anything with a non-whitespace text child, meaning mixed content.
+  So does anything named in the module's text-bearing list.
 
 The prover was made to fail on purpose before it was trusted, per the same doctrine the
 LibreOffice render oracle is held to. `test/scripts/xml-equivalence.test.js` carries the red
-cases (changed text, changed attribute, reordered siblings, reordered attributes, changed
-escaping, changed self-closing form, whitespace eaten from inside a text leaf), and a separate
-run planted thirteen such changes into a real 7.8 KB `chart1.xml` and confirmed each one was
+cases: changed text, changed attribute, reordered siblings, reordered attributes, changed
+escaping, changed self-closing form, whitespace eaten from inside a text leaf. A separate run
+then planted thirteen such changes into a real 7.8 KB `chart1.xml` and confirmed each one was
 caught.
 
 It earned that during this change rather than after it: the codemod's first pass silently turned

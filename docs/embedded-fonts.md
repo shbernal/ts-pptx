@@ -25,8 +25,8 @@ in the file*. Two independent entry points share one OOXML model:
 - **Import-carry**: `importSlide(source, i, { embedFonts: true })` brings a
   source deck's presentation-level embedded fonts across when lifting a slide.
   `importSlides` spells it per request (`{ ..., embedFonts: true }`) and carries a
-  source's whole list once however many of its pages the batch names, with a dry
-  run of its own so a refused batch still leaves the deck byte-identical.
+  source's whole list exactly once, however many of its pages the batch names. It
+  has a dry run of its own, so a refused batch leaves the deck byte-identical.
   Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`,
   `checkEmbeddedFontsCopyable`).
 

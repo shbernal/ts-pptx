@@ -46,11 +46,11 @@ conversion runs. Column widths are the one thing that depends on the runtime.
 
 ## Column widths need a layout engine
 
-In a browser the columns are sized from each cell's rendered `offsetWidth`,
-reproducing the table's real proportions. Nothing outside a browser lays a table out,
-so `offsetWidth` is `0` there and the conversion falls back in two steps: it uses the
-computed CSS `width`s when the stylesheet states them for every column in one unit
-(all `px` or all `%`), and an equal split when it does not.
+In a browser the columns come from each cell's rendered `offsetWidth`, which
+reproduces the table's real proportions. Nothing outside a browser lays a table out,
+so `offsetWidth` reads `0` and the conversion falls back twice. First to the computed
+CSS `width`s, if the stylesheet states one for every column in the same unit (all
+`px` or all `%`). Then to an equal split.
 
 The first step is a *fallback*, not a graceful loss of precision. `offsetWidth` is the
 border box and computed `width` the content box, so padding alone can put the two
@@ -81,4 +81,4 @@ real Chromium in `test/browser/table-widths.spec.mjs`. What a browser adds is
 
 Matching how a browser laid a page out is a separate question, and it stays outside
 what this project actively develops: see
-[Project Target](project-target.md#out-of-active-scope-contributions-welcome).
+[Project target](project-target.md#out-of-active-scope-contributions-welcome).

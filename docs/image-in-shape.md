@@ -167,12 +167,12 @@ slide.addImage({
 })
 ```
 
-`flat` names the edge the straight side sits on (`'right'` = flat right edge, arc
-bulging left); `preset` picks the proportion: `'deep'` (the default; the arc spans
-about 32% of the box width, symmetric about mid-height) or `'shallow'` (about 13%,
-with its apex just below mid-height). Both are traced as two cubic Béziers rather
-than an `arcTo`, so unlike the hand-authored example above they are not perfect
-half-ellipses: they are the placeholder proportions PowerPoint decks actually use.
+`flat` names the edge the straight side sits on, so `'right'` is a flat right edge
+with the arc bulging left. `preset` picks the proportion. `'deep'` is the default:
+the arc spans about 32% of the box width, symmetric about mid-height. `'shallow'` is
+about 13%, with its apex just below mid-height. Both are traced as two cubic Béziers
+rather than an `arcTo`, so unlike the hand-authored example above they are not
+perfect half-ellipses. They are the placeholder proportions PowerPoint decks use.
 
 **`w` and `h` must be the size the picture is drawn at.** The returned path is in
 the image box's *own* inch space (`0..w`, `0..h`), because a `custGeom` point given
@@ -185,8 +185,8 @@ different size and the clip lands in the wrong place.
 
 A clipped picture still supports `line` (a `<a:ln>` outline that follows the clip
 geometry), `shadow`, `transparency`, and the recolor modes: the same
-picture-formatting vocabulary as an unclipped image. The recolor options are
-`duotone` (`{ shadow, highlight }`), `grayscale` (`true`), `biLevel`
-(`{ threshold }`, a `0.0–1.0` luminance split into black/white), and `clrChange`
-(`{ from, to }`, repaint one source color as another); they mirror the five
-effects the read model's `Picture.recolor` decodes.
+picture-formatting vocabulary as an unclipped image. Four recolor options exist.
+`duotone` takes `{ shadow, highlight }`. `grayscale` takes `true`. `biLevel` takes
+`{ threshold }`, a `0.0–1.0` luminance split into black and white. `clrChange` takes
+`{ from, to }` and repaints one source color as another. They mirror the five effects
+the read model's `Picture.recolor` decodes.

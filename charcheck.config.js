@@ -60,12 +60,19 @@ export default {
 		{
 			// Prose only: fenced and inline code are exempt, because a dash inside a code
 			// sample is part of the sample and not something to reword.
+			//
+			// The include list is the published docs surface plus the three root files and
+			// `demos/`, which a contributor reads before anything else. They were cleaned in
+			// one pass and joined the gate in the same commit, so the rule is what keeps them
+			// clean rather than a backlog to work off. Still outside it: `CHANGELOG.md` (a
+			// historical record, not prose to reword), `test/` and `scripts/` notes, and the
+			// skill trees.
 			id: 'no-em-dash-in-prose',
 			pattern: DASH_PATTERN,
 			scope: 'markdown',
 			fix: strategies.clauseSeparator,
 			message: MESSAGE,
-			include: ['README.md', 'www/**/*.md', 'docs/**/*.md'],
+			include: ['README.md', 'AGENTS.md', 'CONTRIBUTING.md', 'www/**/*.md', 'docs/**/*.md', 'demos/**/*.md'],
 		},
 		{
 			// The site's one Vue component: template text and allowlisted attributes. Its

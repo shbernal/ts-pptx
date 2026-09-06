@@ -35,8 +35,8 @@ const pres = createPresentation({ use: [charts] })
 pres.addSlide().addChart(data, { type: ChartType.bar })
 ```
 
-Both write the same deck for the same slides, part for part. The difference is reach,
-not behaviour: this is a reachability change, not a second write path.
+Both write the same deck for the same slides, part for part. What changes is reach,
+not behaviour. There is no second write path here.
 
 The families are values rather than strings, so naming one is what puts its code in
 the module graph. A bundler needs no configuration to leave the rest out.
@@ -110,8 +110,8 @@ costs a composed deck nothing.
 `measure` supplies three presentation methods that measure without authoring
 anything. The export-time autofit bake is not part of it: `fit:'shrink'` text is
 baked on the ordinary write path, so a composed deck that never asks for a
-measurement still gets its autofit. See [Measured Text
-Fit](measured-text-fit.md#instance-methods-inchespoints-reuse-registered-metrics).
+measurement still gets its autofit. See [Measured text
+fit](measured-text-fit.md#instance-methods-inchespoints-reuse-registered-metrics).
 
 ### When a family is missing
 
@@ -159,10 +159,10 @@ single number, so there is no single number.
 
 ### The deferred poster
 
-The library's own largest deferred chunk is the default video poster. The play-button
-overlay `addMedia` falls back to when the caller passes no `cover` is 19,312 base64
-characters, and `addMedia` is a class method, so nothing tree-shakes it: naming the
-artwork where the media object is defined charged that payload to every consumer,
+The library's own largest deferred chunk is the default video poster. When a caller
+passes no `cover`, `addMedia` falls back to a play-button overlay of 19,312 base64
+characters. `addMedia` is a class method, so nothing tree-shakes it. Naming the artwork
+where the media object is defined therefore charged that payload to every consumer,
 text-only ones included. It is resolved during the async media pass instead, from
 `src/media/playbtn.ts`, which holds nothing else so that the chunker can give it a
 chunk of its own. A program that writes no media never fetches it, and one that does
@@ -193,12 +193,12 @@ and `pnpm run check:package` enforces it. Per entry rather than for the package 
 whole, because the question a consumer asks is what importing *one* subpath costs; the
 shared chunks are counted once per entry that reaches them.
 
-Minified, because `dist/` ships unminified and is close to half doc comments by
-weight, none of which survives a consumer's build. Gating on the raw bytes made the
-number track how much the code was *documented*: the refactor series between v3.7.0
-and 147951de took 14.5 kB of code out of the browser closure, added 26.9 kB of
-comments explaining the consolidations, and the gate reported the net as a 10.2 kB
-regression. Minifying first takes prose out of the measurement.
+Minified, because `dist/` ships unminified and is close to half doc comments by weight,
+none of which survives a consumer's build. Gating on the raw bytes made the number track
+how much the code was *documented*. The refactor series between v3.7.0 and 147951de took
+14.5 kB of code out of the browser closure and added 26.9 kB of comments explaining the
+consolidations. The gate reported the net as a 10.2 kB regression. Minifying first takes
+prose out of the measurement.
 
 It is an upper bound rather than a download size, because a consumer's bundler also
 tree-shakes across the closure and this deliberately does not. What the gate is for is

@@ -55,9 +55,9 @@ Use it when you need to answer questions such as:
 and no OPC part / content-type / relationship catalogue. It serves the schema
 graph and nothing else, so "which ECMA-376 section describes this serialization
 rule" and "which content type belongs to this `.pptx` part" fall through to
-`microsoft_learn` and then to web search. That is a deliberate scope boundary,
-not a missing feature: ooxml.dev is the hosted service that indexes the prose
-if a question genuinely needs it.
+`microsoft_learn` and then to web search. That boundary is deliberate rather than a
+gap. When a question genuinely needs the prose, ooxml.dev is the hosted service
+that indexes it.
 
 The server is pre-1.0 and its tool surface may change without a deprecation
 period; a break is announced in its
@@ -190,7 +190,7 @@ attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce in
   than the builder (there are a few, e.g. `cNvPrOpen`) must call
   `encodeXmlAttrValue` itself.
 
-Migrating an existing emitter onto it is a byte-preserving refactor: gate it with
+Migrating an existing emitter onto it is a byte-preserving refactor. Gate it with
 `pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").
 
 ## Local validation tools

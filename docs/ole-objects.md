@@ -54,10 +54,10 @@ screenshot for any deck meant to read correctly outside PowerPoint.
 
 ## Payload kind: `extn` and `progId`
 
-The payload's extension picks three things at once: the part's content type, its
-relationship type, and the default `progId` (the OLE server PowerPoint launches).
-It is resolved from, in order: an explicit `extn`, a `data:` URI's MIME type, the
-`path`'s extension, and finally `progId`.
+The payload's extension decides three things at once. The part's content type, its
+relationship type, and the default `progId`, which is the OLE server PowerPoint
+launches. Four sources settle that extension, in order: an explicit `extn`, a
+`data:` URI's MIME type, the `path`'s extension, then `progId`.
 
 | Resolved extension | `progId` default | Part |
 | --- | --- | --- |

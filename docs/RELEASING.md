@@ -11,8 +11,9 @@ doc_type: "runbook"
 
 # Release workflow
 
-This guide documents the maintained release path for the ESM package,
-`pptx-ts`, and for `@shbernal/ts-pptx`, the scoped alias published beside it.
+Every release ships two packages. `pptx-ts` is the ESM package, and
+`@shbernal/ts-pptx` is the scoped alias published beside it. This is the
+maintained path for both.
 
 The alias is not a redirect. npm has one package per name and no forwarding,
 so an alias is a second publish of the same content under a second name.
@@ -78,10 +79,9 @@ normal case, and needs no thought. The timing family is the one measurement
 here a clock took, so every one of its numbers moves on every run, and a few
 percent either way means nothing. What is worth stopping on:
 
-- a **coverage row that flipped** in either direction. A construct one library
-  emits and the other does not is the substance of the page. A flip means
-  either a real capability moved, or a probe stopped measuring what it
-  claims to
+- a **coverage row that flipped** in either direction. A construct one library emits
+  and the other does not is the substance of the page. A flip means one of two
+  things: a real capability moved, or a probe stopped measuring what it claims to
 - a **validity count that moved**, ours especially: the page states how many of
   the probe decks pass the schema oracle, and a release is not the moment to
   discover that number went down

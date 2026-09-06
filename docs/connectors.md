@@ -67,10 +67,10 @@ non-finite `adj`, or an `adj` array whose length does not match `bends`,
 
 ## Endpoints and the derived box
 
-You give the two endpoints directly; the bounding box is derived. The connector's
-origin is the **min corner** of the two points, and `flipH` / `flipV` are set when
-the end point is left of / above the start point, so the connector draws
-correctly from any pair of endpoints, in any direction:
+You give the two endpoints directly and the bounding box is derived. The connector's
+origin is the **min corner** of the two points. `flipH` and `flipV` are set when the
+end point sits left of, or above, the start point. So a connector draws correctly from
+any pair of endpoints, in any direction:
 
 ```js
 // end is left of and above start → the box flips both ways

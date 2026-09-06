@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "3D Models"
+title: "3D models"
 summary: "Embed a glTF binary (.glb) into a slide with addModel3d(), so PowerPoint 2019+ renders it live and everything else falls back to a preview picture."
 read_when:
   - Embedding a 3D model so PowerPoint renders and orbits it
@@ -10,7 +10,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# 3D Models
+# 3D models
 
 `slide.addModel3d()` embeds a glTF binary inside the `.pptx` and places it on the
 slide as a live 3D model: PowerPoint's **Insert ▸ 3D Models**. In PowerPoint
@@ -45,9 +45,9 @@ to `.glb` first.
 ## The preview picture (`preview`)
 
 **Almost everything that looks at your deck will see this picture, not the
-model.** PowerPoint 2019+ reads the `mc:Choice` branch and renders the live
-model; every other consumer reads the `mc:Fallback` branch, and so do
-PowerPoint's own slide thumbnails, PDF export, and print.
+model.** PowerPoint 2019+ reads the `mc:Choice` branch and renders the live model.
+Every other consumer reads the `mc:Fallback` branch. So do PowerPoint's own slide
+thumbnails, its PDF export, and print.
 
 This library is Node-first: it has no 3D renderer, so it cannot produce one.
 Supply your own with `preview`, taking a `path` or base64 `data` just like
@@ -57,10 +57,10 @@ Supply your own with `preview`, taking a `path` or base64 `data` just like
 s.addModel3d({ path: 'engine.glb', preview: { path: 'engine-render.png' } })
 ```
 
-Omit it and a neutral gray placeholder is embedded, and the library emits a
-[`model3d/preview-missing`](diagnostics.md) warning, because the gap is
-invisible exactly where you would check for it (on screen, in PowerPoint) and
-shows up later, in the thumbnail or the PDF someone else opens.
+Omit it and a neutral gray placeholder goes in, along with a
+[`model3d/preview-missing`](diagnostics.md) warning. The warning exists because the
+gap is invisible exactly where you would check for it, on screen in PowerPoint. It
+surfaces later, in the thumbnail or the PDF someone else opens.
 
 The most convenient way to produce one is to let PowerPoint render it: insert the
 model once by hand, export the slide as a picture, and crop. That is how
@@ -82,7 +82,7 @@ and wrong for everything else. Left at the default, a model 240 units across
 becomes a 120-metre object with the camera 2.26 metres from its centre: the
 viewer is inside it, and the slide shows a wall of shading.
 
-So: set it to `1 / <largest bounding-box dimension, in model units>`. Most
+So set it to `1 / <largest bounding-box dimension, in model units>`. Most
 exporters report that dimension, and it is also the span of `accessors[].min/max`
 on the `POSITION` accessors in the file's JSON chunk.
 

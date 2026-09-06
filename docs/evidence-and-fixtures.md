@@ -11,8 +11,8 @@ doc_type: "guide"
 
 # Evidence and fixtures
 
-Two rules govern how a change here gets grounded: what counts as evidence at all,
-and what to do when the only evidence that *would* count does not exist yet.
+Two rules ground a change here. One says what counts as evidence. The other says
+what to do when the only evidence that *would* count does not exist yet.
 
 ## Evidence requirements
 
@@ -29,27 +29,26 @@ Do not start implementing without at least one current-project evidence path:
 For emitted OOXML changes, the implementation should carry a focused fixture in
 `test/schema-cases.js` and a `pnpm run test:schema` run when practical.
 
-## Fixture-gated work: ask for the fixture, don't guess
+## Fixture-gated work, and why guessing fails
 
-When a feature can only be tested against OOXML that must be **genuine
-PowerPoint output**, a read-model accessor validated against real Office XML, or
-a write-side behaviour whose target XML is "what PowerPoint authors" (preset IDs,
-part wiring, namespaces, inheritance), and that fixture/oracle does **not** yet
-exist, do not implement against synthetic, hand-typed, or write→read
-round-tripped XML. Guessing the target XML produces circular or wrong evidence.
+Some work can only be judged against XML PowerPoint itself wrote. A read accessor
+checked against real Office XML. A write path whose target is "whatever PowerPoint
+authors" for preset IDs, part wiring, namespaces, inheritance. If that fixture does
+not exist yet, do not substitute one. Hand-typed XML, synthetic XML, and write→read
+round trips all agree with whatever the code already does, which is exactly the
+question being asked.
 
-Instead, treat the fixture as a blocking precondition and stop: open a GitHub
-issue naming the exact construct the oracle must contain, and leave the feature
-unimplemented until the fixture lands.
+So stop. The fixture is a blocking precondition, not a follow-up. Open a GitHub
+issue naming the exact construct the oracle has to contain, and leave the feature
+unimplemented until it lands.
 
-Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify it
-with that skill's own
+Then author it with the `powerpoint-fixture-authoring` skill and verify it with that
+skill's own
 `.agents/skills/powerpoint-fixture-authoring/scripts/verify-powerpoint-fixture.ps1`
-(there are no `.ps1` files under `scripts/`), record provenance + SHA-256 in
-[test/read/fixtures/README.md](https://github.com/shbernal/ts-pptx/blob/master/test/read/fixtures/README.md),
-then wire the test to the fixture (the read harness for read accessors; a
-`test/schema-cases.js` comparison/inspection check for write-side oracles). Only
-then implement.
+(there are no `.ps1` files under `scripts/`). Record provenance and SHA-256 in
+[test/read/fixtures/README.md](https://github.com/shbernal/ts-pptx/blob/master/test/read/fixtures/README.md).
+Wire the test to the fixture, through the read harness for read accessors or a
+`test/schema-cases.js` comparison for write-side oracles. Implement last.
 
 ## Related
 
