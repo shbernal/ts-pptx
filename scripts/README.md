@@ -81,9 +81,11 @@ are in every aggregate the repo has.
 | `com/contract.mjs` | Library | The shape names, `ProgID`s and `PpActionType` values the COM decks, VBScripts and verifiers all have to agree on | `powerpoint-com-smoke.mjs` |
 | `com/decks.mjs` | Library | Builds the four decks the COM smoke drives, from the current `dist/` | `powerpoint-com-smoke.mjs` |
 | `com/vbs.mjs` | Library | The VBScript sources that drive desktop PowerPoint, one per deck | `powerpoint-com-smoke.mjs` |
+| `comparison/corpus-data.mjs` | Library | Keeps each corpus's shared values out of the libraries' reach: the copy the page renders is cloned before any arm runs, and the live values are restored between arms | `comparison/probes.mjs`, `comparison/programs.mjs` |
 | `comparison/health.mjs` | Library | Activity, adoption and source size for both projects, from the GitHub and npm APIs and a shallow clone | `comparison/measure.mjs` |
 | `comparison/hygiene.mjs` | Library | What each library costs to install and to ship, from clean per-library installs | `comparison/measure.mjs` |
 | `comparison/measure.mjs` | Generator | Builds every probe with ts-pptx and with upstream pptxgenjs, reads the emitted parts, measures the other three families, and writes `comparison/snapshot.json` | manual (release step, see `docs/RELEASING.md`) |
+| `comparison/programs.mjs` | Library | The bundle corpus: whole consumer programs, from a hello world to a deck using every shared construct, each written in both libraries' idioms | `comparison/hygiene.mjs` |
 | `comparison/probes.mjs` | Library | The construct-coverage corpus: one deck intent per probe, expressed in each library's own idiom | `comparison/measure.mjs` |
 | `comparison/render.mjs` | Generator + Gate | Renders `comparison/snapshot.json` into `docs/comparison.md`, `docs/comparison-syntax.md` and the generated region of `README.md`; `--check` re-renders in memory and fails on drift | manual (`comparison:render`); `--check` in `verify` (`comparison:check`) |
 | `comparison/source.mjs` | Library | Recovers a probe's build function as printable code, with the corpus constants it names declared above it | `comparison/probes.mjs` |

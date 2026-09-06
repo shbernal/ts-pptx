@@ -28,6 +28,7 @@
  */
 import path from 'node:path'
 import { ROOT } from '../script-utils.mjs'
+import { corpusData } from './corpus-data.mjs'
 import { renderSource } from './source.mjs'
 
 /** A 1x1 transparent PNG. Inline, so an image probe reads nothing off disk. */
@@ -63,8 +64,12 @@ const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [12, 19
  * the measurement used. `PNG_1PX_B64` is absent because no build names it: it exists so the
  * two image arms can differ in exactly the way the two libraries differ, which is what the
  * pair of names below is for.
+ *
+ * Through {@link corpusData}, which is where the reason lives: an arm may edit what it is
+ * handed, so the copy the page prints is taken before any of them runs and
+ * {@link resetCorpusData} puts the live values back between arms.
  */
-const CORPUS_CONSTANTS = {
+const { constants: CORPUS_CONSTANTS, reset: resetCorpusData } = corpusData({
 	PNG_1PX_URL,
 	PNG_1PX_BARE,
 	OLE_BLOB_B64,
@@ -72,7 +77,9 @@ const CORPUS_CONSTANTS = {
 	CUBE_GLB,
 	SILKSCREEN_TTF,
 	BAR_DATA,
-}
+})
+
+export { resetCorpusData }
 
 /**
  * One deck intent, measured against both libraries.

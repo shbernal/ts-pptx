@@ -374,7 +374,7 @@
 					"id": "Sch_AttributeValueDataTypeDetailed",
 					"type": "Schema",
 					"partUri": "/ppt/presentation.xml",
-					"description": "The attribute 'id' has invalid value '{330cb67d-fbfb-48b5-949e-fd4f459a0ebb}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
+					"description": "The attribute 'id' has invalid value '{6f4a6f12-ab83-cb61-bd6c-89254e7a091b}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
 					"decks": 1
 				}
 			],
@@ -384,10 +384,61 @@
 		}
 	},
 	"hygiene": {
+		"frame": {
+			"ts-pptx": "import TsPptx from 'pptx-ts'\n\nconst pres = new TsPptx()\n// the program goes here\n\nconsole.log(await pres.write({ outputType: 'arraybuffer' }))",
+			"pptxgenjs": "import PptxGenJS from 'pptxgenjs'\n\nconst pres = new PptxGenJS()\n// the program goes here\n\nconsole.log(await pres.write({ outputType: 'arraybuffer' }))"
+		},
+		"programs": [
+			{
+				"id": "hello-world",
+				"label": "Hello world",
+				"what": "One slide with one text box.",
+				"source": {
+					"ts-pptx": "pres.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })",
+					"pptxgenjs": "pres.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })"
+				}
+			},
+			{
+				"id": "text-deck",
+				"label": "Text deck",
+				"what": "A defined master, two sections, formatted and bulleted text, a hyperlink, a slide background and speaker notes.",
+				"source": {
+					"ts-pptx": "pres.defineSlideMaster({\n\ttitle: 'NARRATIVE',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 0.6, y: 0.5, w: 8.8, h: 1 } } }],\n})\npres.addSection({ title: 'Findings' })\npres.addSection({ title: 'Next steps' })\n\nconst findings = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Findings' })\nfindings.background = { color: 'F2F2F2' }\nfindings.addText('What we found', { placeholder: 'title' })\nfindings.addText(\n\t[\n\t\t{ text: 'Revenue is up', options: { bullet: true, bold: true } },\n\t\t{ text: 'Retention held', options: { bullet: true } },\n\t\t{ text: 'Payback lengthened', options: { bullet: true, color: 'C00000' } },\n\t],\n\t{ x: 0.6, y: 1.8, w: 8.8, h: 3, fontSize: 18 }\n)\nfindings.addNotes('Twenty minutes. Hold questions until the last slide.')\n\nconst next = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Next steps' })\nnext.addText('Where to read the rest', { placeholder: 'title' })\nnext.addText('The full report', {\n\tx: 0.6,\n\ty: 1.8,\n\tw: 8.8,\n\th: 0.6,\n\tfontSize: 16,\n\thyperlink: { url: 'https://example.com/report' },\n})\nnext.addNotes('The link is the internal report, not the public summary.')",
+					"pptxgenjs": "pres.defineSlideMaster({\n\ttitle: 'NARRATIVE',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 0.6, y: 0.5, w: 8.8, h: 1 } } }],\n})\npres.addSection({ title: 'Findings' })\npres.addSection({ title: 'Next steps' })\n\nconst findings = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Findings' })\nfindings.background = { color: 'F2F2F2' }\nfindings.addText('What we found', { placeholder: 'title' })\nfindings.addText(\n\t[\n\t\t{ text: 'Revenue is up', options: { bullet: true, bold: true } },\n\t\t{ text: 'Retention held', options: { bullet: true } },\n\t\t{ text: 'Payback lengthened', options: { bullet: true, color: 'C00000' } },\n\t],\n\t{ x: 0.6, y: 1.8, w: 8.8, h: 3, fontSize: 18 }\n)\nfindings.addNotes('Twenty minutes. Hold questions until the last slide.')\n\nconst next = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Next steps' })\nnext.addText('Where to read the rest', { placeholder: 'title' })\nnext.addText('The full report', {\n\tx: 0.6,\n\ty: 1.8,\n\tw: 8.8,\n\th: 0.6,\n\tfontSize: 16,\n\thyperlink: { url: 'https://example.com/report' },\n})\nnext.addNotes('The link is the internal report, not the public summary.')"
+				}
+			},
+			{
+				"id": "table-deck",
+				"label": "Table deck",
+				"what": "A titled slide and a bordered table with a header row, fixed column widths and per-cell options.",
+				"source": {
+					"ts-pptx": "const REGION_ROWS = [[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }], [{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }], [{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }], [{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }]]\n\nconst slide = pres.addSlide()\nslide.addText('Revenue by region', { x: 0.6, y: 0.5, w: 8.8, h: 0.8, fontSize: 24, bold: true })\nslide.addTable(REGION_ROWS, {\n\tx: 0.6,\n\ty: 1.5,\n\tw: 8.8,\n\tcolW: [4, 2.4, 2.4],\n\trowH: 0.4,\n\tborder: { type: 'solid', width: 1, color: 'D9D9D9' },\n\tfill: { color: 'FFFFFF' },\n\tfontSize: 12,\n\tvalign: 'middle',\n})",
+					"pptxgenjs": "const REGION_ROWS = [[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }], [{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }], [{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }], [{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }]]\n\nconst slide = pres.addSlide()\nslide.addText('Revenue by region', { x: 0.6, y: 0.5, w: 8.8, h: 0.8, fontSize: 24, bold: true })\nslide.addTable(REGION_ROWS, {\n\tx: 0.6,\n\ty: 1.5,\n\tw: 8.8,\n\tcolW: [4, 2.4, 2.4],\n\trowH: 0.4,\n\tborder: { type: 'solid', pt: 1, color: 'D9D9D9' },\n\tfill: { color: 'FFFFFF' },\n\tfontSize: 12,\n\tvalign: 'middle',\n})"
+				}
+			},
+			{
+				"id": "chart-deck",
+				"label": "Chart deck",
+				"what": "Three charts on three slides: a column chart with value labels, a two-series line chart, and a pie chart with percentages.",
+				"source": {
+					"ts-pptx": "const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\nconst LINE_DATA = [{ name: 'Net retention', labels: ['Jul', 'Aug', 'Sep'], values: [108, 111, 114] }, { name: 'Gross retention', labels: ['Jul', 'Aug', 'Sep'], values: [94, 94, 96] }]\nconst PIE_DATA = [{ name: 'Revenue mix', labels: ['Platform', 'Services', 'Licensing'], values: [25.8, 13.4, 7.2] }]\n\npres.addSlide().addChart(BAR_DATA, {\n\ttype: 'bar',\n\tbarDir: 'col',\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tshowValue: true,\n\tshowLegend: true,\n\tlegendPos: 'b',\n})\npres.addSlide().addChart(LINE_DATA, {\n\ttype: 'line',\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tlineSmooth: true,\n\tshowLegend: true,\n\tlegendPos: 'b',\n})\npres.addSlide().addChart(PIE_DATA, {\n\ttype: 'pie',\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tshowPercent: true,\n\tdataLabelColor: 'FFFFFF',\n})",
+					"pptxgenjs": "const BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\nconst LINE_DATA = [{ name: 'Net retention', labels: ['Jul', 'Aug', 'Sep'], values: [108, 111, 114] }, { name: 'Gross retention', labels: ['Jul', 'Aug', 'Sep'], values: [94, 94, 96] }]\nconst PIE_DATA = [{ name: 'Revenue mix', labels: ['Platform', 'Services', 'Licensing'], values: [25.8, 13.4, 7.2] }]\n\npres.addSlide().addChart('bar', BAR_DATA, {\n\tbarDir: 'col',\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tshowValue: true,\n\tshowLegend: true,\n\tlegendPos: 'b',\n})\npres.addSlide().addChart('line', LINE_DATA, {\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tlineSmooth: true,\n\tshowLegend: true,\n\tlegendPos: 'b',\n})\npres.addSlide().addChart('pie', PIE_DATA, {\n\tx: 0.6,\n\ty: 0.6,\n\tw: 8.8,\n\th: 5,\n\tshowPercent: true,\n\tdataLabelColor: 'FFFFFF',\n})"
+				}
+			},
+			{
+				"id": "full-deck",
+				"label": "Full deck",
+				"what": "Every construct the shared baseline covers, in one deck: master, sections, background, text, hyperlink, notes, a preset shape, an image, a table and a chart.",
+				"source": {
+					"ts-pptx": "const PNG_1PX_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA…'\nconst REGION_ROWS = [[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }], [{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }], [{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }], [{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }]]\nconst BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\n\npres.defineSlideMaster({\n\ttitle: 'REVIEW',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 0.6, y: 0.5, w: 8.8, h: 1 } } }],\n})\npres.addSection({ title: 'Quarter' })\n\nconst cover = pres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' })\ncover.background = { color: 'F2F2F2' }\ncover.addText('Q3 review', { placeholder: 'title' })\ncover.addShape('roundRect', { x: 0.6, y: 1.8, w: 3, h: 0.6, fill: { color: '4472C4' } })\ncover.addText('Read the report', {\n\tx: 0.6,\n\ty: 2.6,\n\tw: 4,\n\th: 0.5,\n\thyperlink: { url: 'https://example.com/report' },\n})\ncover.addImage({ data: PNG_1PX_URL, x: 6.4, y: 1.8, w: 2, h: 2 })\ncover.addNotes('Open on the number, not the agenda.')\n\nconst numbers = pres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' })\nnumbers.addText('Where it came from', { placeholder: 'title' })\nnumbers.addTable(REGION_ROWS, { x: 0.6, y: 1.6, w: 8.8, colW: [4, 2.4, 2.4], fontSize: 12 })\n\npres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' }).addChart(BAR_DATA, {\n\ttype: 'bar',\n\tbarDir: 'col',\n\tx: 0.6,\n\ty: 1.6,\n\tw: 8.8,\n\th: 4.6,\n\tshowValue: true,\n})",
+					"pptxgenjs": "const PNG_1PX_BARE = 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcS…'\nconst REGION_ROWS = [[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }], [{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }], [{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }], [{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }]]\nconst BAR_DATA = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\n\npres.defineSlideMaster({\n\ttitle: 'REVIEW',\n\tobjects: [{ placeholder: { options: { name: 'title', type: 'title', x: 0.6, y: 0.5, w: 8.8, h: 1 } } }],\n})\npres.addSection({ title: 'Quarter' })\n\nconst cover = pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' })\ncover.background = { color: 'F2F2F2' }\ncover.addText('Q3 review', { placeholder: 'title' })\ncover.addShape('roundRect', { x: 0.6, y: 1.8, w: 3, h: 0.6, fill: { color: '4472C4' } })\ncover.addText('Read the report', {\n\tx: 0.6,\n\ty: 2.6,\n\tw: 4,\n\th: 0.5,\n\thyperlink: { url: 'https://example.com/report' },\n})\ncover.addImage({ data: PNG_1PX_BARE, x: 6.4, y: 1.8, w: 2, h: 2 })\ncover.addNotes('Open on the number, not the agenda.')\n\nconst numbers = pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' })\nnumbers.addText('Where it came from', { placeholder: 'title' })\nnumbers.addTable(REGION_ROWS, { x: 0.6, y: 1.6, w: 8.8, colW: [4, 2.4, 2.4], fontSize: 12 })\n\npres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' }).addChart('bar', BAR_DATA, {\n\tbarDir: 'col',\n\tx: 0.6,\n\ty: 1.6,\n\tw: 8.8,\n\th: 4.6,\n\tshowValue: true,\n})"
+				}
+			}
+		],
 		"ts-pptx": {
 			"install": {
-				"bytes": 10848536,
-				"packageBytes": 5966121
+				"bytes": 10740944,
+				"packageBytes": 5858529
 			},
 			"dependencies": {
 				"direct": ["@xmldom/xmldom", "fflate", "opentype.js"],
@@ -408,10 +459,32 @@
 			],
 			"moduleFormats": ["esm"],
 			"engines": ">=24",
-			"helloWorld": {
-				"initialBytes": 100802,
-				"totalBytes": 215701,
-				"chunks": 4
+			"bundles": {
+				"hello-world": {
+					"initialBytes": 100945,
+					"totalBytes": 181666,
+					"chunks": 4
+				},
+				"text-deck": {
+					"initialBytes": 101318,
+					"totalBytes": 182039,
+					"chunks": 4
+				},
+				"table-deck": {
+					"initialBytes": 101139,
+					"totalBytes": 181860,
+					"chunks": 4
+				},
+				"chart-deck": {
+					"initialBytes": 101200,
+					"totalBytes": 181921,
+					"chunks": 4
+				},
+				"full-deck": {
+					"initialBytes": 101526,
+					"totalBytes": 182247,
+					"chunks": 4
+				}
 			}
 		},
 		"pptxgenjs": {
@@ -426,10 +499,32 @@
 			"entryPoints": ["."],
 			"moduleFormats": ["cjs", "esm"],
 			"engines": null,
-			"helloWorld": {
-				"initialBytes": 126207,
-				"totalBytes": 126247,
-				"chunks": 3
+			"bundles": {
+				"hello-world": {
+					"initialBytes": 126207,
+					"totalBytes": 126247,
+					"chunks": 3
+				},
+				"text-deck": {
+					"initialBytes": 126553,
+					"totalBytes": 126593,
+					"chunks": 3
+				},
+				"table-deck": {
+					"initialBytes": 126402,
+					"totalBytes": 126442,
+					"chunks": 3
+				},
+				"chart-deck": {
+					"initialBytes": 126438,
+					"totalBytes": 126478,
+					"chunks": 3
+				},
+				"full-deck": {
+					"initialBytes": 126759,
+					"totalBytes": 126799,
+					"chunks": 3
+				}
 			}
 		}
 	},
@@ -451,8 +546,8 @@
 				"lastPublish": "2026-08-29"
 			},
 			"source": {
-				"lines": 63275,
-				"testLines": 66339,
+				"lines": 63353,
+				"testLines": 66682,
 				"statementCoverage": {
 					"pct": 95.31,
 					"lane": "merged"
@@ -473,7 +568,7 @@
 						"test:com",
 						"test:lo"
 					],
-					"specFiles": 316,
+					"specFiles": 318,
 					"testDirs": ["test"]
 				}
 			}

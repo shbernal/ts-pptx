@@ -71,22 +71,28 @@ export function functionBody(fn) {
  *
  * Deliberately narrow: it covers the shapes the corpus actually declares, and throws on
  * anything else rather than printing `[object Object]` into a documentation page.
+ *
+ * `elideOver` is raised by the one caller that is not writing for a reader: the bundle
+ * corpus compiles its own preamble, and a data URL truncated there would be source that no
+ * longer carries what the measurement fed the library.
  * @param {unknown} value
+ * @param {{elideOver?: number}} [options]
  * @returns {string}
  */
-export function literal(value) {
+export function literal(value, options = {}) {
+	const elideOver = options.elideOver ?? ELIDE_OVER
 	if (typeof value === 'string') {
 		const shown = value.startsWith(ROOT) ? path.relative(ROOT, value).split(path.sep).join('/') : value
-		const cut = shown.length > ELIDE_OVER ? shown.slice(0, ELIDE_OVER) + '…' : shown
+		const cut = shown.length > elideOver ? shown.slice(0, elideOver) + '…' : shown
 		return "'" + cut.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"
 	}
 	if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value)
-	if (Array.isArray(value)) return '[' + value.map(literal).join(', ') + ']'
+	if (Array.isArray(value)) return '[' + value.map((entry) => literal(entry, options)).join(', ') + ']'
 	if (typeof value === 'object' && value !== null)
 		return (
 			'{ ' +
 			Object.entries(value)
-				.map(([key, entry]) => (BARE_KEY.test(key) ? key : "'" + key + "'") + ': ' + literal(entry))
+				.map(([key, entry]) => (BARE_KEY.test(key) ? key : "'" + key + "'") + ': ' + literal(entry, options))
 				.join(', ') +
 			' }'
 		)
@@ -102,11 +108,12 @@ export function literal(value) {
  * followed the body would make that number an artefact of where a name first appeared.
  * @param {Function} fn
  * @param {Record<string, unknown>} constants - every value the corpus declares once
+ * @param {{elideOver?: number}} [options] - passed through to {@link literal}
  * @returns {string}
  */
-export function renderSource(fn, constants) {
+export function renderSource(fn, constants, options = {}) {
 	const body = functionBody(fn)
 	const used = Object.entries(constants).filter(([name]) => new RegExp('\\b' + name + '\\b').test(body))
-	const preamble = used.map(([name, value]) => 'const ' + name + ' = ' + literal(value))
+	const preamble = used.map(([name, value]) => 'const ' + name + ' = ' + literal(value, options))
 	return preamble.length > 0 ? preamble.join('\n') + '\n\n' + body : body
 }

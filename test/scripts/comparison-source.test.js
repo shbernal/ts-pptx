@@ -12,6 +12,7 @@
 
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
+import { PROGRAMS, programFrame, programModule, programSource } from '../../scripts/comparison/programs.mjs'
 import { PROBES, probeSource, SUBJECTS } from '../../scripts/comparison/probes.mjs'
 import { functionBody, literal, renderSource } from '../../scripts/comparison/source.mjs'
 import { ROOT } from '../../scripts/script-utils.mjs'
@@ -123,5 +124,53 @@ describe('the corpus itself', () => {
 		expect(agree).not.toContain('bar-chart')
 		expect(agree).not.toContain('image')
 		expect(agree).toContain('text-run')
+	})
+})
+
+// The bundle corpus reuses the same extraction for a second purpose, and that purpose has
+// the opposite requirement: `programSource` writes for a reader and elides, `programModule`
+// is compiled and must not. A data URL truncated on the way into the bundler would be a
+// program the library was never given, measured as though it were.
+describe('the bundle corpus', () => {
+	test('every program builds with both libraries, and no arm renders empty', () => {
+		for (const program of PROGRAMS)
+			for (const subject of SUBJECTS) {
+				expect(program.build[subject], `${program.id}/${subject}`).toBeTypeOf('function')
+				expect(programSource(program, subject), `${program.id}/${subject}`).toMatch(/\S/)
+			}
+	})
+
+	// The id is the bundle table's join key and the entry file's name, so a duplicate would
+	// pair one library's chart deck with the other's table deck and overwrite a bundle.
+	test('program ids are unique', () => {
+		const ids = PROGRAMS.map((program) => program.id)
+		expect(new Set(ids).size).toBe(ids.length)
+	})
+
+	test('a compiled program carries the frame, the constants and the body', () => {
+		const program = PROGRAMS.find((entry) => entry.id === 'full-deck')
+		const module = programModule(program, 'ts-pptx')
+		expect(module.startsWith("import TsPptx from 'pptx-ts'\n")).toBe(true)
+		expect(module).toContain('const pres = new TsPptx()')
+		expect(module.trimEnd().endsWith("console.log(await pres.write({ outputType: 'arraybuffer' }))")).toBe(true)
+	})
+
+	test('the compiled program keeps a data URL the page elides', () => {
+		const program = PROGRAMS.find((entry) => entry.id === 'full-deck')
+		expect(programSource(program, 'ts-pptx')).toContain('…')
+		expect(programModule(program, 'ts-pptx')).not.toContain('…')
+		expect(programModule(program, 'ts-pptx')).toContain('R9awAAAABJRU5ErkJggg==')
+	})
+
+	// The page prints the frame with the program cut out of it. Built from the same two
+	// strings the module is compiled from, so a reader cannot be shown an import the
+	// measurement did not use.
+	test('the frame the page prints is the frame that was compiled', () => {
+		for (const subject of SUBJECTS) {
+			const frame = programFrame(subject)
+			const module = programModule(PROGRAMS[0], subject)
+			for (const line of frame.split('\n').filter((line) => line.trim() !== '' && !line.startsWith('//')))
+				expect(module, subject).toContain(line)
+		}
 	})
 })

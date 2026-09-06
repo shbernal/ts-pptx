@@ -183,15 +183,21 @@ const bullet = (text) => wrap('- ' + text, '  ')
 const num = (value) => value.toLocaleString('en-US')
 
 /**
- * Kibibytes under the label the rest of the repo uses.
+ * Kibibytes under the label the rest of the repo uses, to one decimal.
  *
  * `scripts/bundle-size-ratchet.mjs` divides by 1024 and writes "kB", and every size this
  * project has published sits on that footing. Switching units here alone would make two of
  * our own numbers disagree for no reader's benefit.
+ *
+ * The decimal is for the bundle table, which is the only place this is used. At whole
+ * kilobytes that column prints one figure five times over, and five identical rows read as
+ * a broken table rather than as the finding they are: neither library splits along feature
+ * lines, so what a program calls barely moves what it bundles. The digit is what shows the
+ * rows were measured separately.
  * @param {number} bytes
  * @returns {string}
  */
-const kb = (bytes) => (bytes / 1024).toFixed(0) + ' kB'
+const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
 
 /**
  * @param {number} bytes
@@ -227,6 +233,43 @@ const healthOf = (snapshot, subject) => snapshot.health?.[subject]
 function comparedRow(label, cells, format) {
 	if (cells.some((cell) => cell === undefined || isUnavailable(cell))) return null
 	return '| ' + label + ' | ' + cells.map((cell) => format(cell)).join(' | ') + ' |'
+}
+
+/**
+ * ts-pptx against pptxgenjs, as a percentage of pptxgenjs.
+ *
+ * A percentage rather than a ratio because the question a reader brings is "how much more
+ * or less than the one I already use", and because a ratio under 1 is the shape people
+ * misread. The sign is the whole point: positive means ts-pptx costs more.
+ *
+ * `null` where the arithmetic says nothing: a list, a version string, or a denominator of
+ * zero. A near-zero difference is spelled out rather than rounded to `0%`, which would
+ * claim two measurements met exactly.
+ * @param {unknown[]} cells one per column, in {@link COLUMNS} order
+ * @returns {string | null}
+ */
+function percentDelta(cells) {
+	const [ours, theirs] = cells
+	if (typeof ours !== 'number' || typeof theirs !== 'number' || theirs === 0) return null
+	const change = ((ours - theirs) / theirs) * 100
+	if (Math.abs(change) < 0.5) return 'within 1%'
+	return (change > 0 ? '+' : '') + change.toFixed(0) + '%'
+}
+
+/**
+ * A compared row carrying the percentage as a fourth cell.
+ *
+ * Same both-or-neither rule as {@link comparedRow}, since it is the same row with one more
+ * column on it.
+ * @param {string} label
+ * @param {unknown[]} cells one per column, in {@link COLUMNS} order
+ * @param {(value: any) => string} format
+ * @returns {string | null}
+ */
+function deltaRow(label, cells, format) {
+	if (cells.some((cell) => cell === undefined || isUnavailable(cell))) return null
+	const delta = percentDelta(cells)
+	return '| ' + label + ' | ' + cells.map((cell) => format(cell)).join(' | ') + ' | ' + (delta ?? 'not a ratio') + ' |'
 }
 
 /**
@@ -575,23 +618,50 @@ function sectionHygiene(snapshot) {
 				'here is measured against a development checkout with its dependencies hoisted flat.'
 		),
 		...table(
-			['', 'ts-pptx', 'pptxgenjs'],
+			['', 'ts-pptx', 'pptxgenjs', 'Difference'],
 			[
-				comparedRow(
+				deltaRow(
 					'Installed size, with dependencies',
 					rows.map((row) => row?.install?.bytes),
 					mb
 				),
-				comparedRow(
+				deltaRow(
 					'Installed size, the package alone',
 					rows.map((row) => row?.install?.packageBytes),
 					mb
 				),
-				comparedRow(
+				deltaRow(
 					'Runtime dependencies, transitive',
 					rows.map((row) => row?.dependencies?.transitive),
 					num
 				),
+			]
+		),
+		...para(
+			'The last column is ts-pptx measured against pptxgenjs, so a positive number is ours ' +
+				'costing more and a negative one is ours costing less. It is a percentage of the ' +
+				'pptxgenjs figure rather than a difference in bytes, because the two rows above it are ' +
+				'megabytes and the ones below are kilobytes, and a reader comparing them needs a ' +
+				'number that does not change meaning between rows.'
+		),
+	]
+
+	const ours = hygieneOf(snapshot, OURS)
+	const upstream = hygieneOf(snapshot, UPSTREAM)
+	if (typeof ours?.install?.bytes === 'number' && ours.install.bytes > upstream?.install?.bytes)
+		lines.push(
+			...para(
+				'ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its ' +
+					'`dist/` ships unminified, and a large share of that weight is documentation comments ' +
+					'that no consumer build keeps, which is why the bundled figures below are much closer ' +
+					'together than the installed ones.'
+			)
+		)
+
+	lines.push(
+		...table(
+			['', 'ts-pptx', 'pptxgenjs'],
+			[
 				comparedRow(
 					'Runtime dependencies, direct',
 					rows.map((row) => row?.dependencies?.direct),
@@ -612,17 +682,85 @@ function sectionHygiene(snapshot) {
 					rows.map((row) => row?.engines ?? null),
 					(value) => (value === null ? 'not declared' : code(value))
 				),
-				comparedRow(
-					'Hello world, first chunk',
-					rows.map((row) => row?.helloWorld?.initialBytes),
-					kb
-				),
 			]
 		),
+		...sectionBundles(snapshot)
+	)
+	return lines
+}
+
+/**
+ * What a consumer's build weighs, over a corpus of whole decks rather than one program.
+ *
+ * A hello world is one point on a curve, and it is the point where two tree-shaken bundles
+ * are most alike, because nearly everything either library holds has been shaken out of it.
+ * The corpus climbs to a deck using every construct both libraries emit, so the table can
+ * be read for what the second slide costs as well as the first.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionBundles(snapshot) {
+	/** @type {any[]} */
+	const programs = snapshot.hygiene?.programs ?? []
+	const bundles = COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.bundles)
+	if (programs.length === 0) return []
+
+	// What the corpus was built to find out, read off the two ends of it. Placed with the
+	// table rather than after the method, because it is the sentence a reader needs before
+	// they start doing the subtraction themselves.
+	const first = programs[0]
+	const last = programs[programs.length - 1]
+	const growth = bundles.map((byId) => {
+		const from = byId?.[first.id]?.initialBytes
+		const to = byId?.[last.id]?.initialBytes
+		return typeof from === 'number' && typeof to === 'number' ? to - from : undefined
+	})
+	const reading =
+		programs.length > 1 && growth.every((value) => typeof value === 'number')
+			? para(
+					`The column is nearly flat, and that is the result. From ${first.label.toLowerCase()} to ` +
+						`${last.label.toLowerCase()}, ts-pptx grows by ${kb(growth[0] ?? 0)} and pptxgenjs by ` +
+						`${kb(growth[1] ?? 0)}, which is about what the programs' own literals weigh. Neither ` +
+						'library splits along feature lines: importing either one costs almost everything it ' +
+						'will ever cost, and the deck written afterwards is close to free. So a hello world was ' +
+						'never a flattering measurement of either library, and a consumer weighing bundle size ' +
+						'is choosing between two roughly fixed costs rather than between two slopes.'
+				)
+			: []
+
+	const lines = [
+		'### What a bundled program costs',
+		'',
 		...para(
-			'The hello world program is identical in intent on both sides and written in each ' +
-				"library's own idiom: one slide, one text box, then export. It is bundled with esbuild " +
-				'for the browser, minified, and gzipped at level 9, following the conventions ' +
+			`Each row is a whole deck both libraries build: ${programs.length} consumer programs, from the ` +
+				'smallest one anyone writes up to one using every construct the shared baseline above ' +
+				'shows both of them emitting. Each is written in its own idiom on both sides, and the ' +
+				'calls behind every row are on [side-by-side syntax](comparison-syntax.md).'
+		),
+		...programs.flatMap((program) => bullet(`**${program.label}.** ${program.what}`)),
+		'',
+		...table(
+			['Program', 'ts-pptx', 'pptxgenjs', 'Difference'],
+			programs.map((program) =>
+				deltaRow(
+					program.label,
+					bundles.map((byId) => byId?.[program.id]?.initialBytes),
+					kb
+				)
+			)
+		),
+		...reading,
+		...para(
+			'Both columns construct the library the way every consumer of pptxgenjs constructs it, ' +
+				'with the class that carries everything. ts-pptx has a lower floor than that, reached by ' +
+				'composing a presentation from only the construct families a program uses, and ' +
+				'[bundle size](bundle-size.md) carries those figures. It is deliberately not a row here: ' +
+				'pptxgenjs has no counterpart to compose, so the cell beside it would be empty and the ' +
+				'percentage would be comparing two different programs.'
+		),
+		...para(
+			'Every program is identical in intent on both sides. Each is bundled with esbuild for the ' +
+				'browser, minified, and gzipped at level 9, following the conventions ' +
 				'`scripts/bundle-size-ratchet.mjs` documents, with one difference that matters. The ' +
 				'ratchet never bundles, so it cannot drop unreachable code and its figures are an upper ' +
 				'bound on what the package ships; this bundles and does tree-shake, because a ' +
@@ -630,22 +768,17 @@ function sectionHygiene(snapshot) {
 				'will not agree, and neither is wrong.**'
 		),
 		...para(
-			'Code splitting is on, so the figure is the entry chunk: what the program pays before its ' +
+			'Code splitting is on, so each figure is the entry chunk: what the program pays before its ' +
 				'first line runs. Chunks a bundler defers behind a dynamic import are not counted, ' +
 				'because a program that never takes that path never fetches them.'
 		),
+		...para(
+			'Each program is run against both libraries before it is bundled. A bundler compiles a ' +
+				'call that does not exist, and a misspelled method comes out as a smaller bundle rather ' +
+				'than as an error, because the tree-shaker keeps less: running the programs first is ' +
+				'what stops a typo being published here as a saving.'
+		),
 	]
-	const ours = hygieneOf(snapshot, OURS)
-	const upstream = hygieneOf(snapshot, UPSTREAM)
-	if (typeof ours?.install?.bytes === 'number' && ours.install.bytes > upstream?.install?.bytes)
-		lines.push(
-			...para(
-				'ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its ' +
-					'`dist/` ships unminified, and a large share of that weight is documentation comments ' +
-					'that no consumer build keeps, which is why the bundled figures above are much closer ' +
-					'together than the installed ones.'
-			)
-		)
 	return lines
 }
 
@@ -753,6 +886,55 @@ function probeSection(row) {
 }
 
 /**
+ * The bundle corpus as code, under the same rule as the probes above it.
+ *
+ * These are whole decks rather than single constructs, and the comparison page reports what
+ * a consumer's build weighs for each of them. The programs belong on this page for the
+ * reason the probes do: a size that nobody can see the program behind is a number a reader
+ * has to take on trust.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function bundleCorpusSection(snapshot) {
+	/** @type {any[]} */
+	const programs = snapshot.hygiene?.programs ?? []
+	if (programs.length === 0) return []
+	/** @type {Record<string, string>} */
+	const frames = snapshot.hygiene?.frame ?? {}
+
+	const lines = [
+		'## The bundle corpus',
+		'',
+		...para(
+			'The [comparison](comparison.md) also reports what a bundler leaves after tree-shaking, ' +
+				'over whole decks rather than single constructs. These are those programs. Each one ' +
+				'builds the same deck with both libraries, using only constructs the shared baseline ' +
+				'shows both of them emitting, and each is run before it is bundled.'
+		),
+	]
+	if (frames[OURS] && frames[UPSTREAM])
+		lines.push(
+			...para(
+				'The frame is a consumer program rather than the probe harness, so it imports the ' +
+					'package root and keeps the exported bytes:'
+			),
+			...fence(frames[OURS]),
+			...para('and, for the other column:'),
+			...fence(frames[UPSTREAM])
+		)
+
+	for (const program of programs) {
+		const ours = program.source?.[OURS]
+		const upstream = program.source?.[UPSTREAM]
+		lines.push(`### ${program.label}`, '', ...para(program.what))
+		if (ours && upstream && ours === upstream)
+			lines.push(...para('Both libraries, called identically:'), ...fence(ours))
+		else if (ours && upstream) lines.push(`**${OURS}**`, '', ...fence(ours), `**${UPSTREAM}**`, '', ...fence(upstream))
+	}
+	return lines
+}
+
+/**
  * The whole corpus as code, one page.
  * @param {Snapshot} snapshot
  * @returns {string}
@@ -772,6 +954,7 @@ export function renderSyntaxPage(snapshot) {
 		'  - Reading a comparison row and wanting the calls behind it',
 		'  - Porting a deck script from pptxgenjs to ts-pptx',
 		'  - Looking for the ts-pptx call that emits a particular construct',
+		'  - Reading a bundle size and wanting the program that was measured',
 		'doc_type: "reference"',
 		'---',
 		'',
@@ -842,6 +1025,8 @@ export function renderSyntaxPage(snapshot) {
 		for (const row of snapshot.coverage.filter((row) => row.group === group)) lines.push(...probeSection(row))
 	}
 
+	lines.push(...bundleCorpusSection(snapshot))
+
 	lines.push(
 		'## Adding one',
 		'',
@@ -850,6 +1035,11 @@ export function renderSyntaxPage(snapshot) {
 				'probe are ordinary code. A pull request that adds an intent is welcome, including one ' +
 				'ts-pptx fails. The harness reports the four outcomes it reads, and the comparison page ' +
 				'prints an intent upstream emits and we do not rather than dropping it.'
+		),
+		...para(
+			'The bundle corpus is `scripts/comparison/programs.mjs`, one object per program, on one ' +
+				'extra condition: both arms have to build the same deck. A program only one library can ' +
+				'build measures two different pieces of work and reports the difference as a size.'
 		)
 	)
 

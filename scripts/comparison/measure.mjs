@@ -59,7 +59,7 @@ import { pathToFileURL } from 'node:url'
 import { isMain, parseCli, ROOT, run, runCli } from '../script-utils.mjs'
 import { measureHealth } from './health.mjs'
 import { measureHygiene } from './hygiene.mjs'
-import { PROBES, probeSource, SUBJECTS } from './probes.mjs'
+import { PROBES, probeSource, resetCorpusData, SUBJECTS } from './probes.mjs'
 import { findUnavailable, isUnavailable, unavailable } from './unavailable.mjs'
 import { measureValidity } from './validity.mjs'
 
@@ -265,6 +265,10 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = fals
 		/** @type {Record<string, string>} */
 		const notes = {}
 		for (const subject of SUBJECTS) {
+			// Every arm sees the corpus's own data rather than what the previous library left in
+			// it, and the snippet recorded below is rendered from a copy taken before any of them
+			// ran. See `./corpus-data.mjs`.
+			resetCorpusData()
 			const { outcome, message, deck } = await measureProbe(probe, subject, forSubject(subjects, subject), deckDir)
 			results[subject] = outcome
 			if (message) notes[subject] = message
@@ -331,7 +335,7 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = fals
 			? {}
 			: {
 					validity: await measureValidity(coverage, decks),
-					hygiene: await measureHygiene({ workDir, upstreamRoot: upstream.root, reuse: reuseInstalls }),
+					hygiene: await measureHygiene({ workDir, upstreamRoot: upstream.root, subjects, reuse: reuseInstalls }),
 					health: await measureHealth({
 						workDir,
 						upstreamManifest: upstream.manifest,
@@ -404,15 +408,19 @@ function reportFamilies(snapshot) {
 			console.log(
 				'  validity   ' + `${validity.cleanDecks ?? 0}/${validity.decks} decks clean, ${validity.errors ?? 0} error(s)`
 			)
-		if (hygiene)
+		if (hygiene) {
 			console.log(
 				'  hygiene    ' +
 					`${kb(hygiene.install.bytes)} installed, ${hygiene.dependencies.transitive} transitive dep(s), ` +
-					`${hygiene.entryPoints.length} entry point(s), hello-world ` +
-					(isUnavailable(hygiene.helloWorld)
-						? 'unavailable'
-						: `${kb(hygiene.helloWorld.initialBytes)} initial / ${kb(hygiene.helloWorld.totalBytes)} total`)
+					`${hygiene.entryPoints.length} entry point(s)`
 			)
+			console.log(
+				'  bundles    ' +
+					Object.entries(hygiene.bundles ?? {})
+						.map(([id, bundle]) => `${id} ` + (isUnavailable(bundle) ? 'unavailable' : kb(bundle.initialBytes)))
+						.join(', ')
+			)
+		}
 		if (health) {
 			console.log(
 				'  health     ' +

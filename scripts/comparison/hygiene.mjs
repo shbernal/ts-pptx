@@ -7,7 +7,7 @@
  * measure the development tree — `node_modules` hoisted flat, `dist/` sitting beside
  * sources that never ship — and none of that is what a consumer gets.
  *
- * ## The hello-world bundle, and why it is not the ratchet's number
+ * ## The bundled programs, and why they are not the ratchet's numbers
  *
  * `scripts/bundle-size-ratchet.mjs` documents the measurement conventions this follows:
  * minify before measuring, because half of `dist/` by weight is doc comments that no
@@ -32,8 +32,19 @@
  * the second inside its entry chunk, so a `totalBytes` row would set our sum of both
  * against a number that answers neither.
  *
- * The program is identical in intent on both sides — one slide, one text box, export — and
- * expressed in each library's own idiom, on the same rule the probe corpus follows.
+ * ## Why more than one program
+ *
+ * A hello world is one point on a curve, and it is the point where two tree-shaken bundles
+ * look most alike: almost everything either library holds has been shaken out of it. The
+ * corpus in `./programs.mjs` climbs from there to a deck using every construct the shared
+ * baseline shows both libraries emitting, so the page can say what the second slide costs
+ * as well as the first. Every program is identical in intent on both sides and written in
+ * each library's own idiom, on the rule the probe corpus follows.
+ *
+ * Each program is **run before it is bundled**. esbuild compiles a call that does not
+ * exist, and a misspelled method comes out as a *smaller* bundle rather than as an error,
+ * because the tree-shaker keeps less. Executing first is what stops a typo being published
+ * as a saving.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -41,34 +52,11 @@ import zlib from 'node:zlib'
 import esbuild from 'esbuild'
 import { packPackage } from '../pack-utils.mjs'
 import { run } from '../script-utils.mjs'
+import { PROGRAMS, programArm, programFrame, programModule, programSource, resetProgramData } from './programs.mjs'
 import { unavailable } from './unavailable.mjs'
 
 /** Our package's name on npm, and the directory it installs into. */
 const SELF_PACKAGE = 'pptx-ts'
-
-/**
- * The consumer program, per library. One slide, one text box, export.
- *
- * The result is passed to `console.log` on purpose: an export whose value is discarded is
- * dead code, and a minifier that proves it can drop the whole call graph behind it. That
- * turns the row into a measurement of how well each library annotates side effects, which
- * is not the question being asked.
- * @type {Record<string, string>}
- */
-const PROGRAMS = {
-	'ts-pptx': [
-		"import TsPptx from 'pptx-ts'",
-		'const pres = new TsPptx()',
-		"pres.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })",
-		"console.log(await pres.write({ outputType: 'arraybuffer' }))",
-	].join('\n'),
-	pptxgenjs: [
-		"import PptxGenJS from 'pptxgenjs'",
-		'const pres = new PptxGenJS()',
-		"pres.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })",
-		"console.log(await pres.write({ outputType: 'arraybuffer' }))",
-	].join('\n'),
-}
 
 /**
  * Total bytes under a directory, following no symlinks.
@@ -179,12 +167,13 @@ function moduleFormats(manifest) {
  * this resolution path. `platform: 'browser'` because that is where a bundle size is a cost
  * a user pays, and because it is the setting that honours each manifest's `browser` field.
  * @param {string} prefix - the install directory
- * @param {string} program - the consumer source
+ * @param {import('./programs.mjs').Program} program
+ * @param {string} subject
  * @returns {Promise<{initialBytes: number, totalBytes: number, chunks: number} | import('./unavailable.mjs').Unavailable>}
  */
-async function bundleHelloWorld(prefix, program) {
-	const entry = 'hello-world.mjs'
-	fs.writeFileSync(path.join(prefix, entry), program + '\n')
+async function bundleProgram(prefix, program, subject) {
+	const entry = program.id + '.mjs'
+	fs.writeFileSync(path.join(prefix, entry), programModule(program, subject))
 	try {
 		const result = await esbuild.build({
 			absWorkingDir: prefix,
@@ -193,7 +182,7 @@ async function bundleHelloWorld(prefix, program) {
 			format: 'esm',
 			legalComments: 'none',
 			minify: true,
-			outdir: 'hello-world-bundle',
+			outdir: program.id + '-bundle',
 			platform: 'browser',
 			splitting: true,
 			target: 'es2024',
@@ -204,12 +193,41 @@ async function bundleHelloWorld(prefix, program) {
 		for (const file of result.outputFiles) {
 			const bytes = zlib.gzipSync(Buffer.from(file.contents), { level: 9 }).byteLength
 			totalBytes += bytes
-			if (path.basename(file.path) === 'hello-world.js') initialBytes = bytes
+			if (path.basename(file.path) === program.id + '.js') initialBytes = bytes
 		}
 		return { initialBytes, totalBytes, chunks: result.outputFiles.length }
 	} catch (error) {
-		return unavailable('esbuild could not bundle the consumer program: ' + messageOf(error))
+		return unavailable('esbuild could not bundle the ' + program.id + ' program: ' + messageOf(error))
 	}
+}
+
+/**
+ * Build every program with the real library before any of them is bundled.
+ *
+ * A throw rather than a recorded outcome, because this is not a measurement: a program the
+ * corpus cannot run is an error in the corpus, and the sizes it would produce are sizes for
+ * a deck nobody can build. The check is what makes the bundle figures mean what the page
+ * says they mean, since esbuild reports nothing about a call that does not exist.
+ * @param {Record<string, () => any>} subjects - a fresh presentation per library
+ * @returns {Promise<void>}
+ */
+async function checkPrograms(subjects) {
+	for (const program of PROGRAMS)
+		for (const [subject, construct] of Object.entries(subjects)) {
+			// Every arm sees the data the corpus declares, not what the previous library left in
+			// it. See `./corpus-data.mjs`.
+			resetProgramData()
+			const pres = construct()
+			try {
+				await programArm(program, subject)(pres)
+				await pres.write({ outputType: 'arraybuffer' })
+			} catch (error) {
+				throw new Error(
+					'the bundle program "' + program.id + '" does not build with ' + subject + ': ' + messageOf(error),
+					{ cause: error }
+				)
+			}
+		}
 }
 
 /** @param {unknown} error @returns {string} */
@@ -237,16 +255,24 @@ async function installSelf(workDir, reuse) {
 
 /**
  * Everything one clean install has to say about itself.
+ *
+ * Bundles are keyed by program id rather than listed, so the page pairs the two columns by
+ * id: a corpus reordered between two measurements must not silently pair a chart deck with
+ * a table one.
  * @param {string} prefix - the install directory, holding one `node_modules`
  * @param {string} root - the measured package's own directory inside it
- * @param {string} program - the consumer program for this library
+ * @param {string} subject - which library this install holds
  * @returns {Promise<Record<string, unknown>>}
  */
-async function measureInstall(prefix, root, program) {
+async function measureInstall(prefix, root, subject) {
 	const nodeModules = path.join(prefix, 'node_modules')
 	const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 	const installed = installedPackages(nodeModules)
 	installed.delete(manifest.name)
+
+	/** @type {Record<string, unknown>} */
+	const bundles = {}
+	for (const program of PROGRAMS) bundles[program.id] = await bundleProgram(prefix, program, subject)
 
 	return {
 		install: { bytes: treeBytes(nodeModules), packageBytes: treeBytes(root) },
@@ -257,7 +283,7 @@ async function measureInstall(prefix, root, program) {
 		entryPoints: entrySubpaths(manifest.exports),
 		moduleFormats: moduleFormats(manifest),
 		engines: manifest.engines?.node ?? null,
-		helloWorld: await bundleHelloWorld(prefix, program),
+		bundles,
 	}
 }
 
@@ -276,13 +302,19 @@ function forSubject(map, subject) {
 
 /**
  * Install both libraries clean and measure what each costs.
+ *
+ * `programs` sits beside the two subject keys rather than inside them: the corpus is one
+ * set of decks, and duplicating each program's description under both libraries would let
+ * the two copies disagree about what was measured.
  * @param {object} opts
  * @param {string} opts.workDir
  * @param {string} opts.upstreamRoot - the installed `pptxgenjs` directory `measure.mjs` made
+ * @param {Record<string, () => any>} opts.subjects - a fresh presentation per library
  * @param {boolean} [opts.reuse] - skip packing and reinstalling our own side
  * @returns {Promise<Record<string, unknown>>}
  */
-export async function measureHygiene({ workDir, upstreamRoot, reuse = false }) {
+export async function measureHygiene({ workDir, upstreamRoot, subjects, reuse = false }) {
+	await checkPrograms(subjects)
 	const selfRoot = await installSelf(workDir, reuse)
 	/** @type {Record<string, {prefix: string, root: string}>} */
 	const installs = {
@@ -291,10 +323,18 @@ export async function measureHygiene({ workDir, upstreamRoot, reuse = false }) {
 	}
 
 	/** @type {Record<string, unknown>} */
-	const hygiene = {}
-	for (const subject of Object.keys(PROGRAMS)) {
+	const hygiene = {
+		frame: Object.fromEntries(Object.keys(subjects).map((subject) => [subject, programFrame(subject)])),
+		programs: PROGRAMS.map((program) => ({
+			id: program.id,
+			label: program.label,
+			what: program.what,
+			source: Object.fromEntries(Object.keys(subjects).map((subject) => [subject, programSource(program, subject)])),
+		})),
+	}
+	for (const subject of Object.keys(subjects)) {
 		const { prefix, root } = forSubject(installs, subject)
-		hygiene[subject] = await measureInstall(prefix, root, forSubject(PROGRAMS, subject))
+		hygiene[subject] = await measureInstall(prefix, root, subject)
 	}
 	return hygiene
 }

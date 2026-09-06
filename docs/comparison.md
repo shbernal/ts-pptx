@@ -215,7 +215,7 @@ own cannot tell them apart.
 - `/ppt/charts/chart1.xml`: `The element has unexpected child element
   'http://schemas.openxmlformats.org/drawingml/2006/chart:axId'.`
 - `/ppt/presentation.xml`: `The attribute 'id' has invalid value
-  '{330cb67d-fbfb-48b5-949e-fd4f459a0ebb}'. The Pattern constraint failed. The expected
+  '{6f4a6f12-ab83-cb61-bd6c-89254e7a091b}'. The Pattern constraint failed. The expected
   pattern is \{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}.`
 
 ## Package hygiene
@@ -224,19 +224,71 @@ What a consumer gets. Each library was installed on its own into an empty direct
 upstream from the registry and ts-pptx from a pack of this working tree, so nothing here
 is measured against a development checkout with its dependencies hoisted flat.
 
+|  | ts-pptx | pptxgenjs | Difference |
+|---|---|---|---|
+| Installed size, with dependencies | 10.2 MB | 6.7 MB | +53% |
+| Installed size, the package alone | 5.6 MB | 2.5 MB | +125% |
+| Runtime dependencies, transitive | 3 | 18 | -83% |
+
+The last column is ts-pptx measured against pptxgenjs, so a positive number is ours
+costing more and a negative one is ours costing less. It is a percentage of the pptxgenjs
+figure rather than a difference in bytes, because the two rows above it are megabytes and
+the ones below are kilobytes, and a reader comparing them needs a number that does not
+change meaning between rows.
+
+ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its `dist/`
+ships unminified, and a large share of that weight is documentation comments that no
+consumer build keeps, which is why the bundled figures below are much closer together than
+the installed ones.
+
 |  | ts-pptx | pptxgenjs |
 |---|---|---|
-| Installed size, with dependencies | 10.3 MB | 6.7 MB |
-| Installed size, the package alone | 5.7 MB | 2.5 MB |
-| Runtime dependencies, transitive | 3 | 18 |
 | Runtime dependencies, direct | `@xmldom/xmldom`, `fflate`, `opentype.js` | `@types/node`, `https`, `image-size`, `jszip` |
 | Entry points | `.`, `./inspect`, `./measure`, `./read`, `./script`, `./math`, `./zip`, `./html`, `./families`, `./node`, `./browser` | `.` |
 | Module formats | esm | cjs, esm |
 | `engines.node` | `>=24` | not declared |
-| Hello world, first chunk | 98 kB | 123 kB |
 
-The hello world program is identical in intent on both sides and written in each library's
-own idiom: one slide, one text box, then export. It is bundled with esbuild for the
+### What a bundled program costs
+
+Each row is a whole deck both libraries build: 5 consumer programs, from the smallest one
+anyone writes up to one using every construct the shared baseline above shows both of them
+emitting. Each is written in its own idiom on both sides, and the calls behind every row
+are on [side-by-side syntax](comparison-syntax.md).
+
+- **Hello world.** One slide with one text box.
+- **Text deck.** A defined master, two sections, formatted and bulleted text, a hyperlink,
+  a slide background and speaker notes.
+- **Table deck.** A titled slide and a bordered table with a header row, fixed column
+  widths and per-cell options.
+- **Chart deck.** Three charts on three slides: a column chart with value labels, a
+  two-series line chart, and a pie chart with percentages.
+- **Full deck.** Every construct the shared baseline covers, in one deck: master,
+  sections, background, text, hyperlink, notes, a preset shape, an image, a table and a
+  chart.
+
+| Program | ts-pptx | pptxgenjs | Difference |
+|---|---|---|---|
+| Hello world | 98.6 kB | 123.2 kB | -20% |
+| Text deck | 98.9 kB | 123.6 kB | -20% |
+| Table deck | 98.8 kB | 123.4 kB | -20% |
+| Chart deck | 98.8 kB | 123.5 kB | -20% |
+| Full deck | 99.1 kB | 123.8 kB | -20% |
+
+The column is nearly flat, and that is the result. From hello world to full deck, ts-pptx
+grows by 0.6 kB and pptxgenjs by 0.5 kB, which is about what the programs' own literals
+weigh. Neither library splits along feature lines: importing either one costs almost
+everything it will ever cost, and the deck written afterwards is close to free. So a hello
+world was never a flattering measurement of either library, and a consumer weighing bundle
+size is choosing between two roughly fixed costs rather than between two slopes.
+
+Both columns construct the library the way every consumer of pptxgenjs constructs it, with
+the class that carries everything. ts-pptx has a lower floor than that, reached by
+composing a presentation from only the construct families a program uses, and [bundle
+size](bundle-size.md) carries those figures. It is deliberately not a row here: pptxgenjs
+has no counterpart to compose, so the cell beside it would be empty and the percentage
+would be comparing two different programs.
+
+Every program is identical in intent on both sides. Each is bundled with esbuild for the
 browser, minified, and gzipped at level 9, following the conventions
 `scripts/bundle-size-ratchet.mjs` documents, with one difference that matters. The ratchet
 never bundles, so it cannot drop unreachable code and its figures are an upper bound on
@@ -244,14 +296,14 @@ what the package ships; this bundles and does tree-shake, because a consumer's b
 precisely the thing being compared here. **The two sets of numbers will not agree, and
 neither is wrong.**
 
-Code splitting is on, so the figure is the entry chunk: what the program pays before its
+Code splitting is on, so each figure is the entry chunk: what the program pays before its
 first line runs. Chunks a bundler defers behind a dynamic import are not counted, because
 a program that never takes that path never fetches them.
 
-ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its `dist/`
-ships unminified, and a large share of that weight is documentation comments that no
-consumer build keeps, which is why the bundled figures above are much closer together than
-the installed ones.
+Each program is run against both libraries before it is bundled. A bundler compiles a call
+that does not exist, and a misspelled method comes out as a smaller bundle rather than as
+an error, because the tree-shaker keeps less: running the programs first is what stops a
+typo being published here as a saving.
 
 ## The read side
 
@@ -287,9 +339,9 @@ construct a library does or does not write.
 | Stars | 2 | 6,117 |
 | Open issues | 0 | 230 |
 | Open pull requests | 0 | 64 |
-| Source lines | 63,275 | 10,125 |
-| Test lines | 66,339 | 0 |
-| Test suite | 13 test scripts, 316 spec files under `test/` | no test script, no spec file, no test directory |
+| Source lines | 63,353 | 10,125 |
+| Test lines | 66,682 | 0 |
+| Test suite | 13 test scripts, 318 spec files under `test/` | no test script, no spec file, no test directory |
 | Statement coverage | 95.31% (Node and browser lanes merged) | no automated suite |
 
 The last commit on the default branch is reported rather than the repository's last push,
