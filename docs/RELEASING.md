@@ -64,14 +64,19 @@ pnpm run comparison:render
 git add scripts/comparison/snapshot.json docs/comparison.md docs/comparison-syntax.md README.md
 ```
 
-`comparison:measure` installs upstream pptxgenjs into a scratch directory and
-calls the GitHub and npm APIs, which is why it is a release step and not part of
-`verify`; `comparison:check` (in `verify`) only asserts that the committed page
-still matches the committed snapshot.
+`comparison:measure` installs upstream pptxgenjs into a scratch directory, calls
+the GitHub and npm APIs, and spends about a minute of wall clock timing both
+libraries, which is why it is a release step and not part of `verify`;
+`comparison:check` (in `verify`) only asserts that the committed page still
+matches the committed snapshot. Leave the machine alone while it runs: the timing
+family is measuring this computer, and a build in another window lands in the
+published numbers.
 
 Read the resulting diff rather than staging it blind. A snapshot whose only
-changes are `generatedAt` and a download count is the normal case and needs no
-thought. What is worth stopping on:
+changes are `generatedAt`, a download count and the timing medians is the normal
+case and needs no thought: the timing family is the one measurement here a clock
+took, so every one of its numbers moves on every run, and a few percent in either
+direction means nothing. What is worth stopping on:
 
 - a **coverage row that flipped** in either direction -- a construct one library
   emits and the other does not is the substance of the page, and a flip means
@@ -81,6 +86,12 @@ thought. What is worth stopping on:
   discover that number went down
 - an **upstream version bump**, which re-dates every claim on the page and makes
   the two bullets above worth a closer look
+- a **timing row that changed sign**, or a `compression` ratio near 1. The page's
+  reading of the two timing tables holds only while every compressed row favours
+  us and every stored row favours upstream, and it disappears from the rendered
+  page when that stops being true. A ratio near 1 is the louder signal: it means
+  one library stopped compressing when asked, and its "compressed" column is
+  timing something other than what the column beside it timed
 
 `measure.mjs` refuses to write a snapshot with a hole in it. `--allow-unavailable`
 overrides that for local experiments and must not be used for a release snapshot:

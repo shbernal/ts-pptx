@@ -21,7 +21,7 @@ ts-pptx is an independent derivative of
 trusted over it, so every difference below was produced by running both libraries and
 reading what came out.
 
-Measured on 2026-09-05: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-06: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm (published 2025-06-26).
 
 ## What this measures, and how
@@ -215,7 +215,7 @@ own cannot tell them apart.
 - `/ppt/charts/chart1.xml`: `The element has unexpected child element
   'http://schemas.openxmlformats.org/drawingml/2006/chart:axId'.`
 - `/ppt/presentation.xml`: `The attribute 'id' has invalid value
-  '{6f4a6f12-ab83-cb61-bd6c-89254e7a091b}'. The Pattern constraint failed. The expected
+  '{baba7494-eefd-5be0-247e-80374d185f4c}'. The Pattern constraint failed. The expected
   pattern is \{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}.`
 
 ## Package hygiene
@@ -305,6 +305,72 @@ that does not exist, and a misspelled method comes out as a smaller bundle rathe
 an error, because the tree-shaker keeps less: running the programs first is what stops a
 typo being published here as a saving.
 
+## Generation time
+
+How long each library takes to turn a deck into bytes: the same decks the bundle table
+above weighs, plus three larger ones built for this measurement alone, because the largest
+program up there is three slides and a clock has almost nothing to see in it. The calls
+behind every row are on [side-by-side syntax](comparison-syntax.md).
+
+**A `.pptx` is a zip, so the compression setting is not a detail of this measurement, it
+is the measurement.** The two libraries do not default to the same one. ts-pptx deflates
+unless told not to. pptxgenjs passes no compression option to JSZip on the `outputType`
+path, and JSZip stores by default. Its own `compression` argument is honoured on the
+stream and browser paths and ignored on the one in between, which is the path `writeFile`
+takes in Node. Timing the two default calls against each other would compare deflating
+with not deflating and report the difference as a library being slow, so both tables below
+are matched pairs.
+
+### Compressed
+
+Both libraries asked for a compressed deck, which is what a consumer writing a file they
+intend to keep gets. This is the table that matters.
+
+| Deck | ts-pptx | pptxgenjs | Difference |
+|---|---|---|---|
+| Hello world | 5.4 ms | 11 ms | -53% |
+| Text deck | 6.8 ms | 10 ms | -33% |
+| Table deck | 4.9 ms | 7.1 ms | -30% |
+| Chart deck | 14 ms | 16 ms | -15% |
+| Full deck | 8.1 ms | 13 ms | -39% |
+| 50 slides | 99 ms | 100 ms | -1% |
+| 200 slides | 333 ms | 384 ms | -13% |
+| 500 slides | 826 ms | 1168 ms | -29% |
+
+### Stored, the control
+
+Both libraries asked not to compress. The zip drops out of the measurement, leaving each
+library's own work: building the XML and assembling the package.
+
+| Deck | ts-pptx | pptxgenjs | Difference |
+|---|---|---|---|
+| Hello world | 1.7 ms | 1.1 ms | +54% |
+| Text deck | 2.1 ms | 1.4 ms | +53% |
+| Table deck | 2.3 ms | 1.2 ms | +95% |
+| Chart deck | 5.7 ms | 3.9 ms | +45% |
+| Full deck | 4.0 ms | 2.6 ms | +56% |
+| 50 slides | 53 ms | 40 ms | +33% |
+| 200 slides | 211 ms | 153 ms | +38% |
+| 500 slides | 554 ms | 424 ms | +30% |
+
+The two tables point in opposite directions, and that is the finding. Stored, ts-pptx is
+slower on every deck, by 51% on average, so our XML generation and package assembly cost
+more than upstream's. Compressed, ts-pptx is faster on every deck, by 27% on average,
+because fflate deflates faster than JSZip does and the compressor dominates the total. A
+consumer writing a file they intend to keep gets the first table. A consumer who has
+turned compression off gets the second, and should know that is where we are behind.
+
+The measurement is a median over repeated rounds, taken after a warm-up that is thrown
+away, with the two libraries interleaved and the order alternated so that a machine which
+slows down mid-run cannot hand either column a result it did not earn. Building the deck
+and writing it are both inside the clock; constructing the presentation object is not.
+
+**The milliseconds belong to the machine that took them and do not transfer; the ratios
+mostly do.** These were taken on Intel(R) Core(TM) Ultra 5 235U (14 cores) under Node
+v24.20.0 on win32, on 2026-09-06. Repeating a run on the same machine moves a difference
+by a few points in either direction, so read the columns for their direction and rough
+size rather than for their last digit.
+
 ## The read side
 
 pptxgenjs generates decks. It does not read them, and it does not claim to. So there is
@@ -340,8 +406,8 @@ construct a library does or does not write.
 | Open issues | 0 | 230 |
 | Open pull requests | 0 | 64 |
 | Source lines | 63,353 | 10,125 |
-| Test lines | 66,682 | 0 |
-| Test suite | 13 test scripts, 318 spec files under `test/` | no test script, no spec file, no test directory |
+| Test lines | 66,844 | 0 |
+| Test suite | 13 test scripts, 319 spec files under `test/` | no test script, no spec file, no test directory |
 | Statement coverage | 95.31% (Node and browser lanes merged) | no automated suite |
 
 The last commit on the default branch is reported rather than the repository's last push,

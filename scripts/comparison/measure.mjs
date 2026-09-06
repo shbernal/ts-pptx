@@ -7,19 +7,22 @@
  * four outcomes per library, and `scripts/comparison/snapshot.json` is the committed
  * record of them. No row on the finished page comes from anywhere else.
  *
- * Three further families hang off that corpus, each in its own module and its own snapshot
+ * Four further families hang off that corpus, each in its own module and its own snapshot
  * key:
  *
  *   - **`validity`** (`./validity.mjs`) runs the decks just built through the same schema
  *     oracle `test:schema` uses.
  *   - **`hygiene`** (`./hygiene.mjs`) installs each library clean into a temp directory and
  *     weighs what a consumer gets.
- *   - **`health`** (`./health.mjs`) is deliberately apart from the other three: it measures
+ *   - **`timing`** (`./timing.mjs`) is the one measurement here a clock took, over the
+ *     bundle corpus and the larger decks in `./workloads.mjs`. It is also the only one that
+ *     records the machine it ran on, because it is the only one whose numbers belong to it.
+ *   - **`health`** (`./health.mjs`) is deliberately apart from the other four: it measures
  *     *projects* rather than output, and belongs in its own section of the page for the
  *     same reason it has its own key here.
  *
- * A `--probe` run measures coverage only. The other three say nothing about one probe, and
- * two of them cost a pack, two installs and a clone to find that out.
+ * A `--probe` run measures coverage only. The other four say nothing about one probe, and
+ * three of them cost a pack, two installs, a clone or a minute of wall clock to find out.
  *
  * ## Why upstream is installed rather than depended on
  *
@@ -60,6 +63,7 @@ import { isMain, parseCli, ROOT, run, runCli } from '../script-utils.mjs'
 import { measureHealth } from './health.mjs'
 import { measureHygiene } from './hygiene.mjs'
 import { PROBES, probeSource, resetCorpusData, SUBJECTS } from './probes.mjs'
+import { measureTiming } from './timing.mjs'
 import { findUnavailable, isUnavailable, unavailable } from './unavailable.mjs'
 import { measureValidity } from './validity.mjs'
 
@@ -336,6 +340,7 @@ export async function measure({ workDir = DEFAULT_WORK_DIR, reuseInstalls = fals
 			: {
 					validity: await measureValidity(coverage, decks),
 					hygiene: await measureHygiene({ workDir, upstreamRoot: upstream.root, subjects, reuse: reuseInstalls }),
+					timing: await measureTiming({ subjects }),
 					health: await measureHealth({
 						workDir,
 						upstreamManifest: upstream.manifest,
@@ -377,6 +382,7 @@ function report(snapshot, whole) {
 	console.log('upstream ahead: ' + (snapshot.upstreamAhead.join(', ') || 'nothing'))
 	console.log('shared gaps:    ' + (snapshot.sharedGaps.join(', ') || 'nothing'))
 	reportFamilies(snapshot)
+	reportTiming(snapshot)
 }
 
 /** One value as a console cell: a number, a string, or why it is missing. */
@@ -390,10 +396,11 @@ function cell(/** @type {any} */ value) {
 const kb = (bytes) => (bytes / 1024).toFixed(0) + ' kB'
 
 /**
- * The three families that are not the coverage table, one line each.
+ * The per-subject families that are not the coverage table, one line each.
  *
  * A digest, not the page: this is what a human reads to decide whether the run is worth
  * committing, and the rendered page in `docs/` is where the numbers get their framing.
+ * Timing is not here because it has no per-subject line to print — see {@link reportTiming}.
  * @param {any} snapshot
  * @returns {void}
  */
@@ -434,6 +441,40 @@ function reportFamilies(snapshot) {
 					`${cell(health.source.lines)} src lines, ${cell(health.source.testLines)} test lines, ` +
 					'statements ' +
 					(typeof coverage?.pct === 'number' ? `${coverage.pct}% (${coverage.lane} lane)` : cell(coverage))
+			)
+		}
+	}
+}
+
+/**
+ * The timing family, which does not fit the per-subject digest above it.
+ *
+ * Both columns on one line, because a generation time is only ever read as a comparison and
+ * printing the two libraries in separate blocks would make the reader do the subtraction.
+ * @param {any} snapshot
+ * @returns {void}
+ */
+function reportTiming(snapshot) {
+	const timing = snapshot.timing
+	if (!timing) return
+	console.log('\ntiming    ' + timing.machine.cpu + ', ' + timing.machine.cores + ' cores, node ' + timing.machine.node)
+	for (const mode of timing.modes ?? []) {
+		console.log('  ' + mode.id)
+		for (const row of timing.cases ?? []) {
+			const measured = row.modes?.[mode.id]
+			if (!measured || isUnavailable(measured)) {
+				console.log('    ' + row.id.padEnd(12) + ' ' + (measured ? measured.unavailable : 'not measured'))
+				continue
+			}
+			const [ours, theirs] = SUBJECTS.map((subject) => measured[subject])
+			const delta = theirs?.median ? ((ours.median - theirs.median) / theirs.median) * 100 : 0
+			console.log(
+				'    ' +
+					row.id.padEnd(12) +
+					' ' +
+					`${ours.median.toFixed(1)} ms vs ${theirs.median.toFixed(1)} ms ` +
+					`(${delta > 0 ? '+' : ''}${delta.toFixed(0)}%, spread ${ours.spread.toFixed(0)}/${theirs.spread.toFixed(0)}%, ` +
+					`bytes agree to ${measured.bytesAgree === null ? 'n/a' : measured.bytesAgree.toFixed(1) + '%'})`
 			)
 		}
 	}

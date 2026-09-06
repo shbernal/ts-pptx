@@ -120,7 +120,7 @@ Full detail is in [runtime and package support](docs/runtime-and-package-support
 
 ts-pptx is an independent derivative of
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1. Both were
-measured on 2026-09-05 by building the same 22 deck intents with each library and reading
+measured on 2026-09-06 by building the same 22 deck intents with each library and reading
 the bytes that came out.
 
 - **Construct coverage:** ts-pptx emitted 21 of 22, pptxgenjs 10 of 22. Nothing in the

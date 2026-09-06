@@ -1,5 +1,5 @@
 {
-	"generatedAt": "2026-09-05",
+	"generatedAt": "2026-09-06",
 	"subjects": {
 		"ts-pptx": {
 			"version": "3.7.0",
@@ -374,7 +374,7 @@
 					"id": "Sch_AttributeValueDataTypeDetailed",
 					"type": "Schema",
 					"partUri": "/ppt/presentation.xml",
-					"description": "The attribute 'id' has invalid value '{6f4a6f12-ab83-cb61-bd6c-89254e7a091b}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
+					"description": "The attribute 'id' has invalid value '{baba7494-eefd-5be0-247e-80374d185f4c}'. The Pattern constraint failed. The expected pattern is \\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}.",
 					"decks": 1
 				}
 			],
@@ -528,6 +528,405 @@
 			}
 		}
 	},
+	"timing": {
+		"machine": {
+			"cpu": "Intel(R) Core(TM) Ultra 5 235U",
+			"cores": 14,
+			"platform": "win32",
+			"node": "v24.20.0",
+			"measured": "2026-09-06"
+		},
+		"modes": [
+			{
+				"id": "deflate",
+				"label": "Compressed"
+			},
+			{
+				"id": "store",
+				"label": "Stored"
+			}
+		],
+		"shape": {
+			"sizes": [50, 200, 500],
+			"source": {
+				"ts-pptx": "const rows = [\n\t[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }],\n\t[{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }],\n\t[{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }],\n\t[{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }],\n]\nconst bars = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\nfor (let index = 0; index < slides; index++) {\n\tconst slide = pres.addSlide()\n\tslide.addText('Slide ' + (index + 1), { x: 0.6, y: 0.4, w: 8.8, h: 0.8, fontSize: 24, bold: true })\n\tslide.addText(\n\t\t[\n\t\t\t{ text: 'What we saw', options: { bullet: true, bold: true } },\n\t\t\t{ text: 'What we changed', options: { bullet: true } },\n\t\t\t{ text: 'What it cost', options: { bullet: true } },\n\t\t],\n\t\t{ x: 0.6, y: 1.4, w: 4, h: 2.4, fontSize: 14 }\n\t)\n\tif (index % 2 === 0) slide.addTable(rows, { x: 5, y: 1.4, w: 4.4, colW: [2, 1.2, 1.2], fontSize: 10 })\n\telse slide.addChart(bars, { type: 'bar', barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })\n\tslide.addNotes('Speaker notes for slide ' + (index + 1) + '.')\n}",
+				"pptxgenjs": "const rows = [\n\t[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }],\n\t[{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }],\n\t[{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }],\n\t[{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }],\n]\nconst bars = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]\nfor (let index = 0; index < slides; index++) {\n\tconst slide = pres.addSlide()\n\tslide.addText('Slide ' + (index + 1), { x: 0.6, y: 0.4, w: 8.8, h: 0.8, fontSize: 24, bold: true })\n\tslide.addText(\n\t\t[\n\t\t\t{ text: 'What we saw', options: { bullet: true, bold: true } },\n\t\t\t{ text: 'What we changed', options: { bullet: true } },\n\t\t\t{ text: 'What it cost', options: { bullet: true } },\n\t\t],\n\t\t{ x: 0.6, y: 1.4, w: 4, h: 2.4, fontSize: 14 }\n\t)\n\tif (index % 2 === 0) slide.addTable(rows, { x: 5, y: 1.4, w: 4.4, colW: [2, 1.2, 1.2], fontSize: 10 })\n\telse slide.addChart('bar', bars, { barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })\n\tslide.addNotes('Speaker notes for slide ' + (index + 1) + '.')\n}"
+			}
+		},
+		"cases": [
+			{
+				"id": "hello-world",
+				"group": "programs",
+				"label": "Hello world",
+				"what": "One slide with one text box.",
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 5.3576,
+							"min": 4.4116,
+							"spread": 15.6767955801105,
+							"rounds": 25,
+							"bytes": 14291
+						},
+						"pptxgenjs": {
+							"median": 11.3421,
+							"min": 5.9436,
+							"spread": 75.16861956780491,
+							"rounds": 25,
+							"bytes": 14386
+						},
+						"bytesAgree": 0.6603642430140414
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 1.7088,
+							"min": 1.2068,
+							"spread": 41.67837078651685,
+							"rounds": 25,
+							"bytes": 50752
+						},
+						"pptxgenjs": {
+							"median": 1.111,
+							"min": 0.7665,
+							"spread": 116.76867686768679,
+							"rounds": 25,
+							"bytes": 44738
+						},
+						"bytesAgree": 11.849779319041614
+					}
+				},
+				"compression": {
+					"ts-pptx": 3.5513260093765306,
+					"pptxgenjs": 3.109829000417072
+				}
+			},
+			{
+				"id": "text-deck",
+				"group": "programs",
+				"label": "Text deck",
+				"what": "A defined master, two sections, formatted and bulleted text, a hyperlink, a slide background and speaker notes.",
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 6.7859,
+							"min": 5.7089,
+							"spread": 17.92393050295466,
+							"rounds": 25,
+							"bytes": 18475
+						},
+						"pptxgenjs": {
+							"median": 10.0642,
+							"min": 7.6726,
+							"spread": 85.66503050416327,
+							"rounds": 25,
+							"bytes": 18572
+						},
+						"bytesAgree": 0.5222916217962524
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 2.0698,
+							"min": 1.6794,
+							"spread": 28.804715431442656,
+							"rounds": 25,
+							"bytes": 60989
+						},
+						"pptxgenjs": {
+							"median": 1.3536,
+							"min": 1.0216,
+							"spread": 37.57387706855791,
+							"rounds": 25,
+							"bytes": 55125
+						},
+						"bytesAgree": 9.614848579251996
+					}
+				},
+				"compression": {
+					"ts-pptx": 3.301163734776725,
+					"pptxgenjs": 2.968177902218393
+				}
+			},
+			{
+				"id": "table-deck",
+				"group": "programs",
+				"label": "Table deck",
+				"what": "A titled slide and a bordered table with a header row, fixed column widths and per-cell options.",
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 4.9278,
+							"min": 3.4385,
+							"spread": 27.92524047242177,
+							"rounds": 25,
+							"bytes": 14975
+						},
+						"pptxgenjs": {
+							"median": 7.052,
+							"min": 3.7511,
+							"spread": 53.109756097560975,
+							"rounds": 25,
+							"bytes": 15052
+						},
+						"bytesAgree": 0.5115599255912835
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 2.3093,
+							"min": 1.7991,
+							"spread": 18.61603083185381,
+							"rounds": 25,
+							"bytes": 67723
+						},
+						"pptxgenjs": {
+							"median": 1.1856,
+							"min": 0.8942,
+							"spread": 31.604251012145752,
+							"rounds": 25,
+							"bytes": 61700
+						},
+						"bytesAgree": 8.89358120579419
+					}
+				},
+				"compression": {
+					"ts-pptx": 4.522404006677796,
+					"pptxgenjs": 4.099123040127558
+				}
+			},
+			{
+				"id": "chart-deck",
+				"group": "programs",
+				"label": "Chart deck",
+				"what": "Three charts on three slides: a column chart with value labels, a two-series line chart, and a pie chart with percentages.",
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 13.8286,
+							"min": 7.0542,
+							"spread": 74.50139565827344,
+							"rounds": 25,
+							"bytes": 42526
+						},
+						"pptxgenjs": {
+							"median": 16.2293,
+							"min": 8.5684,
+							"spread": 56.87429525611086,
+							"rounds": 25,
+							"bytes": 35950
+						},
+						"bytesAgree": 15.463481164464094
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 5.6792,
+							"min": 4.506,
+							"spread": 26.266023383575167,
+							"rounds": 25,
+							"bytes": 97050
+						},
+						"pptxgenjs": {
+							"median": 3.9072,
+							"min": 3.2447,
+							"spread": 43.28163390663392,
+							"rounds": 25,
+							"bytes": 124086
+						},
+						"bytesAgree": 21.788114694647263
+					}
+				},
+				"compression": {
+					"ts-pptx": 2.282133283167944,
+					"pptxgenjs": 3.4516272600834492
+				}
+			},
+			{
+				"id": "full-deck",
+				"group": "programs",
+				"label": "Full deck",
+				"what": "Every construct the shared baseline covers, in one deck: master, sections, background, text, hyperlink, notes, a preset shape, an image, a table and a chart.",
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 8.1231,
+							"min": 5.4071,
+							"spread": 56.0204847902894,
+							"rounds": 25,
+							"bytes": 29654
+						},
+						"pptxgenjs": {
+							"median": 13.3602,
+							"min": 6.5184,
+							"spread": 65.69961527522042,
+							"rounds": 25,
+							"bytes": 27453
+						},
+						"bytesAgree": 7.4222701827746675
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 4.0185,
+							"min": 3.3521,
+							"spread": 29.4388453403011,
+							"rounds": 25,
+							"bytes": 86360
+						},
+						"pptxgenjs": {
+							"median": 2.5704,
+							"min": 2.1545,
+							"spread": 17.569249922191098,
+							"rounds": 25,
+							"bytes": 91044
+						},
+						"bytesAgree": 5.14476516848996
+					}
+				},
+				"compression": {
+					"ts-pptx": 2.9122546705334864,
+					"pptxgenjs": 3.3163588678832916
+				}
+			},
+			{
+				"id": "scale-50",
+				"group": "scale",
+				"label": "50 slides",
+				"what": "50 slides of the same shape: a title, three bullets, a table or a column chart on alternating slides, and speaker notes.",
+				"slides": 50,
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 99.053,
+							"min": 71.1979,
+							"spread": 20.821479410012813,
+							"rounds": 13,
+							"bytes": 349003
+						},
+						"pptxgenjs": {
+							"median": 100.0748,
+							"min": 87.4684,
+							"spread": 10.59007862119135,
+							"rounds": 13,
+							"bytes": 293382
+						},
+						"bytesAgree": 15.93711228843305
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 52.7617,
+							"min": 39.5625,
+							"spread": 22.05254948191586,
+							"rounds": 25,
+							"bytes": 863331
+						},
+						"pptxgenjs": {
+							"median": 39.7176,
+							"min": 30.8307,
+							"spread": 7.239108103208652,
+							"rounds": 25,
+							"bytes": 1138912
+						},
+						"bytesAgree": 24.19686507825012
+					}
+				},
+				"compression": {
+					"ts-pptx": 2.473706529743297,
+					"pptxgenjs": 3.882010484624142
+				}
+			},
+			{
+				"id": "scale-200",
+				"group": "scale",
+				"label": "200 slides",
+				"what": "200 slides of the same shape: a title, three bullets, a table or a column chart on alternating slides, and speaker notes.",
+				"slides": 200,
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 333.2584,
+							"min": 304.8578,
+							"spread": 7.847049016618943,
+							"rounds": 7,
+							"bytes": 1361189
+						},
+						"pptxgenjs": {
+							"median": 383.7745,
+							"min": 358.9556,
+							"spread": 11.89156653190871,
+							"rounds": 7,
+							"bytes": 1138970
+						},
+						"bytesAgree": 16.32535966717333
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 211.3256,
+							"min": 196.1263,
+							"spread": 6.770547439590844,
+							"rounds": 7,
+							"bytes": 3317797
+						},
+						"pptxgenjs": {
+							"median": 153.2346,
+							"min": 144.805,
+							"spread": 4.030453957526566,
+							"rounds": 7,
+							"bytes": 4438996
+						},
+						"bytesAgree": 25.2579412101295
+					}
+				},
+				"compression": {
+					"ts-pptx": 2.4374256624171955,
+					"pptxgenjs": 3.8973774550690536
+				}
+			},
+			{
+				"id": "scale-500",
+				"group": "scale",
+				"label": "500 slides",
+				"what": "500 slides of the same shape: a title, three bullets, a table or a column chart on alternating slides, and speaker notes.",
+				"slides": 500,
+				"modes": {
+					"deflate": {
+						"ts-pptx": {
+							"median": 826.4787,
+							"min": 794.3456,
+							"spread": 9.28248967577749,
+							"rounds": 7,
+							"bytes": 3387246
+						},
+						"pptxgenjs": {
+							"median": 1167.8913,
+							"min": 1058.6612,
+							"spread": 8.41789385707386,
+							"rounds": 7,
+							"bytes": 2830205
+						},
+						"bytesAgree": 16.445247850318516
+					},
+					"store": {
+						"ts-pptx": {
+							"median": 553.5223,
+							"min": 529.3407,
+							"spread": 10.284906317234178,
+							"rounds": 7,
+							"bytes": 8229997
+						},
+						"pptxgenjs": {
+							"median": 424.3133,
+							"min": 408.1865,
+							"spread": 5.986413812623839,
+							"rounds": 7,
+							"bytes": 11041246
+						},
+						"bytesAgree": 25.461338330836934
+					}
+				},
+				"compression": {
+					"ts-pptx": 2.429701592385082,
+					"pptxgenjs": 3.9012177563109387
+				}
+			}
+		]
+	},
 	"health": {
 		"ts-pptx": {
 			"repo": "shbernal/ts-pptx",
@@ -547,7 +946,7 @@
 			},
 			"source": {
 				"lines": 63353,
-				"testLines": 66682,
+				"testLines": 66844,
 				"statementCoverage": {
 					"pct": 95.31,
 					"lane": "merged"
@@ -568,7 +967,7 @@
 						"test:com",
 						"test:lo"
 					],
-					"specFiles": 318,
+					"specFiles": 319,
 					"testDirs": ["test"]
 				}
 			}

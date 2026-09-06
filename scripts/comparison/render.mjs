@@ -99,6 +99,7 @@ Options:
  * @property {string[]} sharedGaps
  * @property {Record<string, any>} validity
  * @property {Record<string, any>} hygiene
+ * @property {Record<string, any>} timing
  * @property {Record<string, any>} health
  */
 
@@ -783,6 +784,176 @@ function sectionBundles(snapshot) {
 }
 
 /**
+ * Milliseconds, to one decimal below ten and to none above it.
+ *
+ * A deck that takes 4.7 ms and one that takes 838 ms are both on this page, and one format
+ * cannot serve both: a decimal on the large figure is precision the measurement does not
+ * have, and no decimal on the small one rounds two different rows to the same number.
+ * @param {number} ms
+ * @returns {string}
+ */
+const millis = (ms) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms'
+
+/**
+ * A list as English writes one, with the last item joined by "and".
+ * @param {string[]} items
+ * @returns {string}
+ */
+function listOf(items) {
+	if (items.length <= 1) return items.join('')
+	return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]
+}
+
+/**
+ * One mode's table: every deck, both libraries, and the difference between them.
+ * @param {any} timing
+ * @param {string} modeId
+ * @returns {string[]}
+ */
+function timingTable(timing, modeId) {
+	/** @type {any[]} */
+	const cases = timing.cases ?? []
+	return table(
+		['Deck', 'ts-pptx', 'pptxgenjs', 'Difference'],
+		cases.map((row) => {
+			const measured = row.modes?.[modeId]
+			if (!measured || isUnavailable(measured)) return null
+			return deltaRow(
+				row.label,
+				COLUMNS.map((subject) => measured[subject]?.median),
+				millis
+			)
+		})
+	)
+}
+
+/**
+ * Generation time, which is the one measurement here that a clock took.
+ *
+ * Its own section rather than a row in package hygiene, because everything else on this
+ * page is a fact about an artifact and this is a fact about a machine running a library.
+ * The section is largely method for that reason: a time nobody can see the conditions
+ * behind is not a measurement, it is a claim.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionTiming(snapshot) {
+	/** @type {any} */
+	const timing = snapshot.timing
+	if (!timing?.cases?.length) return []
+	const machine = timing.machine ?? {}
+	/** @type {any[]} */
+	const modes = timing.modes ?? []
+
+	const lines = [
+		'## Generation time',
+		'',
+		...para(
+			'How long each library takes to turn a deck into bytes: the same decks the bundle table ' +
+				'above weighs, plus three larger ones built for this measurement alone, because the ' +
+				'largest program up there is three slides and a clock has almost nothing to see in it. ' +
+				'The calls behind every row are on [side-by-side syntax](comparison-syntax.md).'
+		),
+		...para(
+			'**A `.pptx` is a zip, so the compression setting is not a detail of this measurement, it ' +
+				'is the measurement.** The two libraries do not default to the same one. ts-pptx ' +
+				'deflates unless told not to. pptxgenjs passes no compression option to JSZip on the ' +
+				'`outputType` path, and JSZip stores by default. Its own `compression` argument is ' +
+				'honoured on the stream and browser paths and ignored on the one in between, which is ' +
+				'the path `writeFile` takes in Node. Timing the two default calls against each other ' +
+				'would compare deflating with not deflating and report the difference as a library ' +
+				'being slow, so both tables below are matched pairs.'
+		),
+	]
+
+	for (const mode of modes) {
+		const heading = mode.id === 'deflate' ? 'Compressed' : 'Stored, the control'
+		lines.push(
+			`### ${heading}`,
+			'',
+			...para(
+				mode.id === 'deflate'
+					? 'Both libraries asked for a compressed deck, which is what a consumer writing a file ' +
+							'they intend to keep gets. This is the table that matters.'
+					: 'Both libraries asked not to compress. The zip drops out of the measurement, leaving ' +
+							"each library's own work: building the XML and assembling the package."
+			),
+			...timingTable(timing, mode.id)
+		)
+	}
+
+	const flip = readingOfModes(timing)
+	if (flip.length > 0) lines.push(...flip)
+
+	lines.push(
+		...para(
+			'The measurement is a median over repeated rounds, taken after a warm-up that is thrown ' +
+				'away, with the two libraries interleaved and the order alternated so that a machine ' +
+				'which slows down mid-run cannot hand either column a result it did not earn. Building ' +
+				'the deck and writing it are both inside the clock; constructing the presentation ' +
+				'object is not.'
+		),
+		...para(
+			'**The milliseconds belong to the machine that took them and do not transfer; the ratios ' +
+				'mostly do.** These were taken on ' +
+				`${machine.cpu ?? 'an unrecorded CPU'} (${machine.cores ?? '?'} cores) under Node ` +
+				`${machine.node ?? '?'} on ${machine.platform ?? '?'}` +
+				(machine.measured ? `, on ${machine.measured}` : '') +
+				'. Repeating a run on the same machine moves a difference by a few points in either ' +
+				'direction, so read the columns for their direction and rough size rather than for ' +
+				'their last digit.'
+		)
+	)
+	return lines
+}
+
+/**
+ * What the two modes say when they are read against each other.
+ *
+ * Written from the snapshot rather than asserted in prose, because the sentence only holds
+ * while the numbers do: the interesting thing about these two tables is that they point in
+ * opposite directions, and a page that said so from memory would keep saying it after a
+ * release where it stopped being true.
+ * @param {any} timing
+ * @returns {string[]}
+ */
+function readingOfModes(timing) {
+	/** @type {any[]} */
+	const cases = timing.cases ?? []
+	/** @param {string} mode @returns {number[]} */
+	const deltas = (mode) =>
+		cases
+			.map((row) => {
+				const measured = row.modes?.[mode]
+				if (!measured || isUnavailable(measured)) return null
+				const ours = measured[OURS]?.median
+				const theirs = measured[UPSTREAM]?.median
+				return typeof ours === 'number' && typeof theirs === 'number' && theirs > 0
+					? ((ours - theirs) / theirs) * 100
+					: null
+			})
+			.filter((value) => value !== null)
+
+	const compressed = deltas('deflate')
+	const stored = deltas('store')
+	if (compressed.length !== cases.length || stored.length !== cases.length) return []
+	if (!(compressed.every((value) => value < 0) && stored.every((value) => value > 0))) return []
+
+	// Both are ratios of a ratio, so the mean of the row-wise percentages is the honest
+	// summary: no row is weighted by how big its deck happened to be.
+	const mean = (/** @type {number[]} */ values) => values.reduce((sum, value) => sum + value, 0) / values.length
+	return para(
+		'The two tables point in opposite directions, and that is the finding. Stored, ts-pptx is ' +
+			`slower on every deck, by ${mean(stored).toFixed(0)}% on average, so our XML generation and ` +
+			"package assembly cost more than upstream's. Compressed, ts-pptx is faster on every deck, by " +
+			`${Math.abs(mean(compressed)).toFixed(0)}% on average, because fflate deflates faster than ` +
+			'JSZip does and the compressor dominates the total. A consumer writing a file they intend ' +
+			'to keep gets the first table. A consumer who has turned compression off gets the second, ' +
+			'and should know that is where we are behind.'
+	)
+}
+
+/**
  * The read side, deliberately not a table.
  *
  * There is nothing to compare: one library has the capability and the other does not. A
@@ -935,6 +1106,46 @@ function bundleCorpusSection(snapshot) {
 }
 
 /**
+ * The scale decks behind the generation-time table.
+ *
+ * Only the three large ones. The five programs timed alongside them are the bundle corpus
+ * printed above, and a second copy of each would be a second thing to keep true.
+ *
+ * One block rather than two wherever the arms agree, on the rule the rest of this page
+ * follows — which here means each deck is printed once, since the two libraries differ in a
+ * single `addChart` call.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function timingCorpusSection(snapshot) {
+	/** @type {any} */
+	const shape = snapshot.timing?.shape
+	const ours = shape?.source?.[OURS]
+	const upstream = shape?.source?.[UPSTREAM]
+	if (!ours || !upstream) return []
+	/** @type {number[]} */
+	const sizes = shape.sizes ?? []
+
+	const lines = [
+		'## The timing corpus',
+		'',
+		...para(
+			'The [comparison](comparison.md) also reports how long each library takes to turn a deck ' +
+				'into bytes. The small end of that measurement is the bundle corpus above; the large ' +
+				'end is this, one deck shape built at ' +
+				(sizes.length > 0 ? listOf(sizes.map((size) => String(size))) + ' slides' : 'several sizes') +
+				'. It is printed once because the slide count is the only thing that changes between ' +
+				'them, and it is deliberately dull: a timing corpus is not hunting for the slowest ' +
+				'construct, it is making the per-slide cost visible.'
+		),
+		...para('`slides` below is that count. Everything else is the same code at every size.'),
+	]
+	if (ours === upstream) lines.push(...para('Both libraries, called identically:'), ...fence(ours))
+	else lines.push(`**${OURS}**`, '', ...fence(ours), `**${UPSTREAM}**`, '', ...fence(upstream))
+	return lines
+}
+
+/**
  * The whole corpus as code, one page.
  * @param {Snapshot} snapshot
  * @returns {string}
@@ -1025,7 +1236,7 @@ export function renderSyntaxPage(snapshot) {
 		for (const row of snapshot.coverage.filter((row) => row.group === group)) lines.push(...probeSection(row))
 	}
 
-	lines.push(...bundleCorpusSection(snapshot))
+	lines.push(...bundleCorpusSection(snapshot), ...timingCorpusSection(snapshot))
 
 	lines.push(
 		'## Adding one',
@@ -1242,6 +1453,7 @@ export function renderPage(snapshot) {
 		...sectionCoverage(snapshot),
 		...sectionValidity(snapshot),
 		...sectionHygiene(snapshot),
+		...sectionTiming(snapshot),
 		...sectionReadSide(),
 		...sectionHealth(snapshot),
 	]

@@ -91,6 +91,8 @@ are in every aggregate the repo has.
 | `comparison/source.mjs` | Library | Recovers a probe's build function as printable code, with the corpus constants it names declared above it | `comparison/probes.mjs` |
 | `comparison/unavailable.mjs` | Library | The one shape a measurement takes when a fetch failed, and the walk that finds them in a finished snapshot | `comparison/measure.mjs` |
 | `comparison/validity.mjs` | Library | Runs the decks the corpus built through the `test:schema` oracle, per library | `comparison/measure.mjs` |
+| `comparison/timing.mjs` | Library | How long each library takes to turn a deck into bytes, at two matched compression settings, interleaved and median-of-many | `comparison/measure.mjs` |
+| `comparison/workloads.mjs` | Library | The timing corpus: one deck shape at three slide counts, large enough for a clock to see | `comparison/timing.mjs` |
 | `gate-decks/chart-matrix.mjs` | Library | Gate deck reaching the chart emitters the showcase corpus never does | `byte-identity.mjs` |
 | `gate-decks/html-table.mjs` | Library | Gate deck reaching the HTML-table conversion, the one entry point with no deck of any kind behind it | `byte-identity.mjs` |
 | `gate-decks/index.mjs` | Library | The gate-deck registry — one list, so a deck cannot go undiffed | `byte-identity.mjs` |

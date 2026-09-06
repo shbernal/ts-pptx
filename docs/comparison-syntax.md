@@ -22,7 +22,7 @@ library was given. The harness lifts them out of the build functions as it measu
 records them in the snapshot beside the outcome they produced, so no snippet here can
 illustrate a row that some earlier version of it produced.
 
-Measured on 2026-09-05: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-06: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm.
 
 Each intent is written in the library's own idiom rather than transcribed from one into
@@ -711,6 +711,70 @@ pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' }).addChart('bar',
 	h: 4.6,
 	showValue: true,
 })
+```
+
+## The timing corpus
+
+The [comparison](comparison.md) also reports how long each library takes to turn a deck
+into bytes. The small end of that measurement is the bundle corpus above; the large end is
+this, one deck shape built at 50, 200 and 500 slides. It is printed once because the slide
+count is the only thing that changes between them, and it is deliberately dull: a timing
+corpus is not hunting for the slowest construct, it is making the per-slide cost visible.
+
+`slides` below is that count. Everything else is the same code at every size.
+
+**ts-pptx**
+
+```js
+const rows = [
+	[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }],
+	[{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }],
+	[{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }],
+	[{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }],
+]
+const bars = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]
+for (let index = 0; index < slides; index++) {
+	const slide = pres.addSlide()
+	slide.addText('Slide ' + (index + 1), { x: 0.6, y: 0.4, w: 8.8, h: 0.8, fontSize: 24, bold: true })
+	slide.addText(
+		[
+			{ text: 'What we saw', options: { bullet: true, bold: true } },
+			{ text: 'What we changed', options: { bullet: true } },
+			{ text: 'What it cost', options: { bullet: true } },
+		],
+		{ x: 0.6, y: 1.4, w: 4, h: 2.4, fontSize: 14 }
+	)
+	if (index % 2 === 0) slide.addTable(rows, { x: 5, y: 1.4, w: 4.4, colW: [2, 1.2, 1.2], fontSize: 10 })
+	else slide.addChart(bars, { type: 'bar', barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })
+	slide.addNotes('Speaker notes for slide ' + (index + 1) + '.')
+}
+```
+
+**pptxgenjs**
+
+```js
+const rows = [
+	[{ text: 'Region' }, { text: 'Revenue' }, { text: 'Growth' }],
+	[{ text: 'North America' }, { text: '24.9' }, { text: '14.2%' }],
+	[{ text: 'EMEA' }, { text: '12.6' }, { text: '16.8%' }],
+	[{ text: 'APAC' }, { text: '6.8' }, { text: '9.4%' }],
+]
+const bars = [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3', 'Q4'], values: [12, 19, 7, 24] }]
+for (let index = 0; index < slides; index++) {
+	const slide = pres.addSlide()
+	slide.addText('Slide ' + (index + 1), { x: 0.6, y: 0.4, w: 8.8, h: 0.8, fontSize: 24, bold: true })
+	slide.addText(
+		[
+			{ text: 'What we saw', options: { bullet: true, bold: true } },
+			{ text: 'What we changed', options: { bullet: true } },
+			{ text: 'What it cost', options: { bullet: true } },
+		],
+		{ x: 0.6, y: 1.4, w: 4, h: 2.4, fontSize: 14 }
+	)
+	if (index % 2 === 0) slide.addTable(rows, { x: 5, y: 1.4, w: 4.4, colW: [2, 1.2, 1.2], fontSize: 10 })
+	else slide.addChart('bar', bars, { barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })
+	slide.addNotes('Speaker notes for slide ' + (index + 1) + '.')
+}
 ```
 
 ## Adding one
