@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Measured Text Fit"
+title: "Measured text fit"
 summary: "How fit:'shrink'/'resize' compute and bake an autofit result so overflowing text self-corrects in headless renders, and the PowerPoint-authored oracle that calibrates it."
 read_when:
   - Changing the autofit / text-fit solvers or font metrics
@@ -12,7 +12,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Measured Text Fit
+# Measured text fit
 
 ## Status
 
@@ -39,11 +39,11 @@ cards/components) in a headless render pipeline.
 
 ## The problem
 
-The `fit` autofit markup already existed in the project and downstream consumers
-already used `fit:'shrink'` heavily, but the project emitted the **bare flag with no
-baked result** (`<a:normAutofit/>` / `<a:spAutoFit/>`). A bare flag defers the fit
-computation to an interactive edit/resize event that a headless render never
-fires, so in a headless LibreOffice → PNG pipeline (and on plain file-open)
+The `fit` autofit markup already existed here, and downstream consumers leaned
+on `fit:'shrink'` heavily. But the project emitted the bare flag with no baked
+result: `<a:normAutofit/>` or `<a:spAutoFit/>`. A bare flag defers the fit
+computation to an interactive edit or resize event. A headless render never
+fires one. So in a headless LibreOffice → PNG pipeline, and on plain file-open,
 nothing recomputes and the text still overflows.
 
 This is **not** an inherent renderer limitation: both PowerPoint and LibreOffice
@@ -98,21 +98,21 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 
 ### Font collections (`src/measure/font-collection.ts`)
 
-A `.ttc`/`.otc` is one file holding several fonts over shared tables, and on Windows
-it is how most of the faces a consumer would reach for to measure East Asian text
-ship: `msgothic.ttc` is three fonts (MS Gothic, MS UI Gothic, MS PGothic) over one
-5.5 MB `glyf`, and Yu Gothic, SimSun, Microsoft YaHei, MingLiU and Nirmala UI are
-the same shape. Cambria is too, so this is not only a CJK concern.
+A `.ttc`/`.otc` is one file holding several fonts over shared tables. On Windows
+it is how most of the faces you would reach for to measure East Asian text ship.
+`msgothic.ttc` is three fonts, MS Gothic, MS UI Gothic and MS PGothic, over one
+5.5 MB `glyf`. Yu Gothic, SimSun, Microsoft YaHei, MingLiU and Nirmala UI are
+the same shape. So is Cambria, so this is not only a CJK concern.
 
-`opentype.js` does not read the `ttcf` wrapper (`parseBuffer` throws `Unsupported
-OpenType signature ttcf`, still true in 2.0.0), so the selected font is unwrapped
-into a standalone sfnt first. The unwrap rests on one property of the format: a
-member's table records carry offsets **absolute to the start of the file**, which is
-how two members name the same `glyf` bytes. A member therefore does not have to be
-copied out to be read on its own. It is enough to hand the parser a buffer whose
-first bytes are that member's table directory, leaving every table where it already
-sits, which is what `extractFontFace` does (one copy of the file, prologue
-overwritten, nothing moved).
+`opentype.js` does not read the `ttcf` wrapper (`parseBuffer` throws
+`Unsupported OpenType signature ttcf`, still true in 2.0.0), so the selected
+font is unwrapped into a standalone sfnt first. The unwrap rests on one property
+of the format: a member's table records carry offsets **absolute to the start of
+the file**, which is how two members name the same `glyf` bytes. So a member
+need not be copied out to be read on its own. Hand the parser a buffer whose
+first bytes are that member's table directory and leave every table where it
+already sits. That is what `extractFontFace` does: one copy of the file,
+prologue overwritten, nothing moved.
 
 Because a collection has no single answer to "which font", one has to be chosen:
 
@@ -128,12 +128,13 @@ await pptx.registerFontMetrics('Cambria Math', 'C:/Windows/Fonts/cambria.ttc', {
 ```
 
 A selector that matches nothing **throws** (`font/collection-face-not-found`,
-`font/collection-index-out-of-range`) rather than falling back to the first font.
-That is the one decision in here worth defending: measuring the wrong member is
-invisible downstream, because the wrong advances are still perfectly plausible
-numbers, and MS Gothic against MS PGothic is a 26% difference on Latin. The
-selector means the same thing for a plain `.ttf`, which is a one-entry list, so a
-wrong index or an unmatched name is an error there too rather than being ignored.
+`font/collection-index-out-of-range`) rather than falling back to the first
+font. That is the one decision in here worth defending. Measuring the wrong
+member is invisible downstream, because the wrong advances are still perfectly
+plausible numbers. MS Gothic against MS PGothic is a 26% difference on Latin.
+The selector means the same thing for a plain `.ttf`, which is a one-entry list,
+so a wrong index or an unmatched name is an error there too rather than
+something to ignore.
 
 Evidence: `test/regression/text/font-collection.test.js`. Two suites, because the
 claims have different reachability. A collection synthesized from the repo's own
@@ -164,13 +165,14 @@ follow.
 
 ### East Asian line breaking
 
-Chinese and Japanese text has no spaces to break at: PowerPoint breaks it between
-any two characters. Tokenizing such a run as one unbreakable "word" moves the whole
-run to the next line, wastes the rest of the current one, and over-reports the line
-count, so `fit:'shrink'` bakes a `fontScale` PowerPoint would never have chosen and
-`measureText` reports a vertical overflow that is not there. `isCjkBreakCharacter`
-in `src/measure/text-fit.ts` therefore makes each such code point its own wrap
-opportunity (a break is allowed either side of it, whitespace or not).
+Chinese and Japanese text has no spaces to break at. PowerPoint breaks it
+between any two characters. Tokenize such a run as one unbreakable "word" and
+the whole run moves to the next line, wasting the rest of the current one and
+over-reporting the line count. Then `fit:'shrink'` bakes a `fontScale`
+PowerPoint would never have chosen, and `measureText` reports a vertical
+overflow that is not there. So `isCjkBreakCharacter` in
+`src/measure/text-fit.ts` makes each such code point its own wrap opportunity: a
+break is allowed either side of it, whitespace or not.
 
 **Hangul is deliberately excluded**, and this is the part that is easy to get wrong.
 UAX #14 permits breaking Korean between syllables, but PowerPoint does not do it:
@@ -180,9 +182,9 @@ over-long-token character-wrap fallback every unbreakable word gets, not a break
 class. Adding Hangul to the break set would *under*-report the line count, which is
 the direction that overflows, the one thing the resize path has no safety net for.
 
-The two **Bopomofo** blocks are in the break set even though they sit either side of
-the excluded Hangul Compatibility Jamo: they are Chinese phonetic notation, not
-Korean, and carry the same UAX #14 class as Han.
+The two Bopomofo blocks are in the break set even though they sit either side of
+the excluded Hangul Compatibility Jamo. They are Chinese phonetic notation, not
+Korean, and they carry the same UAX #14 class as Han.
 
 Both halves are pinned by `autofit-cjk-wrap.pptx` and
 `test/read/cjk-line-breaking-oracle.test.js` (see [Calibration oracle](#calibration-oracle)).
@@ -199,12 +201,13 @@ Two limitations are recorded rather than fixed:
   lacks are skipped by the oracle test.
 
   Unlike every other approximation here, **it is not conservative in a fixed
-  direction**, which is the part worth knowing. Malgun Gothic's `.notdef` advances
-  0.663 em: wider than the 0.5 em halfwidth Katakana it lacks, so that fixture case
-  gains a phantom line (safe); narrower than the 1.0 em Plane-2 ideographs it lacks,
-  so a run of those is measured **short** and can lose a line, which overflows. The
-  ext-B fixture case survives only because five astral characters sit in mostly-Latin
-  text; 24 of them in a 150 pt box measure 2 lines where PowerPoint lays out 3.
+  direction**. That is the part worth knowing. Malgun Gothic's `.notdef`
+  advances 0.663 em. That is wider than the 0.5 em halfwidth Katakana it lacks,
+  so that fixture case gains a phantom line, which is safe. It is narrower than
+  the 1.0 em Plane-2 ideographs it lacks, so a run of those measures **short**
+  and can lose a line, which overflows. The ext-B fixture case survives only
+  because five astral characters sit in mostly-Latin text. Put 24 of them in a
+  150 pt box and the model measures 2 lines where PowerPoint lays out 3.
 
   So the condition is **reported rather than absorbed**: `measureText` returns the
   offending code points in `uncoveredCodepoints`, and the export pass warns once
@@ -237,72 +240,79 @@ Two limitations are recorded rather than fixed:
 PowerPoint has **no** text-autofit for table cells: `a:tcPr`
 (`CT_TableCellProperties`) carries no autofit child and the app ignores
 `normAutofit` inside a cell txBody (rows auto-grow instead). So a cell's
-`fit:'shrink'` (also cascades from a table-level `fit:'shrink'`) cannot bake a
-`fontScale`. Instead, `measure-fit.ts` walks the cell grid (colspan/rowspan via an
-occupancy sweep; column widths from the shared `resolveTableColWidthsEmu`; row
-heights from the shared `resolveTableRowHeightEmu`; cell margins + table→cell
-inheritance), runs the
-**same** shrink solver, and bakes a **reduced literal font size** (floored to
-0.1pt) onto the cell runs: which both PowerPoint and LibreOffice render
-identically with no edit/resize. Only fixed-height rows are touched; auto-height
-rows are skipped (they grow). Options objects are cloned before mutation because
-plain-string cells share the table's single `opt` object. `'resize'`/object forms
-are ignored for cells (a row already auto-grows ≈ spAutoFit).
+`fit:'shrink'`, which also cascades from a table-level `fit:'shrink'`, cannot
+bake a `fontScale`. So `measure-fit.ts` walks the cell grid instead: colspan and
+rowspan through an occupancy sweep, column widths from the shared
+`resolveTableColWidthsEmu`, row heights from the shared
+`resolveTableRowHeightEmu`, then cell margins and table-to-cell inheritance. It
+runs the **same** shrink solver and bakes a reduced literal font size, floored
+to 0.1pt, onto the cell runs. PowerPoint and LibreOffice render that
+identically, with no edit or resize. Only fixed-height rows are touched;
+auto-height rows are skipped, because they grow. Options objects are cloned
+before mutation, because plain-string cells share the table's single `opt`
+object. `'resize'` and the object forms are ignored for cells, since a row that
+auto-grows is already close to `spAutoFit`.
 
 A precondition bug was fixed along the way: auto-width tables (`w` without `colW`)
 emitted ~0-EMU `gridCol` widths; `gen/slide/objects/table.ts` now divides the resolved EMU width via
 `resolveTableColWidthsEmu`.
 
-Row heights reached the same shape later and for the same reason. `rowH` was read
-independently by the emitter, this pass, the auto-pager and `pptx.tableLayout()`, and the
-four disagreed on what a `0`, a negative, or a stringified entry meant, so
-`rowH: [0, 2]` baked a 2.0in row and predicted a 0.2in one, flagged exact.
-`resolveTableRowHeightEmu` in `src/units-internal.ts` is the one reading now, beside the
-column resolver: an entry pins its row only when it is a number greater than zero, and
-anything else present reports `table/invalid-row-height` and falls back to the even split
-of the table's `h`. A *missing* array slot stays silent, because that is how the auto-pager
-spells an auto-height row.
+Row heights reached the same shape later, and for the same reason. Four places
+read `rowH` independently: the emitter, this pass, the auto-pager and
+`pptx.tableLayout()`. They disagreed on what a `0`, a negative, or a stringified
+entry meant. So `rowH: [0, 2]` baked a 2.0in row and predicted a 0.2in one,
+flagged exact.
+
+`resolveTableRowHeightEmu` in `src/units-internal.ts` is the one reading now,
+beside the column resolver. An entry pins its row only when it is a number
+greater than zero. Anything else present reports `table/invalid-row-height` and
+falls back to the even split of the table's `h`. A *missing* array slot stays
+silent, because that is how the auto-pager spells an auto-height row.
 
 ### Unregistered-font heuristic
 
-When a deck registered **some** metrics, a `fit:'shrink'`/`'resize'` box or cell
-whose **named** face has no exact metrics falls back to a conservative
-average-advance table (`getHeuristicFontMetrics`) and still bakes an approximate
-result + warns once, instead of degrading to the bare flag. A deck that registers
-no metrics at all is unaffected (measured fit stays off); an unnamed
-(theme-default) face stays unmeasurable (the face cannot be guessed).
+Say a deck registered **some** metrics, and a `fit:'shrink'` or `'resize'` box
+or cell names a face with no exact metrics. That box falls back to a
+conservative average-advance table (`getHeuristicFontMetrics`), bakes an
+approximate result, and warns once. It does not degrade to the bare flag. A deck
+that registers no metrics at all is unaffected, because measured fit stays off.
+An unnamed theme-default face stays unmeasurable, because there is nothing to
+guess from.
 
 The **layout-time** side (`measureText`) resolves runs identically, with one
-deliberate difference: the empty-registry case. `applyMeasuredFit` reads "no metrics"
-as "this deck never opted into measured fit" and bakes nothing, but `measureText` is
-a read-only query with nothing to opt into, so it returns heuristic numbers and stays
-useful with zero setup. The two therefore diverge for an empty registry (the query
-predicts a shrink the export will not bake) and that is intentional, not a bug:
+deliberate difference: the empty registry. `applyMeasuredFit` reads "no metrics"
+as "this deck never opted into measured fit", and bakes nothing. `measureText`
+is a read-only query with nothing to opt into, so it returns heuristic numbers
+and stays useful with zero setup. The two therefore diverge on an empty
+registry, with the query predicting a shrink the export will not bake. That is
+intentional, not a bug.
 
 | | `measureText` | `applyMeasuredFit` |
 |---|---|---|
 | kind | read-only query | mutates the deck at export |
 | empty registry | heuristic, useful with zero setup | no-op: the deck never opted in |
 
-The library cannot tell "never intended to register" from "intended to register and
-the load silently failed"; detecting the latter is the caller's job, at font-load
-time. `measureText` reports every named face it had to guess at in
+The library cannot tell "never intended to register" from "intended to register
+and the load silently failed". Detecting the latter is the caller's job, at
+font-load time. `measureText` reports every named face it had to guess at in
 `approximatedFaces`, and every code point a registered face cannot render in
-`uncoveredCodepoints`, so a caller that needs exact numbers can check rather than
-assume. `measured-fit-integration.test.js` pins this divergence so it cannot change
-silently.
+`uncoveredCodepoints`. A caller who needs exact numbers can check rather than
+assume. `measured-fit-integration.test.js` pins this divergence so it cannot
+change quietly.
 
 ## Layout-time measurement (public API)
 
-The same calibrated engine is also exposed for **layout-time** use, so a consumer
-can size its own geometry *before* export (grow a card to fit its text, reflow a
-grid, detect overflow) instead of relying only on the export-time bake. For any deck
-that opted into measured fit (i.e. registered at least one face), a layout-time
-prediction must never disagree with what the export then bakes, so both paths share
-one converter (`buildFitParagraphs`), one resolver (`makeRegistryResolver`), and one
-layout function (`measureLayout`): there is no second wrap model. The one deliberate
-exception is an **empty** registry (see below). Source: `src/measure.ts` (subpath entry), `measureText` +
-`buildFitParagraphs` in `src/measure/paragraphs.ts`, `makeRegistryResolver` in
+The same calibrated engine is exposed for **layout-time** use too, so you can
+size your own geometry *before* export: grow a card to fit its text, reflow a
+grid, detect overflow. You are not restricted to the export-time bake.
+
+For any deck that opted into measured fit, meaning it registered at least one
+face, a layout-time prediction must never disagree with what the export then
+bakes. So both paths share one converter (`buildFitParagraphs`), one resolver
+(`makeRegistryResolver`) and one layout function (`measureLayout`). There is no
+second wrap model. The one deliberate exception is an **empty** registry, below.
+Source: `src/measure.ts` (subpath entry), `measureText` and `buildFitParagraphs`
+in `src/measure/paragraphs.ts`, `makeRegistryResolver` in
 `src/measure/font-metrics.ts`, and `measureLayout` in `src/measure/text-fit.ts`.
 
 ### Instance methods (inches/points, reuse registered metrics)
@@ -318,11 +328,11 @@ import { measure } from 'pptx-ts/families'
 const pptx = createPresentation({ use: [measure] })
 ```
 
-Calling one without it raises `family/not-composed` naming `measure`, and the type does
-not offer the method in the first place. The export-time bake is unaffected either way:
-`fit:'shrink'` and `fit:'resize'` are applied on the ordinary write path, so a composed
-deck that never measures anything still gets its autofit. See
-[Bundle Size](bundle-size.md#everything-else-is-asked-for).
+Calling one without it raises `family/not-composed` naming `measure`, and the
+type does not offer the method in the first place. The export-time bake is
+unaffected either way: `fit:'shrink'` and `fit:'resize'` are applied on the
+ordinary write path, so a composed deck that never measures anything still gets
+its autofit. See [Bundle size](bundle-size.md#everything-else-is-asked-for).
 
 ```ts
 await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')
@@ -352,21 +362,23 @@ is an empty registry: see "Unregistered-font heuristic" above. Units are inches
 (width/height) + points (type/spacing); `insetIn` is subtracted from `wIn` on both
 sides if a raw box width is passed.
 
-Because the model errs **tall** (the same `WIDTH_SAFETY`/`HEIGHT_SAFETY` factors as
-the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render: right for
-"grow a container", and why `overflowsBox` is a *conservative* (slightly
-over-reporting) check suited to a build-time **warning**, not a hard gate. An
-unmeasurable face makes `overflowsBox` return `false` (no false positive).
+The model errs **tall**, on the same `WIDTH_SAFETY`/`HEIGHT_SAFETY` factors as
+the resize bake. So `heightIn` is ≥ what PowerPoint and LibreOffice render. That
+is the right direction for growing a container, and it is why `overflowsBox`
+slightly over-reports. Treat it as a build-time warning, not a hard gate. An
+unmeasurable face makes `overflowsBox` return `false`, so there are no false
+positives.
 
 ### Standalone primitives (`pptx-ts/measure`)
 
-For a consumer that lays out without a `TsPptx` instance, the subpath re-exports
-the pure pieces so it can build its own resolver/registry and measure directly:
+Laying out without a `TsPptx` instance? The subpath re-exports the pure pieces,
+so you can build your own resolver and registry and measure directly. That is
 `measureLayout`/`measureHeightPt`/`solveShrink`/`solveResize`, the
 `FitParagraph`/`FitBox`/`MetricsResolver`/`Shrink-`/`ResizeOutcome` types, the
-calibration constants, and `parseFontMetrics`/`getHeuristicFontMetrics`/
-`FontMetricsRegistry`. `opentype.js` stays lazily imported (only `parseFontMetrics`
-pulls it in), keeping the subpath cheap to import.
+calibration constants, and
+`parseFontMetrics`/`getHeuristicFontMetrics`/`FontMetricsRegistry`.
+`opentype.js` stays lazily imported, pulled in only by `parseFontMetrics`, which
+keeps the subpath cheap.
 
 A regression (`test/regression/text/measure-text-api.test.js`) asserts the no-drift
 contract: `measureText`'s height equals the height `solveResize` (the export bake)
@@ -380,19 +392,21 @@ prose or self-generated XML, so the model is calibrated against **PowerPoint-aut
 fixtures where PowerPoint itself baked the fit value**, held as a conservative
 regression target.
 
-The hard problem the fixtures pin down is **vertical line metrics**: laid-out
-height = `lineCount × lineHeight`, and `lineHeight` is where renderers diverge ("single"
-spacing is font-metric-derived; a font carries hhea vs OS/2 win-* vs typo-* pairs,
-gated by the `USE_TYPO_METRICS` bit; PowerPoint and LibreOffice can pick different
-pairs). A consumer may render through headless LibreOffice, but the file must also
-be correct in PowerPoint, so the solver is conservative against the **taller** of
-the two: which is why the fixtures measure both engines.
+The hard problem the fixtures pin down is **vertical line metrics**. Laid-out
+height is `lineCount × lineHeight`, and `lineHeight` is where renderers diverge.
+"Single" spacing is derived from font metrics, and a font carries hhea, OS/2
+win-* and typo-* pairs, gated by the `USE_TYPO_METRICS` bit. PowerPoint and
+LibreOffice can pick different pairs.
 
-The axes are split to avoid a combinatorial explosion: **per-font metric
-calibration** sweeps all 5 fonts on a small core (this pins each family's advance
-widths and effective line height), while **policy calibration** (discrete
-fontScale steps, lnSpcReduction trade, per-anchor `off.y`) is font-independent and
-swept on a single anchor font.
+A consumer may render through headless LibreOffice, but the file has to be right
+in PowerPoint too. So the solver stays conservative against the taller of the
+two, and the fixtures measure both engines.
+
+The axes are split, or the case count explodes. Per-font metric calibration
+sweeps all five fonts on a small core, which pins each family's advance widths
+and effective line height. Policy calibration covers the discrete fontScale
+steps, the lnSpcReduction trade and the per-anchor `off.y`. That half is
+font-independent, so it is swept on a single anchor font.
 
 ### Fixture decks
 
@@ -416,16 +430,16 @@ A fifth deck sits outside that matrix because it calibrates a different axis, an
 needs a font none of the four use:
 
 - `autofit-cjk-wrap.pptx` (11 cases, **Malgun Gothic**): where PowerPoint breaks
-  **lines** in East Asian text. One `spAutoFit` box per case at a fixed width, so
-  the app's own answer is baked into `a:ext/@cy`. Han, Kana, fullwidth Latin,
-  halfwidth Katakana and Plane 2 all break per character; Hangul does not, and the
-  Hangul box spends a third line where the Han box spends two. Its sidecar,
+  **lines** in East Asian text. One `spAutoFit` box per case at a fixed width,
+  so the app's own answer is baked into `a:ext/@cy`. Han, Kana, fullwidth Latin,
+  halfwidth Katakana and Plane 2 all break per character; Hangul does not, and
+  the Hangul box spends a third line where the Han box spends two. Its sidecar,
   `autofit-cjk-wrap.oracle.json`, is written by `authoring/author-cjk-wrap.ps1`
-  rather than derived from the deck, because **nothing in the package records where
-  a line broke**: the `lines` column is `TextRange.Lines()` read over COM at
-  authoring time. The `bakedHeightPt` column *is* in the package, and
-  `test/read/cjk-line-breaking-oracle.test.js` re-derives it from the committed deck
-  on every run so a hand-edited sidecar stops matching its own fixture.
+  rather than derived from the deck. Nothing in the package records where a line
+  broke. The `lines` column is `TextRange.Lines()`, read over COM at authoring
+  time. The `bakedHeightPt` column *is* in the package, and
+  `test/read/cjk-line-breaking-oracle.test.js` re-derives it from the committed
+  deck on every run, so a hand-edited sidecar stops matching its own fixture.
 
 The decks are the source of truth; `test/read/fixtures/autofit-calibration.json`
 (with the LibreOffice cross-measure column) is the derived, regenerable table the
@@ -445,11 +459,11 @@ with. None of the six can be committed, and no hosted runner has Aptos at all, s
 faces are resolved by `test/read/font-oracle.js` from one of two sources:
 
 - **The installed font**, on a machine that has it. On Windows that resolution goes
-  through the font registry, which is the map GDI itself uses and the only one that spans
-  both font directories: Office installs Aptos per-user under `%LOCALAPPDATA%`. Elsewhere
-  it is `fc-match`, and a substituted family (Carlito standing in for Calibri) counts as
-  missing, because calibrating against a metric-compatible clone would quietly change what
-  the oracle is comparing.
+  through the font registry, which is the map GDI itself uses and the only one
+  that spans both font directories: Office installs Aptos per-user under
+  `%LOCALAPPDATA%`. Elsewhere it is `fc-match`. A substituted family, Carlito
+  standing in for Calibri, counts as missing. Calibrating against a
+  metric-compatible clone would quietly change what the oracle is comparing.
 - **`test/read/fixtures/autofit-font-metrics.json`** otherwise: the raw `hmtx` advance of
   every code point the committed cases measure, per face, recorded from the genuine fonts
   by `authoring/build-font-metrics.mjs`. 316 advances across 10 faces, and nothing else.
@@ -457,11 +471,12 @@ faces are resolved by `test/read/font-oracle.js` from one of two sources:
   what lets the whole oracle run on a runner that has none of the fonts.
 
 The sidecar is derived data, so two gates keep it honest.
-`test/read/font-metrics-sidecar.test.js` re-derives every entry from the installed font
-wherever one resolves and fails on any drift, and `ci.yml`'s `font-oracles` job runs on
-`windows-latest` precisely so that Arial, Calibri, Tahoma and Malgun Gothic are re-read
-from real files on every push. Aptos and Aptos SemiBold have no runner that carries them,
-so their entries are re-verified on a workstation with Microsoft 365 installed.
+`test/read/font-metrics-sidecar.test.js` re-derives every entry from the
+installed font wherever one resolves, and fails on any drift. `ci.yml`'s
+`font-oracles` job runs on `windows-latest` for one reason: so Arial, Calibri,
+Tahoma and Malgun Gothic are re-read from real files on every push. No runner
+carries Aptos or Aptos SemiBold, so those entries are re-verified on a
+workstation with Microsoft 365 installed.
 
 Two environment knobs, both fail-closed, because the failure this arrangement exists to
 prevent is a suite that resolves nothing and reports green:
@@ -496,18 +511,18 @@ pnpm run font-metrics:build  # re-record the sidecar (needs all six faces instal
 ## Standing caveats
 
 - **resize ≠ "extend the card".** Baking `ext.cy` grows only the *text box*. A card
-  background rectangle and an adjacent icon are separate shapes the library does not
-  know are related, so resize alone will not "extend the card" or un-overlap the
-  icon: that layout coordination lives in the consumer's component. This makes
-  **shrink** the higher-leverage fix for the actual driver; resize is a partial
-  answer for grouped card components.
+  background rectangle and an adjacent icon are separate shapes, and the library
+  does not know they are related. So resize alone will not extend the card or
+  un-overlap the icon. That coordination lives in your component. Which makes
+  **shrink** the fix that actually answers the original driver; resize only gets
+  part of the way for grouped cards.
 - Metric fidelity vs PowerPoint's layout engine (kerning, ligatures, GPOS) and vs
   LibreOffice's line metrics is mitigated by erring conservative (raw advances,
   taller-of-two line height) plus the calibration regression target.
 - **CJK line breaking is modeled** (see [East Asian line breaking](#east-asian-line-breaking));
-  kinsoku, font fallback for uncovered code points, RTL and complex shaping are not.
-  Kinsoku costs nothing (same line count, narrower widest line), but font fallback is
-  the one gap that can measure **short** rather than tall, so it is surfaced:
-  `uncoveredCodepoints` on the measurement and a `measure/uncovered-codepoints`
-  warning at export.
+  kinsoku, font fallback for uncovered code points, RTL and complex shaping are
+  not. Kinsoku costs nothing: same line count, narrower widest line. Font
+  fallback is the one gap that can measure **short** rather than tall, so it
+  gets reported, through `uncoveredCodepoints` on the measurement and a
+  `measure/uncovered-codepoints` warning at export.
 - Keep `opentype.js` on the Node path / lazy-loaded to bound browser bundle size.

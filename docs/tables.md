@@ -39,10 +39,11 @@ A cell is a string, a number, or a `TableCell` object:
 { text: [{ text: 'mixed ' }, { text: 'runs', options: { bold: true } }] }
 ```
 
-`options` is a `TableCellProps`, which extends `TextBaseProps`, so everything that styles
-text (`bold`, `color`, `fontFace`, `fontSize`, `align`, `valign`, `textDirection`, …) works
-on a cell, alongside the table-specific `fill`, `border`, `diagonal`, `margin`, `colspan`,
-`rowspan`, `anchorCtr`, `horzOverflow`, `cell3D` and `fit`.
+`options` is a `TableCellProps`. It extends `TextBaseProps`, so anything that styles text
+works on a cell: `bold`, `color`, `fontFace`, `fontSize`, `align`, `valign`,
+`textDirection`, and the rest. On top of those sit the table-only options: `fill`,
+`border`, `diagonal`, `margin`, `colspan`, `rowspan`, `anchorCtr`, `horzOverflow`,
+`cell3D` and `fit`.
 
 Rows may be **lopsided**. A row under a `rowspan` from above holds only the cells that
 actually start in it, and the emitter builds the rectangular merge grid itself. This is the
@@ -136,10 +137,10 @@ row regardless of styling.
 
 #### Only a built-in style renders, and there is no custom-style escape hatch
 
-**PowerPoint resolves `<a:tableStyleId>` against its own table-style gallery. It never reads a
-style definition out of the package.** A GUID it recognises paints even when the deck defines
-nothing; a GUID it does not recognise paints nothing however complete the definition: the
-table falls back to PowerPoint's no-style look, a black hairline grid on white.
+**PowerPoint resolves `<a:tableStyleId>` against its own table-style gallery. It never
+reads a style definition out of the package.** A GUID it recognises paints, even when the
+deck defines nothing. A GUID it does not recognise paints nothing, however complete the
+definition. The table drops to PowerPoint's no-style look, a black hairline grid on white.
 
 This was measured by rendering, not inferred from the schema (PowerPoint desktop 16.0):
 
@@ -176,11 +177,11 @@ looks:
 - **`tableFill`** is the table's *own* background: one `a:tblPr` fill that the cells sit on
   top of.
 
-They usually render alike. The difference matters when a cell is meant to be transparent:
-with `tableFill`, a cell with no fill shows the background through; with `fill` there is no
-such thing as a cell without a fill, so nothing can fall back to it. `tableFill` is also
-what a deck read back from PowerPoint actually carries, so it is the right choice when
-reproducing a source deck.
+They usually render alike. The difference shows up when a cell is meant to be transparent.
+Under `tableFill`, a cell with no fill lets the background through. Under `fill` there is
+no such thing as a cell without a fill, so nothing can fall back to it. `tableFill` is
+also what a deck read back from PowerPoint actually carries, so it is the right choice
+when reproducing a source deck.
 
 A cell fill is a `ShapeFillProps`, so it takes the whole DrawingML fill group: solid,
 gradient, pattern, or a picture:
@@ -204,7 +205,7 @@ This is the single most misread option in the table surface. `TableProps.border`
 broadcast to **every cell**:
 
 ```js
-// Every cell gets a top and bottom rule -- i.e. a full set of horizontal grid lines,
+// Every cell gets a top and bottom rule, i.e. a full set of horizontal grid lines,
 // NOT a rule above and below the table.
 s.addTable(rows, { border: [{ type: 'solid' }, { type: 'none' }, { type: 'solid' }, { type: 'none' }] })
 ```
@@ -213,16 +214,17 @@ An array is read in **TRBL** order (`[top, right, bottom, left]`); a single `Bor
 broadcast to all four sides. A cell's own `options.border` overrides the table default
 entirely: the two do not merge per side.
 
-A `null` entry is a **hole**, not a rule. The element is left out of `<a:tcPr>` altogether, so
-that edge keeps inheriting from the built-in table style, the theme banding and the master
-chain. `{ type: 'none' }` is the other state: an explicit "no line" that overrides the
-inheritance. So `[rule, null, rule, null]` draws horizontal rules and leaves the style's
-vertical ones alone, while `[rule, { type: 'none' }, rule, { type: 'none' }]` draws the same
-two and erases the other two. A cell with no `border` authored at all is the third case, and
-it depends on `tableStyle`: a table that named a style leaves every edge absent so the style
-paints its own grid, while a table with no style takes the four-side no-fill default, which is
-what keeps it free of PowerPoint's no-style black hairline grid. To erase a styled table's
-grid, say so: `border: { type: 'none' }`.
+A `null` entry is a **hole**, not a rule. The element is left out of `<a:tcPr>`
+altogether, so that edge keeps inheriting from the built-in table style, the theme banding
+and the master chain. `{ type: 'none' }` is the other state: an explicit "no line" that
+overrides the inheritance. So `[rule, null, rule, null]` draws horizontal rules and leaves
+the style's vertical ones alone, while `[rule, { type: 'none' }, rule, { type: 'none' }]`
+draws the same two and erases the other two.
+
+The third case is a cell with no `border` authored at all, and it turns on `tableStyle`. A
+table that named a style leaves every edge absent, so the style paints its own grid. A
+table with no style takes the four-side no-fill default, which is what keeps it clear of
+PowerPoint's black hairline grid. To erase a styled table's grid, say so: `border: { type: 'none' }`.
 
 ### `outerBorder` is the perimeter
 
@@ -234,13 +236,13 @@ s.addTable(rows, { outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } }) 
 s.addTable(rows, { outerBorder: [rule, undefined, rule, undefined] })              // rules above and below
 ```
 
-An omitted entry leaves that side to whatever `border` (or the cell's own option) already
-drew, so the two compose: `border` draws the interior grid and `outerBorder` overrides the
+An omitted entry leaves that side to whatever `border`, or the cell's own option, already
+drew. So the two compose. `border` draws the interior grid, `outerBorder` overrides the
 edges it reaches. "Outline the table, no interior grid" is `outerBorder` with no `border`.
 
-The perimeter is decided by **grid position**, so merges work: PowerPoint defines a merged
-region's outer edges on the *covered* cells, and a colspan reaching the last column gets that
-column's rule on its covered half.
+The perimeter is decided by **grid position**, so merges work. PowerPoint puts a merged
+region's outer edges on the *covered* cells, and a colspan reaching the last column gets
+that column's rule on its covered half.
 
 ### Dash styles
 
@@ -252,10 +254,10 @@ dash, set `dashType`, which takes the whole `ST_PresetLineDashVal` set:
 ```
 
 `dashType` wins over `type` when both are set, except that `type: 'none'` suppresses the
-border before any dash is chosen. An unrecognized value is reported as
-`border/invalid-dash-type` and falls back to what `type` implies: a value outside the enum
-would make the slide part schema-invalid, which PowerPoint reports as a corrupt file rather
-than as a mis-set option.
+border before any dash is chosen. An unrecognized value reports `border/invalid-dash-type`
+and falls back to what `type` implies. A value outside the enum would make the slide part
+schema-invalid, and PowerPoint reports that as a corrupt file rather than as a mis-set
+option.
 
 ### Diagonals
 
@@ -283,21 +285,21 @@ s.addTable([
 ], { x: 1, y: 1, w: 9 })
 ```
 
-Rows are authored **lopsided** (a row covered by a `rowspan` from above simply omits that
-cell) and the emitter expands them into the rectangular grid OOXML requires, inserting the
+Rows are authored **lopsided**: a row covered by a `rowspan` from above just omits that
+cell. The emitter expands them into the rectangular grid OOXML requires, inserting the
 covered cells with their `hMerge`/`vMerge` flags.
 
 A covered cell inherits the origin's border and fill. That is a deliberate divergence from
-PowerPoint, which writes a bare `<a:tcPr/>` there: a covered cell is never rendered (the
-origin spans over it), so copying the fill is invisible either way, and keeping it uniform
-avoids a branch that would change nothing on screen. It also puts the merged region's outer
+PowerPoint, which writes a bare `<a:tcPr/>` there. A covered cell never renders, because
+the origin spans over it, so copying the fill is invisible either way. Keeping it uniform
+avoids a branch that would change nothing on screen, and it puts the merged region's outer
 edges where PowerPoint expects to find them.
 
 ## Sizing and overflow
 
-**Columns.** `colW` takes inches, either one number for every column or an array. Without it
-the table's `w` is split evenly. `fitColumns: 'shrink'` scales every column down by the same
-factor when the total exceeds the space available from `x`; it never grows a column and
+**Columns.** `colW` takes inches, either one number for every column or an array. Without
+it the table's `w` is split evenly. `fitColumns: 'shrink'` scales every column down by the
+same factor when the total overruns the space left from `x`. It never grows a column and
 enforces no minimum width, so a very high column count can still end up thin.
 
 **Rows.** `rowH` takes inches, one number or an array. A row is auto-height (as tall as its
@@ -312,59 +314,58 @@ row simply grows and nothing shrinks. See [Measured text fit](measured-text-fit.
 
 **Cell text always wraps.** PowerPoint has no per-cell no-wrap: `wrap="none"` on a cell's
 `a:bodyPr` renders inert and is stripped on the next save. `horzOverflow` is *not* that
-switch: it decides whether a single glyph too wide for the line is clipped at the cell edge
-or draws past it, which matters for oversized display type and wide CJK/emoji glyphs.
+switch. It decides whether a glyph too wide for the line gets clipped at the cell edge or
+draws past it. That matters for oversized display type, and for wide CJK and emoji glyphs.
 
 **Auto-paging.** `autoPage: true` shreds a table too tall for one slide across as many as it
 needs. `autoPageRepeatHeader` (with `autoPageHeaderRows`) repeats the header on each,
 `autoPagePlaceholder` copies the source slide's populated placeholders onto the overflow
 slides, and `autoPageSlideStartY` sets where the continuation starts.
 
-How much fits is an **estimate**, not a measurement: the pager counts wrapped lines from a
-characters-per-line approximation and prices each at the font size times a fixed line-height
-factor, plus the cell's top and bottom margins. It never asks a renderer. So the page break
-lands where the arithmetic says, and a font whose real metrics are far from the approximation
-can put it a row out: `autoPageCharWeight` (characters) and `autoPageLineWeight` (line
-height) nudge the two constants when it does. What the pager does guarantee is
-self-consistency: pages of equal usable height get equal row budgets. Continuation slides
-start at `autoPageSlideStartY`, or at the top margin when it is unset, so a first page
-placed lower with `y` is the one page that legitimately holds fewer rows.
+How much fits is an **estimate**, not a measurement. The pager counts wrapped lines from a
+characters-per-line approximation, then prices each line at the font size times a fixed
+line-height factor, plus the cell's top and bottom margins. It never asks a renderer.
 
-A word wider than its column **overflows it**. The pager never breaks inside a word: it fills
-a line word by word and starts a new one when the next word would not fit, so a single word
-that fits on no line is emitted whole and runs past the column edge in PowerPoint. This is a
-decision, not an oversight, and the alternative was weighed. A hard break at the column width
-(what a browser's `overflow-wrap: break-word` does) would have to break at the same estimate
-everything else here is measured against, so it would land mid-word at a position the renderer
-does not agree with, and the broken text would then have to keep the line count and the emitted
-text in step or the row is priced for lines it does not have. Overflowing is at least
-predictable, and it is visible. Where it matters, widen the column with `colW`, lower the
-cell's `fontSize`, or insert the break yourself with `breakLine`.
+So the break lands where the arithmetic says it does. A font whose real metrics sit far
+from the approximation can put it a row out, and `autoPageCharWeight` (characters) and
+`autoPageLineWeight` (line height) nudge the two constants when that happens. What the
+pager does guarantee is self-consistency: pages of equal usable height get equal row
+budgets. Continuation slides start at `autoPageSlideStartY`, or at the top margin when it
+is unset, so a first page placed lower with `y` is the one page that legitimately holds
+fewer rows.
+
+A word wider than its column **overflows it**. The pager never breaks inside a word. It
+fills a line word by word and starts a new one when the next word will not fit, so a word
+that fits on no line is emitted whole and runs past the column edge in PowerPoint.
+
+That is a decision, not an oversight. The alternative was weighed. A hard break at the
+column width, which is what a browser's `overflow-wrap: break-word` does, would have to
+break against the same estimate everything else here is measured against. It would land
+mid-word, at a position the renderer disagrees with. Worse, the broken text would then
+have to keep the line count and the emitted text in step, or the row gets priced for lines
+it does not have. Overflowing is at least predictable, and it is visible. Where it
+matters, widen the column with `colW`, lower the cell's `fontSize`, or insert the break
+yourself with `breakLine`.
 
 ## Reading and editing an existing table
 
-`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.
-Reading covers the cell model, the six borders, both fills, the spans and the style graph;
-`TableCell.resolvedFill` reports the colour a cell *renders* as, folding in the style's
-banding, and `TableCell.hasOwnFill` says whether that colour is the cell's own: which is
-the distinction anything reproducing a table needs, since baking an inherited banding colour
-into a copy makes it stop responding to its own style.
+`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element. Reading covers the cell model, the six borders, both fills, the spans and the style graph. `TableCell.resolvedFill` reports the colour a cell *renders* as, banding folded in. `TableCell.hasOwnFill` says whether that colour is the cell's own. Anything reproducing a table needs that second answer: bake an inherited banding colour into a copy and the copy stops responding to its own style.
 
 Editing covers cell properties (`setAnchor`, `setVerticalText`, `setHorzOverflow`,
 `setAnchorCtr`, `setMarginsEmu`, `setBorder`, `setFillColor`, `setFillSchemeColor`,
 `noFill`) and structure (`addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells`,
 `unmergeCell`). Each mutates in place and marks the part dirty.
 
-Unlike the write path, an invalid value **throws** here rather than warning and being
-dropped: a caller editing one attribute would otherwise be left looking at an unchanged deck
+Unlike the write path, an invalid value **throws** here instead of warning and being
+dropped. Otherwise a caller who edits one attribute is left staring at an unchanged deck
 with nothing to explain it.
 
 A **stored** table's grid is already rectangular: unlike the authoring side, every `a:tr`
 holds one `a:tc` per column with the covered halves present and flagged. The structural
-editors keep it that way: inserting a row or column *through* a merge extends it rather than
-splitting it, removing a merge origin promotes its first continuation so the region survives
-one shorter, and `mergeCells` rejects a rectangle that cuts through an existing merge rather
-than silently widening it to fit.
+editors keep it that way. Insert a row or column *through* a merge and the merge extends
+rather than splits. Remove a merge origin and its first continuation is promoted, so the
+region survives one shorter. `mergeCells` rejects a rectangle that cuts through an
+existing merge instead of quietly widening it to fit.
 
 ## Not authorable
 

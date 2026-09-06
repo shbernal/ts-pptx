@@ -9,7 +9,7 @@ metadata:
   internal: true
 ---
 
-# Releasing & Publishing ts-pptx
+# Releasing & publishing ts-pptx
 
 npm publishing is **fully automated in CI**. A release is finished by creating a
 **GitHub Release** for a `vX.Y.Z` tag; that fires `.github/workflows/publish.yml`,
@@ -41,7 +41,7 @@ immediately after, and `1.0.0` onward went through CI with provenance.
 It has been spent twice, once for each of the two names this project publishes:
 `@shbernal/ts-pptx` and `pptx-ts`. It applies again only if this project starts
 publishing under another **new name or scope**, and the runbook for that is
-"Bootstrapping a New Package Name" in `docs/RELEASING.md`. It is never part of cutting a release. For
+"Bootstrapping a new package name" in `docs/RELEASING.md`. It is never part of cutting a release. For
 every release of a name that already exists, the rule above holds without
 qualification: no local `npm publish`.
 
@@ -63,7 +63,7 @@ release (`git log --oneline vLAST..HEAD`) — but the user's explicit ask wins:
 - **minor** (`X.Y+1.0`) — any `feat:` / additive API, or a fix the user wants
   shipped as a minor.
 - **major** (`X+1.0.0`) — a breaking API change (this project allows them; see
-  `CHANGELOG.md` / AGENTS.md "API Evolution Policy").
+  `CHANGELOG.md` / AGENTS.md "API evolution policy").
 
 If the user says "minor release," honor that even for a lone fix — don't second-guess
 into a patch.

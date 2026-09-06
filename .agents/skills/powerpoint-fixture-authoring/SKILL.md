@@ -9,7 +9,7 @@ metadata:
   internal: true
 ---
 
-# PowerPoint Fixture Authoring
+# PowerPoint fixture authoring
 
 Use this skill to create reference `.pptx` fixtures authored by desktop
 Microsoft PowerPoint on Windows. These fixtures are evidence for how PowerPoint
@@ -61,7 +61,7 @@ writes OOXML; do not generate them with ts-pptx.
 9. Commit only the fixture and directly related documentation when asked to
    commit. Leave unrelated dirty state untouched.
 
-## COM Authoring Pattern
+## COM authoring pattern
 
 Use a temporary script or inline encoded command with this shape:
 

@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Project Target"
+title: "Project target"
 summary: "Current goals, non-goals, and maintenance posture for this ts-pptx project."
 read_when:
   - Deciding whether a feature fits this project
@@ -9,7 +9,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Project Target
+# Project target
 
 ts-pptx generates PowerPoint `.pptx` packages from TypeScript and modern
 JavaScript. The project target is a maintained, ESM-first library for
@@ -30,9 +30,10 @@ drop-in-compatible continuation of the upstream release line.
   browser loading the module straight from an ESM CDN.
 - Support the **browser as a runtime**, and prove it rather than assert it: the
   browser build and its runtime adapter are exercised in CI against a real
-  Chromium, and the deck a browser assembles is compared part-for-part against
-  the Node-built one. This is a claim about *emission*, and it stops there:
-  see the Live-DOM bullet under Out Of Active Scope for where the line is.
+  Chromium, and the deck a browser assembles is compared part-for-part
+  against the Node-built one. This is a claim about *emission*, and it stops
+  there: see the Live-DOM bullet under Out of active scope for where the line
+  is.
 - Preserve broad OOXML feature coverage: slides, text, tables, charts, images,
   SVGs, media, and masters.
 - Make OOXML changes testable through regression tests, schema fixtures, and
@@ -40,17 +41,16 @@ drop-in-compatible continuation of the upstream release line.
 - Support agent-driven maintenance by documenting local evidence, validation
   commands, and OOXML research paths.
 
-## Non-Goals
+## Non-goals
 
 - Shipping more than one build. The published ESM artifact is what Node, bundlers,
-  browsers and `require()` callers all load; see
-  [Runtime And Package Support](runtime-and-package-support.md#one-build-and-everything-that-loads-it).
+  browsers and `require()` callers all load; see [Runtime and package support](runtime-and-package-support.md#one-build-and-everything-that-loads-it).
 - Reproducing the upstream release matrix: its historical artifact names, its
   `window.TsPptx` global, or compatibility with its build system. A browser reaches
   this package as a module, from a bundler or an ESM CDN.
 - Treating generated `dist/` outputs as hand-edited source.
 
-### What Stays In The Consumer
+### What stays in the consumer
 
 Distinct from the bullets above, which are about the *shape* of the package.
 The following encode a specific consumer's brand, content, or deck workflow. They
@@ -72,18 +72,18 @@ uncovered while building one of these *is* in scope: see
 [Agent development guide → Promoting A Downstream Need](agent-development.md#promoting-a-downstream-need)
 for how it moves across.
 
-## Out Of Active Scope (Contributions Welcome)
+## Out of active scope (contributions welcome)
 
 The project is **Node-first**: the generator runs and is tested without any
-office application, and the Node suite is where nearly all of it is proven. That
-is a statement about where the evidence lives, not a hedge about the browser:
-the browser is a supported runtime with its own CI lane (see
-[Runtime And Package Support](runtime-and-package-support.md#what-browser-is-tested-to-mean)).
-Two domains fall outside what the maintainer actively develops, because there is
-no in-house use case driving them. They are **not
-rejected on merit**: they are simply not on the maintenance roadmap, and the
-maintainer will generally not pick up bugs or feature requests in these areas.
-**Pull requests that fix or extend them are welcome** (ideally with the testing
+office application, and the Node suite is where nearly all of it is proven.
+That is a statement about where the evidence lives, not a hedge about the
+browser: the browser is a supported runtime with its own CI lane (see
+[Runtime and package support](runtime-and-package-support.md#what-browser-is-tested-to-mean)).
+Two domains fall outside what the maintainer actively develops, because there
+is no in-house use case driving them. They are **not rejected on merit**:
+they are simply not on the maintenance roadmap, and the maintainer will
+generally not pick up bugs or feature requests in these areas. **Pull
+requests that fix or extend them are welcome** (ideally with the testing
 approach noted below), and the OOXML-emission core they build on is fully
 supported.
 
@@ -174,7 +174,7 @@ supported.
   library *itself* emits (independent of the other application) turns one of these
   into an in-scope correctness bug.
 
-## Escape Hatches
+## Escape hatches
 
 An escape hatch is any API that lets a caller step around the library's own
 abstractions. This project ships several, deliberately, and the rule for whether
@@ -210,7 +210,7 @@ generic write-side hook over the emitted XML bypasses the guarantee itself and
 leaves the library unable to make any claim about its own output. A concrete need behind such a request is met with a typed, validated
 primitive instead: not by widening the hatch.
 
-## Maintenance Posture
+## Maintenance posture
 
 The repository should be understandable to a maintainer or an agent starting
 from a clean checkout:

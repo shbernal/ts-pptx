@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "PPTX Inspection"
+title: "PPTX inspection"
 summary: "Low-level package inspection and geometry helpers for generated or edited PPTX files."
 read_when:
   - Inspecting generated PPTX files
@@ -9,7 +9,7 @@ read_when:
 doc_type: "reference"
 ---
 
-# PPTX Inspection
+# PPTX inspection
 
 The `pptx-ts/inspect` subpath answers one flat question about a PPTX
 package (*what is on the slides, and where*) for tools that examine a deck after

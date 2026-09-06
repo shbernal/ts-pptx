@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Testing Guide"
+title: "Testing guide"
 summary: "Regression, schema, package, demo, and manual verification commands."
 read_when:
   - Choosing verification commands
@@ -10,11 +10,11 @@ read_when:
 doc_type: "guide"
 ---
 
-# Testing Guide
+# Testing guide
 
 Use `pnpm` for repository scripts. The package declares Node.js `>=24`.
 
-## Standard Validation
+## Standard validation
 
 For source changes, run one of the two aggregates rather than composing a set by
 hand:
@@ -28,24 +28,24 @@ They are defined in `package.json` and described in
 [development](development.md#common-commands). Neither runs `lint` or
 `format:check`: the git hooks own those.
 
-Both are assembled by `scripts/run-steps.mjs`, which expands a list of script
-names into the leaf commands they ultimately run and executes them in one
-process tree. `package.json` stays the single definition of what each step *is*;
-what the runner removes is the package-manager relaunch between them, which cost
-a flat ~0.7–1.3s per step: `verify` used to spend ~13s of its runtime starting
-pnpm 13 times. It prints a per-step breakdown on success, so the cost of a gate
-is visible where it is paid:
+Both are assembled by `scripts/run-steps.mjs`. It expands a list of script
+names into the leaf commands they ultimately run, and executes those in one
+process tree. `package.json` stays the single definition of what each step
+*is*. What the runner removes is the package-manager relaunch between steps, a
+flat ~0.7–1.3s each. `verify` used to spend ~13s of its runtime just starting
+pnpm, 13 times over. It prints a per-step breakdown on success, so the cost of
+a gate is visible where it is paid:
 
 ```bash
 node scripts/run-steps.mjs --list verify       # show the expansion, run nothing
 ```
 
-Where a composite overlaps another (`verify:full` is `verify` plus `docs:build`,
-and both reach `docs:api`), an exact command repeat inside one invocation is
-skipped and the skip is logged. Every step in these gates is a check or a
-regenerator, so a second consecutive run cannot report anything the first did
-not, but the log line is there so a step that starts mutating another's inputs
-is visible at the point it would be wrongly elided.
+Composites overlap. `verify:full` is `verify` plus `docs:build`, and both reach
+`docs:api`. An exact command repeat inside one invocation is skipped, and the
+skip is logged. Every step in these gates is a check or a regenerator, so a
+second consecutive run cannot report anything the first did not. The log line
+is there for the day a step starts mutating another's inputs: that is the
+moment the skip becomes wrong, and it will be visible.
 
 ### What is in the loop tier, and why
 
@@ -189,7 +189,7 @@ You can also add `.only` to a `test(...)`/`describe(...)` while iterating. Bare
 watcher, rebuild first or you are testing stale code. Going through a package
 script (`pnpm run test:unit`, etc.) avoids this entirely.
 
-## Regression Suite Layout
+## Regression suite layout
 
 Regression tests live in `test/regression/` and are organized by behavior, not
 by historical bug number. File names should describe the contract being tested,
@@ -206,13 +206,14 @@ directory (Vitest globs the tree), so a file can be moved between groups freely.
 Paths inside a suite are relative to its group directory: `../../helpers.js`,
 `../../../dist/node.js`, `../../read/fixtures/…`.
 
-Each regression file calls `defineRegressionSuite(suiteName, cases)` from `test/helpers.js`.
-It takes exactly two arguments. There used to be a three-argument form whose middle argument
-recorded legacy provenance (`legacy bug-21`, `upstream-issue-1451`), but that string was
-destructured out and then discarded, so it reached no reporter and no reader who was not
-already looking at the call site. Those tags now live inside the suite name itself
-(`'Table margins [legacy bug-14]'`), where the reporter prints them; a second positional
-argument is now an error rather than something silently ignored.
+Each regression file calls `defineRegressionSuite(suiteName, cases)` from
+`test/helpers.js`. It takes exactly two arguments. There used to be a
+three-argument form, whose middle argument recorded legacy provenance: `legacy bug-21`,
+`upstream-issue-1451`. That string was destructured out and then discarded. It
+reached no reporter, and no reader who was not already looking at the call
+site. Those tags now live inside the suite name itself, as in `'Table margins [legacy bug-14]'`,
+where the reporter prints them. A second positional argument is an error now,
+not something quietly ignored.
 
 A case is `{ name, fn }`, and `fn` is handed to Vitest directly rather than wrapped, so a
 failure's stack starts at the case rather than at `helpers.js`. Modifiers a case could not
@@ -238,18 +239,19 @@ context in the suite metadata or test name only when it helps future triage.
 
 ### File extensions
 
-Every Vitest file is `*.test.js`. The package is `"type": "module"`, so `.js` is already ESM
-and needs no `.mjs` to say so. A subset used to carry `.mjs` to mark tests that drive built
-entry points with Vitest's `describe`/`test` API rather than the shared
-`defineRegressionSuite()` harness, but the suffix had no functional effect (Vitest resolved
-and ran both identically), so the distinction cost a paragraph of explanation and bought
-nothing a reader could rely on. Which harness a file uses is visible in the file.
+Every Vitest file is `*.test.js`. The package is `"type": "module"`, so `.js`
+is already ESM and needs no `.mjs` to say so. A subset used to carry `.mjs`,
+marking tests that drive built entry points with Vitest's `describe`/`test` API
+rather than the shared `defineRegressionSuite()` harness. The suffix did
+nothing: Vitest resolved and ran both identically. So the distinction cost a
+paragraph of explanation and bought nothing a reader could rely on. Which
+harness a file uses is visible in the file.
 
 The one exception is the browser lane: `test/browser/*.spec.mjs` are **Playwright** specs, not
 Vitest ones, and are matched by name in `playwright.config.ts` (and excluded from Vitest's
 `include`). There the different extension marks a genuinely different runner.
 
-## Coverage Gate
+## Coverage gate
 
 Coverage is enforced by thresholds in `vitest.config.ts`:
 
@@ -290,11 +292,11 @@ part a collector, not to hide it again and not to move the gate.
 > **The Node report defines the shape. The browser lane contributes hits.**
 
 Both sides remap V8 coverage with the same `ast-v8-to-istanbul` version Vitest
-itself uses (pinned as a devDependency for exactly that reason), and the browser
+itself uses, pinned as a devDependency for exactly that reason. The browser
 side's file coverage is then projected onto the Node report's own statement,
-function and branch maps by source location. So the merged denominator is
-*identical* to the Node report's and the merged percentage is directly comparable
-to it; only the numerator can move, and only upward.
+function and branch maps, by source location. So the merged denominator is
+*identical* to the Node report's, and the merged percentage is directly
+comparable to it. Only the numerator can move, and only upward.
 
 About 1% of browser locations do not line up, because `dist/node.js` and the
 `dist/*.js` chunks the browser loads are different bundles of the same source and
@@ -319,39 +321,39 @@ took `functions` to 0.35 of slack and `lines` to 0.67, an acceptance criterion o
 "thresholds still pass" was satisfied by a state the doctrine forbids. One was
 noticed; the other sat in a stale comment. Encoding it means that cannot recur.
 
-The rule is held against the merged report and **not** against
-`vitest.config.ts`'s numbers, deliberately: demanding a point of slack on a
-report whose denominator includes code its collector cannot reach would leave
-only two ways to comply, and both (lowering the notch, re-hiding the file) are
-what the doctrine exists to prevent.
+The rule is held against the merged report, **not** against
+`vitest.config.ts`'s numbers, and that is deliberate. Demand a point of slack
+on a report whose denominator includes code its collector cannot reach, and
+there are only two ways to comply: lower the notch, or re-hide the file. Both
+are what the doctrine exists to prevent.
 
 In CI this is the `coverage` job, which runs after `test` and `browser` and
 consumes their artifacts (including the browser job's `dist/`, so the merge reads
 the exact bundles the browser ran).
 
-Reading the report has one trap: a line shown **red in the dist report may
-already be covered** by a `src/`-importing unit test. Some helpers (for example
-the HTML-table `htmlBorderToProps` / `resolveHtmlColWidth`) are only reached in
-the bundle through the browser-only path, which is fenced with `v8 ignore`, so
-the dist bundle never executes them even though `src/`-level unit tests do.
+Reading the report has one trap. A line shown **red in the dist report may
+already be covered** by a `src/`-importing unit test. Take the HTML-table
+helpers `htmlBorderToProps` and `resolveHtmlColWidth`. In the bundle they are
+reached only through the browser-only path, which is fenced with `v8 ignore`,
+so the dist bundle never executes them, even though `src/`-level unit tests do.
 Before adding a case for a red line, check whether an existing `src/`-importing
-test already exercises it: otherwise the gate cannot credit the redundant test.
+test already exercises it. The gate cannot credit a redundant test.
 
 ### Branches that are not worth covering
 
-The read model parses OOXML defensively: almost every element lookup is written
-`const x = firstChild(parent, 'a:foo'); return x ? … : null`, whether or not the
-schema lets `a:foo` be absent. That style is right (a reader should not throw on
-a deck PowerPoint accepts), but it means a chunk of the branch count is guards
-against input no valid package can contain, and those branches are **deliberately
-left uncovered**.
+The read model parses OOXML defensively. Almost every element lookup is written
+`const x = firstChild(parent, 'a:foo'); return x ? … : null`, whether or not
+the schema lets `a:foo` be absent. That style is right, because a reader should
+not throw on a deck PowerPoint accepts. It does mean a chunk of the branch
+count is guards against input no valid package can contain, and those branches
+are **deliberately left uncovered**.
 
 Coverage exists to show that behaviour is pinned. A test that hand-builds a
-`p:sp` with no `p:nvSpPr`, or a theme part with no root element, pins nothing:
-such a file is not a deck, no user can produce one, and the assertion would only
-restate the guard. It moves the number without adding a guarantee, and leaves
-behind a fixture that has to be maintained. Prefer honest coverage plus a written
-reason over a green metric.
+`p:sp` with no `p:nvSpPr`, or a theme part with no root element, pins nothing.
+Such a file is not a deck. No user can produce one, and the assertion would
+only restate the guard. It moves the number without adding a guarantee, and
+leaves behind a fixture somebody has to maintain. Prefer honest coverage plus a
+written reason over a green metric.
 
 So before writing a test for a red branch, ask which of these it is:
 
@@ -439,50 +441,53 @@ Ask these in order before writing a case for a red emitter branch:
 
 Two traps specific to this side, both of which have cost real time:
 
-**A branch counter records that an operand was _evaluated_, not that it was true.**
-The second arm of `!border.width || isNaN(border.width)` *looks* unreachable (`NaN`
-is falsy, so the first arm should always catch it) and it is not: any truthy width
-reaches the second operand and marks it. Two arms were written up as "unreachable by
-construction" on that reasoning before a probe showed both green. Applies to every
-`!x || isNaN(x)` and `!x || x.length` shape in the repo; probe before classifying.
+**A branch counter records that an operand was _evaluated_, not that it was
+true.** The second arm of `!border.width || isNaN(border.width)` *looks*
+unreachable. `NaN` is falsy, so the first arm should always catch it. It is not
+unreachable: any truthy width reaches the second operand and marks it. Two arms
+were written up as "unreachable by construction" on that reasoning before a
+probe showed both green. This applies to every `!x || isNaN(x)` and `!x || x.length`
+shape in the repo. Probe before classifying.
 
-**The src-import trap above applies to emitters too, and is easy to misread as a
-gap.** `gen/slide/comments.ts` sits near 64% branches and is not untested:
-`comments-xml.test.js` exercises every one of its red arms with stub slides, but it
-imports from `src/`, so it can never move a `dist` number. That is the third
-instance in the repo, after `html-dom.ts`'s helpers and `zoom-links.test.js`. Check
-the import path of the tests that already name a file before calling its number a
-gap.
+**The src-import trap above applies to emitters too, and is easy to misread as
+a gap.** `gen/slide/comments.ts` sits near 64% branches, and it is not
+untested. `comments-xml.test.js` exercises every one of its red arms with stub
+slides. It imports from `src/`, so it can never move a `dist` number. That is
+the third instance in the repo, after `html-dom.ts`'s helpers and
+`zoom-links.test.js`. Check the import path of the tests that already name a
+file before calling its number a gap.
 
-Finally, **re-measure; do not reason from whatever is in `coverage/`.** A run started
-with `--coverage.reportsDirectory` both writes to that directory *and* cleans it, so a
-narrow probe left behind (or a later full run wiping `coverage/probe`) can leave a
-stale `coverage-final.json` that reports *fewer* covered branches than a three-file
-probe does. A subset beating the full run is the tell. Recorded per-file numbers drift
-the same way: two files in this package were logged at 73 and 47 missed branches and
-were actually at 83 and 23 when the work started.
+Finally, **re-measure. Do not reason from whatever is in `coverage/`.** A run
+started with `--coverage.reportsDirectory` both writes to that directory *and*
+cleans it. So a narrow probe left behind, or a later full run wiping
+`coverage/probe`, can leave a stale `coverage-final.json` reporting *fewer*
+covered branches than a three-file probe does. A subset beating the full run is
+the tell. Recorded per-file numbers drift the same way: two files here were
+logged at 73 and 47 missed branches, and were actually at 83 and 23 when the
+work started.
 
-## Path-Citation Gate
+## Path-citation gate
 
 ```bash
 pnpm run path-refs:check  # part of verify and check:static
 pnpm run path-refs:list   # every citation found, resolved or not
 ```
 
-This repo cites files in backticks rather than as markdown links: a doc says "see
-`test/regression/shape/group-shapes.test.js`", a source comment names the module that
-owns the other half of a decision. Those citations are usually the *evidence* for the
-claim beside them, and nothing checked them: `docs-check.mjs` validates markdown links,
-a backticked path is not a link, and most of these live in `src/` and `test/` where a
-docs gate never looks. Seven had rotted by the time anyone did look, two still
-describing the upstream demo layout this project replaced.
+This repo cites files in backticks rather than as markdown links. A doc says
+"see `test/regression/shape/group-shapes.test.js`". A source comment names the
+module that owns the other half of a decision. Those citations are usually the
+*evidence* for the claim beside them, and nothing checked them.
+`docs-check.mjs` validates markdown links, a backticked path is not a link, and
+most of these live in `src/` and `test/`, where a docs gate never looks. Seven
+had rotted by the time anyone looked, two of them still describing the upstream
+demo layout this project replaced.
 
-A citation is a backticked token containing a `/` and ending in a source extension; the
-`/` is what keeps bare `package.json` out. It resolves against the repo root, against
-the citing file's directory, or as a suffix of some file's path: the loose third rule
-exists because comments legitimately write `gen/oxml/el.ts` without the `src/` prefix. A
-`.js` token also resolves against its `.ts` source, since ESM specifiers name the emitted
-file.
+A citation is a backticked token containing a `/` and ending in a source
+extension. The `/` is what keeps bare `package.json` out. It resolves against
+the repo root, against the citing file's directory, or as a suffix of some
+file's path. That loose third rule exists because comments legitimately write
+`gen/oxml/el.ts` without the `src/` prefix. A `.js` token also resolves against
+its `.ts` source, since ESM specifiers name the emitted file.
 
 Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) is skipped: `RELEASING.md`
 lists `dist/pptxgen.*` files *on purpose*, as the negative space of what this package
@@ -492,7 +497,7 @@ record. Everything else deliberately unresolvable goes in `ALLOWLIST` in
 `scripts/path-refs.mjs` with its reason, and an entry that stops firing is itself
 reported: a stale exemption is the same disease the gate exists to catch.
 
-## Raw-XML Ratchet
+## Raw-XML ratchet
 
 ```bash
 pnpm run raw-xml:check   # part of verify and check:static
@@ -511,19 +516,19 @@ up, and a file absent from the budget must be at zero.
 The check also fails when a count goes **down**: re-freeze in the same commit, so
 the budget never accumulates slack it could later hide a regression behind.
 
-Two exemptions. `src/gen/oxml/` itself, because emitting those delimiters is its
-job; and a literal handed straight to `warn`, `notes.note`, or `new *Error`,
-because a diagnostic that names the element it is about is prose, and prose forced
-to dodge a gate gets written worse. The scan walks the TypeScript AST rather than
-the file text, so an `<a:bodyPr>` in a doc comment was never a finding to begin
-with.
+Two exemptions. First, `src/gen/oxml/` itself, because emitting those
+delimiters is its job. Second, a literal handed straight to `warn`,
+`notes.note`, or `new *Error`: a diagnostic that names the element it is about
+is prose, and prose forced to dodge a gate gets written worse. The scan walks
+the TypeScript AST rather than the file text, so an `<a:bodyPr>` in a doc
+comment was never a finding to begin with.
 
 This is a ratchet, not a correctness check: it says nothing about whether the XML
 is right, only that the amount built by hand is not growing. Correctness is
 [schema validation](#ooxml-schema-validation)'s job, and byte-stability during a
 migration is the byte-identity harness's.
 
-## OOXML Schema Validation
+## OOXML schema validation
 
 Validation goes through [`ooxml-validate`](https://github.com/shbernal/ooxml-validate),
 a shared oracle around Microsoft's `OpenXmlValidator`. There is nothing to install: the
@@ -605,12 +610,9 @@ and pin a failure to a single fixture by hand.
 
 ### The schema tier proves it can still fail
 
-Every fixture in `test/schema-cases.js` asserts **zero** errors, which means no
-fixture can tell "this deck is valid" apart from "the validator reported nothing".
-If `validateBuf` ever returned `[]` unconditionally, whether from a keying bug in
-the batcher, a spawn failure the report parse swallows, or an output-shape change on
-an `ooxml-validate` bump, the entire tier would go green while proving nothing, and
-no other step in `verify` would notice.
+Every fixture in `test/schema-cases.js` asserts **zero** errors. So no fixture
+can tell "this deck is valid" apart from "the validator reported nothing".
+Suppose `validateBuf` started returning `[]` unconditionally, through a keying bug in the batcher, a spawn failure the report parse swallows, or an output-shape change on an `ooxml-validate` bump. The entire tier would go green while proving nothing, and no other step in `verify` would notice.
 
 Two cases at the end of that file close the hole from both sides, and they are the
 only ones there that expect a non-zero count:
@@ -740,7 +742,7 @@ validator that silently stopped running.
 Not part of `verify`: seven validator spawns per fixture, and it asserts nothing
 about emitted markup that `test:schema` does not already assert at `Microsoft365`.
 
-## Read/Round-Trip Suite (`pptx-ts/read`)
+## Read/round-trip suite (`pptx-ts/read`)
 
 The lossless read/edit subsystem (`src/read/`) has its own harness:
 
@@ -814,7 +816,7 @@ derive the committed `*.oracle.json` / `*.cases.json` sidecars; each regenerates
 sidecar byte-for-byte after an oxfmt pass, which is how you check that a recipe still
 matches what it claims to produce.
 
-## Converter And Read-Coverage Harnesses
+## Converter and read-coverage harnesses
 
 Four runnable measurement tools back the `pptx-ts/script` subsystem. Run them
 directly to iterate or to point them at your own decks.
@@ -866,7 +868,7 @@ the reference publishes drift silently as reader gaps close and fixtures land;
 this is what re-measures them. Full contract in
 [PPTX To Script](reference/pptx-to-script.md).
 
-## Full Test Command
+## Full test command
 
 ```bash
 pnpm test
@@ -877,7 +879,7 @@ discovers under `test/`: regression, read, schema, and tooling. There is no
 maintained list of suite paths to keep in sync; adding a `test/**/*.test.js`
 file is enough to get it run.
 
-## Package Boundary Checks
+## Package boundary checks
 
 ```bash
 pnpm run check:package   # package:lint + test:package
@@ -958,7 +960,7 @@ That leg does execute, and is green on every CI run to date: including the
 `workflow_call` gate inside `publish.yml`, so the Windows path is exercised on
 every release rather than merely configured.
 
-## Font Oracles
+## Font oracles
 
 ```bash
 pnpm run test:oracles   # the probe, then both oracles and the sidecar check
@@ -995,7 +997,7 @@ Regenerate the sidecar with `pnpm run font-metrics:build` (all six faces must be
 installed; it refuses to write a partial one) and reformat it afterwards, as with every
 other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
 
-## Browser Lane
+## Browser lane
 
 ```bash
 pnpm run test:browser   # build the site (docs:build), then Playwright
@@ -1140,15 +1142,15 @@ What this lane does **not** cover, and must not be read as covering:
   browsers is not a defect in this package; a `.pptx` a browser builds differently
   from Node is.
 - **Engines other than Chromium.** A deliberate decision, written down in
-  [Runtime And Package Support](runtime-and-package-support.md#which-browsers-the-lane-runs)
+  [Runtime and package support](runtime-and-package-support.md#which-browsers-the-lane-runs)
   so it is not re-opened every time CI time is discussed: the APIs in play are
-  uncontroversial across engines, and a matrix would cost CI time to re-answer a
-  question nothing has asked. Add Firefox or WebKit when something concrete
+  uncontroversial across engines, and a matrix would cost CI time to re-answer
+  a question nothing has asked. Add Firefox or WebKit when something concrete
   surfaces. (`adapter-coverage.spec.mjs` is Chromium-only by construction:
-  `page.coverage` is a CDP feature, which is a consequence of that decision, not
-  a reason for it.)
+  `page.coverage` is a CDP feature, which is a consequence of that decision,
+  not a reason for it.)
 
-## Demos Are Not Tests
+## Demos are not tests
 
 The showcase decks have no test role. There is no demo smoke command, no
 verification aggregate builds one, and a broken showcase fails nothing.
@@ -1222,7 +1224,7 @@ Two things worth knowing before editing it:
   (the browser lane owns that condition). Adding a subpath there gets it bundled;
   there is no second list to keep in sync.
 
-## Manual Visual Checks
+## Manual visual checks
 
 Automated tests prove package shape and generated XML structure. Manual visual
 checks are still useful for user-visible PowerPoint behavior:

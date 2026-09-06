@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Evidence And Fixtures"
+title: "Evidence and fixtures"
 summary: "What counts as evidence before implementing a change, and the rule that a feature testable only against genuine PowerPoint output waits for a real fixture instead of being guessed at."
 read_when:
   - Deciding whether there is enough evidence to start implementing
@@ -9,12 +9,12 @@ read_when:
 doc_type: "guide"
 ---
 
-# Evidence And Fixtures
+# Evidence and fixtures
 
 Two rules govern how a change here gets grounded: what counts as evidence at all,
 and what to do when the only evidence that *would* count does not exist yet.
 
-## Evidence Requirements
+## Evidence requirements
 
 Do not start implementing without at least one current-project evidence path:
 
@@ -29,7 +29,7 @@ Do not start implementing without at least one current-project evidence path:
 For emitted OOXML changes, the implementation should carry a focused fixture in
 `test/schema-cases.js` and a `pnpm run test:schema` run when practical.
 
-## Fixture-Gated Work: Ask For The Fixture, Don't Guess
+## Fixture-gated work: ask for the fixture, don't guess
 
 When a feature can only be tested against OOXML that must be **genuine
 PowerPoint output**, a read-model accessor validated against real Office XML, or

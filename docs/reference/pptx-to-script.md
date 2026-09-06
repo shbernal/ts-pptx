@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "PPTX To Script"
+title: "PPTX to script"
 summary: "Turn an existing .pptx into runnable TypeScript that rebuilds it through the public write API, with a declared, machine-checked list of what it drops."
 read_when:
   - Converting an existing deck into editable ts-pptx source
@@ -93,12 +93,12 @@ Slides are emitted in source order and every operation appends, so `p:sldIdLst`
 comes out right with no position arithmetic. Contiguous slides sharing a layout
 share one generator, because `appendSlides` binds one layout per call.
 
-Binding is by layout **name** where that is unambiguous, since a name survives
-being re-pointed at a different template; a deck whose layouts repeat a name
-falls back to gallery position, because `appendSlides` throws on an ambiguous
-name rather than choosing. A carried slide used to force that fallback on every
-batch in the script; it no longer does (see
-[what actually gets lost](#what-actually-gets-lost) below).
+Binding is by layout **name** where that is unambiguous, since a name
+survives being re-pointed at a different template. A deck whose layouts
+repeat a name falls back to gallery position, because `appendSlides` throws
+on an ambiguous name rather than picking one. A carried slide used to force
+that fallback on every batch in the script; it no longer does (see [what actually gets lost](#what-actually-gets-lost)
+below).
 
 ### Standalone output
 
@@ -116,16 +116,16 @@ slide1.addText(/* … */)
 await pptx.writeFile({ fileName: here('./output.pptx') })
 ```
 
-One `defineSlideMaster` per source layout, carrying **a title and a background
-and nothing else**. That thinness is a write-path constraint, not a shortcut:
-`addPlaceholdersToSlideLayouts` seeds every slide with each layout placeholder
-the slide did not populate, as an empty text shape. This converter authors every
-source shape as concrete absolute-positioned content and binds none of them to a
-placeholder, so re-declaring a layout's placeholders would add a ghost shape to
-every slide for each one: measured at five to eight per slide on the `mixed`
-fixture, which is a deck of ordinary complexity. The title
-still earns its place: it is the key `addSlide({ masterTitle })` matches on, so
-the output keeps a layout gallery a reader recognises.
+One `defineSlideMaster` per source layout, carrying **a title and a
+background and nothing else**. That thinness is a write-path constraint, not
+a shortcut. `addPlaceholdersToSlideLayouts` seeds every slide with each
+layout placeholder the slide did not populate, as an empty text shape. This
+converter authors every source shape as concrete absolute-positioned content
+and binds none of them to a placeholder. So re-declaring a layout's
+placeholders would add one ghost shape per placeholder to every slide: five
+to eight per slide on the `mixed` fixture, a deck of ordinary complexity. The
+title still earns its place: it is the key `addSlide({ masterTitle })`
+matches on, so the output keeps a layout gallery a reader recognises.
 
 ## Why there are two tiers: the chrome cliff
 
@@ -151,13 +151,14 @@ directions at once:
 Multi-master decks add a fifth: a generated deck has a single shared master, so
 a source deck with several has no structural counterpart and collapses.
 
-A **layout's** decoration used to head that list and no longer does.
-`SlideLayout.shapes` decodes it and the converter transcribes each shape into
-that layout's `defineSlideMaster({ objects })` array: through the same mapper
-the slides go through, so a band or a wordmark on a layout is decided by the
-code that decides one on a slide. What is left is narrow and named per shape
-under the `layout.` prefix: a table has no variant in that union, and a group is
-flattened into its children because the union has no `group` either.
+A **layout's** decoration used to head that list. It no longer does.
+`SlideLayout.shapes` decodes it, and the converter transcribes each shape
+into that layout's `defineSlideMaster({ objects })` array. It goes through
+the same mapper the slides go through, so a band or a wordmark on a layout is
+decided by the code that decides one on a slide. What is left is narrow, and
+named per shape under the `layout.` prefix. A table has no variant in that
+union. A group is flattened into its children, because the union has no
+`group` either.
 
 This asymmetry is why the template-anchored tier shipped first. It rides
 primitives that already existed and were already tested, and it makes those five
@@ -192,12 +193,13 @@ printed verbatim and reaches `a:off`/`a:ext` unrounded. Four options are typed
 in inches instead and are printed at **six decimal places**: `colW`, `rowH`,
 `margin`, and `defineLayout`'s `width`/`height`.
 
-Six is a proven minimum, not a preference. Inches round-trip EMU exactly at full
-double precision; the loss appears only if the printed decimal is truncated. A
-six-decimal round shifts a value by at most 0.4572 EMU, inside the half-EMU
-bound that makes `Math.round` return the original; at five decimals the bound is
-4.572 EMU and the round trip fails for most values. Rounding below six to
-suppress cosmetic `0.5000000001` noise would be a real geometry loss.
+Six is a proven minimum, not a preference. Inches round-trip EMU exactly at
+full double precision, and the loss appears only if the printed decimal is
+truncated. A six-decimal round shifts a value by at most 0.4572 EMU, inside
+the half-EMU bound that makes `Math.round` return the original. At five
+decimals the bound is 4.572 EMU, and the round trip fails for most values. So
+rounding below six to suppress cosmetic `0.5000000001` noise would be a real
+geometry loss.
 
 `defineLayout` is the strictest of the four: `appendSlides` compares the two
 decks' EMU sizes for *equality*, so imprecision there throws rather than drifts.
@@ -211,16 +213,16 @@ duration, `advClick`/`advTm` advance behaviour and the type-specific variant
 attributes all carry across; each is omitted from the emitted literal when the
 source left it at its OOXML default.
 
-The one judgement is the **type**. `TransitionInfo.type` is an open string,
-because the read model also decodes PowerPoint's modern effects (Morph, Vortex,
-Ripple, …) and distinguishes them by *namespace*; the write API's
+The one judgement is the **type**. `TransitionInfo.type` is an open string.
+The read model also decodes PowerPoint's modern effects, Morph, Vortex,
+Ripple and the rest, and tells them apart by *namespace*. The write API's
 `TransitionType` is a closed union of the 21 base ECMA-376 names. So the
-converter admits only `p`-namespaced names it can spell and files a
-`slide.transition` note for the rest: the alternative is a printed script that
-does not compile, on exactly the decks a converter is most likely to meet.
-PowerPoint's own probed effect table (captured in
-`test/read/fixtures/slide-transition.oracle.json`) lists 21 base effects and 21
-modern ones, and the base 21 match the write union exactly.
+converter admits only `p`-namespaced names it can spell, and files a
+`slide.transition` note for the rest. The alternative is a printed script
+that does not compile, on exactly the decks a converter is most likely to
+meet. PowerPoint's own probed effect table (captured in
+`test/read/fixtures/slide-transition.oracle.json`) lists 21 base effects and
+21 modern ones, and the base 21 match the write union exactly.
 
 Transition **sounds** map in both OOXML forms: the stop-previous `p:endSnd`, and
 an embedded start sound whose WAV is resolved through the slide's own `r:embed`
@@ -258,11 +260,11 @@ interface FidelityNote {
 }
 ```
 
-`construct` is an identifier rather than a sentence because the round-trip check
-matches it mechanically against a field path. `cause` is what makes a note
-**actionable**: `unread` and `unwritable` are gaps in a specific subsystem and
-could be closed, while `unsupported` is a property of OOXML or of the chosen tier
-and will not yield to more converter work.
+`construct` is an identifier rather than a sentence, because the round-trip
+check matches it mechanically against a field path. `cause` is what makes a
+note **actionable**. `unread` and `unwritable` are gaps in a specific
+subsystem, and could be closed. `unsupported` is a property of OOXML or of
+the chosen tier, and will not yield to more converter work.
 
 ### Read the printer's notes, not the IR's
 
@@ -276,11 +278,12 @@ adds:
   copy, but has no public write-API setter, so it dies in both tiers and nowhere
   else in the library.
 - *Added, template-anchored only:* a transition's **embedded start sound**
-  (`slide.transitionSound`). The standalone tier writes a real package and keeps
-  it; the append path this tier rides never runs the pass that registers a
-  transition's audio part, so the sound is dropped: silently, and without a
-  dangling reference, which is the safe half of the failure and still a loss. The
-  stop-previous form (`p:endSnd`) needs no part and survives in both tiers.
+  (`slide.transitionSound`). The standalone tier writes a real package and
+  keeps it. The append path this tier rides never runs the pass that
+  registers a transition's audio part, so the sound is dropped. Silently, and
+  without a dangling reference, which is the safe half of the failure and
+  still a loss. The stop-previous form (`p:endSnd`) needs no part and
+  survives in both tiers.
 
 The applicable set is reproduced as a comment block at the top of the emitted
 script, so the artifact carries its own caveats, and it is the set a round-trip
@@ -288,12 +291,12 @@ check must exclude from its diff.
 
 ## What actually gets lost
 
-Measured across the 49-fixture corpus by `pnpm run script:census`, which is what
-keeps the numbers below honest: a closed reader gap or a new fixture moves them
-without failing anything. The count is how many fixtures raise the note at least
-once, not how many notes fired; the corpus is construct-targeted, so this
-measures **coverage, not frequency**: it says what a converter meets, not what a
-real deck is mostly made of.
+Measured across the 49-fixture corpus by `pnpm run script:census`, which is
+what keeps the numbers below honest. A closed reader gap or a new fixture
+moves them without failing anything. The count is how many fixtures raise the
+note at least once, not how many notes fired. The corpus is
+construct-targeted, so this measures **coverage, not frequency**. It says
+what a converter meets, not what a real deck is mostly made of.
 
 Both tiers, in corpus order:
 
@@ -317,30 +320,31 @@ Plus, at 1–2 fixtures each: `chart.workbook`, `diagram.all`,
 `table.rowAuto`, `text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
 
 **A slide holding a graphic frame the write API cannot author is copied, not
-transcribed.** That is the rule, and `slide.carried` is how the converter says it
-applied. Three frame payloads qualify today (an extended chart, a SmartArt
-diagram, and a frame the reader does not decode at all), but the list is not the
-point: any frame that produces no call has the same consequence, because a script
-that silently omits it would claim to describe a slide it does not. The per-shape
-note beside `slide.carried` says which construct forced the copy.
+transcribed.** That is the rule, and `slide.carried` is how the converter
+says it applied. Three frame payloads qualify today: an extended chart, a
+SmartArt diagram, and a frame the reader does not decode at all. The list is
+not the point. Any frame that produces no call has the same consequence,
+because a script that silently omits it would claim to describe a slide it
+does not. The per-shape note beside `slide.carried` says which construct
+forced the copy.
 
 The standalone tier has no source package to copy from, so it transcribes such a
 slide and genuinely loses the frame. That is why the per-shape notes stay: they
 are what that tier reports, and `slide.carried` is suppressed there.
 
-**The copy no longer costs a duplicate layout.** It used to: `importSlide`
-brought the copied slide's whole `slideLayout` chain across under fresh partnames
-and could not tell that the template it was importing *into* was the same file, so
-the output gained one layout-gallery entry per carried slide. Nothing bound to it
-and the deck rendered identically, but it was visible in PowerPoint's layout
-picker, and it duplicated a layout *name*, which made `appendSlides({ layout })`
-ambiguous and demoted every batch in the script from a name to a gallery position.
-`importSlide` now binds to chrome the destination already holds (see
-[the read reference](./pptx-read.md#importing-a-slide-from-another-deck-phase-4)),
+**The copy no longer costs a duplicate layout.** It used to. `importSlide`
+brought the copied slide's whole `slideLayout` chain across under fresh
+partnames, and could not tell that the template it was importing *into* was
+the same file. So the output gained one layout-gallery entry per carried
+slide. Nothing bound to it, and the deck rendered identically. But it showed
+up in PowerPoint's layout picker, and it duplicated a layout *name*. That
+made `appendSlides({ layout })` ambiguous, and demoted every batch in the
+script from a name to a gallery position. `importSlide` now binds to chrome
+the destination already holds (see [the read reference](./pptx-read.md#importing-a-slide-from-another-deck-phase-4)),
 and since this tier's template is the source file itself, the whole chain is
 already there. The `slide.carriedChrome` note and the positional fallback it
-forced are both gone; a repeated layout name in a multi-master deck still falls
-back to a position, which is the case the fallback was for.
+forced are both gone; a repeated layout name in a multi-master deck still
+falls back to a position, which is the case the fallback was for.
 
 **`diagram.all` and `graphicFrame.unknown` are different losses, and used to be
 one note.** A SmartArt frame has a full reader, and its text can now be edited in
@@ -353,117 +357,125 @@ names only the frames that really are undecoded: the corpus raises it on
 `model3d.pptx` alone.
 
 **An inherited bullet is not a loss.** It used to be the largest one here, at
-34/44: the top of this table, and 305 of the standalone tier's notes on its own.
-A paragraph with no bullet child of its own inherits whatever the layout's or
-master's list style says, and the write API had no way to state that: omitting
-`bullet` emitted an explicit `<a:buNone/>` plus `marL="0" indent="0"`, which
-*overrides* the list style rather than deferring to it. That is a different fact
-even where the inherited style has no bullet, because a later edit to the master
-then stops arriving, and a visible change where it did have one, along with an
-inherited hanging indent flattened to zero in the same stroke. `bullet: 'inherit'`
-is the spelling for the third state, emitting neither a bullet child nor
-`a:buNone` nor the margins, so `Paragraph.bulletDetail` returning `null` (no
-bullet child) maps onto it and `{ kind: 'none' }` (a stated `a:buNone`) still maps
-onto `false`. The distinction always survived the read leg; it died on the write
-leg, which made this a missing option rather than an unreadable construct. Neither
-state notes now, and `layout.text.bullet.inherited` closes with it.
+34/44: the top of this table, and 305 of the standalone tier's notes on its
+own. A paragraph with no bullet child of its own inherits whatever the
+layout's or master's list style says, and the write API had no way to state
+that. Omitting `bullet` emitted an explicit `<a:buNone/>` plus `marL="0" indent="0"`,
+which *overrides* the list style rather than deferring to it. That is a
+different fact even where the inherited style has no bullet, because a later
+edit to the master then stops arriving, and a visible change where it did
+have one, along with an inherited hanging indent flattened to zero in the
+same stroke. `bullet: 'inherit'` is the spelling for the third state,
+emitting neither a bullet child nor `a:buNone` nor the margins, so
+`Paragraph.bulletDetail` returning `null` (no bullet child) maps onto it and
+`{ kind: 'none' }` (a stated `a:buNone`) still maps onto `false`. The
+distinction always survived the read leg; it died on the write leg, which
+made this a missing option rather than an unreadable construct. Neither state
+notes now, and `layout.text.bullet.inherited` closes with it.
 
-**A paragraph's own margins are not a loss either, and they were the other half
-of the same element.** `text.indent` read 5/44 and was the largest note left on
-`a:pPr` once the bullet one closed. `a:pPr/@marL` and `@indent` had no write
-option at all, so whichever `bullet` state a paragraph mapped onto decided them:
-a drawn bullet re-hung the first line by the writer's own 27pt default no matter
-what the source said, and `bullet: false` flattened both to zero. `paraMarginLeft`
-and `paraIndent` state them now, in points, with `'inherit'` for the paragraph
-that states neither: which a bulleted paragraph needs, since omitting the option
-is what writes the default. That is the third state again, one attribute over
-from `bullet: 'inherit'`, and the reader did not move here either:
-`Paragraph.marginLeftPt` and `Paragraph.indentPt` already separated a stated
-margin from an absent one. The note was empty in the round trip's exclusion table
-(neither IR carried the field, so the check compared two models both missing it)
-which is why closing it is what makes the margins *verified* rather than merely
-declared.
+**A paragraph's own margins are not a loss either, and they were the other
+half of the same element.** `text.indent` read 5/44 and was the largest note
+left on `a:pPr` once the bullet one closed. `a:pPr/@marL` and `@indent` had
+no write option at all, so whichever `bullet` state a paragraph mapped onto
+decided them. A drawn bullet re-hung the first line by the writer's own 27pt
+default, whatever the source said. `bullet: false` flattened both to zero.
+`paraMarginLeft` and `paraIndent` state them now, in points, with `'inherit'`
+for the paragraph that states neither: which a bulleted paragraph needs,
+since omitting the option is what writes the default. That is the third state
+again, one attribute over from `bullet: 'inherit'`, and the reader did not
+move here either: `Paragraph.marginLeftPt` and `Paragraph.indentPt` already
+separated a stated margin from an absent one. The note sat empty in the round
+trip's exclusion table, because neither IR carried the field and the check
+was comparing two models that were both missing it. Closing it is what makes
+the margins *verified* rather than merely declared.
 
-**A styled cell's own fill is not a loss.** It used to be: the note read at 7
-fixtures, because `resolvedFill` answers "what colour is this cell" by folding
-the cell's own fill together with the colour it merely inherits from the style's
-header and banding rules, and writing that back would turn every banded cell into
-an explicitly filled one. `TableCell.hasOwnFill` separates the two: a cell whose
-`a:tcPr` carries an `EG_FillProperties` child emits that fill, and a cell with
-none is left to the style GUID, which reproduces the banding exactly rather than
-approximately. Neither case records a note, and the bare `table.cell.fill` key is
-retired rather than merely unfired: its `.gradient`, `.gradient.path`,
-`.picture` and `.picture.geometry` children are separate constructs and stay.
+**A styled cell's own fill is not a loss.** It used to be. The note read at 7
+fixtures. `resolvedFill` answers "what colour is this cell" by folding the
+cell's own fill together with the colour it merely inherits from the style's
+header and banding rules, and writing that back would turn every banded cell
+into an explicitly filled one. `TableCell.hasOwnFill` separates the two. A
+cell whose `a:tcPr` carries an `EG_FillProperties` child emits that fill. A
+cell with none is left to the style GUID, which reproduces the banding
+exactly rather than approximately. Neither case records a note, and the bare
+`table.cell.fill` key is retired rather than merely unfired: its `.gradient`,
+`.gradient.path`, `.picture` and `.picture.geometry` children are separate
+constructs and stay.
 
-**Picture fills carry, and so does their source crop; the rest of the geometry
-does not.** An image-filled *surface* (a shape's `p:spPr/a:blipFill` or a cell's
-`a:tcPr/a:blipFill`) is re-embedded through the same asset resolver an
-`addImage` uses, so the bytes and the blip's `a:alphaModFix` opacity survive.
-Its `a:srcRect` does too, as `ShapeFillProps.image.crop`, with one limit worth
-stating: that option takes percentage insets from 0 to 100, so a *negative*
-inset (how a `contain`-style fill bleeds its source past the surface) and a pair
-summing to 100% or more are left uncarried rather than turned into a script that
-throws when it is run. What does not carry at all is everything else around
-the blip: the write path emits every picture fill as a stretched blip at a fixed
-`dpi="0" rotWithShape="1"` with only its `<a:srcRect>` under the caller's
-control, so a tiled fill comes back stretched and a destination inset comes back
-whole. That is `fill.picture.geometry` /
-`table.cell.fill.picture.geometry`, `approximated` and `unwritable`, and it is
-recorded only when the source actually uses one of them, one fixture does, the
-PowerPoint-authored tiled cell in `table-cell-image-fill.pptx`.
+**Picture fills carry, and so does their source crop; the rest of the
+geometry does not.** An image-filled *surface* (a shape's `p:spPr/a:blipFill`
+or a cell's `a:tcPr/a:blipFill`) is re-embedded through the same asset
+resolver an `addImage` uses, so the bytes and the blip's `a:alphaModFix`
+opacity survive. Its `a:srcRect` does too, as `ShapeFillProps.image.crop`,
+with one limit worth stating. That option takes percentage insets from 0 to
+100. So a *negative* inset, which is how a `contain`-style fill bleeds its
+source past the surface, and a pair summing to 100% or more, are left
+uncarried rather than turned into a script that throws when it is run.
+
+Everything else around the blip does not carry at all. The write path emits
+every picture fill as a stretched blip at a fixed `dpi="0" rotWithShape="1"`,
+with only its `<a:srcRect>` under the caller's control. So a tiled fill comes
+back stretched, and a destination inset comes back whole. That is
+`fill.picture.geometry` / `table.cell.fill.picture.geometry`, `approximated`
+and `unwritable`, and it is recorded only when the source actually uses one
+of them, one fixture does, the PowerPoint-authored tiled cell in
+`table-cell-image-fill.pptx`.
 
 **An outline's `@cap` carries; its `@algn` does not.** `a:ln/@cap` is mapped
 onto `ShapeLineProps.cap` (`flat`/`sq`/`rnd` → `flat`/`square`/`round`) and
-records no note, because both legs exist: the write API authors the attribute and
-`AutoShape.lineCap` reads it back. It is not cosmetic (on a thick dashed rule the
-cap extends every dash by the stroke width and decides whether each draws as a
-rectangle or a lozenge), so before the mapping existed a deck this library wrote
-could not survive its own converter, and nothing said so. `@algn` is the case
-where only one leg exists: readable through `AutoShape.lineAlign`, with no write
-option for it, so `line.align` is `dropped`/`unwritable`. It is recorded only for
-`algn="in"`, the inset stroke that sits half its width further in; `ctr` is what
-an omitted `@algn` already renders as, so noting it would fire on most
-PowerPoint-authored shapes while describing no loss. No corpus fixture states
-`in`, so the note reads 0/49.
+records no note, because both legs exist: the write API authors the attribute
+and `AutoShape.lineCap` reads it back. It is not cosmetic. On a thick dashed
+rule the cap extends every dash by the stroke width, and decides whether each
+draws as a rectangle or a lozenge. So before the mapping existed, a deck this
+library wrote could not survive its own converter, and nothing said so.
+`@algn` is the case where only one leg exists: readable through
+`AutoShape.lineAlign`, with no write option for it, so `line.align` is
+`dropped`/`unwritable`. It is recorded only for `algn="in"`, the inset stroke
+that sits half its width further in. `ctr` is what an omitted `@algn` already
+renders as, so noting that one would fire on most PowerPoint-authored shapes
+while describing no loss. No corpus fixture states `in`, so the note reads
+0/49.
 
 **A baked autofit carries its scale, and a bare one is a different state.** A
-`normAutofit` frame maps onto `fit`, but not onto a single spelling: one that
+`normAutofit` frame maps onto `fit`, but not onto a single spelling. One that
 bakes `a:normAutofit/@fontScale` or `@lnSpcReduction` emits the object form
-`fit: { type: 'shrink', fontScale, lnSpcReduction }`, and one with neither
-attribute emits `fit: 'shrink'`, which is what writes a bare `<a:normAutofit/>`.
-Collapsing the two would not be a rounding, ECMA-376 §21.1.2.1.3 defaults each
-attribute to 100%/0% only when it is *omitted*, and PowerPoint recomputes an
-unbaked scale on edit while drawing a baked one exactly as written, so a deck
-baked at `fontScale="40000"` would come back painting its text two and a half
-times too large until someone clicked into the frame. Neither case notes.
-`text.autofit.fontScale` / `text.autofit.lnSpcReduction` are the one arm that
-does: the write path rejects a percentage outside 0–100 and drops the attribute
-with a warning, so a malformed source falls back to bare `'shrink'` with the loss
-declared instead of passing through a number that would vanish silently. No
-corpus fixture is malformed, so both read 0/49.
+`fit: { type: 'shrink', fontScale, lnSpcReduction }`. One with neither
+attribute emits `fit: 'shrink'`, which is what writes a bare
+`<a:normAutofit/>`. Collapsing the two would not be a rounding. ECMA-376
+§21.1.2.1.3 defaults each attribute to 100%/0% only when it is *omitted*, and
+PowerPoint recomputes an unbaked scale on edit while drawing a baked one
+exactly as written. A deck baked at `fontScale="40000"` would come back
+painting its text two and a half times too large, until someone clicked into
+the frame. Neither case notes. `text.autofit.fontScale` and
+`text.autofit.lnSpcReduction` are the one arm that does. The write path
+rejects a percentage outside 0–100 and drops the attribute with a warning. So
+a malformed source falls back to bare `'shrink'` with the loss declared,
+rather than passing through a number that would vanish silently. No corpus
+fixture is malformed, so both read 0/49.
 
-**The explicit off for a text decoration is a state, not silence.** `u="none"`,
-`strike="noStrike"` and `cap="none"` carry into the IR as
-`underline: { style: 'none' }`, `strike: 'noStrike'` and `caps: 'none'`; only an
-*absent* attribute maps to an absent option. Each is a member of its own
-enumeration (ECMA-376 §20.1.10.81, §20.1.10.78, `ST_TextCapsType`) and would be
-redundant with omission if omission were the only way to be off. It is not,
-because run properties resolve down the `a:lstStyle` → placeholder → layout →
-master chain: a run that would take `u="sng"` from its list style and states
-`u="none"` is not underlined, and the same run with the attribute dropped is. The
-loss was invisible on a deck with no inherited decoration and a wrong answer on
-one that has any, and undeclared either way, since `canonicalDeckIr` did not
-carry the field, so `diffDeckIr` compared two models that were both missing it.
-Neither state notes. Two PowerPoint-authored fixtures state these tokens:
-`mixed.pptx` and `table.pptx` carry 132 runs stating `u="none"` and
-`strike="noStrike"`, and 100 of those also state `cap="none"`.
+**The explicit off for a text decoration is a state, not silence.**
+`u="none"`, `strike="noStrike"` and `cap="none"` carry into the IR as
+`underline: { style: 'none' }`, `strike: 'noStrike'` and `caps: 'none'`; only
+an *absent* attribute maps to an absent option. Each is a member of its own
+enumeration (ECMA-376 §20.1.10.81, §20.1.10.78, `ST_TextCapsType`) and would
+be redundant with omission if omission were the only way to be off. It is
+not, because run properties resolve down the `a:lstStyle` → placeholder →
+layout → master chain. A run that would take `u="sng"` from its list style
+and states `u="none"` is not underlined. The same run with the attribute
+dropped is. So the loss was invisible on a deck with no inherited decoration,
+and a wrong answer on one that has any. It was undeclared either way:
+`canonicalDeckIr` did not carry the field, so `diffDeckIr` compared two
+models that were both missing it. Neither state notes. Two
+PowerPoint-authored fixtures state these tokens: `mixed.pptx` and
+`table.pptx` carry 132 runs stating `u="none"` and `strike="noStrike"`, and
+100 of those also state `cap="none"`.
 
-`fill.picture` / `table.cell.fill.picture` are what remain for a fill that
-cannot carry its bytes at all, and neither fires on the corpus: a blip embedding
-no part (an external or linked image), a part missing from the package, or an
-SVG, which `addImage` accepts but a *fill* does not, so emitting one would
-produce a script that runs, warns, and paints nothing. Those surfaces come out
-unfilled, as they did before, with the note saying which case it was.
+`fill.picture` and `table.cell.fill.picture` are what remain for a fill that
+cannot carry its bytes at all. Neither fires on the corpus. The cases are a
+blip embedding no part, meaning an external or linked image; a part missing
+from the package; and an SVG, which `addImage` accepts but a *fill* does not,
+so emitting one would produce a script that runs, warns, and paints nothing.
+Those surfaces come out unfilled, as they did before, with the note saying
+which case it was.
 
 **Standalone only**: the chrome cliff, quantified. Six notes fire on *every*
 fixture, which is the honest headline of that tier:

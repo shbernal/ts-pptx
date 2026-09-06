@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Chart Whitespace Flatten"
+title: "Chart whitespace flatten"
 summary: "Why the chart emitters stopped threading indentation through every builder, and how a whitespace-only byte change was discharged without weakening the rule that normally refuses one."
 read_when:
   - Wondering why `ppt/charts/chartN.xml` is emitted flat when other parts are not
@@ -9,7 +9,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Chart Whitespace Flatten
+# Chart whitespace flatten
 
 `src/gen/chart/` used to carry 341 of the repo's 343 `openPrefix`/`childPrefix`/`closePrefix`
 arguments. They are gone. `ppt/charts/chartN.xml` is now emitted flat, and the byte change

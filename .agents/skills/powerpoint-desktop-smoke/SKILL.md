@@ -9,7 +9,7 @@ metadata:
   internal: true
 ---
 
-# PowerPoint Desktop Smoke Test
+# PowerPoint desktop smoke test
 
 AGENTS.md defines the project's supported bar as **"output opens cleanly in Microsoft
 PowerPoint."** CI is Node-only and cannot check that. This machine has desktop

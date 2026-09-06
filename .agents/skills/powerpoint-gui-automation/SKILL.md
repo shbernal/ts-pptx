@@ -9,7 +9,7 @@ metadata:
   internal: true
 ---
 
-# PowerPoint GUI Automation
+# PowerPoint GUI automation
 
 Drives the real, visible desktop PowerPoint window: foreground control,
 ribbon KeyTips over SendKeys, and UI Automation (`InvokePattern`/

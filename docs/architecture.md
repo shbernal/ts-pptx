@@ -28,141 +28,163 @@ exports and let this repository own the internal OOXML generation details.
   the authoring API façade (`addSlide`, `defineSlideMaster`, …), and presentation
   metadata. Enums are imported from the package entry, not read off the instance.
   `write`/`writeFile`/`stream` are thin façades over the packaging layer.
-- `src/package/assemble.ts` owns package assembly, split into two composable halves:
-  `buildPackageParts` turns an authored deck into every OOXML part in emission order
-  (`[Content_Types].xml`, the rels graph, docProps, theme, per-slide/layout/master
-  parts, media rels, and whatever the part contributors add), and `zipPackageParts` compresses that ordered
-  list to the requested output shape. `writePackage` is their composition: the entry
-  behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the
-  presentation class satisfies, so it does not depend on the class. The assembly half
-  is also exposed publicly as `pptx.toParts()` (returning `PackagePart[]` = `{ path,
-  data }`, dropping the internal-only STORE/DEFLATE hint): **part paths and their
-  emission order are a stability-guaranteed observable contract**, adding a part later
-  is back-compatible if existing paths/order do not shift; renaming/reordering is
-  breaking. The per-part bytes are identical to what `write()` compresses.
+- `src/package/assemble.ts` owns package assembly, in two composable halves.
+  `buildPackageParts` turns an authored deck into every OOXML part in emission
+  order: `[Content_Types].xml`, the rels graph, docProps, theme, per-slide, layout and master parts, media rels, and whatever the part contributors add. `zipPackageParts` compresses that ordered list to the requested output shape. `writePackage` is their composition, and the entry behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the presentation class satisfies, so it does not depend on the class.
+
+  The assembly half is public too, as `pptx.toParts()`. It returns
+  `PackagePart[]`, which is `{ path, data }`, dropping the internal-only STORE/DEFLATE hint. **Part paths and their emission order are a stability-guaranteed observable contract.** Adding a part later is back-compatible as long as existing paths and order do not shift. Renaming or reordering is breaking. The per-part bytes are identical to what `write()`
+  compresses.
 - `src/slide.ts` owns slide-level state: the object list, the rel arrays, the slide number,
   the background, and the geometry accessors over them. The `add*` methods are not written
   there; they are bound on from the construct families the presentation was composed with.
-- `src/gen/` holds the internal OOXML generators as a layered tree mirroring
-  `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
+- `src/gen/` holds the internal OOXML generators, as a layered tree mirroring
+  `src/read/`. `gen/define/*` normalizes user options onto the slide model.
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
-  OOXML at export time. Chart emission is split per plot family under `gen/chart/`
-  (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the `makeChartType`
-  dispatch, and shape emission is split per shape kind under `gen/slide/objects/`
-  behind the `slideObjectToXml` dispatch: `gen/slide/object.ts` keeps only that
-  walk, the group and slide-number branches that consume its shape-id counter, and
-  the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
-  belong to no single part (XML escaping, object names, rel ids).
-- **A consumer composes a presentation from the families it needs.** `createPresentation({ use })`
-  sits beside `TsPptx` on every entry (`entry-compose.ts` is the shared body, `families.ts` the
-  `pptx-ts/families` subpath a caller takes the values from). It composes the core tier plus what
-  it is given, and both forms write the same deck for the same slides, part for part: this is a
-  reachability difference, not a second write path. There is no second lean entry point on
-  purpose -- one would need the same three-condition treatment `.` gets, for nothing
-  export-level shaking does not already give. The type follows the composition: `addSlide()`
-  answers a slide carrying exactly the composed methods, each of which answers that same slide,
-  so a chain cannot widen back to the full surface. What that costs and saves is not an argument
-  but a gate: `bundle-tier:check` bundles a composed program, a composed-plus-one-family
-  program, and the `TsPptx` ones, and the difference between two of those rows is what a family
-  costs a consumer. The measured numbers, the core tier and what a consumer sees when a family
-  is missing are in [Bundle Size](bundle-size.md).
-- **A construct family is one value, and a presentation is composed with a list of them.**
-  What the library knows about charts, or tables, or speaker notes is a `ConstructFamily`
-  (`families/shared.ts`): the methods it adds to a slide (`addChart`), the child descriptors it
-  recognises inside a slide master or a group (`{ chart: ... }`), the renderer that emits its
-  XML, the part contributor that puts its parts in the package, and for two families a method
-  on the presentation itself (`measureText`, `tableToSlides`). `entry-families.ts` is the full
-  list, and all three entries compose it; the browser entry adds the table family's live-DOM
-  half (`families/table-dom.ts`), which is the only piece that needs a `document`. This is the
-  bundling constraint the two seams below record, one level up: a class method body is never
-  shaken, so `SlideBuilder.addChart` calling `addChartDefinition` linked every plot module into
-  every program that can make a slide. The methods are bound onto each slide instance rather
-  than registered on the prototype or into a module map, so two presentations composed
-  differently in one process each get their own, and a method whose family was not composed
-  raises `family/not-composed` naming the family rather than being absent. What stays core is
-  what no tier can drop: the slide background, `createSlideMaster` (handed the child-descriptor
-  table rather than naming families itself), the shape-id allocator and `resolveObjectName`
-  every family calls, and the export-time autofit bake. Slide *extraction*
-  (`gen/extract-slides.ts`, the path `appendSlides` reads) is handed a family table too, for the
-  same reason: it re-emits what a slide holds, so naming the chart emitters there put all of
-  `gen/chart/` in the graph of every program that can build a deck.
+  OOXML at export time. Chart emission splits per plot family under `gen/chart/`
+  (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the
+  `makeChartType` dispatch. Shape emission splits per shape kind under
+  `gen/slide/objects/` behind the `slideObjectToXml` dispatch, so
+  `gen/slide/object.ts` keeps only that walk, the group and slide-number branches
+  that consume its shape-id counter, and the slide `.rels`. `src/gen/utils.ts`
+  holds the cross-cutting helpers that belong to no single part: XML escaping,
+  object names, rel ids.
+- **A consumer composes a presentation from the families it needs.**
+  `createPresentation({ use })` sits beside `TsPptx` on every entry.
+  `entry-compose.ts` is the shared body; `families.ts` is the `pptx-ts/families`
+  subpath a caller takes the values from. It composes the core tier plus what it
+  is given, and both forms write the same deck for the same slides, part for
+  part. This is a reachability difference, not a second write path.
+
+  There is no second lean entry point, on purpose. One would need the same
+  three-condition treatment `.` gets, for nothing export-level shaking does not
+  already give. The type follows the composition: `addSlide()` answers a slide
+  carrying exactly the composed methods, and each of those answers that same
+  slide, so a chain cannot widen back to the full surface.
+
+  What that costs and saves is not an argument but a gate. `bundle-tier:check`
+  bundles a composed program, a composed-plus-one-family program, and the
+  `TsPptx` ones. The difference between two of those rows is what a family costs
+  a consumer. The measured numbers, the core tier, and what a consumer sees when
+  a family is missing, are in [Bundle size](bundle-size.md).
+- **A construct family is one value, and a presentation is composed with a list of
+  them.** What the library knows about charts, or tables, or speaker notes is a
+  `ConstructFamily` (`families/shared.ts`). That value carries the methods it
+  adds to a slide (`addChart`), the child descriptors it recognises inside a
+  slide master or a group (`{ chart: ... }`), the renderer that emits its XML,
+  the part contributor that puts its parts in the package, and for two families a
+  method on the presentation itself (`measureText`, `tableToSlides`).
+  `entry-families.ts` is the full list, and all three entries compose it. The
+  browser entry adds the table family's live-DOM half (`families/table-dom.ts`),
+  the only piece that needs a `document`.
+
+  This is the bundling constraint the two seams below record, one level up. A
+  class method body is never shaken, so `SlideBuilder.addChart` calling
+  `addChartDefinition` linked every plot module into every program that can make
+  a slide. The methods are bound onto each slide instance instead, not registered
+  on the prototype or into a module map. Two presentations composed differently
+  in one process each get their own, and a method whose family was not composed
+  raises `family/not-composed` naming the family, rather than simply being
+  absent.
+
+  What stays core is what no tier can drop: the slide background,
+  `createSlideMaster` (handed the child-descriptor table rather than naming
+  families itself), the shape-id allocator and `resolveObjectName` every family
+  calls, and the export-time autofit bake. Slide *extraction*
+  (`gen/extract-slides.ts`, the path `appendSlides` reads) is handed a family
+  table too, for the same reason. It re-emits what a slide holds, so naming the
+  chart emitters there put all of `gen/chart/` in the graph of every program that
+  can build a deck.
 - **The shape walk is handed its renderers; it does not import them.** Which renderer
-  emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`) that
-  travels down the write path with the deck state: from `PackageSource.renderers`,
-  through `makeXmlSlide` / `makeXmlLayout` / `makeXmlMaster`, into the walk. The
-  presentation assembles that table from the construct families it was composed with,
-  each of which names its own renderer. It is a table keyed by object kind rather than a
-  `switch`, and every renderer takes one `RenderContext` and nothing else, so the table
-  has a single signature and `gen/slide/object.ts` stays the only module that knows which
-  object kinds exist. This is a bundling constraint written into the code: a
-  named import inside a reachable function body is retained unconditionally, so a
-  dispatch that called `renderChartObject` itself would link the chart emitter into
-  every program that writes a slide, text-only ones included. It is passed rather than
-  registered into a module-level map for a reason the chart-part-id counter in
-  `package/assemble.ts` already records (a never-reset module global made the same
-  input produce different bytes), and because two decks built in one process must be
-  able to disagree about which families they carry. A slide object whose family the
-  table omits throws `slide/object-type-not-routed` rather than emitting nothing: it
-  has already reserved a `<p:cNvPr>` id that connector bindings, animation targets and
-  group bounds may point at, so a silent omission is a dangling reference PowerPoint
-  reports as a repair.
+  emits each shape family is a `RendererTable` (`gen/slide/objects/shared.ts`).
+  It travels down the write path with the deck state: from
+  `PackageSource.renderers`, through `makeXmlSlide` / `makeXmlLayout` /
+  `makeXmlMaster`, into the walk. The presentation assembles that table from the
+  construct families it was composed with, each of which names its own renderer.
+  It is keyed by object kind rather than written as a `switch`, and every
+  renderer takes one `RenderContext` and nothing else. So the table has a single
+  signature, and `gen/slide/object.ts` stays the only module that knows which
+  object kinds exist.
+
+  This is a bundling constraint written into the code. A named import inside a
+  reachable function body is retained unconditionally, so a dispatch that called
+  `renderChartObject` itself would link the chart emitter into every program that
+  writes a slide, text-only ones included. It is passed rather than registered
+  into a module-level map for two reasons: the chart-part-id counter in
+  `package/assemble.ts` already records the first (a never-reset module global
+  made the same input produce different bytes), and two decks built in one
+  process must be able to disagree about which families they carry.
+
+  A slide object whose family the table omits throws
+  `slide/object-type-not-routed` rather than emitting nothing. It has already
+  reserved a `<p:cNvPr>` id that connector bindings, animation targets and group
+  bounds may point at, so a silent omission is a dangling reference, which
+  PowerPoint reports as a repair.
 - **The packager is handed its part contributors; it does not import them.** Which
-  construct families put parts in a package is a `PartContributor[]`
-  (`package/parts/shared.ts`) carried on `PackageSource` beside the renderer table, and
-  the presentation collects them from the construct families it was composed with, three of
-  which have parts to add (charts, comments, speaker notes).
-  `package/assemble.ts` keeps the skeleton every deck has, calls those contributors at
-  fixed points in it, and names no family itself. Same bundling constraint as the shape
-  walk, on the other axis: it is about which parts land in the zip rather than which XML
-  lands in a slide, and naming `createExcelWorksheet` from the packager linked the whole
-  of `gen/chart/` (plot modules, axes, chartEx sidecars, the embedded-workbook writer)
-  into every program that wrote a deck. Both the zip's part order and
-  `[Content_Types].xml` are byte-significant, so neither may depend on the order a
-  caller lists contributors in: each contributor declares an `order` and the packager
-  sorts by it, and content-type entries arrive as data grouped by the slot they land in,
-  so `gen/opc/content-types.ts` keeps its fixed sequence and never learns which family
-  asked. Three things stay on the core path deliberately. The chart-part-id pass is
-  package-wide ordering rather than chart knowledge (it must number identically for a
-  deck with no charts, and `gen/chart/chartex-xml.ts` derives its series GUIDs from the
-  id it assigns); the media half of what used to be one chart-and-media function stays
-  because images are how any deck carries a picture, with the chart contributor running
-  immediately before it per target so the zip keeps its chart-then-media interleaving;
-  and `ppt/theme/theme2.xml` stays with the theme it pairs with even though only
-  `notesMaster1.xml.rels` references it.
+  construct families put parts in a package is a `PartContributor[]` (`package/parts/shared.ts`),
+  carried on `PackageSource` beside the renderer table. The presentation collects
+  them from the construct families it was composed with. Three of those have
+  parts to add: charts, comments, speaker notes. `package/assemble.ts` keeps the
+  skeleton every deck has, calls those contributors at fixed points in it, and
+  names no family itself.
+
+  Same bundling constraint as the shape walk, on the other axis. This one is
+  about which parts land in the zip rather than which XML lands in a slide.
+  Naming `createExcelWorksheet` from the packager linked the whole of
+  `gen/chart/` into every program that wrote a deck: plot modules, axes, chartEx
+  sidecars, the embedded-workbook writer.
+
+  Both the zip's part order and `[Content_Types].xml` are byte-significant, so neither may depend on the order a caller lists contributors in. Each contributor declares an `order`, and the packager sorts by it. Content-type entries arrive as data grouped by the slot they land in, so `gen/opc/content-types.ts` keeps its fixed sequence and never learns which family asked.
+
+  Three things stay on the core path deliberately. The chart-part-id pass is
+  package-wide ordering rather than chart knowledge: it must number identically
+  for a deck with no charts, and `gen/chart/chartex-xml.ts` derives its series
+  GUIDs from the id it assigns. The media half of what used to be one
+  chart-and-media function stays, because images are how any deck carries a
+  picture; the chart contributor runs immediately before it per target, so the
+  zip keeps its chart-then-media interleaving. And `ppt/theme/theme2.xml` stays
+  with the theme it pairs with, even though only `notesMaster1.xml.rels`
+  references it.
 - `src/ooxml/` holds the schema facts that belong to **neither** half of the library:
-  relationship-type URIs (`rel-types.ts`), the child-sequence order of each complexType
-  a writer or an editor inserts into (`sequence.ts`), the `ST_` enumerations
-  (`st-enums.ts`), and the two enum-validation policies (`check-enum.ts`). It exists
-  because `src/gen/` and `src/read/` each used to keep a private copy of the same
-  constants, and a divergence between them had no compile-time signal: a wrong rel URI
-  matches nothing, an out-of-order child makes the part invalid, and PowerPoint reports
-  the latter as a *corrupt file* rather than as a bad edit. Two properties keep it from
-  regressing: each successor list is **derived** by slicing one declared sequence rather
-  than written out, and each `ST_` union is **derived** from the same tuple the validator
-  checks against (`(typeof X)[number]`), so a type and its runtime list cannot drift.
+  relationship-type URIs (`rel-types.ts`), the child-sequence order of each
+  complexType a writer or an editor inserts into (`sequence.ts`), the `ST_`
+  enumerations (`st-enums.ts`), and the two enum-validation policies
+  (`check-enum.ts`). It exists because `src/gen/` and `src/read/` each used to
+  keep a private copy of the same constants, and a divergence between them had no
+  compile-time signal. A wrong rel URI matches nothing. An out-of-order child
+  makes the part invalid, and PowerPoint reports that as a *corrupt file* rather
+  than as a bad edit. Two properties keep it from regressing. Each successor list
+  is **derived** by slicing one declared sequence rather than written out, and
+  each `ST_` union is **derived** from the same tuple the validator checks
+  against (`(typeof X)[number]`), so a type and its runtime list cannot drift.
   Nothing here knows whether it is being read or written.
-- `src/read/` is layered: `read/opc/` is the package/part/relationship layer;
-  `read/oxml/` is the DOM substrate plus the **pure** resolvers (`theme.ts` for colour
-  and style-matrix resolution, `placeholder-inherit.ts` for what a placeholder inherits
-  from its layout/master chain); `read/api/` is the navigable object model; and
-  `read/api/ops/` is the deck-level machinery that moves parts between packages
-  (part copy, master registry, import/prune/rescale, and the `preserve`-mode
-  `flatten.ts`). The line between `read/oxml/` and `read/api/ops/` is **mutation**: the
-  resolvers answer "what would this be?" and build detached elements, the ops write the
-  answers into a live part. That line is what lets the read model's getters and the
-  import-time bake share one implementation, which is what keeps a colour reported
-  before export equal to the colour written into the file. One file in `read/api/` is
-  not object model: `presentation-imports.ts` holds the bodies of `Presentation`'s four
-  import entry points, whose contracts stay on the class as the doc comments a caller
-  reads. It is not an `ops/` module because it is not independent of its caller -- it
-  reaches back into the deck for three `@internal` members the methods that stayed
-  behind share with it. Two `ops/` modules also import from `src/gen/`:
-  `notes-master.ts` and `notes-author.ts` reach for `makeXmlNotesMaster`,
-  `makeXmlNotesSlideSkeleton` and the element builder. That is deliberate, and it is
-  the one place the read half depends on the write emitters: carrying notes into a
-  deck that has no notesMaster means *authoring* one, and an ops-local second copy of
-  those two parts would be a second answer to what a notesMaster is. Everything else
-  under `ops/` moves parts that already exist.
+- `src/read/` is layered. `read/opc/` is the package, part and relationship layer.
+  `read/oxml/` is the DOM substrate plus the **pure** resolvers: `theme.ts` for
+  colour and style-matrix resolution, `placeholder-inherit.ts` for what a
+  placeholder inherits from its layout and master chain. `read/api/` is the
+  navigable object model. `read/api/ops/` is the deck-level machinery that moves
+  parts between packages: part copy, master registry, import, prune, rescale, and
+  the `preserve`-mode `flatten.ts`.
+
+  The line between `read/oxml/` and `read/api/ops/` is **mutation**. The
+  resolvers answer "what would this be?" and build detached elements. The ops
+  write the answers into a live part. That line is what lets the read model's
+  getters and the import-time bake share one implementation, which keeps a colour
+  reported before export equal to the colour written into the file.
+
+  One file in `read/api/` is not object model. `presentation-imports.ts` holds
+  the bodies of `Presentation`'s four import entry points, whose contracts stay
+  on the class as the doc comments a caller reads. It is not an `ops/` module,
+  because it is not independent of its caller: it reaches back into the deck for
+  three `@internal` members it shares with the methods that stayed behind.
+
+  Two `ops/` modules also import from `src/gen/`. `notes-master.ts` and
+  `notes-author.ts` reach for `makeXmlNotesMaster`, `makeXmlNotesSlideSkeleton`
+  and the element builder. That is deliberate, and it is the one place the read
+  half depends on the write emitters. Carrying notes into a deck that has no
+  notesMaster means *authoring* one, and an ops-local second copy of those two
+  parts would be a second answer to what a notesMaster is. Everything else under
+  `ops/` moves parts that already exist.
 - `src/measure/` holds the calibrated text-measurement engine behind the
   `pptx-ts/measure` subpath and the export-time autofit bake: `font-metrics.ts`
   (advance widths + the registry), `text-fit.ts` (the wrap simulator and the
@@ -178,52 +200,56 @@ exports and let this repository own the internal OOXML generation details.
   (lenient unit conversion) and `constants-internal.ts` (generator defaults, fixed
   ids, colour palettes), each of which sits beside the published module it extends.
 - `src/script/` turns a deck read through `src/read/` into a serializable
-  description of the write-API calls that would rebuild it (`readModelToIr`),
-  and prints that description as a runnable TypeScript module. The two halves
-  meet only at the IR: `from-read/` knows OOXML and the read model, `print/`
-  knows only strings, and neither can see the other. That is what makes the
-  mapping testable without a printer and keeps "how a number is spelled" from
-  changing what a deck means. Two printers sit over the one IR and differ only
-  in where the deck's *chrome* comes from. `printScript` anchors its output on a
-  template, it reuses the *source deck itself*, because `fromTemplate` strips a
-  package's slides while leaving masters, layouts, theme, and document properties
+  description of the write-API calls that would rebuild it (`readModelToIr`), and
+  prints that description as a runnable TypeScript module. The two halves meet
+  only at the IR: `from-read/` knows OOXML and the read model, `print/` knows
+  only strings, and neither can see the other. That is what makes the mapping
+  testable without a printer and keeps "how a number is spelled" from changing
+  what a deck means. Two printers sit over the one IR, and they differ only in
+  where the deck's *chrome* comes from. `printScript` anchors its output on a
+  template, reusing the *source deck itself*: `fromTemplate` strips a package's
+  slides while leaving masters, layouts, theme and document properties
   byte-identical, so only slide content is ever regenerated.
   `printStandaloneScript` emits a module that depends on nothing but this
-  package, re-authoring the theme and one `defineSlideMaster` per source layout
+  package. It re-authors the theme and one `defineSlideMaster` per source layout
   from what the read model exposes, including that layout's own decoration,
-  re-tagged through the same mapper the slides use. The split is not a
-  preference: a theme's `a:fmtScheme` and a master's `p:txStyles` are unreachable
-  from *both* directions, and a master's own decoration has no write-side
-  counterpart because `defineSlideMaster` creates a layout, so a rebuilt design
-  can only ever be an approximation, while a reused one is exact. Each printer therefore returns the
-  note set that applies to **its** output, suppressing what its tier rescues and
-  adding what its tier costs, and that set, not `DeckIr.fidelity`, is what a
-  round-trip check excludes.
-  It is its own subsystem because it depends on **both** halves, the read model
-  and the write option types, so it fits inside neither, and because `src/read/`
-  is documented as isomorphic (bytes in, bytes out), which a converter emitting
-  source text would quietly break for every `pptx-ts/read` consumer. Losses are
-  data, not log lines: anything that cannot survive is a `FidelityNote` on the
-  IR, which is what lets a round-trip check exclude exactly the declared losses
-  and treat every other difference as a defect. `verify/` is that check:
-  `canonicalDeckIr` reduces an IR to the form a comparison can use (dropping
-  only values whose explicit and absent spellings are the same OOXML default),
-  and `diffDeckIr` compares the source deck's IR against the IR of the deck a
-  generated script produced, with the printer's notes as the exclusion list.
-  It compares IRs rather than packages because the output can never be
-  byte-identical (fresh rel ids, regenerated shape ids), so a byte comparison
-  would fail for every deck and measure nothing. Its reach is bounded in two
-  ways worth knowing before trusting a clean run: both IRs come from the same
-  reader, so a construct the read path cannot see is absent from both, and the
-  converter need not be injective, so two source constructs that map to the
-  same call compare equal. It detects *asymmetry*; `pnpm run read:census` and
-  the IR unit tests cover the rest. The consumer-facing guide (both tiers, the
-  measured loss list, and how to read a fidelity note) is
-  [PPTX To Script](reference/pptx-to-script.md).
+  re-tagged through the same mapper the slides use.
+
+  The split is not a preference. A theme's `a:fmtScheme` and a master's
+  `p:txStyles` are unreachable from *both* directions, and a master's own
+  decoration has no write-side counterpart, because `defineSlideMaster` creates a
+  layout. So a rebuilt design can only ever be an approximation, while a reused
+  one is exact. Each printer therefore returns the note set that applies to
+  **its** output, suppressing what its tier rescues and adding what its tier
+  costs. That set, not `DeckIr.fidelity`, is what a round-trip check excludes.
+
+  It is its own subsystem for two reasons. It depends on **both** halves, the
+  read model and the write option types, so it fits inside neither. And
+  `src/read/` is documented as isomorphic, bytes in and bytes out, which a
+  converter emitting source text would quietly break for every `pptx-ts/read`
+  consumer. Losses are data here, not log lines. Anything that cannot survive
+  becomes a `FidelityNote` on the IR, which lets a round-trip check exclude
+  exactly the declared losses and treat every other difference as a defect.
+
+  `verify/` is that check. `canonicalDeckIr` reduces an IR to the form a
+  comparison can use, dropping only values whose explicit and absent spellings
+  are the same OOXML default. `diffDeckIr` compares the source deck's IR against
+  the IR of the deck a generated script produced, with the printer's notes as the
+  exclusion list. It compares IRs rather than packages because the output can
+  never be byte-identical: fresh rel ids, regenerated shape ids. A byte
+  comparison would fail for every deck and measure nothing.
+
+  Its reach is bounded in two ways worth knowing before you trust a clean run.
+  Both IRs come from the same reader, so a construct the read path cannot see is
+  absent from both. And the converter need not be injective, so two source
+  constructs that map to the same call compare equal. It detects *asymmetry*.
+  `pnpm run read:census` and the IR unit tests cover the rest. The
+  consumer-facing guide, covering both tiers, the measured loss list and how to
+  read a fidelity note, is [PPTX to script](reference/pptx-to-script.md).
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 
-## The Rule That Keeps The Tiers Real
+## The rule that keeps the tiers real
 
 Three seams carry a construct family to the write path instead of importing it: the
 family list a presentation is composed with (`families/shared.ts`), the renderer table
@@ -250,7 +276,7 @@ The rule is about the three composition points, not about families in general. A
 module importing from `gen/` is ordinary and expected; that is where its emitters live.
 What it must never do is get named *by* the core path.
 
-## Where Does X Live? (task → file → function)
+## Where does X live? (task → file → function)
 
 A starting point for "which function do I touch?". Two-phase pattern for most content:
 an `add*Definition` in `gen/define/*` normalizes user options onto the slide model,
@@ -318,7 +344,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for ts-pptx consumers.
 
-## Data And Control Flow
+## Data and control flow
 
 1. Consumers create a presentation through a public ts-pptx entry point.
 2. Public methods collect slides and slide objects into internal structures.
@@ -327,7 +353,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 5. Package smoke tests verify that consumers can import only supported public
    entry points.
 
-## Extension Points
+## Extension points
 
 - Add public API only through exported entry points and generated declarations.
 - Add OOXML behavior with focused regression or schema fixtures.

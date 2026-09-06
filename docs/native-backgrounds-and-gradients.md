@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Native Backgrounds And Gradients"
+title: "Native backgrounds and gradients"
 summary: "Linear and radial native PPTX gradient fills on slide backgrounds and shapes: what's shipped, what's still fixture-gated, and the design rationale."
 read_when:
   - Changing slide background or shape fill OOXML
@@ -9,7 +9,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Native Backgrounds And Gradients
+# Native backgrounds and gradients
 
 ## Status
 
@@ -36,7 +36,7 @@ across PowerPoint-compatible consumers. A consumer should continue using
 deterministic raster backgrounds when exact rendered appearance is more reliable
 than native PPTX gradients.
 
-## MCP Review Findings
+## MCP review findings
 
 Sources consulted:
 
@@ -97,7 +97,7 @@ API only exposes a high-level gradient type option for slide backgrounds, so it
 is useful compatibility signal but not a substitute for inspecting
 PowerPoint-authored package XML.
 
-## PowerPoint Fixture Review Still Outstanding
+## PowerPoint fixture review still outstanding
 
 Before broadening support beyond the first linear-gradient slice, complete the
 behavior review that MCP lookup cannot replace:
@@ -113,7 +113,7 @@ behavior review that MCP lookup cannot replace:
 Do not expand the public guarantee until the PowerPoint fixture review confirms
 PowerPoint's authored XML shape and rendering behavior.
 
-## Proposed API Slice
+## Proposed API slice
 
 Start with a narrow `ShapeFillProps` extension for linear gradients:
 
@@ -251,7 +251,7 @@ corner "from corner" gradients). Only `path="circle"` with an axis-aligned
 `fillToRect` focus is currently exposed. Confirm PowerPoint's authored defaults
 for those presets against minimal fixtures before extending the public API.
 
-## Implementation Steps
+## Implementation steps
 
 1. Extend `ShapeFillProps` in `src/types/index.ts` with a linear gradient
    model and exported stop type. Expand `type` from `'none' | 'solid'` to
@@ -293,7 +293,7 @@ for those presets against minimal fixtures before extending the public API.
    guarantee unless the full review proves their current call sites can support
    gradient-only fill objects safely.
 
-## Fixtures And Tests
+## Fixtures and tests
 
 Add executable evidence with a small blast radius:
 
@@ -322,7 +322,7 @@ pnpm run test:schema
 If `test:schema` reports that the validator is unavailable, resolve that first:
 a skipped schema tier proves nothing about the implementation.
 
-## Downstream Fallback Guidance
+## Downstream fallback guidance
 
 A consumer should not remove its raster gradient guidance immediately.
 

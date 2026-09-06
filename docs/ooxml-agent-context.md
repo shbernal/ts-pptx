@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "OOXML Agent Context"
+title: "OOXML agent context"
 summary: "Repo-local OOXML and Microsoft documentation lookup workflow for emitted package changes."
 read_when:
   - Changing emitted OOXML
@@ -9,13 +9,13 @@ read_when:
 doc_type: "reference"
 ---
 
-# OOXML Agent Context
+# OOXML agent context
 
 This repository has project-scoped Codex MCP configuration in `.codex/config.toml`.
 Codex loads it only when the project is trusted. In a running Codex session, use
 `/mcp` to confirm the active servers.
 
-## Configured MCP Servers
+## Configured MCP servers
 
 ### `ooxml`
 
@@ -85,7 +85,7 @@ Use it when you need to answer questions such as:
 - How does the Open XML SDK validate or model a package part?
 - Is a namespace, extension URI, or relationship type Microsoft-specific?
 
-## Known MCP Gap: Annex D Preset Shape Geometry Definitions
+## Known MCP gap: Annex D preset shape geometry definitions
 
 The `ooxml` MCP serves the ECMA-376 **XSD schema graph**, Transitional and Strict. It does
 **not** carry the Annex D electronic addenda (`OfficeOpenXML-DrawingMLGeometries.zip` inside
@@ -130,7 +130,7 @@ of which would write `val NaN` / `val Infinity`, a token outside the formula gra
 number outside a range. The `prstgeom` leg of `pnpm run test:com` is that evidence kept runnable,
 sensitivity pair included.
 
-## Retrieval Workflow
+## Retrieval workflow
 
 1. Start with local evidence. Search `src/`, `test/`, `README.md`, and
    `docs/testing.md` before changing behavior.
@@ -151,7 +151,7 @@ sensitivity pair included.
    output and no such fixture exists yet, stop rather than guess: see
    [Evidence and fixtures](evidence-and-fixtures.md).
 
-## What Not To Do
+## What not to do
 
 - Do not commit full OOXML standards PDFs, large copied spec excerpts, or bulk
   extracted standard text.
@@ -163,7 +163,7 @@ sensitivity pair included.
 - Do not treat Microsoft extension namespaces as ECMA-defined without checking
   the Microsoft documentation.
 
-## Emitting XML: The `el()` Builder
+## Emitting XML: the `el()` builder
 
 `src/gen/oxml/el.ts` is the write-side element builder (mirror of `src/read/oxml/dom.ts`).
 Prefer it over template-string concatenation in new emitter code: it escapes text and
@@ -181,17 +181,19 @@ attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce in
   are flat and need no `fmt`; the pretty-printed ones are not always depth-regular, so
   indentation is described per element rather than derived.
 - Attribute values and text children take **different escapers**, and the difference matters.
-  Attributes go through `encodeXmlAttrValue`, which additionally emits `&#9;`/`&#10;`/`&#13;`
-  for tab/CR/LF, because XML 1.0 §3.3.3 has a parser normalise those literal characters to a
-  single space inside an attribute value before any consumer sees them. Text children go
-  through `encodeXmlEntities`, where the same characters are content and stay literal. Any
-  emitter that writes an attribute with a template string rather than the builder (there are
-  a few, e.g. `cNvPrOpen`) must call `encodeXmlAttrValue` itself.
+  Attributes go through `encodeXmlAttrValue`, which also emits
+  `&#9;`/`&#10;`/`&#13;` for tab/CR/LF, because XML 1.0 §3.3.3 has a parser
+  normalise those literal characters to a single space inside an attribute
+  value before any consumer sees them. Text children go through
+  `encodeXmlEntities`, where the same characters are content and stay
+  literal. Any emitter that writes an attribute with a template string rather
+  than the builder (there are a few, e.g. `cNvPrOpen`) must call
+  `encodeXmlAttrValue` itself.
 
 Migrating an existing emitter onto it is a byte-preserving refactor: gate it with
 `pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").
 
-## Local Validation Tools
+## Local validation tools
 
 - Validation runs through `ooxml-validate`, which fetches and caches its oracle
   binary on first use. Nothing to install.

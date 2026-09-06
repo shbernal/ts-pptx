@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Image Embedded In A Shape"
+title: "Image embedded in a shape"
 summary: "Clip a picture to a preset or freeform shape and crop it to fill the box (blipFill + custGeom)."
 read_when:
   - Clipping an image to a circle, rounded rectangle, hexagon, or freeform path
@@ -11,7 +11,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# Image Embedded In A Shape
+# Image embedded in a shape
 
 `slide.addImage()` can clip a picture to a shape and, independently, crop the
 source bitmap so it fills that shape at the right aspect ratio. This is the

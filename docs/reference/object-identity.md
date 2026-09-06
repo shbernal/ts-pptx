@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Object Identity"
+title: "Object identity"
 summary: "Public objectName and altText contracts for generated PPTX objects."
 read_when:
   - Using stable Selection Pane names
@@ -9,7 +9,7 @@ read_when:
 doc_type: "reference"
 ---
 
-# Object Identity
+# Object identity
 
 ts-pptx exposes `objectName` on generated slide objects that have a PowerPoint
 Selection Pane identity. When set, `objectName` is serialized to the generated
@@ -38,12 +38,12 @@ should set `objectName` explicitly instead of depending on generated default nam
 
 ## Alt text
 
-`altText` is a universal contract across every object kind listed above: text
-boxes and text-backed shapes, shapes, images (including SVG-backed images),
-charts, tables, and media. When set, `altText` is serialized to the generated
-object's `p:cNvPr` `descr` attribute. Images additionally fall back to the image
-filename for `descr` when `altText` is omitted; all other kinds emit an empty
-`descr` when `altText` is omitted.
+`altText` is a universal contract across every object kind listed above:
+text boxes and text-backed shapes, shapes, images (including SVG-backed
+images), charts, tables, and media. When set, `altText` is serialized to
+the generated object's `p:cNvPr` `descr` attribute. Images also fall back
+to the image filename for `descr` when `altText` is omitted; all other
+kinds emit an empty `descr` when `altText` is omitted.
 
 ## Name validation
 

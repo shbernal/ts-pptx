@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Comparison With PptxGenJS"
+title: "Comparison with PptxGenJS"
 summary: "What ts-pptx 3.7.0 and pptxgenjs 4.0.1 each emit, what validates, what each costs to install, and how the two projects are run."
 read_when:
   - Choosing between ts-pptx and pptxgenjs
@@ -13,7 +13,7 @@ doc_type: "reference"
      Regenerate with `pnpm run comparison:render`.
      Source: `scripts/comparison/snapshot.json`, written by `scripts/comparison/measure.mjs`. -->
 
-# Comparison With PptxGenJS
+# Comparison with PptxGenJS
 
 ts-pptx is an independent derivative of
 [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1 (see
@@ -63,8 +63,8 @@ refreshed on release cadence and carries the date above. Nothing here is edited 
   What upstream reaches that ts-pptx does not is the Node versions and toolchains below
   that line. See [runtime and package support](runtime-and-package-support.md).
 - **A browser loads it as a module.** A bundler, or `<script type="module">` against an
-  ESM CDN such as esm.sh. pptxgenjs additionally ships a classic-script bundle that
-  defines a global, which is the older shape and the one ts-pptx replaced.
+  ESM CDN such as esm.sh. pptxgenjs also ships a classic-script bundle that defines a
+  global, which is the older shape and the one ts-pptx replaced.
 - **Node.js `>=24`.** pptxgenjs declares no engine floor and runs on much older releases.
 - **Not a drop-in continuation of the upstream release line.** The API is close by
   descent, not by contract, and it has moved since. Migrating is a port, not an upgrade.

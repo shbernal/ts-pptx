@@ -14,7 +14,7 @@ This directory contains the maintained project documentation for ts-pptx.
 Prefer docs here over legacy upstream-era notes in demos or generated
 artifacts.
 
-## Start Here
+## Start here
 
 - [Project target](project-target.md): what this project is optimized for.
 - [Comparison with PptxGenJS](comparison.md): what each library emits,
@@ -37,7 +37,7 @@ artifacts.
   before implementing, and when to wait for a genuine PowerPoint fixture instead
   of guessing the target XML.
 
-## Feature Guides
+## Feature guides
 
 - [Tables](tables.md): the cell model, the styling precedence chain, borders
   (per-cell default vs. perimeter, dash styles, diagonals), merges, auto-paging,
@@ -71,7 +71,7 @@ artifacts.
 - [Errors](errors.md): the five error classes, the stable `code` each carries,
   and what a consumer may branch on.
 
-## Documentation Rules
+## Documentation rules
 
 - Keep docs aligned with the current package target.
 - Describe the package as it loads: one ESM build, `require()` on Node 24+ through

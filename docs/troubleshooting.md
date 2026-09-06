@@ -14,11 +14,11 @@ doc_type: "troubleshooting"
 Start from the observable failure, then verify the relevant package boundary,
 runtime, or OOXML layer before changing code.
 
-## Import Or Runtime Failures
+## Import or runtime failures
 
 Checks:
 
-- Review [Runtime And Package Support](runtime-and-package-support.md).
+- Review [Runtime and package support](runtime-and-package-support.md).
 - Run `pnpm run test:package`.
 - Inspect `package.json` exports and generated declarations.
 
@@ -30,7 +30,7 @@ Likely causes:
 - A consumer is deep-importing an internal source file.
 - Generated declarations or package exports are stale.
 
-## OOXML Or PowerPoint Failures
+## OOXML or PowerPoint failures
 
 Checks:
 
@@ -44,7 +44,7 @@ Likely causes:
 - PowerPoint accepts a structure differently from the schema.
 - A fix changed package parts or relationships without matching fixtures.
 
-## Docs Or API Drift
+## Docs or API drift
 
 Checks:
 

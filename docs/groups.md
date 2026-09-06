@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Grouping Objects"
+title: "Grouping objects"
 summary: "Wrap slide objects in a PowerPoint group (<p:grpSp>) with addGroup() or groupObjects(), including nesting, framing, and cross-references."
 read_when:
   - Grouping shapes/text/images into one selectable PowerPoint group
@@ -11,7 +11,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# Grouping Objects
+# Grouping objects
 
 A group is a single selectable PowerPoint object (`<p:grpSp>`) that contains other
 objects. ts-pptx offers two entry points:

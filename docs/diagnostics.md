@@ -25,16 +25,17 @@ interface Diagnostic {
 }
 ```
 
-`detail` is optional and sparse: today it is populated by every rejection of an OOXML `ST_` enum
-value (a line dash type, a table cell's 3-D preset, a table's horizontal overflow), which carries
-`received` (what you passed) and `valid` (the whole legal list). Read it defensively; which codes
-carry which keys is not part of the contract, and most codes carry nothing.
+`detail` is optional and sparse. Today it is filled in by every rejection of an OOXML `ST_`
+enum value: a line dash type, a table cell's 3-D preset, a table's horizontal overflow. Those
+carry `received`, what you passed, and `valid`, the whole legal list. Read it defensively.
+Which codes carry which keys is not part of the contract, and most codes carry nothing at
+all.
 
 **The `code` is API. The `message` is not.**
 
-A code is a stable identifier of a *condition*, in `area/condition` form. You may branch on it, log
-it, count it, and treat it as part of the package's contract: adding a code is back-compatible, and
-removing or renaming one is a breaking change with a `CHANGELOG.md` entry.
+A code is a stable identifier of a *condition*, in `area/condition` form. Branch on it, log
+it, count it, treat it as part of the package's contract. Adding a code is back-compatible.
+Removing or renaming one is a breaking change, with a `CHANGELOG.md` entry to match.
 
 The message is prose meant for a human reading a build log. It is free to improve (reworded,
 expanded, given a better example) in any release, including patch releases. Do not parse it, and
@@ -73,10 +74,10 @@ setDiagnosticHandler(() => {})
 
 ### It is process-global, not per-presentation
 
-The handler is module state, not presentation state. That is a deliberate trade: diagnostics are
-emitted from a tree of free functions across `gen/**` that have no presentation in scope, and
-threading a handler through every one of their signatures would be a far larger and worse change
-than the problem warrants.
+The handler is module state, not presentation state. That is a deliberate trade. Diagnostics
+come out of a tree of free functions across `gen/**` with no presentation in scope, and
+threading a handler through every one of those signatures would be a far larger and worse
+change than the problem warrants.
 
 The practical consequence: a process building several decks concurrently cannot attribute a
 diagnostic to one of them. If that matters, either correlate on `code`, or set and clear the
@@ -123,10 +124,10 @@ its handler once and wants it to outlive any single build.
 
 ## Adding one
 
-A new warning site must name its condition in `DiagnosticCode` (`src/codes.ts`) before it will
-compile. That is the enforcement mechanism for keeping the vocabulary curated rather than
-accumulated: reuse an existing code when the condition is genuinely the same, even if the wording
-differs and even if it is reported from a different entry point.
+A new warning site must name its condition in `DiagnosticCode` (`src/codes.ts`) before it
+will compile. That is what keeps the vocabulary curated rather than merely accumulated. Reuse
+an existing code when the condition is genuinely the same, even if the wording differs, even
+if it is reported from a different entry point.
 
 Write the message without a `ts-pptx:` prefix; the default handler stamps that.
 
@@ -134,14 +135,14 @@ Write the message without a `ts-pptx:` prefix; the default handler stamps that.
 
 Ask what the library does *next*, not how bad the input looks:
 
-- If it can carry on and still produce something the caller would recognise as their deck (clamp
-  the value, ignore the option, fall back to a default glyph), **warn**.
+- If it can carry on and still produce something the caller would recognise as their deck, **warn**.
+  Clamping the value, ignoring the option, falling back to a default glyph all qualify.
 - If the request is discarded and the deck comes out missing what was asked for, **throw**. A deck
   that opens cleanly and is quietly missing an image is worse than a failed build.
 
-`addImage()` and a picture bullet split on exactly this line: an image with no usable source has
-nothing to place, so it throws; a bullet image with no usable source falls back to a `•`, so it
-warns. See [Errors](./errors.md) for the thrown half.
+`addImage()` and a picture bullet split on exactly this line. An image with no usable source
+has nothing to place, so it throws. A bullet image with no usable source falls back to a `•`,
+so it warns. See [Errors](./errors.md) for the thrown half.
 
 ### The rule applied: an out-of-range number
 
@@ -158,45 +159,45 @@ allows, and one answer for a value outside it:
 `Infinity` belongs to the first group, not the second: it has a nearest bound like any other
 out-of-range number.
 
-This is worth stating as one rule because the third option is the tempting one and it is
-wrong. *Rejecting* a finite out-of-range value and emitting nothing looks strict, but it
-discards the request and reports it as a warning, which is exactly the combination the rule
-above exists to rule out: the caller reads a warning and gets a deck whose bullet is silently
+This is worth stating as one rule because the third option is the tempting one, and it is
+wrong. *Rejecting* a finite out-of-range value and emitting nothing looks strict. It is not.
+It discards the request and reports it as a warning, which is exactly the pairing the rule
+above exists to rule out. The caller reads a warning and gets a deck whose bullet is silently
 back at its inherited size. `bullet.size`, `fit.fontScale`, `fit.lnSpcReduction`,
-`shadow.transparency` and `shadow.angle` behaved that way until they were routed through the
-shared clamp.
+`shadow.transparency` and `shadow.angle` all behaved that way until they were routed through
+the shared clamp.
 
 ### The rule applied: an empty colour string
 
 Every option that takes a colour has one answer for `''`, and it is not "paint nothing".
 
-A paint has three states and three spellings: omit the option, `{ type: 'inherit' }`, or
-`{ type: 'none' }`. `''` is not a fourth. It reaches the library from the caller's own missing
-value -- an unset template field, a `row.accent` on a row that has none -- so it is **reported
-under `color/empty-string` and then resolved to whatever omitting the option resolves to**.
+A paint has three states and three spellings: omit the option, `{ type: 'inherit' }`, or `{ type: 'none' }`.
+`''` is not a fourth. It reaches the library from the caller's own missing value, an unset
+template field or a `row.accent` on a row that has none. So it is **reported under
+`color/empty-string`, then resolved to whatever omitting the option resolves to**.
 
 What omission resolves to is the surface's own rule, and the surfaces disagree, deliberately:
 
 | Option | Omitted, and so also `''` |
 | --- | --- |
-| a text box's `fill` | `<a:noFill/>` -- an unfilled box is what a text box is |
+| a text box's `fill` | `<a:noFill/>`, because an unfilled box is what a text box is |
 | a shape's `line.color` | the shape line default |
 | a chart's `dataLabelColor` | `DEF_FONT_COLOR` |
 | a slide `background` | inherits from the layout |
 
-That is the whole rule, and the reason it is worth stating is that the alternatives are both
-tempting and both wrong. *Painting a default* on an empty string -- which the colour element
-builder did, falling back to `000000` -- puts visible black on a shape the caller expected to
-keep the theme's paint. *Emitting nothing* looks harmless but is a different state again: on
-the paths where omission means `<a:noFill/>` or a stated default, silence is not what the
-caller would have got by leaving the option out, so `''` and omission diverge.
+That is the whole rule. It is worth stating because both alternatives are tempting and both
+are wrong. *Painting a default* on an empty string is what the colour element builder used to
+do, falling back to `000000`. It puts visible black on a shape whose caller expected to keep
+the theme's paint. *Emitting nothing* looks harmless, but it is a third state again. On the
+paths where omission means `<a:noFill/>` or a stated default, silence is not what the caller
+would have got by leaving the option out, so `''` and omission drift apart.
 
 One slot is exempt, because it has no absent state to resolve to: a gradient stop, a duotone
 half and a `buClr` each *require* a colour, and there is nothing to inherit. Those still paint
 `DEF_FONT_COLOR`, and report it under the same code.
 
-Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
-rejects it under `eslint/no-console`: such a line cannot be captured, silenced, or branched on. The only
-exemptions are `diagnostics.ts`, which owns the default handler, and the two `verbose: true`
-table tracers (`gen/table/autopage.ts`, `gen/table/html-dom.ts`), whose output reports no
-condition and is opt-in.
+Reporting a condition by calling `console.log` or `console.error` directly is neither, and
+oxlint rejects it under `eslint/no-console`. Such a line cannot be captured, silenced, or
+branched on. There are three exemptions: `diagnostics.ts`, which owns the default handler,
+and the two `verbose: true` table tracers (`gen/table/autopage.ts`, `gen/table/html-dom.ts`),
+whose output reports no condition and is opt-in anyway.

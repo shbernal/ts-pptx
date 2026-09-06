@@ -317,7 +317,7 @@ function frontmatter(snapshot) {
 	return [
 		'---',
 		'doc-schema-version: 1',
-		'title: "Comparison With PptxGenJS"',
+		'title: "Comparison with PptxGenJS"',
 		`summary: "What ts-pptx ${ours} and pptxgenjs ${upstream} each emit, what validates, what each costs to install, and how the two projects are run."`,
 		'read_when:',
 		'  - Choosing between ts-pptx and pptxgenjs',
@@ -336,7 +336,7 @@ function sectionPremise(snapshot) {
 	const ours = snapshot.subjects[OURS]
 	const upstream = snapshot.subjects[UPSTREAM]
 	return [
-		'# Comparison With PptxGenJS',
+		'# Comparison with PptxGenJS',
 		'',
 		...para(
 			'ts-pptx is an independent derivative of ' +
@@ -413,7 +413,7 @@ function sectionConcessions(snapshot) {
 		),
 		...bullet(
 			'**A browser loads it as a module.** A bundler, or `<script type="module">` against an ' +
-				'ESM CDN such as esm.sh. pptxgenjs additionally ships a classic-script bundle that ' +
+				'ESM CDN such as esm.sh. pptxgenjs also ships a classic-script bundle that ' +
 				'defines a global, which is the older shape and the one ts-pptx replaced.'
 		),
 		...bullet('**Node.js `>=24`.** pptxgenjs declares no engine floor and runs on much older releases.'),
@@ -1158,7 +1158,7 @@ export function renderSyntaxPage(snapshot) {
 	const lines = [
 		'---',
 		'doc-schema-version: 1',
-		'title: "Side-By-Side Syntax"',
+		'title: "Side-by-side syntax"',
 		`summary: "Every intent in the comparison corpus as code: the calls ts-pptx ${ours?.version ?? ''} and ` +
 			`pptxgenjs ${upstream?.version ?? ''} were each given to produce the rows on the comparison page."`,
 		'read_when:',
@@ -1171,7 +1171,7 @@ export function renderSyntaxPage(snapshot) {
 		'',
 		...banner('FILE'),
 		'',
-		'# Side-By-Side Syntax',
+		'# Side-by-side syntax',
 		'',
 		...para(
 			'Every row of the [comparison](comparison.md) comes from running both libraries over a ' +
@@ -1482,7 +1482,7 @@ export function renderReadmeRegion(snapshot) {
 		REGION_START,
 		...banner('REGION'),
 		'',
-		'## How This Compares With PptxGenJS',
+		'## How this compares with PptxGenJS',
 		'',
 		...para(
 			'ts-pptx is an independent derivative of ' +

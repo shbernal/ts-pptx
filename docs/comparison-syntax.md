@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Side-By-Side Syntax"
+title: "Side-by-side syntax"
 summary: "Every intent in the comparison corpus as code: the calls ts-pptx 3.7.0 and pptxgenjs 4.0.1 were each given to produce the rows on the comparison page."
 read_when:
   - Reading a comparison row and wanting the calls behind it
@@ -14,7 +14,7 @@ doc_type: "reference"
      Regenerate with `pnpm run comparison:render`.
      Source: `scripts/comparison/snapshot.json`, written by `scripts/comparison/measure.mjs`. -->
 
-# Side-By-Side Syntax
+# Side-by-side syntax
 
 Every row of the [comparison](comparison.md) comes from running both libraries over a
 corpus of deck intents. This page is that corpus as code: for each intent, the calls each

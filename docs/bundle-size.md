@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Bundle Size"
+title: "Bundle size"
 summary: "The two ways to construct a presentation, which construct families you pay for, and the two size gates that keep the numbers honest."
 read_when:
   - Choosing between TsPptx and createPresentation
@@ -10,14 +10,14 @@ read_when:
 doc_type: "reference"
 ---
 
-# Bundle Size
+# Bundle size
 
 Two questions sound like one and are not. *What does this package ship?* is answered
 per published entry, and the answer is an upper bound. *What does my program
 download?* is answered by bundling a real program and letting a bundler shake it.
 This page covers the choice a consumer makes, then the two gates, one per question.
 
-## Paying For What You Author
+## Paying for what you author
 
 Every entry publishes two ways to start a deck.
 
@@ -41,7 +41,7 @@ not behaviour: this is a reachability change, not a second write path.
 The families are values rather than strings, so naming one is what puts its code in
 the module graph. A bundler needs no configuration to leave the rest out.
 
-### What It Saves
+### What it saves
 
 The figures below come from `pnpm run bundle-tier:list`, which is the same
 measurement `bundle-tier:check` gates. Each row is a bundled browser program,
@@ -66,7 +66,7 @@ The three `TsPptx` rows sit within 0.3 kB of each other, which is the point of t
 control: the class links every family whatever the program calls, so its size tracks
 the composition and not the call list.
 
-### The Core Tier
+### The core tier
 
 Five families are composed for you, so `createPresentation()` with no argument still
 writes a deck rather than a slide-shaped hole:
@@ -86,7 +86,7 @@ default than one that costs a few kilobytes more. All five are exported from
 `pptx-ts/families` anyway, so you can list one to be explicit; listing it changes
 nothing.
 
-### Everything Else Is Asked For
+### Everything else is asked for
 
 | family | what it authors |
 | --- | --- |
@@ -113,7 +113,7 @@ baked on the ordinary write path, so a composed deck that never asks for a
 measurement still gets its autofit. See [Measured Text
 Fit](measured-text-fit.md#instance-methods-inchespoints-reuse-registered-metrics).
 
-### When A Family Is Missing
+### When a family is missing
 
 Calling a method whose family you did not compose raises `family/not-composed`,
 naming the family, at the call. A method that is not composed still exists for this
@@ -132,7 +132,7 @@ warn instead, with `family/child-not-composed` naming the family to compose. A k
 family has ever claimed still reports `group/unrecognized-child`, which is the typo
 it always was.
 
-## What A Program Downloads
+## What a program downloads
 
 `scripts/bundle-tier-size.mjs` measures what one program pays. It bundles five
 consumer programs against `dist/browser.js` with esbuild (minified, gzipped,
@@ -148,7 +148,7 @@ without one family, so the difference between them is what that family costs. Re
 programs rather than the smallest call the types accept, because a synthetic minimum
 measures the type checker.
 
-### Two Figures, Not One
+### Two figures, not one
 
 `initial` is the entry chunk plus every chunk reachable from it by an `import`
 statement: what a browser fetches before the first line runs. `total` is every chunk
@@ -157,7 +157,7 @@ a dynamic import that runs only on first font registration. Charging a program f
 chunk it may never fetch is as wrong as hiding bytes it might. There is no fair
 single number, so there is no single number.
 
-### The Deferred Poster
+### The deferred poster
 
 The library's own largest deferred chunk is the default video poster. The play-button
 overlay `addMedia` falls back to when the caller passes no `cover` is 19,312 base64
@@ -175,7 +175,7 @@ enough to see. `scripts/gen-playbtn.mjs` draws it instead, from geometry measure
 the original, and `test/scripts/gen-playbtn.test.js` holds the module and the
 generator together.
 
-### Each Program Is Run Before It Is Weighed
+### Each program is run before it is weighed
 
 esbuild resolves modules and does not care whether `slide.addChart` exists. A renamed
 or dropped method would leave every program bundleable, the family that method reached
@@ -185,7 +185,7 @@ win. Running each program against `dist/` first makes that a failure instead.
 `pnpm run bundle-tier:list` prints the per-chunk breakdown;
 `pnpm run bundle-tier:freeze` re-baselines.
 
-## What The Package Ships
+## What the package ships
 
 `scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point
 `package.json` publishes and the chunks each one pulls in, minified and then gzipped,
@@ -209,7 +209,7 @@ wrong.
 `scripts/bundle-size-budget.json` and is raised or lowered deliberately with
 `pnpm run bundle-size:freeze`.
 
-## Why Both Gates Exist
+## Why both gates exist
 
 They answer different questions and their numbers will not agree.
 
@@ -225,7 +225,7 @@ browser entry, shows up in the ratchet whether or not any measured program reach
 Neither replaces the other. A change that improves one and leaves the other flat is
 usually working as intended.
 
-## Keeping It True
+## Keeping it true
 
 The whole design rests on one rule, and
 [Architecture](architecture.md#the-rule-that-keeps-the-tiers-real) states it: a static

@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Layout Units"
+title: "Layout units"
 summary: "Public slide-layout constants and unit helpers for PowerPoint geometry."
 read_when:
   - Defining custom presentation layouts
@@ -9,12 +9,12 @@ read_when:
 doc_type: "reference"
 ---
 
-# Layout Units
+# Layout units
 
 ts-pptx exposes PowerPoint geometry constants and small conversion helpers
 from the root package (`pptx-ts`).
 
-## Standard Layouts
+## Standard layouts
 
 `STANDARD_LAYOUTS` contains the built-in presentation sizes used by
 `pptx.layout`:
@@ -41,7 +41,7 @@ pptx.layout = "POWERPOINT_WIDESCREEN"
 The built-in `pptx.layout = "LAYOUT_WIDE"` also uses the same exact EMU
 dimensions.
 
-## Unit Helpers
+## Unit helpers
 
 The public helpers are:
 

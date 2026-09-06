@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Runtime And Package Support"
+title: "Runtime and package support"
 summary: "Supported imports, how every runtime loads the one ESM build, and shipped artifacts."
 read_when:
   - Changing package exports or runtime support
@@ -9,12 +9,12 @@ read_when:
 doc_type: "reference"
 ---
 
-# Runtime And Package Support
+# Runtime and package support
 
 This project ships one ESM package for TypeScript and modern JavaScript applications.
 Node, bundlers, browsers and `require()` callers all load that one build.
 
-## Supported Surface
+## Supported surface
 
 Use the package export:
 
@@ -47,7 +47,7 @@ The package publishes:
   `browser`/`node` condition split, because the entry works with whatever DOM
   the caller has (see [HTML tables to slides](html-tables.md)).
 - `dist/families.js` and `dist/families.d.ts` for the construct families a
-  `createPresentation({ use })` call names (see [Bundle Size](bundle-size.md)).
+  `createPresentation({ use })` call names (see [Bundle size](bundle-size.md)).
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
@@ -76,7 +76,7 @@ import pptxgenNode from "pptx-ts/node"
 import pptxgenBrowser from "pptx-ts/browser"
 ```
 
-## Paying For What You Author
+## Paying for what you author
 
 Every entry publishes two ways to start a deck. `TsPptx` is composed with every
 construct family the library has, so it authors everything and costs everything.
@@ -91,11 +91,11 @@ const pres = createPresentation({ use: [charts] })
 pres.addSlide().addChart(data, { type: ChartType.bar })
 ```
 
-Both write the same deck for the same slides, part for part. Which families are core
-and which you ask for, what each one costs, and the diagnostic a method you did not
-compose raises are in [Bundle Size](bundle-size.md).
+Both write the same deck for the same slides, part for part. Which families are
+core and which you ask for, what each one costs, and the diagnostic a method
+you did not compose raises are in [Bundle size](bundle-size.md).
 
-## Which Build The Bare Import Gives You
+## Which build the bare import gives you
 
 `import TsPptx from "pptx-ts"` resolves through export conditions, so
 the artifact you get depends on the runtime doing the resolving:
@@ -121,7 +121,7 @@ is the free `tableToSlides` on `pptx-ts/html`.
 Import `pptx-ts/node` or `pptx-ts/browser` directly whenever
 you want a specific build regardless of how conditions resolve.
 
-## What "Browser" Is Tested To Mean
+## What "Browser" is tested to mean
 
 The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
 (`pnpm run test:browser`: Playwright, headless Chromium). It is not "supported by
@@ -166,7 +166,7 @@ Two claims, kept separate on purpose:
 A layout difference between two browsers is therefore not a defect in this
 package's browser support. A `.pptx` a browser builds differently from Node is.
 
-### The Runtime Adapter, Function By Function
+### The runtime adapter, function by function
 
 Everything that differs between Node and the browser lives in one four-function
 `RuntimeAdapter`. All four now run in a real Chromium, and what each is checked
@@ -190,7 +190,7 @@ divergence rather than a bug, and the lane asserts its exact shape (one changed
 part, and the browser's is a real PNG), so it cannot quietly become a different
 divergence.
 
-### Which Browsers The Lane Runs
+### Which browsers the lane runs
 
 Chromium, and only Chromium. This is a decision, not an oversight, and it is
 recorded here so it does not get re-opened every time CI time is discussed.
@@ -205,7 +205,7 @@ Add an engine when there is something concrete to add it for: a reported
 difference, or a new adapter function that touches an API with a real
 cross-engine history. Not pre-emptively.
 
-### What The Lane Does Not Cover
+### What the lane does not cover
 
 Two gaps, stated rather than implied:
 
@@ -217,7 +217,7 @@ Two gaps, stated rather than implied:
   constructors, which asserts about the stub. The lane's own coverage floor
   accounts for them (see [Testing](testing.md#browser-lane)).
 
-## What `/math` Costs In A Browser, And Why It Stays Node-Only
+## What `/math` costs in a browser, and why it stays Node-only
 
 `pptx-ts/math` is Node-only, permanently, unless a real consumer asks
 otherwise. The decision is recorded here so it is not re-litigated per release.
@@ -239,7 +239,7 @@ other file importing `node:*`, and it is contained behind the `RuntimeAdapter`.
 will warn about; it is on the read-a-package-from-a-path branch only and never
 executes on the write path.)
 
-## Using The Browser Entry Without A Bundler
+## Using the browser entry without a bundler
 
 Supported environments assume a bundler, and that remains the maintained target.
 But `dist/browser.js` does load in a browser as-is, over a plain
@@ -262,13 +262,13 @@ which is exactly what the adapter harness does
 requests it until a font is registered, so an app that never calls
 `registerFontMetrics` or `embedFont` will not notice its absence until it does.
 
-## One Build, And Everything That Loads It
+## One build, and everything that loads it
 
 One ESM build ships, and it is what every consumer gets: Node, bundlers, browsers,
 and CommonJS callers alike. This section is what that means for each of them, and
 what upstream artifact names are gone.
 
-### `require()` From CommonJS
+### `require()` from CommonJS
 
 `require("pptx-ts")` works. Node loads ESM through `require()` from 22.12 onward,
 and this package floors at Node `>=24`, so the interop is always available on a
@@ -292,7 +292,7 @@ worth naming. A top-level await anywhere in an entry's chunk graph makes `requir
 that entry throw while every ESM suite stays green, and that assertion is what catches
 it.
 
-### A Browser, With A `<script>` Tag
+### A browser, with a `<script>` tag
 
 `pptx-ts/browser` is an ES module, so a browser loads it from
 `<script type="module">` and binds it to whatever name the `import` gives it. An ESM

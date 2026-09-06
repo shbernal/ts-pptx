@@ -51,7 +51,7 @@ at the same version. It is the name this project published under first, and inst
 that already use it keep resolving. Install one or the other rather than both. These
 docs use `pptx-ts` throughout.
 
-## Start Here
+## Start here
 
 - [Project target](project-target.md): what this project is optimized for.
 - [Runtime and package support](runtime-and-package-support.md): supported package
@@ -63,7 +63,7 @@ docs use `pptx-ts` throughout.
 - [Reference](reference/index.md): public API reference and stable command
   surfaces.
 
-## Maintenance Focus
+## Maintenance focus
 
 - Keep ts-pptx focused on reusable PPTX generation behavior.
 - Treat `package.json` exports and generated declarations as the package API
@@ -73,7 +73,7 @@ docs use `pptx-ts` throughout.
 - Keep consumer-specific deck production behavior in the downstream consumer, not
   this package.
 
-## Standard Verification
+## Standard verification
 
 ```bash
 pnpm run verify

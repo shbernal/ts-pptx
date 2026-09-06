@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Embedded Fonts"
+title: "Embedded fonts"
 summary: "How ts-pptx embeds whole font faces (author-side pptx.embedFont() and import-carry importSlide({ embedFonts: true })), the shared OOXML model behind both, and the PowerPoint-authored oracle."
 read_when:
   - Changing embedded-font emit or merge (src/embedded-fonts.ts and its callers)
@@ -10,7 +10,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Embedded Fonts
+# Embedded fonts
 
 ## Status
 

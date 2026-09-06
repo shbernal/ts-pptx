@@ -25,40 +25,41 @@ The generated TypeDoc reference is built from public entry points:
 
 `src/inspect.ts`, `src/measure.ts`, `src/read.ts`, `src/script.ts`,
 `src/math.ts`, and `src/zip.ts` are separate public subpaths (see
-[Runtime And Package Support](../runtime-and-package-support.md)) not covered
-by the generated TypeDoc reference; they're documented by hand instead:
-[PPTX Inspection](pptx-inspection.md), [PPTX Read / Round-Trip](pptx-read.md),
+[Runtime and package support](../runtime-and-package-support.md)) not
+covered by the generated TypeDoc reference; they're documented by hand
+instead: [PPTX Inspection](pptx-inspection.md), [PPTX Read / Round-Trip](pptx-read.md),
 [PPTX To Script](pptx-to-script.md), [Measured Text Fit](../measured-text-fit.md),
-and [Math Equations](../math-latex.md). `src/zip.ts` has no dedicated page yet:
-it is internal OPC/zip plumbing shared by `read` and `inspect`.
+and [Math Equations](../math-latex.md). `src/zip.ts` has no dedicated
+page yet: it is internal OPC/zip plumbing shared by `read` and
+`inspect`.
 
 After running `pnpm run docs:api`, read the generated reference at
 `reference/api/index.md`.
 
-## Object Identity
+## Object identity
 
 [Object Identity](object-identity.md) documents the `objectName` contract for
 stable PowerPoint Selection Pane names and the current `altText` serialization
 contract for images and charts.
 
-## Layout Units
+## Layout units
 
 [Layout Units](layout-units.md) documents standard slide-layout constants and
 unit helpers for converting inches, points, pixels-at-DPI, and EMUs.
 
-## PPTX Inspection
+## PPTX inspection
 
 [PPTX Inspection](pptx-inspection.md) documents low-level package inspection,
 slide/object extraction, and geometry helpers for downstream tools.
 
-## PPTX To Script
+## PPTX to script
 
 [PPTX To Script](pptx-to-script.md) documents turning an existing deck into
 runnable TypeScript that rebuilds it through the public write API: the two
 output tiers, the deck IR they share, and the fidelity notes that state what a
 conversion drops.
 
-## Package Boundary
+## Package boundary
 
 - Supported import paths are declared in `package.json` exports.
 - Typed consumer contracts come from generated declarations.

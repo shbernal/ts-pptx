@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "HTML Tables To Slides"
+title: "HTML tables to slides"
 summary: "Convert an existing HTML table into PowerPoint tables with tableToSlides, including how column widths are decided in and out of a browser."
 read_when:
   - Converting an HTML table into slides
@@ -9,7 +9,7 @@ read_when:
 doc_type: "reference"
 ---
 
-# HTML Tables To Slides
+# HTML tables to slides
 
 `pptx-ts/html` reproduces an existing HTML `<table>` as a PowerPoint table, paging
 across as many slides as its rows need. One artifact serves both runtimes: it runs in
@@ -44,7 +44,7 @@ Cell text (with `<br>` kept as a line break), `colspan`/`rowspan`, computed colo
 weight, alignment, padding, borders and auto-paging behave the same wherever the
 conversion runs. Column widths are the one thing that depends on the runtime.
 
-## Column Widths Need A Layout Engine
+## Column widths need a layout engine
 
 In a browser the columns are sized from each cell's rendered `offsetWidth`,
 reproducing the table's real proportions. Nothing outside a browser lays a table out,
@@ -72,7 +72,7 @@ outright on every path:
 Building a table from data you already hold is a different job: use
 `addTable(rows, opts)` and skip the DOM entirely. See [Tables](tables.md).
 
-## Where The Line Sits
+## Where the line sits
 
 Converting an HTML table is a supported, tested, portable path, covered end to end
 against happy-dom in `test/regression/html/html-to-slides-node.test.js` and against a

@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Release Workflow"
+title: "Release workflow"
 summary: "Maintained release path for publishing the ESM package and its scoped alias."
 read_when:
   - Preparing a release
@@ -9,24 +9,25 @@ read_when:
 doc_type: "runbook"
 ---
 
-# Release Workflow
+# Release workflow
 
 This guide documents the maintained release path for the ESM package,
 `pptx-ts`, and for `@shbernal/ts-pptx`, the scoped alias published beside it.
 
-The alias is not a redirect. npm has one package per name and no forwarding, so
-an alias is a second publish of the same content under a second name: same
-version, same `dist/`, same `skills/`, one line of `package.json` different and
-the dev-only `scripts` block removed.
-`scripts/alias-package.mjs` stages that copy and the publish workflow pushes it
-after the canonical one. Nothing about cutting a release changes because of it,
-and no step below is for the alias alone except the one-time bootstrap.
+The alias is not a redirect. npm has one package per name and no forwarding,
+so an alias is a second publish of the same content under a second name.
+Same version, same `dist/`, same `skills/`. One line of `package.json`
+differs, and the dev-only `scripts` block is removed.
+`scripts/alias-package.mjs` stages that copy, and the publish workflow
+pushes it after the canonical one. Nothing about cutting a release changes
+because of it, and no step below is for the alias alone except the one-time
+bootstrap.
 
 Publishing is automated by `.github/workflows/publish.yml`. The workflow runs
 when a GitHub Release is published and can also be dispatched manually from a
 matching tag as a retry path.
 
-## Release Prerequisites
+## Release prerequisites
 
 - The npm package is `pptx-ts`, and `@shbernal/ts-pptx` is its scoped alias.
 - `package.json#repository.url` points at `shbernal/ts-pptx`.
@@ -40,15 +41,14 @@ matching tag as a retry path.
   - allowed action: `npm publish`
 - The GitHub Environment `npm-publish` exists before the first automated
   release.
-- Each name exists on the registry already. A trusted publisher cannot be
-  configured for a package that does not exist yet, so a *new* name needs one
-  manual publish first: see "Bootstrapping a New Package Name" at the end of this
-  page. That is the only sanctioned local `npm publish` in this project, and it
-  is not part of any release.
+- Each name exists on the registry already. A trusted publisher cannot be configured for a package that does not exist yet,
+so a *new* name needs one manual publish first. See "Bootstrapping a new
+package name" at the end of this page. That is the only sanctioned local
+`npm publish` in this project, and it is not part of any release.
 - Do not add an `NPM_TOKEN` secret for the normal path. The workflow uses OIDC
   with `id-token: write`.
 
-## Version Updates
+## Version updates
 
 `package.json` holds the version of record: the publish workflow refuses to
 publish unless the tag matches it. The `VERSION` constant in
@@ -64,23 +64,24 @@ pnpm run comparison:render
 git add scripts/comparison/snapshot.json docs/comparison.md docs/comparison-syntax.md README.md
 ```
 
-`comparison:measure` installs upstream pptxgenjs into a scratch directory, calls
-the GitHub and npm APIs, and spends about a minute of wall clock timing both
-libraries, which is why it is a release step and not part of `verify`;
-`comparison:check` (in `verify`) only asserts that the committed page still
-matches the committed snapshot. Leave the machine alone while it runs: the timing
-family is measuring this computer, and a build in another window lands in the
-published numbers.
+`comparison:measure` installs upstream pptxgenjs into a scratch directory,
+calls the GitHub and npm APIs, and spends about a minute of wall clock
+timing both libraries. That is why it is a release step and not part of
+`verify`. `comparison:check`, which is in `verify`, only asserts that the
+committed page still matches the committed snapshot. Leave the machine alone
+while it runs. The timing family is measuring this computer, and a build in
+another window lands in the published numbers.
 
 Read the resulting diff rather than staging it blind. A snapshot whose only
-changes are `generatedAt`, a download count and the timing medians is the normal
-case and needs no thought: the timing family is the one measurement here a clock
-took, so every one of its numbers moves on every run, and a few percent in either
-direction means nothing. What is worth stopping on:
+changes are `generatedAt`, a download count and the timing medians is the
+normal case, and needs no thought. The timing family is the one measurement
+here a clock took, so every one of its numbers moves on every run, and a few
+percent either way means nothing. What is worth stopping on:
 
-- a **coverage row that flipped** in either direction -- a construct one library
-  emits and the other does not is the substance of the page, and a flip means
-  either a real capability moved or a probe stopped measuring what it claims to
+- a **coverage row that flipped** in either direction. A construct one library
+  emits and the other does not is the substance of the page. A flip means
+  either a real capability moved, or a probe stopped measuring what it
+  claims to
 - a **validity count that moved**, ours especially: the page states how many of
   the probe decks pass the schema oracle, and a release is not the moment to
   discover that number went down
@@ -93,10 +94,11 @@ direction means nothing. What is worth stopping on:
   one library stopped compressing when asked, and its "compressed" column is
   timing something other than what the column beside it timed
 
-`measure.mjs` refuses to write a snapshot with a hole in it. `--allow-unavailable`
-overrides that for local experiments and must not be used for a release snapshot:
-a published table missing rows because an API rate-limited is worse than a table
-one release out of date. If a fetch fails, re-run it later.
+`measure.mjs` refuses to write a snapshot with a hole in it.
+`--allow-unavailable` overrides that for local experiments, and must not be
+used for a release snapshot. A published table missing rows because an API
+rate-limited is worse than a table one release out of date. If a fetch
+fails, re-run it later.
 
 Then write the `CHANGELOG.md` entry (release date and summary), stage it, and
 bump:
@@ -134,7 +136,7 @@ repairs it. `test/regression/api/public-accessors.test.js` fails in `verify`
 either way, and the release path cannot skip that, so a mis-reported version
 cannot ship.
 
-## Local Release Gate
+## Local release gate
 
 Install dependencies (the OOXML oracle needs no install step; `ooxml-validate`
 fetches it on first use):
@@ -163,7 +165,7 @@ npm view @shbernal/ts-pptx@X.Y.Z version
 
 Both commands should fail with a registry 404 for a new release version.
 
-## Automated npm Publish
+## Automated npm publish
 
 1. Merge the release commit into `master`.
 2. Push `master` and the `vX.Y.Z` tag that `pnpm version` created: it already
@@ -198,7 +200,7 @@ npm trusted publishing automatically exchanges the GitHub Actions OIDC token for
 publish credentials. The explicit `--provenance` flag keeps provenance required
 even if npm defaults change.
 
-## Manual Workflow Retry
+## Manual workflow retry
 
 Use this only after fixing a failed publish workflow without changing the
 release artifact:
@@ -211,20 +213,20 @@ The selected ref must be the release tag, not `master`.
 
 ### Retrying a half-published release
 
-Publishing two names is not atomic: the canonical publish can succeed and the
-alias fail after it, leaving the version on npm under one name only. The
+Publishing two names is not atomic: the canonical publish can succeed and
+the alias fail after it, leaving the version on npm under one name only. The
 workflow is written to be re-runnable in exactly that state. Its guard fails
 only when **both** names already carry the version, and each publish step is
-skipped when its own name already does, so re-dispatching on the same tag
+skipped when its own name already does. So re-dispatching on the same tag
 finishes the missing half and touches nothing else.
 
-The ordering is what makes this safe rather than merely convenient. The alias is
-published last, so a failure in it can never take down a release that has
-already gone out; the worst case is a version that exists under the scoped name
-and needs one re-dispatch to appear under the alias. Do not reach for a local
-`npm publish` here. The retry path is the workflow.
+The ordering is what makes this safe rather than merely convenient. The
+alias is published last, so a failure in it can never take down a release
+that has already gone out. Worst case: a version exists under the scoped
+name and needs one re-dispatch to appear under the alias. Do not reach for a
+local `npm publish` here. The retry path is the workflow.
 
-## Post-Publish Checks
+## Post-publish checks
 
 Verify npm and GitHub agree on the release:
 
@@ -240,40 +242,46 @@ Then say on each issue the release closes **which version carries the fix**:
 gh issue comment <N> --repo shbernal/ts-pptx --body "Released in X.Y.Z."
 ```
 
-One line each, and it is the only place a consumer can learn it. Issues here close
-when the fix merges, which is the right moment for this repo and the wrong signal
-for a consumer: merged and unreleased is a state that can last weeks, and a
-workaround deleted on the strength of a closed issue breaks against the version
-that is actually installed. The skill this package ships tells consumers to trust
-the published version over the issue state for exactly that reason: this comment
-is what makes the two agree. `CHANGELOG.md` already cites the numbers, so the list
-is the entry you just wrote.
+One line each, and it is the only place a consumer can learn it. Issues here
+close when the fix merges. That is the right moment for this repo and the
+wrong signal for a consumer. Merged and unreleased is a state that can last
+weeks, and a workaround deleted on the strength of a closed issue breaks
+against the version that is actually installed. The skill this package ships
+tells consumers to trust the published version over the issue state, for
+exactly that reason. This comment is what makes the two agree.
+`CHANGELOG.md` already cites the numbers, so the list is the entry you just
+wrote.
 
 ### One downstream to watch, and it is not a blocker
 
-The site's demos page renders its preview with [`pptx-html`](https://www.npmjs.com/package/pptx-html),
-which depends on `@shbernal/ts-pptx` at a caret range and therefore installs its **own**
-published copy: see `www/README.md` for why that duplication is deliberate rather than an
-oversight.
+The site's demos page renders its preview with
+[`pptx-html`](https://www.npmjs.com/package/pptx-html). That package depends
+on `@shbernal/ts-pptx` at a caret range, so it installs its **own**
+published copy. `www/README.md` says why the duplication is deliberate
+rather than an oversight.
 
-The consequence lands on a **major**. When this package goes 4.x, `pptx-html`'s reader is
-still built against 3.x, so the preview keeps rendering decks the *old* writer produced and
-the docs build keeps resolving, but the page stops demonstrating the version it sits beside
-until `pptx-html` ships a matching release. Nothing in this repo's gates detects that, because
-nothing here asserts what the preview looks like (docs/testing.md, "Demos Are Not Tests").
+The consequence lands on a **major**. When this package goes 4.x,
+`pptx-html`'s reader is still built against 3.x. The preview keeps rendering
+decks the *old* writer produced, and the docs build keeps resolving. But the
+page stops demonstrating the version it sits beside, until `pptx-html` ships
+a matching release. Nothing in this repo's gates detects that, because
+nothing here asserts what the preview looks like (docs/testing.md, "Demos
+are not tests").
 
-So: release, then open an issue on `pptx-html`. Do not hold a release for it, and do not
-pin the site to the workspace copy to avoid it: that trade makes the first breaking change
-break the docs *deploy* of the release introducing it, which is strictly worse.
+So: release, then open an issue on `pptx-html`. Do not hold a release for
+it. Do not pin the site to the workspace copy to avoid it either. That trade
+makes the first breaking change break the docs *deploy* of the release
+introducing it, which is strictly worse.
 
-That dependency is also why `@shbernal/ts-pptx` -- the alias, not the canonical name --
-is the one listed in `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`. If `pptx-html`
-ever moves its dependency to `pptx-ts`, the exclusion has to move with it, or the first
-release after that leaves the docs build unresolvable for the 24h the release-age hold
-lasts. Nothing on this side detects the move; it is for whoever publishes the next
-`pptx-html` to carry across.
+That dependency is also why `@shbernal/ts-pptx`, the alias rather than the
+canonical name, is the one listed in `minimumReleaseAgeExclude` in
+`pnpm-workspace.yaml`. If `pptx-html` ever moves its dependency to
+`pptx-ts`, the exclusion has to move with it, or the first release after
+that leaves the docs build unresolvable for the 24h the release-age hold
+lasts. Nothing on this side detects the move; it is for whoever publishes
+the next `pptx-html` to carry across.
 
-## Package Surface Checks
+## Package surface checks
 
 The package should ship:
 
@@ -297,11 +305,12 @@ The package should ship:
   `pptx-ts/html`, `pptx-ts/node`, and `pptx-ts/browser`
 
 (`pnpm run test:package` exercises all ten end-to-end, out of an installed
-tarball: every one is imported and checked for a sample of load-bearing named
-exports, and all but `./browser` are additionally put through esbuild on the
-`node` platform. Both lists come off one `EXPORT_MATRIX` in
-`scripts/package-smoke.mjs`, so a new subpath is covered by being added there,
-but it still has to be added *here* by hand, and this list has drifted before.)
+tarball: every one is imported and checked for a sample of load-bearing
+named exports, and all but `./browser` also go through esbuild on the `node`
+platform. Both lists come off one `EXPORT_MATRIX` in
+`scripts/package-smoke.mjs`, so a new subpath is covered by being added
+there, but it still has to be added *here* by hand, and this list has
+drifted before.)
 
 One ESM build is what ships, and it is what `require()`, a bundler and an ESM CDN
 all load. A release should therefore carry none of the upstream shapes it replaced:
@@ -318,7 +327,7 @@ Absent from the tarball, and checked:
 - `dist/pptxgen.bundle.js`
 - `dist/pptxgen.min.js`
 
-## Bootstrapping a New Package Name
+## Bootstrapping a new package name
 
 Read this only when the project starts publishing under a name it has never
 published under before. It ran once for `@shbernal/ts-pptx` and once for
@@ -341,10 +350,9 @@ again for that name.
    check runs at publish time rather than here. If step 3 fails on similarity,
    the name is not available and npm support is the only appeal.
 
-2. Stage the package at a throwaway version. Do not bootstrap with a real
-   release version, and do not bootstrap with an empty placeholder: npm's
-   acceptable content policy forbids content that exists only to reserve a name,
-   so the first publish carries the actual build.
+2. Stage the package at a throwaway version. Do not bootstrap with a real release version, and do not bootstrap with an empty
+placeholder. npm's acceptable content policy forbids content that exists
+only to reserve a name, so the first publish carries the actual build.
 
    ```bash
    node scripts/alias-package.mjs --out .tmp/alias-package --version 0.0.1

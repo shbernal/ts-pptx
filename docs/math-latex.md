@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Math Equations (LaTeX / MathML → OMML)"
+title: "Math equations (LaTeX / MathML → OMML)"
 summary: "Author native PowerPoint equations from LaTeX or MathML via the pptx-ts/math subpath."
 read_when:
   - Authoring PowerPoint equations from LaTeX or MathML
@@ -9,7 +9,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# Math Equations (LaTeX / MathML → OMML)
+# Math equations (LaTeX / MathML → OMML)
 
 The `math:` option on a text item emits a **native, editable PowerPoint equation**
 (OMML inside PowerPoint's `<a14:m>` markup-compatibility envelope). That option takes

@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Agent Development Guide"
+title: "Agent development guide"
 summary: "Expectations for agent-assisted ts-pptx changes and verification."
 read_when:
   - Starting agent work in this repository
@@ -9,13 +9,13 @@ read_when:
 doc_type: "guide"
 ---
 
-# Agent Development Guide
+# Agent development guide
 
 This repository is intended to be maintainable by both humans and coding
 agents. Agent-driven changes should be grounded in local evidence and verified
 with executable checks.
 
-## Default Workflow
+## Default workflow
 
 1. Inspect the current checkout before answering or editing.
 2. Preserve unrelated dirty state.
@@ -25,7 +25,7 @@ with executable checks.
 5. Prefer existing repository scripts and local patterns over new tooling.
 6. Verify the narrowest relevant behavior before finishing.
 
-## OOXML Workflow
+## OOXML workflow
 
 Before changing emitted OOXML, read
 [OOXML agent context](ooxml-agent-context.md).
@@ -41,7 +41,7 @@ Use:
 Avoid copying large standards text into the repository. Keep notes small and
 reference section numbers or source pages when they matter.
 
-## Package Support Guardrails
+## Package support guardrails
 
 The package ships one ESM build, and every consumer reaches it through that:
 `require()` on Node 24+ goes through Node's own ESM interop, and a browser loads it
@@ -50,13 +50,13 @@ explicitly changed. A second CommonJS artifact, an IIFE bundle assigning a `wind
 global, and a classic CDN script tag are all upstream shapes this package replaced
 rather than kept.
 
-The package smoke test should continue to prove that those old artifacts are absent
-and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and `pptx-ts/browser` resolve.
-The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
-exports but are not yet covered by `pnpm run test:package`: see
-[Runtime And Package Support](runtime-and-package-support.md).
+The package smoke test should continue to prove that those old artifacts
+are absent and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and
+`pptx-ts/browser` resolve. The `./measure`, `./read`, `./math`, and
+`./zip` subpaths exist in package exports but are not yet covered by `pnpm run test:package`:
+see [Runtime and package support](runtime-and-package-support.md).
 
-## Promoting A Downstream Need
+## Promoting a downstream need
 
 A downstream consumer hitting a generic PPTX gap is the main source of new work
 here: an OOXML serialization fix, an API/typing gap, a repeated layout primitive,
@@ -83,7 +83,7 @@ not, unless the documented project target changes first, and see
 [Project target → What Stays In The Consumer](project-target.md#what-stays-in-the-consumer)
 for what this package refuses to absorb regardless of merit.
 
-## Communication Expectations
+## Communication expectations
 
 When proposing or making a change, distinguish:
 

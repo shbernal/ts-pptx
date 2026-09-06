@@ -26,9 +26,9 @@ class TsPptxError extends Error {
 
 ## The class and the code are API. The message is not.
 
-You may branch on `instanceof` and on `code`, and treat both as part of the package's contract:
-adding a code is back-compatible, and removing or renaming one is a breaking change with a
-`CHANGELOG.md` entry.
+Branch on `instanceof`, branch on `code`, treat both as part of the package's contract. Adding a
+code is back-compatible. Removing or renaming one is a breaking change, with a `CHANGELOG.md`
+entry to match.
 
 The message is prose meant for a human reading a stack trace. It is free to improve (reworded,
 expanded, given a better example) in any release, including patch releases. Do not parse it, and
@@ -65,9 +65,9 @@ try {
 }
 ```
 
-`InvalidOptionError` is by far the largest group, and that is deliberate: the project's policy is to
-throw rather than coerce, because emitting a degenerate result (a zero-size shape, a silently
-dropped option) hides the mistake instead of surfacing it.
+`InvalidOptionError` is by far the largest group, and that is deliberate. The policy is to throw
+rather than coerce. A degenerate result, a zero-size shape or a silently dropped option, hides
+the mistake instead of showing it to you.
 
 ## `InternalError` tells you to report it
 
@@ -81,11 +81,11 @@ This is a bug in ts-pptx, not in your deck or your code. Please report it:
 https://github.com/shbernal/ts-pptx/issues/new?template=agent-report.yml
 ```
 
-That is a message, so it is still not API: do not assert on it. It lives in the constructor rather
-than at each throw site so a site added later cannot forget it, and it is on this class alone
-because the other four are routine outcomes of bad input or a bad call. A "report this" banner on
-every malformed package would train you to skip the line, including the one time it always means
-something.
+That is a message, so it is still not API: do not assert on it. It lives in the constructor
+rather than at each throw site, so a site added later cannot forget it. Only this class carries
+it. The other four are routine outcomes of bad input or a bad call, and a "report this" banner
+on every malformed package would train you to skip the line, including the one time it always
+means something.
 
 ### Which failures are worth reporting
 
@@ -101,9 +101,9 @@ both directions:
 | `InvalidOptionError` | the deck it refused is one PowerPoint can express |
 | no error at all | PowerPoint repairs or misrenders the output, or a round trip loses a construct |
 
-A skill ships inside the package that walks through triage, reducing the failure to a script that
-builds its own deck, and filing: including the rule that a deck from a real project never goes to a
-public tracker:
+A skill ships inside the package for this. It walks you through triage, then through reducing
+the failure to a script that builds its own deck, then through filing. That includes the rule
+that a deck from a real project never goes to a public tracker.
 
 ```bash
 npx skills add ./node_modules/pptx-ts   # offline, matches your installed version
@@ -115,9 +115,9 @@ You do not need it to report something. <https://github.com/shbernal/ts-pptx/iss
 ## Codes are shared with diagnostics
 
 Errors and warnings draw on **one** vocabulary (`src/codes.ts`). A condition keeps the same code
-whichever way it reaches you, so `coord/non-finite` means "a coordinate was `NaN`/`Infinity`"
-whether it arrived as a thrown `InvalidOptionError` or as a `Diagnostic` on your handler. A consumer
-that special-cases a condition only has to learn one string for it.
+whichever way it reaches you. `coord/non-finite` means "a coordinate was `NaN`/`Infinity`"
+whether it arrived as a thrown `InvalidOptionError` or as a `Diagnostic` on your handler.
+Special-case a condition and you learn one string for it, not two.
 
 Each code belongs to exactly one class, and that pairing is type-enforced:
 `new MediaError('coord/non-finite', …)` does not compile. If you are narrowing on both, `code` alone
@@ -142,10 +142,10 @@ regardless of which subpath you imported from and which subpath threw.
 
 ## Adding one
 
-A new throw site must name its condition in `src/codes.ts`, under the union belonging to the class
-that will carry it, before it will compile. That is the enforcement mechanism for keeping the
-vocabulary curated rather than accumulated: reuse an existing code when the condition is genuinely
-the same, even if the wording differs and even if it is raised from a different entry point.
+A new throw site must name its condition in `src/codes.ts`, under the union belonging to the
+class that will carry it, before it will compile. That is what keeps the vocabulary curated
+rather than merely accumulated. Reuse an existing code when the condition is genuinely the same,
+even if the wording differs, even if it is raised from a different entry point.
 
 Do not add a class per throw site. Five classes is the whole taxonomy; specificity belongs in the
 code.

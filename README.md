@@ -30,7 +30,7 @@ project shipped under first, so installs that already use it keep working. Pick 
 the two names and stay on it: two copies of the library in one dependency tree are two
 separate libraries as far as your program is concerned. Everything here uses `pptx-ts`.
 
-## Quick Start
+## Quick start
 
 ```ts
 import TsPptx from "pptx-ts"
@@ -54,7 +54,7 @@ That is the whole shape of it. Make a presentation, add a slide, put things on t
 slide, write the file. Positions are in inches by default, so `x: 1, y: 1` is an inch
 in from the top-left corner of a 10 by 5.625 inch slide.
 
-## What You Can Put On A Slide
+## What you can put on a slide
 
 Text and rich paragraphs. Tables, including ones that spill onto as many slides as
 they need. Shapes and connectors between them. Pictures, SVGs, video and audio.
@@ -72,7 +72,7 @@ Two features worth knowing about by name:
   against the real font and shrink or grow the box before it writes the file, instead
   of leaving you to guess at font sizes.
 
-## Reading Decks, Not Just Writing Them
+## Reading decks, not only writing them
 
 Writing is half of it. ts-pptx also opens a `.pptx` you already have, which is
 unusual: the library it descends from generates decks and does not read them.
@@ -86,7 +86,7 @@ unusual: the library it descends from generates decks and does not read them.
   rather than dropped in silence. It is the fastest way to learn the API: build a
   slide by hand in PowerPoint, then read the script for it.
 
-## Where It Runs
+## Where it runs
 
 - **Node 24 and up.** `import` it, or `require()` it. Node loads ES modules through
   `require()` since 22.12, so `const { default: TsPptx } = require("pptx-ts")` works
@@ -116,7 +116,7 @@ Full detail is in [runtime and package support](docs/runtime-and-package-support
      Regenerate with `pnpm run comparison:render`.
      Source: `scripts/comparison/snapshot.json`, written by `scripts/comparison/measure.mjs`. -->
 
-## How This Compares With PptxGenJS
+## How this compares with PptxGenJS
 
 ts-pptx is an independent derivative of
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1. Both were
@@ -154,7 +154,7 @@ deck in your browser and previews the slides. Nothing to clone, nothing to insta
   throws, what it warns about, and how to route or silence the warnings
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Something Wrong, Or Missing?
+## Something wrong, or missing?
 
 Open an issue: <https://github.com/shbernal/ts-pptx/issues>. Errors the library knows
 are its own fault print that link themselves.

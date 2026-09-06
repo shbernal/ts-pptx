@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "OLE Embedded Objects"
+title: "OLE embedded objects"
 summary: "Embed a live Office document (workbook, document, deck) or any OLE payload into a slide with addOleObject(), so double-clicking it in PowerPoint opens the source in place."
 read_when:
   - Embedding a spreadsheet, Word document, or other file so it opens on double-click
@@ -10,7 +10,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# OLE Embedded Objects
+# OLE embedded objects
 
 `slide.addOleObject()` embeds a file inside the `.pptx` and places it on the slide
 as a live OLE object: PowerPoint's **Insert ▸ Object ▸ Create from File**.

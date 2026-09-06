@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Animations & Transitions"
+title: "Animations & transitions"
 summary: "Scope and design for ts-pptx slide-transition and per-shape build-animation support: a full typed model for transitions (read + write), opaque spid-aware preservation for the p:timing animation tree on read, and preset-template authoring on write. Implemented (2026-06-26): this is the foundation decision record, still the reference for scope/rationale."
 read_when:
   - Implementing or changing slide transition emit/parse (p:transition)
@@ -10,7 +10,7 @@ read_when:
 doc_type: "decision"
 ---
 
-# Animations & Transitions
+# Animations & transitions
 
 ## Status
 
@@ -27,7 +27,7 @@ byte-for-byte. The caveat this closed came in as `gitbrent/PptxGenJS#1431`; see
 `test/schema-cases.js` validator fixtures.
 
 This doc records the agreed read/write scope so the fixtures + oracles could be
-authored against a fixed target. Per `AGENTS.md` ("OOXML And PowerPoint Work" →
+authored against a fixed target. Per `AGENTS.md` ("OOXML and PowerPoint work" →
 fixture-gated work), implementation was **blocked on the PowerPoint-authored
 fixtures + oracles** enumerated in §7; those are the precondition, not synthetic
 XML.

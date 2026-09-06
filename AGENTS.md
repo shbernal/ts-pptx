@@ -1,6 +1,6 @@
 # AGENTS.md
 
-## Repository Expectations
+## Repository expectations
 
 - This repository builds ts-pptx, a JavaScript/TypeScript library that emits PowerPoint `.pptx` packages using OOXML.
 - Use `pnpm` for repository scripts. The package declares Node `>=24`.
@@ -14,7 +14,7 @@
   and do not re-grow a browser app under `demos/` — that one already existed once and is
   now a page of the site.
 
-## Scope: Node-First (Two Out-Of-Active-Scope Domains)
+## Scope: Node-first (two out-of-active-scope domains)
 
 - This project is **Node-first**: it runs and is tested without a browser or any
   office application. Two domains are out of *active* maintenance scope. Do not
@@ -22,7 +22,7 @@
   work on them; when a task lands in one, say so and treat it as out of scope
   unless the user explicitly opts in. They are not rejected on merit — outside
   contributors are welcome to submit PRs — but the maintainer is not driving them.
-  See `docs/project-target.md` ("Out Of Active Scope") for the full statement.
+  See `docs/project-target.md` ("Out of active scope") for the full statement.
   - **Live-DOM / browser-layout features** — anything whose answer comes from a
     *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts
     as the browser chose them. `tableToSlides()` is NOT in this category any more:
@@ -42,7 +42,7 @@
     opens cleanly in Microsoft PowerPoint. Such an item only becomes in-scope with
     a repro pinning the defect to invalid OOXML the library itself emits.
 
-## API Evolution Policy
+## API evolution policy
 
 - This project is maintained for our own use; there is no external backward-compat
   obligation. Prefer fixing root causes here rather than asking a downstream
@@ -69,19 +69,19 @@
   fact to read off a ternary. Before calling such a fix complete, read the other
   arms of the branch you changed and ask what is now unreachable.
 - Before adding, widening, or removing an escape hatch (raw XML, a passthrough
-  string, direct DOM access), read the "Escape Hatches" section of
+  string, direct DOM access), read the "Escape hatches" section of
   `docs/project-target.md`. It states the convenience-vs-guarantee rule and why
   the read path gets a deep raw hatch while the write path does not — that
   document is the whole reasoning; do not re-derive it from anywhere else.
 
-## OOXML And PowerPoint Work
+## OOXML and PowerPoint work
 
 - Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
 - Do not vendor full standards PDFs or large extracted specification text into this repository as agent context. Store small, repo-specific notes with section references instead.
 - Prefer executable evidence over prose alone: inspect minimal PowerPoint-authored `.pptx` packages when needed, compare package XML, and add focused regression or schema fixtures.
 - If a feature can only be tested against genuine PowerPoint output (a read accessor validated against real Office XML, or a write-side behaviour whose target XML is "what PowerPoint authors") and that fixture/oracle does not exist yet, do not implement against synthetic or round-tripped XML. Open a GitHub issue naming the construct the oracle must contain, and stop until the fixture is authored — see `docs/evidence-and-fixtures.md`.
 
-### MCP Tool Selection
+### MCP tool selection
 
 Two MCP servers cover complementary parts of the OOXML/PowerPoint space. Work
 through them in order before falling back to web search.
@@ -134,7 +134,7 @@ ambiguous. Useful for community discoveries (e.g. undocumented GUIDs found by
 reverse-engineering), third-party library behaviour, and content that postdates the
 MCPs' corpora.
 
-## Tracking Work
+## Tracking work
 
 - Not-yet-built work goes in a **GitHub issue**: a bug, a proposed API change, a
   missing PPTX behaviour, a fixture that has to be authored before a feature can

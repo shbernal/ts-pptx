@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "Development Guide"
+title: "Development guide"
 summary: "Setup, source layout, generated outputs, and contribution rules."
 read_when:
   - Setting up the repository
@@ -9,7 +9,7 @@ read_when:
 doc_type: "guide"
 ---
 
-# Development Guide
+# Development guide
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ Install dependencies:
 pnpm install
 ```
 
-## Repository Layout
+## Repository layout
 
 - `src/`: TypeScript source.
 - `test/`: regression tests, schema fixtures, and validator helpers.
@@ -42,7 +42,7 @@ case: for example a generated `INDEX.md` collides with the VitePress home page
 `index.md` and silently overwrites it. The generated `read_when` discovery index
 is named `doc-index.md` for exactly this reason.
 
-## Source Conventions
+## Source conventions
 
 The OOXML generators live under `src/gen/` as a layered tree (mirroring `src/read/`):
 `gen/define/*` normalizes user options onto the slide model, and
@@ -80,10 +80,10 @@ Do not "tidy" such a member to the bare name; doing so silently converts a flagg
 hatch into ordinary-looking API. Every `element_` is paired with a public
 `markDirty()` on the same object, because handing out a live DOM node without the
 obligation that comes with it is how an edit vanishes on save. See the
-"Escape Hatches" section of [project target](project-target.md) for when a new
+"Escape hatches" section of [project target](project-target.md) for when a new
 hatch is acceptable at all.
 
-## Common Commands
+## Common commands
 
 Two aggregate commands cover almost every iteration; reach for the individual
 scripts below only when you want one specific gate:
@@ -95,7 +95,7 @@ pnpm run verify:full  # ~65s — the above plus the package boundary suites
 
 `verify` is the per-change loop; `verify:full` is what to run before pushing or
 when touching the release/package boundary. Both deliberately omit `lint` and
-`format:check`, which the git hooks already own (see [Static Checks](#static-checks)).
+`format:check`, which the git hooks already own (see [Static checks](#static-checks)).
 
 Two more aggregates exist for CI, and are occasionally useful locally:
 
@@ -104,39 +104,40 @@ pnpm run check:static   # lint, lint:chars, format:check, all four typechecks, t
 pnpm run check:package  # package:lint, test:package, bundle-size:check, bundle-tier:check
 ```
 
-`bundle-size:check` freezes what each published entry point and its chunks weigh,
-minified and gzipped, against `scripts/bundle-size-budget.json`. It fails only when an
-entry grows past its budget, and asks for a re-freeze only when it comes in far enough
-under to be worth banking: bytes move on every commit, and a gate that failed on every
-commit would get switched off. `pnpm run bundle-size:list` shows the per-chunk
-breakdown; `pnpm run bundle-size:freeze` re-baselines deliberately. Minified because
-`dist/` is roughly half doc comments and a gate on the raw bytes charges a commit for
-prose. The number is still an upper bound rather than a download size: see
-[Bundle Size](bundle-size.md#what-the-package-ships).
+`bundle-size:check` freezes what each published entry point and its chunks
+weigh, minified and gzipped, against `scripts/bundle-size-budget.json`. It
+fails only when an entry grows past its budget. It asks for a re-freeze only
+when an entry comes in far enough under to be worth banking. Bytes move on
+every commit, and a gate that failed on every commit would get switched off.
+`pnpm run bundle-size:list` shows the per-chunk breakdown; `pnpm run bundle-size:freeze`
+re-baselines deliberately. Minified, because `dist/` is roughly half doc
+comments and a gate on the raw bytes charges a commit for prose. The number is
+still an upper bound, not a download size. See [Bundle size](bundle-size.md#what-the-package-ships).
 
-`bundle-tier:check` answers the other half of the question. It bundles five consumer
-programs against `dist/browser.js` with esbuild, recording both the entry chunk and
-every chunk each program can reach. Three build a `new TsPptx()` deck and are
-cumulative (a text-only slide; that plus a shape and an image; and one that also charts,
-tables and embeds media); two build a `createPresentation` deck with and without the
-chart family, so the difference between them is what that family costs. Because it
-bundles, a bundler can tree-shake it, which makes it the only gate that moves when code
+`bundle-tier:check` answers the other half of the question. It bundles five
+consumer programs against `dist/browser.js` with esbuild, recording the entry
+chunk and every chunk each program can reach. Three build a `new TsPptx()`
+deck, and they are cumulative: a text-only slide, then that plus a shape and an
+image, then one that also charts, tables and embeds media. The other two build
+a `createPresentation` deck with and without the chart family, so the
+difference between them is what that family costs. Because it bundles, a
+bundler can tree-shake it. That makes it the only gate that moves when code
 stops being *reachable* rather than stopping being *shipped*. `pnpm run bundle-tier:list`
-shows the per-chunk breakdown and `pnpm run bundle-tier:freeze` re-baselines
-`scripts/bundle-tier-budget.json`. See [Bundle Size](bundle-size.md).
+shows the per-chunk breakdown; `pnpm run bundle-tier:freeze` re-baselines
+`scripts/bundle-tier-budget.json`. See [Bundle size](bundle-size.md).
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
 pnpm forwards the `--` **literally** to the underlying binary: `pnpm run lint -- --fix`
 runs `oxlint . "--" "--fix"`.
 
-With oxlint and oxfmt this fails **silently**, which is worse than how it used to
-fail. Both tools accept the stray `--` and drop it along with everything after it:
-that command lints the whole tree, exits 0, and applies no fixes, and
+With oxlint and oxfmt this fails **silently**, which is worse than how it used
+to fail. Both tools accept the stray `--` and drop it along with everything
+after it. That command lints the whole tree, exits 0, and applies no fixes.
 `pnpm run format:check -- --write` reports the tree clean while never writing
-anything. The previous toolchain at least errored out loudly
-(`No files matching the pattern "--fix" were found`). So the command looks like it
-worked and did something other than what you asked: check the echoed command line
-pnpm prints if a flag seems to have had no effect.
+anything. The previous toolchain at least errored out loudly: `No files matching the pattern "--fix" were found`.
+So the command looks like it worked, while doing something other than what you
+asked. If a flag seems to have had no effect, check the command line pnpm
+echoes.
 
 `ci.yml` runs on every push to `master` and on every pull request, and
 `publish.yml` pulls in that same workflow through `workflow_call` instead of
@@ -144,13 +145,13 @@ keeping its own transcript of it. A release therefore passes the identical eight
 jobs, which appear in the publish run prefixed `CI gate /`: that path is
 exercised rather than assumed, and it is how v3.0.0 shipped.
 
-The `windows-latest` leg of the `package` job is the one worth understanding. It
-exists to cover the Windows-only branches of `run()` in
+The `windows-latest` leg of the `package` job is the one worth understanding.
+It exists to cover the Windows-only branches of `run()` in
 `scripts/script-utils.mjs`, which is exactly where this repo's one live
-cross-platform bug lived (`run('node', …)` resolving to `node.cmd`). It has been
-green on every run so far and has shown no flakiness, but it is also the only
-job that can catch that class of bug, so if it ever does turn intermittent, mark
-it `continue-on-error: true` rather than dropping the leg; a noisy signal beats
+cross-platform bug lived (`run('node', …)` resolving to `node.cmd`). It has
+been green on every run so far, with no flakiness. It is also the only job that
+can catch that class of bug. So if it ever does turn intermittent, mark it
+`continue-on-error: true` rather than dropping the leg. A noisy signal beats
 none.
 
 Relatedly, `.tmp/*.tsbuildinfo` is deliberately **not** cached in CI, which leaves
@@ -191,11 +192,11 @@ runtime. See [Browser Lane](testing.md#browser-lane).
 It starts two servers of its own (a `vite preview` for the demo and
 `scripts/browser-harness-server.mjs` for the adapter harness), both on fixed
 ports bound to `127.0.0.1`. Playwright manages their lifetime, so there is
-nothing to start by hand, but a stale process holding 4173 or 4174 will fail the
-run with `--strictPort`, which is the intended behaviour rather than silently
-testing the wrong thing.
+nothing to start by hand. A stale process holding 4173 or 4174 fails the run
+under `--strictPort`. That is intended: better a failure than silently testing
+the wrong thing.
 
-## Static Checks
+## Static checks
 
 Three gates keep the source statically sound. All are green and expected to stay
 that way:
@@ -217,42 +218,45 @@ the same verdict as `pnpm run lint`.
 
 ### Who runs which gate
 
-`lint` and `format:check` do not normally need to be run by hand. Pre-commit runs
-oxlint `--fix` and oxfmt `--write` over staged files and re-stages the result
-(`stage_fixed: true`), and pre-push re-verifies the whole repo, so running
-`format:check` yourself can only cost you a check→fix→re-check cycle on files that
-were going to be fixed on commit anyway. What no hook covers is **tests** (none run
-any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`, `lint:chars`,
-`format:check`, `typecheck`, `typecheck:scripts` and `typecheck:site` only); those are
-`verify`'s job.
+`lint` and `format:check` do not normally need to be run by hand. Pre-commit
+runs oxlint `--fix` and oxfmt `--write` over staged files and re-stages the
+result (`stage_fixed: true`). Pre-push re-verifies the whole repo. So running
+`format:check` yourself only buys a check, fix and re-check cycle on files the
+commit hook was going to fix anyway. What no hook covers is **tests** (none run
+any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`,
+`lint:chars`, `format:check`, `typecheck`, `typecheck:scripts` and
+`typecheck:site` only); those are `verify`'s job.
 
-`lint:chars` is owned by the hooks the same way, but it is the one gate that runs at two
-different scopes. Pre-commit scans the *staged content* of the files in the commit, which
-is what makes it accurate about what you are actually shipping. Pre-push scans the whole
-repo, which catches prose that reached the branch without passing that hook: a commit made
-with `--no-verify`, one merged in, or a rebase that resurrected a line. Every rule errors,
-and both runs carry `--max-warnings 0`. See [Static Checks](#static-checks) above and
+`lint:chars` is owned by the hooks the same way, but it is the one gate that
+runs at two different scopes. Pre-commit scans the *staged content* of the
+files in the commit, which is what makes it accurate about what you are
+actually shipping. Pre-push scans the whole repo, which catches prose that
+reached the branch without passing that hook: a commit made with `--no-verify`,
+one merged in, or a rebase that resurrected a line. Every rule errors, and both
+runs carry `--max-warnings 0`. See [Static checks](#static-checks) above and
 `charcheck.config.js`, which carries the reasoning.
 
-When the gate itself looks wrong, the thing to reach for is
-`node node_modules/charcheck/dist/cli.js --report-issue`. charcheck's characteristic
-failure is silence rather than an exception: a rule whose globs reach no file reports a
-clean run and exits 0, which is indistinguishable from a scan that passed. That flag
-prints every rule *as it resolved*, including how many files each one matched, so a rule
-matching zero is visible instead of invisible. It reads no file's content and exits 0
-whatever the tree holds. The `charcheck-upstream` skill in `.agents/skills/` covers the
-triage and files the report; it ships inside the package, so refresh the copy
-(`npx skills update charcheck-upstream`) in the same commit that bumps the pin, and
-re-apply the local `metadata.internal: true` flag afterwards.
+When the gate itself looks wrong, reach for `node node_modules/charcheck/dist/cli.js --report-issue`.
+charcheck's characteristic failure is silence, not an exception. A rule whose
+globs reach no file reports a clean run and exits 0, which looks exactly like a
+scan that passed. That flag prints every rule *as it resolved*, including how
+many files each one matched, so a rule matching zero becomes visible. It reads
+no file's content and exits 0 whatever the tree holds.
 
-That silence is not hypothetical here. `DASH_PATTERN` in `charcheck.config.js` ends in
-`\s*`, and `\s` matches a newline: until charcheck 0.2.3 that carried the match off the end
-of a hard-wrapped line, and when the next line opened with an inline code span the finding
-was dropped without a word (shbernal/charcheck#16). Eleven genuine dashes sat behind a clean
-run that way, and the workaround was to match `[ \t]` instead. 0.2.3 fixed it and the
-pattern is back to `\s*`, which is why the pin is exact. So when a green scan is the
-evidence for a claim, prove the gate can still fail: put one dash back, watch it report,
-take it out again.
+The `charcheck-upstream` skill in `.agents/skills/` covers the triage and files
+the report. It ships inside the package, so refresh the copy with `npx skills update charcheck-upstream`
+in the same commit that bumps the pin, and re-apply the local
+`metadata.internal: true` flag afterwards.
+
+That silence is not hypothetical here. `DASH_PATTERN` in `charcheck.config.js`
+ends in `\s*`, and `\s` matches a newline. Until charcheck 0.2.3 that carried
+the match off the end of a hard-wrapped line. When the next line opened with an
+inline code span, the finding was dropped without a word
+(shbernal/charcheck#16). Eleven genuine dashes sat behind a clean run that way,
+and the workaround was to match `[ \t]` instead. 0.2.3 fixed it, the pattern is
+back to `\s*`, and that is why the pin is exact. So when a green scan is the
+evidence for a claim, prove the gate can still fail: put one dash back, watch
+it report, take it out again.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 oxfmt job uses an extension glob. Every extension in the former is covered by
@@ -260,12 +264,12 @@ the latter today, but the two are maintained separately: if they drift, so does
 the advice above.
 
 There is a third list, and it is a safety net rather than a definition:
-`.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set of
-globs instead of the bare `oxfmt` that would otherwise suffice, because bare oxfmt
-considers a wider set than the explicit list covers: it reaches markdown,
-CSS, HTML and `.vue` single-file components, none of which this repo
-formats. A silently *wider* set is how a tool-written file gets clobbered, so both
-defences are kept and they overlap on purpose.
+`.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set
+of globs instead of the bare `oxfmt` that would otherwise suffice. Bare oxfmt
+considers a wider set than the explicit list covers. It reaches markdown, CSS,
+HTML and `.vue` single-file components, none of which this repo formats. A
+silently *wider* set is how a tool-written file gets clobbered, so both
+defences stay, and they overlap on purpose.
 
 Three of the four `tsc` projects are `incremental`, with their build state under the
 gitignored `.tmp/` (one `tsBuildInfoFile` each: a shared one would thrash). `typecheck:site`
@@ -280,12 +284,12 @@ All text files are checked in and checked out as **LF**, enforced by
 oxfmt writes LF and relies on this. Do not depend on your local `core.autocrlf`
 setting: the repo config is self-contained.
 
-On Windows, a working tree that predates the `.gitattributes` (or a fresh clone
-with `core.autocrlf=true` and no attributes applied) can materialize files as
-CRLF, which makes `pnpm run format:check` report every text file as mis-formatted
-and makes `pnpm run format --write` rewrite all of them. If that happens, do **not**
-run `format --write`; instead re-normalize the working tree to LF (the blobs are
-already LF, so this changes only line endings, not content):
+On Windows, a working tree that predates the `.gitattributes` can materialize
+files as CRLF. So can a fresh clone with `core.autocrlf=true` and no attributes
+applied. Then `pnpm run format:check` reports every text file as mis-formatted,
+and `pnpm run format --write` rewrites all of them. If that happens, do **not**
+run `format --write`. Re-normalize the working tree to LF instead. The blobs
+are already LF, so this changes line endings and nothing else:
 
 ```bash
 git rm -r --cached -q .
@@ -339,17 +343,19 @@ question rather than catching a slip, so the answer is written down rather than
 re-derived per site. A `foo?: T` declaration says the key is either **missing**
 or holds a `T`; a key that is present and holds `undefined` is a third state.
 
-**Option bags spell "unset" exactly one way: an absent key.** They are stored,
-spread and enumerated (a layout placeholder's options onto a slide's, a column
-default under a cell's own, a combo subchart's overrides onto the chart's), and
-a spread decides on whether the key *exists*, not on what it holds. So a
-normalizer that rejects a value removes it. `src/options-internal.ts` has the two
-helpers for that (`setOrClear` for a write-back, `pickDefined` for a literal that
-projects a key list off a bag that may not state them all) and its module header
-is the long form of this rule. It is the write-side twin of `compact()` in
-`src/script/from-read/values.ts`, which keeps the same invariant on the read side
-and for the same reason: two IRs describing one deck must not compare unequal
-because one wrote `{ bold: undefined }` and the other wrote `{}`.
+**Option bags spell "unset" exactly one way: an absent key.** They get stored,
+spread and enumerated: a layout placeholder's options onto a slide's, a column
+default under a cell's own, a combo subchart's overrides onto the chart's. A
+spread decides on whether the key *exists*, not on what it holds. So a
+normalizer that rejects a value removes it.
+
+`src/options-internal.ts` has the two helpers for that. `setOrClear` is for a
+write-back; `pickDefined` is for a literal that projects a key list off a bag
+that may not state them all. Its module header is the long form of this rule.
+It is the write-side twin of `compact()` in `src/script/from-read/values.ts`,
+which keeps the same invariant on the read side, for the same reason: two IRs
+describing one deck must not compare unequal because one wrote `{ bold: undefined }`
+and the other wrote `{}`.
 
 **Three kinds of declaration say `| undefined`, and each says why where it is
 written.**
@@ -358,11 +364,11 @@ written.**
   `Slide.transition`, is always *present* on a real slide, and writing
   `undefined` is how its setter is cleared. There is no absent state to describe.
 - A **read-only argument bag**: a parameter its call sites assemble inline out of
-  values they may not have (`relationshipEl`'s `opts`, `genXmlTitle`'s title
-  settings). The reader consults it with `?.` and nothing spreads it, so the two
-  states are genuinely the same to it. `MaybeUndefined<T>` in
-  `src/types/internal.ts` is the mapped type for this, and its doc comment says
-  when *not* to reach for it.
+  values they may not have, such as `relationshipEl`'s `opts` or
+  `genXmlTitle`'s title settings. The reader consults it with `?.` and nothing
+  spreads it, so the two states really are the same to it. `MaybeUndefined<T>`
+  in `src/types/internal.ts` is the mapped type for this, and its doc comment
+  says when *not* to reach for it.
 - A **measurement record** built in one place and read in one place (`FitRun`,
   `FitParagraph`), where the builder produces every key on every record.
 
@@ -403,20 +409,20 @@ formatter of record.
 
 oxlint's categories are not a drop-in for the old preset pair, and the gap was
 measured rather than guessed. `correctness` alone reports 17 findings on this
-tree; adding `suspicious` reports 753; adding `pedantic`, 1509. Those extra 1492
-are not latent bugs that had been going unnoticed: they are a different
-linter's house style, and several contradict decisions this repo has already
-recorded (`suspicious` re-enables `require-await`; `pedantic` wants `eqeqeq`
-across `read/api`). Adopting them would be a style migration wearing a toolchain
-swap's clothes.
+tree. Adding `suspicious` reports 753. Adding `pedantic`, 1509. Those extra
+1492 are not latent bugs nobody noticed. They are a different linter's house
+style, and several contradict decisions this repo has already recorded:
+`suspicious` re-enables `require-await`, `pedantic` wants `eqeqeq` across
+`read/api`. Adopting them would be a style migration wearing a toolchain swap's
+clothes.
 
 So the baseline is `correctness`, and parity is reached by **naming rules
-explicitly**. Of the 90 rules previously enabled on `src/**/*.ts`, 57 are already
-in `correctness` and 32 more are turned on by name. Exactly one is lost
-(`no-octal`, which oxlint does not implement), and it is lost harmlessly: legacy
-octal literals are a syntax error in strict mode, every file here is an ES
-module, and modules are always strict, so the parser already forbids what the
-rule forbade.
+explicitly**. Of the 90 rules previously enabled on `src/**/*.ts`, 57 are
+already in `correctness` and 32 more are turned on by name. Exactly one is
+lost: `no-octal`, which oxlint does not implement. It is lost harmlessly.
+Legacy octal literals are a syntax error in strict mode, every file here is an
+ES module, and modules are always strict, so the parser already forbids what
+the rule forbade.
 
 The swap also **tightens** the gate in one place. `scripts/**` and `test/**` stay
 syntax-only, but `no-floating-promises` and `no-misused-promises` now stay on
@@ -424,16 +430,16 @@ there. Those two were always the pair worth having; under the previous linter
 they could not be enabled without dragging the whole `no-unsafe-*` family along,
 and oxlint lets them stand alone.
 
-One structural difference is worth knowing before editing `.oxlintrc.jsonc`. The
-old flat config scoped every block by `files`, so a file matching no block was
-linted with **zero** rules: which is how `tools/**` and `docs/**` came to be
-unlinted without anyone deciding it. oxlint inverts that: top-level `rules` apply
-to every file that is not ignored. Both trees are therefore named in
-`ignorePatterns`, to hold them at the enforcement level they have always had.
+One structural difference is worth knowing before editing `.oxlintrc.jsonc`.
+The old flat config scoped every block by `files`, so a file matching no block
+was linted with **zero** rules. That is how `tools/**` and `docs/**` came to be
+unlinted without anyone deciding it. oxlint inverts that: top-level `rules`
+apply to every file that is not ignored. So both trees are named in
+`ignorePatterns`, holding them at the enforcement level they have always had.
 Starting to lint them is a decision worth taking on its own merits, not a side
 effect of changing linters.
 
-## OOXML Changes
+## OOXML changes
 
 Before changing emitted OOXML, read
 [OOXML agent context](ooxml-agent-context.md).
@@ -452,7 +458,7 @@ For serialization changes:
 pnpm run test:schema
 ```
 
-## Package Boundary Changes
+## Package boundary changes
 
 The package ships one ESM build. Changes to package exports, generated filenames, or
 package contents should preserve the support contract documented in
@@ -464,7 +470,7 @@ Package-boundary verification:
 pnpm run check:package
 ```
 
-## Demo Changes
+## Demo changes
 
 The demos are showcases, not tests. Nothing under `demos/` gates a commit, and no
 verification aggregate runs them: the published-package contract is covered by
@@ -488,7 +494,7 @@ pnpm run docs:dev                       # the site, including /demos — the sam
 See [demos/README.md](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md)
 for what each one is for.
 
-## Site Changes
+## Site changes
 
 The project site is one VitePress build covering everything at
 `https://shbernal.github.io/ts-pptx/`: the front page, the docs, and the demos page. It

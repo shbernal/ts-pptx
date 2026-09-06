@@ -1,6 +1,6 @@
 ---
 doc-schema-version: 1
-title: "PPTX Read / Round-Trip"
+title: "PPTX read and round-trip"
 summary: "Open an existing .pptx, read its slides/shapes/text, edit text, fonts, and geometry, and save it back losslessly."
 read_when:
   - Opening or editing decks this library did not generate
@@ -20,24 +20,30 @@ It is a separate subsystem from the generator (`ts-pptx`) and the inspector
 (`pptx-ts/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
-Status: **Phase 4, rich content & structural edits**. On top of the Phase 1
-OPC layer (load, parts, content types, relationships, lossless save), the
-Phase 2 navigable read model (`Presentation → slides → shapes → text frame →
-paragraphs → runs`), and the Phase 3 edit slice (**run text and character
-formatting**, **shape position/size**, and **shape fill/line colour**), the
-model now also covers
-**tables** (incl. cell borders, style id + cell picture fill), **charts** (read-only: classic
-`c:chart` with axes/labels/legend/series formatting, plus the `cx:` chartEx family:
-waterfall/funnel/treemap/…), **rich run formatting** (strike/caps/baseline/
-highlight/hyperlink + paragraph line spacing), **pattern/picture fill and the effect list**
-(inner shadow/glow/reflection/soft edge), **slide background/number/autofit**,
-**adding and removing shapes**, **adding
-pictures**, and **slide cloning**. Setting a property or calling a mutator
-mutates the live DOM in place and marks only the affected part(s) dirty, so
-`save()` reserializes just those and keeps every other byte for byte.
-Lower-level DOM mutation (below) still works for anything the typed setters do
-not yet cover. Future directions not yet implemented are tracked as issues:
-<https://github.com/shbernal/ts-pptx/issues>.
+Status: **Phase 4, rich content and structural edits**. Three phases came
+first. Phase 1 is the OPC layer: load, parts, content types, relationships,
+lossless save. Phase 2 is the navigable read model, `Presentation → slides → shapes → text frame → paragraphs → runs`.
+Phase 3 is the first edit slice: run text and character formatting, shape
+position and size, shape fill and line colour.
+
+On top of those, the model now covers:
+
+- Tables, including cell borders, the style id, and a cell picture fill.
+- Charts, read-only. Classic `c:chart` with axes, labels, legend and series
+  formatting, plus the `cx:` chartEx family: waterfall, funnel, treemap and the
+  rest.
+- Rich run formatting: strike, caps, baseline, highlight, hyperlink, and paragraph
+  line spacing.
+- Pattern and picture fill, and the effect list (inner shadow, glow, reflection,
+  soft edge).
+- Slide background, slide number, autofit.
+- Adding and removing shapes, adding pictures, and cloning a slide.
+
+Setting a property or calling a mutator changes the live DOM in place and marks
+only the affected parts dirty. `save()` reserializes just those and keeps every
+other byte for byte. Lower-level DOM mutation, below, still works for anything
+the typed setters do not cover yet. What is not implemented is tracked as
+issues: <https://github.com/shbernal/ts-pptx/issues>.
 
 ## Quick start
 
@@ -97,12 +103,14 @@ fixtures (see `test/read/fixtures/README.md`).
 
 ### Preserve-only boundary: what the read model does *not* decode
 
-Some parts round-trip **byte-perfect** but have no typed read surface: the model
-preserves their bytes and (where relevant) reports their presence, but never
-decodes them into getters. This is a deliberate boundary, not a backlog: each is
-either a whole subsystem or an import-only surface with no authoring trigger, so a
-decoder would need a hand-authored fixture plus an independent oracle rather than a
-write→read round-trip. They stay parked until a real consumer names one:
+Some parts round-trip **byte-perfect** but have no typed read surface. The
+model preserves their bytes and, where relevant, reports their presence. It
+never decodes them into getters.
+
+This is a deliberate boundary, not a backlog. Each one is either a whole
+subsystem or an import-only surface with no authoring trigger, so a decoder
+would need a hand-authored fixture and an independent oracle rather than a
+write-then-read round-trip. They stay parked until a real consumer names one.
 
 - **SmartArt layout, quick-style and colour presets** (`diagrams/layout*.xml`,
   `quickStyle*.xml`, `colors*.xml`): three of the four parts that say how a diagram is
@@ -266,15 +274,17 @@ function relsPartNameFor(sourcePartName: string): string
 ## Object model (Phase 2 read, Phase 3 edit)
 
 A navigable, typed view over the live DOM. Every proxy reads from its DOM
-element on each access (no caching) and wraps the very nodes the setters mutate
-in place. A proxy is therefore a *view*, built per access and never cached:
-`slide.shapes[0] !== slide.shapes[0]`, and the same holds for `paragraphs`,
-`runs`, `table.rows`, `row.cells`, `diagram.points` and every other collection
-here. Two such proxies wrap the same DOM node, so an edit through one is visible
-through the other; only object identity differs, which matters when a consumer
-keys a `Map` or a `Set` on a proxy (key on `partName`, the shape `id`, or the
-point `modelId` instead). Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch)
-and is `null` when a shape inherits its position from a placeholder. Properties
+element on each access, with no caching, and wraps the very nodes the setters
+mutate in place. So a proxy is a *view*, built per access and never cached:
+`slide.shapes[0] !== slide.shapes[0]`, and the same holds for `paragraphs`, `runs`, `table.rows`, `row.cells`, `diagram.points` and every other collection here.
+
+Two such proxies wrap the same DOM node, so an edit through one shows up
+through the other. Only object identity differs. That matters if you key a
+`Map` or a `Set` on a proxy: key on `partName`, the shape `id`, or the point
+`modelId` instead.
+
+Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch), and is
+`null` when a shape inherits its position from a placeholder. Properties
 documented below as *settable* write back to the DOM and mark the owning slide
 part dirty (see [Editing](#editing-typed-api-phase-3)).
 
@@ -474,17 +484,19 @@ appears only when its element is present; a present-but-empty element decodes to
 not parsed to a `Date`, to avoid timezone round-trip loss. A deck with no
 core-properties part reads as `{}`.
 
-`pres.appProperties` decodes `docProps/app.xml`: the **extended** properties, which
-are the producing application's account of the deck rather than the author's
-metadata. Four fields are reported -- `application`, `appVersion`, `company` and
-`titlesOfParts`. The statistics (`Slides`, `Words`, `Paragraphs`, `HiddenSlides`, …)
-are deliberately not: they are numbers the producer computed for the file it wrote,
-and this read model can hand back an edited deck, so reporting them would be
-reporting a fact about a document that no longer exists. `titlesOfParts` is the flat
-`vt:lpstr` vector as written -- fonts, then themes, then slide titles, in one list;
-`<HeadingPairs>` holds the counts that partition it and is not read, so a caller who
-wants the slide titles alone pairs the two itself. A deck with no extended-properties
-part reads as `{}`.
+`pres.appProperties` decodes `docProps/app.xml`: the **extended** properties,
+which are the producing application's account of the deck rather than the
+author's metadata. Four fields are reported: `application`, `appVersion`,
+`company` and `titlesOfParts`. The statistics (`Slides`, `Words`, `Paragraphs`,
+`HiddenSlides`, and the rest) are deliberately not. They are numbers the
+producer computed for the file it wrote. This read model can hand back an
+edited deck, so reporting them would report a fact about a document that no
+longer exists.
+
+`titlesOfParts` is the flat `vt:lpstr` vector as written: fonts, then themes,
+then slide titles, all in one list. `<HeadingPairs>` holds the counts that
+partition it, and is not read, so a caller who wants the slide titles alone
+pairs the two itself. A deck with no extended-properties part reads as `{}`.
 
 `pres.customProperties` decodes `docProps/custom.xml`: the user-defined
 `{ name, value }` pairs from `pptx.setCustomProperty(...)`. Each value is typed
@@ -573,11 +585,10 @@ type SlideBackground = {
 PowerPoint writes `show="0"` when you hide a slide (the getter also accepts the
 `"false"` lexical form).
 
-This matters whenever you reconcile **render order** with **model order**:
+This matters whenever you reconcile **render order** with **model order**.
 PowerPoint's "present" and LibreOffice both drop hidden slides from a slideshow
-and from exported PDFs, so once any earlier slide is hidden the Nth rendered page
-is no longer `presentation.slides[N]`. The reconciliation falls out directly, as
-`slides.length − (visible count) === (hidden count)`:
+and from exported PDFs. So once any earlier slide is hidden, the Nth rendered
+page is no longer `presentation.slides[N]`. The reconciliation falls out directly, as `slides.length − (visible count) === (hidden count)`:
 
 ```ts
 const hidden = presentation.slides.filter((s) => s.hidden).length
@@ -606,20 +617,20 @@ image background's `r:embed` resolves against the **owning** part's rels (the
 layout's rels for a layout-inherited image). solid/gradient/image are FAITHFUL;
 pattern/themeRef are read-only for imported decks.
 
-A `themeRef` keeps its raw `idx` for fidelity **and** resolves it to the concrete
-fill it renders as, in `resolvedFill: BackgroundFill | null`. `idx` is 1000-based
-into the theme's `a:fmtScheme`: `idx − 1000` is the 1-based `a:bgFillStyleLst`
-entry (an `idx` below 1000 selects `a:fillStyleLst`), and its `phClr` is substituted
-by the bgRef's own colour child, resolved through the slide theme (same path
-`importSlide({ theme: 'preserve' })` bakes with). So the default
-`{ type: 'themeRef', idx: 1001 }` above exposes
-`resolvedFill: { type: 'solid', color: { effectiveHex: 'FFFFFF', … } }` (entry 1 is a
-solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is `null` when the theme
-has no `fmtScheme`, the indexed entry is absent, or the colour cannot be resolved.
-`BackgroundFill` is the source-less fill union (`solid`/`gradient`/`image`/`pattern`/
-`none`): the same payload the top-level variants carry. The `image` variant keeps
-its flat `relId`/`partName` and additionally carries the whole decoded
-`picture: PictureFill` (stretch/tile geometry, crop, alpha).
+A `themeRef` keeps its raw `idx` for fidelity **and** resolves it to the
+concrete fill it renders as, in `resolvedFill: BackgroundFill | null`. `idx` is
+1000-based into the theme's `a:fmtScheme`: `idx − 1000` is the 1-based
+`a:bgFillStyleLst` entry (an `idx` below 1000 selects `a:fillStyleLst`), and
+its `phClr` is substituted by the bgRef's own colour child, resolved through
+the slide theme (same path `importSlide({ theme: 'preserve' })` bakes with). So
+the default `{ type: 'themeRef', idx: 1001 }` above exposes `resolvedFill: { type: 'solid', color: { effectiveHex: 'FFFFFF', … } }`
+(entry 1 is a solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is
+`null` when the theme has no `fmtScheme`, the indexed entry is absent, or the
+colour cannot be resolved. `BackgroundFill` is the source-less fill union
+(`solid`/`gradient`/`image`/`pattern`/ `none`): the same payload the top-level
+variants carry. The `image` variant keeps its flat `relId`/`partName` and also
+carries the whole decoded `picture: PictureFill` (stretch/tile geometry, crop,
+alpha).
 
 `slideNumberPlaceholder` is scoped to the slide's **own** shape tree: the
 `p:ph type="sldNum"` the per-slide `slide.slideNumber = {…}` setter emits. It
@@ -916,16 +927,19 @@ use for run colour/size/face/anchor) and returns the first tier that defines a
 geometry, tagged `'layout'` or `'master'`. `null` for a non-placeholder shape with no
 own transform (nothing to inherit), or a placeholder whose chain defines none either.
 
-The write API always inlines an explicit `a:xfrm` onto every placeholder it authors
-(`src/gen/slide/object.ts` resolves and copies bound layout geometry down
-unconditionally), so `source` reads `'own'` for every authored deck: there is no
-writer trigger for the inherited branch. It matters for *imported* decks: PowerPoint
-itself leaves a placeholder's `p:spPr` empty when the user never repositions it (own
-xfrm omitted at every tier down to the master that finally defines one), which is the
-gap this getter closes. Verified against `test/read/fixtures/placeholder-inherit.pptx`
-(a genuine PowerPoint-authored deck whose title/body placeholders, and their layout's,
-both omit `a:xfrm`, resolving to the master); the oracle geometry was read directly
-off that fixture's own master/layout XML, not derived from the reader.
+The write API always inlines an explicit `a:xfrm` onto every placeholder it
+authors, since `src/gen/slide/object.ts` resolves and copies bound layout
+geometry down unconditionally. So `source` reads `'own'` for every authored
+deck, and there is no writer trigger for the inherited branch.
+
+It matters for *imported* decks. PowerPoint leaves a placeholder's `p:spPr`
+empty when the user never repositions it, with the own xfrm omitted at every
+tier down to the master that finally defines one. That is the gap this getter
+closes. Verified against `test/read/fixtures/placeholder-inherit.pptx`, a
+genuine PowerPoint-authored deck whose title and body placeholders, and their
+layout's, both omit `a:xfrm` and resolve to the master. The oracle geometry was
+read directly off that fixture's own master and layout XML, not derived from
+the reader.
 
 ### `Shape` and subclasses
 
@@ -1173,12 +1187,12 @@ the write-side `GeometryPoint` DSL, so a consumer maps a `GeometryCommand[]` to
 
 #### Picture fill
 
-`pictureFill` decodes `a:blipFill` from a *fill-bearing container* (a shape's
-`p:spPr`, a table cell's `a:tcPr`, a slide's `p:bgPr`) and is what the
-`resolvedFill` accessors cannot report: they decode solid colours only, so
-without it an image-filled surface is indistinguishable from an unfilled one. A
-`Picture` is a different thing (a `p:pic` whose image is its sibling
-`p:blipFill`); this is a shape or cell whose *surface* happens to be an image.
+`pictureFill` decodes `a:blipFill` from a *fill-bearing container*: a shape's
+`p:spPr`, a table cell's `a:tcPr`, a slide's `p:bgPr`. It reports what the
+`resolvedFill` accessors cannot. They decode solid colours only, so without it
+an image-filled surface looks exactly like an unfilled one. A `Picture` is a
+different thing, a `p:pic` whose image is its sibling `p:blipFill`. This is a
+shape or cell whose *surface* happens to be an image.
 
 ```ts
 interface PictureFill {
@@ -1386,35 +1400,35 @@ paints, which is what most callers want. `resolvedColor` is the same colour
 unflattened: the base `hex` before any transform, the raw `transforms` list
 (`lumMod`/`shade`/…) in document order, and the `effectiveHex`/`alpha` after
 applying them. Read the second when you are re-authoring a border against a
-*different* theme, because `color` alone is one theme baked in: a
-`lumMod`-darkened accent carried forward as a literal hex stops tracking the
-theme it came from, and nothing in the flat field says so. An empty
+*different* theme. `color` alone is one theme baked in. Carry a
+`lumMod`-darkened accent forward as a literal hex and it stops tracking the
+theme it came from, with nothing in the flat field to say so. An empty
 `transforms` means the edge stated none; a `null` `resolvedColor` means there
 was no resolvable colour to read. `GradientStop.resolvedColor` carries the same
 object for the same reason, beside its own flat `effectiveHex`.
 
-`styleId` surfaces the **raw** `a:tableStyleId` GUID, not a resolved style: the
-id is the codegen handoff to the writer's `tableStyle` option (whose built-in
-members *are* the GUID string, so it round-trips verbatim); resolving the style
-matrix is a separate concern. The stroke colour reuses the same solid-fill decode
-as shape strokes.
+`styleId` reports the **raw** `a:tableStyleId` GUID, not a resolved style. The
+id is the codegen handoff to the writer's `tableStyle` option, whose built-in
+members *are* the GUID string, so it round-trips verbatim. Resolving the style
+matrix is a separate concern. The stroke colour reuses the same solid-fill
+decode as shape strokes.
 
 Borders are faithful, not collapsed. The writer emits a **full four-side set on
-every cell**, defaulting an unspecified side to `<a:ln w="0"><a:noFill/></a:ln>`,
-so a *written* table's cells never read `borders === null`: that null path is
-reachable only from PowerPoint-authored fixtures with a bare/absent `a:tcPr`. A
-`noFill` edge (explicit suppression) is reported as such and is **distinct** from
-an edge inherited from the table style; don't conflate them. The writer never
-emits the diagonals (`tlToBr`/`blToTr`), but the reader decodes them for imported
-decks.
+every cell**, defaulting an unspecified side to `<a:ln w="0"><a:noFill/></a:ln>`.
+So a *written* table's cells never read `borders === null`. That null path is
+reachable only from PowerPoint-authored fixtures with a bare or absent
+`a:tcPr`. A `noFill` edge, meaning explicit suppression, is reported as such,
+and it is **distinct** from an edge inherited from the table style. Don't
+conflate them. The writer never emits the diagonals (`tlToBr`/`blToTr`), but
+the reader decodes them for imported decks.
 
-Cell fill has the same two-source shape as a shape's: the cell's own
-`a:tcPr/a:solidFill` wins, and a cell that declares **no fill choice at all**
-falls through to the table style graph, so `resolvedFill` reports the banding /
+Cell fill has the same two-source shape as a shape's. The cell's own
+`a:tcPr/a:solidFill` wins. A cell that declares **no fill choice at all** falls
+through to the table style graph, so `resolvedFill` reports the banding or
 header shading PowerPoint actually paints. A cell carrying some *other* fill
-choice (`a:blipFill`, `a:gradFill`, `a:pattFill`, `a:noFill`) overrides the style
-in PowerPoint, so `resolvedFill` reports `null` for one rather than the colour
-underneath it: read `pictureFill` for an image-filled cell.
+choice (`a:blipFill`, `a:gradFill`, `a:pattFill`, `a:noFill`) overrides the
+style in PowerPoint, so `resolvedFill` reports `null` for one rather than the
+colour underneath it. Read `pictureFill` for an image-filled cell.
 
 `columnIndex` counts `a:tc` elements in the row, so a cell that spans columns
 (`gridSpan > 1`) occupies one index; merged-away cells report
