@@ -11,7 +11,7 @@
 //
 // These import from `src/` rather than `dist/` because the seam is internal: `PackageSource` and
 // the contributor list are not on the public surface.
-import { describe, test } from 'vitest'
+import { afterAll, beforeAll, describe, test, vi } from 'vitest'
 import TsPptx from '../../../src/node.ts'
 import { buildPackageParts } from '../../../src/package/assemble.ts'
 import { composeFamilies } from '../../../src/families/shared.ts'
@@ -57,13 +57,25 @@ function sourceWith(pres, partContributors) {
 	}
 }
 
-// docProps/core.xml carries `new Date()` dcterms timestamps; blank them so a pair of builds
-// straddling a clock tick is not flaky. Every other part of these decks is deterministic.
-const decoder = new TextDecoder()
+// Freeze the clock for the whole file. Two parts read it, and only one is text: `docProps/core.xml`
+// carries `new Date()` dcterms stamps, and so does the `docProps/core.xml` *inside* the
+// `ppt/embeddings/Microsoft_Excel_WorksheetN.xlsx` the chart contributor writes. A regex could only
+// ever blank the first — the embedded workbook is a deflated zip by the time this sees it — which
+// left the reversed-list case failing whenever its two builds straddled a one-second tick. Same
+// fix, same reasoning, as test/regression/api/construct-families.test.js.
+beforeAll(() => {
+	vi.useFakeTimers({ toFake: ['Date'] })
+	vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+})
+afterAll(() => {
+	vi.useRealTimers()
+})
+
+// latin1, so every byte round-trips to one code point and the comparison is byte-exact even
+// through the compressed embedded workbooks.
+const decoder = new TextDecoder('latin1')
 function decode(bytes) {
-	return decoder
-		.decode(bytes)
-		.replace(/(<dcterms:(?:created|modified)[^>]*>)[^<]*(<\/dcterms:(?:created|modified)>)/g, '$1$2')
+	return decoder.decode(bytes)
 }
 
 /** Build a deck through the seam and return its parts as `path -> text`, in emission order. */

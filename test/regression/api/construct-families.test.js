@@ -12,7 +12,7 @@
 //
 // These import from `src/` rather than `dist/` because the seam is internal: `PresentationCore`'s
 // second constructor argument is not on the public surface.
-import { describe, expect, test } from 'vitest'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 import PresentationCore from '../../../src/presentation.ts'
 import { createNodeRuntime } from '../../../src/runtime/node.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
@@ -34,13 +34,29 @@ const SERIES = [{ name: 'Rev', labels: ['Q1', 'Q2'], values: [1, 2] }]
 const composed = (families) => new PresentationCore(createNodeRuntime(), families)
 const withoutCharts = ALL_CONSTRUCT_FAMILIES.filter((family) => family !== chartFamily)
 
-// docProps/core.xml carries `new Date()` dcterms timestamps; blank them so a pair of builds
-// straddling a clock tick is not flaky. Every other part of these decks is deterministic.
-const decoder = new TextDecoder()
+// Freeze the clock for the whole file, because two parts of these decks read it and only one of
+// them is text. `docProps/core.xml` carries `new Date()` dcterms stamps, and so does the
+// `docProps/core.xml` *inside* every `ppt/embeddings/Microsoft_Excel_WorksheetN.xlsx` a chart
+// embeds (`gen/chart/embed-xlsx.ts`). Blanking the first with a regex was the previous fix here,
+// and it could never have reached the second: the embedded workbook is a deflated zip by the time
+// this sees it, so its timestamp is not a string to match. That left `assertSameParts` failing on
+// `Microsoft_Excel_Worksheet2.xlsx` whenever the two builds in a test straddled a one-second tick
+// — rare, unreproducible in isolation, and nothing to do with the family seam under test. One
+// frozen `Date` covers both stamps, and any third that grows later.
+beforeAll(() => {
+	vi.useFakeTimers({ toFake: ['Date'] })
+	vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+})
+afterAll(() => {
+	vi.useRealTimers()
+})
+
+// latin1 rather than utf-8, so every byte round-trips to one code point and the comparison below
+// is byte-exact. Most of these parts are XML, but the embedded workbooks are compressed, and
+// utf-8 decoding folds distinct invalid sequences onto the same U+FFFD.
+const decoder = new TextDecoder('latin1')
 function decode(bytes) {
-	return decoder
-		.decode(bytes)
-		.replace(/(<dcterms:(?:created|modified)[^>]*>)[^<]*(<\/dcterms:(?:created|modified)>)/g, '$1$2')
+	return decoder.decode(bytes)
 }
 
 /** Build a deck through a family list and return its parts as `path -> text`, in emission order. */
