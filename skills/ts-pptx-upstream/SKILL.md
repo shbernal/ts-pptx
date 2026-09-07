@@ -9,8 +9,8 @@ You are in a project that *uses* `pptx-ts`, not the project that builds it.
 This skill is how a defect you hit here becomes a permanent regression test there.
 
 The library's maintainers turn reports with a minimal reproduction into fixtures and
-regression cases, which is the only mechanism that guarantees a bug is never
-reintroduced. A report without a reproduction is a wish; a report with one is a fix.
+regression cases, which is the only way to guarantee the bug never comes back. A report
+without a reproduction is a wish; a report with one is a fix.
 
 **The single most valuable thing you can do is reduce the failure to a script that
 builds its own deck.** Everything below is in service of that.
@@ -18,8 +18,8 @@ builds its own deck.** Everything below is in service of that.
 ## 1. Decide whether it is actually ours
 
 Every failure ts-pptx raises is a `TsPptxError` in one of five classes, and the class
-already answers *whose problem is this*. Catch it and read `err.name` and `err.code`
-— `code` is a stable `area/condition` string and is API; the message is not, so never
+already answers *whose problem is this*. Catch it and read `err.name` and `err.code`.
+`code` is a stable `area/condition` string and is API; the message is not, so never
 branch on its wording.
 
 | class                     | whose bug        | report it?                                                          |
@@ -41,10 +41,10 @@ Not every defect throws. These are ours too, and are worth reporting:
   renders differently than intended.
 - A **round trip that loses a construct**: read a deck, write it back, something is
   gone or changed. If the loss surfaced as a conversion fidelity note, the note has
-  already classified it for you — see below.
-- The **read side cannot see what the write side authors** — a property ts-pptx emits
-  but has no accessor to read back. This is the strongest case a gap can make, and it
-  has its own form (see step 5).
+  already classified it for you. See below.
+- The **read side cannot see what the write side authors**: ts-pptx emits the property
+  but has no accessor to read it back. This is the strongest case a gap can make, and
+  it has its own form (see step 5).
 - A `Diagnostic` that fires when it should not, does not fire when it should, or
   carries the wrong `code`.
 - Types that make correct code fail to compile, or admit code that throws at runtime.
@@ -54,13 +54,13 @@ Not every defect throws. These are ours too, and are worth reporting:
 
 Anything that converts a deck through `pptx-ts/script` gets `FidelityNote`s
 back, and `cause` is the library's own verdict on whose gap the loss is. Read it
-before deciding whether to file — it answers the same question the error table above
+before deciding whether to file. It answers the same question the error table above
 answers for the throwing cases:
 
-| `cause`       | what it means                                              | report it?                                      |
-| ------------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| `unread`      | nothing on the read side can see it — a missing reader      | **Yes**, and `api-gap.yml` is its form.          |
-| `unwritable`  | it is read fine, but no write option can author it back     | **Yes** — a missing option is a gap, not a limit.|
+| `cause`       | what it means                                              | report it?                                       |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------------ |
+| `unread`      | nothing on the read side can see it, so no reader exists    | **Yes**, and `api-gap.yml` is its form.          |
+| `unwritable`  | it is read fine, but no write option can author it back     | **Yes**. A missing option is a gap, not a limit. |
 | `unsupported` | OOXML, or the tier you chose, cannot express it at all      | **No**. No amount of converter work closes it.   |
 
 So a `dropped`/`unread` note is a report waiting to be written, and an `unsupported`
@@ -70,9 +70,9 @@ the fastest thing a maintainer can search on.
 
 One more shape worth filing: a note that fires for a construct that **did** survive.
 A declared loss that does not happen is a stale note, and it is a defect in the same
-way a missing one is — it teaches every reader to discount the notes that are true.
+way a missing one is. It teaches every reader to discount the notes that are true.
 
-Two things are **out of active maintenance scope** and will usually be closed — check
+Two things are **out of active maintenance scope** and will usually be closed. Check
 before spending effort on a reproduction:
 
 - Live-DOM / browser-layout features, i.e. anything whose answer comes from a
@@ -86,7 +86,7 @@ Issues and pull requests in those two areas are still welcome; just say so in th
 report so nobody triages it as a regression.
 
 Also: ts-pptx is **ESM, Node-first**. Reports about `require()`, a CJS build, or an
-IIFE/global browser bundle will be closed — those are deliberately not supported.
+IIFE/global browser bundle will be closed. Those are deliberately not supported.
 
 ## 2. Collect the facts
 
@@ -96,7 +96,7 @@ node -v                                           # runtime (>=24 required)
 ```
 
 Capture, verbatim: `err.name`, `err.code`, the full message, `err.detail` if present,
-and the stack. Do not paraphrase the message — the throw site is often identifiable
+and the stack. Do not paraphrase the message. The throw site is often identifiable
 from its exact text, and `detail` is the structured context the site chose to attach.
 
 If the failure is about how the file *renders* or whether PowerPoint repairs it, note
@@ -108,7 +108,7 @@ for a render report it is load-bearing.
 **Never attach or paste the user's deck.** A presentation in a real project carries
 client names, unreleased strategy, pricing, and internal logos. Treat every `.pptx`
 in this repo as confidential unless the user tells you otherwise, and never upload one
-to a public tracker — including "just a screenshot of the slide". This is the same rule
+to a public tracker, not even "just a screenshot of the slide". This is the same rule
 the project already applies to its own filings: describe a downstream consumer's need
 anonymously, never its name, its deck or client names, or a path from its tree.
 
@@ -141,7 +141,7 @@ after each cut, until removing anything more makes the failure disappear. What i
 is the report.
 
 If the failure only reproduces with a *specific deck* you cannot share, do not ask for
-permission to share it — file without the file. Say exactly that in the report and
+permission to share it. File without the file. Say exactly that in the report and
 describe the structural feature you believe is responsible (a grouped shape, a chart
 part, a custom table style, a particular namespace prefix, a layout inherited from a
 master). A maintainer can usually author a fixture from that description in PowerPoint;
@@ -149,7 +149,7 @@ they can never unsee an attachment.
 
 If you need a file attached, build one: reproduce the *structure* you suspect in a deck
 you generate, with invented values. A synthesized file is always safe to attach. A
-redacted one is not yours to judge — redaction fails quietly, and a public tracker is
+redacted one is not yours to judge. Redaction fails quietly, and a public tracker is
 permanent.
 
 ## 4. Check it is not already fixed, or already filed
@@ -173,11 +173,11 @@ gh issue list --repo shbernal/ts-pptx --state all --limit 20 --search "<distinct
 ```
 
 Search the error `code` (`table/invalid-border`, `oxml/node-has-no-document`), the
-fidelity note's `construct` key, or the distinctive part of the message — not your
+fidelity note's `construct` key, or the distinctive part of the message, not your
 description of it. Codes and construct keys are stable and searchable in a way prose is
 not. If an open issue matches, add your reproduction as a comment instead of opening a
 duplicate; if a closed one matches, reopen the conversation there with your version and
-Node version — closed and unreleased is a real state, and so is closed and regressed.
+Node version. Closed and unreleased is a real state, and so is closed and regressed.
 
 ## 5. Pick the form, then file it
 
@@ -189,21 +189,21 @@ A bug that is never filed because the moment passed costs everyone, permanently.
 
 This rests entirely on step 3 holding: the reproduction constructs its own input, and no
 file from this project is attached. When you cannot manage a self-contained reproduction,
-the answer is a thinner report — the prose description from step 3 — not a question and
+the answer is a thinner report, the prose description from step 3. Not a question, and
 not an attachment.
 
 Three forms; pick by what you are reporting:
 
 | form               | for                                                                       |
 | ------------------ | ------------------------------------------------------------------------- |
-| `agent-report.yml` | you hit this while using the library in another project — start here       |
+| `agent-report.yml` | you hit this while using the library in another project. Start here.       |
 | `bug.yml`          | wrong output, a repair prompt, a regression, a fidelity limit              |
 | `api-gap.yml`      | the OOXML carries it but no accessor reaches it                            |
 
-If none fits, file a blank issue rather than bending one of them — blank issues are
+If none fits, file a blank issue rather than bending one of them. Blank issues are
 enabled deliberately.
 
-`gh` defaults to the *current* repository — which here is the consumer's, not ts-pptx's.
+`gh` defaults to the *current* repository, which here is the consumer's, not ts-pptx's.
 Always pass `--repo shbernal/ts-pptx` explicitly, or you will file the bug into the wrong
 tracker.
 
@@ -214,7 +214,7 @@ gh issue create --repo shbernal/ts-pptx \
   --body-file <a path your repo ignores>/ts-pptx-report.md
 ```
 
-Write the body somewhere the consumer's own `.gitignore` already covers — its scratch or
+Write the body somewhere the consumer's own `.gitignore` already covers: its scratch or
 temp directory, whatever that repo calls it. A report file committed by accident is a
 second copy of the reproduction living in someone else's history.
 
@@ -235,13 +235,13 @@ issue forms, so mirror its sections in the body file so both routes land the sam
 <only if the report depends on how PowerPoint renders or repairs the file>
 
 ### Error class and code
-<InternalError / oxml/node-has-no-document>   (or: no error thrown — wrong output)
+<InternalError / oxml/node-has-no-document>   (or: nothing threw, the output is wrong)
 
 ### What happened
 <observed>
 
 ### What should have happened
-<expected, and why you believe that — an ECMA-376 clause, what PowerPoint itself does
+<expected, and why you believe that: an ECMA-376 clause, what PowerPoint itself does
 with the same input, or what the docs promise>
 
 ### Minimal reproduction
@@ -255,10 +255,10 @@ with the same input, or what the docs promise>
 ```
 
 ### Attached file
-<none / synthesized — describe how it was generated>
+<none / synthesized, and how it was generated>
 ````
 
-Tell the user the issue number and URL once it exists — after the fact, as a result, not
+Tell the user the issue number and URL once it exists. After the fact, as a result, not
 as a request. They should be able to read what you filed and close it if they disagree.
 
 ## 6. Then, and only then, write the workaround
@@ -267,18 +267,18 @@ Filing does not unblock the user. Once the issue is open, implement the workarou
 this project and mark it, so that whoever bumps the pin later can find it and decide.
 
 An issue number alone is not enough of a mark. `remove once fixed upstream` does not say
-what *fixed* looks like, so at bump time it cannot be checked — it can only be
-re-investigated, which means re-reading the issue and re-deriving the reproduction
-someone already wrote. Write the comment so that verifying the fix is running one line:
+what *fixed* looks like, so at bump time it cannot be checked, only re-investigated,
+which means re-reading the issue and re-deriving the reproduction someone already wrote.
+Write the comment so that verifying the fix is running one line:
 
 ```ts
-// Workaround for ts-pptx#<N> — https://github.com/shbernal/ts-pptx/issues/<N>
+// Workaround for ts-pptx#<N>: https://github.com/shbernal/ts-pptx/issues/<N>
 //
 // <what the library does instead, as an observable: the XML it emits, the value the
 //  accessor returns, the option it ignores.>
 //
-// Remove when <the exact check — an accessor returning the right value, a written part
-// containing the right element> holds, and write <the code this becomes> instead.
+// Remove when <the exact check: an accessor returning the right value, or a written
+// part containing the right element> holds, and write <the code this becomes> instead.
 ```
 
 Keep `ts-pptx#` in that literal spelling wherever you mark one. It is the token that
@@ -287,9 +287,10 @@ the moment someone needs that list.
 
 ## 7. When the fix ships, delete the workaround
 
-The other half of the cycle, and the half that quietly does not happen: a stopgap nobody
-removes becomes indistinguishable from a design decision, and the next reader inherits it
-as one. Do this in one unit of work, on the release that carries the fix.
+This is the other half of the cycle, and the half that quietly does not happen. A
+stopgap nobody removes becomes indistinguishable from a design decision, and the next
+reader inherits it as one. Do this in one unit of work, on the release that carries the
+fix.
 
 ```bash
 npm view pptx-ts version                          # what is out
@@ -298,7 +299,7 @@ rg 'ts-pptx#'                                     # every stopgap here
 ```
 
 **A closed issue is not a released fix.** A fix can sit merged and unreleased for weeks,
-so the published version is what to check, never the issue state — the repository's
+so check the published version, never the issue state. The repository's
 [`CHANGELOG.md`](https://github.com/shbernal/ts-pptx/blob/master/CHANGELOG.md) and the
 GitHub release notes name the issue numbers each version closes. Bump the pin, reinstall,
 and refresh the installed skill in the same commit. Then, per stopgap:
@@ -310,9 +311,9 @@ and refresh the installed skill in the same commit. Then, per stopgap:
    can hold it. The stopgap was the only thing keeping the defect from being visible; a
    deletion with nothing in its place means the same regression can return unnoticed.
 4. **Replace the comment rather than only deleting it** where the code still looks odd
-   without it. One sentence on why the shape it has is the shape it has — *this used to
-   be X because of Y, which release Z fixed* — is the difference between a reader
-   trusting the line and re-litigating it.
+   without it. Say in one sentence why the shape it has is the shape it has. *This used
+   to be X because of Y, which release Z fixed.* That sentence is the difference between
+   a reader trusting the line and re-litigating it.
 5. **Close the loop upstream**: comment on the issue with the check that now passes, in
    the same self-contained form as the original reproduction. A maintainer's own tests
    say the fix works; a consumer's say it works *where it was found*, which is the thing
@@ -327,14 +328,14 @@ Print the assembled report and this URL, and ask the user to paste it in:
 ## Keeping this skill current
 
 This file ships inside the package, so the copy in `node_modules` always matches the
-installed version — but the copy in an agent directory is a *copy*, and a version bump
-does not move it. Refresh it in the same commit as the bump, which is step 7's commit:
+installed version. The copy in an agent directory is a *copy*, and a version bump does
+not move it. Refresh it in the same commit as the bump, which is step 7's commit:
 
 ```bash
 npx skills update ts-pptx-upstream
 ```
 
 If that reports nothing to do but the skill is not loading, the runtime link is missing
-rather than the file — reinstall it with the command in the package README, which names
+rather than the file. Reinstall it with the command in the package README, which names
 the runtimes explicitly. `skills experimental_install` and `experimental_sync` restore
 the file from the lock and create no runtime links, so neither is the repair.

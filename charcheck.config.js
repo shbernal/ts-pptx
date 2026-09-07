@@ -61,18 +61,27 @@ export default {
 			// Prose only: fenced and inline code are exempt, because a dash inside a code
 			// sample is part of the sample and not something to reword.
 			//
-			// The include list is the published docs surface plus the three root files and
-			// `demos/`, which a contributor reads before anything else. They were cleaned in
-			// one pass and joined the gate in the same commit, so the rule is what keeps them
+			// The include list is the published docs, the three root files, `demos/`, and
+			// `skills/`. The first three are what a contributor reads before anything else.
+			// `skills/` is in `package.json`'s `files`, so a consumer's agent reads
+			// `ts-pptx-upstream/SKILL.md` rather than anyone here. Each set was cleaned in one
+			// pass and joined the gate in the same commit, so the rule is what keeps them
 			// clean rather than a backlog to work off. Still outside it: `CHANGELOG.md` (a
-			// historical record, not prose to reword), `test/` and `scripts/` notes, and the
-			// skill trees.
+			// historical record, not prose to reword) and the `test/` and `scripts/` notes.
 			id: 'no-em-dash-in-prose',
 			pattern: DASH_PATTERN,
 			scope: 'markdown',
 			fix: strategies.clauseSeparator,
 			message: MESSAGE,
-			include: ['README.md', 'AGENTS.md', 'CONTRIBUTING.md', 'www/**/*.md', 'docs/**/*.md', 'demos/**/*.md'],
+			include: [
+				'README.md',
+				'AGENTS.md',
+				'CONTRIBUTING.md',
+				'www/**/*.md',
+				'docs/**/*.md',
+				'demos/**/*.md',
+				'skills/**/*.md',
+			],
 		},
 		{
 			// The site's one Vue component: template text and allowlisted attributes. Its
