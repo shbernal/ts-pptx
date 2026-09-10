@@ -4,9 +4,13 @@
 // when the value is missing — `--dir --verbose` silently set the directory to
 // `"--verbose"`. That is the case worth pinning: it must be an error, not a value.
 
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { describe, expect, test, vi } from 'vitest'
-import { CliExit, parseCli, resolveLocalBin, runCli } from '../../scripts/script-utils.mjs'
+import { CliExit, ROOT, isMain, parseCli, resolveLocalBin, runCli } from '../../scripts/script-utils.mjs'
 
 const OPTIONS = { dir: { type: 'string' }, verbose: { type: 'boolean', default: false } }
 const parse = (argv) => parseCli(argv, { options: OPTIONS, usage: 'usage: thing [--dir <path>]' })
@@ -54,6 +58,36 @@ describe('parseCli', () => {
 		expect(() => parseCli(['extra'], { options: OPTIONS, usage: 'u' })).toThrow(CliExit)
 		expect(parseCli(['extra'], { options: OPTIONS, usage: 'u', allowPositionals: true }).positionals).toEqual(['extra'])
 		restore()
+	})
+})
+
+// Node realpaths the main module's URL and leaves `argv[1]` as typed. Comparing the two
+// directly made every guarded script a silent exit 0 when run through a junction, a
+// symlink or a `subst` drive, and `run-steps.mjs` is guarded, so `verify` passed without
+// running a step. Only a real link reproduces it.
+describe('isMain', () => {
+	test('is true for a script run through a directory link', () => {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'is-main-'))
+		try {
+			const target = path.join(dir, 'real')
+			const link = path.join(dir, 'link')
+			fs.mkdirSync(target)
+			// A junction needs no privilege on win32; elsewhere the type is ignored.
+			fs.symlinkSync(target, link, 'junction')
+			const utils = pathToFileURL(path.join(ROOT, 'scripts', 'script-utils.mjs')).href
+			fs.writeFileSync(
+				path.join(target, 'guarded.mjs'),
+				`import { isMain } from ${JSON.stringify(utils)}\nif (isMain(import.meta.url)) console.log('ran')\n`
+			)
+			expect(execFileSync(process.execPath, [path.join(target, 'guarded.mjs')], { encoding: 'utf8' })).toBe('ran\n')
+			expect(execFileSync(process.execPath, [path.join(link, 'guarded.mjs')], { encoding: 'utf8' })).toBe('ran\n')
+		} finally {
+			fs.rmSync(dir, { recursive: true, force: true })
+		}
+	})
+
+	test('is false for a module that was imported', () => {
+		expect(isMain(pathToFileURL(path.join(ROOT, 'scripts', 'script-utils.mjs')).href)).toBe(false)
 	})
 })
 

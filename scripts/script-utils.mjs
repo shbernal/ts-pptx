@@ -88,12 +88,30 @@ export async function requireDist(entry, scriptName) {
  * `gen-inspect-snapshot.mjs` open-coded this first; it is shared now that it has
  * more than two callers -- including, at last, `gen-inspect-snapshot.mjs` itself, which went on
  * open-coding it for long enough that this sentence was the only place the sharing had happened.
+ *
+ * Both sides go through realpath. Node resolves the main module's URL through realpath and
+ * leaves `argv[1]` as typed, so run through a junction, a symlink, a `subst` drive or macOS
+ * `/tmp`, a plain comparison said "imported" and the script did nothing and exited 0.
+ * `import.meta.main` would settle it, but it needs Node 24.2 and `engines` allows 24.0.
  * @param {string} metaUrl the caller's `import.meta.url`
  * @returns {boolean}
  */
 export function isMain(metaUrl) {
 	const entry = process.argv[1]
-	return entry !== undefined && path.resolve(entry) === fileURLToPath(metaUrl)
+	return entry !== undefined && canonicalPath(entry) === canonicalPath(fileURLToPath(metaUrl))
+}
+
+/**
+ * The real path of a file, or its resolved path when it cannot be stat'ed.
+ * @param {string} file
+ * @returns {string}
+ */
+function canonicalPath(file) {
+	try {
+		return fs.realpathSync.native(file)
+	} catch {
+		return path.resolve(file)
+	}
 }
 
 /**
