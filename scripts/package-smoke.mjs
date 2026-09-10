@@ -253,14 +253,22 @@ async function bundleForNode(fixtureDir) {
 
 /**
  * @param {string} fixtureDir
- * @param {string} manager package manager name, used in the fixture's package name
+ * @param {string} manager package manager name, used in the fixture's package name and to
+ *   decide whether the fixture carries the root's `packageManager` pin
  */
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
-	await fs.writeFile(
-		path.join(fixtureDir, 'package.json'),
-		JSON.stringify({ name: 'ts-pptx-package-smoke-' + manager, private: true, type: 'module' }, null, 2) + '\n'
-	)
+	const manifest = {
+		name: 'ts-pptx-package-smoke-' + manager,
+		private: true,
+		type: 'module',
+		// The fixture lives in the OS temp dir, outside this repo, so without a pin `pnpm` is
+		// whatever version the machine has globally. CI installs the pinned one, a developer
+		// machine usually does not, and the two lanes then smoke different installers.
+		// Carrying `packageManager` over makes pnpm switch to the same version everywhere.
+		...(manager === 'pnpm' ? { packageManager: packageJson.packageManager } : {}),
+	}
+	await fs.writeFile(path.join(fixtureDir, 'package.json'), JSON.stringify(manifest, null, 2) + '\n')
 }
 
 /**
