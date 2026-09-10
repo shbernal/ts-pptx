@@ -37,6 +37,18 @@ describe('run-steps expansion', () => {
 		for (const { command } of steps) expect(command).not.toMatch(/run-steps\.mjs/)
 	})
 
+	test('CI’s static lane runs every check the local loop runs, except the tests', () => {
+		// `verify` gates a local iteration and `check:static` gates CI, which runs the tests in
+		// its own jobs. The two lists were copied by hand and drifted: `comparison:check` joined
+		// `verify` only, so CI never ran it. Compared by leaf command, since that is what runs.
+		const ciCommands = new Set(expand('check:static').map((s) => s.command))
+		const missing = expand('verify')
+			.filter((s) => s.step !== 'test')
+			.filter((s) => !ciCommands.has(s.command))
+			.map((s) => s.step)
+		expect(missing, 'in verify but never run by check:static').toEqual([])
+	})
+
 	test('an unknown script name is an error, not an empty plan', () => {
 		// The failure this rules out is the quiet one: returning `[]` would make a gate that runs
 		// nothing report success.

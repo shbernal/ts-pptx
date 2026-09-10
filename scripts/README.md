@@ -47,7 +47,7 @@ are in every aggregate the repo has.
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `coverage-project.mjs` | Library | Re-expresses the browser lane's hits in the Node report's own instrumentation maps, so merging can move counts but never the denominator | `coverage-merge.mjs` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
-| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `verify` and `check:static`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
+| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `check:core`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
 | `docs-list.mjs` | Diagnostic | Lists docs with their `read_when` hints | manual (`docs:list`) |
@@ -65,15 +65,15 @@ are in every aggregate the repo has.
 | `pack-utils.mjs` | Library | `pnpm pack` helpers for the two package gates | — |
 | `package-lint.mjs` | Gate | `publint` + `attw` on the packed tarball | `verify:full`, `check:package` |
 | `package-smoke.mjs` | Gate | Installs the tarball and exercises every subpath | `verify:full`, `check:package` |
-| `path-refs.mjs` | Gate | Every backticked repo path in the tree must name a file that exists | `verify`, `check:static` |
+| `path-refs.mjs` | Gate | Every backticked repo path in the tree must name a file that exists | `check:core` |
 | `png-utils.mjs` | Library | Minimal PNG encode/decode, for the gates that read pixels | `powerpoint-com-smoke.mjs`; unit-tested |
 | `powerpoint-com-smoke.mjs` | Gate | Opens decks in desktop PowerPoint over COM | manual, Windows only (`test:com`) |
 | `pptx-parts.mjs` | Library | Explode/diff `.pptx` packages | — |
-| `raw-xml-ratchet.mjs` | Gate | Hand-built XML per file vs `raw-xml-budget.json` | `verify`, `check:static` |
+| `raw-xml-ratchet.mjs` | Gate | Hand-built XML per file vs `raw-xml-budget.json` | `check:core` |
 | `read-blindness-census.mjs` | Diagnostic | Which OOXML the read model never looks at | manual (`read:census`) |
 | `read-emit-edits.mjs` | Generator | Edited decks for the manual PowerPoint check | manual |
 | `read-emit-roundtrip.mjs` | Generator | `load()`→`save()` decks for the manual PowerPoint check | manual |
-| `run-steps.mjs` | Library | Runs a list of package scripts as one sequence; assembles all four aggregates | `verify`, `verify:full`, `check:static`, `check:package` |
+| `run-steps.mjs` | Library | Runs a list of package scripts as one sequence; assembles every aggregate | `verify`, `verify:full`, `check:core`, `check:static`, `check:package` |
 | `script-roundtrip.mjs` | Gate | Generated script must rebuild the deck it came from | `verify:full`, CI |
 | `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
 | `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
@@ -87,7 +87,7 @@ are in every aggregate the repo has.
 | `comparison/measure.mjs` | Generator | Builds every probe with ts-pptx and with upstream pptxgenjs, reads the emitted parts, measures the other three families, and writes `comparison/snapshot.json` | manual (release step, see `docs/RELEASING.md`) |
 | `comparison/programs.mjs` | Library | The bundle corpus: whole consumer programs, from a hello world to a deck using every shared construct, each written in both libraries' idioms | `comparison/hygiene.mjs` |
 | `comparison/probes.mjs` | Library | The construct-coverage corpus: one deck intent per probe, expressed in each library's own idiom | `comparison/measure.mjs` |
-| `comparison/render.mjs` | Generator + Gate | Renders `comparison/snapshot.json` into `docs/comparison.md`, `docs/comparison-syntax.md` and the generated region of `README.md`; `--check` re-renders in memory and fails on drift | manual (`comparison:render`); `--check` in `verify` (`comparison:check`) |
+| `comparison/render.mjs` | Generator + Gate | Renders `comparison/snapshot.json` into `docs/comparison.md`, `docs/comparison-syntax.md` and the generated region of `README.md`; `--check` re-renders in memory and fails on drift | manual (`comparison:render`); `--check` in `check:core` (`comparison:check`) |
 | `comparison/source.mjs` | Library | Recovers a probe's build function as printable code, with the corpus constants it names declared above it | `comparison/probes.mjs` |
 | `comparison/unavailable.mjs` | Library | The one shape a measurement takes when a fetch failed, and the walk that finds them in a finished snapshot | `comparison/measure.mjs` |
 | `comparison/validity.mjs` | Library | Runs the decks the corpus built through the `test:schema` oracle, per library | `comparison/measure.mjs` |

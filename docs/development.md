@@ -100,7 +100,7 @@ when touching the release/package boundary. Both deliberately omit `lint` and
 Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
-pnpm run check:static   # lint, lint:chars, format:check, all four typechecks, the two ratchets, and the docs build
+pnpm run check:static   # lint, lint:chars, format:check, then check:core: the typechecks, raw-xml, path-refs, docs and comparison checks
 pnpm run check:package  # package:lint, test:package, bundle-size:check, bundle-tier:check
 ```
 

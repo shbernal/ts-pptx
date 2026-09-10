@@ -68,7 +68,7 @@ git add scripts/comparison/snapshot.json docs/comparison.md docs/comparison-synt
 `comparison:measure` installs upstream pptxgenjs into a scratch directory,
 calls the GitHub and npm APIs, and spends about a minute of wall clock
 timing both libraries. That is why it is a release step and not part of
-`verify`. `comparison:check`, which is in `verify`, only asserts that the
+`verify`. `comparison:check`, which `verify` and CI both run, only asserts that the
 committed page still matches the committed snapshot. Leave the machine alone
 while it runs. The timing family is measuring this computer, and a build in
 another window lands in the published numbers.

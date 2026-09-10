@@ -20,7 +20,7 @@ For source changes, run one of the two aggregates rather than composing a set by
 hand:
 
 ```bash
-pnpm run verify       # per-change loop: typechecks, ratchets, docs check, all suites
+pnpm run verify       # per-change loop: check:core (typechecks, ratchets, docs and comparison checks), all suites
 pnpm run verify:full  # before pushing, and at the package boundary: adds the site build and package suites
 ```
 

@@ -69,9 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (a whole `data:` URL here, the MIME and payload without the scheme upstream).
 
   Both pages and the generated region of `README.md` are rendered from
-  `scripts/comparison/snapshot.json`, and `comparison:check` is now part of `verify`:
-  drift between the snapshot and any rendered file fails the build for every
-  contributor. Refreshing the snapshot (`comparison:measure`) needs the network and
+  `scripts/comparison/snapshot.json`, and `comparison:check` runs in `verify` and in CI's
+  `check:static`: drift between the snapshot and any rendered file fails the build for
+  every contributor. Refreshing the snapshot (`comparison:measure`) needs the network and
   is a release step, documented in `docs/RELEASING.md`.
 
 - **`Presentation.appProperties` reads `docProps/app.xml`.** The write API has had a

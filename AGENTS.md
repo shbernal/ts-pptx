@@ -183,12 +183,17 @@ MCPs' corpora.
 ### The default loop
 
 - **`pnpm run verify`** (~44s) is the per-iteration check: a `dist/` freshness guard →
-  `typecheck` → `typecheck:scripts` → `typecheck:test` → `typecheck:site` →
-  `raw-xml:check` → `path-refs:check` → `docs:check` →
+  `check:core` (`typecheck` → `typecheck:scripts` → `typecheck:test` → `typecheck:site` →
+  `raw-xml:check` → `path-refs:check` → `docs:check` → `comparison:check`) →
   the whole test suite (`vitest run`, which discovers every suite
   including schema). Run this instead of hand-composing four or five separate commands.
   Hand-composed sets come out slightly different every time and end up re-running the
   same suite twice.
+- **`check:core` is the one list of cheap checks**, shared by `verify` and CI's
+  `check:static` (which adds `lint`, `lint:chars` and `format:check`). The two used to
+  copy it by hand, and `comparison:check` joined `verify` alone, so CI never ran it.
+  `test/scripts/gate-parsers.test.js` fails if a check reaches `verify` without reaching
+  `check:static`. Add a cheap check to `check:core`, not to either aggregate.
 - **`pnpm run verify:full`** (~77s) before pushing or for a release/package-boundary
   change: everything in `verify`, plus `docs:build`, `script:roundtrip:all`,
   `package:lint`, `test:package`, `bundle-size:check` and `bundle-tier:check`. The split
