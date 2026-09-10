@@ -62,7 +62,7 @@ function registeredNotesMasters(opc) {
 
 /** The body placeholder's `p:txBody` XML of a slide's notes part. */
 function notesBodyXml(pres, slideIndex) {
-	const xml = new TextDecoder().decode(pres.slides[slideIndex].notesSlide.part.bytes)
+	const xml = new TextDecoder().decode(pres.slides[slideIndex].notesSlide.part.serialize())
 	// The three placeholders in document order are sldImg (no txBody), body, sldNum.
 	const bodies = xml.match(/<p:txBody>[\s\S]*?<\/p:txBody>/g)
 	return bodies ? bodies[0] : null

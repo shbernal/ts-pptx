@@ -263,7 +263,7 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 		}
 		const sourcePart = request.sourceSlide.part
 		const newPartName = deck.opc.reservePartNameLike(request.sourceSlide.partName)
-		const destPart = deck.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+		const destPart = deck.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 		const reserved = destinations.get(request.sourceSlide.partName)
 		if (reserved) reserved.push(newPartName)
 		else destinations.set(request.sourceSlide.partName, [newPartName])

@@ -189,7 +189,7 @@ export function copyPart(
 		? ctx.dest.opc.reservePartNameLike(sourcePartName)
 		: (ctx.selection?.destinations.get(sourcePartName) ?? ctx.dest.opc.reservePartNameLike(sourcePartName))
 	// A selected page's part was already materialized by the batch allocator.
-	if (!ctx.dest.opc.part(newPartName)) ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+	if (!ctx.dest.opc.part(newPartName)) ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 	// Record before recursing so the master↔layout cycle terminates.
 	if (owned) owned.set(sourcePartName, newPartName)
 	else ctx.registry.set(sourcePartName, newPartName)

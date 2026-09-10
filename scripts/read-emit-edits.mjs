@@ -69,7 +69,7 @@ async function sampleImage() {
 			if (shape.shapeType !== 'picture' || !shape.imagePartName) continue
 			if (!/\.(png|jpe?g)$/i.test(shape.imagePartName)) continue
 			const part = presentation.opc.part(shape.imagePartName)
-			if (part) return { bytes: part.bytes, contentType: part.contentType, partName: shape.imagePartName }
+			if (part) return { bytes: part.serialize(), contentType: part.contentType, partName: shape.imagePartName }
 		}
 	}
 	throw new Error('No raster image found in image.pptx to sample')

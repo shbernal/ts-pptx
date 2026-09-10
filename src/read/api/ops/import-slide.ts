@@ -143,7 +143,7 @@ export function importSlideRebind(
 ): RebindResult {
 	const destLayout = destinationLayoutPartName(dest)
 
-	// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
+	// Copy the slide's current body into a fresh partname; we then mutate that copy's DOM
 	// (a distinct document, so the source package is never touched).
 	const sourcePart = source.opc.part(sourceSlide.partName)
 	if (!sourcePart)
@@ -152,7 +152,7 @@ export function importSlideRebind(
 			`importSlide: source package has no part ${sourceSlide.partName}`
 		)
 	const newPartName = dest.opc.reservePartNameLike(sourceSlide.partName)
-	const newPart = dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+	const newPart = dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 	const slideRoot = newPart.dom.documentElement
 	if (!slideRoot)
 		throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)

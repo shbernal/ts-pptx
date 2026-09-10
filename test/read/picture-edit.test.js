@@ -69,7 +69,7 @@ describe('Slide.addPicture', () => {
 		assert(mediaPartName && mediaPartName.startsWith('/ppt/media/'), `image partname resolves: ${mediaPartName}`)
 		const mediaPart = reopened.opc.part(mediaPartName)
 		assert(mediaPart, 'media part exists in the reopened package')
-		assert(bytesEqual(mediaPart.bytes, PNG_1X1), 'media bytes round-trip unchanged')
+		assert(bytesEqual(mediaPart.serialize(), PNG_1X1), 'media bytes round-trip unchanged')
 		assertEqual(
 			reopened.opc.contentTypes.contentTypeFor(mediaPartName),
 			'image/png',
@@ -139,7 +139,7 @@ describe('Picture.setImage', () => {
 		const oldRelId = picture.imageRelId
 		const oldPartName = picture.imagePartName
 		assert(oldPartName, 'picture resolves its original media part')
-		const oldBytes = Uint8Array.from(presentation.opc.part(oldPartName).bytes)
+		const oldBytes = Uint8Array.from(presentation.opc.part(oldPartName).serialize())
 
 		picture.setImage(PNG_1X1, { contentType: 'image/png' })
 		assert(picture.imageRelId && picture.imageRelId !== oldRelId, 'blip repointed to a fresh rel id')
@@ -154,11 +154,11 @@ describe('Picture.setImage', () => {
 			`new image partname: ${newPartName}`
 		)
 		assert(newPartName !== oldPartName, 'blip points at a different media part than before')
-		assert(bytesEqual(reopened.opc.part(newPartName).bytes, PNG_1X1), 'new media part holds the supplied bytes')
+		assert(bytesEqual(reopened.opc.part(newPartName).serialize(), PNG_1X1), 'new media part holds the supplied bytes')
 		assertEqual(reopened.opc.contentTypes.contentTypeFor(newPartName), 'image/png', 'new media content type registered')
 
 		// Copy-on-write fidelity: the original media part survives byte-identical.
-		assert(bytesEqual(reopened.opc.part(oldPartName).bytes, oldBytes), 'original media part is untouched')
+		assert(bytesEqual(reopened.opc.part(oldPartName).serialize(), oldBytes), 'original media part is untouched')
 	})
 
 	test('defaults the media extension from the content type', async () => {
@@ -255,14 +255,14 @@ describe('Picture.setImage', () => {
 
 		const shared = pictures.filter((pic) => pic.imageRelId === sharedRelId)
 		const sharedPartName = shared[0].imagePartName
-		const sharedBytes = Uint8Array.from(presentation.opc.part(sharedPartName).bytes)
+		const sharedBytes = Uint8Array.from(presentation.opc.part(sharedPartName).serialize())
 
 		shared[0].setImage(PNG_1X1, { contentType: 'image/png' })
 
 		assert(shared[1].imageRelId === sharedRelId, 'the sibling picture still points at the shared rel')
 		assertEqual(shared[1].imagePartName, sharedPartName, 'the sibling still resolves the original media part')
 		assert(
-			bytesEqual(presentation.opc.part(sharedPartName).bytes, sharedBytes),
+			bytesEqual(presentation.opc.part(sharedPartName).serialize(), sharedBytes),
 			'the shared media part bytes are unchanged'
 		)
 	})

@@ -61,10 +61,12 @@ export function destinationAlreadyHolds(dest: DeckTarget, source: OpcPackage, so
  * `partName` and everything it reaches are the same in both packages: same content type,
  * same body bytes, same relationships, recursively.
  *
- * The destination side is compared as it would be **written** (`serialize()`), not as it
- * was read, so a part some earlier edit marked dirty is treated as different even when
- * the edit was a no-op. Under-reusing costs a duplicated part; over-reusing binds a slide
- * to something else's chrome.
+ * Both sides are compared as they would be **written** (`serialize()`), not as they were
+ * read. The destination, so a part some earlier edit marked dirty is treated as different
+ * even when the edit was a no-op; the source, because the copy that reuse stands in for
+ * carries the source's edits too, and a source edited this session is not the part the
+ * destination already holds. Under-reusing costs a duplicated part; over-reusing binds a
+ * slide to something else's chrome.
  *
  * The traversal skips exactly what `copyPart` skips, because it asks `copyTraversalStep` --
  * so it is about the subgraph the copy would actually have made rather than about a rule
@@ -78,7 +80,7 @@ function identicalSubgraph(dest: OpcPackage, source: OpcPackage, partName: strin
 	const destPart = dest.part(partName)
 	if (!sourcePart || !destPart) return false
 	if (sourcePart.contentType !== destPart.contentType) return false
-	if (!bytesEqual(sourcePart.bytes, destPart.serialize())) return false
+	if (!bytesEqual(sourcePart.serialize(), destPart.serialize())) return false
 
 	const sourceRels = [...source.relationshipsFor(partName)]
 	const destRels = [...dest.relationshipsFor(partName)]

@@ -175,7 +175,7 @@ describe('acceptance: target a shape, swap text + image, untouched parts byte-st
 		assert(reloadedPic?.shapeType === 'picture', 'Grafik 5 reloads as a picture')
 		const newPartName = reloadedPic.imagePartName
 		assert(newPartName !== oldPartName, 'picture points at a new media part')
-		assert(bytesEqual(reopened.opc.part(newPartName).bytes, PNG_1X1), 'new media holds the supplied bytes')
+		assert(bytesEqual(reopened.opc.part(newPartName).serialize(), PNG_1X1), 'new media holds the supplied bytes')
 	})
 
 	test.skipIf(!validatorInstalled)('the edited deck stays schema-valid', async () => {

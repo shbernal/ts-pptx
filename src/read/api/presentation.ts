@@ -349,9 +349,10 @@ export class Presentation {
 		const opc = this.opc
 		const sourcePart = source.part
 
-		// 1. Copy the slide part bytes verbatim into a fresh slide partname.
+		// 1. Copy the slide part's current body into a fresh slide partname, so an edit made
+		//    earlier in the session comes along.
 		const newPartName = opc.reservePartNameLike(sourcePart.partName)
-		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 
 		// 2. Copy the slide's relationships (targets resolve identically — same dir).
 		//    Through the live relationship set, not the `.rels` part bytes: a page

@@ -137,7 +137,7 @@ function duplicateSubtree(opc: OpcPackage, partName: string, copies: Map<string,
 	if (!part) return partName
 
 	const fresh = opc.reservePartNameLike(partName)
-	opc.addPart(fresh, part.contentType, part.bytes)
+	opc.addPart(fresh, part.contentType, part.serialize())
 	// Record before recursing, so a cycle (a notes slide naming its slide) terminates.
 	copies.set(partName, fresh)
 

@@ -226,6 +226,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: `Part.bytes` is renamed `Part.originalBytes`.** The getter returned the bytes
+  a part was loaded with, which is not the part's content once an edit has gone through its
+  DOM, and the name gave no hint of that: every slide copy and import in the library read it
+  and dropped the session's edits (see Fixed). The new name makes a call site say which of
+  the two it means.
+
+  Migration: to read what a part holds now, which is almost always what you want, call
+  `part.serialize()`; it returns the loaded bytes for an untouched part, so byte-identity is
+  unaffected. Keep `part.originalBytes` only where you mean the bytes as loaded, for example
+  to compare against an edit.
+
 - **The shape-tree walk is handed its renderers instead of importing them.** Which renderer
   emits each shape family is now a table (`ALL_OBJECT_RENDERERS`) that travels down the write
   path with the deck state, rather than ten named imports inside the walk's own `switch`. A
@@ -796,6 +807,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **Slide copies and imports dropped edits made earlier in the session.** Each copy read a
+  part's loaded bytes rather than its current body, so `cloneSlide`, `importSlide` in every
+  theme mode, `importSlides` and the notes and dependent parts they bring along all copied
+  the part as it was opened. Rewriting a shape's text and then cloning the slide produced a
+  clone with the old text; cloning a slide `importShape` had just added to came back without
+  the shape; and cloning a slide `importSlide({ theme: 'preserve' })` had flattened brought
+  the source's scheme colours back. Part reuse compared the source's loaded bytes too, so it
+  could bind an import to a destination part that an edit had already made different. Every
+  copy now reads the current body, which for an untouched part is the same bytes, so a deck
+  nobody edited copies byte-identically as before. `readPptxBinaryPart` and the script
+  converter's assets read the current body as well.
 
 - **`diffDeckIr` let a fidelity note excuse fields that were not its construct.** A note's
   fields were matched as a dotted suffix of the difference path, which is confined enough for

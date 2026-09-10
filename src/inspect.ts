@@ -247,9 +247,12 @@ export async function readPptxTextPart(pptxPackage: OpcPackage, path: string): P
  * for embedded media (SVG/PNG/EMF blobs, fonts, …) that must not be UTF-8 decoded.
  * Returns `null` when the part is absent. The `Uint8Array` is browser-isomorphic;
  * Node consumers can wrap it with `Buffer.from(...)` if they need Buffer methods.
+ *
+ * The part's current body, so a package also opened as a `Presentation` and edited
+ * reads back with its edits.
  */
 export async function readPptxBinaryPart(pptxPackage: OpcPackage, path: string): Promise<Uint8Array | null> {
-	return pptxPackage.part(partNameOf(path))?.bytes ?? null
+	return pptxPackage.part(partNameOf(path))?.serialize() ?? null
 }
 
 const textDecoder = new TextDecoder('utf-8')

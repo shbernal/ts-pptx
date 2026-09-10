@@ -112,7 +112,7 @@ export class OpcPackage {
 		if (cached) return cached
 		const relsPart = this.parts.get(relsPartNameFor(sourcePartName))
 		const relationships = relsPart
-			? Relationships.parse(textDecoder.decode(relsPart.bytes), sourcePartName)
+			? Relationships.parse(textDecoder.decode(relsPart.serialize()), sourcePartName)
 			: Relationships.empty(sourcePartName)
 		this.#relationshipsCache.set(sourcePartName, relationships)
 		return relationships

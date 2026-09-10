@@ -172,7 +172,7 @@ describe('dirty path: mutate one slide, save', () => {
 	test('the edit survives a reload', async () => {
 		const { pkg, slide } = await mutateFirstTextRun()
 		const reloaded = await OpcPackage.load(await pkg.save())
-		const xml = new TextDecoder().decode(reloaded.part(slide.partName).bytes)
+		const xml = new TextDecoder().decode(reloaded.part(slide.partName).serialize())
 		assert(xml.includes('EDITED BY ROUNDTRIP TEST'), 'mutated text should be present after reload')
 		assert(xml.startsWith('<?xml'), 'dirty part should keep an XML declaration')
 	})
@@ -246,7 +246,7 @@ describe('partname and overlay units', () => {
 		assert(media, 'image fixture should contain a png part')
 		assert(!media.isXmlPart, 'png part is not an XML part')
 		await assertRejects(() => media.dom, /not an XML part/, 'dom access on a binary part')
-		assert(bytesEqual(media.serialize(), media.bytes), 'binary serialize returns original bytes')
+		assert(bytesEqual(media.serialize(), media.originalBytes), 'binary serialize returns original bytes')
 	})
 
 	test('load rejects a part with no resolvable content type', async () => {

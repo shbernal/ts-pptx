@@ -66,7 +66,7 @@ class Assets implements AssetResolver {
 		const name = `${kind}${index}.${extension}`
 		const ref: AssetRef = { $asset: name }
 		this.#byPartName.set(partName, ref)
-		this.#assets.push({ name, contentType: part.contentType, bytes: part.bytes })
+		this.#assets.push({ name, contentType: part.contentType, bytes: part.serialize() })
 		return ref
 	}
 

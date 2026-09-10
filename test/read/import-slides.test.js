@@ -118,7 +118,7 @@ async function otherCanvasDeck() {
 
 /** Every `a:off` on a page, as `x,y` strings, so a rescale shows up as a list that moved. */
 function offsetsOf(slide) {
-	const xml = new TextDecoder().decode(slide.part.bytes)
+	const xml = new TextDecoder().decode(slide.part.serialize())
 	return [...xml.matchAll(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/g)].map((m) => `${m[1]},${m[2]}`)
 }
 
@@ -263,8 +263,8 @@ describe('Presentation.importSlides', () => {
 		const source = await otherCanvasDeck()
 		const before = offsetsOf(source.slides[0])
 		target.importSlides([{ source, sourceIndex: 0, outputIndex: 0, rescale: 'fit' }])
-		// Through a save: the rescale edits the part's DOM, and `part.bytes` is the
-		// original until the package is serialized.
+		// Through a save, so what is checked is what a caller reopens rather than the
+		// in-memory DOM the rescale edited.
 		const reopened = await Presentation.load(await target.save())
 		const after = offsetsOf(reopened.slides[0])
 		assertEqual(after.length, before.length, 'the same shapes came across')
@@ -389,7 +389,7 @@ describe('Presentation.importSlides', () => {
 		// Same bytes, same dependencies: the duplicate is a second page, not a
 		// second copy of the subgraph underneath it.
 		assert(
-			bytesEqual(reopened.opc.part(first.partName).bytes, reopened.opc.part(second.partName).bytes),
+			bytesEqual(reopened.opc.part(first.partName).serialize(), reopened.opc.part(second.partName).serialize()),
 			'the two pages are byte-identical copies of the one source page'
 		)
 		assertEqual(

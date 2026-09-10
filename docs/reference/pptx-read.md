@@ -87,7 +87,9 @@ caller's job, so it works in browsers too.
 
 ## Fidelity contract
 
-- A `Part` keeps the **original bytes** from the zip for its whole life.
+- A `Part` keeps the **original bytes** from the zip for its whole life
+  (`part.originalBytes`). Its current body, edits included, is `part.serialize()`, and
+  that is what every slide copy and import reads.
 - Accessing `part.dom` parses lazily; parsing alone changes nothing.
 - `save()` writes original bytes for every part that was never marked dirty:
   **untouched part bodies are byte-identical** to the input.
@@ -191,8 +193,8 @@ class Part {
 	readonly partName: string
 	readonly contentType: string
 
-	/** Original bytes from the package. Do not mutate. */
-	readonly bytes: Uint8Array
+	/** Bytes the part was loaded with. Not its current body: see serialize(). Do not mutate. */
+	readonly originalBytes: Uint8Array
 	/** Whether the body is XML (by content type). */
 	readonly isXmlPart: boolean
 	/** True once the body has been materialized as a DOM. */
@@ -204,7 +206,7 @@ class Part {
 	markDirty(): void
 	readonly isDirty: boolean
 
-	/** Original bytes when clean; serialized DOM when dirty. */
+	/** The current body: original bytes when clean, serialized DOM when dirty. */
 	serialize(): Uint8Array
 }
 ```

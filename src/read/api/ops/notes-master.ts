@@ -62,9 +62,9 @@ export function carryNotes(
 	const sourceNotesPart = source.opc.part(sourceNotesPartName)
 	if (!sourceNotesPart) return
 
-	// Copy the notesSlide bytes into a fresh partname, then wire slide → notesSlide.
+	// Copy the notesSlide's current body into a fresh partname, then wire slide → notesSlide.
 	const newNotesPartName = dest.opc.reservePartNameLike(sourceNotesPartName)
-	dest.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.bytes)
+	dest.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.serialize())
 	dest.opc.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
 
 	// A notes slide is a part its page *owns* (see `page-owned.ts`), and so is
@@ -221,7 +221,7 @@ export function ensureNotesMasterForAuthoring(dest: Presentation, slidePartName:
 	// A notesMaster's .rels must resolve a theme; clone the deck's rather than share
 	// the slide master's part. Reserved alongside any theme this deck already owns.
 	const notesThemePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
-	dest.opc.addPart(notesThemePartName, themePart.contentType, themePart.bytes)
+	dest.opc.addPart(notesThemePartName, themePart.contentType, themePart.serialize())
 	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, notesThemePartName))
 
 	return registerNotesMaster(dest, masterPartName)

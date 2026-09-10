@@ -30,9 +30,9 @@ function countParts(opc, re) {
 	return [...opc.parts.keys()].filter((n) => re.test(n)).length
 }
 
-/** The XML body of a part as a string (decoded from its bytes). */
+/** The XML body of a part as it would be saved, as a string. */
 function partText(part) {
-	return new TextDecoder('utf-8').decode(part.bytes)
+	return new TextDecoder('utf-8').decode(part.serialize())
 }
 
 /** The index of the first `mixed` slide that uses scheme colours + a p:style + a clrMapOvr. */

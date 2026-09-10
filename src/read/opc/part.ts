@@ -38,8 +38,16 @@ export class Part {
 		return this.#dom !== null
 	}
 
-	/** The original bytes from the package. Do not mutate. */
-	get bytes(): Uint8Array {
+	/**
+	 * The bytes the part was loaded or created with. Do not mutate.
+	 *
+	 * **Not the part's current body.** An edit made through {@link dom} and
+	 * {@link markDirty} is visible only through {@link serialize}. Anything that copies,
+	 * compares or reads a part's content wants `serialize()`: every slide copy and import
+	 * used to read this instead, and silently dropped each edit made earlier in the session.
+	 * Named so a call site has to say which of the two it means.
+	 */
+	get originalBytes(): Uint8Array {
 		return this.#bytes
 	}
 
@@ -72,8 +80,9 @@ export class Part {
 	}
 
 	/**
-	 * Bytes to write on save: the original bytes when clean (byte-identical),
-	 * the serialized DOM when dirty (semantically equivalent, schema-valid).
+	 * The part's current body, which is also what `save()` writes: the original bytes when
+	 * clean (byte-identical), the serialized DOM when dirty (semantically equivalent,
+	 * schema-valid). Copy a part through this, not {@link originalBytes}.
 	 */
 	serialize(): Uint8Array {
 		if (!this.#dirty) return this.#bytes
