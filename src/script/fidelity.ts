@@ -24,16 +24,26 @@
  * survive; without a mapping from that claim to the fields it covers, the claim cannot
  * exclude anything and the round trip degenerates into a snapshot.
  *
- * Each entry is a dotted option PATH, matched as a suffix of where the difference sits: a bare
- * `fill` means "the fill option wherever it appears", and `line.width` means that width and not
- * a table cell border's. Write the bare form where the word is unambiguous and qualify it the
- * moment the same word names two different things — matching the terminal key alone is how
- * `type`, written about a fill's solid default, came to excuse a character bullet that returned
- * as a numbered list.
+ * Each entry is a dotted option PATH, matched one of two ways depending on the note that names it:
  *
- * `'*'` covers every difference inside the call it is scoped to — correct only where the
- * note says the whole shape is gone or was copied wholesale, never as a shortcut for a
- * construct whose fields are merely tedious to enumerate.
+ * - **A note scoped to a shape** is already confined to that shape's call, so its entries are
+ *   matched as a SUFFIX of where the difference sits inside it: a bare `fill` means "the fill
+ *   option wherever it appears in the call", and `line.width` means that width and not a table
+ *   cell border's. Write the bare form where the word is unambiguous and qualify it the moment
+ *   the same word names two different things. Matching the terminal key alone is how `type`,
+ *   written about a fill's solid default, came to excuse a character bullet that returned as a
+ *   numbered list, and how a bare `color` in a run-colour note excused the shape's fill and
+ *   outline colours, and in a cell note every colour in the table.
+ * - **A note with no shape** (a slide or deck loss) has nothing confining it to one call, so its
+ *   entries are anchored at the root of the diff. Each names one node by its full path
+ *   (`background`, `chrome.masters.title`) and covers that node only, and a trailing `.*` extends
+ *   it to everything beneath (`transition.sound.*`). As suffixes they matched inside every call in
+ *   scope, and a deck's `master.background` excused every run colour and every lost image in the
+ *   deck.
+ *
+ * `'*'` covers every difference inside the note's scope — correct only where the note says the
+ * whole shape or slide is gone or was copied wholesale, never as a shortcut for a construct
+ * whose fields are merely tedious to enumerate.
  *
  * An empty list is meaningful and common: the construct is invisible to the IR on both
  * sides (a slide's build animations, a paragraph's `a:pPr/@marL`, a connector's shape
@@ -63,7 +73,7 @@ export const NOTE_CONSTRUCTS = {
 	// Nothing to exclude: the differences it predicts are `added`, which WRITER_DEFAULTS covers
 	// by kind. The note exists so a reader of the emitted script learns the deck gained them.
 	'deck.docPropsDefault': [],
-	'deck.slideSize': ['widthEmu', 'heightEmu'],
+	'deck.slideSize': ['slideSize.*'],
 	'diagram.all': ['*'],
 	// A gradient that cannot be expressed falls back to no gradient, so the difference lands on
 	// the fill option itself. The `line.` twins below are the same construct on a stroke —
@@ -75,8 +85,8 @@ export const NOTE_CONSTRUCTS = {
 	'line.gradient.schemeToken': ['gradient', 'line'],
 	// Recorded only when an image-filled surface cannot carry its *bytes* — a linked blip, an
 	// SVG the write path refuses, a part missing from the package. The fill option is then
-	// absent from the output entirely, which is the same two keys `fill.schemeToken` covers.
-	'fill.picture': ['fill', 'color'],
+	// absent from the output entirely, so the difference lands on `fill` itself.
+	'fill.picture': ['fill'],
 	// Empty, and deliberately so: this note declares that a picture fill's tiling, crop, DPI
 	// and rotWithShape do not survive, and *none of them is in the IR on either side* — the
 	// write API expresses a picture fill as bytes plus transparency, so the converter never
@@ -85,7 +95,7 @@ export const NOTE_CONSTRUCTS = {
 	// round trip is here to catch.
 	'fill.picture.geometry': [],
 	'fill.gradient.schemeToken': ['gradient', 'fill'],
-	'fill.schemeToken': ['fill', 'color'],
+	'fill.schemeToken': ['fill', 'fill.color'],
 	'graphicFrame.unknown': ['*'],
 	'group.child': ['*'],
 	'group.childSpace': ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'],
@@ -109,13 +119,16 @@ export const NOTE_CONSTRUCTS = {
 	// deck resolves to, and the round trip still cannot see it, because the IR reports the token
 	// verbatim rather than its resolved hex. That is exactly the blind spot this file's header
 	// describes, and writing `[]` is the honest spelling of it.
-	'master.background': ['background', 'color', 'data', 'master'],
+	// Deck-scoped, so anchored at the root: a layout's background and title sit under
+	// `chrome.masters`, and a renamed layout also reaches every slide bound to it as `layoutName`.
+	'master.background': ['chrome.masters.background.*'],
 	'master.colorMap': [],
 	'master.decoration': [],
+	// Scoped to the `DEFAULT` layout's title, so a suffix: the whole added layout.
 	'master.default': ['master'],
 	'master.multiple': [],
-	'master.name': ['title', 'layoutName'],
-	'master.nameCollision': ['title', 'layoutName'],
+	'master.name': ['chrome.masters.title', 'layoutName'],
+	'master.nameCollision': ['chrome.masters.title', 'layoutName'],
 	'master.placeholders': [],
 	'master.txStyles': [],
 	'theme.fmtScheme': [],
@@ -146,10 +159,9 @@ export const NOTE_CONSTRUCTS = {
 	'shape.hidden': ['*'],
 	'shape.placeholder': ['placeholder'],
 	'slide.animation': [],
-	// `image` was never a key on either side -- `BackgroundIr` spells a picture background
-	// `data`, for the reason its own doc comment gives -- so that entry excused nothing. It is
-	// `data`/`$asset` now that the slide arm can actually produce one, matching `image.data`.
-	'slide.background': ['background', 'color', 'transparency', 'data', '$asset'],
+	// Slide-scoped, so anchored at the root. The diff compares the slide's `background` as one
+	// value, so the colour, transparency and picture bytes all land on that one path.
+	'slide.background': ['background'],
 	'slide.carried': ['*'],
 	'slide.layout': ['layoutName'],
 	'slide.name': [],
@@ -157,10 +169,10 @@ export const NOTE_CONSTRUCTS = {
 	// on the slide's `transition` key itself. Deliberately *not* widened to the keys inside it:
 	// this note is only ever recorded when the whole transition is gone.
 	'slide.transition': ['transition'],
-	// The sound alone, one level down. Scoped to `sound` so it cannot also excuse a transition
-	// whose type or timing came back wrong — the loss it declares is exactly the missing
-	// `p:sndAc`, and `data`/`$asset` cover the case where the sound survives with other bytes.
-	'slide.transitionSound': ['sound', 'data', '$asset'],
+	// The sound alone, one level down. Scoped to `transition.sound` so it cannot also excuse a
+	// transition whose type or timing came back wrong — the loss it declares is exactly the missing
+	// `p:sndAc`, and the `.*` also covers the case where the sound survives with other bytes.
+	'slide.transitionSound': ['transition.sound.*'],
 	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
 	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
 	'table.cell.borders.dash': ['border', 'diagonal'],
@@ -180,11 +192,11 @@ export const NOTE_CONSTRUCTS = {
 	// `ST_SchemeColorVal` tokens the write path's `clrMap` does not carry, baked to the literal
 	// it resolves to. Three sites used to pass one through RAW, so the generated script warned
 	// `color/invalid-value` and painted the default text colour instead.
-	'table.cell.fill.schemeToken': ['fill', 'color'],
+	'table.cell.fill.schemeToken': ['fill', 'fill.color'],
 	'table.cell.borders.schemeToken': ['border', 'diagonal'],
 	// The table-background twins. Scoped to `tableFill` rather than `fill`, because those are
 	// two different options: one lands on `a:tblPr`, the other is stamped onto every cell.
-	'table.fill.schemeToken': ['tableFill', 'color'],
+	'table.fill.schemeToken': ['tableFill', 'tableFill.color'],
 	'table.fill.picture': ['tableFill'],
 	'table.fill.picture.geometry': [],
 	// A gradient that cannot be expressed falls back to no gradient, so the difference lands
@@ -222,9 +234,10 @@ export const NOTE_CONSTRUCTS = {
 	// A picture bullet (`a:buBlip`): readable, and `bullet.image` could author it, but the
 	// paragraph mapper carries no asset resolver to re-embed the bytes with.
 	'text.bullet.picture': ['bullet'],
-	'text.color.default': ['color'],
-	'text.color.inherited': ['color'],
-	'text.color.schemeToken': ['color'],
+	// A run's colour, wherever the run sits: a shape, a group child or a table cell.
+	'text.color.default': ['options.color'],
+	'text.color.inherited': ['options.color'],
+	'text.color.schemeToken': ['options.color'],
 	'text.equation': ['*'],
 	'text.field': ['*'],
 	'text.bullet.glyph': ['bullet'],

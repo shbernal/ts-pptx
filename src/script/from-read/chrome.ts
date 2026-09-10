@@ -39,7 +39,7 @@
 import type { Presentation } from '../../read/api/presentation.js'
 import type { SlideLayout, SlideMaster, Theme } from '../../read/api/chrome.js'
 import { isGroupShape, type AnyShape } from '../../read/api/shapes.js'
-import type { ChromeIr, IrValue, MasterIr, ThemeIr } from '../ir.js'
+import { uniqueTitle, type ChromeIr, type IrValue, type MasterIr, type ThemeIr } from '../ir.js'
 import { layoutShapeScope, type NoteScope } from '../fidelity.js'
 import { masterObject } from './shape.js'
 import type { MapContext } from './context.js'
@@ -164,8 +164,7 @@ function layoutsToIr(masters: SlideMaster[], ctx: MapContext): MasterIr[] {
 			const flattened = flattenAttributeValue(layout.name)
 			if (flattened !== layout.name) renamed.push(`${JSON.stringify(layout.name)} → ${JSON.stringify(flattened)}`)
 			const base = flattened || `Layout ${index + 1}`
-			let title = base
-			for (let suffix = 2; used.has(title); suffix++) title = `${base} (${suffix})`
+			const title = uniqueTitle(base, used)
 			if (title !== base) collided.push(`${JSON.stringify(base)} → ${JSON.stringify(title)}`)
 			used.add(title)
 

@@ -201,6 +201,24 @@ describe('script round trip — a note covers a PATH, not a key at any depth', (
 		assertEqual(report.undeclared[0].kind, 'added', 'and it is an added difference, the kind the defaults cover')
 	})
 
+	test("the write path's completed border edge colour is a default only when the source stated none", async () => {
+		// `DEF_CELL_BORDER` fills in the colour of an edge that stated none. That is an unknown, not
+		// a loss, and it used to pass only because run-colour notes carried a bare `color`. A colour
+		// the source did state and the output changed is a real difference.
+		const [before, after] = await pair('table.pptx')
+		const edge = (deck) =>
+			deck.slides[1].calls.find((c) => c.shapeName === 'LabelsVertical').args[0][0][0].options.border[0]
+		delete edge(before).color
+		edge(after).color = '666666'
+		const added = diffDeckIr(before, after, [])
+		assertEqual(added.differences.length, 1, 'exactly one difference, on the edge colour')
+		assertEqual(added.undeclared.length, 0, 'an edge colour the source left to the style graph is a write-path default')
+
+		edge(before).color = '111111'
+		const changed = diffDeckIr(before, after, [])
+		assertEqual(changed.undeclared.length, 1, 'an edge colour the source stated and the output changed is not')
+	})
+
 	test("the write path's docProps defaults still excuse the deck property itself", async () => {
 		const [before, after] = await pair('textbox.pptx')
 		delete (/** @type {any} */ (before.props).title)
@@ -209,6 +227,228 @@ describe('script round trip — a note covers a PATH, not a key at any depth', (
 			diffDeckIr(before, after, []).undeclared.length,
 			0,
 			'a deck that declared no title gets the write path\u2019s own, which is what the entry is for'
+		)
+	})
+})
+
+describe('script round trip — a note excuses its own construct and nothing beside it', () => {
+	// A note with no shape name has nothing confining it to one call, so its fields are matched
+	// from the root of the diff. Matched as a suffix, like a shape note's, they matched inside
+	// every call in scope: a deck's `master.background` excused every run colour and every lost
+	// image in the deck, and a slide's `slide.transitionSound` excused different image bytes on
+	// that slide. A bare `color` did the same inside one call: a note about a run's inherited
+	// colour excused the shape's fill and outline colours, and one cell note a whole table's.
+	//
+	// Every hidden-loss case below was declared before the narrowing. Every own-construct case
+	// is the difference its note exists for, so the narrowing cannot overshoot unnoticed.
+
+	/** @typedef {import('../../dist/script.js').FidelityNote} FidelityNote */
+	/** @type {(construct: string, slideNumber?: number | null, shapeName?: string | null) => FidelityNote} */
+	const note = (construct, slideNumber = null, shapeName = null) => ({ slideNumber, shapeName, construct, disposition: 'dropped', cause: 'unwritable', detail: '' }) // prettier-ignore
+	/** @type {(deck: any, shapeName: string, slide?: number) => any} */
+	const call = (deck, shapeName, slide = 0) => deck.slides[slide].calls.find((c) => c.shapeName === shapeName)
+	/** The first run of a text call. */
+	const firstRun = (deck, shapeName, slide = 0) => call(deck, shapeName, slide).args[0][0]
+	/** The first cell of a table call. */
+	const firstCell = (deck, shapeName) => call(deck, shapeName).args[0][0][0]
+
+	/**
+	 * @type {Array<{title: string, fixture: string, notes: FidelityNote[], perturb: (before: any, after: any) => void, declared: boolean, count?: number}>}
+	 */
+	const cases = [
+		// Hidden losses.
+		{
+			title: 'a deck note about layout backgrounds does not excuse a run colour',
+			fixture: 'textbox.pptx',
+			notes: [note('master.background')],
+			perturb: (_, after) => void (firstRun(after, 'replaceText').options.color = '123456'),
+			declared: false,
+		},
+		{
+			title: 'a deck note about layout backgrounds does not excuse an image that lost its bytes',
+			fixture: 'image.pptx',
+			notes: [note('master.background')],
+			perturb: (_, after) => void delete call(after, 'Grafik 5').args[0].data,
+			declared: false,
+		},
+		{
+			title: 'a deck note about layout names does not excuse a chart title',
+			fixture: 'bar-chart-data-labels.pptx',
+			notes: [note('master.name')],
+			perturb: (before, after) => {
+				call(before, 'bar-chart-727').args[1].title = 'Sales'
+				call(after, 'bar-chart-727').args[1].title = 'Costs'
+			},
+			declared: false,
+		},
+		{
+			title: 'a slide note about a transition sound does not excuse different image bytes',
+			fixture: 'image.pptx',
+			notes: [note('slide.transitionSound', 1)],
+			perturb: (_, after) => void (call(after, 'Grafik 5').args[0].data = { $asset: '0:0' }),
+			declared: false,
+		},
+		{
+			title: 'a slide note about its background does not excuse a run colour',
+			fixture: 'textbox.pptx',
+			notes: [note('slide.background', 1)],
+			perturb: (_, after) => void (firstRun(after, 'replaceText').options.color = '123456'),
+			declared: false,
+		},
+		{
+			title: 'a run colour note does not excuse the fill and outline colours of its shape',
+			fixture: 'theme-colors.pptx',
+			notes: [note('text.color.inherited', 1, 'accent1-plain')],
+			perturb: (_, after) => {
+				const options = call(after, 'accent1-plain').args[1]
+				options.fill.color = '123456'
+				options.line.color = '654321'
+			},
+			declared: false,
+			count: 2,
+		},
+		{
+			title: 'a fill token note does not excuse the outline colour',
+			fixture: 'theme-colors.pptx',
+			notes: [note('fill.schemeToken', 1, 'accent1-plain')],
+			perturb: (_, after) => void (call(after, 'accent1-plain').args[1].line.color = '654321'),
+			declared: false,
+		},
+		{
+			title: 'a picture fill note does not excuse the outline colour',
+			fixture: 'theme-colors.pptx',
+			notes: [note('fill.picture', 1, 'accent1-plain')],
+			perturb: (_, after) => void (call(after, 'accent1-plain').args[1].line.color = '654321'),
+			declared: false,
+		},
+		{
+			title: 'a table background token note does not excuse a cell fill colour',
+			fixture: 'table.pptx',
+			notes: [note('table.fill.schemeToken', 1, 'TableDefault')],
+			perturb: (before, after) => {
+				firstCell(before, 'TableDefault').options.fill = { color: '111111' }
+				firstCell(after, 'TableDefault').options.fill = { color: '222222' }
+			},
+			declared: false,
+		},
+		{
+			title: 'a cell fill token note does not excuse a run colour in the table',
+			fixture: 'table.pptx',
+			notes: [note('table.cell.fill.schemeToken', 1, 'TableDefault')],
+			perturb: (_, after) => void (firstCell(after, 'TableDefault').text[0].options.color = '123456'),
+			declared: false,
+		},
+		// Each narrowed note still declares the difference it exists for.
+		{
+			title: 'master.background declares a layout background colour',
+			fixture: 'textbox.pptx',
+			notes: [note('master.background')],
+			perturb: (_, after) => void (after.chrome.masters[0].background.color = '123456'),
+			declared: true,
+		},
+		{
+			title: 'master.name declares a layout title',
+			fixture: 'textbox.pptx',
+			notes: [note('master.name')],
+			perturb: (_, after) => void (after.chrome.masters[0].title = 'Renamed'),
+			declared: true,
+		},
+		{
+			title: 'master.name declares the layout name a slide binds to',
+			fixture: 'textbox.pptx',
+			notes: [note('master.name')],
+			perturb: (_, after) => void (after.slides[0].layoutName = 'Renamed'),
+			declared: true,
+		},
+		{
+			title: 'deck.slideSize declares the slide width',
+			fixture: 'textbox.pptx',
+			notes: [note('deck.slideSize')],
+			perturb: (_, after) => void (after.slideSize = { ...after.slideSize, widthEmu: after.slideSize.widthEmu + 1 }),
+			declared: true,
+		},
+		{
+			title: 'slide.transitionSound declares a sound with other bytes',
+			fixture: 'slide-transition-sound.pptx',
+			notes: [note('slide.transitionSound', 1)],
+			perturb: (_, after) => void (after.slides[0].transition.sound.data = { $asset: '0:0' }),
+			declared: true,
+		},
+		{
+			title: 'slide.background declares the slide background',
+			fixture: 'slide-background.pptx',
+			notes: [note('slide.background', 2)],
+			perturb: (_, after) => void (after.slides[1].background.color = '123456'),
+			declared: true,
+		},
+		{
+			title: 'slide.layout declares the layout name a slide binds to',
+			fixture: 'textbox.pptx',
+			notes: [note('slide.layout', 1)],
+			perturb: (_, after) => void (after.slides[0].layoutName = 'Renamed'),
+			declared: true,
+		},
+		{
+			title: 'notes.formatting declares the speaker notes text',
+			fixture: 'textbox.pptx',
+			notes: [note('notes.formatting', 1)],
+			perturb: (_, after) => void (after.slides[0].notesText = 'changed'),
+			declared: true,
+		},
+		{
+			title: 'text.color.inherited declares a run colour',
+			fixture: 'textbox.pptx',
+			notes: [note('text.color.inherited', 1, 'replaceText')],
+			perturb: (_, after) => void (firstRun(after, 'replaceText').options.color = '123456'),
+			declared: true,
+		},
+		{
+			title: 'fill.schemeToken declares the fill colour',
+			fixture: 'theme-colors.pptx',
+			notes: [note('fill.schemeToken', 1, 'accent1-plain')],
+			perturb: (_, after) => void (call(after, 'accent1-plain').args[1].fill.color = '123456'),
+			declared: true,
+		},
+		{
+			title: 'fill.picture declares a fill that did not come back',
+			fixture: 'theme-colors.pptx',
+			notes: [note('fill.picture', 1, 'accent1-plain')],
+			perturb: (_, after) => void delete call(after, 'accent1-plain').args[1].fill,
+			declared: true,
+		},
+		{
+			title: 'table.fill.schemeToken declares the table background colour',
+			fixture: 'table.pptx',
+			notes: [note('table.fill.schemeToken', 1, 'TableDefault')],
+			perturb: (before, after) => {
+				call(before, 'TableDefault').args[1].tableFill = { color: '111111' }
+				call(after, 'TableDefault').args[1].tableFill = { color: '222222' }
+			},
+			declared: true,
+		},
+		{
+			title: 'table.cell.fill.schemeToken declares a cell fill colour',
+			fixture: 'table.pptx',
+			notes: [note('table.cell.fill.schemeToken', 1, 'TableDefault')],
+			perturb: (before, after) => {
+				firstCell(before, 'TableDefault').options.fill = { color: '111111' }
+				firstCell(after, 'TableDefault').options.fill = { color: '222222' }
+			},
+			declared: true,
+		},
+	]
+
+	test.for(cases)('$title', async ({ fixture, notes, perturb, declared, count = 1 }) => {
+		const ir = await irFor(fixture)
+		const before = canonicalDeckIr(ir)
+		const after = canonicalDeckIr(ir)
+		perturb(before, after)
+		const report = diffDeckIr(before, after, notes)
+		assertEqual(report.differences.length, count, 'the perturbation is exactly the difference under test')
+		assertEqual(
+			report.undeclared.length,
+			declared ? 0 : count,
+			declared ? 'the note declares it' : 'nothing declares it'
 		)
 	})
 })

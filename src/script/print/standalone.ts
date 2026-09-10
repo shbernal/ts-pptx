@@ -25,7 +25,7 @@
  * construct that made it uncarryable — which each shape has already declared for itself. That
  * is why {@link DeckIr}'s calls are populated even for a carried slide.
  */
-import type { DeckIr, IrValue, MasterIr } from '../ir.js'
+import { uniqueTitle, type DeckIr, type IrValue, type MasterIr } from '../ir.js'
 import { NoteCollector, scopeNotes } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import {
@@ -204,7 +204,12 @@ function printMasters(ir: DeckIr, collector: NoteCollector, printAsset: AssetPri
 	// seeded in the constructor, not by anything printed below. Scoped to that layout's own
 	// title rather than deck-wide, because the round trip matches a note's `shapeName` against
 	// the identity of what differed, and an unscoped note would declare *any* extra layout.
-	scopeNotes(collector, null, 'DEFAULT').note(
+	//
+	// That title is `DEFAULT` unless a source layout already carries it, which every deck written
+	// by this library does. The output then holds two, and the reader makes the second unique the
+	// way it made the source's titles unique, so the extra one is reported under that spelling.
+	const sourceTitles = new Set(ir.chrome.masters.map((master) => master.props['title']).filter((t): t is string => typeof t === 'string')) // prettier-ignore
+	scopeNotes(collector, null, uniqueTitle('DEFAULT', sourceTitles)).note(
 		'master.default',
 		'approximated',
 		'unsupported',

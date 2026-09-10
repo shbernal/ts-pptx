@@ -266,6 +266,19 @@ export interface MasterIr {
 }
 
 /**
+ * `base`, or `base (2)`, `base (3)`, … — the first spelling `used` does not already hold.
+ *
+ * The rule {@link MasterIr}'s `props.title` is made unique by. Shared because the standalone
+ * printer has to predict the title the reader gives the write path's own `DEFAULT` layout when a
+ * source layout already carries that name.
+ */
+export function uniqueTitle(base: string, used: ReadonlySet<string>): string {
+	let title = base
+	for (let suffix = 2; used.has(title); suffix++) title = `${base} (${suffix})`
+	return title
+}
+
+/**
  * The deck's shared chrome, approximated for an output that has no template to inherit it
  * from. A template-anchored printer ignores this entirely — the source deck *is* the chrome.
  */

@@ -86,10 +86,13 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	border:
 		'table cell borders are resolved through the style graph, which the read model cannot separate from the cell’s own',
 	// The same unknown one level down, for a cell whose border array survives while an individual
-	// EDGE gains the write path's completed `{ type, width }`. Under key-only matching these were
-	// covered by the bare `type`/`width` entries, which is the accident this qualification removes:
-	// those are about a fill's kind and an outline's weight, on shapes.
+	// EDGE gains the write path's completed `{ type, color, width }` (`DEF_CELL_BORDER`). Under
+	// key-only matching these were covered by the bare `type`/`width` entries, which is the accident
+	// this qualification removes: those are about a fill's kind and an outline's weight, on shapes.
+	// The colour was covered the same way, by the bare `color` in the run-colour notes.
 	'border.type':
+		'a table cell border edge the write path completes; the source’s came from the style graph the read model cannot separate',
+	'border.color':
 		'a table cell border edge the write path completes; the source’s came from the style graph the read model cannot separate',
 	'border.width':
 		'a table cell border edge the write path completes; the source’s came from the style graph the read model cannot separate',
@@ -235,7 +238,7 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 	const matched = new Set(differences.map((difference) => difference.declaredBy).filter(Boolean))
 	const accounted = (difference: IrDifference): boolean =>
 		difference.declaredBy !== null ||
-		(difference.kind === 'added' && Object.keys(WRITER_DEFAULTS).some((spec) => specCovers(spec, difference)))
+		(difference.kind === 'added' && Object.keys(WRITER_DEFAULTS).some((spec) => specCovers(spec, difference, 'suffix')))
 
 	return {
 		slideCount: Math.max(expected.slides.length, actual.slides.length),
@@ -504,13 +507,31 @@ function pathKeys(difference: IrDifference): string[] {
 }
 
 /**
- * Whether one exclusion spec covers a difference: `'*'` covers the whole call it is scoped to,
- * and anything else must be a dotted SUFFIX of the difference's own path.
+ * Whether one exclusion spec covers a difference. `'*'` covers everything in the note's scope.
+ * Anything else is matched against the difference's own path in one of two modes:
+ *
+ * - `'suffix'`: the spec is a dotted SUFFIX of the path. Used for a note scoped to a shape, which
+ *   the shape scoping has already confined to one call, so the spec only has to say which option
+ *   inside it. Used for {@link WRITER_DEFAULTS} too, whose entries are option names wherever the
+ *   write path materialises them.
+ * - `'root'`: the spec is the dotted path of one node from the root of the diff (`background`,
+ *   `chrome.masters.title`), and covers that node only. A trailing `.*` extends it to everything
+ *   beneath the node as well (`transition.sound.*`). Used for a note with no shape, which nothing
+ *   else confines. Matched as a suffix, a slide or deck note's field names matched inside every
+ *   call in its scope: `master.background`'s `color` excused every run colour in the deck, and
+ *   `slide.transitionSound`'s `$asset` excused different image bytes on its slide. Exact by
+ *   default because `slide.transition` is `transition` and must not cover the sound inside it.
  */
-function specCovers(spec: string, difference: IrDifference): boolean {
+function specCovers(spec: string, difference: IrDifference, anchor: 'suffix' | 'root'): boolean {
 	if (spec === '*') return true
 	const wanted = spec.split('.')
 	const keys = pathKeys(difference)
+	if (anchor === 'root') {
+		const subtree = wanted[wanted.length - 1] === '*'
+		const node = subtree ? wanted.slice(0, -1) : wanted
+		if (subtree ? node.length > keys.length : node.length !== keys.length) return false
+		return node.every((segment, index) => segment === keys[index])
+	}
 	if (wanted.length > keys.length) return false
 	return wanted.every((segment, index) => segment === keys[keys.length - wanted.length + index])
 }
@@ -524,7 +545,8 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
 		// after a shape whose name repeats between the layout and the slides bound to it — would
 		// excuse the same difference on a *slide*, which is a loss nothing declared.
 		if (note.construct.startsWith(LAYOUT_NOTE_PREFIX) && difference.slideNumber !== 0) continue
-		// A shape-scoped note covers only that shape; a slide- or deck-scoped one covers any.
+		// A shape-scoped note covers only that shape; a slide- or deck-scoped one covers any, which
+		// is why its fields are anchored at the root of the diff rather than matched as a suffix.
 		if (
 			note.shapeName !== null &&
 			note.shapeName !== difference.shapeName &&
@@ -534,7 +556,8 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
 		}
 		const fields = noteFields(note.construct)
 		if (!fields) continue
-		if (fields.some((field) => specCovers(field, difference))) return note
+		const anchor = note.shapeName === null ? 'root' : 'suffix'
+		if (fields.some((field) => specCovers(field, difference, anchor))) return note
 	}
 	return null
 }

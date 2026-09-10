@@ -797,6 +797,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`diffDeckIr` let a fidelity note excuse fields that were not its construct.** A note's
+  fields were matched as a dotted suffix of the difference path, which is confined enough for
+  a note scoped to a shape and not for a slide or deck note, whose field names then matched
+  inside every call in scope. A deck's `master.background` note, raised on 48 of 49
+  standalone conversions of the corpus, excused a changed run colour and an image that lost
+  its bytes anywhere in the deck. A bare `color` did the same inside one call: a run-colour
+  note excused the shape's fill and outline colours, and one cell note every colour in a
+  table.
+
+  A note with no shape name now anchors its fields at the root of the diff, naming one node
+  by its full path (`background`, `chrome.masters.title`), with a trailing `.*` for a subtree
+  (`transition.sound.*`). The colour notes name the colour they are about (`options.color`,
+  `fill.color`, `tableFill.color`). A consumer running `diffDeckIr` over its own decks may see
+  differences reported that were silently declared before; each is a real change between the
+  two decks. The one class this surfaced in the corpus, a table cell border edge that states
+  no colour and gains the write path's `666666`, is now a write-path default like the edge's
+  type and width. Outside the corpus it surfaced one more: a standalone script of a deck this
+  library wrote gains a second `DEFAULT` layout, reported as `DEFAULT (2)`, which the
+  `master.default` note is now scoped to rather than leaving it to a deck note that happened to
+  name `master`.
+
 - **Two chart options were silently coerced where the same mistake elsewhere warned.**
 
   - **`barSeriesLine` is validated like the gridline it is.** It takes the same
