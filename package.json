@@ -8,7 +8,7 @@
 	"description": "Create PowerPoint presentations (.pptx) from TypeScript and modern JavaScript",
 	"homepage": "https://shbernal.github.io/ts-pptx/",
 	"license": "MIT",
-	"packageManager": "pnpm@11.3.0",
+	"packageManager": "pnpm@12.3.4",
 	"type": "module",
 	"engines": {
 		"node": ">=24"

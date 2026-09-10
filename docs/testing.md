@@ -918,7 +918,8 @@ added a build and a pack invocation for no signal. Do not re-add one.
 Packing goes through `packPackage()` in `scripts/script-utils.mjs`, which passes
 `--config.ignore-scripts=true` to skip the `prepack` rebuild: the callers have
 already ensured `dist/` is current. Note the spelling: pnpm 11 rejects a plain
-`--ignore-scripts` on `pack` and honours only the `--config.` form.
+`--ignore-scripts` on `pack` and honours only the `--config.` form. pnpm 12.3.4
+accepts both, so the `--config.` form stays as the one that works on either.
 
 ### Running scripts that spawn subprocesses
 

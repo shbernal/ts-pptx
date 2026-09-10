@@ -48,9 +48,12 @@ export async function packPackage(packDir) {
 	// already has a current `dist/` (the freshness guard ran first), so that would
 	// be a duplicate 3.3s build per pack — and CI packs more than once.
 	//
-	// The flag spelling is not the obvious one: pnpm 11 rejects `--ignore-scripts`
-	// outright ("Unknown option"), and only honours it in the `--config.<name>`
-	// form. Verified against pnpm 11.3.0 — re-check on a major pnpm bump.
+	// The flag spelling is not the obvious one. pnpm 11 rejects `--ignore-scripts`
+	// outright ("Unknown option") and honours it only in the `--config.<name>` form.
+	// pnpm 12.3.4 accepts both spellings and both skip `prepack`, while a bare
+	// `pnpm pack` still rebuilds, so the `--config.` form stays as the one that
+	// works on either major. Verified against 11.3.0 and 12.3.4. Re-check on a
+	// major pnpm bump.
 	// `process.execPath`, not 'node': `run()` appends `.cmd` to any non-absolute
 	// command on Windows (for the pnpm/npm shims), which would look for `node.cmd`.
 	await run(process.execPath, [path.join(ROOT, 'scripts', 'ensure-dist.mjs')])
