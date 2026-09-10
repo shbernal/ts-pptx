@@ -50,7 +50,7 @@ import path from 'node:path'
 import JSZip from 'jszip'
 import { probeFormats, validatorPath } from 'ooxml-validate'
 import TsPptx from '../dist/node.js'
-import { parseCliOrExit } from './script-utils.mjs'
+import { isMain, parseCli, runCli } from './script-utils.mjs'
 
 // Fixtures chosen to span the coverage axis, not to cover features — `test:schema`
 // does that. Each one exists to make a different row shape observable: flat-clean,
@@ -60,6 +60,13 @@ import { parseCliOrExit } from './script-utils.mjs'
  * @property {string} name
  * @property {(pres: import('../dist/node.js').TsPptx) => void} build
  * @property {(zip: import('jszip')) => Promise<void>} [corrupt] damage the built package on purpose
+ * @property {boolean} [control] the row that must be non-zero at every version
+ */
+/**
+ * @typedef {object} Target
+ * @property {string} name
+ * @property {string} file
+ * @property {boolean | undefined} [control]
  */
 /** @type {Fixture[]} */
 const FIXTURES = [
@@ -97,6 +104,7 @@ const FIXTURES = [
 		// The control row. Without a fixture that is invalid at EVERY version, a table of
 		// zeros is indistinguishable from a validator that silently stopped working.
 		name: 'core-construct corruption (control)',
+		control: true,
 		build: (p) => {
 			p.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1 })
 		},
@@ -136,13 +144,73 @@ function shortLabel(version) {
 	return version.replace('Microsoft365', 'M365').replace('Office', 'O')
 }
 
+/**
+ * Everything wrong with a probe run, as one message per failure.
+ *
+ * Each check is here because the table alone looks healthy without it. A target the probe
+ * returned no row for used to print "NO RESULT" and carry on to exit 0, and a control row of
+ * zeros is what a validator that silently stopped running produces.
+ * @param {readonly Target[]} targets - what was probed; a `control` target must be non-zero
+ *   at every version
+ * @param {import('ooxml-validate').ProbeReport} probe
+ * @returns {string[]}
+ */
+export function verdict(targets, probe) {
+	const failures = []
+	const rowsByFile = new Map(probe.rows.map((row) => [row.file, row]))
+	for (const target of targets) {
+		const row = rowsByFile.get(target.file)
+		if (!row) {
+			failures.push(`NO RESULT for "${target.name}" (${target.file}).`)
+			continue
+		}
+		if (row.counts.length !== probe.formats.length) {
+			failures.push(
+				`"${target.name}" has ${row.counts.length} count(s) for ${probe.formats.length} format(s); ` +
+					'the row cannot be read against the axis.'
+			)
+			continue
+		}
+
+		// A decrease means a newer schema generation stopped modelling markup an older
+		// one flagged. That inverts the premise behind pinning to Microsoft365, so it is
+		// a hard failure rather than a note.
+		for (let i = 1; i < row.counts.length; i++) {
+			const previous = row.counts[i - 1] ?? 0
+			const current = row.counts[i] ?? 0
+			if (current < previous) {
+				failures.push(
+					`MONOTONICITY BROKEN on "${target.name}": ` +
+						`${probe.formats[i - 1]}=${previous} -> ${probe.formats[i]}=${current}.\n` +
+						'  ooxml-validate pins FILE_FORMAT=Microsoft365 on the premise that error count\n' +
+						'  never decreases with version. Re-read that comment before changing anything.'
+				)
+			}
+		}
+
+		// Without a row that is invalid at EVERY version, a table of zeros is
+		// indistinguishable from a validator that is not actually running.
+		if (target.control) {
+			const blind = row.counts.flatMap((count, i) => (count > 0 ? [] : [probe.formats[i]]))
+			if (blind.length)
+				failures.push(
+					`control "${target.name}" reported no errors at ${blind.join(', ')}; ` +
+						'the validator is not checking anything there.'
+				)
+		}
+	}
+	if (probe.violated && !failures.some((f) => f.startsWith('MONOTONICITY')))
+		failures.push('ooxml-validate reports a regressing row that the table above does not show.')
+	return failures
+}
+
 async function main() {
 	// Arguments first, validator second: `--help` has to work on a machine that has
 	// never fetched the oracle, which is exactly where someone reads it.
 	//
 	// `parseArgs` rejects a `--file` with no value itself, so the hand-rolled
 	// "requires a path" check that used to live here is gone with the indexOf form.
-	const { values } = parseCliOrExit(process.argv.slice(2), {
+	const { values } = parseCli(process.argv.slice(2), {
 		usage: `Validate decks against every Office version the OOXML validator accepts.
 
   pnpm run schema:versions
@@ -158,14 +226,19 @@ Options:
 	if ((await validatorPath()) === null) {
 		console.error('the ooxml-validate oracle could not be obtained.')
 		console.error('It is fetched from GitHub Releases on first use; see docs/testing.md.')
-		process.exit(1)
+		return 1
 	}
 
+	// Returns rather than exits from inside the `try`: `process.exit` there skipped the
+	// `finally`, and every run left a `TsPptx-versions-*` directory behind.
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'TsPptx-versions-'))
 	try {
+		/** @type {Target[]} */
 		const targets = explicitFile
 			? [{ name: path.basename(explicitFile), file: path.resolve(explicitFile) }]
-			: await Promise.all(FIXTURES.map(async (f) => ({ name: f.name, file: await buildFixture(f, dir) })))
+			: await Promise.all(
+					FIXTURES.map(async (f) => ({ name: f.name, file: await buildFixture(f, dir), control: f.control }))
+				)
 
 		// One call per conformance target for the whole set, not one per fixture: the
 		// package batches, so probing every fixture together costs seven oracle runs in
@@ -175,43 +248,17 @@ Options:
 
 		const nameWidth = Math.max(...targets.map((t) => t.name.length), 7)
 		console.log('fixture'.padEnd(nameWidth), probe.formats.map((v) => shortLabel(v).padStart(6)).join(''))
-
 		for (const target of targets) {
 			const row = rowsByFile.get(target.file)
-			if (!row) {
-				console.error(`\n  NO RESULT for "${target.name}" (${target.file}).`)
-				continue
-			}
-			console.log(target.name.padEnd(nameWidth), row.counts.map((c) => String(c).padStart(6)).join(''))
-
-			// A decrease means a newer schema generation stopped modelling markup an older
-			// one flagged. That inverts the premise behind pinning to Microsoft365, so it is
-			// a hard failure rather than a note.
-			for (let i = 1; i < row.counts.length; i++) {
-				const previous = row.counts[i - 1] ?? 0
-				const current = row.counts[i] ?? 0
-				if (current < previous) {
-					console.error(
-						`\n  MONOTONICITY BROKEN on "${target.name}": ` +
-							`${probe.formats[i - 1]}=${previous} -> ${probe.formats[i]}=${current}.\n` +
-							'  ooxml-validate pins FILE_FORMAT=Microsoft365 on the premise that error count\n' +
-							'  never decreases with version. Re-read that comment before changing anything.'
-					)
-				}
-			}
+			if (row) console.log(target.name.padEnd(nameWidth), row.counts.map((c) => String(c).padStart(6)).join(''))
 		}
 
-		if (!explicitFile) {
-			const control = targets.find((t) => t.name.includes('control'))
-			console.log('\nThe control row must be non-zero at every version; an all-zero table means the')
-			console.log('validator is not actually running, not that the fixtures are clean.')
-			if (!control) console.error('WARNING: control fixture missing from this run.')
-		}
-
-		process.exit(probe.violated ? 1 : 0)
+		const failures = verdict(targets, probe)
+		for (const failure of failures) console.error('\n  ' + failure)
+		return failures.length ? 1 : 0
 	} finally {
 		await fs.rm(dir, { recursive: true, force: true })
 	}
 }
 
-await main()
+if (isMain(import.meta.url)) await runCli(main)

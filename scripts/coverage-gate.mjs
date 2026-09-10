@@ -25,6 +25,10 @@
  * That is not a mistake to be more careful about next time. It is a rule that was never
  * given a way to fail, and this is the way.
  *
+ * Both inputs are validated before anything is compared. Every comparison here is a `<`, and
+ * `x < undefined` and `NaN < y` are both false, so a misspelled axis key or a missing
+ * `minimumSlack` used to pass that axis at any coverage at all.
+ *
  *   node scripts/coverage-gate.mjs
  *
  * ## Why this gates the merged report and not the Node one
@@ -47,73 +51,121 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, isMain, runCli } from './script-utils.mjs'
 
 const SUMMARY = path.join(ROOT, 'coverage', 'merged', 'coverage-summary.json')
 const GATES = path.join(ROOT, 'scripts', 'coverage-gates.json')
 
-const AXES = ['statements', 'branches', 'functions', 'lines']
+export const AXES = ['statements', 'branches', 'functions', 'lines']
 
-if (!fs.existsSync(SUMMARY)) {
-	console.error('coverage-gate: no merged report. Run: pnpm run coverage:merge')
-	process.exit(1)
+/**
+ * What is wrong with the two inputs, before any number in them is trusted.
+ * @param {any} summary - the parsed `coverage-summary.json`
+ * @param {any} gates - the parsed `coverage-gates.json`
+ * @returns {string[]} one message per problem; empty when both are well formed
+ */
+export function malformedInputs(summary, gates) {
+	const problems = []
+	if (!Number.isFinite(gates?.minimumSlack))
+		problems.push(
+			`coverage-gates.json: minimumSlack must be a finite number, got ${JSON.stringify(gates?.minimumSlack)}`
+		)
+	for (const axis of AXES) {
+		const gate = gates?.thresholds?.[axis]
+		if (!Number.isFinite(gate))
+			problems.push(`coverage-gates.json: thresholds.${axis} must be a finite number, got ${JSON.stringify(gate)}`)
+		// Istanbul writes 'Unknown' rather than a number for an axis with nothing in it.
+		const pct = summary?.total?.[axis]?.pct
+		if (!Number.isFinite(pct))
+			problems.push(`coverage-summary.json: total.${axis}.pct must be a number, got ${JSON.stringify(pct)}`)
+	}
+	return problems
 }
 
-const { total } = JSON.parse(fs.readFileSync(SUMMARY, 'utf8'))
-const { minimumSlack, thresholds } = JSON.parse(fs.readFileSync(GATES, 'utf8'))
+/**
+ * Check a merged coverage summary against the gates.
+ * @param {any} summary - the parsed `coverage-summary.json`
+ * @param {any} gates - the parsed `coverage-gates.json`
+ * @returns {{rows: string[], failures: string[], available: string[]}} the table lines to
+ *   print, one message per failure, and the ratchets the measured numbers would allow
+ */
+export function evaluate(summary, gates) {
+	const malformed = malformedInputs(summary, gates)
+	if (malformed.length) return { rows: [], failures: malformed, available: [] }
 
-const failures = []
-const available = []
+	const { total } = summary
+	const { minimumSlack, thresholds } = gates
+	const rows = []
+	const failures = []
+	const available = []
 
-console.log('')
-console.log('  merged coverage gate')
-console.log('')
-console.log('  axis         measured      gate      slack')
+	for (const axis of AXES) {
+		const measured = total[axis].pct
+		const gate = thresholds[axis]
+		const slack = measured - gate
 
-for (const axis of AXES) {
-	const measured = total[axis].pct
-	const gate = thresholds[axis]
-	const slack = measured - gate
-
-	console.log(
-		'  ' +
-			axis.padEnd(12) +
-			measured.toFixed(2).padStart(8) +
-			String(gate).padStart(10) +
-			slack.toFixed(2).padStart(11) +
-			(measured < gate ? '  <- below the gate' : slack < minimumSlack ? '  <- inside the point of slack' : '')
-	)
-
-	if (measured < gate) {
-		failures.push(
-			`${axis}: ${measured.toFixed(2)} is below its gate of ${gate}. ` +
-				`Cover the ${total[axis].total - total[axis].covered} uncovered ${axis}, or say what changed — ` +
-				`the gate does not move down.`
+		rows.push(
+			'  ' +
+				axis.padEnd(12) +
+				measured.toFixed(2).padStart(8) +
+				String(gate).padStart(10) +
+				slack.toFixed(2).padStart(11) +
+				(measured < gate ? '  <- below the gate' : slack < minimumSlack ? '  <- inside the point of slack' : '')
 		)
-	} else if (slack < minimumSlack) {
-		failures.push(
-			`${axis}: ${measured.toFixed(2)} clears its gate of ${gate} by only ${slack.toFixed(2)}, ` +
-				`under the ${minimumSlack.toFixed(2)} point every notch here is required to leave. ` +
-				`Coverage has to come back up; the notch stays where it is.`
-		)
+
+		if (measured < gate) {
+			failures.push(
+				`${axis}: ${measured.toFixed(2)} is below its gate of ${gate}. ` +
+					`Cover the ${total[axis].total - total[axis].covered} uncovered ${axis}, or say what changed — ` +
+					`the gate does not move down.`
+			)
+		} else if (slack < minimumSlack) {
+			failures.push(
+				`${axis}: ${measured.toFixed(2)} clears its gate of ${gate} by only ${slack.toFixed(2)}, ` +
+					`under the ${minimumSlack.toFixed(2)} point every notch here is required to leave. ` +
+					`Coverage has to come back up; the notch stays where it is.`
+			)
+		}
+
+		// The highest notch that would still leave the required slack. Printed rather than
+		// applied — ratcheting is a decision with a commit message, not a side effect.
+		const ratchet = Math.floor(measured - minimumSlack)
+		if (ratchet > gate) available.push(`  ${axis}: ${gate} -> ${ratchet} (measured ${measured.toFixed(2)})`)
 	}
 
-	// The highest notch that would still leave the required slack. Printed rather than
-	// applied — ratcheting is a decision with a commit message, not a side effect.
-	const ratchet = Math.floor(measured - minimumSlack)
-	if (ratchet > gate) available.push(`  ${axis}: ${gate} -> ${ratchet} (measured ${measured.toFixed(2)})`)
+	return { rows, failures, available }
 }
 
-console.log('')
+function main() {
+	if (!fs.existsSync(SUMMARY)) {
+		console.error('coverage-gate: no merged report. Run: pnpm run coverage:merge')
+		return 1
+	}
 
-if (failures.length) {
-	for (const failure of failures) console.error('  FAIL  ' + failure)
-	console.error('')
-	process.exit(1)
-}
+	const { rows, failures, available } = evaluate(
+		JSON.parse(fs.readFileSync(SUMMARY, 'utf8')),
+		JSON.parse(fs.readFileSync(GATES, 'utf8'))
+	)
 
-if (available.length) {
-	console.log('  a ratchet is available (scripts/coverage-gates.json):')
-	for (const line of available) console.log(line)
 	console.log('')
+	console.log('  merged coverage gate')
+	console.log('')
+	console.log('  axis         measured      gate      slack')
+	for (const row of rows) console.log(row)
+	console.log('')
+
+	if (failures.length) {
+		for (const failure of failures) console.error('  FAIL  ' + failure)
+		console.error('')
+		return 1
+	}
+
+	if (available.length) {
+		console.log('  a ratchet is available (scripts/coverage-gates.json):')
+		for (const line of available) console.log(line)
+		console.log('')
+	}
+	return 0
 }
+
+if (isMain(import.meta.url)) await runCli(main)

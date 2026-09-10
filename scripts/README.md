@@ -61,7 +61,7 @@ are in every aggregate the repo has.
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
 | `libreoffice-render-smoke.mjs` | Gate | Renders decks in LibreOffice, the one renderer here with no SmartArt layout engine, and reads the painted text back | manual, needs LibreOffice + `pdftotext` (`test:lo`) |
 | `note-census.mjs` | Diagnostic | How many fixtures raise each declared fidelity note, per tier | manual (`script:census`) |
-| `ooxml-version-probe.mjs` | Diagnostic | Validator error counts across Office versions | manual (`schema:versions`) |
+| `ooxml-version-probe.mjs` | Diagnostic | Validator error counts across Office versions; fails on a count that decreases, a target with no row, or a control row with a zero | manual (`schema:versions`); `verdict` unit-tested |
 | `pack-utils.mjs` | Library | `pnpm pack` helpers for the two package gates | — |
 | `package-lint.mjs` | Gate | `publint` + `attw` on the packed tarball | `verify:full`, `check:package` |
 | `package-smoke.mjs` | Gate | Installs the tarball and exercises every subpath | `verify:full`, `check:package` |

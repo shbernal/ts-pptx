@@ -314,6 +314,13 @@ because at that point the two lanes are looking at different builds.
 | below the notch | coverage regressed past the gate | cover it, or explain what changed |
 | inside the point of slack | still above the notch, but by less than 1.00 | coverage has to come back up |
 
+Both inputs are validated before any number is compared, and a malformed one
+fails the gate. Each axis needs a finite threshold and a numeric `pct`, and
+`minimumSlack` has to be finite. Every comparison is a `<`, and `x < undefined`
+is false, so a misspelled axis key or a missing `minimumSlack` used to pass that
+axis at any coverage. Istanbul writes `'Unknown'` for an axis with nothing in
+it, which crashed the gate rather than naming the problem.
+
 The second one is the rule every threshold in this repo was already set by (a
 notch always sits at least a full point below its measured number) and it used
 to live only in prose. Prose does not fail a build, so when the exclusion drop
