@@ -652,7 +652,11 @@ export function addTableDefinition(
 
 			// B: Reset opt.y to `option`/`margin` after first Slide
 			// Keep raw inches — resolved to EMU once at emission. (No pre-conversion.)
-			if (idx > 0) opt.y = opt.autoPageSlideStartY || arrTableMargin[0]
+			// The pager decided where each continuation starts when it budgeted its height, and hands
+			// it back on the page. This used to re-derive it as `autoPageSlideStartY || margin`, which
+			// dropped a stated `0` and lacked the pager's `Math.min(y, margin)`, so a continuation
+			// could land lower than the height it was paged for and run off the slide.
+			if (idx > 0 && slide.y !== undefined) opt.y = slide.y
 
 			// C: Add this table to new Slide
 			{

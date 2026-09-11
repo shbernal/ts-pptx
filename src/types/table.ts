@@ -652,6 +652,16 @@ export interface TableRowSlide {
 	 */
 	rowH?: Array<number | undefined>
 	/**
+	 * Where this page's table starts, in inches from the top of the slide: the top the pager budgeted
+	 * the page's height from.
+	 *
+	 * A continuation page starts at `autoPageSlideStartY` when stated, else at the top margin, or at
+	 * the table's own `y` when that is higher. Placing the table anywhere else puts it where it was
+	 * not measured, so the callers place every page after the first here rather than re-deriving
+	 * the rule.
+	 */
+	y?: number
+	/**
 	 * The column grid (inches) the pager measured this page against, one entry per grid column.
 	 *
 	 * The pager resolves `colW` — normalizing a short array, and distributing the usable width

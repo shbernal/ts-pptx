@@ -635,6 +635,7 @@ export function getSlidesForTableRows(
 		rows: [] as TableRowInternal[],
 		rowH: [] as Array<number | undefined>,
 		colW: colWidthsIn,
+		y: startYEmu() / EMU_PER_INCH,
 	}
 	/** Rows placed on the working page other than its repeated header rows. */
 	let bodyRowsOnPage = 0
@@ -650,7 +651,13 @@ export function getSlidesForTableRows(
 		// Never push an empty page: a row that does not fit yet has no content here, and an empty
 		// `rows` slide crashes the recursive addTable.
 		if (newTableRowSlide.rows.length > 0) tableRowSlides.push(newTableRowSlide)
-		newTableRowSlide = { rows: [], rowH: [] as Array<number | undefined>, colW: colWidthsIn }
+		// Decided after the push: the page just closed is what makes this one a continuation.
+		newTableRowSlide = {
+			rows: [],
+			rowH: [] as Array<number | undefined>,
+			colW: colWidthsIn,
+			y: startYEmu() / EMU_PER_INCH,
+		}
 		bodyRowsOnPage = 0
 		// The page height depends on which page this is, so it is re-derived for the new one.
 		calcSlideTabH()

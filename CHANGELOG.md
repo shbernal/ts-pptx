@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addTable({ autoPage })` placed continuation tables lower than the pager budgeted them.** The
+  pager sizes each continuation page from where its table starts, and `addTable` then placed the
+  table with a rule of its own that dropped `autoPageSlideStartY: 0` and ignored a `y` above the
+  top margin. With `{ y: 1.5, autoPageSlideStartY: 0 }` every continuation was paged for a table at
+  the top of the slide, placed at 0.5in, and overran the slide by half an inch. The pager now
+  returns each page's start as `y` on `TableRowSlide`, and both `addTable` and `tableToSlides`
+  place continuations there.
+
 - **An auto-paged table could end a page on a cell whose `rowspan` reached past it.** The pager
   kept rows covered by a rowspan from above on one page, but could still break partway through
   the row that opens the span. That row became the page's last row with `rowSpan="2"` and nothing
