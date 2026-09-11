@@ -334,6 +334,13 @@ budgets. Continuation slides start at `autoPageSlideStartY`, or at the top margi
 is unset, so a first page placed lower with `y` is the one page that legitimately holds
 fewer rows.
 
+Rows joined by a `rowspan` stay on one page. The pager prices the row that opens the span
+together with every row the span covers. When the group does not fit below the rows already on
+the page, the page breaks before it. A group taller than a whole page is kept together and runs
+past the bottom, with a `table/autopage-rowspan-too-tall` warning. Splitting it would leave a
+page ending on a cell whose `rowSpan` reaches past its last row, which PowerPoint reports as
+corrupt.
+
 A word wider than its column **overflows it**. The pager never breaks inside a word. It
 fills a line word by word and starts a new one when the next word will not fit, so a word
 that fits on no line is emitted whole and runs past the column edge in PowerPoint.

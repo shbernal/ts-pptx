@@ -616,12 +616,64 @@ export function getSlidesForTableRows(
 		tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows ? tableProps._arrObjTabHeadRows : []
 	const repeatHeaderHeightsEmu = repeatHeaderRows.map((_row, headIdx) => measureRow(headIdx).heightEmu)
 
+	/**
+	 * The last row of the rowspan group that row `iRow` opens: the furthest row any of its spans
+	 * reaches, extended by every span a covered row opens in turn. `walkTableGrid` has clamped each
+	 * span to the table, so the walk ends inside it.
+	 * @param iRow - the row that opens the group
+	 */
+	function rowSpanGroupEnd(iRow: number): number {
+		let end = iRow
+		for (let r = iRow; r <= end; r++) {
+			for (const placement of placements[r] ?? []) end = Math.max(end, r + placement.rowSpan - 1)
+		}
+		return end
+	}
+
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = {
 		rows: [] as TableRowInternal[],
 		rowH: [] as Array<number | undefined>,
 		colW: colWidthsIn,
 	}
+	/** Rows placed on the working page other than its repeated header rows. */
+	let bodyRowsOnPage = 0
+	let warnedTallRowSpan = false
+
+	/**
+	 * Close the working page and open the next: push the page when it has rows, re-derive the page
+	 * height, charge `chargedEmu` to the new page, then repeat the header rows onto it.
+	 * @param chargedEmu - what the new page already owes before its header rows: the margins of a
+	 *   row that is starting over here, or nothing
+	 */
+	function startNewPage(chargedEmu: number): void {
+		// Never push an empty page: a row that does not fit yet has no content here, and an empty
+		// `rows` slide crashes the recursive addTable.
+		if (newTableRowSlide.rows.length > 0) tableRowSlides.push(newTableRowSlide)
+		newTableRowSlide = { rows: [], rowH: [] as Array<number | undefined>, colW: colWidthsIn }
+		bodyRowsOnPage = 0
+		// The page height depends on which page this is, so it is re-derived for the new one.
+		calcSlideTabH()
+		// ORDER IS LOAD-BEARING. The charge used to be added and then wiped by the reset, so the first
+		// row of every continuation slide was the only row in the table that paid no margin. That let
+		// a continuation slide accept one row more than it had room for, and the extra row hung off
+		// the bottom of the slide (upstream gitbrent/PptxGenJS#1200). The symptom is easy to miss
+		// because the pager is *self*-consistent per slide: it only shows up as the first slide and
+		// the continuation slides disagreeing about how many identical rows fit the identical space,
+		// which is what test/regression/table/table-autopage-continuation-budget.test.js pins.
+		emuTabCurrH = chargedEmu
+		if (tableProps.verbose)
+			console.log(
+				`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
+			)
+		repeatHeaderRows.forEach((headRow, headIdx) => {
+			newTableRowSlide.rows.push([...headRow])
+			// Repeated header rows are the original leading rows, so carry their configured height.
+			newTableRowSlide.rowH?.push(resolveRowH(headIdx))
+			emuTabCurrH += repeatHeaderHeightsEmu[headIdx] ?? 0
+		})
+	}
+
 	tableRows.forEach((row, iRow) => {
 		// A: Row variables — detect active rowspan at the start of this row so we can
 		// suppress page breaks that would split a rowspan group across slides.
@@ -636,6 +688,27 @@ export function getSlidesForTableRows(
 			console.log(
 				`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
 			)
+
+		// C-2: A row that opens a rowspan is kept with the rows the span covers. Breaking a page
+		// partway through it left the partial row as the page's last row still carrying `rowSpan`,
+		// so the emitter wrote a `rowSpan="2"` with no row under it -- the state PowerPoint reports
+		// as corrupt. The whole group is priced before any of its lines is taken: when it does not
+		// fit under rows already on the page, the page breaks before it, and a group taller than a
+		// page is emitted whole on a page of its own.
+		const startsRowSpan = !hasActiveRowSpan && (placements[iRow] ?? []).some((placement) => placement.rowSpan > 1)
+		if (startsRowSpan) {
+			let groupHeightEmu = 0
+			for (let r = iRow; r <= rowSpanGroupEnd(iRow); r++) groupHeightEmu += measureRow(r).heightEmu
+			if (bodyRowsOnPage > 0 && emuTabCurrH + groupHeightEmu > emuSlideTabH) startNewPage(0)
+			if (emuTabCurrH + groupHeightEmu > emuSlideTabH && !warnedTallRowSpan) {
+				warn(
+					'table/autopage-rowspan-too-tall',
+					'addTable/autoPage: a group of rows joined by a rowspan is taller than a page; it is kept on one page and runs past its bottom. Reduce the span or the text in it.'
+				)
+				warnedTallRowSpan = true
+			}
+		}
+		const keepRowTogether = hasActiveRowSpan || startsRowSpan
 
 		// D: --==[[ BUILD DATA SET ]]==-- (split each cell's text into lines, set its line height)
 		const {
@@ -692,7 +765,7 @@ export function getSlidesForTableRows(
 
 			// 2: create a new slide if there is insufficient room for the current row,
 			// but never break inside a rowspan group — keep spanned rows together.
-			if (emuTabCurrH + emuLineMaxH > emuSlideTabH && !hasActiveRowSpan) {
+			if (emuTabCurrH + emuLineMaxH > emuSlideTabH && !keepRowTogether) {
 				if (tableProps.verbose) {
 					console.log('\n|-----------------------------------------------------------------------|')
 					// prettier-ignore
@@ -709,48 +782,14 @@ export function getSlidesForTableRows(
 					newTableRowSlide.rowH?.push(resolveRowH(iRow))
 				}
 
-				// B: add current slide to Slides array (never push an empty page: a row that does not
-				// fit yet has no content here, and an empty `rows` slide crashes the recursive addTable)
-				if (newTableRowSlide.rows.length > 0) tableRowSlides.push(newTableRowSlide)
+				// B: open the next page. The row is starting over there, so it owes its cell margins
+				// again.
+				startNewPage(rowMarginsTotalEmu)
 
-				// C: reset working/curr slide to hold rows as they're created
-				const newRows: TableRowInternal[] = []
-				newTableRowSlide = { rows: newRows, rowH: [] as Array<number | undefined>, colW: colWidthsIn }
-
-				// D: reset working/curr row
+				// C: reset working/curr row
 				currTableRow = []
 				row.forEach((cell) => currTableRow.push(workingCell([], cell.options)))
 
-				// E: Calc usable vertical space/table height now as we may still be in the same row and code above ("C: Calc usable vertical space/table height.") calc may now be invalid
-				calcSlideTabH()
-
-				// F: reset current table height for this new Slide, then re-charge the row's cell
-				// margins onto it — the row is starting over here, so it owes them again.
-				//
-				// ORDER IS LOAD-BEARING. These two statements used to run the other way round: the
-				// margins were added and then wiped by the reset, so the first row of every
-				// continuation slide was the only row in the table that paid no margin. That let a
-				// continuation slide accept one row more than it had room for, and the extra row
-				// hung off the bottom of the slide (upstream gitbrent/PptxGenJS#1200). The symptom
-				// is easy to miss because the pager is *self*-consistent per slide: it only shows
-				// up as the first slide and the continuation slides disagreeing about how many
-				// identical rows fit the identical space — which is what
-				// test/regression/table-autopage-continuation-budget.test.js pins.
-				emuTabCurrH = rowMarginsTotalEmu
-				if (tableProps.verbose)
-					console.log(
-						`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
-					)
-
-				// G: handle repeat headers option /or/ Add new empty row to continue current lines into
-				repeatHeaderRows.forEach((row, headIdx) => {
-					newTableRowSlide.rows.push([...row])
-					// Repeated header rows are the original leading rows, so carry their configured height.
-					newTableRowSlide.rowH?.push(resolveRowH(headIdx))
-					emuTabCurrH += repeatHeaderHeightsEmu[headIdx] ?? 0
-				})
-
-				// WIP: NEW: TEST THIS!!
 				tgtCell = currTableRow[currCellIdx]
 			}
 
@@ -792,6 +831,7 @@ export function getSlidesForTableRows(
 		if (currTableRow.length > 0 || (row.length === 0 && coveredFromAbove(iRow) === numCols)) {
 			newTableRowSlide.rows.push(currTableRow)
 			newTableRowSlide.rowH?.push(resolveRowH(iRow))
+			bodyRowsOnPage++
 		}
 
 		if (tableProps.verbose) {

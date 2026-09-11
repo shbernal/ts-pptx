@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An auto-paged table could end a page on a cell whose `rowspan` reached past it.** The pager
+  kept rows covered by a rowspan from above on one page, but could still break partway through
+  the row that opens the span. That row became the page's last row with `rowSpan="2"` and nothing
+  under it, which PowerPoint reports as corrupt, and the next page opened with the rest of the
+  merged row. The pager now prices the whole group before placing it and breaks the page before
+  it when it does not fit. A group taller than a page is kept whole and warns
+  `table/autopage-rowspan-too-tall`.
+
 - **A repeated header row inside a rowspan was priced against the wrong columns.** With
   `autoPageRepeatHeader`, continuation pages priced the header with a second row measure that
   ignored the columns a rowspan holds, so a second header row under a spanning cell was wrapped

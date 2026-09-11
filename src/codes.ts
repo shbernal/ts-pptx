@@ -92,6 +92,7 @@ export type DiagnosticCode =
 	| 'table/invalid-col-width'
 	| 'table/span-out-of-range'
 	| 'table/autopage-height-too-small'
+	| 'table/autopage-rowspan-too-tall'
 	| 'table/invalid-row-height'
 	| 'table/invalid-margin'
 	| 'table/invalid-header-row-count'
