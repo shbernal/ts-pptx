@@ -17,6 +17,7 @@ import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
 import { registerHyperlinkRel } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -116,10 +117,11 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	}
 
 	// FIRST: Set vars for this image (object param replaces positional args in 1.1.0)
-	const intPosX = opt.x ?? phX ?? 0
-	const intPosY = opt.y ?? phY ?? 0
-	const intWidth = opt.w ?? phW ?? 0
-	const intHeight = opt.h ?? phH ?? 0
+	// `undefined` when neither the caller nor the placeholder states the axis. `0` is a stated extent.
+	const givenX = opt.x ?? phX
+	const givenY = opt.y ?? phY
+	const givenW = opt.w ?? phW
+	const givenH = opt.h ?? phH
 	const objHyperlink = opt.hyperlink || ''
 	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.
 	// `data`/`path` win when also supplied, matching the documented precedence.
@@ -174,28 +176,28 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// relative to each other and merely conventional in absolute terms — a 24-unit icon is
 	// authored to be drawn at whatever size it is placed, not as a quarter-inch object — so an
 	// SVG with one side given derives the other, and an SVG with neither keeps the 1in fallback.
-	let defWidth = intWidth
-	let defHeight = intHeight
+	let defWidth = givenW
+	let defHeight = givenH
 	let szAuto: { w: boolean; h: boolean } | undefined
-	const vectorWithNoExtent = strImgExtn === 'svg' && !intWidth && !intHeight
-	if ((!intWidth || !intHeight) && !vectorWithNoExtent) {
+	const vectorWithNoExtent = strImgExtn === 'svg' && givenW === undefined && givenH === undefined
+	if ((givenW === undefined || givenH === undefined) && !vectorWithNoExtent) {
 		const natural = strImageData ? getImageSizeFromBase64(strImageData) : null
 		if (natural) {
-			if (!intWidth && !intHeight) {
+			if (givenW === undefined && givenH === undefined) {
 				// Neither given: use the natural size (inches @ 96 DPI)
 				defWidth = natural.w / IMAGE_NATURAL_DPI
 				defHeight = natural.h / IMAGE_NATURAL_DPI
-			} else if (typeof intWidth === 'number' && intWidth && !intHeight) {
+			} else if (typeof givenW === 'number' && givenH === undefined) {
 				// Only width given: preserve aspect ratio for height (same unit as width)
-				defHeight = intWidth * (natural.h / natural.w)
-			} else if (typeof intHeight === 'number' && intHeight && !intWidth) {
+				defHeight = givenW * (natural.h / natural.w)
+			} else if (typeof givenH === 'number' && givenW === undefined) {
 				// Only height given: preserve aspect ratio for width (same unit as height)
-				defWidth = intHeight * (natural.w / natural.h)
+				defWidth = givenH * (natural.w / natural.h)
 			}
 		} else if (strImagePath) {
 			// Path image: defer measurement to serialize time. Record which side(s) to derive
 			// from the natural ratio; the 1in fallback below still applies if it stays unmeasurable.
-			szAuto = { w: !intWidth, h: !intHeight }
+			szAuto = { w: givenW === undefined, h: givenH === undefined }
 		}
 	}
 
@@ -206,11 +208,16 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// wrote one holding `undefined`. Every one of these is read by an emitter that branches on the
 	// option being *there* (`if (opts.crop)`, `if (opts.duotone)`), so they were two spellings of
 	// the same request — and `ObjectOptions` is spread onto a placeholder's options besides.
+	const frame = resolveAuthoredFrame(
+		{ x: givenX, y: givenY, w: defWidth, h: defHeight },
+		{ x: 0, y: 0, w: 1, h: 1 },
+		'addImage'
+	)
 	const objectOptions: ObjectOptions = {
-		x: intPosX || 0,
-		y: intPosY || 0,
-		w: defWidth || 1,
-		h: defHeight || 1,
+		x: frame.x,
+		y: frame.y,
+		w: frame.w,
+		h: frame.h,
 		altText: opt.altText || '',
 		rounding: typeof opt.rounding === 'boolean' ? opt.rounding : false,
 		...pickDefined(opt, [

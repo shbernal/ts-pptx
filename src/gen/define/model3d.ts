@@ -24,6 +24,7 @@ import type { Model3dProps, Model3dPoint, Model3dCameraProps } from '../../types
 import type { PresSlideInternal, SlideObject, Model3dInternal } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
@@ -149,12 +150,9 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	const slideData: SlideObject = {
 		_type: SlideObjectType.model3d,
 		options: {
-			x: opt.x ?? 0,
-			y: opt.y ?? 0,
 			// A 3D model has no aspect ratio and the library never opens the payload, so — as with
 			// `addOleObject` — there is no natural size to measure.
-			w: opt.w ?? 4,
-			h: opt.h ?? 3,
+			...resolveAuthoredFrame(opt, { x: 0, y: 0, w: 4, h: 3 }, 'addModel3d'),
 			objectName,
 			...(opt.altText ? { altText: opt.altText } : {}),
 			...(opt.objectLock ? { objectLock: opt.objectLock } : {}),

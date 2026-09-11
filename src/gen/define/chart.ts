@@ -54,6 +54,7 @@ import type {
 } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { clampRangedInput, lineWidthToEmu, mapStated, ptsToEmuLenient } from '../../units-internal.js'
@@ -709,10 +710,7 @@ export function addChartDefinition(
 	// false for every `Coord` that is not a bare number — so `x: '50%'` and `x: '2in'` were
 	// thrown away and replaced by 1 inch, and a `NaN` was too, silently. `getSmartParseNumber`
 	// is what vets a coordinate, and it reports a bad one instead of guessing.
-	options.x = options.x ?? 1
-	options.y = options.y ?? 1
-	options.w = options.w || '50%'
-	options.h = options.h || '50%'
+	Object.assign(options, resolveAuthoredFrame(options, { x: 1, y: 1, w: '50%', h: '50%' }, 'addChart'))
 	// Was the one definer still counting `_slideObjects` for its default name, which numbers a
 	// chart by how many charts are *currently* on the slide rather than by how many have been
 	// added — the difference `nextObjectNameIdx` exists for.

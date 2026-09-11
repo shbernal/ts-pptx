@@ -19,9 +19,11 @@ import type {
 import { getNewRelId, getUuid } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 
 const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
+const ZOOM_API = { slide: 'addSlideZoom', section: 'addSectionZoom', summary: 'addSummaryZoom' } as const
 
 /** A fresh, braced, upper-case v4 GUID for a `zmPr@id`. */
 function zoomGuid(): string {
@@ -50,10 +52,7 @@ function pushZoomObject(
 	const newObject: SlideObject = {
 		_type: SlideObjectType.zoom,
 		options: {
-			x: opts.x ?? 0,
-			y: opts.y ?? 0,
-			w: opts.w ?? 0,
-			h: opts.h ?? 0,
+			...resolveAuthoredFrame(opts, { x: 0, y: 0, w: 0, h: 0 }, ZOOM_API[variant]),
 			objectName,
 			...(opts.objectLock ? { objectLock: opts.objectLock } : {}),
 		},

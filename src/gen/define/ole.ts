@@ -17,6 +17,7 @@ import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { OFFICE_REL, PACKAGE_REL } from '../../ooxml/rel-types.js'
@@ -154,11 +155,8 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	const slideData: SlideObject = {
 		_type: SlideObjectType.oleObject,
 		options: {
-			x: opt.x ?? 0,
-			y: opt.y ?? 0,
 			// The library never opens the payload, so there is no natural size to measure.
-			w: opt.w ?? 4,
-			h: opt.h ?? 3,
+			...resolveAuthoredFrame(opt, { x: 0, y: 0, w: 4, h: 3 }, 'addOleObject'),
 			objectName,
 			...(opt.altText ? { altText: opt.altText } : {}),
 			...(opt.objectLock ? { objectLock: opt.objectLock } : {}),

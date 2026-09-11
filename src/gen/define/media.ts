@@ -10,6 +10,7 @@ import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget, previousMediaTarget } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /**
@@ -47,10 +48,7 @@ function assertConsecutiveMediaRids(base: number, second: number, third: number)
  * @param {MediaProps} `opt` - media options
  */
 export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): void {
-	const intPosX = opt.x || 0
-	const intPosY = opt.y || 0
-	const intSizeX = opt.w || 2
-	const intSizeY = opt.h || 2
+	const frame = resolveAuthoredFrame(opt, { x: 0, y: 0, w: 2, h: 2 }, 'addMedia')
 	const strData = opt.data || ''
 	const strLink = opt.link || ''
 	const strPath = opt.path || ''
@@ -100,10 +98,10 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	}
 
 	// STEP 3: Set media properties & options
-	slideData.options.x = intPosX
-	slideData.options.y = intPosY
-	slideData.options.w = intSizeX
-	slideData.options.h = intSizeY
+	slideData.options.x = frame.x
+	slideData.options.y = frame.y
+	slideData.options.w = frame.w
+	slideData.options.h = frame.h
 	slideData.options.objectName = objectName
 	if (opt.altText) slideData.options.altText = opt.altText
 	if (opt.objectLock) slideData.options.objectLock = opt.objectLock

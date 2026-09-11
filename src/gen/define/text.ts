@@ -21,6 +21,7 @@ import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { mapStated, ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 
@@ -304,7 +305,9 @@ export function addTextDefinition(
 	//
 	// Read after `cleanOpts`, not before: a caller who named a layout placeholder inherits that
 	// placeholder's frame in step A.3, so a height can arrive without the caller stating one.
-	if (newObject.options.h === undefined && newObject.shape !== ShapeType.line) newObject.options.h = 0.3
+	// A line takes no default height and no zero-extent warning: it is drawn with no height on purpose.
+	if (newObject.shape !== ShapeType.line)
+		Object.assign(newObject.options, resolveAuthoredFrame(newObject.options, { h: 0.3 }, 'addText'))
 
 	// STEP 1a: Selection Pane identity (`objectName`). Set once here, on the shape-level object
 	// only — not inside `cleanOpts`, which also runs per text run (STEP 2 below). `Slide.addText`'s

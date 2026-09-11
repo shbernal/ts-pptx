@@ -226,6 +226,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: a zero extent is kept on every object and reported, and a `NaN` one is refused.**
+  Each method applied its own default for an omitted `w`/`h` and treated `0` its own way.
+  `w: 0, h: 0` gave `addMedia` a 2in square, `addChart` half the slide and `addImage` its
+  natural size, while `addShape`, `addOleObject`, `addModel3d` and the zooms got a zero extent,
+  and none of them said so. A `NaN` took the default wherever the method tested with `||`.
+  Now `0` is a stated extent everywhere: it is kept, and a zero `w` or `h` warns
+  `frame/zero-extent`, except on a line, which is drawn with no height or no width on purpose.
+  A `NaN` throws `coord/non-finite`. An omitted extent still takes each method's own default,
+  so a deck that states no zero extent is unchanged.
+
+  Migration: pass the size you want instead of `0`, or leave `w`/`h` out for the default.
+
 - **Breaking: a `NaN` option is refused, an infinite length clamps, and a coordinate outside
   the DrawingML range throws.**
   - `rotate`, a shape or text `line.width`, a `margin` component, a fill `transparency`,

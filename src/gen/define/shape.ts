@@ -14,6 +14,7 @@ import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { assertKnownPreset } from '../drawingml/geometry.js'
 import { resolveObjectName } from './object-name.js'
+import { resolveAuthoredFrame } from './frame.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -111,11 +112,11 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	if (lineType === 'solid') newLineOpts.color = namedColorOr(options.line.color, DEF_SHAPE_LINE_COLOR, 'line.color')
 	if (typeof options.line === 'object' && options.line.type !== 'none') options.line = newLineOpts
 
-	// 2: Set options defaults
-	options.x = options.x || (options.x === 0 ? 0 : 1)
-	options.y = options.y || (options.y === 0 ? 0 : 1)
-	options.w = options.w || (options.w === 0 ? 0 : 1)
-	options.h = options.h || (options.h === 0 ? 0 : 1)
+	// 2: Set options defaults. A line is drawn with no height or no width on purpose.
+	Object.assign(
+		options,
+		resolveAuthoredFrame(options, { x: 1, y: 1, w: 1, h: 1 }, 'addShape', newObject.shape === ShapeType.line)
+	)
 	// Shapes are `_type === text` objects, so they share the text-box name bucket (`Shape 1`,
 	// `Text 2`, …) — which is what stops a shape and a text box colliding on one index.
 	options.objectName = resolveObjectName(target, SlideObjectType.text, {

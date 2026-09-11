@@ -134,6 +134,7 @@ export type DiagnosticCode =
 	| 'geometry/shape-adjust-overridden'
 	| 'geometry/arc-node-point-ignored'
 	| 'shape/degenerate-extent'
+	| 'frame/zero-extent'
 	| 'geometry/invalid-guide'
 	| 'geometry/unknown-guide-operation'
 	| 'geometry/invalid-connection-site'
