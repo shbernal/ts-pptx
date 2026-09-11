@@ -47,14 +47,15 @@ kinds emit an empty `descr` when `altText` is omitted.
 
 ## Name validation
 
-`objectName` values are XML-encoded before serialization. ts-pptx also warns
+`objectName` values are kept as you wrote them (`slide.objects` and name lookups
+use your own spelling) and XML-encoded once, when written. ts-pptx also warns
 (via `console.warn`, without throwing) at generation time when a name cannot
 provide a stable Selection Pane identity, so identity bugs surface early instead
 of producing a silently broken deck:
 
 - empty or whitespace-only names;
 - names containing control characters (these are stripped during XML encoding,
-  silently changing the stored name);
+  so the file carries a different name than the one you supplied);
 - names longer than 255 characters (may not be preserved by PowerPoint);
 - duplicate `objectName` values emitted on a single slide (consumers that rely
   on unique names, such as semantic manifests, cannot disambiguate them).

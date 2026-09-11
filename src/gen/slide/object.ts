@@ -333,8 +333,8 @@ function slideNumberPlaceholderXml(
  * @return XML string with `<p:cSld>` as the root
  */
 export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal, renderers: RendererTable): string {
-	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
-	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
+	// `_name` is escaped here, at emission, as `objectName` is in `cNvPrOpen`: `_name` doubles as the
+	// raw lookup key `addSlide({masterTitle})` matches
 	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
 	// must stay unescaped until the last possible moment or that match breaks for any title
 	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains

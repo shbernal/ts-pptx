@@ -12,7 +12,7 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.j
 import { warn } from '../../diagnostics.js'
 import type { ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, nextMediaTarget } from '../utils.js'
+import { getNewRelId, nextMediaTarget } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
@@ -317,12 +317,10 @@ export function addTextDefinition(
 	// idx), so it does not take the `Text N` default — but it still takes an index from its own
 	// bucket, which is what keeps a slide's real text boxes from colliding with it.
 	const placeholderName = isPlaceholder
-		? encodeXmlAttrValue(
-				String(
-					newObject.options.placeholder ||
-						newObject.options._placeholderType ||
-						`Placeholder ${newObject.options._placeholderIdx ?? target._slideObjects.length}`
-				)
+		? String(
+				newObject.options.placeholder ||
+					newObject.options._placeholderType ||
+					`Placeholder ${newObject.options._placeholderIdx ?? target._slideObjects.length}`
 			)
 		: undefined
 	newObject.options.objectName = resolveObjectName(target, newObject._type, {

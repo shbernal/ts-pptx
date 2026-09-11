@@ -37,21 +37,20 @@ const textObj = (options = {}) => ({
 	options: { objectName: 'T', ...options },
 })
 
-describe('escaping: cNvPrOpen leaves objectName as-is (caller escapes upstream); cSld-name is escaped here', () => {
-	// This test drives `slideObjectToXml` directly with an already-raw `options.objectName`,
-	// bypassing the define layer (`addTextDefinition` et al.) that normally escapes it first via
-	// `encodeXmlEntities(validateObjectName(...))`. So "NOT escaped" here describes cNvPrOpen in
-	// isolation — intentional, since the real `addText()` API escapes once upstream (see
-	// `cNvPrOpen` in src/gen/slide/objects/shared.ts) and escaping again here would double-encode it.
-	test('objectName is NOT escaped (by this layer — the define layer escapes it upstream)', () => {
-		expect(render([textObj({ objectName: 'Q&A' })])).toContain('name="Q&A"')
+describe('escaping: cNvPrOpen escapes objectName and altText; cSld-name is escaped here', () => {
+	// A slide object stores its `objectName` as the caller wrote it (the define layer validates but
+	// does not escape it), so this layer is the one place it is escaped.
+	test('objectName IS escaped, and exactly once', () => {
+		const xml = render([textObj({ objectName: 'Q&A <"x">' })])
+		expect(xml).toContain('name="Q&amp;A &lt;&quot;x&quot;&gt;"')
+		expect(xml).not.toContain('&amp;amp;')
 	})
 
 	test('altText IS escaped, in the same element', () => {
 		expect(render([textObj({ altText: 'a & <b>' })])).toContain('descr="a &amp; &lt;b&gt;"')
 	})
 
-	// Unlike objectName, `_name` (-> `<p:cSld name>`) is escaped HERE, at this render layer, not
+	// Like objectName, `_name` (-> `<p:cSld name>`) is escaped HERE, at this render layer, not
 	// upstream: `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches against the
 	// caller's `title` (presentation.ts, `layout._name === masterTitle`), so it must stay unescaped
 	// until emission or that match breaks for a title containing XML metacharacters. The bug this

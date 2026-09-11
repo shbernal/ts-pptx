@@ -10,7 +10,6 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
 import { CHILD_DESCRIPTOR_FAMILIES, type ChildAuthors, type ChildDescriptorKey } from '../../families/shared.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
@@ -226,15 +225,14 @@ export function isGroupableObject(obj: SlideObject): boolean {
 }
 
 /**
- * Depth-first search for an object whose *stored* name is `key`, among group children. Used only to
- * explain a failed lookup, so it takes the same attribute-escaped key the caller already compared
- * against `_slideObjects` (see `groupObjectsDefinition`) rather than escaping again per call.
+ * Depth-first search for an object named `name` among group children. Used only to explain a failed
+ * lookup (see `groupObjectsDefinition`).
  */
-function findNameInGroups(objects: SlideObject[], key: string): boolean {
+function findNameInGroups(objects: SlideObject[], name: string): boolean {
 	return objects.some((obj) => {
 		if (obj._type !== SlideObjectType.group) return false
 		return (obj._groupObjects || []).some(
-			(child) => child.options?.objectName === key || findNameInGroups([child], key)
+			(child) => child.options?.objectName === name || findNameInGroups([child], name)
 		)
 	})
 }
@@ -286,17 +284,14 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 	// half-grouped.
 	const members: SlideObject[] = []
 	objectNames.forEach((name) => {
-		// Match the stored name, which every `add*Definition` attribute-escapes before it reaches
-		// `options` (same rule as `resolveObjectNameToId`, which this lookup does not go through).
-		// Comparing raw made `groupObjects(['Q&A'])` throw for a shape that is right there on the slide.
-		// Every message below stays on the caller's raw spelling.
-		const key = encodeXmlAttrValue(name)
-		const matches = target._slideObjects.filter((obj) => obj.options?.objectName === key)
+		// Stored names are the caller's own spelling (only `cNvPrOpen` escapes them), so the lookup
+		// and every message below compare and quote the name as given.
+		const matches = target._slideObjects.filter((obj) => obj.options?.objectName === name)
 		const [obj, ambiguous] = matches
 		if (!obj) {
 			// Distinguish "no such object" from "already grouped": both leave the caller's name
 			// unresolved, but only one of them is a typo.
-			const hint = findNameInGroups(target._slideObjects, key)
+			const hint = findNameInGroups(target._slideObjects, name)
 				? 'it is already inside a group (an object can only belong to one group)'
 				: 'no top-level object on this slide has that objectName'
 			throw new InvalidOptionError('group/unresolved-object-name', `groupObjects(): cannot group "${name}" — ${hint}.`)

@@ -10,7 +10,6 @@
 
 import { SlideObjectType } from '../../enums.js'
 import type { SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue } from '../utils.js'
 
 /**
  * The four `SlideObjectType` members that live in `_slideObjects` without drawing anything on the
@@ -97,13 +96,10 @@ export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObje
 /**
  * The `<p:cNvPr>` id of the object named `objectName`, or `null` when the slide has no such object.
  *
- * `objectName` is the **raw**, caller-supplied name — escaping is this helper's job. Every
- * `add*Definition` stores the name attribute-escaped (`encodeXmlAttrValue`) so `cNvPrOpen` can emit
- * it verbatim (see its comment in `gen/slide/objects/shared.ts`), which means the stored text is not the
- * caller's string: a shape added as `'Q&A'` is held as `Q&amp;A`. Comparing here rather than at each
- * call site keeps that one rule in one place — re-deriving it per caller is exactly how the
- * animation lookup came to disagree with the connector one and drop every effect naming a shape
- * whose name contained `&`, `<`, `>`, `"`, `'`, a tab or a newline.
+ * `objectName` is the **raw**, caller-supplied name, and it is compared as it is: every
+ * `add*Definition` stores the name as the caller wrote it, and only `cNvPrOpen` escapes it. Connector
+ * bindings and animation targets both resolve through here, so they cannot disagree about a name
+ * containing `&`, `<`, `>`, `"`, `'`, a tab or a newline.
  *
  * Group children are searched too: `buildGroupObject` splices them out of `_slideObjects` and into
  * their group's `_groupObjects`, but they are still `<p:cNvPr>`-named on this same slide and so are
@@ -117,9 +113,8 @@ export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObje
  * @returns the object's `<p:cNvPr>` id, or `null` when unresolved
  */
 export function resolveObjectNameToId(shapeIds: ReadonlyMap<SlideObject, number>, objectName: string): number | null {
-	const key = encodeXmlAttrValue(objectName)
 	for (const [obj, id] of shapeIds) {
-		if (obj.options?.objectName === key) return id
+		if (obj.options?.objectName === objectName) return id
 	}
 	return null
 }

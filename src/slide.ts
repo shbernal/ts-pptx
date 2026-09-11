@@ -33,7 +33,6 @@ import type {
 	SectionInternalProps,
 } from './types/internal.js'
 import { emuToInches } from './units.js'
-import { decodeXmlAttrValue } from './gen/utils.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { isGroupableObject } from './gen/define/group.js'
 import {
@@ -48,10 +47,8 @@ import {
  * Project one authored render-object onto the public {@link SlideObjectInfo}, recursing into a
  * group's children.
  *
- * The name is decoded on the way out. Every `add*Definition` stores it attribute-escaped, and
- * `groupObjects()` escapes the caller's spelling before it compares, so handing the stored form
- * back would escape it twice and resolve nothing — the same mismatch that once made `groupObjects`
- * throw for an object plainly on the slide, arriving from the other direction.
+ * The name is the stored one, which is the caller's own spelling: only `cNvPrOpen` escapes it. So
+ * a name read here resolves when it is handed back to `groupObjects()`.
  *
  * Every `add*Definition` also *generates* a name when the caller passed none, so the fallback below
  * is unreachable through the public API. It is there because the field is typed non-optional
@@ -62,7 +59,7 @@ function toSlideObjectInfo(obj: SlideObject): SlideObjectInfo {
 	const stored = obj.options?.objectName
 	return {
 		type: obj._type,
-		objectName: typeof stored === 'string' && stored.length > 0 ? decodeXmlAttrValue(stored) : '',
+		objectName: typeof stored === 'string' && stored.length > 0 ? stored : '',
 		isPlaceholder: !!obj.options?.placeholder,
 		canGroup: isGroupableObject(obj),
 		children: (obj._groupObjects ?? []).map(toSlideObjectInfo),

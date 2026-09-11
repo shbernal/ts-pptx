@@ -123,21 +123,17 @@ export type RendererTable = Partial<Record<RenderedObjectType, ObjectRenderer>>
  * `>`+children+`</p:cNvPr>` — the element is self-closing for some shape kinds and paired
  * (hyperlink / media-action children) for others.
  *
- * NOT built with the element builder, deliberately. `descr` is escaped here but `name` is **not**,
- * and that asymmetry is intentional and load-bearing: `objectName` is caller-supplied free text,
- * but every `add*Definition` (text.ts, shape.ts, image.ts, chart.ts, media.ts, connector.ts,
- * group.ts, table.ts) already runs it through `encodeXmlAttrValue(validateObjectName(...))` once
- * before it reaches a slide object's `options`. Escaping it again here would double-encode it
- * (`'Q&A'` -> `Q&amp;A` upstream -> `Q&amp;amp;A` if escaped here too). This helper exists so that
- * single escape stays one line in one place instead of eight call sites re-deriving it.
+ * Not built with the element builder, because callers append the closing delimiter. Both `name` and
+ * `descr` are escaped here and nowhere else: a slide object stores its `objectName` as the caller
+ * wrote it, so lookups by name and `slide.objects` compare and report the caller's own spelling.
  * @param id - the shape's `<p:cNvPr>` id, unique slide-wide
- * @param name - caller-supplied `objectName`, already escaped once upstream (emitted as-is)
- * @param descr - alt text (escaped)
+ * @param name - the object's `objectName`, raw (escaped here)
+ * @param descr - alt text, raw (escaped here)
  * @param openPrefix - byte-significant indentation before `<p:cNvPr`
  * @returns the open tag, without its closing delimiter
  */
 export function cNvPrOpen(id: number, name: string | undefined, descr: string, openPrefix = ''): string {
-	return `${openPrefix}<p:cNvPr id="${id}" name="${name}" descr="${encodeXmlAttrValue(descr)}"`
+	return `${openPrefix}<p:cNvPr id="${id}" name="${encodeXmlAttrValue(name ?? '')}" descr="${encodeXmlAttrValue(descr)}"`
 }
 
 /**

@@ -904,9 +904,8 @@ defineRegressionSuite('Group shapes', [
 		},
 	},
 	{
-		// The mirror of 'groupObjects resolves names containing XML metacharacters'. Names are stored
-		// attribute-escaped, so reporting the *stored* spelling would hand back a name that escapes a
-		// second time on the way in and resolves to nothing — the same defect, read side.
+		// The mirror of 'groupObjects resolves names containing XML metacharacters': a name that
+		// `slide.objects` reports has to resolve when it is handed back in, whatever it contains.
 		name: 'slide.objects reports a name with XML metacharacters in the spelling that resolves',
 		fn: async () => {
 			const metacharacters = 'Risk <high> "1" \'2\'\ttabbed\nwrapped'
@@ -915,12 +914,10 @@ defineRegressionSuite('Group shapes', [
 			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Q&A' })
 			s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: metacharacters })
 
-			// A name that is *itself* an entity spelling is the case where decoding is not a true
-			// inverse — it yields `&amp;`, which re-encodes to the stored `&amp;amp;`. The round trip
-			// is what is promised, and it still holds; only invertibility does not.
+			// A name that is itself an entity spelling comes back as that spelling, not as `&`.
 			s.addText('Bye', { x: 3, y: 1, w: 1, h: 1, objectName: '&amp;' })
 
-			assertEqual(s.objects[0].objectName, 'Q&A', 'expected the caller spelling, not the stored `Q&amp;A`')
+			assertEqual(s.objects[0].objectName, 'Q&A', 'expected the caller spelling, not `Q&amp;A`')
 			assertEqual(s.objects[1].objectName, metacharacters, 'expected every metacharacter back verbatim')
 			assertEqual(s.objects[2].objectName, '&amp;', 'expected a literal entity spelling back as authored')
 			// The guarantee that matters: what comes out goes back in.
@@ -929,7 +926,7 @@ defineRegressionSuite('Group shapes', [
 				{ objectName: 'R&D' }
 			)
 			assertEqual(s.objects.length, 1, 'expected all three reported names to resolve')
-			assertEqual(s.objects[0].objectName, 'R&D', 'expected the group name decoded too')
+			assertEqual(s.objects[0].objectName, 'R&D', 'expected the group name as authored too')
 		},
 	},
 	{

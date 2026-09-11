@@ -987,7 +987,7 @@ export default class PresentationCore {
 
 		const newLayout: SlideLayoutInternal = {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,
-			// Kept RAW (unescaped) here, unlike `objectName`'s single-escape-upstream design: `_name`
+			// Kept RAW (unescaped) here, as `objectName` is: `_name`
 			// doubles as the lookup key `addSlide({masterTitle})` matches against the caller's raw
 			// `title` string (see the `layout._name === masterTitle` comparisons in this file).
 			// Escaping it here would break that match for any title containing `&`/`<`/`"`. It's

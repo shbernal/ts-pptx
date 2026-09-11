@@ -222,6 +222,37 @@ defineRegressionSuite('Object identity [legacy bug-21]', [
 		},
 	},
 	{
+		// A layout placeholder's name reaches a slide object two ways: write-time seeding for a
+		// placeholder the slide leaves empty, and `addText({ placeholder })`. Both used to hand the
+		// stored, already escaped name back in as a supplied one, which escaped it again.
+		name: 'a layout placeholder name is escaped once on the slides that take it',
+		fn: async () => {
+			const name = 'Q&A <"draft">'
+			const escaped = 'Q&amp;A &lt;&quot;draft&quot;&gt;'
+			/** @type {any} */
+			let filled
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'NAMED',
+					objects: [{ placeholder: { options: { name, type: 'body', x: 1, y: 1, w: 6, h: 3 }, text: '' } }],
+				})
+				p.addSlide({ masterTitle: 'NAMED' })
+				filled = p.addSlide({ masterTitle: 'NAMED' })
+				filled.addText('hello', { placeholder: name })
+			})
+
+			for (const part of ['ppt/slideLayouts/slideLayout2.xml', 'ppt/slides/slide1.xml', 'ppt/slides/slide2.xml']) {
+				const xml = await readEntry(zip, part)
+				assertNonVisualDrawingProperty(xml, { name: escaped }, part)
+				assert(!/&amp;(?:amp|lt|gt|quot|apos);/.test(xml), `${part} escapes a name a second time`)
+			}
+			assert(
+				filled.objects[0].objectName === name,
+				`objectName should read back as authored; got ${filled.objects[0].objectName}`
+			)
+		},
+	},
+	{
 		name: 'default cNvPr names are emitted when objectName is omitted',
 		fn: async () => {
 			const { zip } = await build((p) => {

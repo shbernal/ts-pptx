@@ -7,7 +7,7 @@
  */
 import { SlideObjectType } from '../../enums.js'
 import type { PresSlideInternal } from '../../types/internal.js'
-import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
+import { validateObjectName } from '../utils.js'
 
 /**
  * Take the next slide-wide index for `type`'s default Selection Pane name — 0-based here, and
@@ -36,8 +36,12 @@ export function nextObjectNameIdx(target: PresSlideInternal, type: SlideObjectTy
 }
 
 /**
- * The Selection Pane name an object takes: the caller's, validated and attribute-encoded, or the
+ * The Selection Pane name an object takes: the caller's, validated and kept as they wrote it, or the
  * next default for its kind — `Shape 1`, `Image 1`, `Group 1`, `Slide Zoom 1`, …
+ *
+ * The name is stored raw and escaped once, when `cNvPrOpen` writes it. It used to be escaped here,
+ * so any path that handed a stored name back in as a supplied one escaped it a second time: a layout
+ * placeholder named `Q&A` was written `Q&amp;amp;A` on every slide that took its name.
  *
  * Eleven definers wrote this out, and the index base they appended used to disagree: six counted
  * from 0 (`Shape 0`, `Text 0`, `Image 0`, `Connector 0`, `Media 0`, `Table 0`), four from 1
@@ -66,6 +70,6 @@ export function resolveObjectName(
 	spec: { label: string; kind: string; supplied: string | undefined; fallback?: string }
 ): string {
 	const idx = nextObjectNameIdx(target, type)
-	if (spec.supplied) return encodeXmlAttrValue(validateObjectName(spec.supplied, spec.kind))
+	if (spec.supplied) return validateObjectName(spec.supplied, spec.kind)
 	return spec.fallback ?? `${spec.label} ${idx + 1}`
 }

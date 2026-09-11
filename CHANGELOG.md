@@ -808,6 +808,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A layout placeholder named with `&`, `<` or `"` was escaped twice on the slides that took its
+  name.** `objectName` was escaped when it was stored, so a stored name handed back in as a supplied
+  one was escaped again. A layout placeholder named `Q&A` wrote `name="Q&amp;A"` on the layout but
+  `name="Q&amp;amp;A"` on a slide seeded from it and on one filled through
+  `addText({ placeholder: 'Q&A' })`, and `slide.objects` reported that object as `Q&amp;A`. Names
+  are now stored as the caller wrote them and escaped once, when written. Warnings that quote an
+  object name quote it as written.
+
 - **A Summary Zoom's fallback pictures took the ids of the shapes after it.** The `mc:Fallback` a
   Summary Zoom writes holds one picture per tile, numbered from the zoom's own id, and those ids had
   already gone to the next shapes on the slide: a three-tile summary zoom followed by a shape gave
