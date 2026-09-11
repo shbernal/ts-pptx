@@ -458,6 +458,33 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// ST_GapAmount allows 0. The chart-level stacked default tested `!barGapWidthPct`, so a stated
+		// 0 became 50, while the same options inside a combo kept it.
+		name: 'a stacked bar keeps a stated gap width of 0, standalone and inside a combo',
+		fn: async () => {
+			const stacked = { barGrouping: 'stacked', barGapWidthPct: 0 }
+			const standalone = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, ...stacked })
+			})
+			assertIncludes(await chartXml(standalone.zip), '<c:gapWidth val="0"/>', 'a standalone stacked bar keeps 0')
+			const combo = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ type: ChartType.bar, data: SERIES, options: stacked },
+						{ type: ChartType.line, data: [{ ...SERIES[0], name: 'S2' }], options: {} },
+					],
+					BASE
+				)
+			})
+			assertIncludes(await chartXml(combo.zip), '<c:gapWidth val="0"/>', 'so does the same bar inside a combo')
+			// Saying nothing still gives a stacked bar the narrower default.
+			const unstated = await build((p) => {
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, barGrouping: 'stacked' })
+			})
+			assertIncludes(await chartXml(unstated.zip), '<c:gapWidth val="50"/>', 'an unstated gap takes 50')
+		},
+	},
+	{
 		name: 'a chart option that is not a number throws instead of silently taking the default',
 		fn: async () => {
 			// One policy for an out-of-range number, stated on `clampRangedInput`: a finite value

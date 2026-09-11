@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A stacked bar chart turned `barGapWidthPct: 0` into 50.** The narrower stacked-bar default
+  tested for a falsy width, so a stated 0 (a legal gap) was replaced, while the same options on a
+  stacked bar inside a combo kept it. Both now apply the default only when no width was stated.
+  A `NaN` width on a stacked bar no longer takes 50 either: it throws `chart/option-non-finite`
+  like every other chart option that is not a number.
+
 - **A combo subchart on one secondary axis, and a 3-D chart with `valAxes`, referenced axes that
   were never written.** The axes a chart emitted were decided by its `valAxes` override list rather
   than by what its plots reference.

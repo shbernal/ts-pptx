@@ -325,6 +325,20 @@ function normalizeChartBarGrouping(options: ChartOptsOverrides, chartType: Chart
 }
 
 /**
+ * Give a stacked bar group the narrower default gap, 50 rather than 150, unless the caller stated a
+ * width.
+ *
+ * Written twice once, and the chart-level copy tested `!barGapWidthPct`, so a stated `0` (legal
+ * for ST_GapAmount) became 50 there while the same options inside a combo kept it. "Stated" is any
+ * value other than absent: a `NaN` is stated too, and the clamp after this reports it.
+ * @param options - options bag to correct in place
+ * @param callerSet - whether the caller stated a gap width for this bag
+ */
+function applyStackedGapDefault(options: ChartOptsOverrides, callerSet: boolean): void {
+	if (options.barGrouping?.includes('tacked') && !callerSet) options.barGapWidthPct = 50
+}
+
+/**
  * Apply plotArea option defaults: show* toggles, axis-line visibility, and the 3D view angles.
  */
 function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
@@ -585,8 +599,7 @@ function normalizeComboSubchartOptions(
 	// A stacked bar group takes the narrower default gap a chart-level stacked bar gets. The
 	// merged bag already carries the clustered default, so only step in when neither the
 	// chart-level nor the subchart caller asked for a specific width.
-	if (fixed.barGrouping?.includes('tacked') && !callerSetBarGapWidthPct && sub.barGapWidthPct == null)
-		fixed.barGapWidthPct = 50
+	applyStackedGapDefault(fixed, callerSetBarGapWidthPct || sub.barGapWidthPct != null)
 	// Depends on the corrected grouping above, so it has to run after it.
 	normalizeChartDataLabelPosition(fixed, subType)
 
@@ -688,7 +701,7 @@ export function addChartDefinition(
 	const options: ChartOptsInternal = copyChartOptions(tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {})
 	// Captured before normalization fills in the default, so the combo pass below can tell an
 	// explicit gap width from an inherited one.
-	const callerSetBarGapWidthPct = typeof options.barGapWidthPct === 'number' && !Number.isNaN(options.barGapWidthPct)
+	const callerSetBarGapWidthPct = options.barGapWidthPct != null
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
@@ -738,9 +751,7 @@ export function addChartDefinition(
 	// barGrouping must be handled before data label validation as it can affect valid label positioning
 	const chartLevelType = Array.isArray(options._type) ? undefined : options._type
 	normalizeChartBarGrouping(options, chartLevelType)
-	if (options.barGrouping?.includes('tacked')) {
-		if (!options.barGapWidthPct) options.barGapWidthPct = 50
-	}
+	applyStackedGapDefault(options, callerSetBarGapWidthPct)
 	// Clean up and validate data label positions
 	// REFERENCE: https://docs.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e2b1697c-7adc-463d-9081-3daef72f656f?redirectedfrom=MSDN
 	normalizeChartDataLabelPosition(options, chartLevelType)
