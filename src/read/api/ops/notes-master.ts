@@ -11,8 +11,7 @@
 
 import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { copyPart, newOwnedScope, type ImportContext } from './part-copy.js'
-import { isSharedByPageCopies } from './page-owned.js'
+import { copyPart, newOwnedScope, rebuildRels, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import {
 	NOTES_MASTER_CONTENT_TYPE,
@@ -76,32 +75,22 @@ export function carryNotes(
 	const owned = newOwnedScope()
 	owned.set(sourceNotesPartName, newNotesPartName)
 
-	// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
-	// the notesSlide body's r:id references stay valid; only the targets are rewritten.
+	// Rebuild the copied notesSlide's relationships. Each keeps its source id so the
+	// notesSlide body's r:id references stay valid; only the targets are rewritten.
 	const notesSourceRels = source.opc.relationshipsFor(sourceNotesPartName)
-	const notesTargetRels = dest.opc.relationshipsFor(newNotesPartName)
-	for (const rel of notesSourceRels) {
-		if (rel.type === SLIDE_REL) {
-			// Back-reference to the annotated slide → repoint at the new slide (don't copy it).
-			notesTargetRels.addWithId(rel.id, SLIDE_REL, relativePartName(newNotesPartName, newSlidePartName))
-			continue
-		}
-		if (rel.type === NOTES_MASTER_REL) {
-			const notesMaster = ensureNotesMaster(dest, ctx, notesSourceRels.resolveTarget(rel.id))
-			notesTargetRels.addWithId(rel.id, NOTES_MASTER_REL, relativePartName(newNotesPartName, notesMaster))
-			continue
-		}
-		if (rel.targetMode === 'External') {
-			notesTargetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-			continue
-		}
-		const newTarget = copyPart(
-			ctx,
-			notesSourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : owned
-		)
-		notesTargetRels.addWithId(rel.id, rel.type, relativePartName(newNotesPartName, newTarget))
-	}
+	rebuildRels(ctx, {
+		source: sourceNotesPart,
+		newPartName: newNotesPartName,
+		owned,
+		allowReuse: false,
+		override: (rel) => {
+			// Back-reference to the annotated slide → the new slide, never a copy of the source one.
+			if (rel.type === SLIDE_REL) return { target: newSlidePartName }
+			if (rel.type === NOTES_MASTER_REL)
+				return { target: ensureNotesMaster(dest, ctx, notesSourceRels.resolveTarget(rel.id)) }
+			return undefined
+		},
+	})
 }
 
 /**
