@@ -14,13 +14,12 @@ import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
 import { genXmlImageCrop, genXmlVectorAspectFit, ImageSizingXml } from '../../drawingml/image.js'
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
-import { getImageSizeFromBase64 } from '../../../media/image-size.js'
 import { el, raw, voidEl, type XmlChild } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
-import { pixelsToEmu } from '../../../units.js'
 import { warn } from '../../../diagnostics.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
+import { imageNaturalSize, resolveImageExtent } from './image-extent.js'
 
 /**
  * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
@@ -28,17 +27,17 @@ import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl 
 export function renderImageObject(ctx: RenderContext): string {
 	const { obj: slideItemObj, shapeId, slide, placeholder: placeholderObj, locationAttrs, itemOpts } = ctx
 	const { x, y } = ctx.frame
-	// The frame, read twice into two pairs that then diverge: `_szAuto` backfills an omitted
-	// dimension from the image's natural ratio, and `sizing` splits the two apart for good —
-	// `frameW`/`frameH` stay the box the caller asked for, which is what the source rectangle is
-	// cropped against, while `drawnW`/`drawnH` become the box actually drawn and emitted. Neither
-	// pair is the image's own size; that is the third quantity here, and only `naturalSize()`
-	// answers it. The second pair used to arrive as a separate argument, but the dispatch built it
-	// from the same two variables as the frame, two statements away, so it never carried anything
-	// else.
-	let { cx: frameW, cy: frameH } = ctx.frame
-	let drawnW = ctx.frame.cx
-	let drawnH = ctx.frame.cy
+	// The frame, as two pairs that diverge: `_szAuto` backfills an omitted dimension from the
+	// image's natural ratio, and `sizing` splits the two apart for good. `frameW`/`frameH` stay the
+	// box the caller asked for, which is what the source rectangle is cropped against, while
+	// `drawnW`/`drawnH` become the box actually drawn and emitted. Neither pair is the image's own
+	// size; that is the third quantity here, and only `naturalSize()` answers it.
+	// `resolveImageExtent` computes both pairs, because a parent group's bounds need the drawn box
+	// too. `drawnW`/`drawnH` start as the frame and take the `sizing` box where the source rectangle
+	// is emitted below.
+	const { frameW, frameH, drawnW: sizedW, drawnH: sizedH } = resolveImageExtent(slideItemObj, slide, ctx.frame)
+	let drawnW = frameW
+	let drawnH = frameH
 	const { sizing, rounding } = itemOpts
 	let strSlideXml = ''
 	// `itemOpts` is the caller's already-normalized `itemOpts` (see the dispatch in
@@ -48,29 +47,7 @@ export function renderImageObject(ctx: RenderContext): string {
 	// populated by now — which is why every question that needs the image itself (its natural
 	// size, whether it is a vector) is answered here rather than at definition time.
 	const mediaRel = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)
-	const relData = mediaRel?.data
-	const naturalSize = (): { w: number; h: number } | null =>
-		typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
-	// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
-	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
-	if (itemOpts._szAuto) {
-		const szAuto = itemOpts._szAuto
-		const natural = naturalSize()
-		if (natural) {
-			if (szAuto.w && szAuto.h) {
-				frameW = pixelsToEmu(natural.w, 96)
-				frameH = pixelsToEmu(natural.h, 96)
-			} else if (szAuto.h) {
-				// Width supplied, derive height
-				frameH = Math.round(frameW * (natural.h / natural.w))
-			} else if (szAuto.w) {
-				// Height supplied, derive width
-				frameW = Math.round(frameH * (natural.w / natural.h))
-			}
-			drawnW = frameW
-			drawnH = frameH
-		}
-	}
+	const naturalSize = (): { w: number; h: number } | null => imageNaturalSize(slideItemObj, slide)
 	const imgOpts = itemOpts
 	const imgLink = slideItemObj.hyperlink
 	strSlideXml += '<p:pic>'
@@ -179,8 +156,8 @@ export function renderImageObject(ctx: RenderContext): string {
 			)
 		strSlideXml += genXmlImageCrop(itemOpts.crop, itemOpts.objectName)
 	} else if (sizing?.type) {
-		const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : frameW
-		const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : frameH
+		const boxW = sizedW
+		const boxH = sizedH
 		const boxX = getSmartParseNumber(sizing.x || 0, 'X', slide._presLayout)
 		const boxY = getSmartParseNumber(sizing.y || 0, 'Y', slide._presLayout)
 

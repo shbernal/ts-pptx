@@ -33,6 +33,8 @@ import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { cNvPrOpen, grpXfrmEl, type RenderContext, type RendererTable } from './objects/shared.js'
+// Not a renderer: it measures the box an image is drawn in, which a group's bounds need, and emits no XML.
+import { resolveImageExtent } from './objects/image-extent.js'
 import { collectSlideShapeIds, shapeIdCount } from './shape-ids.js'
 import { InternalError } from '../../errors.js'
 import {
@@ -103,6 +105,81 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
  */
 const normalizeAxisExtent = (off: number, ext: number): { off: number; ext: number; flip: boolean } =>
 	ext < 0 ? { off: off + ext, ext: -ext, flip: true } : { off, ext, flip: false }
+
+/** The frame a slide object is drawn in. */
+interface ObjectFrame {
+	/** the min-corner placement box, in EMU */
+	x: number
+	y: number
+	cx: number
+	cy: number
+	/** whether normalization mirrored an axis, which composes onto the author's own flip */
+	flipX: boolean
+	flipY: boolean
+	/** the layout placeholder the object names, which it inherits unstated axes from */
+	placeholder: SlideObject | null
+}
+
+/**
+ * Resolve the frame a slide object is drawn in.
+ *
+ * The render pass and a group's bounding box both need it, and they used to resolve it apart. The
+ * bounds pass defaulted a missing `w` or `h` to 0 and skipped placeholder inheritance, while the
+ * render pass defaulted `cx` to 75% of the slide width and inherited the placeholder's frame, so a
+ * group holding a text box with no `w` came out narrower than the text box.
+ *
+ * Each axis, most specific source first: what the caller stated on this object, else what the
+ * layout placeholder it names states, else the default (`x`, `y` and `cy` 0, `cx` 75% of the slide
+ * width). An explicit option beats an inherited one everywhere else in this library, and a
+ * placeholder is an inherited one: applying it after the object's own values used to throw away a
+ * stated frame with no diagnostic.
+ *
+ * Inheritance happens before normalization. A negative `w`/`h` becomes a min-corner origin, an
+ * absolute extent and a flip, never a negative `<a:ext>`, which is out of range for
+ * `ST_PositiveCoordinate` and costs the whole package (see `normalizeAxisExtent`). Doing it after
+ * every `Coord` form has resolved to EMU means `'-2in'` and `'-25%'` normalize like a plain
+ * negative number, and a placeholder's extents normalize with the object's own.
+ * @param obj - the slide object
+ * @param slide - the slide or layout holding it
+ * @returns the object's frame
+ */
+function resolveObjectFrame(obj: SlideObject, slide: PresSlideInternal | SlideLayoutInternal): ObjectFrame {
+	const itemOpts = obj.options ?? {}
+	const layout = slide._presLayout
+	const slideLayout = (slide as PresSlideInternal)._slideLayout
+	const wantedPlaceholder = itemOpts.placeholder
+	const placeholder =
+		slideLayout?._slideObjects !== undefined && wantedPlaceholder
+			? (slideLayout._slideObjects.filter(
+					(object: SlideObject) => object.options?.placeholder === wantedPlaceholder
+				)[0] ?? null)
+			: null
+
+	const phOpts = placeholder?.options ?? {}
+	const inherited = <T>(own: T | undefined, ph: T | undefined): T | undefined =>
+		own !== undefined ? own : (ph ?? undefined)
+	const ownX = inherited(itemOpts.x, phOpts.x)
+	const ownY = inherited(itemOpts.y, phOpts.y)
+	const ownW = inherited(itemOpts.w, phOpts.w)
+	const ownH = inherited(itemOpts.h, phOpts.h)
+	const normX = normalizeAxisExtent(
+		ownX !== undefined ? getSmartParseNumber(ownX, 'X', layout) : 0,
+		ownW !== undefined ? getSmartParseNumber(ownW, 'X', layout) : getSmartParseNumber('75%', 'X', layout)
+	)
+	const normY = normalizeAxisExtent(
+		ownY !== undefined ? getSmartParseNumber(ownY, 'Y', layout) : 0,
+		ownH !== undefined ? getSmartParseNumber(ownH, 'Y', layout) : 0
+	)
+	return {
+		x: normX.off,
+		y: normY.off,
+		cx: normX.ext,
+		cy: normY.ext,
+		flipX: normX.flip,
+		flipY: normY.flip,
+		placeholder,
+	}
+}
 
 /**
  * Whether this part has a real slide number to cache in a `slidenum` field.
@@ -373,18 +450,15 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
 			const maxY = Math.max(...kids.map((b) => b.y + b.cy))
 			return { x: minX, y: minY, cx: maxX - minX, cy: maxY - minY }
 		}
-		// Normalized the same way the render path below normalizes its own box, so a child with a
-		// negative extent contributes the box it will actually be emitted with — an un-normalized
-		// `x + cx` would put the group's `maxX` *left* of its `minX` and size the group wrong.
-		const bx = normalizeAxisExtent(
-			typeof o.x !== 'undefined' ? getSmartParseNumber(o.x, 'X', slide._presLayout) : 0,
-			typeof o.w !== 'undefined' ? getSmartParseNumber(o.w, 'X', slide._presLayout) : 0
-		)
-		const by = normalizeAxisExtent(
-			typeof o.y !== 'undefined' ? getSmartParseNumber(o.y, 'Y', slide._presLayout) : 0,
-			typeof o.h !== 'undefined' ? getSmartParseNumber(o.h, 'Y', slide._presLayout) : 0
-		)
-		return { x: bx.off, y: by.off, cx: bx.ext, cy: by.ext }
+		// The frame the render pass draws the object in, so a child with a defaulted, inherited or
+		// negative extent contributes the box it is actually emitted with. An image is drawn at the
+		// extent its natural size and `sizing` box give it, which can differ from its frame.
+		const frame = resolveObjectFrame(obj, slide)
+		if (obj._type === SlideObjectType.image) {
+			const { drawnW, drawnH } = resolveImageExtent(obj, slide, frame)
+			return { x: frame.x, y: frame.y, cx: drawnW, cy: drawnH }
+		}
+		return { x: frame.x, y: frame.y, cx: frame.cx, cy: frame.cy }
 	}
 
 	// Render one slide object — and, for a group, its children recursively — to an XML fragment.
@@ -397,63 +471,13 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
 		// references resolve through, so the two cannot drift.
 		const shapeId = shapeIds.get(slideItemObj) ?? 2
 		let strSlideXml = ''
-		let x = 0
-		let y = 0
-		// Annotated `number` rather than inferring the branded `Emu` this initializer returns: `x`, `y`,
-		// and `cy` are all plain numbers, every `render*Object` takes `number`, and normalization below
-		// reassigns all four from one helper.
-		let cx: number = getSmartParseNumber('75%', 'X', slide._presLayout)
-		let cy = 0
-		let placeholderObj: SlideObject | null = null
-
-		const slideLayout = (slide as PresSlideInternal)._slideLayout
-		const wantedPlaceholder = slideItemObj.options?.placeholder
-		if (slideLayout?._slideObjects !== undefined && wantedPlaceholder) {
-			placeholderObj =
-				slideLayout._slideObjects.filter(
-					(object: SlideObject) => object.options?.placeholder === wantedPlaceholder
-				)[0] ?? null
-		}
 
 		// A: Set option vars. Resolved to a LOCAL, never assigned back: a serializer does not
 		// normalize the authored model, which is the contract `RenderContext.itemOpts` and
 		// `slideNumberPlaceholderXml` both state, and these were the last two writes against it.
 		const itemOpts = slideItemObj.options ?? {}
-
-		// Each axis, most specific source first: what the caller stated on this object, else what
-		// the layout placeholder it names states, else the default already in the variable.
-		//
-		// The placeholder used to be applied AFTER this, and unconditionally — so
-		// `addText('own coords', { placeholder: 'body', x: 5, y: 3, w: 2, h: 1 })` had all four of
-		// its stated values thrown away with no diagnostic, while the same object with a
-		// *partial* frame and no placeholder warns loudly. An explicit option beats an inherited
-		// one everywhere else in this library; a placeholder is an inherited one.
-		//
-		// It also has to happen before the normalization below rather than after it: the
-		// placeholder's extents used to skip normalization entirely while the flip flags were
-		// derived from the object's own signs, so a negative extent on either side composed wrong.
-		const phOpts = placeholderObj?.options ?? {}
-		const inherited = <T>(own: T | undefined, ph: T | undefined): T | undefined =>
-			own !== undefined ? own : (ph ?? undefined)
-		const ownX = inherited(itemOpts.x, phOpts.x)
-		const ownY = inherited(itemOpts.y, phOpts.y)
-		const ownW = inherited(itemOpts.w, phOpts.w)
-		const ownH = inherited(itemOpts.h, phOpts.h)
-		if (ownX !== undefined) x = getSmartParseNumber(ownX, 'X', slide._presLayout)
-		if (ownY !== undefined) y = getSmartParseNumber(ownY, 'Y', slide._presLayout)
-		if (ownW !== undefined) cx = getSmartParseNumber(ownW, 'X', slide._presLayout)
-		if (ownH !== undefined) cy = getSmartParseNumber(ownH, 'Y', slide._presLayout)
-
-		// A negative `w`/`h` becomes a min-corner origin, an absolute extent, and a flip — never a
-		// negative `<a:ext>`, which is out of range for `ST_PositiveCoordinate` and costs the whole
-		// package (see `normalizeAxisExtent`). Done here, after every `Coord` form has resolved to EMU,
-		// so `'-2in'` and `'-25%'` normalize alongside a plain negative number.
-		const normX = normalizeAxisExtent(x, cx)
-		const normY = normalizeAxisExtent(y, cy)
-		x = normX.off
-		cx = normX.ext
-		y = normY.off
-		cy = normY.ext
+		// The same frame a parent group's bounding box is taken over (`resolveObjBounds` above).
+		const { x, y, cx, cy, flipX, flipY, placeholder: placeholderObj } = resolveObjectFrame(slideItemObj, slide)
 
 		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
 		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
@@ -461,8 +485,8 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
 		// A flip derived from a negative extent XORs with the author's own: `{ w: -2, flipH: true }`
 		// is a box mirrored twice, i.e. not mirrored at all.
 		const locationAttrs: XmlAttrs = {
-			flipH: xsdBoolIfTrue(Boolean(itemOpts.flipH) !== normX.flip),
-			flipV: xsdBoolIfTrue(Boolean(itemOpts.flipV) !== normY.flip),
+			flipH: xsdBoolIfTrue(Boolean(itemOpts.flipH) !== flipX),
+			flipV: xsdBoolIfTrue(Boolean(itemOpts.flipV) !== flipY),
 			rot: mapStated(itemOpts.rotate, convertRotationDegrees) ?? null,
 		}
 

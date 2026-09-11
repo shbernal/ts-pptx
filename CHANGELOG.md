@@ -830,6 +830,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An auto-sized group could be smaller than the children it holds.** A group with no explicit
+  frame sizes itself around its children, and it read their frames apart from the renderer that
+  draws them. A child with no `w` counted as zero wide though it is drawn 75% of the slide wide,
+  a child inheriting its frame from a layout placeholder counted at the origin, and an image
+  counted at its own `w`/`h` rather than its `sizing` box or natural size. Both now read one
+  frame, so the group's box contains every child.
+
 - **A layout placeholder named with `&`, `<` or `"` was escaped twice on the slides that took its
   name.** `objectName` was escaped when it was stored, so a stored name handed back in as a supplied
   one was escaped again. A layout placeholder named `Q&A` wrote `name="Q&amp;A"` on the layout but

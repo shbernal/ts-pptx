@@ -1015,4 +1015,36 @@ defineRegressionSuite('Group shapes', [
 			assertEqual(s.objects[0].objectName, 'Box', 'expected the slide to ignore a write to the snapshot')
 		},
 	},
+	{
+		// A group's box is the bounding box of its children, taken over the frames they are drawn in.
+		// A text child with no `w` is drawn 75% of the slide wide, and an image with a `sizing` box is
+		// drawn at that box. The bounds pass read the first as zero wide and the second at its own
+		// `w`/`h`, so the group came out narrower and shorter than what it held.
+		name: 'an auto-sized group contains every child, whatever defaulted or replaced its extent',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addGroup([
+					{ text: { text: 'hi', options: { x: 1, y: 1, h: 1 } } },
+					{ rect: { x: 1, y: 3, w: 1, h: 1 } },
+					{ image: { data: PNG_1X1, x: 2, y: 4, w: 1, h: 1, sizing: { type: 'contain', w: 8, h: 1.5 } } },
+				])
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const group = xml.slice(xml.indexOf('<p:grpSp>'))
+			const boxes = [...group.matchAll(/<a:off x="(-?\d+)" y="(-?\d+)"\/>\s*<a:ext cx="(\d+)" cy="(\d+)"\/>/g)].map(
+				(m) => ({ x: Number(m[1]), y: Number(m[2]), cx: Number(m[3]), cy: Number(m[4]) })
+			)
+			assertEqual(boxes.length, 4, 'expected the group and its three children')
+			const [frame, ...children] = boxes
+			for (const child of children) {
+				assert(
+					child.x >= frame.x &&
+						child.y >= frame.y &&
+						child.x + child.cx <= frame.x + frame.cx &&
+						child.y + child.cy <= frame.y + frame.cy,
+					`expected the group ${JSON.stringify(frame)} to contain ${JSON.stringify(child)}`
+				)
+			}
+		},
+	},
 ])
