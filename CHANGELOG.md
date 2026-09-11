@@ -851,6 +851,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addTable`'s `columns` option styled a cell under a rowspan with the wrong column.** The
+  sugar counted each cell's `colspan` along its row but not a `rowspan` holding a column from an
+  earlier row, so in `[[{ text: 'A', rowspan: 2 }, 'B'], ['C']]` the cell `C`, which sits in the
+  second column, took `columns[0]`. It also read spans before they were range-checked, so a
+  negative `colspan` shifted every later cell. Each cell now takes the definition of the grid
+  column it starts in, and a bad span is reported once.
+
 - **`tableToSlides` ignored `x` when sizing a table and shrank a stated `w`.** The width was the
   slide width (or `w`) less both slide margins. On a 10in slide `{ x: 3 }` gave a 9in table running
   to 12in, `{ w: 8 }` gave a 7in table, and `x: 0` placed the table at the 0.5in margin. A stated

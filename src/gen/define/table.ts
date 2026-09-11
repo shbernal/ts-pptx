@@ -27,6 +27,7 @@ import type {
 } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { tableHasHyperlink, withCheckedSpans } from '../table/spans.js'
+import { tableColCount, walkTableGrid } from '../table/grid.js'
 import {
 	getSmartParseNumber,
 	resolveCellMarginsInches,
@@ -111,19 +112,30 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TablePropsInter
 	let srcRows: TableRow[] = tableRows
 	if ((hdr || cols) && Array.isArray(tableRows[0])) {
 		if (hdr && opt.hasHeader === undefined) opt.hasHeader = true
+		// The grid column each cell starts in, from the walk the emitter, the auto-pager and the
+		// measured fit read. This kept a cursor of its own, `colCursor += colspan || 1`, which ignored
+		// a rowspan from an earlier row: under `[[{ text: 'A', rowspan: 2 }, 'B'], ['C']]` it gave `C`
+		// the first column's definition though `C` sits in the second. A string or number cell spans
+		// one column. A cell starting past the grid gets no definition; the emitter drops it.
+		const gridRows = tableRows as TableCellInternal[][]
+		const gridCols: number[][] = gridRows.map(() => [])
+		if (cols) {
+			for (const placement of walkTableGrid(gridRows, tableColCount(gridRows))) {
+				gridCols[placement.row]?.push(placement.col)
+			}
+		}
 		srcRows = tableRows.map((row, rowIdx) => {
 			if (!Array.isArray(row)) return row
 			// Column-scoped defaults only apply when we actually have `columns`; the header row
 			// alone is a cheaper positional map. Skip untouched body rows to avoid needless copies.
 			if (!cols && rowIdx !== 0) return row
-			let colCursor = 0
-			return row.map((cell: number | string | TableCellInternal): TableCellInternal => {
+			return row.map((cell: number | string | TableCellInternal, cellIdx): TableCellInternal => {
 				const cellObj: TableCellInternal =
 					typeof cell === 'string' || typeof cell === 'number'
 						? { text: String(cell), options: {} }
 						: { ...cell, options: { ...cell.options } }
-				const colDef = cols ? cols[colCursor] : undefined
-				colCursor += cellObj.options?.colspan || 1
+				const gridCol = gridCols[rowIdx]?.[cellIdx]
+				const colDef = cols && gridCol !== undefined ? cols[gridCol] : undefined
 				cellObj.options = {
 					...(colDef && typeof colDef === 'object' ? colDef : {}),
 					...(rowIdx === 0 && hdr ? hdr : {}),
@@ -145,7 +157,8 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TablePropsInter
  */
 function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): TableCellInternal[][] {
 	const arrRows: TableCellInternal[][] = []
-	srcRows.forEach((row, idx) => {
+	// Every row is an array by now: STEP 1 of `addTableDefinition` refuses one that is not.
+	srcRows.forEach((row) => {
 		const newRow: TableCellInternal[] = []
 
 		if (Array.isArray(row)) {
@@ -224,13 +237,6 @@ function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): Table
 				// LAST:
 				newRow.push(newCell)
 			})
-		} else {
-			// The same condition STEP 1 rejects for row 0, reaching us on a later row. It used to log
-			// and push an empty row, so a deck built fine and quietly lost a row of content.
-			throw new InvalidOptionError(
-				'table/rows-not-nested',
-				`addTable: 'rows' should be an array of cells! Row ${idx} is ${JSON.stringify(row)}`
-			)
 		}
 
 		arrRows.push(newRow)
@@ -380,6 +386,16 @@ export function addTableDefinition(
 				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );'"
 			)
 		}
+		// Every later row too, and here rather than while normalizing: the span check and the
+		// `columns` sugar below both read rows as arrays, and a later row that was not one used to
+		// reach them before `normalizeTableRows` refused it, failing as a raw `TypeError`.
+		tableRows.forEach((row, idx) => {
+			if (idx === 0 || Array.isArray(row)) return
+			throw new InvalidOptionError(
+				'table/rows-not-nested',
+				`addTable: 'rows' should be an array of cells! Row ${idx} is ${JSON.stringify(row)}`
+			)
+		})
 	}
 
 	// STEP 1.5: `headerRow` / `columns` inline sugar — bake blanket styling into cells as
@@ -390,16 +406,18 @@ export function addTableDefinition(
 	// header cell keeps `headerRow` typography and takes its column's fill when they differ.
 	// Setting `headerRow` implies `hasHeader` unless the caller set it explicitly. The caller's
 	// `tableRows` array is not mutated — only affected rows (and their cells) are shallow-copied.
-	const srcRows = applyTableHeaderColumnSugar(tableRows, opt)
+	// Range-check the spans before anything reads them, the sugar's grid walk included. The
+	// auto-pager and the emitter's merge grid both lay a grid out from a span, and a caller-supplied
+	// `colspan: 4294967295` aborts the process rather than throwing. Checking once, here, is what
+	// makes one bad cell warn once and keeps the paged and unpaged paths agreeing on the grid; the
+	// corrected span rides on the cell's options through normalization. A string or number cell
+	// carries no span and passes through. Every row is an array by here: STEP 1 refuses one that is
+	// not.
+	const srcRows = applyTableHeaderColumnSugar(withCheckedSpans(tableRows), opt)
 
 	// STEP 2: Transform `tableRows` into well-formatted TableCellInternal's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
-	// Range-check the spans before anything reads them. Both downstream consumers size an array
-	// from a span — the auto-pager's per-column depth array and the emitter's merge grid — and a
-	// caller-supplied `colspan: 4294967295` aborts the process rather than throwing. Doing it here
-	// rather than in each of them is what makes one bad cell warn once, and what keeps the paged
-	// and unpaged paths agreeing on the grid.
-	const arrRows = withCheckedSpans(normalizeTableRows(srcRows, opt))
+	const arrRows = normalizeTableRows(srcRows, opt)
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
@@ -490,14 +508,8 @@ export function addTableDefinition(
 		)
 
 	if (opt.colW) {
-		const firstRowColCnt = (arrRows[0] ?? []).reduce((totalLen, c) => {
-			if (c?.options?.colspan && typeof c.options.colspan === 'number') {
-				totalLen += c.options.colspan
-			} else {
-				totalLen += 1
-			}
-			return totalLen
-		}, 0)
+		// The grid's column count, read the way every other table reader reads it.
+		const firstRowColCnt = tableColCount(arrRows)
 
 		/**
 		 * One column width, in inches, spread across every column: `opt.w` becomes the total and

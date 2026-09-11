@@ -116,8 +116,9 @@ s.addTable(rows, {
 })
 ```
 
-`columns[i]` counts each cell's `colspan` within a row, so merged cells map to the right
-column. It does not track a `rowspan` inherited from an earlier row.
+`columns[i]` follows the table's grid: a cell takes the definition of the column it starts in,
+counting both the `colspan` of cells before it in the row and any `rowspan` from an earlier row
+that holds a column.
 
 Setting `headerRow` implies `hasHeader: true` unless you set `hasHeader` explicitly.
 
