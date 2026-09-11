@@ -30,7 +30,7 @@
  */
 import type { DeckIr, SlideIr } from '../ir.js'
 import { LAYOUT_NOTE_PREFIX, NoteCollector, scopeNotes } from '../fidelity.js'
-import { printString, type AssetPrinter } from './literal.js'
+import { commentText, printString, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
 	assetPrinter,
@@ -283,7 +283,7 @@ function printAppend(
 	if (!declared.has(layout.index)) {
 		declared.add(layout.index)
 		declarations.push(
-			`const ${identifier} = deck.layouts()[${layout.index}] // ${JSON.stringify(layout.name)}`,
+			`const ${identifier} = deck.layouts()[${layout.index}] // ${commentText(JSON.stringify(layout.name))}`,
 			`if (!${identifier}) throw new Error('the template has no layout at position ${layout.index}')`
 		)
 	}

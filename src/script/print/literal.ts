@@ -74,13 +74,41 @@ export function printString(value: string): string {
 				// strictly need escaping for a modern engine — they are escaped anyway because
 				// they remain line terminators everywhere *else* in the grammar, and a file that
 				// depends on that distinction is a poor thing to hand to an unknown toolchain.
+				// A lone surrogate (half a pair with no other half) has no UTF-8 encoding, so written raw
+				// it lands in the file as U+FFFD and the script holds a different string from the IR.
+				// `for…of` walks code points, so a well-formed pair arrives here whole and never matches.
 				// Everything else rides through, so the script stays readable in the deck's language.
-				const escape = code < 0x20 || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029
+				const escape =
+					code < 0x20 ||
+					(code >= 0x7f && code <= 0x9f) ||
+					code === 0x2028 ||
+					code === 0x2029 ||
+					(code >= 0xd800 && code <= 0xdfff)
 				out += escape ? '\\u' + code.toString(16).padStart(4, '0') : char
 			}
 		}
 	}
 	return `${out}'`
+}
+
+/**
+ * What ends a `//` comment: CR, LF, and U+2028 and U+2029, which ECMAScript counts as line
+ * terminators too. Built from code points because those two, written raw, would end a regex
+ * literal just as they end a comment.
+ */
+const LINE_TERMINATORS = new RegExp(`[\r\n${String.fromCharCode(0x2028, 0x2029)}]`, 'g')
+
+/**
+ * Deck text made safe to sit inside a comment: the `/* … *\/` banner or a `//` line.
+ *
+ * A comment is the one place the printer puts deck text with no literal around it, and two
+ * things end one early, turning the rest into code: `*\/` closes a block comment, and a line
+ * terminator closes a line comment. `JSON.stringify` escapes CR and LF but leaves U+2028 and
+ * U+2029 raw, and ECMAScript counts both as line terminators, so a layout named across a line
+ * separator broke the script it was printed into.
+ */
+export function commentText(text: string): string {
+	return text.replace(/\*\//g, '*\\/').replace(LINE_TERMINATORS, ' ')
 }
 
 /**

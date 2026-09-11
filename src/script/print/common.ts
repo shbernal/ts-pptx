@@ -11,7 +11,7 @@
 import { asIrValue, type AssetRef, type DeckIr, type IrValue, type SlideIr } from '../ir.js'
 import { inches } from '../units.js'
 import { scopeNotes, type FidelityNote, type NoteCollector } from '../fidelity.js'
-import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
+import { commentText, printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import { InvalidOptionError } from '../../errors.js'
 
 /** How image bytes reach the emitted script. */
@@ -184,7 +184,7 @@ export function printSlide(
 ): string[] {
 	const notes = scopeNotes(collector, slide.number)
 	const identifier = `slide${slide.number}`
-	const lines = ['', `// ${parts.comment}`, `const ${identifier} = ${parts.construction}`]
+	const lines = ['', `// ${commentText(parts.comment)}`, `const ${identifier} = ${parts.construction}`]
 
 	if (slide.name !== undefined) {
 		notes.note(
@@ -209,7 +209,7 @@ export function printSlide(
 	for (const call of slide.calls) {
 		// The source shape name makes a fidelity note navigable: a note carries the same
 		// name, and without it a reader has no way to find the call it refers to.
-		if (call.sourceName) lines.push(`// ${call.sourceName.replace(/\s+/g, ' ')}`)
+		if (call.sourceName) lines.push(`// ${commentText(call.sourceName.replace(/\s+/g, ' '))}`)
 		lines.push(printArguments(`${identifier}.${call.method}`, call.args, 0, printAsset))
 	}
 
@@ -243,7 +243,9 @@ export function header(prose: string[], notes: FidelityNote[]): string {
 		}
 	}
 
-	return ['/*', ...lines.map((line) => (line ? ` * ${line}` : ' *')), ' */'].join('\n')
+	// Every line through `commentText`: a note's detail quotes slide and layout names, and a `*/`
+	// in one closed the banner and left the rest of it to be parsed as code.
+	return ['/*', ...lines.map((line) => (line ? ` * ${commentText(line)}` : ' *')), ' */'].join('\n')
 }
 
 /** Notes bucketed by slide, in deck order, so a reader meets them the way they meet the deck. */

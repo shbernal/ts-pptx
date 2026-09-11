@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A printed script could fail to parse because of the deck's own names.**
+  - A `*/` in a slide or layout name closed the fidelity banner early.
+  - A U+2028 or U+2029 line separator in a layout name ended a `//` comment, because
+    `JSON.stringify` leaves both raw and JavaScript counts them as line terminators.
+  - In both cases the rest of the comment was parsed as code. Comment text is now sanitised.
+  - A lone surrogate in run text was written raw, so it came out as U+FFFD. It is now escaped
+    as `\uXXXX`.
+
 - **The script converter placed a shape it could not position at the default spot.**
   - A shape with no transform of its own (`a:xfrm`) and no placeholder geometry to inherit was
     emitted with no `x`, `y`, `w` or `h`, so the writer put it at its default position.
