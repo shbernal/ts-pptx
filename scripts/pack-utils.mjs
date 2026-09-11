@@ -54,8 +54,6 @@ export async function packPackage(packDir) {
 	// `pnpm pack` still rebuilds, so the `--config.` form stays as the one that
 	// works on either major. Verified against 11.3.0 and 12.3.4. Re-check on a
 	// major pnpm bump.
-	// `process.execPath`, not 'node': `run()` appends `.cmd` to any non-absolute
-	// command on Windows (for the pnpm/npm shims), which would look for `node.cmd`.
 	await run(process.execPath, [path.join(ROOT, 'scripts', 'ensure-dist.mjs')])
 	const result = await run('pnpm', ['pack', '--config.ignore-scripts=true', '--json', '--pack-destination', packDir], {
 		capture: true,

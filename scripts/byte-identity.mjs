@@ -32,7 +32,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { diffParts, explodePackage, listParts, loadShowcases } from './pptx-parts.mjs'
-import { ROOT, parseCliOrExit, run } from './script-utils.mjs'
+import { ROOT, parseCliOrExit, runNodeBin } from './script-utils.mjs'
 import { XmlSyntaxError, proveWhitespaceOnly } from './xml-equivalence.mjs'
 
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
@@ -186,9 +186,8 @@ function assertGenTreeClean() {
 
 if (mode === 'baseline' && !values['allow-dirty']) assertGenTreeClean()
 
-// Run the bundler's JS entry directly rather than `pnpm run build`: on Windows
-// the pnpm shim is a .cmd, and Node >=20 refuses to spawn one without a shell.
-await run(process.execPath, [path.join(ROOT, 'node_modules', 'tsdown', 'dist', 'run.mjs')])
+// Build with the bundler's own entry, as `pnpm run build` would.
+await runNodeBin('tsdown', [])
 
 if (mode === 'baseline') {
 	await explodeDecks(await generateDecks(), BASELINE)

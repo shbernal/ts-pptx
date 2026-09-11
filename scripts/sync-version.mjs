@@ -91,8 +91,6 @@ function main() {
 
 	fs.writeFileSync(sourcePath, text)
 	console.log(`${SOURCE}: ${previous} -> ${version}`)
-	// Not `run()` from script-utils: that appends `.cmd` to any bare command on Windows,
-	// which is right for the pnpm/npm shims and wrong for git, a real executable.
 	if (values.stage) execFileSync('git', ['add', '--', SOURCE], { cwd: ROOT, stdio: 'inherit' })
 	return 0
 }

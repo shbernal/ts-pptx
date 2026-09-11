@@ -235,13 +235,12 @@ export async function runCli(main) {
 
 const packageManagerCache = process.env.TSPPTX_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
 
-const requireFromRoot = createRequire(path.join(ROOT, 'package.json'))
-
-// Bin names owned by a local devDependency, mapped to the package that declares them.
-// These get resolved to their JS entry and run on the current node binary, so Windows
-// never has to exec a .bin/*.CMD shim (spawn refuses .cmd without a shell).
-/** @type {Record<string, string>} */
-const localBinPackages = {
+/**
+ * The commands {@link run} launches through the package that declares them rather than by name,
+ * mapped to that package: `run('publint', …)` names a bin, and this is how it finds the entry.
+ * @type {Record<string, string>}
+ */
+const runBinPackages = {
 	attw: '@arethetypeswrong/cli',
 	publint: 'publint',
 }
@@ -268,17 +267,19 @@ const WINDOWS_CMD_SHIMS = new Set(['npm', 'npx', 'pnpm', 'pnpx', 'yarn'])
  * to resolving the package's main entry, which `exports` does expose, and walking up to
  * the manifest that names it.
  * @param {string} pkg
+ * @param {string} from - the directory whose installed packages to look in
  * @returns {string | null}
  */
-function resolvePackageManifest(pkg) {
+function resolvePackageManifest(pkg, from) {
+	const requireFrom = createRequire(path.join(from, 'package.json'))
 	try {
-		return requireFromRoot.resolve(pkg + '/package.json')
+		return requireFrom.resolve(pkg + '/package.json')
 	} catch {
 		// Fall through to the entry-point walk below.
 	}
 	let dir
 	try {
-		dir = path.dirname(requireFromRoot.resolve(pkg))
+		dir = path.dirname(requireFrom.resolve(pkg))
 	} catch {
 		return null
 	}
@@ -294,18 +295,25 @@ function resolvePackageManifest(pkg) {
 }
 
 /**
- * Absolute path to a local devDependency's JS entry, or `null` when the bin is not one
- * this module owns or the package is not installed.
- * @param {string} name
+ * Absolute path to the JS file an installed package declares as a bin, or `null` when the package
+ * is not installed there or declares no such bin.
+ *
+ * This is how every script here reaches a package's command: the package's own entry, run on the
+ * current node binary, rather than the shim a package manager writes into `node_modules/.bin`. On
+ * Windows that shim is a `.CMD`, which `spawn` refuses to exec without a shell, and a shell is one
+ * more quoting dialect to get wrong. The entry is the same file the shim would have run. Only the
+ * package managers themselves are reached through a shim, from {@link run}.
+ * @param {string} pkg - the package that declares the bin
+ * @param {string} [bin] - the bin's name, when it is not the package's
+ * @param {{from?: string}} [options] - `from`: the directory whose installed packages to look in;
+ *   the repo root unless a workspace installs the package for itself, as `tools/api-docs` does TypeDoc
  * @returns {string | null}
  */
-export function resolveLocalBin(name) {
-	const pkg = localBinPackages[name]
-	if (!pkg) return null
-	const manifestPath = resolvePackageManifest(pkg)
+export function resolveLocalBin(pkg, bin = pkg, { from = ROOT } = {}) {
+	const manifestPath = resolvePackageManifest(pkg, from)
 	if (!manifestPath) return null
-	const { bin } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-	const entry = typeof bin === 'string' ? bin : bin?.[name]
+	const { bin: declared } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+	const entry = typeof declared === 'string' ? declared : declared?.[bin]
 	if (!entry) return null
 	return path.resolve(path.dirname(manifestPath), entry)
 }
@@ -350,7 +358,8 @@ export function run(command, args, options = {}) {
 			env,
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 		}
-		const localBin = resolveLocalBin(command)
+		const binPackage = runBinPackages[command]
+		const localBin = binPackage ? resolveLocalBin(binPackage, command) : null
 		let child
 		if (localBin) {
 			child = spawn(process.execPath, [localBin, ...args], spawnOptions)
@@ -378,6 +387,24 @@ export function run(command, args, options = {}) {
 			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + (stderr || stdout)))
 		})
 	})
+}
+
+/**
+ * Run an installed package's bin on the current node binary: the entry {@link resolveLocalBin}
+ * finds, through {@link run}. Rejects without spawning anything when there is no such entry.
+ * @param {string} pkg - the package that declares the bin
+ * @param {readonly string[]} args
+ * @param {{bin?: string, from?: string, env?: NodeJS.ProcessEnv, cwd?: string, capture?: boolean}} [options]
+ *   `bin` and `from` as for {@link resolveLocalBin}; the rest as for {@link run}
+ * @returns {Promise<{stdout: string, stderr: string}>}
+ */
+export function runNodeBin(pkg, args, { bin = pkg, from = ROOT, ...options } = {}) {
+	const entry = resolveLocalBin(pkg, bin, { from })
+	if (!entry)
+		return Promise.reject(
+			new Error(`${pkg} is not installed in ${repoRel(from) || '.'}, or declares no \`${bin}\` bin`)
+		)
+	return run(process.execPath, [entry, ...args], options)
 }
 
 // `pnpm pack` helpers used to live here. They moved to `pack-utils.mjs`: only the two

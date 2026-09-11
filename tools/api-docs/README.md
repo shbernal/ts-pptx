@@ -32,8 +32,9 @@ which the override approach never achieved.
 
 ## How it is wired
 
-`scripts/docs-api.mjs` spawns `tools/api-docs/node_modules/.bin/typedoc` with `cwd` set to
-the repo root. That single path is the whole integration:
+`scripts/docs-api.mjs` runs the `typedoc` bin installed here, resolved from this package
+and run on the current node binary, with `cwd` set to the repo root. That single lookup is the
+whole integration:
 
 - TypeDoc resolves its plugin relative to **its own install**, not to `cwd`, so
   `typedoc-plugin-markdown` loads from here.

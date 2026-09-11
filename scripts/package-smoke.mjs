@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import esbuild from 'esbuild'
 import { assertFile, assertNoFile, packPackage } from './pack-utils.mjs'
-import { ROOT, run } from './script-utils.mjs'
+import { ROOT, run, runNodeBin } from './script-utils.mjs'
 
 const packageJson = JSON.parse(await fs.readFile(path.join(ROOT, 'package.json'), 'utf8'))
 const packageName = packageJson.name
@@ -511,11 +511,7 @@ console.log('  require(esm): ' + MATRIX.length + ' subpaths loaded from CommonJS
 	await run(process.execPath, [path.join(fixtureDir, 'cjs-contract.cjs')], { cwd: fixtureDir })
 	await bundleForNode(fixtureDir)
 	for (const config of typeSmokeConfigs) {
-		await run(process.execPath, [
-			path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
-			'-p',
-			path.join(fixtureDir, config.fileName),
-		])
+		await runNodeBin('typescript', ['-p', path.join(fixtureDir, config.fileName)], { bin: 'tsc' })
 	}
 }
 

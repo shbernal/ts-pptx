@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { ROOT, parseCliOrExit } from './script-utils.mjs'
+import { ROOT, parseCliOrExit, runNodeBin } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
@@ -19,19 +18,6 @@ Options:
 
 const root = ROOT
 const outDir = path.join(root, 'docs', 'reference', 'api')
-// TypeDoc lives in the tools/api-docs workspace package, not at the root, because it needs
-// a TypeScript 6 that the root no longer has: TypeScript 7 ships a native binary and no JS
-// compiler API, so TypeDoc cannot import it. See tools/api-docs/README.md. `cwd` below stays
-// the repo root, which is what keeps every root-relative path in typedoc.docs.json working,
-// and TypeDoc resolves its markdown plugin relative to its own install rather than to cwd.
-const typedocBin = path.join(
-	root,
-	'tools',
-	'api-docs',
-	'node_modules',
-	'.bin',
-	process.platform === 'win32' ? 'typedoc.cmd' : 'typedoc'
-)
 
 /**
  * Every `.md` file under `dir`, recursively, sorted.
@@ -134,16 +120,19 @@ function escapeVueUnsafeHtml(markdown) {
 rmSync(outDir, { force: true, recursive: true })
 mkdirSync(outDir, { recursive: true })
 
-// Invoke as a single shell string (not an args array) so Windows can run the
-// .cmd shim without shell:true's arg-escaping deprecation warning (DEP0190).
-const typedoc = spawnSync(`"${typedocBin}" --options typedoc.docs.json`, {
-	cwd: root,
-	stdio: 'inherit',
-	shell: true,
-})
-
-if (typedoc.status !== 0) {
-	process.exit(typedoc.status ?? 1)
+// TypeDoc lives in the tools/api-docs workspace package, not at the root, because it needs
+// a TypeScript 6 that the root no longer has: TypeScript 7 ships a native binary and no JS
+// compiler API, so TypeDoc cannot import it. See tools/api-docs/README.md. `cwd` stays the
+// repo root, which is what keeps every root-relative path in typedoc.docs.json working, and
+// TypeDoc resolves its markdown plugin relative to its own install rather than to cwd.
+try {
+	await runNodeBin('typedoc', ['--options', 'typedoc.docs.json'], {
+		from: path.join(root, 'tools', 'api-docs'),
+		cwd: root,
+	})
+} catch (error) {
+	console.error(error instanceof Error ? error.message : String(error))
+	process.exit(1)
 }
 
 const readmePath = path.join(outDir, 'README.md')

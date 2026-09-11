@@ -24,11 +24,10 @@
 //
 //   node scripts/install-hooks.mjs
 import { spawnSync } from 'node:child_process'
-import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 
-import { ROOT } from './script-utils.mjs'
+import { ROOT, resolveLocalBin } from './script-utils.mjs'
 
 /**
  * A `git` query, or undefined when git declines to answer — no repo, or the key is unset.
@@ -94,13 +93,8 @@ function installedAsDependency() {
 
 /** @param {string[]} args extra arguments for `lefthook install` */
 function install(...args) {
-	// The package's own entry, not `node_modules/.bin/lefthook` — the shim is a `.CMD` on Windows,
-	// which Node will not spawn without a shell, and a shell here would be one more dialect to get
-	// wrong. This path is the same file the shim would have run.
-	let entry
-	try {
-		entry = createRequire(import.meta.url).resolve('lefthook/bin/index.js')
-	} catch {
+	const entry = resolveLocalBin('lefthook')
+	if (!entry) {
 		// No lefthook on disk. That is what a `--prod`/`--ignore-scripts` install looks like, and what
 		// a git-URL install of this package looks like from the outside: legitimate states in which
 		// there are no hooks to install and no reason to fail.
