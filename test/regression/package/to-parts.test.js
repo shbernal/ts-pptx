@@ -80,4 +80,51 @@ describe('toParts()', () => {
 			`unexpected public part keys: ${Object.keys(part).join(', ')}`
 		)
 	})
+
+	test('two consecutive calls return byte-identical parts, seeded placeholders included', async () => {
+		// Assembly seeds each slide with the layout placeholders it leaves empty, mutating the slide,
+		// and a seeded placeholder with an image fill registers media of its own. A second call has to
+		// find that work done and change nothing, whatever order the preparation steps run in.
+		const pres = new TsPptx()
+		pres.defineSlideMaster({
+			title: 'SEEDED',
+			objects: [
+				{ placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.5, w: 9, h: 1 }, text: '' } },
+				{
+					placeholder: {
+						// `PlaceholderProps` does not declare `fill`, but a placeholder honours it at runtime.
+						options: /** @type {any} */ ({
+							name: 'body',
+							type: 'body',
+							x: 0.5,
+							y: 2,
+							w: 9,
+							h: 3,
+							fill: { image: { data: PNG } },
+						}),
+						text: '',
+					},
+				},
+			],
+		})
+		pres.addSlide({ masterTitle: 'SEEDED' }).addText('only the title', { placeholder: 'title' })
+
+		const first = await pres.toParts()
+		const second = await pres.toParts()
+		assert(
+			JSON.stringify(first.map((part) => part.path)) === JSON.stringify(second.map((part) => part.path)),
+			`part paths differ.\n first:  ${first.map((part) => part.path).join(', ')}\n second: ${second.map((part) => part.path).join(', ')}`
+		)
+		first.forEach((part, index) => {
+			const other = second[index]
+			const same =
+				part.path === 'docProps/core.xml'
+					? stripCoreTimestamps(part.data) === stripCoreTimestamps(other.data)
+					: Buffer.from(part.data).equals(Buffer.from(other.data))
+			assert(same, `bytes differ for part ${part.path} between the two calls`)
+		})
+	})
 })
+
+const PNG =
+	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

@@ -14,7 +14,7 @@ import type {
 	SlideRel,
 	TableCellInternal,
 } from '../../types/internal.js'
-import { getNewRelId } from '../utils.js'
+import { getNewRelId, heldRelIds } from '../utils.js'
 
 /**
  * The relationship record one hyperlink serializes to.
@@ -130,9 +130,29 @@ export function createHyperlinkRels(
 		) {
 			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
 			const hyperlinkRelId = hyperlink._rId
-			// NOTE: auto-paging will create new slides, but skip above as _rId exists, BUT this is a new slide, so add rels!
-			if (hyperlinkRelId && !target._rels.some((rel) => rel.rId === hyperlinkRelId)) {
-				target._rels.push(hyperlinkRel(hyperlinkRelId, hyperlink))
+			// A hyperlink already carrying an id was registered on some slide. Auto-paging re-registers
+			// a repeated header row's hyperlink on each overflow slide under that id, and a caller can
+			// hand one hyperlink object to two slides. Reusing the id is only sound when this slide has
+			// it free: when it holds the id for a picture, a chart or another link, the rel would be
+			// declared twice or the run would follow someone else's target. Then this slide gets its
+			// own copy of the hyperlink and a fresh id, and the other slide keeps the original.
+			const wanted = hyperlinkRel(hyperlinkRelId ?? 0, hyperlink)
+			const registeredHere = target._rels.some(
+				(rel) =>
+					rel.rId === hyperlinkRelId &&
+					rel.type === wanted.type &&
+					rel.data === wanted.data &&
+					rel.Target === wanted.Target
+			)
+			if (hyperlinkRelId && !registeredHere) {
+				if (!heldRelIds(target).has(hyperlinkRelId)) {
+					target._rels.push(wanted)
+				} else {
+					const own: HyperlinkPropsInternal = { ...hyperlink }
+					delete own._rId
+					text.options.hyperlink = own
+					registerHyperlinkRel(target, own)
+				}
 			}
 		}
 	})

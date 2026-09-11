@@ -153,14 +153,23 @@ export function getDuplicateObjectNames(names: string[]): string[] {
  * @returns {number} the lowest free rId at or above the current rel count plus 1
  */
 export function getNewRelId(target: PresSlideInternal): number {
+	const held = heldRelIds(target)
+	let rId = target._rels.length + target._relsChart.length + target._relsMedia.length + 1
+	while (held.has(rId)) rId++
+	return rId
+}
+
+/**
+ * Every rel id a slide already holds, across its hyperlink, chart and media rels.
+ * @param {PresSlideInternal} target - the slide to use
+ * @returns {Set<number>} the held ids
+ */
+export function heldRelIds(target: PresSlideInternal): Set<number> {
 	const held = new Set<number>()
 	target._rels.forEach((rel) => held.add(rel.rId))
 	target._relsChart.forEach((rel) => held.add(rel.rId))
 	target._relsMedia.forEach((rel) => held.add(rel.rId))
-
-	let rId = target._rels.length + target._relsChart.length + target._relsMedia.length + 1
-	while (held.has(rId)) rId++
-	return rId
+	return held
 }
 
 /**

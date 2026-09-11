@@ -20,7 +20,7 @@ import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { getNewRelId, nextMediaTarget } from '../gen/utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
-import { bakeSlideContent, encodeMediaForTargets } from '../gen/prepare.js'
+import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from '../gen/prepare.js'
 import { makeXmlApp } from '../gen/opc/app.js'
 import { makeXmlContTypes } from '../gen/opc/content-types.js'
 import { makeXmlCore } from '../gen/opc/core.js'
@@ -196,8 +196,8 @@ interface InternalPackagePart {
 
 /**
  * Assemble every package part for `source` and return them in emission order, without zipping.
- * This runs the transition-sound registration, media encode, cross-deck media de-dup,
- * chart-part-id assignment, placeholder backfill, and measured-fit passes before the synchronous
+ * This runs the transition-sound registration, placeholder backfill, media encode, cross-deck
+ * media de-dup, chart-part-id assignment, and measured-fit passes before the synchronous
  * XML pass reads slide state. The bytes are the same the ZIP writer would compress; splitting the
  * assembly from the zip lets the byte-identity harness (and a future parts API) read parts
  * directly. Only `onMediaError` is meaningful here — compression/output shape are zip concerns
@@ -216,6 +216,10 @@ export async function buildPackageParts(
 
 	// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
 	registerTransitionSounds(pres.slides)
+	// STEP 0b: Seed each slide with the layout placeholders it leaves empty, for the same reason:
+	// a seeded placeholder with an image fill registers media, and encoding has to see it. Shared
+	// with `extractSlides` (see `gen/prepare.ts`).
+	backfillPlaceholders(pres.slides)
 
 	// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 	const onMediaError = props.onMediaError ?? 'throw'
@@ -270,10 +274,9 @@ export async function buildPackageParts(
 			}
 		}
 
-		// A: Backfill inherited layout placeholders, then bake a real fontScale onto
-		// `fit:'shrink'` text boxes when font metrics are registered — both before the
-		// sync XML pass reads them. Shared with `extractSlides` (see `gen/prepare.ts`).
-		bakeSlideContent(pres.slides, source.fontMetrics)
+		// A: Bake a real fontScale onto `fit:'shrink'` text boxes when font metrics are registered,
+		// before the sync XML pass reads them. Shared with `extractSlides` (see `gen/prepare.ts`).
+		bakeMeasuredFit(pres.slides, source.fontMetrics)
 
 		// B: Add all required files. fflate keys on full slash-paths and emits no
 		// directory entries, so there is no folder scaffolding to set up (and no

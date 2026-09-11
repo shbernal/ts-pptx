@@ -808,6 +808,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A layout placeholder with an image fill or a hyperlink broke the rels of the slides using it.**
+  A slide fills in every layout placeholder it leaves empty with a copy of that placeholder, and the
+  copy shared the layout's `fill` and `hyperlink` objects. Registering the slide's relationships
+  wrote the slide's ids onto them, so the layout emitted an `r:embed` its own part does not declare,
+  and a hyperlinked placeholder handed a slide that already held an image a second `rId1`. The copy
+  was also made after media was loaded, so a seeded image fill named a media part that was never
+  written, and a second `write()` or `toParts()` of the same deck emitted different parts. The copy
+  now gets its own `fill`, `hyperlink` and `bullet`, and is made before media is loaded.
+
+- **A hyperlink object reused on a second slide could collide with that slide's rels.** A hyperlink
+  keeps the relationship id it was first registered under, and a second slide reused that id. When
+  that slide already held the id for a picture it declared the id twice, and when it held it for
+  another link the run silently followed that link's target. A slide that holds the id for
+  something else now registers its own copy of the hyperlink under a fresh id.
+
 - **An image background could share a relationship id or a media part with something else.**
   `slide.background` and `defineSlideMaster({ background })` numbered the image's relationship
   from the media list alone, so a slide or layout that already held a hyperlink or chart

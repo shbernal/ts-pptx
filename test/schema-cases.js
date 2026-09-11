@@ -1214,6 +1214,47 @@ export default [
 		},
 	},
 	{
+		// A slide seeds the layout placeholders it leaves empty with copies of their options. An
+		// image-fill or hyperlinked placeholder seeded that way registers rels on the slide, and those
+		// must stay the slide's: the layout keeps resolving its own ids and the slide's stay unique.
+		name: 'seeded image-fill and hyperlinked layout placeholders beside slide rels',
+		fn: async () => {
+			const png =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'SEEDED_RELS',
+					objects: [
+						{
+							placeholder: {
+								options: { name: 'pic', type: 'body', x: 0.5, y: 0.5, w: 4, h: 3, fill: { image: { data: png } } },
+								text: '',
+							},
+						},
+						{
+							placeholder: {
+								options: {
+									name: 'link',
+									type: 'body',
+									x: 5,
+									y: 0.5,
+									w: 4,
+									h: 1,
+									hyperlink: { url: 'https://example.invalid/placeholder' },
+								},
+								text: '',
+							},
+						},
+					],
+				})
+				const slide = p.addSlide({ masterTitle: 'SEEDED_RELS' })
+				slide.addImage({ data: png, x: 5, y: 3, w: 1, h: 1 })
+				slide.addText('link', { x: 0.5, y: 4, w: 3, h: 0.5, hyperlink: { url: 'https://example.invalid/slide' } })
+			})
+			await expectNoSchemaErrors(buf, 'seeded-placeholder-rels')
+		},
+	},
+	{
 		// upstream-issue-446: the notes print layout slide-image placeholder. The notesMaster
 		// sldImg placeholder must carry its geometry (off/ext + 1pt black border) and the
 		// notesSlide must carry a bare <p:ph type="sldImg"/> that inherits it, so the slide image

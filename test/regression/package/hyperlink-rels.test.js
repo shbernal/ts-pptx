@@ -53,6 +53,29 @@ function relationships(xml) {
 	}))
 }
 
+const PNG =
+	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+/**
+ * Slide `n` declares each rel id once, and its `a:hlinkClick` runs resolve to hyperlink rels whose
+ * targets are exactly `expected`.
+ */
+async function assertLinksResolve(zip, n, expected) {
+	const rels = relationships(await readEntry(zip, relsPath(n)))
+	const ids = rels.map((r) => r.id)
+	assertEqual(ids.length, new Set(ids).size, `slide ${n} declares a duplicate relationship id: ${ids.join(',')}`)
+	const xml = await readEntry(zip, `ppt/slides/slide${n}.xml`)
+	const targets = [...xml.matchAll(/<a:hlinkClick r:id="([^"]+)"/g)].map(([, id]) => {
+		const rel = rels.find((r) => r.id === id)
+		assert(
+			rel && rel.type === 'hyperlink',
+			`slide ${n} links ${id}, which is ${rel ? `a ${rel.type} rel` : 'undeclared'}`
+		)
+		return rel.target
+	})
+	assertEqual([...new Set(targets)].sort().join(' '), [...expected].sort().join(' '), `slide ${n} link targets`)
+}
+
 /**
  * Build, returning the error it threw (or `undefined` if it completed). Registration declines to
  * mint a rel for a malformed hyperlink and says nothing; the throw from the emitter is the whole
@@ -252,6 +275,51 @@ defineRegressionSuite('Hyperlink relationship registration', [
 			assertEqual(linked.size, 2, `slide ${shared.n} should link two distinct rels; got ${[...linked].join(' ')}`)
 			assert(linked.has(shared.header.id), `slide ${shared.n}'s header run should reference ${shared.header.id}`)
 			assert(linked.has(shared.body.id), `slide ${shared.n}'s body run should reference ${shared.body.id}`)
+		},
+	},
+	// A hyperlink object handed to two slides keeps the id it was first registered under. The
+	// second slide may already hold that id for a picture or for another link, and then the rel
+	// is declared twice or the run follows the other link's target.
+	{
+		name: 'a hyperlink reused on a slide that holds its id for a picture gets a rel of its own',
+		fn: async () => {
+			const link = { url: 'https://shared.example.com' }
+			const { zip } = await build((p) => {
+				p.addSlide().addText('first', { x: 1, y: 1, w: 3, h: 1, hyperlink: link })
+				const second = p.addSlide()
+				second.addImage({ data: PNG, x: 1, y: 3, w: 1, h: 1 })
+				second.addText('second', { x: 1, y: 1, w: 3, h: 1, hyperlink: link })
+			})
+			await assertLinksResolve(zip, 1, ['https://shared.example.com'])
+			await assertLinksResolve(zip, 2, ['https://shared.example.com'])
+		},
+	},
+	{
+		name: 'a hyperlink reused on a slide that holds its id for another link follows its own target',
+		fn: async () => {
+			const link = { url: 'https://shared.example.com' }
+			const { zip } = await build((p) => {
+				p.addSlide().addText('first', { x: 1, y: 1, w: 3, h: 1, hyperlink: link })
+				const second = p.addSlide()
+				second.addText('other', { x: 1, y: 3, w: 3, h: 1, hyperlink: { url: 'https://other.example.com' } })
+				second.addText('second', { x: 1, y: 1, w: 3, h: 1, hyperlink: link })
+			})
+			await assertLinksResolve(zip, 1, ['https://shared.example.com'])
+			await assertLinksResolve(zip, 2, ['https://other.example.com', 'https://shared.example.com'])
+		},
+	},
+	{
+		name: 'table rows reused on a slide that holds the cell link id for a picture',
+		fn: async () => {
+			const rows = [[{ text: 'cell', options: { hyperlink: { url: 'https://cell.example.com' } } }]]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, { x: 1, y: 1, w: 4 })
+				const second = p.addSlide()
+				second.addImage({ data: PNG, x: 1, y: 3, w: 1, h: 1 })
+				second.addTable(rows, { x: 1, y: 1, w: 4 })
+			})
+			await assertLinksResolve(zip, 1, ['https://cell.example.com'])
+			await assertLinksResolve(zip, 2, ['https://cell.example.com'])
 		},
 	},
 	{

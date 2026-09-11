@@ -22,7 +22,7 @@ import { isHyperlinkRel } from './utils.js'
 import { msMediaRid, previewRid } from './define/media.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { avContentType, imageContentType } from '../media/content-type.js'
-import { bakeSlideContent, encodeMediaForTargets } from './prepare.js'
+import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from './prepare.js'
 import { makeXmlSlide } from './slide/slide.js'
 import type { RendererTable } from './slide/objects/shared.js'
 import type { SlideExtractors } from '../families/shared.js'
@@ -205,12 +205,13 @@ export async function extractSlides(
 	const { presentation } = source
 	const deckSlides = presentation.slides
 
-	// STEP 1+2: The same pre-serialization pass `buildPackageParts` runs — encode media,
-	// backfill placeholders, bake measured fit — so extracted bodies match a normal write
-	// by construction rather than by keeping two copies in step. See `gen/prepare.ts`.
+	// STEP 1+2: The same pre-serialization pass `buildPackageParts` runs — backfill placeholders,
+	// encode media, bake measured fit — so extracted bodies match a normal write by construction
+	// rather than by keeping two copies in step. See `gen/prepare.ts`.
 	// Only slides here: this emits no layout or master parts.
+	backfillPlaceholders(deckSlides)
 	await encodeMediaForTargets(deckSlides, source.runtime, onMediaError)
-	bakeSlideContent(deckSlides, source.fontMetrics)
+	bakeMeasuredFit(deckSlides, source.fontMetrics)
 
 	// STEP 3: Serialize each slide body and resolve what it references.
 	const slides: ExtractedSlide[] = deckSlides.map((slide) => {

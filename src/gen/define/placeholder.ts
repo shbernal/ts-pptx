@@ -6,7 +6,7 @@
  */
 import { SlideObjectType } from '../../enums.js'
 import type { PresSlideInternal } from '../../types/internal.js'
-import { addTextDefinition } from './text.js'
+import { addTextDefinition, placeholderOptionsForSlide } from './text.js'
 
 /**
  * Adds placeholder objects to slide
@@ -25,7 +25,8 @@ export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
 					(slideObj) => slideObj.options && slideObj.options.placeholder === slideLayoutOptions.placeholder
 				)
 			) {
-				addTextDefinition(slide, [{ text: '' }], slideLayoutOptions, true)
+				// A copy whose rel-bearing options are the slide's own, not the layout placeholder's.
+				addTextDefinition(slide, [{ text: '' }], placeholderOptionsForSlide(slideLayoutOptions), true)
 			}
 		}
 	})

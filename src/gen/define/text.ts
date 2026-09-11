@@ -61,6 +61,7 @@ export function addTextDefinition(
 	// Nested option objects the caller supplies (`bullet`, `shadow`, `fill`) are deliberately still
 	// shared: `bullet._rId` and the image fill's rel id are registered through those references and
 	// read back at emit time, and auto-paging relies on a cloned text object reaching the same bullet.
+	// A layout placeholder's are not the caller's, and are copied: see `placeholderOptionsForSlide`.
 	const owned = new Map<TextPropsOptions, ObjectOptionsInternal>()
 	/**
 	 * The keys the CALLER wrote on each owned copy, recorded before any default reaches it.
@@ -157,7 +158,7 @@ export function addTextDefinition(
 					// beat it.
 					const stated = authoredKeys.get(itemOpts) ?? new Set<string>()
 					const inherited: Record<string, unknown> = {}
-					for (const [key, value] of Object.entries(placeHold.options)) {
+					for (const [key, value] of Object.entries(placeholderOptionsForSlide(placeHold.options))) {
 						// A key the placeholder carries as an explicit `undefined` supplies nothing, and
 						// copying it would turn "the layout said nothing" into a stated `undefined` on a
 						// bag that is spread further downstream.
@@ -361,6 +362,33 @@ export function addTextDefinition(
 
 	// LAST: Add object to Slide
 	target._slideObjects.push(newObject)
+}
+
+/**
+ * A copy of a layout placeholder's options for a slide object to adopt.
+ *
+ * The nested options that carry a relationship id are copied too, without that id: `fill` (an
+ * image fill's `_imgRid`), `hyperlink` (`_rId`) and `bullet` (a picture bullet's `_rId` and
+ * `_rIdSvg`), so the slide registers its own. A plain spread shared them with the layout, so the
+ * slide's registration wrote the slide's ids onto the layout's objects. The layout then emitted
+ * an id its own part does not declare, and a slide that had already given that id to something
+ * else was handed it a second time.
+ * @param options - the layout placeholder's options
+ * @returns a copy safe to register a slide's relationships through
+ */
+export function placeholderOptionsForSlide<T extends object>(options: T): T {
+	const copy: Record<string, unknown> = { ...(options as Record<string, unknown>) }
+	for (const key of ['fill', 'hyperlink', 'bullet']) {
+		const value = copy[key]
+		if (value && typeof value === 'object') {
+			const rest: Record<string, unknown> = { ...value }
+			delete rest['_imgRid']
+			delete rest['_rId']
+			delete rest['_rIdSvg']
+			copy[key] = rest
+		}
+	}
+	return copy as T
 }
 
 /**
