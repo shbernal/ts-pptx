@@ -851,6 +851,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A repeated header row inside a rowspan was priced against the wrong columns.** With
+  `autoPageRepeatHeader`, continuation pages priced the header with a second row measure that
+  ignored the columns a rowspan holds, so a second header row under a spanning cell was wrapped
+  one column to the left. A narrow column's long label counted as one line, and each continuation
+  page took 14 body rows where 10 fit. The header is now measured by the same row measure as every
+  body row.
+
 - **An auto-paged row whose cells state `rowspan: 1` was priced as if it had no text.** The pager
   exempted any cell with a `rowspan` option from the row's line height, `rowspan: 1` included,
   so eighty such rows paged onto 2 slides with 46 rows on the first, where 6 slides fit. Only a

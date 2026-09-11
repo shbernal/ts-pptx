@@ -327,56 +327,16 @@ function rowMarginsEmu(
 	return { topEmu, btmEmu }
 }
 
-/**
- * The vertical space one repeated header row occupies, in EMU: its own top/bottom cell margins
- * plus its tallest cell's wrapped line count times that row's line height.
- *
- * This is the same arithmetic the main loop applies to a body row, and the reason it has to be
- * spelled again is that the pager used to read `cell._lineHeight` off `_arrObjTabHeadRows` --
- * which holds the DEFINER's plain `TableCellInternal`s. `_lineHeight` is written only onto the pager's
- * own working cells, so it was always absent there and every repeated header row was priced at
- * zero: each continuation page took the header for free and then packed the same number of body
- * rows the first page fits, so the last row hung off the bottom of the slide. That is the same
- * failure the margin reset a few lines below documents having already been fixed once.
- *
- * @param row - one header row, as the definer built it
- * @param colWidthsIn - the resolved column grid, in inches
- * @param numCols - the grid's column count
- * @param tableProps - the table's options, for font size and the two weights
- * @returns the row's height in EMU
- */
-function headerRowHeightEmu(
-	row: TableRowInternal,
-	colWidthsIn: number[],
-	numCols: number,
-	tableProps: TableToSlidesPropsInternal
-): number {
-	let maxLines = 0
-	let maxLineHeightEmu = 0
-	const { topEmu: marTopEmu, btmEmu: marBtmEmu } = rowMarginsEmu(row, tableProps)
-	let colCursor = 0
-	row.forEach((cell) => {
-		const cellOpts = cell.options
-		const cellColspan = resolveSpan(cellOpts?.colspan, 'colspan')
-		const colStart = colCursor
-		colCursor = Math.min(colCursor + cellColspan, numCols)
-		const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
-
-		const lines = parseTextToLines(
-			cell,
-			totalColW,
-			resolveCellFontSize(cellOpts, tableProps),
-			resolveCellCharWeight(cellOpts, tableProps),
-			false
-		).length
-		if (lines > maxLines) maxLines = lines
-		const lineHeightEmu = autoPageLineHeightEmu(
-			resolveCellFontSize(cellOpts, tableProps),
-			tableProps.autoPageLineWeight || 0
-		)
-		if (lineHeightEmu > maxLineHeightEmu) maxLineHeightEmu = lineHeightEmu
-	})
-	return marTopEmu + marBtmEmu + maxLines * maxLineHeightEmu
+/** One row, measured: each cell's wrapped lines and what the row costs a page. */
+interface MeasuredRow {
+	/** One working cell per source cell, in row order, carrying its lines and its line height. */
+	cells: AutoPageCell[]
+	/** The row's tallest top margin plus its tallest bottom margin, in EMU. */
+	marginsEmu: number
+	/** The tallest line height among the cells that do not span rows, in EMU. */
+	lineHeightEmu: number
+	/** The whole row: its margins plus its tallest cell's line count at `lineHeightEmu`. */
+	heightEmu: number
 }
 
 /**
@@ -602,13 +562,59 @@ export function getSlidesForTableRows(
 	const resolveRowH = (origRowIdx: number): number | undefined =>
 		Array.isArray(tableProps.rowH) ? (pinnedRowHeightInches(tableProps.rowH[origRowIdx]) ?? undefined) : undefined
 
+	/**
+	 * Wrap each of row `iRow`'s cells against the grid columns it covers, and price the row.
+	 *
+	 * The one row measure. The repeated header rows used to be priced by a second copy of it with its
+	 * own column cursor, which ignored the columns a rowspan holds -- the fault `walkTableGrid`
+	 * fixed for the main loop -- and skipped the line-height exemption for a cell that spans rows,
+	 * so a header row inside a rowspan was measured against the wrong columns.
+	 * @param iRow - the row's index in `tableRows`
+	 * @param verbose - dump the wrapping stages, as `addTable({ verbose })` asks
+	 */
+	function measureRow(iRow: number, verbose?: boolean): MeasuredRow {
+		const row = tableRows[iRow] ?? []
+		const { topEmu, btmEmu } = rowMarginsEmu(row, tableProps)
+		// Cells are keyed to grid columns, not to their position in the row: a colspan earlier in
+		// the row shifts every later cell, and a rowspan opened above skips columns entirely.
+		// Measuring a cell against `colW[iCell]` wrapped its text to another column's width.
+		const rowPlacements = placements[iRow] ?? []
+		const cells = row.map((cell, iCell): AutoPageCell => {
+			// A row longer than the grid runs off the end of it: those cells are placed nowhere
+			// and measure against no column, which is what the cursor did by clamping.
+			const placed = rowPlacements[iCell]
+			const colStart = placed ? placed.col : numCols
+			const cellColspan = placed ? placed.colSpan : resolveSpan(cell.options?.colspan, 'colspan')
+			// A spanning cell is as wide as the columns it covers; the seed keeps a row longer than
+			// the grid from throwing on an empty slice.
+			const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
+			const fontSizePt = resolveCellFontSize(cell.options, tableProps)
+			return {
+				_type: SlideObjectType.tablecell,
+				_lines: parseTextToLines(cell, totalColW, fontSizePt, resolveCellCharWeight(cell.options, tableProps), verbose),
+				// A cell that spans rows adds no line height to this one (or a page could break where
+				// nothing needed it to). The grid's clamped span decides, not the option: `rowspan: 1`
+				// is a valid "no span" that `withCheckedSpans` passes through, and testing the option
+				// priced every such row at its margins alone.
+				_lineHeight:
+					placed && placed.rowSpan > 1 ? 0 : autoPageLineHeightEmu(fontSizePt, tableProps.autoPageLineWeight || 0),
+				text: [],
+				options: cell.options || {},
+			}
+		})
+		const lineHeightEmu = cells.reduce((max, cell) => Math.max(max, cell._lineHeight), 0)
+		const maxLines = cells.reduce((max, cell) => Math.max(max, cell._lines.length), 0)
+		const marginsEmu = topEmu + btmEmu
+		return { cells, marginsEmu, lineHeightEmu, heightEmu: marginsEmu + maxLines * lineHeightEmu }
+	}
+
 	// What the repeated header rows cost a continuation page. Computed once: the rows and the
-	// grid are the same on every page, so re-measuring per page would only be slower.
+	// grid are the same on every page, so re-measuring per page would only be slower. Both callers
+	// pass the header rows as the leading rows of `tableRows`, so each is measured at its own index,
+	// against the grid placements the body rows use.
 	const repeatHeaderRows =
 		tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows ? tableProps._arrObjTabHeadRows : []
-	const repeatHeaderHeightsEmu = repeatHeaderRows.map((row) =>
-		headerRowHeightEmu(row, colWidthsIn, numCols, tableProps)
-	)
+	const repeatHeaderHeightsEmu = repeatHeaderRows.map((_row, headIdx) => measureRow(headIdx).heightEmu)
 
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = {
@@ -620,67 +626,24 @@ export function getSlidesForTableRows(
 		// A: Row variables — detect active rowspan at the start of this row so we can
 		// suppress page breaks that would split a rowspan group across slides.
 		const hasActiveRowSpan = spannedFromAbove(iRow)
-		const rowCellLines: AutoPageCell[] = []
-		// B: Create new row in data model, calc `maxCellMar*`
-		const { topEmu: maxCellMarTopEmu, btmEmu: maxCellMarBtmEmu } = rowMarginsEmu(row, tableProps)
+		// B: Create new row in data model
 		let currTableRow: TableRowInternal = []
 		row.forEach((cell) => currTableRow.push(workingCell([], cell.options)))
 
 		// C: Calc usable vertical space/table height. Set default value first, adjust below when necessary.
 		calcSlideTabH()
-		emuTabCurrH += maxCellMarTopEmu + maxCellMarBtmEmu // Start row height with margins
 		if (tableProps.verbose && iRow === 0)
 			console.log(
 				`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
 			)
 
-		// D: --==[[ BUILD DATA SET ]]==-- (iterate over cells: split text into lines[], set `lineHeight`)
-		// Cells are keyed to grid columns, not to their position in the row: a colspan earlier in
-		// the row shifts every later cell, and a rowspan opened above skips columns entirely.
-		// Measuring a cell against `colW[iCell]` wrapped its text to another column's width.
-		const rowPlacements = placements[iRow] ?? []
-		row.forEach((cell, iCell) => {
-			// A row longer than the grid runs off the end of it: those cells are placed nowhere
-			// and measure against no column, which is what the cursor did by clamping.
-			const placed = rowPlacements[iCell]
-			const colStart = placed ? placed.col : numCols
-			const cellColspan = placed ? placed.colSpan : resolveSpan(cell.options?.colspan, 'colspan')
-
-			const newCellOptions = cell.options || {}
-			const newCell: AutoPageCell = {
-				_type: SlideObjectType.tablecell,
-				_lines: [],
-				_lineHeight: autoPageLineHeightEmu(
-					resolveCellFontSize(cell.options, tableProps),
-					tableProps.autoPageLineWeight || 0
-				),
-				text: [],
-				options: newCellOptions,
-			}
-
-			// E-1: Exempt a cell that spans rows from increasing lineHeight (or we could create a new slide
-			// when unnecessary!). The grid's clamped span decides, not the option: `rowspan: 1` is a
-			// valid "no span" that `withCheckedSpans` passes through, and testing the option priced
-			// every such row at its margins alone -- 80 two-cell rows paged onto 2 slides instead of 6.
-			if (placed && placed.rowSpan > 1) newCell._lineHeight = 0
-
-			// E-2: **MAIN** Parse cell contents into lines based upon col width, font, etc.
-			// A spanning cell is as wide as the columns it covers; the seed keeps a row longer
-			// than the grid from throwing on an empty slice.
-			const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
-
-			// E-3: Create lines based upon available column width
-			newCell._lines = parseTextToLines(
-				cell,
-				totalColW,
-				resolveCellFontSize(cell.options, tableProps),
-				resolveCellCharWeight(cell.options, tableProps),
-				tableProps.verbose
-			)
-
-			// E-4: Add cell to array
-			rowCellLines.push(newCell)
-		})
+		// D: --==[[ BUILD DATA SET ]]==-- (split each cell's text into lines, set its line height)
+		const {
+			cells: rowCellLines,
+			marginsEmu: rowMarginsTotalEmu,
+			lineHeightEmu: emuLineMaxH,
+		} = measureRow(iRow, tableProps.verbose)
+		emuTabCurrH += rowMarginsTotalEmu // Start row height with margins
 
 		/** E: --==[[ PAGE DATA SET ]]==--
 		 * Add text one-line-a-time to this row's cells until: lines are exhausted OR table height limit is hit
@@ -721,17 +684,11 @@ export function getSlidesForTableRows(
 		 */
 		if (tableProps.verbose) console.log(`\n| SLIDE [${tableRowSlides.length}]: ROW [${iRow}]: START...`)
 		let currCellIdx = 0
-		let emuLineMaxH = 0
 		let isDone = false
 		while (!isDone) {
 			const srcCell = rowCellLines[currCellIdx]
 			if (!srcCell) break
 			let tgtCell = currTableRow[currCellIdx] // NOTE: may be redefined below (a new row may be created, thus changing this value)
-
-			// 1: calc emuLineMaxH
-			rowCellLines.forEach((cell) => {
-				if (cell._lineHeight >= emuLineMaxH) emuLineMaxH = cell._lineHeight
-			})
 
 			// 2: create a new slide if there is insufficient room for the current row,
 			// but never break inside a rowspan group — keep spanned rows together.
@@ -779,7 +736,7 @@ export function getSlidesForTableRows(
 				// up as the first slide and the continuation slides disagreeing about how many
 				// identical rows fit the identical space — which is what
 				// test/regression/table-autopage-continuation-budget.test.js pins.
-				emuTabCurrH = maxCellMarTopEmu + maxCellMarBtmEmu
+				emuTabCurrH = rowMarginsTotalEmu
 				if (tableProps.verbose)
 					console.log(
 						`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
