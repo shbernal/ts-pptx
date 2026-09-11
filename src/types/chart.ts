@@ -469,6 +469,10 @@ export interface ChartPropsAxisCat {
 	catLabelFormatCode?: string
 	/**
 	 * Whether data should use secondary category axis (instead of primary)
+	 *
+	 * A combo subchart plots on the secondary category and value axes together, because a plot's
+	 * two axes have to cross each other. When no subchart sets `secondaryValAxis`, the secondary
+	 * value axis is written hidden; `valAxes[1]` can show it.
 	 * @default false
 	 */
 	secondaryCatAxis?: boolean
@@ -533,6 +537,11 @@ export interface ChartPropsAxisSer {
 export interface ChartPropsAxisVal {
 	/**
 	 * Whether data should use secondary value axis (instead of primary)
+	 *
+	 * A combo subchart plots on the secondary category and value axes together, because a plot's
+	 * two axes have to cross each other. When no subchart sets `secondaryCatAxis`, the secondary
+	 * category axis is written hidden, as PowerPoint does for a series moved to its secondary axis;
+	 * `catAxes[1]` can show it.
 	 * @default false
 	 */
 	secondaryValAxis?: boolean
