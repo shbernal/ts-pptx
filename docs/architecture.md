@@ -51,7 +51,11 @@ how the OOXML gets built stays on this side of that line.
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
   OOXML at export time. Chart emission splits per plot family under `gen/chart/`
   (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the
-  `makeChartType` dispatch. Shape emission splits per shape kind under
+  `makeChartType` dispatch. A chart's embedded workbook (`embed-xlsx`) and every formula
+  in its chart part are laid out from one `worksheetLayout` in `gen/chart/data-refs.ts`,
+  built once per chart, and
+  `test/regression/chart/chart-worksheet-invariant.test.js` resolves each formula through
+  the workbook to hold the two sides together. Shape emission splits per shape kind under
   `gen/slide/objects/` behind the `slideObjectToXml` dispatch, so
   `gen/slide/object.ts` keeps only that walk, the group and slide-number branches
   that consume its shape-id counter, and the slide `.rels`. `src/gen/utils.ts`
