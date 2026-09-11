@@ -73,9 +73,9 @@ export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu 
 }
 
 /**
- * Bake a reduced font size onto a cell's runs by factor `f` (< 1). Clones every
- * options object before mutating: a plain-string cell shares the table's `opt`
- * object (`gen/define/`), so in-place mutation would corrupt every other such cell.
+ * Bake a reduced font size onto a cell's runs by factor `f` (< 1). Writes fresh options objects
+ * rather than mutating the cell's: the cells are the stored slide model, which a second
+ * `write()` measures again from the same unscaled values.
  */
 export function scaleCellFontSizes(cell: TableCellInternal, eff: RunOpts, f: number): void {
 	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side

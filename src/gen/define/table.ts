@@ -330,14 +330,11 @@ export function addTableDefinition(
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	// Take ownership of the options before touching them, the same way `addTextDefinition` does.
 	// Everything below normalizes in place — `objectName`, `fontSize`, `margin`, `color`, the
-	// `autoPage*` family, the resolved `w`/`colW` — and STEP 5 hands this object to every plain
-	// string cell as that cell's options, so the cell emitters write onto it too. Without the copy
-	// all of that lands on the CALLER's object, and a style literal reused across tables carries one
-	// table's settings (and its `objectName`) into the next.
-	//
-	// Identity WITHIN one call is kept on purpose: the string cells in STEP 5 all share this one
-	// object, which is what `gen/slide/objects/table.ts` reads back. Copying per cell would change
-	// the emitted bytes.
+	// `autoPage*` family, the resolved `w`/`colW` — and without the copy all of that lands on the
+	// CALLER's object, so a style literal reused across tables carries one table's settings (and its
+	// `objectName`) into the next. No cell shares this object: `normalizeTableRows` gives every cell,
+	// a plain string included, an options bag of its own, and the emitter resolves the table-level
+	// values each cell inherits into a separate bag at write time.
 	//
 	// `border` is copied because the array normalization below writes `withBorderDefaults` results
 	// back into its slots; `fill` and the cell-level objects stay shared by reference, since rel ids
@@ -580,39 +577,6 @@ export function addTableDefinition(
 			}
 		}
 	}
-
-	// STEP 5: Loop over cells: transform each to TableCellInternal; check to see whether to unset `autoPage` while here
-	arrRows.forEach((row) => {
-		row.forEach((cell, idy) => {
-			// A: Transform cell data if needed
-			/* Table rows can be an object or plain text - transform into object when needed
-				// EX:
-				const arrTabRows1 = [
-					[ { text:'A1\nA2', options:{rowspan:2, fill:'99FFCC'} } ]
-					,[ 'B2', 'C2', 'D2', 'E2' ]
-				]
-			*/
-			if (typeof cell === 'number' || typeof cell === 'string') {
-				// Grab table formatting `opts` to use here so text style/format inherits as it should
-				row[idy] = { _type: SlideObjectType.tablecell, text: String(row[idy]), options: opt }
-			} else if (typeof cell === 'object') {
-				const target = row[idy]
-				if (!target) return
-				// ARG0: `text` (numeric input was already coerced to a string in the first pass)
-				if (typeof cell.text === 'undefined' || cell.text === null) target.text = ''
-
-				// ARG1: `options`: ensure options exists
-				target.options = cell.options || {}
-
-				// Set type to tabelcell
-				target._type = SlideObjectType.tablecell
-			}
-
-			// B: Check for fine-grained formatting, disable auto-page when found
-			// Since genXmlTextBody already checks for text array ( text:[{},..{}] ) we're done!
-			// Text in individual cells will be formatted as they are added by calls to genXmlTextBody within table builder
-		})
-	})
 
 	// If autoPage = true, we need to return references to newly created slides if any
 	const newAutoPagedSlides: PresSlideInternal[] = []
