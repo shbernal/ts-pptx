@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A template-anchored script bound media it never used.**
+  - A layout's background picture and logo come from the template, and a carried slide is
+    copied with its own images, so the script prints none of them.
+  - It still declared a `readFile` for each of those images, returned its bytes to be written
+    beside the script, and counted it in the banner. With `assets: 'inline'` it inlined the
+    base64 as well.
+  - Both printers now bind and return only the media their own statements reference.
+
 - **A printed script could fail to parse because of the deck's own names.**
   - A `*/` in a slide or layout name closed the fidelity banner early.
   - A U+2028 or U+2029 line separator in a layout name ended a `//` comment, because

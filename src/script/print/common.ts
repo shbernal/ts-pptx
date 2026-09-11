@@ -109,40 +109,66 @@ export function assetIdentifiers(ir: DeckIr): Map<string, string> {
 	return out
 }
 
-/** Resolve an {@link AssetRef} to the `const` identifier standing for its bytes. */
-export function assetPrinter(identifiers: Map<string, string>): AssetPrinter {
-	return (ref: AssetRef): string => {
+/** An {@link AssetPrinter} and the assets it has printed so far. */
+export interface RecordingAssetPrinter {
+	/** Resolve an {@link AssetRef} to the `const` identifier standing for its bytes, and record it. */
+	print: AssetPrinter
+	/** The name of every asset {@link print} has resolved. */
+	printed: ReadonlySet<string>
+}
+
+/**
+ * Resolve an {@link AssetRef} to the `const` identifier standing for its bytes, remembering which
+ * assets were printed.
+ *
+ * `printed`, not `DeckIr.assets`, is what a tier binds and returns. The chrome registers its
+ * pictures through the same resolver as the slides, so a layout's background and logo are in
+ * `DeckIr.assets`, and so are a carried slide's images. The template-anchored tier prints neither
+ * (its template *is* the chrome, and a carried slide is copied), yet it bound every asset with a
+ * `readFile`, returned the bytes, counted them in the banner and, in `'inline'` mode, inlined
+ * them. So each tier prints its statements first and binds what they referenced.
+ */
+export function assetPrinter(identifiers: Map<string, string>): RecordingAssetPrinter {
+	const printed = new Set<string>()
+	const print = (ref: AssetRef): string => {
 		const identifier = identifiers.get(ref.$asset)
 		if (!identifier)
 			throw new InvalidOptionError(
 				'script/unresolved-asset-reference',
 				`Asset reference ${ref.$asset} has no entry in DeckIr.assets`
 			)
+		printed.add(ref.$asset)
 		return identifier
 	}
+	return { print, printed }
 }
 
 /**
- * One `const` per asset, each holding a complete `data:` URI.
+ * One `const` per printed asset, each holding a complete `data:` URI.
  *
  * Both modes bind the same *kind* of value — a data URI string — so the call sites are
  * identical and `addImage`'s `data` option is used either way. Only where the bytes come
  * from changes. Rewriting the option key to `path` in file mode would have the printer
  * reshaping an argument, which is precisely the thing that keeps the IR checkable.
+ *
+ * Bound in `DeckIr.assets` order rather than first-printed order, so the output stays a function
+ * of the IR. `printed` comes from {@link assetPrinter}.
  */
 export function printAssetBindings(
 	ir: DeckIr,
 	identifiers: Map<string, string>,
 	assetDir: string,
 	mode: AssetMode,
+	printed: ReadonlySet<string>,
 	inlineComment = '// Media bytes, inlined so this script needs no files but its template.'
 ): string[] {
-	if (ir.assets.length === 0) return []
+	const bound = printedAssets(ir, printed)
+	if (bound.length === 0) return []
 
 	const lines =
 		mode === 'file' ? ['// Media bytes, loaded from the asset directory beside this script.'] : [inlineComment]
 
-	for (const asset of ir.assets) {
+	for (const asset of bound) {
 		const identifier = identifiers.get(asset.name)
 		if (!identifier) continue
 		if (mode === 'file') {
@@ -298,16 +324,30 @@ function wrap(text: string, width: number, continuation: string): string[] {
  * @param {DeckIr} ir - the IR being printed, for its assets
  * @param {AssetMode} assetMode - how image bytes reach the script
  * @param {FidelityNote[]} notes - the losses that apply to this output
+ * @param {ReadonlySet<string>} printed - the assets the script's statements reference
  * @returns {PrintedScript} the finished script
  */
-export function printedScript(lines: string[], ir: DeckIr, assetMode: AssetMode, notes: FidelityNote[]): PrintedScript {
+export function printedScript(
+	lines: string[],
+	ir: DeckIr,
+	assetMode: AssetMode,
+	notes: FidelityNote[],
+	printed: ReadonlySet<string>
+): PrintedScript {
 	return {
 		code: lines.join('\n'),
 		assets: new Map(
-			assetMode === 'file' ? ir.assets.map((asset): [string, Uint8Array] => [asset.name, asset.bytes]) : []
+			assetMode === 'file'
+				? printedAssets(ir, printed).map((asset): [string, Uint8Array] => [asset.name, asset.bytes])
+				: []
 		),
 		notes,
 	}
+}
+
+/** The IR's assets a script printed, in `DeckIr.assets` order. */
+function printedAssets(ir: DeckIr, printed: ReadonlySet<string>): DeckIr['assets'] {
+	return ir.assets.filter((asset) => printed.has(asset.name))
 }
 
 /**

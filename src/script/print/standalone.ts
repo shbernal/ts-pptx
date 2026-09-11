@@ -73,7 +73,8 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 
 	const collector = new NoteCollector()
 	const assetNames = assetIdentifiers(ir)
-	const printAsset = assetPrinter(assetNames)
+	const assets = assetPrinter(assetNames)
+	const printAsset = assets.print
 
 	// EVERY part that records a note is walked before the header is built: this tier's own notes
 	// are only known afterwards, and `notes` below is a snapshot of the collector rather than a
@@ -82,16 +83,19 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 	const masters = printMasters(ir, collector, printAsset)
 	const body = printSlides(ir, collector, printAsset)
 	const props = printDocProps(ir, collector)
+	// Printed up front too, for its asset references rather than its notes: the header counts, and
+	// the bindings declare, only the assets something printed.
+	const theme = Object.keys(ir.chrome.theme).length > 0 ? printValue(ir.chrome.theme as IrValue, 0, printAsset) : null
 	const notes = [...ir.fidelity.filter((note) => !NOT_APPLICABLE.has(note.construct)), ...collector.notes]
 
-	const needsReadFile = assetMode === 'file' && ir.assets.length > 0
+	const needsReadFile = assetMode === 'file' && assets.printed.size > 0
 	const lines: string[] = [
 		header(
 			[
 				'Generated from a .pptx by ts-pptx/script.',
 				'',
 				`Standalone: this script needs nothing but ${packageName}${
-					needsReadFile ? ` and ${ir.assets.length} media file(s) in ${assetDir}` : ''
+					needsReadFile ? ` and ${assets.printed.size} media file(s) in ${assetDir}` : ''
 				}.`,
 				"The deck's theme, layouts and slide content are all re-authored through the public write",
 				'API, so every one of them is editable here — and the parts of the original design the read',
@@ -114,14 +118,13 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 		...printLayoutSetup(ir.slideSize),
 	]
 
-	const theme = ir.chrome.theme as IrValue
-	if (Object.keys(ir.chrome.theme).length > 0) {
+	if (theme !== null) {
 		lines.push(
 			'',
 			"// The theme's colour scheme and font faces. Its format scheme — the fill, line and effect",
 			'// style lists a shape references through p:style — has no counterpart on either side of the',
 			"// library, so the output carries Office's.",
-			`pptx.theme = ${printValue(theme, 0, printAsset)}`
+			`pptx.theme = ${theme}`
 		)
 	}
 
@@ -132,6 +135,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 		assetNames,
 		assetDir,
 		assetMode,
+		assets.printed,
 		'// Media bytes, inlined so this script is a single self-contained file.'
 	)
 	if (assetLines.length > 0) lines.push('', ...assetLines)
@@ -139,7 +143,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 	if (masters.length > 0) lines.push('', ...masters)
 	lines.push(...body, '', `await pptx.writeFile({ fileName: here(${printString(outputPath)}) })`, '')
 
-	return printedScript(lines, ir, assetMode, notes)
+	return printedScript(lines, ir, assetMode, notes, assets.printed)
 }
 
 /**

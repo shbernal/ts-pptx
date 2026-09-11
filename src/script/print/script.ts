@@ -115,7 +115,8 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 
 	const collector = new NoteCollector()
 	const assetNames = assetIdentifiers(ir)
-	const printAsset = assetPrinter(assetNames)
+	const assets = assetPrinter(assetNames)
+	const printAsset = assets.print
 
 	const body = printSlides(ir, collector, printAsset)
 	const needsSource = ir.slides.some((slide) => slide.source === 'carried')
@@ -134,7 +135,11 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 				'slide content below was rebuilt through the public write API.',
 				'',
 				`Expects ${templatePath} (the source deck, unmodified) beside this file${
-					assetMode === 'file' && ir.assets.length > 0 ? `, plus ${ir.assets.length} media file(s) in ${assetDir}` : ''
+					// Counted after the slides were printed: only what they reference ships. The chrome's
+					// pictures stay in the template, and a carried slide is copied with its own.
+					assetMode === 'file' && assets.printed.size > 0
+						? `, plus ${assets.printed.size} media file(s) in ${assetDir}`
+						: ''
 				}.`,
 				`Writes ${outputPath}. Needs an ESM context — it uses top-level await.`,
 			],
@@ -171,7 +176,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 		)
 	}
 
-	const assetLines = printAssetBindings(ir, assetNames, assetDir, assetMode)
+	const assetLines = printAssetBindings(ir, assetNames, assetDir, assetMode, assets.printed)
 	if (assetLines.length > 0) lines.push('', ...assetLines)
 
 	lines.push(
@@ -190,7 +195,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 		''
 	)
 
-	return printedScript(lines, ir, assetMode, notes)
+	return printedScript(lines, ir, assetMode, notes, assets.printed)
 }
 
 /**

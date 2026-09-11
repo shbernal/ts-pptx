@@ -22,8 +22,9 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { describe, test } from 'vitest'
 import { Presentation, isGraphicFrame } from '../../dist/read.js'
-import { printScript, readModelToIr } from '../../dist/script.js'
+import { printScript, printStandaloneScript, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { authorRead } from './authored.js'
 import { REPO, SCRATCH, fixtureNames, irFor, readFixture } from './corpus.js'
 
 const run = promisify(execFile)
@@ -86,14 +87,16 @@ describe('script printer — corpus invariants', () => {
 		assertEqual(offender, undefined, `${name}: printed an \`undefined\``)
 	})
 
-	test.for(fixtureNames)('%s resolves every asset reference to a declared binding', async (name) => {
-		const ir = await irFor(name)
-		const { code, assets } = printScript(ir)
-		assertEqual(assets.size, ir.assets.length, `${name}: asset count`)
-		for (const asset of ir.assets) {
-			const identifier = asset.name.replace(/\.[^.]*$/, '')
-			assert(code.includes(`const ${identifier} = `), `${name}: no binding for ${asset.name}`)
-			assert(code.includes(`data: ${identifier}`), `${name}: ${asset.name} is declared but never used`)
+	test.for(fixtureNames)('%s binds exactly the assets it references', async (name) => {
+		// Against the bindings in the code, not `DeckIr.assets`: the IR also holds the chrome's
+		// pictures and a carried slide's, which this tier leaves to its template and never prints.
+		const { code, assets } = printScript(await irFor(name))
+		const bindings = code.match(/^const \w+ = `data:/gm) ?? []
+		assertEqual(bindings.length, assets.size, `${name}: one binding per shipped file`)
+		for (const assetName of assets.keys()) {
+			const identifier = assetName.replace(/\.[^.]*$/, '')
+			assert(code.includes(`const ${identifier} = `), `${name}: no binding for ${assetName}`)
+			assert(code.includes(`data: ${identifier}`), `${name}: ${assetName} is declared but never used`)
 		}
 	})
 
@@ -105,6 +108,46 @@ describe('script printer — corpus invariants', () => {
 		const { code } = printScript(await irFor('empty.pptx'))
 		assert(code.includes(`import TsPptx from '${manifest.name}'`), `write-half import is not ${manifest.name}`)
 		assert(code.includes(`from '${manifest.name}/read'`), `read-half import is not ${manifest.name}/read`)
+	})
+})
+
+/** A 1×1 PNG, standing in for a template's background picture and logo. */
+const PNG_1x1 =
+	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8DwHwAFAAH/Re1ZlAAAAABJRU5ErkJggg=='
+
+describe('a printer binds only the media its statements reference', () => {
+	// The chrome maps its pictures through the same resolver as the slides, so a layout's background
+	// and logo are in `DeckIr.assets`. This tier never prints the chrome, because its template is the
+	// chrome, yet it bound, shipped, counted and inlined every asset regardless.
+	async function brandedIr() {
+		const { presentation } = await authorRead((pres) => {
+			pres.defineSlideMaster({
+				title: 'Branded',
+				background: { data: PNG_1x1 },
+				objects: [{ image: { data: PNG_1x1, x: 0.5, y: 0.25, w: 1, h: 1, objectName: 'Wordmark' } }],
+			})
+			pres.addSlide({ masterTitle: 'Branded' }).addText('body', { x: 1, y: 3, w: 4, h: 1 })
+		})
+		const ir = readModelToIr(presentation)
+		assert(ir.assets.length > 0, 'the layout pictures are registered in the IR')
+		return ir
+	}
+
+	test('the template-anchored tier leaves the layout pictures to its template', async () => {
+		const ir = await brandedIr()
+		const file = printScript(ir)
+		assertEqual(file.assets.size, 0, 'no layout picture is written beside the script')
+		assert(!/^const \w+ = `data:/m.test(file.code), 'nor bound')
+		assert(!file.code.includes('media file(s)'), 'nor counted in the banner')
+		const inline = printScript(ir, { assets: 'inline' })
+		assert(!inline.code.includes('data:image/png;base64,'), 'nor inlined')
+	})
+
+	test('the standalone tier still ships them, because it prints the layouts', async () => {
+		const ir = await brandedIr()
+		const { code, assets } = printStandaloneScript(ir)
+		assertEqual(assets.size, ir.assets.length, 'every layout picture is written beside the script')
+		assert(code.includes('media file(s)'), 'and counted in the banner')
 	})
 })
 
