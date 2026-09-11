@@ -5,18 +5,9 @@
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range
  * clamps. The chart *XML* is emitted later by `gen/chart/chart-xml.ts`.
  */
-import { namedColorOr } from '../drawingml/color.js'
-import {
-	asChartType,
-	type CHART_NAME,
-	ChartType,
-	isChartExType,
-	isChartType,
-	SchemeColor,
-	SlideObjectType,
-} from '../../enums.js'
+import { isColorValue, namedColorOr } from '../drawingml/color.js'
+import { asChartType, type CHART_NAME, ChartType, isChartExType, isChartType, SlideObjectType } from '../../enums.js'
 import { DEF_CHART_BORDER } from '../../constants-internal.js'
-import { isHexColor } from '../../hex-color.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import {
 	BAR_3D_SHAPES,
@@ -128,8 +119,61 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
  * this replaces already did. What it adds is `Infinity` and a negative — neither is a width,
  * and a negative one reached `a:ln/@w` as a negative attribute.
  */
-function isUsableBorderWidth(width: number | undefined): boolean {
+function isUsableBorderWidth(width: number | undefined): width is number {
 	return typeof width === 'number' && Number.isFinite(width) && width > 0
+}
+
+/**
+ * A chart `BorderProps` with its width and colour resolved, or `undefined` when there is no
+ * border object at all.
+ *
+ * The plot area, the chart area and `dataBorder` each normalized the same shape ten lines apart,
+ * with three answers. `width: -2, color: 123` took the plot area's defaults in silence, while the
+ * chart area wrote `w="0"` and a warned-about black. `color: 'red'` became `F9F9F9` on a data
+ * border in silence, and black with a warning on the chart area.
+ *
+ * - An absent or `0` width is not stated and takes `defaultWidth`. A negative or infinite one warns
+ *   and takes it too. A width that is not a number throws, as every chart option does.
+ * - An absent or empty colour takes `defaultColor`. A colour {@link createColorElement} would not
+ *   paint warns and takes it too, rather than the emitter's black.
+ * @param border - the caller's border, possibly absent or not an object
+ * @param spec - this border's defaults, its option name, and which keys survive (all of them when
+ *   `keep` is omitted)
+ */
+function normalizeChartBorder(
+	border: BorderProps | undefined,
+	spec: { defaultWidth: number; defaultColor: string; option: string; keep?: readonly (keyof BorderProps)[] }
+): BorderProps | undefined {
+	if (!border || typeof border !== 'object') return undefined
+	const normalized: BorderProps = spec.keep ? {} : { ...border }
+	for (const key of spec.keep ?? []) {
+		if (border[key] !== undefined) (normalized as Record<string, unknown>)[key] = border[key]
+	}
+
+	const width = border.width
+	if (width !== undefined && width !== 0 && (typeof width !== 'number' || Number.isNaN(width))) {
+		throw new InvalidOptionError(
+			'coord/non-finite',
+			`${spec.option}.width must be a number of points; received ${String(width)}.`
+		)
+	}
+	if (width !== undefined && width !== 0 && !isUsableBorderWidth(width)) {
+		warn(
+			'chart/option-out-of-range',
+			`${spec.option}.width ${String(width)} is not a positive, finite width; using ${spec.defaultWidth}.`
+		)
+	}
+	normalized.width = isUsableBorderWidth(width) ? width : spec.defaultWidth
+
+	const color = namedColorOr(border.color, undefined, `${spec.option}.color`)
+	if (color !== undefined && !isColorValue(color)) {
+		warn(
+			'color/invalid-value',
+			`${spec.option}.color "${String(color)}" is not a 6-digit hex RGB or scheme colour; using ${spec.defaultColor}.`
+		)
+	}
+	normalized.color = color !== undefined && isColorValue(color) ? color : spec.defaultColor
+	return normalized
 }
 
 /**
@@ -438,43 +482,38 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	// An out-of-range one reaches `percentToFixedPercent` at the emitter, which clamps and says so.
 	if (!options.chartColorsOpacity) delete options.chartColorsOpacity
 	options.plotArea = options.plotArea || {}
-	if (!options.plotArea.border || typeof options.plotArea.border !== 'object') delete options.plotArea.border
-	if (options.plotArea.border && !isUsableBorderWidth(options.plotArea.border.width))
-		options.plotArea.border.width = DEF_CHART_BORDER.width
-	if (
-		options.plotArea.border &&
-		(!options.plotArea.border.color || typeof options.plotArea.border.color !== 'string')
-	) {
-		options.plotArea.border.color = DEF_CHART_BORDER.color
-	}
+	setOrClear(
+		options.plotArea,
+		'border',
+		normalizeChartBorder(options.plotArea.border, {
+			defaultWidth: DEF_CHART_BORDER.width,
+			defaultColor: DEF_CHART_BORDER.color,
+			option: 'plotArea.border',
+		})
+	)
 	options.plotArea.fill = options.plotArea.fill || {}
 	options.chartArea = options.chartArea || {}
-	if (!options.chartArea.border || typeof options.chartArea.border !== 'object') delete options.chartArea.border
-	const chartAreaBorder = options.chartArea.border
-	if (chartAreaBorder) {
-		// Rebuilt rather than patched, and only the three keys the chart-area emitter reads survive
-		// — `type` and `dashType` are dropped, as they always have been here. `transparency` is
-		// copied only when the caller set one, so the rebuilt border spells "no transparency" the
-		// same absent way the caller's own bag did.
-		const border: BorderProps = {
-			color: namedColorOr(chartAreaBorder.color, DEF_CHART_BORDER.color, 'border.color'),
-			width: mapStated(chartAreaBorder.width, (width) => width) ?? DEF_CHART_BORDER.width,
-		}
-		if (chartAreaBorder.transparency !== undefined) border.transparency = chartAreaBorder.transparency
-		options.chartArea.border = border
-	}
+	// Only the three keys the chart-area emitter reads survive: `type` and `dashType` are dropped,
+	// as they always have been here.
+	setOrClear(
+		options.chartArea,
+		'border',
+		normalizeChartBorder(options.chartArea.border, {
+			defaultWidth: DEF_CHART_BORDER.width,
+			defaultColor: DEF_CHART_BORDER.color,
+			option: 'chartArea.border',
+			keep: ['color', 'width', 'transparency'],
+		})
+	)
 	options.chartArea.roundedCorners =
 		typeof options.chartArea.roundedCorners === 'boolean' ? options.chartArea.roundedCorners : true
-	//
-	if (!options.dataBorder || typeof options.dataBorder !== 'object') delete options.dataBorder
-	if (options.dataBorder && !isUsableBorderWidth(options.dataBorder.width)) options.dataBorder.width = 0.75
-	if (options.dataBorder && options.dataBorder.color) {
-		const isHex = typeof options.dataBorder.color === 'string' && isHexColor(options.dataBorder.color)
-		const isSchemeColor = Object.values(SchemeColor).includes(options.dataBorder.color as SchemeColor)
-		if (!isHex && !isSchemeColor) {
-			options.dataBorder.color = 'F9F9F9' // Fallback if neither hex nor scheme color
-		}
-	}
+	// `dataBorder`'s defaults are `createDataBorderLine`'s, so an unstated width or colour paints as
+	// it did when the emitter supplied them.
+	setOrClear(
+		options,
+		'dataBorder',
+		normalizeChartBorder(options.dataBorder, { defaultWidth: 0.75, defaultColor: '363636', option: 'dataBorder' })
+	)
 	//
 	if (!options.dataLabelFormatCode && options._type === ChartType.scatter) options.dataLabelFormatCode = 'General'
 	if (!options.dataLabelFormatCode && (options._type === ChartType.pie || options._type === ChartType.doughnut)) {

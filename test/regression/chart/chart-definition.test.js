@@ -46,12 +46,6 @@ import { chartXml } from './chart-parts.js'
 //      `tmpOpt = ... : opt` (L481) and `copyChartOptions(tmpOpt && ... ? tmpOpt : {})` (L487)
 //      without an input. The sibling guards on `data` (L483) and on a combo entry's own
 //      `data`/`options` ARE reachable from untyped JS and are covered below.
-//
-// One shape that looks unreachable and is not, since it cost a first draft of this header: the
-// second arm of `!border.width || isNaN(border.width)`. `NaN` is falsy, so it seems the first arm
-// must always catch it -- but a branch counter records that the second operand was *evaluated*, not
-// that it was true, and any truthy width gets there. Both instances (plotArea and dataBorder) are
-// covered by passing a width rather than omitting one.
 
 /** The chartEx part, for the chart types that emit one (waterfall, funnel, ...). */
 function chartExXml(zip) {
@@ -342,6 +336,54 @@ defineRegressionSuite('Chart definition', [
 		},
 	},
 	{
+		// The plot area, the chart area and `dataBorder` normalized the same `BorderProps` three
+		// ways. `width: -2, color: 123` took the plot area's defaults in silence while the chart area
+		// wrote w="0" and black; `color: 'red'` became F9F9F9 on a data border in silence and black
+		// with a warning on the chart area. One normalizer now gives each its own defaults and warns.
+		name: 'the plot area, chart area and data border answer a bad border the same way',
+		fn: async () => {
+			/** @type {[string, (border: any) => object, string, string][]} */
+			const borders = [
+				['plotArea.border', (border) => ({ plotArea: { border } }), 'w="12700"', '363636'],
+				['chartArea.border', (border) => ({ chartArea: { border } }), 'w="12700"', '363636'],
+				['dataBorder', (border) => ({ dataBorder: border }), 'w="9525"', '363636'],
+			]
+			for (const [option, place, defaultWidth, defaultColor] of borders) {
+				for (const border of [
+					{ width: -2, color: 123 },
+					{ width: 2, color: 'red' },
+				]) {
+					const { zip, warnings } = await buildCapturingWarnings((p) => {
+						p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, ...place(/** @type {any} */ (border)) })
+					})
+					const xml = await chartXml(zip)
+					const label = `${option} ${JSON.stringify(border)}`
+					assertNotIncludes(xml, 'w="-', `${label}: no negative width`)
+					assertIncludes(xml, `<a:srgbClr val="${defaultColor}"/>`, `${label}: the default colour`)
+					if (border.width < 0) assertIncludes(xml, `<a:ln ${defaultWidth}`, `${label}: the default width`)
+					assert(
+						warnings.some((w) => w.includes(`${option}.color`)),
+						`${label}: warns about the colour; got ${JSON.stringify(warnings)}`
+					)
+					if (border.width < 0)
+						assert(
+							warnings.some((w) => w.includes(`${option}.width`)),
+							`${label}: and about the width`
+						)
+				}
+				let thrown = null
+				try {
+					await build((p) => {
+						p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, ...place({ width: NaN }) })
+					})
+				} catch (err) {
+					thrown = err
+				}
+				assertEqual(thrown?.code, 'coord/non-finite', `${option}: a NaN width throws`)
+			}
+		},
+	},
+	{
 		// `roundedCorners` defaults to true and is read with a `typeof` check, so an explicit false is
 		// the only input that distinguishes "off" from "not set".
 		name: 'chartArea roundedCorners: false is honoured',
@@ -361,23 +403,28 @@ defineRegressionSuite('Chart definition', [
 	{
 		// A data border color has to be either a six-digit hex or a scheme color name; anything else
 		// would reach `<a:srgbClr val>` verbatim and make PowerPoint report the part as damaged, so it
-		// falls back to F9F9F9. Six characters that are not hex is the case the length test alone
-		// would let through, which is why the regex exists.
-		// A width is supplied on both so the `!width || isNaN(width)` guard actually reaches its second
-		// arm -- with the width omitted, the first arm short-circuits and the isNaN check never runs.
-		name: 'a dataBorder color that is neither hex nor scheme falls back',
+		// falls back to the data border's default, 363636, and warns. Six characters that are not hex
+		// is the case a length test alone would let through.
+		name: 'a dataBorder color that is neither hex nor scheme falls back with a warning',
 		fn: async () => {
 			const hex = await chartFrom(SERIES, { ...BASE, type: ChartType.bar, dataBorder: { color: 'FF0000', width: 2 } })
 			assertIncludes(hex, '<a:srgbClr val="FF0000"/>', 'a valid six-digit hex')
 			assertIncludes(hex, '<a:ln w="25400"', 'the supplied dataBorder width, in EMU')
 
-			const notHex = await chartFrom(SERIES, {
-				...BASE,
-				type: ChartType.bar,
-				dataBorder: { color: /** @type {any} */ ('ZZZZZZ'), width: 2 },
+			const { zip, warnings } = await buildCapturingWarnings((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					type: ChartType.bar,
+					dataBorder: { color: /** @type {any} */ ('ZZZZZZ'), width: 2 },
+				})
 			})
-			assertIncludes(notHex, '<a:srgbClr val="F9F9F9"/>', 'six non-hex characters')
+			const notHex = await chartXml(zip)
+			assertIncludes(notHex, '<a:srgbClr val="363636"/>', 'six non-hex characters')
 			assertNotIncludes(notHex, 'ZZZZZZ', 'the rejected color must not reach the part')
+			assert(
+				warnings.some((w) => w.includes('dataBorder.color')),
+				`and warns; got ${JSON.stringify(warnings)}`
+			)
 
 			// A scheme color name is the other accepted spelling, and passes through as a schemeClr.
 			const scheme = await chartFrom(SERIES, {

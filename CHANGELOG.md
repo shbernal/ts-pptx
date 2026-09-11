@@ -851,6 +851,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`plotArea.border`, `chartArea.border` and `dataBorder` answered a bad border three ways.**
+  `width: -2, color: 123` took the plot area's defaults silently, while the chart area wrote
+  `w="0"` in black with a warning. `color: 'red'` became `F9F9F9` on a data border silently. All
+  three now go through one normalizer:
+  - An absent or 0 width takes the border's default. A negative or infinite width warns
+    `chart/option-out-of-range` and takes it too. A width that is not a number throws
+    `coord/non-finite`, as a NaN chart-area border width already did.
+  - A colour that is not hex RGB or a scheme colour warns `color/invalid-value` and takes the
+    border's default colour, `363636`, rather than black. For a data border that replaces the
+    previous `F9F9F9`.
+
 - **Four chart options skipped the clamp-and-warn policy.**
   - `lineSize` and `seriesOptions[].lineSize`: a negative width reached `a:ln/@w`
     (`lineSize: -1` wrote `w="-12700"`) and `NaN` wrote `w="0"`, both silently. A negative width

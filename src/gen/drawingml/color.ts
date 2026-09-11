@@ -75,7 +75,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		colorVal = rgba.rgb
 	}
 
-	if (!isHexColor(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
+	if (!isColorValue(colorVal)) {
 		warn(
 			'color/invalid-value',
 			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'SchemeColor' values!`
@@ -90,6 +90,20 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	// Paired vs self-closing is decided by whether there is anything to nest, so this
 	// is one of the few places `el`/`voidEl` are chosen at runtime rather than by tag.
 	return innerElements ? el(name, attrs, raw(innerElements)) : voidEl(name, attrs)
+}
+
+/**
+ * Whether {@link createColorElement} paints `value` as given rather than replacing it: 6-digit or
+ * 8-digit (RGBA) hex, with or without a leading `#`, or a {@link SchemeColor} name.
+ *
+ * A normalizer that wants to fall back to its own default instead of the emitter's black asks
+ * this, so the two cannot disagree about what a colour is.
+ * @param value - a colour option's value, whatever the caller passed
+ */
+export function isColorValue(value: unknown): boolean {
+	if (typeof value !== 'string') return false
+	const { rgb } = splitRgbaHex(value)
+	return isHexColor(rgb) || Object.values(SchemeColor).includes(rgb as SchemeColor)
 }
 
 /**
