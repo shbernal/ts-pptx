@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **U+FFFE and U+FFFF were written into parts as they were.**
+  - XML 1.0 forbids both, like the control characters the escapers already strip, so a run of text
+    carrying one produced a part PowerPoint offers to repair.
+  - Both are now stripped wherever text or attribute values are escaped, and an `objectName`
+    holding one raises `object-name/control-characters` as a control character does.
+
 - **Two legal image headers measured wrong for `sizing` and unsized images.**
   - A JPEG with a `0xFF` fill byte before its frame marker was unmeasurable, so `cover` and
     `contain` fell back with `image/unmeasurable-natural-size` and an unsized image came out 1in

@@ -77,7 +77,7 @@ export function validateObjectName(name: string, kind: string): string {
 	if (hasIllegalXmlChars(name)) {
 		warn(
 			'object-name/control-characters',
-			`${kind} objectName "${name}" contains control characters that will be stripped from the name written to the file.`
+			`${kind} objectName "${name}" contains characters XML 1.0 forbids (control characters, or U+FFFE or U+FFFF) that will be stripped from the name written to the file.`
 		)
 	}
 	if (name.length > MAX_OBJECT_NAME_LENGTH) {

@@ -22,9 +22,11 @@ import { FIXTURES } from '../../read/corpus.js'
 /** A vertical tab: legal in a JavaScript string, forbidden in XML 1.0 in any spelling. */
 const VERTICAL_TAB = String.fromCharCode(11)
 
-/** The XML 1.0 illegal control set, as a detector — the same set the write side strips. */
+/** The characters XML 1.0 forbids, as a detector — the same set the write side strips. */
 const ILLEGAL_XML_CHARS = new RegExp(
-	((cc) => `[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)(String.fromCharCode)
+	((cc) => `[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}${cc(0xfffe)}${cc(0xffff)}]`)(
+		String.fromCharCode
+	)
 )
 
 let regular

@@ -19,7 +19,13 @@
  */
 
 /**
- * The XML 1.0 control characters no document may carry, as a character class.
+ * Characters XML 1.0's `Char` production excludes that a string holds in one code unit, as a
+ * character class: every C0 control except tab, line feed and carriage return, and the two
+ * non-characters U+FFFE and U+FFFF. No document may carry one in any spelling, not even as a
+ * character reference, and a part that does is one PowerPoint offers to repair.
+ *
+ * DEL (U+007F) is in the class too, although XML 1.0 allows it. Stripping it loses nothing a slide
+ * could show, and it has always been stripped.
  *
  * Built from `String.fromCharCode` so `no-control-regex` cannot flag it statically, and built
  * ONCE: it was constructed inside the text escaper, which runs for every attribute value and
@@ -27,7 +33,7 @@
  * the same set.
  */
 const ILLEGAL_XML_CHARS_CLASS = ((cc: (n: number) => string) =>
-	`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)(String.fromCharCode)
+	`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}${cc(0xfffe)}${cc(0xffff)}]`)(String.fromCharCode)
 
 /** The stripping form. Separate from {@link ILLEGAL_XML_CHARS} because a `g` regex is stateful under `.test`. */
 const ILLEGAL_XML_CHARS_G = new RegExp(ILLEGAL_XML_CHARS_CLASS, 'g')
