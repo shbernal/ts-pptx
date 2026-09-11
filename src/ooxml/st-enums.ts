@@ -122,6 +122,7 @@ export type LightRigDirection = (typeof LIGHT_RIG_DIRECTIONS)[number]
  * @see ECMA-376 Part 1 §20.1.10.68
  */
 export const TEXT_HORZ_OVERFLOW = ['clip', 'overflow'] as const
+export type TextHorzOverflowType = (typeof TEXT_HORZ_OVERFLOW)[number]
 
 /**
  * `ST_TextAnchoringType` — `a:bodyPr/@anchor` and `a:tcPr/@anchor`.

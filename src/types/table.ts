@@ -4,7 +4,13 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { SHAPE_NAME, TableStyle } from '../enums.js'
-import type { BevelPresetType, LightRigDirection, LightRigType, PresetMaterialType } from '../ooxml/st-enums.js'
+import type {
+	BevelPresetType,
+	LightRigDirection,
+	LightRigType,
+	PresetMaterialType,
+	TextHorzOverflowType,
+} from '../ooxml/st-enums.js'
 import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
@@ -265,7 +271,7 @@ export interface TableCellProps extends TextBaseProps {
 	 * @default (unset — PowerPoint clips)
 	 * @example 'overflow' // a 60pt glyph in a 0.5in column draws whole instead of being cut
 	 */
-	horzOverflow?: 'clip' | 'overflow'
+	horzOverflow?: TextHorzOverflowType
 	hyperlink?: HyperlinkProps
 	/**
 	 * Cell margin (inches)

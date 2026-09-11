@@ -16,7 +16,7 @@ import type {
 	TextVertType,
 	VAlign,
 } from './core.js'
-import type { TextShapeType } from '../ooxml/st-enums.js'
+import type { TextShapeType, TextVerticalType } from '../ooxml/st-enums.js'
 import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
 import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
@@ -269,7 +269,7 @@ export interface TextBaseProps {
 	 * `wordArtVert` = stacked
 	 * @default 'horz'
 	 */
-	textDirection?: 'horz' | 'vert' | 'vert270' | 'wordArtVert'
+	textDirection?: Extract<TextVerticalType, 'horz' | 'vert' | 'vert270' | 'wordArtVert'>
 	/**
 	 * Transparency (percent)
 	 * - MS-PPT > Format Shape > Text Options > Text Fill & Outline > Text Fill > Transparency
