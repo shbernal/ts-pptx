@@ -17,11 +17,17 @@ import { PPTX_CONTENT_TYPE } from './ooxml/rel-types.js'
  * fflate emits no directory entries, so the package carries only real parts.
  */
 /**
- * Fixed modification time (2001-01-01 UTC) stamped on every entry so archive
+ * Fixed modification time (2001-01-01, local midnight) stamped on every entry so archive
  * bytes are reproducible across runs. fflate encodes DOS dates, which are bounded
  * to 1980-2099, so 0/epoch is not usable here.
+ *
+ * Local time, not UTC, because a DOS date and time are wall-clock fields with no zone, and fflate
+ * fills them from the local getters (`getFullYear`, `getHours`, …). A fixed local midnight reads
+ * back as the same fields in every timezone. `Date.UTC(2001, 0, 1)` was one fixed instant, which
+ * the getters render differently per zone: the header bytes moved with `TZ`, and west of UTC the
+ * date rolled back to 2000-12-31.
  */
-const FIXED_MTIME = Date.UTC(2001, 0, 1)
+const FIXED_MTIME = new Date(2001, 0, 1)
 
 export class ZipWriter {
 	readonly #entries: Zippable = {}
