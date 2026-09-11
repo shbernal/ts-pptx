@@ -315,7 +315,7 @@ Both tiers, in corpus order:
 Plus, at 1–2 fixtures each: `chart.workbook`, `diagram.all`,
 `graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
 `shape.empty`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
-`group.child`, `image.svg`, `line.arrowSize`, `shape.custGeom.guides`,
+`group.child`, `image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
 `slide.background`, `slide.layout`, `table.cell.fill.picture.geometry`,
 `table.rowAuto`, `text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
 
@@ -516,8 +516,8 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 811
-notes against the template-anchored tier's 442).
+on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 817
+notes against the template-anchored tier's 448).
 
 ### The read path is the binding constraint
 

@@ -692,7 +692,7 @@ function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
 		...transformOptions(shape),
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),
-		glow: glowOption(shape),
+		glow: glowOption(shape, notes),
 		objectName: shape.name || undefined,
 	})
 	// Through `compact` like the other arms, so every emitted descriptor spells its keys in the

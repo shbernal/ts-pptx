@@ -12,14 +12,7 @@
 import type { AnyShape } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { type IrValue } from '../ir.js'
-import {
-	alphaToTransparency,
-	compact,
-	isWritableSchemeToken,
-	literalColor,
-	orUndefined,
-	WRITABLE_DASHES,
-} from './values.js'
+import { alphaToTransparency, colorOption, compact, orUndefined, WRITABLE_DASHES } from './values.js'
 import { type FillSubject, gradientStops, surfaceFill } from './surface-fill.js'
 import { type MapContext } from './context.js'
 
@@ -177,10 +170,15 @@ export function lineOption(shape: AnyShape, notes: NoteScope): Record<string, Ir
 	const scheme = shape.lineSchemeColor
 	const resolved = shape.resolvedLine
 
-	let color: string | undefined
-	if (isWritableSchemeToken(scheme)) color = scheme as string
-	else if (shape.lineColor !== null) color = literalColor(shape.lineColor)
-	else if (resolved) color = literalColor(resolved.effectiveHex)
+	// The shared colour ladder: a writable token kept as a token, then the line's own literal, then
+	// an unwritable token baked to what it resolves to. This kept its own copy of that ladder, and
+	// the copy baked a token such as `dk1` or `hlink` without the note every other surface records.
+	const color = colorOption(
+		{ scheme, ownHex: shape.lineColor, resolvedHex: resolved?.effectiveHex ?? null },
+		notes,
+		'line.schemeToken',
+		'outline'
+	)
 
 	noteLineLosses(shape, { widthPt, dash, scheme, resolved }, notes)
 
@@ -231,7 +229,14 @@ export function shadowOption(shape: AnyShape, notes: NoteScope): IrValue | undef
 
 	return compact({
 		type: outer ? 'outer' : 'inner',
-		color: source.color === null ? undefined : literalColor(source.color),
+		// A shadow takes a scheme token too (`createColorElement` writes it as `a:schemeClr`), so a
+		// writable one is kept and the copy keeps tracking its theme; this baked every token to hex.
+		color: colorOption(
+			{ scheme: source.colorToken ?? null, resolvedHex: source.color },
+			notes,
+			'shadow.schemeToken',
+			'shadow'
+		),
 		blur: source.blurPt,
 		offset: source.offsetPt,
 		angle: source.angleDeg,
@@ -240,12 +245,13 @@ export function shadowOption(shape: AnyShape, notes: NoteScope): IrValue | undef
 }
 
 /** Glow. The read model reports opacity as a 0–1 alpha, which is the write API's unit too. */
-export function glowOption(shape: AnyShape): IrValue | undefined {
+export function glowOption(shape: AnyShape, notes: NoteScope): IrValue | undefined {
 	const glow = shape.glow
 	if (!glow) return undefined
 	return compact({
 		size: glow.radiusPt,
-		color: glow.color === null ? undefined : literalColor(glow.color),
+		// The same ladder as the shadow: a glow writes a scheme token as `a:schemeClr` as well.
+		color: colorOption({ scheme: glow.colorToken ?? null, resolvedHex: glow.color }, notes, 'glow.schemeToken', 'glow'),
 		opacity: glow.alpha,
 	})
 }
@@ -257,7 +263,7 @@ export function styleOptions(shape: AnyShape, ctx: MapContext): Record<string, I
 		fill: fillOption(shape, ctx),
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),
-		glow: glowOption(shape),
+		glow: glowOption(shape, notes),
 	}
 }
 

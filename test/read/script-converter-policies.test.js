@@ -114,6 +114,76 @@ describe('an unwritable scheme token is baked and noted, not passed through raw'
 		)
 	})
 
+	test("a shape outline's token", async () => {
+		// The outline kept its own copy of the colour ladder, and the copy baked an unwritable token
+		// to hex without the note every other surface records.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 2, line: { color: 'accent4', width: 2 } })
+		})
+		const ir = await irWithSlideXml(buf, (xml) => xml.replaceAll('val="accent4"', 'val="dk1"'))
+		assert(
+			constructs(ir).includes('line.schemeToken'),
+			'the outline bake is noted; got ' + JSON.stringify(constructs(ir))
+		)
+		const shape = ir.slides[0].calls.find((call) => call.method === 'addShape')
+		assert(shape, 'the IR carries the shape')
+		const options = shape.args.find((arg) => arg && typeof arg === 'object' && 'line' in arg)
+		const color = /** @type {any} */ (options)?.line?.color
+		assert(color !== 'dk1' && /^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
+	})
+
+	/** A shape with an outer shadow in `color`, authored and read back. */
+	const shadowDeck = (color) =>
+		authorRead((pres) => {
+			pres.addSlide().addShape('rect', {
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				shadow: { type: 'outer', color, blur: 3, offset: 2, angle: 45 },
+			})
+		})
+	/** The `shadow` or `glow` option of slide 1's first shape call. */
+	const effectOf = (ir, key) =>
+		ir.slides[0].calls.flatMap((call) => call.args).find((arg) => arg && typeof arg === 'object' && key in arg)?.[key]
+
+	test("a shadow's writable token stays a token", async () => {
+		// The shadow writer takes a scheme token (`createColorElement` writes `a:schemeClr`), so a
+		// writable one has no reason to be baked. It used to be, and the copy stopped tracking its theme.
+		const { presentation } = await shadowDeck('accent5')
+		const shadow = effectOf(readModelToIr(presentation), 'shadow')
+		assertEqual(shadow?.color, 'accent5', 'the shadow keeps its token')
+	})
+
+	test("a shadow's unwritable token is baked and noted", async () => {
+		const { buf } = await shadowDeck('accent5')
+		const ir = await irWithSlideXml(buf, (xml) => xml.replaceAll('val="accent5"', 'val="dk1"'))
+		assert(
+			constructs(ir).includes('shadow.schemeToken'),
+			'the shadow bake is noted; got ' + JSON.stringify(constructs(ir))
+		)
+		const color = effectOf(ir, 'shadow')?.color
+		assert(/^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
+	})
+
+	test("a glow's unwritable token is baked and noted", async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FFFFFF' } })
+		})
+		const glow = '<a:effectLst><a:glow rad="50800"><a:schemeClr val="dk2"/></a:glow></a:effectLst></p:spPr>'
+		let injected = 0
+		const ir = await irWithSlideXml(buf, (xml) =>
+			xml.replace('</p:spPr>', () => {
+				injected++
+				return glow
+			})
+		)
+		assertEqual(injected, 1, 'the glow is injected into the shape')
+		assert(constructs(ir).includes('glow.schemeToken'), 'the glow bake is noted; got ' + JSON.stringify(constructs(ir)))
+		const color = effectOf(ir, 'glow')?.color
+		assert(/^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
+	})
+
 	test('a writable token still passes through as a token', async () => {
 		// The point of preferring the token is that the copy keeps tracking its theme, so the
 		// guard has to prove the bake is the exception rather than the rule.

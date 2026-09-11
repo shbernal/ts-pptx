@@ -96,6 +96,9 @@ export const NOTE_CONSTRUCTS = {
 	'fill.picture.geometry': [],
 	'fill.gradient.schemeToken': ['gradient', 'fill'],
 	'fill.schemeToken': ['fill', 'fill.color'],
+	// The outline's twin on a glow, and `shadow.schemeToken` below on a shadow: a colour outside the
+	// ten tokens, baked to a literal.
+	'glow.schemeToken': ['glow.color'],
 	'graphicFrame.unknown': ['*'],
 	'group.child': ['*'],
 	'group.childSpace': ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'],
@@ -149,9 +152,12 @@ export const NOTE_CONSTRUCTS = {
 	// Path-qualified: the entries are matched as a suffix of the difference's own path, and a
 	// bare `width` also excused a table cell's bevel or border width.
 	'line.dash': ['line.dashType'],
+	// An outline colour outside the ten scheme tokens the write path maps, baked to a literal.
+	'line.schemeToken': ['line.color'],
 	'line.width': ['line.width'],
 	'media.audioVideo': ['*'],
 	'notes.formatting': ['notesText'],
+	'shadow.schemeToken': ['shadow.color'],
 	'shape.custGeom.guides': ['points'],
 	'shape.effects': ['shadow', 'glow'],
 	'shape.empty': ['*'],

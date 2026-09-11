@@ -851,6 +851,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter flattened line, shadow and glow scheme colours without saying so.**
+  - An outline in one of the scheme tokens the write API cannot carry (`dk1`, `hlink` and the
+    rest) was baked to hex with no fidelity note. It now records `line.schemeToken`, as every
+    other colour surface already did.
+  - A shadow or glow in any scheme colour was baked to hex, `accent1` included, although both
+    writers take a scheme token. A writable token is now kept, so the copy keeps tracking its
+    theme, and an unwritable one is baked with a `shadow.schemeToken` or `glow.schemeToken`
+    note.
+
 - **The script converter wrote an auto-height row in a mixed table as `rowH` 0.** In a table mixing
   auto and fixed rows, each auto row became a `0` entry, which `addTable` rejects with a
   `table/invalid-row-height` warning. The auto rows are now written as `null`, the silent spelling
