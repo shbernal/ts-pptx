@@ -33,7 +33,7 @@ import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { cNvPrOpen, grpXfrmEl, type RenderContext, type RendererTable } from './objects/shared.js'
-import { collectSlideShapeIds } from './shape-ids.js'
+import { collectSlideShapeIds, shapeIdCount } from './shape-ids.js'
 import { InternalError } from '../../errors.js'
 import {
 	AUDIO_REL,
@@ -605,13 +605,17 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
 	// One past the highest id the allocator handed out — the same slot the group-child counter
 	// used to reach. A hardcoded id here (formerly 25) aliases a shape or group-child id once a
 	// slide holds enough objects, which PowerPoint repairs. Resolved here rather than inside the
-	// emitter so a part with no slide number does not consume an id.
+	// emitter so a part with no slide number does not consume an id. The highest id is the last one
+	// an object holds, which for a Summary Zoom is its last fallback picture's (`shapeIdCount`).
 	//
 	// A loop rather than `Math.max(1, ...shapeIds.values())`: spreading a collection as arguments
 	// is an argument-count ceiling written as arithmetic, and `shapeIds` is sized by the slide.
 	if (slide._slideNumberProps) {
 		let maxShapeId = 1
-		for (const id of shapeIds.values()) if (id > maxShapeId) maxShapeId = id
+		for (const [obj, id] of shapeIds) {
+			const lastId = id + shapeIdCount(obj) - 1
+			if (lastId > maxShapeId) maxShapeId = lastId
+		}
 		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, maxShapeId + 1)
 	}
 

@@ -40,9 +40,25 @@ export function renderedSlideObjects(slideObjects: SlideObject[]): SlideObject[]
 }
 
 /**
+ * How many `<p:cNvPr>` ids an object's render uses, starting at the one the allocator gives it.
+ *
+ * One for everything but a Summary Zoom. Its `mc:Fallback` is a group holding one picture per tile,
+ * numbered from the zoom's own id plus one (`gen/slide/objects/zoom.ts`). The pictures are the
+ * fallback's rendering of the zoom rather than shapes of their own, but a consumer reading the
+ * fallback sees them beside every other shape on the slide, so their ids are held back from the
+ * shapes that follow.
+ * @param obj - a slide object that renders
+ * @returns the number of ids it uses
+ */
+export function shapeIdCount(obj: SlideObject): number {
+	return obj._type === SlideObjectType.zoom && obj.zoom?.variant === 'summary' ? 1 + obj.zoom.tiles.length : 1
+}
+
+/**
  * Every object a slide renders, paired with the `<p:cNvPr>` id it is rendered with: top-level
- * objects first (`index + 2`, in add order), then group children, seeded past the last top-level id
- * and allocated pre-order (a nested group takes an id before its own children do).
+ * objects first (from 2, in add order), then group children, seeded past the last top-level id
+ * and allocated pre-order (a nested group takes an id before its own children do). Each object
+ * holds {@link shapeIdCount} ids, so the next object starts past all of them.
  *
  * Only the objects that render take an id, so the emitted ids run without gaps and every id in the
  * map names a shape that exists.
@@ -58,12 +74,16 @@ export function renderedSlideObjects(slideObjects: SlideObject[]): SlideObject[]
 export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObject, number> {
 	const shapeIds = new Map<SlideObject, number>()
 	const rendered = renderedSlideObjects(slideObjects)
-	rendered.forEach((obj, idx) => shapeIds.set(obj, idx + 2))
+	let nextId = 2
+	const allocate = (obj: SlideObject): void => {
+		shapeIds.set(obj, nextId)
+		nextId += shapeIdCount(obj)
+	}
+	rendered.forEach(allocate)
 
-	let childIdxAlloc = rendered.length
 	const allocGroupChildren = (children: SlideObject[]): void => {
 		children.forEach((child) => {
-			shapeIds.set(child, childIdxAlloc++ + 2)
+			allocate(child)
 			if (child._type === SlideObjectType.group) allocGroupChildren(child._groupObjects || [])
 		})
 	}

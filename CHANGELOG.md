@@ -808,6 +808,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A Summary Zoom's fallback pictures took the ids of the shapes after it.** The `mc:Fallback` a
+  Summary Zoom writes holds one picture per tile, numbered from the zoom's own id, and those ids had
+  already gone to the next shapes on the slide: a three-tile summary zoom followed by a shape gave
+  that shape the same `p:cNvPr` id as one of the pictures. The zoom now holds an id per tile, and
+  the shapes, group children and slide number after it are numbered past them. Only a consumer
+  reading `mc:Fallback` saw the collision.
+
 - **A layout placeholder with an image fill or a hyperlink broke the rels of the slides using it.**
   A slide fills in every layout placeholder it leaves empty with a copy of that placeholder, and the
   copy shared the layout's `fill` and `hyperlink` objects. Registering the slide's relationships

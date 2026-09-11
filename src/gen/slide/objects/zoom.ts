@@ -178,6 +178,8 @@ export function renderZoomObject(ctx: RenderContext): string {
 	// Fallback: a hyperlinked picture per tile at its slide-absolute position.
 	let fallbackInner: string
 	if (zoom.variant === 'summary') {
+		// The pictures take the ids after the zoom's own, which `shapeIdCount` holds for them so the
+		// shapes after this zoom are numbered past the last one.
 		const pics = zoom.tiles.map((t, k) => {
 			const g = t.grid ?? { x: 0, y: 0, cx, cy }
 			return raw(zoomFallbackPic(shapeId + 1 + k, objectName, t, { x: x + g.x, y: y + g.y, cx: g.cx, cy: g.cy }))

@@ -301,6 +301,39 @@ defineRegressionSuite('Zoom definition', [
 		},
 	},
 	{
+		// A Summary Zoom's `mc:Fallback` is a group holding one picture per tile, numbered after the
+		// zoom's own id. A consumer reading the fallback sees those pictures beside every other shape
+		// on the slide, so the shapes, group children and slide number after the zoom are numbered
+		// past them. `mc:Choice` and `mc:Fallback` are alternatives, so each view is checked alone.
+		name: "a summary zoom's fallback pictures keep their ids apart from the shapes after it",
+		fn: async () => {
+			const sections = ['Alpha', 'Beta', 'Gamma']
+			const { zip } = await build((p) => {
+				p.addSection({ title: 'Host' })
+				for (const title of sections) p.addSection({ title })
+				const host = p.addSlide({ sectionTitle: 'Host' })
+				for (const title of sections) p.addSlide({ sectionTitle: title })
+				host.addSummaryZoom({ x: 0.5, y: 0.5, w: 6, h: 3 })
+				host.addShape('rect', { x: 7, y: 0.5, w: 1, h: 1, objectName: 'After' })
+				host.addGroup([{ rect: { x: 7, y: 2, w: 1, h: 1 } }, { rect: { x: 8, y: 2, w: 1, h: 1 } }])
+				host.slideNumber = { x: 9, y: 5 }
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const fallback = xml.match(/<mc:Fallback>[\s\S]*?<\/mc:Fallback>/)?.[0] ?? ''
+			assertEqual((fallback.match(/<p:pic>/g) || []).length, sections.length, 'one fallback picture per tile')
+			assertIncludes(xml, 'name="Slide Number', 'slide 1')
+
+			const views = {
+				'mc:Choice': xml.replace(/<mc:Fallback>[\s\S]*?<\/mc:Fallback>/g, ''),
+				'mc:Fallback': xml.replace(/<mc:Choice\b[\s\S]*?<\/mc:Choice>/g, ''),
+			}
+			for (const [view, viewXml] of Object.entries(views)) {
+				const ids = [...viewXml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1]))
+				assertEqual(ids.length, new Set(ids).size, `${view} view: cNvPr ids must be unique; got ${ids.join(',')}`)
+			}
+		},
+	},
+	{
 		// Every tile draws from a preview raster. Supplied by `path` there is no `data:` mime to
 		// sniff, so the extension has to come off the path — and a second tile pointing at the same
 		// file must reuse the first rel's Target rather than shipping the bytes twice.
