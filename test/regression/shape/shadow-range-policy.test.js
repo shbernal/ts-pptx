@@ -88,18 +88,20 @@ defineRegressionSuite('Shadow out-of-range policy', [
 		},
 	},
 	{
-		name: 'no shadow input reaches the package as the literal NaN',
+		// `blur` and `offset` follow the rule every other ranged number does: `Infinity` clamps to the
+		// top of ST_PositiveCoordinate and warns, and `NaN`, which has no nearest value, throws. Both
+		// used to collapse the feature to 0 without a word. That leniency is kept only for a value
+		// that does not read as a number at all, such as a string.
+		name: 'an infinite blur or offset clamps to the bound, and a NaN one is refused',
 		fn: async () => {
-			// The guard that matters: whatever a bad input does, it never becomes an attribute
-			// value. `blur` and `offset` stay deliberately lenient about a value that is not a
-			// number at all (it collapses the feature to 0, silently) -- the clamp below is only
-			// about numbers that are out of `blurRad`/`dist`'s unsigned range.
-			const { result: shdw } = await captureDiagnostics(() =>
-				shadowXml({ ...SHADOW, blur: NaN, offset: Infinity, angle: Infinity, transparency: Infinity })
+			const { result: shdw, codes } = await captureDiagnostics(() =>
+				shadowXml({ ...SHADOW, offset: Infinity, angle: Infinity, transparency: Infinity })
 			)
-			assert(!shdw.includes('NaN'), 'no attribute may carry NaN; got: ' + shdw)
-			assert(shdw.includes('blurRad="0"'), 'a non-finite blur collapses the feature; got: ' + shdw)
+			assert(!shdw.includes('NaN') && !shdw.includes('Infinity'), 'no attribute may carry a non-number; got: ' + shdw)
+			assert(shdw.includes('dist="27273042316900"'), 'an infinite offset clamps to the bound; got: ' + shdw)
+			assert(codes.includes('shadow/offset-out-of-range'), 'the offset clamp is reported; got ' + codes.join(', '))
 			assert(shdw.includes('dir="21540000"'), 'an infinite angle clamps like any other; got: ' + shdw)
+			assertEqual(await codeThrownBy({ ...SHADOW, blur: NaN }), 'coord/non-finite', 'NaN blur')
 		},
 	},
 	{

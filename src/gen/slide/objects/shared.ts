@@ -17,7 +17,7 @@ import type {
 } from '../../../types/internal.js'
 import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill, lineEndEl, resolveDash } from '../../drawingml/line.js'
-import { lineWidthToEmu } from '../../../units-internal.js'
+import { lineWidthToEmu, mapStated } from '../../../units-internal.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlFmt } from '../../oxml/el.js'
 import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
 import { prstGeomRect } from '../../drawingml/geometry.js'
@@ -173,7 +173,7 @@ export function cNvPrHyperlink(link: HyperlinkPropsInternal | undefined): string
  * @returns the `<a:ln>` element
  */
 export function genXmlShapeLine(ln: ShapeLineProps): string {
-	return el('a:ln', { w: ln.width ? lineWidthToEmu(ln.width) : null, cap: ln.cap ? createLineCap(ln.cap) : null }, [
+	return el('a:ln', { w: mapStated(ln.width, lineWidthToEmu) ?? null, cap: ln.cap ? createLineCap(ln.cap) : null }, [
 		raw(genXmlLineFill(ln)),
 		ln.dashType ? raw(voidEl('a:prstDash', { val: resolveDash(ln.dashType, 'solid', 'line: dashType') })) : null,
 		raw(lineEndEl('a:headEnd', ln.beginArrowType, 'line: beginArrowType')),

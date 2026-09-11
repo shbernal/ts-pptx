@@ -56,7 +56,7 @@ import { getNewRelId } from '../utils.js'
 import { resolveObjectName } from './object-name.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
-import { clampRangedInput, lineWidthToEmu, ptsToEmuLenient } from '../../units-internal.js'
+import { clampRangedInput, lineWidthToEmu, mapStated, ptsToEmuLenient } from '../../units-internal.js'
 import { isBubbleChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 
 /**
@@ -457,7 +457,7 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 		// same absent way the caller's own bag did.
 		const border: BorderProps = {
 			color: namedColorOr(chartAreaBorder.color, DEF_CHART_BORDER.color, 'border.color'),
-			width: chartAreaBorder.width || DEF_CHART_BORDER.width,
+			width: mapStated(chartAreaBorder.width, (width) => width) ?? DEF_CHART_BORDER.width,
 		}
 		if (chartAreaBorder.transparency !== undefined) border.transparency = chartAreaBorder.transparency
 		options.chartArea.border = border
@@ -748,9 +748,7 @@ export function addChartDefinition(
 	options.lineDataSymbolSize = clampSymbolSize(options.lineDataSymbolSize) ?? 6
 	// `lineWidthToEmu` rather than `ptsToEmuLenient`: this is an `a:ln/@w`, so an out-of-range
 	// width is a repair prompt, and collapsing one to zero would be a silent hairline instead.
-	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize
-		? lineWidthToEmu(options.lineDataSymbolLineSize)
-		: ptsToEmuLenient(0.75)
+	options.lineDataSymbolLineSize = mapStated(options.lineDataSymbolLineSize, lineWidthToEmu) ?? ptsToEmuLenient(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	const chartLayout = options.layout
 	if (chartLayout) {

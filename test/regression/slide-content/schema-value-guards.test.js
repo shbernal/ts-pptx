@@ -186,13 +186,19 @@ defineRegressionSuite('Schema value guards', [
 		},
 	},
 	{
-		name: 'a NaN glow size collapses to zero rather than writing rad="NaN"',
+		// A NaN radius has no nearest legal value, so it is refused, the rule every ranged number
+		// follows. It used to collapse the glow to `rad="0"` without a word.
+		name: 'a NaN glow size is refused rather than writing rad="NaN" or collapsing to zero',
 		fn: async () => {
-			const { zip } = await build((p) => {
-				p.addSlide().addText('glowy', { x: 1, y: 1, w: 4, h: 1, glow: { size: Number.NaN, color: 'FFFF00' } })
-			})
-			const xml = await readEntry(zip, SLIDE_XML)
-			assert(!xml.includes('NaN'), `no NaN may reach the attribute; got: ${xml}`)
+			let code = null
+			try {
+				await build((p) => {
+					p.addSlide().addText('glowy', { x: 1, y: 1, w: 4, h: 1, glow: { size: Number.NaN, color: 'FFFF00' } })
+				})
+			} catch (err) {
+				code = err?.code ?? null
+			}
+			assert(code === 'coord/non-finite', `a NaN glow size throws coord/non-finite; got ${code}`)
 		},
 	},
 	{

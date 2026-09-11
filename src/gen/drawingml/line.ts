@@ -147,19 +147,23 @@ function warnUnknownBorderKeys(border: BorderProps): void {
 
 /**
  * Resolve a border's line width in points, falling back to `defaultPt` when `width`
- * is not a usable number.
+ * is not a number.
+ *
+ * A number that is not finite is not a missing width, so it goes on to the converter rather
+ * than taking the default: `lineWidthToEmu` refuses `NaN` and clamps `Infinity` to the top of
+ * `ST_LineWidth`, as it does for every other line width.
  *
  * Every `BorderProps` the library reads — table cell borders, table-style regions, and
  * every chart border — resolves its width through here, so this doubles as the one
  * place that can vet a border's shape for all of them ({@link warnUnknownBorderKeys}).
  * @param {BorderProps} border - border properties (may carry `width`)
- * @param {number} defaultPt - width to use when `width` is not a finite number
+ * @param {number} defaultPt - width to use when `width` is not a number
  * @returns {number} resolved width in points
  */
 export function resolveBorderWidth(border: BorderProps, defaultPt: number): number {
 	warnUnknownBorderKeys(border)
 	const val = border.width
-	return typeof val === 'number' && Number.isFinite(val) ? val : defaultPt
+	return typeof val === 'number' ? val : defaultPt
 }
 
 /**

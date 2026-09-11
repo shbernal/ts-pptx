@@ -30,7 +30,7 @@ import { createLineCap, strokeDash, strokePaint } from '../drawingml/line.js'
 import { axisLineStroke } from './chart-stroke.js'
 import { namedColorOr } from '../drawingml/color.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { convertAngleUnits, ptsToEmuLenient } from '../../units-internal.js'
+import { convertAngleUnits, mapStated, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
@@ -200,7 +200,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	const txPr = axisTextProps(
 		defRPr,
 		opts.lang || 'en-US',
-		opts.catAxisLabelRotate ? convertAngleUnits(opts.catAxisLabelRotate, 'catAxisLabelRotate') : undefined
+		mapStated(opts.catAxisLabelRotate, (d) => convertAngleUnits(d, 'catAxisLabelRotate'))
 	)
 
 	const catLabelSkip = positiveIntAttr(opts.catAxisLabelFrequency, 'catAxisLabelFrequency')
@@ -302,7 +302,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	const txPr = axisTextProps(
 		defRPr,
 		opts.lang || 'en-US',
-		opts.valAxisLabelRotate ? convertAngleUnits(opts.valAxisLabelRotate, 'valAxisLabelRotate') : undefined
+		mapStated(opts.valAxisLabelRotate, (d) => convertAngleUnits(d, 'valAxisLabelRotate'))
 	)
 
 	// Where this axis meets its category axis: an explicit position, an explicit rule, or the

@@ -65,6 +65,15 @@ const IMPLAUSIBLE_INCHES = 1000
  *  density ts-pptx assumes when reading an image header's pixel dimensions. */
 export const DEFAULT_PX_PER_INCH = 96
 
+/**
+ * The largest DrawingML coordinate, in EMU: the `maxInclusive` of `ST_Coordinate`, the type of
+ * every shape offset and extent. The range is not symmetric; see {@link MIN_COORDINATE_EMU}.
+ */
+export const MAX_COORDINATE_EMU = 27273042316900
+
+/** The smallest DrawingML coordinate, in EMU: the `minInclusive` of `ST_Coordinate`. */
+export const MIN_COORDINATE_EMU = -27273042329600
+
 export type StandardLayoutName = 'LAYOUT_4x3' | 'LAYOUT_16x9' | 'LAYOUT_16x10' | 'LAYOUT_WIDE'
 
 export interface StandardLayout {
@@ -84,12 +93,12 @@ export interface StandardLayout {
 
 export function inchesToEmu(inches: number): Emu {
 	assertFiniteNumber(inches, 'inches')
-	return Math.round(inches * EMU_PER_INCH) as Emu
+	return inCoordinateRange(Math.round(inches * EMU_PER_INCH), inches, 'inches')
 }
 
 export function pointsToEmu(points: number): Emu {
 	assertFiniteNumber(points, 'points')
-	return Math.round(points * EMU_PER_POINT) as Emu
+	return inCoordinateRange(Math.round(points * EMU_PER_POINT), points, 'points')
 }
 
 export function pixelsToEmu(pixels: number, dpi: number): Emu {
@@ -113,7 +122,7 @@ export function pixelsToEmu(pixels: number, dpi: number): Emu {
 export function percentToEmu(percent: number, axisEmu: number): Emu {
 	assertFiniteNumber(percent, 'percent')
 	assertFiniteNumber(axisEmu, 'axisEmu')
-	return Math.round((percent / 100) * axisEmu) as Emu
+	return inCoordinateRange(Math.round((percent / 100) * axisEmu), percent, 'percent')
 }
 
 /**
@@ -162,7 +171,7 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 			return pixelsToEmu(n, DEFAULT_PX_PER_INCH)
 		default: // 'emu'
 			assertFiniteNumber(n, 'coordinate')
-			return Math.round(n) as Emu
+			return inCoordinateRange(Math.round(n), n, 'EMU')
 	}
 }
 
@@ -224,6 +233,25 @@ export const STANDARD_LAYOUTS: Readonly<Record<StandardLayoutName, StandardLayou
 	LAYOUT_16x10: standardLayout('LAYOUT_16x10', 'screen16x10', 10, 6.25),
 	LAYOUT_WIDE: standardLayout('LAYOUT_WIDE', 'custom', 40 / 3, 7.5),
 })
+
+/**
+ * `emu` as an `Emu`, or a `coord/out-of-range` throw when it falls outside `ST_Coordinate`.
+ *
+ * A finite input is not enough on its own. `1e16` inches is finite and converts to `9.144e+21`,
+ * which serializes in exponent notation and is not an `xsd:long` at all; `4e7` inches converts to
+ * a long, but one past the bound. Neither is a coordinate PowerPoint can hold.
+ * @param emu - the converted value
+ * @param value - the caller's value, for the message
+ * @param unit - the unit `value` was stated in, for the message
+ */
+function inCoordinateRange(emu: number, value: number, unit: string): Emu {
+	if (emu < MIN_COORDINATE_EMU || emu > MAX_COORDINATE_EMU)
+		throw new InvalidOptionError(
+			'coord/out-of-range',
+			`${value} ${unit} is ${emu} EMU, outside the DrawingML coordinate range ${MIN_COORDINATE_EMU} to ${MAX_COORDINATE_EMU} EMU.`
+		)
+	return emu as Emu
+}
 
 function assertFiniteNumber(value: number, name: string): void {
 	if (!Number.isFinite(value)) throw new InvalidOptionError('coord/non-finite', `${name} must be a finite number`)

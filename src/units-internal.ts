@@ -23,6 +23,7 @@ import {
 	coordToEmu,
 	FIXED_PCT_PER_PERCENT,
 	inchesToEmu,
+	MAX_COORDINATE_EMU,
 	PERCENT_SCALE,
 	type Emu,
 } from './units.js'
@@ -123,7 +124,7 @@ export function resolveInsetsEmu(margin: number | number[] | undefined | null): 
 		return { l: all, t: all, r: all, b: all }
 	}
 	if (!Array.isArray(margin)) return null
-	const at = (idx: number): number => marginToEmu(margin[idx] || 0)
+	const at = (idx: number): number => marginToEmu(margin[idx] ?? 0)
 	return { l: at(3), t: at(0), r: at(1), b: at(2) }
 }
 
@@ -371,6 +372,26 @@ export function ptsToEmuLenient(pt: number | string): number {
 }
 
 /**
+ * `fn(value)` for a numeric option the caller stated, `undefined` for one they did not.
+ *
+ * `null`, `undefined` and `0` are "not stated": an absent option and a zero one emit the same
+ * thing (no `rot` for `rotate: 0`, the default width for `width: 0`). Every other value reaches
+ * `fn`, `NaN` included, so the converter behind it decides what a value it cannot represent
+ * means. The same test used to be spelled as truthiness, and `NaN` is falsy: it was dropped or
+ * replaced by the default before the converter could refuse it, while `Infinity` on the same
+ * option threw.
+ * @param value - the caller's option
+ * @param fn - the conversion to apply when the option is stated
+ * @returns `fn(value)`, or `undefined` when the option is not stated
+ */
+export function mapStated<T extends number | string, R>(
+	value: T | null | undefined,
+	fn: (value: T) => R
+): R | undefined {
+	return value === null || value === undefined || value === 0 ? undefined : fn(value)
+}
+
+/**
  * Clamp a caller-supplied number into the range its schema type allows, warning when it had to
  * move. Returns the value in the caller's own unit — each helper below applies its own
  * arithmetic afterwards, because the inverting and non-inverting forms do not round alike.
@@ -466,15 +487,17 @@ export function fractionToFixedPercent(value: number, code: DiagnosticCode, labe
 }
 
 /**
- * Convert a length stated in points to EMU, leniently, clamped into the schema range of the
- * attribute it is headed for.
+ * Convert a length stated in points to EMU, clamped into the schema range of the attribute it is
+ * headed for.
  *
- * The leniency and the clamp answer two different inputs and must not be confused. A value that
- * does not read as a number at all collapses the feature to `0` via {@link ptsToEmuLenient} —
- * a zero-width line, an unoffset shadow — because these are optional decorations on an object
- * that still has to be emitted. A value that *is* a number but falls outside the attribute's
- * range clamps to the nearest bound and warns, per `docs/diagnostics.md`; left alone it would
- * make PowerPoint report the whole package as needing repair.
+ * A number goes through {@link clampRangedInput}, the one policy for an out-of-range number: a
+ * value past either bound clamps to it and warns, `Infinity` included, and `NaN` throws
+ * `coord/non-finite`. Both of those used to collapse to `0` without a word, so `width: Infinity`
+ * became a zero-width line while `width: 5000` clamped and warned.
+ *
+ * A value that does not read as a number at all, a string such as `'wide'`, still collapses the
+ * feature to `0` via {@link ptsToEmuLenient}, because these are optional decorations on an object
+ * that still has to be emitted. A numeric string past the range clamps and warns as before.
  *
  * @param pts - the caller's length in points, or any of the loose shapes `ptsToEmuLenient` takes
  * @param maxEmu - inclusive upper bound of the attribute's schema type, in EMU
@@ -489,6 +512,8 @@ function clampLengthEmu(
 	label: string,
 	range: string
 ): number {
+	if (typeof pts === 'number')
+		return Math.round(clampRangedInput(pts, 0, maxEmu / EMU_PER_POINT, code, label, 'coord/non-finite') * EMU_PER_POINT)
 	const raw = ptsToEmuLenient(pts)
 	const clamped = Math.min(maxEmu, Math.max(0, raw))
 	if (clamped !== raw)
@@ -519,7 +544,7 @@ export function lineWidthToEmu(widthPts: number | string): number {
  * PowerPoint reports as needing repair are worth moving.
  */
 export function positiveCoordinateEmu(pts: number | string, code: DiagnosticCode, label: string): number {
-	return clampLengthEmu(pts, 27273042316900, code, label, '0-2147483647pt')
+	return clampLengthEmu(pts, MAX_COORDINATE_EMU, code, label, '0-2147483647pt')
 }
 
 /**
@@ -562,11 +587,10 @@ function assertFiniteDegrees(d: number, what: string, code: AngleErrorCode): voi
  * @returns the `rot` value in 60000ths of a degree
  */
 export function convertRotationDegrees(d: number): number {
-	const degrees = d || 0
 	// Guard before reducing, so `Infinity` is reported as itself rather than as the `NaN` that
-	// `Infinity % 360` would hand on.
-	assertFiniteDegrees(degrees, 'rotation', 'coord/non-finite')
-	return Math.round((degrees % 360) * ANGLE_UNITS_PER_DEGREE)
+	// `Infinity % 360` would hand on. No `d || 0` in front of it: that turned `NaN` into 0.
+	assertFiniteDegrees(d, 'rotation', 'coord/non-finite')
+	return Math.round((d % 360) * ANGLE_UNITS_PER_DEGREE)
 }
 
 /**

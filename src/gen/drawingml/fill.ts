@@ -18,7 +18,7 @@ import type {
 } from '../../types/index.js'
 import type { ShapeFillPropsInternal } from '../../types/internal.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { clampRangedInput, convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
+import { clampRangedInput, convertRotationDegrees, mapStated, transparencyToAlpha } from '../../units-internal.js'
 import { alphaEl, createColorElement, namedColorOr, rejectEmptyColor } from './color.js'
 import { genXmlImageCropRect, STRETCH_FILL_RECT } from './src-rect.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
@@ -36,7 +36,7 @@ function normalizeGradientAngle(angle: number | undefined): number {
 }
 
 function alphaFromTransparency(transparency: number | undefined): string {
-	return transparency ? alphaEl(transparencyToAlpha(transparency)) : ''
+	return mapStated(transparency, (value) => alphaEl(transparencyToAlpha(value))) ?? ''
 }
 
 function normalizeGradientStops(stops: GradientStopProps[] | undefined): GradientStopProps[] {

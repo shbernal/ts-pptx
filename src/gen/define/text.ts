@@ -19,7 +19,7 @@ import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
-import { ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
+import { mapStated, ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
@@ -192,7 +192,7 @@ export function addTextDefinition(
 					...itemLine,
 					type: itemLineKind,
 					transparency: itemLine.transparency || 0,
-					width: itemLine.width || 1,
+					width: mapStated(itemLine.width, (width) => width) ?? 1,
 					dashType: itemLine.dashType || 'solid',
 				}
 				// Only the solid arm writes `color`. The spread already carried whatever colour the

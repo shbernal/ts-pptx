@@ -1,5 +1,13 @@
 import TsPptx, { InvalidOptionError, ShapeType } from '../../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, assertIncludes } from '../../helpers.js'
+import {
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertEqual,
+	assertIncludes,
+	captureDiagnostics,
+} from '../../helpers.js'
 
 // A converter that accepts garbage emits it: `Math.round(NaN * 100)` is `NaN` and
 // `Math.round(Infinity * 60000)` is `Infinity`, and both serialize straight into an attribute
@@ -179,6 +187,81 @@ defineRegressionSuite('Numeric conversion guards', [
 			)
 			assert(err instanceof InvalidOptionError, 'expected an InvalidOptionError; got: ' + String(err))
 			assertEqual(err.code, 'coord/non-finite')
+		},
+	},
+	{
+		// Each of these was tested for truthiness before its converter ran. `NaN` is falsy, so it
+		// was dropped or replaced by the default without a word, while `Infinity` on the same
+		// option threw. Only `0` and an absent value still mean "not stated".
+		name: 'a NaN rotation, line width, margin or fill transparency is refused rather than dropped',
+		fn: async () => {
+			const cases = [
+				{
+					label: 'shape rotate',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addShape('rect', { ...BOX, rotate: NaN }),
+				},
+				{
+					label: 'shape line width',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: NaN } }),
+				},
+				{
+					label: 'text line width',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addText('x', { ...BOX, line: { color: 'FF0000', width: NaN } }),
+				},
+				{
+					label: 'margin component',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addText('x', { ...BOX, margin: [NaN, 0, 0, 0] }),
+				},
+				{
+					label: 'fill transparency',
+					code: 'percent/non-finite',
+					buildFn: (p) => p.addSlide().addShape('rect', { ...BOX, fill: { color: 'FF0000', transparency: NaN } }),
+				},
+			]
+			for (const { label, code, buildFn } of cases) assertEqual(await codeFrom(buildFn), code, label)
+		},
+	},
+	{
+		name: 'a NaN chart rotation, border width or marker line size is refused rather than dropped',
+		fn: async () => {
+			const data = [{ name: 'R', labels: ['A', 'B'], values: [1, 2] }]
+			const options = {
+				titleRotate: { showTitle: true, title: 'T', titleRotate: NaN },
+				catAxisLabelRotate: { catAxisLabelRotate: NaN },
+				valAxisLabelRotate: { valAxisLabelRotate: NaN },
+				'chartArea border width': { chartArea: { border: { color: '000000', width: NaN } } },
+				lineDataSymbolLineSize: { lineDataSymbolLineSize: NaN },
+			}
+			for (const [label, extra] of Object.entries(options)) {
+				const code = await codeFrom((p) => p.addSlide().addChart(data, { ...BOX, type: 'line', ...extra }))
+				assertEqual(code, 'coord/non-finite', label)
+			}
+		},
+	},
+	{
+		// `0` is how those options say "not stated", so it still emits what leaving them out emits.
+		name: 'a zero rotation or line width still reads as not stated',
+		fn: async () => {
+			const xfrm = await xfrmFor((p) => p.addSlide().addShape('rect', { ...BOX, rotate: 0 }))
+			assert(!/\brot=/.test(xfrm), 'rotate: 0 emits no rot; got: ' + xfrm)
+			const { zip } = await build((p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: 0 } }))
+			assertIncludes(await readEntry(zip, 'ppt/slides/slide1.xml'), '<a:ln w="12700"', 'width: 0 takes the 1pt default')
+		},
+	},
+	{
+		// A line width is a ranged number like any other: `Infinity` clamps to the top of
+		// ST_LineWidth and warns. It used to collapse to `w="0"` without a word.
+		name: 'an infinite line width clamps to the top of ST_LineWidth and warns',
+		fn: async () => {
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: Infinity } }))
+			)
+			assertIncludes(await readEntry(result.zip, 'ppt/slides/slide1.xml'), '<a:ln w="20116800"', 'clamped to 1584pt')
+			assert(codes.includes('line/width-out-of-range'), 'the clamp is reported; got ' + codes.join(', '))
 		},
 	},
 	{

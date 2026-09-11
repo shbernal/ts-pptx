@@ -34,7 +34,7 @@ import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { borderLine, createLineCap, noStrokeLine, resolveDash, strokeDash, strokePaint } from '../drawingml/line.js'
 import { gridLineStroke, gridLineSuppressed } from './chart-stroke.js'
-import { convertAngleUnits, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { convertAngleUnits, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
 import { dataValues, type SheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
@@ -575,7 +575,7 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	const rich = el('c:rich', null, [
 		// Don't specify a rotation when none was asked for, so the default applies (which is
 		// vertical on a category axis).
-		raw(voidEl('a:bodyPr', { rot: opts.titleRotate ? convertAngleUnits(opts.titleRotate, 'titleRotate') : undefined })),
+		raw(voidEl('a:bodyPr', { rot: mapStated(opts.titleRotate, (d) => convertAngleUnits(d, 'titleRotate')) })),
 		raw(voidEl('a:lstStyle', null)),
 		raw(paragraph),
 	])

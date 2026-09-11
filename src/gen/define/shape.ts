@@ -18,6 +18,7 @@ import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { setOrClear } from '../../options-internal.js'
+import { mapStated } from '../../units-internal.js'
 
 /**
  * Map of common friendly shape names users pass as bare strings to their
@@ -101,7 +102,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 		...options.line,
 		type: lineType,
 		transparency: options.line.transparency || 0,
-		width: options.line.width || 1,
+		width: mapStated(options.line.width, (width) => width) ?? 1,
 		dashType: options.line.dashType || 'solid',
 	}
 	// Only the solid arm writes `color`. The spread already carried whatever colour the other kinds

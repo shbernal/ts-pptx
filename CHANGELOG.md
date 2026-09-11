@@ -226,6 +226,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: a `NaN` option is refused, an infinite length clamps, and a coordinate outside
+  the DrawingML range throws.**
+  - `rotate`, a shape or text `line.width`, a `margin` component, a fill `transparency`,
+    `titleRotate`, `catAxisLabelRotate`, `valAxisLabelRotate`, a chart border `width` and
+    `lineDataSymbolLineSize` tested their value for truthiness before converting it. `NaN` is
+    falsy, so it was dropped or took the default without a word, while `Infinity` on the same
+    option threw. `NaN` now throws `InvalidOptionError` with `coord/non-finite`, or
+    `percent/non-finite` for a transparency. `0` and an absent value still mean "not stated",
+    so `rotate: 0` writes no `rot` and `line.width: 0` still takes the 1pt default.
+  - A line width, shadow `blur` or `offset`, or glow `size` given as `Infinity` clamps to the top
+    of its schema range and warns, like any other value past it. `NaN` throws
+    `coord/non-finite`. Both used to become `0` silently. A string that does not read as a
+    number still becomes `0`.
+  - `inchesToEmu`, `pointsToEmu`, `percentToEmu` and every coordinate check their result
+    against `ST_Coordinate`, -27273042329600 to 27273042316900 EMU, and throw
+    `coord/out-of-range` outside it. `x: 1e16` used to write `x="9.144e+21"`, and `x: 4e7` a
+    value past the bound. The bounds are exported as `MIN_COORDINATE_EMU` and
+    `MAX_COORDINATE_EMU`.
+
+  Migration: a deck that passed `NaN` got an object missing that attribute. Compute the value
+  or leave the option out. A coordinate that now throws was never one a slide could hold.
+
 - **Breaking: `Part.bytes` is renamed `Part.originalBytes`.** The getter returned the bytes
   a part was loaded with, which is not the part's content once an edit has gone through its
   DOM, and the name gave no hint of that: every slide copy and import in the library read it

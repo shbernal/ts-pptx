@@ -188,6 +188,7 @@ export type InvalidOptionErrorCode =
 	| 'percent/non-finite'
 	| 'coord/not-positive'
 	| 'coord/invalid-format'
+	| 'coord/out-of-range'
 	// Geometry
 	| 'geometry/arc-angle-non-finite'
 	| 'shadow/angle-non-finite'

@@ -26,7 +26,7 @@ import type {
 import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../utils.js'
 import { fillNamesPaint, genXmlColorSelection } from '../drawingml/fill.js'
 import { rejectEmptyColor } from '../drawingml/color.js'
-import { convertRotationDegrees, getSmartParseNumber, resolveInsetsEmu } from '../../units-internal.js'
+import { convertRotationDegrees, getSmartParseNumber, mapStated, resolveInsetsEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
@@ -457,13 +457,13 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
 
 		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
 		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
-		// stays absent, matching the truthiness test this replaced.
+		// stays absent, and any other rotation, `NaN` included, goes to the converter.
 		// A flip derived from a negative extent XORs with the author's own: `{ w: -2, flipH: true }`
 		// is a box mirrored twice, i.e. not mirrored at all.
 		const locationAttrs: XmlAttrs = {
 			flipH: xsdBoolIfTrue(Boolean(itemOpts.flipH) !== normX.flip),
 			flipV: xsdBoolIfTrue(Boolean(itemOpts.flipV) !== normY.flip),
-			rot: itemOpts.rotate ? convertRotationDegrees(itemOpts.rotate) : null,
+			rot: mapStated(itemOpts.rotate, convertRotationDegrees) ?? null,
 		}
 
 		// B: Add OBJECT to the current Slide.

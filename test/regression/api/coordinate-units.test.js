@@ -66,6 +66,35 @@ defineRegressionSuite('Coordinate units', [
 		},
 	},
 	{
+		// Every offset and extent is `ST_Coordinate`: an `xsd:long` from -27273042329600 to
+		// 27273042316900 EMU. The converters checked only for a finite input, so `x: 1e16` wrote
+		// `x="9.144e+21"`, which is not a long at all, and `x: 4e7` wrote a long past the bound.
+		name: 'a coordinate outside ST_Coordinate is refused, and one at either bound is not',
+		fn: async () => {
+			const r = await offExtFor({ x: '27273042316900emu', y: '-27273042329600emu', w: 1, h: 1 })
+			assert(r.x === 27273042316900 && r.y === -27273042329600, JSON.stringify(r))
+			const outside = {
+				'EMU past the maximum': { x: '27273042316901emu', y: 0, w: 1, h: 1 },
+				'EMU past the minimum': { x: 0, y: '-27273042329601emu', w: 1, h: 1 },
+				'an extent far past it': { x: 0, y: 0, w: '10000000000000000000000emu', h: 1 },
+				'inches that print in exponent notation': { x: 1e16, y: 0, w: 1, h: 1 },
+				'inches just past the maximum': { x: 4e7, y: 0, w: 1, h: 1 },
+				points: { x: '3000000000000pt', y: 0, w: 1, h: 1 },
+				pixels: { x: '3000000000000px', y: 0, w: 1, h: 1 },
+				percent: { x: '1000000000000%', y: 0, w: 1, h: 1 },
+			}
+			for (const [label, opts] of Object.entries(outside)) {
+				let code = null
+				try {
+					await offExtFor(opts)
+				} catch (err) {
+					code = err?.code ?? null
+				}
+				assert(code === 'coord/out-of-range', `${label}: expected coord/out-of-range; got ${code}`)
+			}
+		},
+	},
+	{
 		name: 'a bare number >= 100 is inches now (no EMU passthrough)',
 		fn: async () => {
 			// Under the old heuristic this 120 would have been emitted as 120 EMU (a collapsed dot).
