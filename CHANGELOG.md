@@ -851,6 +851,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter rounded gradient stop positions and transparencies to whole percent.**
+  - A stop at 33.333% with a 12.5% transparency came out as 33 and 13, although the writer
+    takes thousandths of a percent. The re-read deck agreed with the rounded values, so the
+    round trip could not see the loss.
+  - Stop positions, fill, line, shadow, picture and background transparencies now carry the
+    source's own precision.
+  - A background colour at an alpha just under opaque (0.996, say) now keeps its 0.4%
+    transparency. The background had its own copy of the conversion, which dropped it.
+
 - **The script converter flattened line, shadow and glow scheme colours without saying so.**
   - An outline in one of the scheme tokens the write API cannot carry (`dk1`, `hlink` and the
     rest) was baked to hex with no fidelity note. It now records `line.schemeToken`, as every

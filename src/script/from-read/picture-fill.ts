@@ -17,8 +17,7 @@ import type { FillRect, PictureFill } from '../../read/api/picture-fill.js'
 import type { NoteScope } from '../fidelity.js'
 import type { AssetRef, IrValue } from '../ir.js'
 import type { AssetResolver } from './context.js'
-import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE } from '../../units.js'
-import { alphaToTransparency, compact, compactRequired } from './values.js'
+import { alphaToTransparency, compact, compactRequired, fractionToPercent } from './values.js'
 
 /** How a note names the surface it is about; the mapping itself does not vary. */
 export interface PictureFillSubject {
@@ -124,11 +123,13 @@ function isRectSet(rect: FillRect | null): boolean {
  */
 function cropOption(srcRect: FillRect | null): IrValue | undefined {
 	if (!isRectSet(srcRect) || srcRect === null) return undefined
-	// `readRect` divided the source's thousandths-of-a-percent by PERCENT_SCALE; undo exactly
-	// that, so the integer the writer re-derives is the one the source held and the crop
-	// survives the trip byte for byte rather than to within a rounding step.
-	const pct = (fraction: number): number => Math.round(fraction * PERCENT_SCALE) / FIXED_PCT_PER_PERCENT
-	const edges = { b: pct(srcRect.bottom), l: pct(srcRect.left), r: pct(srcRect.right), t: pct(srcRect.top) }
+	// Exact, so the crop survives the trip byte for byte rather than to within a rounding step.
+	const edges = {
+		b: fractionToPercent(srcRect.bottom),
+		l: fractionToPercent(srcRect.left),
+		r: fractionToPercent(srcRect.right),
+		t: fractionToPercent(srcRect.top),
+	}
 	if (Object.values(edges).some((v) => v < 0 || v > 100)) return undefined
 	if (edges.l + edges.r >= 100 || edges.t + edges.b >= 100) return undefined
 	// A zero edge is the option's own default, so it is left out rather than spelled.

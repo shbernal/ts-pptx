@@ -23,7 +23,7 @@ import type { SlideBackground } from '../../read/api/slide-background.js'
 import type { AssetResolver } from './context.js'
 import type { BackgroundIr } from '../ir.js'
 import type { NoteScope } from '../fidelity.js'
-import { literalColor } from './values.js'
+import { alphaToTransparency, literalColor } from './values.js'
 
 /** How one tier names itself in the note it records when a background cannot be carried. */
 interface BackgroundTier {
@@ -50,20 +50,6 @@ export const MASTER_BACKGROUND: BackgroundTier = {
 }
 
 /**
- * `BackgroundProps.transparency` for a resolved background colour, or `undefined`.
- *
- * The read model reports **opacity** as a 0-1 fraction and the write option takes
- * **transparency** as a 0-100 percent, so this is the one place the two conventions meet. A
- * fully opaque colour states nothing, which keeps the IR — and therefore the emitted script —
- * free of a key that means "the default".
- */
-function transparencyOf(color: { alpha?: number } | null): number | undefined {
-	if (!color || color.alpha === undefined) return undefined
-	const percent = Math.round((1 - color.alpha) * 100)
-	return percent > 0 ? percent : undefined
-}
-
-/**
  * Map one tier's background onto the write API's `background` option.
  *
  * `undefined` means *say nothing* — the caller omits the key, and the slide or layout takes
@@ -86,7 +72,7 @@ export function backgroundIr(
 	switch (background.type) {
 		case 'solid': {
 			if (!background.color) return undefined
-			const transparency = transparencyOf(background.color)
+			const transparency = alphaToTransparency(background.color.alpha)
 			return transparency === undefined
 				? { color: literalColor(background.color.effectiveHex) }
 				: { color: literalColor(background.color.effectiveHex), transparency }
@@ -107,7 +93,7 @@ export function backgroundIr(
 					'unwritable',
 					`${tier.subject} is a theme reference (p:bgRef into the theme's background fill list), which has no write-API option; the colour it currently resolves to is baked in and stops following the theme`
 				)
-				const transparency = transparencyOf(fill.color)
+				const transparency = alphaToTransparency(fill.color.alpha)
 				return transparency === undefined
 					? { color: literalColor(fill.color.effectiveHex) }
 					: { color: literalColor(fill.color.effectiveHex), transparency }

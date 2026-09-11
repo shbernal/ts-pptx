@@ -19,7 +19,7 @@
 import type { IrValue } from '../ir.js'
 import type { Shape } from '../../read.js'
 import type { NoteScope, RecordableConstruct } from '../fidelity.js'
-import { emuToPoints, POINTS_PER_INCH } from '../../units.js'
+import { emuToPoints, FIXED_PCT_PER_PERCENT, PERCENT_SCALE, POINTS_PER_INCH } from '../../units.js'
 // Re-exported so this module stays the one import the mappers reach for; it lives in
 // `script/units.ts` because the printer needs it too and may not import from here.
 export { inches, INCH_DECIMALS } from '../units.js'
@@ -212,8 +212,22 @@ export function orUndefined<T>(value: T | null): T | undefined {
 }
 
 /**
- * A 0-1 opacity as the write API's 0-100 transparency; `undefined` when unset **or fully
- * opaque**.
+ * A 0-1 fraction the read model took off a fixed-point percentage, as the write API's 0-100
+ * percent.
+ *
+ * `parsePercent` divided the source's thousandths of a percent by `PERCENT_SCALE`; this undoes
+ * exactly that, so the integer the writer re-derives (`Math.round(percent × 1000)`) is the one
+ * the source held. A stop at `pos="33333"` is `33.333`, not `33`: whole-percent rounding moved
+ * it by up to half a percent and the re-read deck agreed with the rounded value, so the round
+ * trip could not see it.
+ */
+export function fractionToPercent(fraction: number): number {
+	return Math.round(fraction * PERCENT_SCALE) / FIXED_PCT_PER_PERCENT
+}
+
+/**
+ * A 0-1 opacity as the write API's 0-100 transparency, at the source's own precision;
+ * `undefined` when unset **or fully opaque**.
  *
  * Fully opaque is not `0`, and that is this function's rule rather than each caller's:
  * emitting `transparency: 0` for an `a:alphaModFix amt="100000"` produces a key the output
@@ -225,7 +239,11 @@ export function orUndefined<T>(value: T | null): T | undefined {
  */
 export function alphaToTransparency(alpha: number | null | undefined): number | undefined {
 	if (alpha === undefined || alpha === null) return undefined
-	return alpha >= 1 ? undefined : Math.round((1 - alpha) * 100)
+	// `> 0` rather than `alpha < 1`, so an alpha past 1 and one a hair under it agree: both state
+	// nothing. The background mapper kept its own copy with that rule and whole-percent rounding,
+	// so an alpha of 0.996 was `undefined` there and `0` here.
+	const transparency = fractionToPercent(1 - alpha)
+	return transparency > 0 ? transparency : undefined
 }
 
 /**

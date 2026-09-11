@@ -16,7 +16,14 @@ import type { AssetResolver } from './context.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
-import { alphaToTransparency, colorOption, compact, isWritableSchemeToken, literalColor } from './values.js'
+import {
+	alphaToTransparency,
+	colorOption,
+	compact,
+	fractionToPercent,
+	isWritableSchemeToken,
+	literalColor,
+} from './values.js'
 
 /** How a note names the surface a gradient sits on: `fill.gradient`, `table.fill.gradient`, … */
 type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
@@ -44,7 +51,7 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
 			if (color === undefined) return null
 			return compact({
 				color,
-				position: Math.round((stop.position ?? 0) * 100),
+				position: fractionToPercent(stop.position ?? 0),
 				transparency: alphaToTransparency(stop.alpha),
 			}) as IrValue
 		})

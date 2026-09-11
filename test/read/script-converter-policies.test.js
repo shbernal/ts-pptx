@@ -249,6 +249,60 @@ describe('a fully opaque source emits no transparency key', () => {
 	})
 })
 
+describe('a percentage keeps the precision the source wrote', () => {
+	// The writer takes thousandths of a percent and the reader divides them back out, so rounding to
+	// whole percent was a loss the converter added on its own. The re-read deck agreed with the
+	// rounded value, so the round trip could not see it.
+	test('a gradient stop position and transparency', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', {
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				fill: {
+					type: 'gradient',
+					gradient: {
+						kind: 'linear',
+						angle: 0,
+						stops: [
+							{ position: 0, color: 'FF0000' },
+							{ position: 33.333, color: '00FF00', transparency: 12.5 },
+							{ position: 100, color: '0000FF' },
+						],
+					},
+				},
+			})
+		})
+		const shape = readModelToIr(presentation).slides[0].calls.find((call) => call.method === 'addShape')
+		const stops = /** @type {any} */ (shape).args[1].fill.gradient.stops
+		assertEqual(stops[1].position, 33.333, 'the stop sits where the source put it')
+		assertEqual(stops[1].transparency, 12.5, 'at the transparency the source gave it')
+	})
+
+	test("a slide background's transparency, down to a hair under opaque", async () => {
+		// The background kept its own copy of the conversion, with whole-percent rounding and a
+		// zero rule of its own: an alpha of 0.996 stated nothing there and `0` everywhere else.
+		const { buf, presentation } = await authorRead((pres) => {
+			pres.addSlide().background = { color: 'C00000', transparency: 12.5 }
+		})
+		assertEqual(
+			readModelToIr(presentation).slides[0].background?.transparency,
+			12.5,
+			'a fractional transparency survives'
+		)
+		let rewritten = 0
+		const nearlyOpaque = await irWithSlideXml(buf, (xml) =>
+			xml.replace('<a:alpha val="87500"/>', () => {
+				rewritten++
+				return '<a:alpha val="99600"/>'
+			})
+		)
+		assertEqual(rewritten, 1, 'the background alpha is rewritten')
+		assertEqual(nearlyOpaque.slides[0].background?.transparency, 0.4, 'and 0.4% is stated, not dropped')
+	})
+})
+
 describe('an `xsd:boolean` attribute is parsed, not compared to `1`', () => {
 	// `p:cNvSpPr/@txBox` is the sole discriminator between a text box and an auto shape, and
 	// `xsd:boolean` admits `true` as well as `1`. Both producers this repo can author with --
