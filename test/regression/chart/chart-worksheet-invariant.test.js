@@ -363,13 +363,9 @@ const MATRIX = [
 	['histogram', (s) => s.addChart([{ name: 'H', values: [1, 2, 2, 3, 5] }], { type: ChartType.histogram, ...FRAME })],
 ]
 
-/** The shapes that fail today, each named for what is wrong with it. */
-const BROKEN = new Set(['bar with a blank label'])
-
 defineRegressionSuite('Chart formulas resolve to their cache through the embedded workbook', [
 	...MATRIX.map(([name, addChart]) => ({
 		name,
-		fails: BROKEN.has(name),
 		fn: async () => {
 			const problems = await problemsFor(addChart)
 			assert(problems.length === 0, `${name}:\n  ${problems.join('\n  ')}`)

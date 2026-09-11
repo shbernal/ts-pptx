@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A blank category label broke every later label in a chart's embedded workbook.** With one
+  label level, a blank label had no shared string but its cell still pointed at the next index,
+  so `labels: ['A', '', 'C']` put "C" in the blank's cell and pointed the "C" cell past the end
+  of `sharedStrings.xml`. The chart's own cache was right, so only Edit Data showed it. One label
+  level now writes its cells the way several levels already did: a blank label has no cell. The
+  shared strings' `count` now counts every cell that refers to a string, which several levels
+  had put one short per extra level.
+
 - **A combo chart with a bubble subchart is refused at `addChart`.** PowerPoint does not combine
   a bubble chart with any other plot, another bubble chart included, and reported every such deck
   as corrupt (0x80070570). `addChart` now throws `InvalidOptionError` with

@@ -35,7 +35,6 @@ import {
 	dataLabels,
 	dataSizes,
 	dataValues,
-	firstLabelGroup,
 	getExcelColName,
 	type WorksheetLayout,
 	worksheetLayout,
@@ -100,7 +99,6 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 		// then embed its bytes (no folder scaffolding; fflate emits no directory entries).
 		const zipExcel = new ZipWriter()
 		const layout = worksheetLayout(chartObject)
-		const IS_MULTI_CAT_AXES = (data[0]?.labels?.length ?? 0) > 1
 
 		// B: Add core contents
 		{
@@ -238,13 +236,40 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 		}
 
-		zipExcel.add('xl/sharedStrings.xml', buildXlsxSharedStrings(chartObject, data, layout, IS_MULTI_CAT_AXES))
+		zipExcel.add('xl/sharedStrings.xml', buildXlsxSharedStrings(chartObject, data, layout))
 		zipExcel.add('xl/tables/table1.xml', buildXlsxTable(chartObject, data, layout))
-		zipExcel.add('xl/worksheets/sheet1.xml', buildXlsxSheet(chartObject, data, layout, IS_MULTI_CAT_AXES))
+		zipExcel.add('xl/worksheets/sheet1.xml', buildXlsxSheet(chartObject, data, layout))
 
 		// Done — return the embedded workbook bytes for the caller to place.
 		return zipExcel.toBytes()
 	}
+}
+
+/** One category label the sheet writes: its label column (1-based), its row (0-based) and its text. */
+interface LabelCell {
+	col: number
+	row: number
+	label: string
+}
+
+/**
+ * The label cells of a category chart's sheet, outermost level first and down each column: the
+ * order their shared strings are written in.
+ *
+ * A blank label has no cell and no string. The shared-string index of the cell at position `k` is
+ * therefore `data.length + 1 + k`, after the blank entry and the series names, whether or not any
+ * label before it was blank. The one-level arm used to index every row as if none were, so from
+ * the first blank label on each cell read the next label's string or ran past the end.
+ * @param data - the chart's series; the labels are the first series'
+ */
+function categoryLabelCells(data: readonly OptsChartDataInternal[]): LabelCell[] {
+	// labels[0] is the leaf level and the last is the outermost, which takes column A.
+	return dataLabels(data[0])
+		.slice()
+		.reverse()
+		.flatMap((group, level) =>
+			group.flatMap((label, row) => (label && label !== '' ? [{ col: level + 1, row, label }] : []))
+		)
 }
 
 /**
@@ -253,32 +278,31 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 function buildXlsxSharedStrings(
 	chartObject: SlideRelChart,
 	data: OptsChartDataInternal[],
-	layout: WorksheetLayout,
-	IS_MULTI_CAT_AXES: boolean
+	layout: WorksheetLayout
 ): string {
 	const isBubble = isBubbleChart(chartObject.opts._type)
 	const isScatter = isScatterChart(chartObject.opts._type)
 	let count: number
 	let uniqueCount: number
-	// The leading entry is the blank the header row's label columns point at. Its two spellings are
-	// not interchangeable: `<t/>` is the empty string, `<t xml:space="preserve"></t>` is a preserved
-	// one, and next to character data that difference is content rather than layout.
 	let blank = ''
+	let labels = ''
 	if (isBubble || isScatter) {
 		// One header string per column.
 		count = uniqueCount = layout.colCount
-	} else if (IS_MULTI_CAT_AXES) {
-		let totCount = data.length + 1 // +1 for the blank entry at index 0
-		dataLabels(data[0]).forEach((arrLabel) => (totCount += arrLabel.filter((label) => label && label !== '').length))
-		count = uniqueCount = totCount
-		blank = el('si', null, raw(voidEl('t')))
 	} else {
-		// series names + all labels of one series + number of label groups (data.labels.length) of one
-		// series (i.e. how many times the blank string is used)
-		count = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + dataLabels(data[0]).length
-		// series names + labels of one series + blank string (same for all label groups)
-		uniqueCount = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + 1
-		blank = el('si', null, raw(el('t', { 'xml:space': 'preserve' })))
+		// A blank, the series names, then every non-blank label. `count` is how many cells refer to
+		// a string: each label column's header points at the blank, then one per name and per label.
+		const cells = categoryLabelCells(data)
+		count = layout.labelCols + data.length + cells.length
+		uniqueCount = 1 + data.length + cells.length
+		labels = cells.map((cell) => sharedString(cell.label)).join('')
+		// The leading entry is the blank the header row's label columns point at. Its two spellings
+		// are not interchangeable: `<t/>` is the empty string, `<t xml:space="preserve"></t>` is a
+		// preserved one, and next to character data that difference is content rather than layout.
+		blank =
+			layout.labelCols > 1
+				? el('si', null, raw(voidEl('t')))
+				: el('si', null, raw(el('t', { 'xml:space': 'preserve' })))
 	}
 
 	// Series names. A bubble series contributes both a name and a size column.
@@ -289,22 +313,6 @@ function buildXlsxSharedStrings(
 				)
 				.join('')
 		: data.map((objData) => sharedString((objData.name || ' ').replace('X-Axis', 'X-Values'))).join('')
-
-	// Category labels, outermost group first — the order the sheet's label columns index into.
-	// Blank entries are skipped: they share the single blank string at index 0.
-	const labels =
-		isBubble || isScatter
-			? ''
-			: dataLabels(data[0])
-					.slice()
-					.reverse()
-					.map((labelsGroup) =>
-						labelsGroup
-							.filter((label) => label && label !== '')
-							.map((label) => sharedString(label))
-							.join('')
-					)
-					.join('')
 
 	return XML_DECL + el('sst', { xmlns: SML_NS, count, uniqueCount }, [raw(blank), raw(names), raw(labels)]) + '\n'
 }
@@ -369,12 +377,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 /**
  * Build the embedded workbook's `xl/worksheets/sheet1.xml` (header row + per-series data rows).
  */
-function buildXlsxSheet(
-	chartObject: SlideRelChart,
-	data: OptsChartDataInternal[],
-	layout: WorksheetLayout,
-	IS_MULTI_CAT_AXES: boolean
-): string {
+function buildXlsxSheet(chartObject: SlideRelChart, data: OptsChartDataInternal[], layout: WorksheetLayout): string {
 	const isBubble = isBubbleChart(chartObject.opts._type)
 	const isScatter = isScatterChart(chartObject.opts._type)
 	const { labelCols, colCount, rowCount } = layout
@@ -457,7 +460,7 @@ function buildXlsxSheet(
 			}
 			rows += sheetRow(idx + 2, colCount, cells)
 		})
-	} else if (!IS_MULTI_CAT_AXES) {
+	} else {
 		/* EX: INPUT: `data`
 					[
 						{ name:'Red', labels:['Jan..May-17'], values:[11,13,14,15,16] },
@@ -477,54 +480,22 @@ function buildXlsxSheet(
 				*/
 		// Header row: the label columns point at the blank shared string, then the series names.
 		let header = ''
-		for (let idx = 0; idx < labelCols; idx++) header += cell(idx + 1, 1, 0, true)
+		for (let col = 1; col <= labelCols; col++) header += cell(col, 1, 0, true)
 		data.forEach((series, idx) => (header += cell(layout.valueColumn(series._dataIndex), 1, idx + 1, true)))
 		rows += sheetRow(1, colCount, header)
+
+		// Each non-blank label's cell, by row, in column order. Its shared string follows the blank
+		// entry and the series names, in the order the strings part writes them.
+		const labelsByRow = new Map<number, string>()
+		categoryLabelCells(data).forEach(({ col, row }, k) =>
+			labelsByRow.set(row, (labelsByRow.get(row) ?? '') + cell(col, row + 2, data.length + 1 + k, true))
+		)
 
 		// Normally one row per category; a category-less chartEx layout (a histogram feeds PowerPoint
 		// raw observations with no labels) has no label groups, so the row count falls back to the
 		// longest value series and the leading label columns are simply skipped — values land in A.
 		for (let idx = 0; idx < rowCount; idx++) {
-			let cells = ''
-			for (let idx2 = labelCols - 1; idx2 >= 0; idx2--)
-				cells += cell(labelCols - idx2, idx + 2, data.length + idx + 1, true)
-			for (const series of data)
-				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, dataValues(series)[idx] ?? '')
-			rows += sheetRow(idx + 2, colCount, cells)
-		}
-	} else {
-		const TOT_SER = data.length
-		const TOT_CAT = rowCount
-		// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
-		// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
-		const revLabelGroups = dataLabels(data[0]).slice().reverse()
-
-		// Pre-build a map from (revLevelIdx, rowIdx) -> shared-string index.
-		// SST layout: 0=blank, 1..TOT_SER=series names, then non-empty labels per
-		// reversed level in appearance order.
-		const ssLabelMap = new Map<string, number>()
-		let ssIdx = TOT_SER + 1
-		revLabelGroups.forEach((labelsGroup, revLevelIdx) => {
-			labelsGroup.forEach((label, rowIdx) => {
-				if (label && label !== '') ssLabelMap.set(`${revLevelIdx}:${rowIdx}`, ssIdx++)
-			})
-		})
-
-		// Header row: label columns blank (index 0), series name columns use indices 1..TOT_SER
-		let header = ''
-		for (let col = 1; col <= labelCols; col++) header += cell(col, 1, 0, true)
-		data.forEach((series, ser) => (header += cell(layout.valueColumn(series._dataIndex), 1, ser + 1, true)))
-		rows += sheetRow(1, colCount, header)
-
-		// One data row per leaf category
-		for (let idx = 0; idx < TOT_CAT; idx++) {
-			// Label columns: column idy+1 holds revLabelGroups[idy]; emit only non-empty cells
-			let cells = revLabelGroups
-				.map((labelsGroup, idy) => {
-					const colLabel = labelsGroup[idx]
-					return colLabel && colLabel !== '' ? cell(idy + 1, idx + 2, ssLabelMap.get(`${idy}:${idx}`) ?? '', true) : ''
-				})
-				.join('')
+			let cells = labelsByRow.get(idx) ?? ''
 			for (const series of data)
 				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, dataValues(series)[idx] ?? '')
 			rows += sheetRow(idx + 2, colCount, cells)
