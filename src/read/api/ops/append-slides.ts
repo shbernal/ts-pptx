@@ -166,18 +166,20 @@ function wireHyperlinks(rels: Relationships, slide: PlacedSlide['slide']): void 
  * rId1 = notesMaster, rId2 = the slide it annotates, hyperlinks from rId3 — the order the
  * generator's body was serialized against, so these are added by explicit id rather than left to
  * auto-numbering.
+ *
+ * Creates the notes part only. The slide's own rel *to* it is named by no id in the slide body,
+ * so {@link wireAutoIdRels} adds it once every id the body does name is claimed.
+ * @returns the notes part's name, or `null` when the slide has no notes
  */
 function wireNotes(
 	deck: Presentation,
-	rels: Relationships,
 	partName: string,
 	slide: PlacedSlide['slide'],
 	sourceNotesMaster: { xml: string; themeXml: string } | undefined | null
-): void {
-	if (!slide.notes) return
+): string | null {
+	if (!slide.notes) return null
 	const notesPartName = deck.opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
 	deck.opc.addPart(notesPartName, NOTES_SLIDE_CONTENT_TYPE, textEncoder.encode(slide.notes.xml))
-	rels.add(NOTES_SLIDE_REL, relativePartName(partName, notesPartName))
 
 	const notesRels = deck.opc.relationshipsFor(notesPartName)
 	const notesMasterPartName = sourceNotesMaster ? ensureNotesMasterFromXml(deck, sourceNotesMaster) : null
@@ -188,6 +190,7 @@ function wireNotes(
 	for (const h of slide.notes.hyperlinks) {
 		notesRels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
 	}
+	return notesPartName
 }
 
 /**
@@ -257,6 +260,52 @@ function wireSlideLinks(
 }
 
 /**
+ * The first of pass 2's two phases: every rel the slide body names by id — media, embedded and
+ * online media, hyperlinks, charts, slide links — each added with the rId the generator wrote.
+ * Also creates the notes part, whose own rels are fixed ids too.
+ *
+ * A new rel the body references by id belongs here, and nowhere after {@link wireAutoIdRels}.
+ * @returns the notes part's name, or `null` when the slide has no notes
+ */
+function wireFixedIdRels(
+	deck: Presentation,
+	rels: Relationships,
+	placed: PlacedSlide,
+	sourceNotesMaster: { xml: string; themeXml: string } | undefined | null,
+	partBySourceNumber: Map<number, string>,
+	index: number
+): string | null {
+	const { slide, partName } = placed
+	wireMedia(deck, rels, partName, slide)
+	wireAvMedia(deck, rels, partName, slide)
+	wireOnlineMedia(rels, slide)
+	wireHyperlinks(rels, slide)
+	const notesPartName = wireNotes(deck, partName, slide, sourceNotesMaster)
+	wireCharts(deck, rels, partName, slide)
+	wireSlideLinks(rels, partName, slide, partBySourceNumber, index)
+	return notesPartName
+}
+
+/**
+ * The second phase: the rels the slide body names by no id — its notes and its layout — numbered
+ * by `add()`, which takes one past the highest id present.
+ *
+ * Strictly after {@link wireFixedIdRels}. The generator numbers a slide's rels from rId1, so an
+ * auto id taken before a fixed one is claimed is routinely that fixed one: the notes rel used to
+ * be added in the middle of the first phase, and a slide carrying notes and a chart or a slide
+ * link threw `relationship/duplicate-id`.
+ */
+function wireAutoIdRels(
+	rels: Relationships,
+	partName: string,
+	notesPartName: string | null,
+	layoutPartName: string
+): void {
+	if (notesPartName) rels.add(NOTES_SLIDE_REL, relativePartName(partName, notesPartName))
+	rels.add(SLIDE_LAYOUT_REL, relativePartName(partName, layoutPartName))
+}
+
+/**
  * Append a slide producer's slides onto `deck`. The caller-facing contract is the doc comment on
  * {@link Presentation.appendSlides}.
  */
@@ -302,24 +351,17 @@ export async function appendSlides(
 	// 1-based source slide number -> the appended slide's new partname.
 	const partBySourceNumber = new Map<number, string>(placed.map((p, i) => [i + 1, p.partName]))
 
-	// Pass 2: build each slide's .rels and wire it into presentation.xml. Media,
-	// hyperlinks, charts, and slide-links keep the body's rId (addWithId); the
-	// layout rel is added last via add() so its auto-id cannot collide.
+	// Pass 2: build each slide's .rels and wire it into presentation.xml. Every rel the body
+	// names by id first, then the ones it does not, so an auto id cannot land on a fixed one.
 	const added: Slide[] = []
-	placed.forEach(({ slide, part, partName }, i) => {
-		const rels = deck.opc.relationshipsFor(partName)
-		wireMedia(deck, rels, partName, slide)
-		wireAvMedia(deck, rels, partName, slide)
-		wireOnlineMedia(rels, slide)
-		wireHyperlinks(rels, slide)
-		wireNotes(deck, rels, partName, slide, extracted.notesMaster)
-		wireCharts(deck, rels, partName, slide)
-		wireSlideLinks(rels, partName, slide, partBySourceNumber, i)
-		rels.add(SLIDE_LAYOUT_REL, relativePartName(partName, target.partName))
+	placed.forEach((placedSlide, i) => {
+		const rels = deck.opc.relationshipsFor(placedSlide.partName)
+		const notesPartName = wireFixedIdRels(deck, rels, placedSlide, extracted.notesMaster, partBySourceNumber, i)
+		wireAutoIdRels(rels, placedSlide.partName, notesPartName, target.partName)
 
 		// Wire into presentation.xml (rel + p:sldId) at the requested position.
 		const at = options.at === undefined ? undefined : options.at + i
-		added.push(deck.insertSlidePart(part, at))
+		added.push(deck.insertSlidePart(placedSlide.part, at))
 	})
 
 	// Carry the generator's presentation-level embedded fonts (pptx.embedFont) into

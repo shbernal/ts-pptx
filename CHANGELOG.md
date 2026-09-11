@@ -808,6 +808,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`appendSlides` threw on a slide carrying speaker notes and a chart or a slide link.** The
+  generator numbers a slide's relationships from `rId1`, and every media, hyperlink, chart and
+  slide-link relationship is re-added under the id the slide body names. The slide's
+  relationship to its notes is named by no id, so it takes the next free one, and it was taking
+  it before the chart and slide-link ids were claimed. Both combinations failed with
+  `relationship/duplicate-id`. It is now numbered after every fixed id, beside the layout
+  relationship.
+
 - **Slide copies and imports dropped edits made earlier in the session.** Each copy read a
   part's loaded bytes rather than its current body, so `cloneSlide`, `importSlide` in every
   theme mode, `importSlides` and the notes and dependent parts they bring along all copied

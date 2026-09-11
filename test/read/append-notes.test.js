@@ -155,6 +155,41 @@ describe('appendSlides carries speaker notes', () => {
 		)
 	})
 
+	// The slide body names its media, hyperlink, chart and slide-link rels by the ids the generator
+	// gave them, counting from rId1. The notes rel is named by no id in the body, so it has to be
+	// numbered after all of those are claimed. Numbered first, it took the id a chart or a slide
+	// link then needed, and the append threw `relationship/duplicate-id`.
+	test('a slide with a chart and notes keeps both', async () => {
+		const { reread } = await appendOnto('placeholder-inherit.pptx', (pptx) => {
+			const slide = pptx.addSlide()
+			slide.addChart([{ name: 'D', labels: ['a', 'b'], values: [1, 2] }], { type: 'bar', x: 1, y: 1, w: 4, h: 3 })
+			slide.addNotes('chart notes')
+		})
+		const slide = reread.slides[0]
+		assertEqual(slide.notesText, 'chart notes', 'the notes survive')
+		const types = relsOf(reread.opc, slide.partName).map((r) => r.type.split('/').pop())
+		assert(types.includes('chart') && types.includes('notesSlide'), `both rels are wired: ${types.join(', ')}`)
+		assert(
+			slide.shapes.some((shape) => 'chart' in shape && shape.chart),
+			'and the chart frame still resolves its chart'
+		)
+	})
+
+	test('a slide with a link to another slide and notes keeps both', async () => {
+		const { reread } = await appendOnto('placeholder-inherit.pptx', (pptx) => {
+			const first = pptx.addSlide()
+			first.addText([{ text: 'next', options: { hyperlink: { slide: 2 } } }], { x: 1, y: 1, w: 4, h: 1 })
+			first.addNotes('link notes')
+			pptx.addSlide().addText('second', { x: 1, y: 1, w: 4, h: 1 })
+		})
+		const [first, second] = reread.slides
+		assertEqual(first.notesText, 'link notes', 'the notes survive')
+		const rels = reread.opc.relationshipsFor(first.partName)
+		const link = [...rels].find((r) => r.type === SLIDE_REL)
+		assert(link, 'the slide link rel is wired')
+		assertEqual(rels.resolveTarget(link.id), second.partName, 'and targets the second appended slide')
+	})
+
 	test('every notes part is content-type registered', async () => {
 		const { out } = await appendOnto('placeholder-inherit.pptx', (pptx) => {
 			const slide = pptx.addSlide()
