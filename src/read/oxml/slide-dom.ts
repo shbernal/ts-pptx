@@ -1,8 +1,9 @@
 /**
- * Small DOM navigation helpers shared by the read-model slide/import paths.
+ * Small DOM helpers shared by the read-model slide/import paths.
  *
- * Each is a pure query over a live OOXML node -- no package state, no mutation -- which
- * is why they sit outside `Presentation` rather than as private methods on it.
+ * Each works on a live OOXML node alone -- no package state -- which is why they sit outside
+ * `Presentation` rather than as private methods on it. All but {@link reassignDrawingIds} are
+ * pure queries; that one rewrites the ids in the subtrees it is handed.
  */
 
 import type { Part } from '../opc/part.js'
