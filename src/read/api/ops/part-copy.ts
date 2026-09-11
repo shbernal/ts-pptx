@@ -10,6 +10,8 @@
  */
 
 import type { OpcPackage } from '../../opc/package.js'
+import type { Part } from '../../opc/part.js'
+import type { Relationship } from '../../opc/relationships.js'
 import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
@@ -198,36 +200,22 @@ export function copyPart(
 	// stay inside it. See `page-owned.ts` for what that scope covers and why.
 	const scope = owned ?? (ctx.selection?.destinations.has(sourcePartName) ? newOwnedScope() : undefined)
 
-	const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
-	const isPage = sourcePart.contentType === SLIDE_CONTENT_TYPE
-	const sourceRels = ctx.source.relationshipsFor(sourcePartName)
-	const targetRels = ctx.dest.opc.relationshipsFor(newPartName)
-	for (const rel of sourceRels) {
-		const step = copyTraversalStep(sourcePart, rel)
-		if (step === 'skip') continue
-		if (step === 'external') {
-			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-			continue
-		}
-		// A batch import's slide→slide rule is enforced by checkSelectionCopyable
-		// before this traversal starts, so the recursion below cannot reach an
-		// unselected page: by here every target is selected, already copied, or
-		// not a slide at all.
-		const newTargetPartName = copyPart(
-			ctx,
-			sourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : scope,
-			// Reuse decides at the page boundary and never below it. A part reached from
-			// the page can be answered with the destination's own identical copy; a part
-			// reached from something this import *copied* is copied too, so a copied
-			// subgraph stays self-contained rather than half-linking into deck chrome
-			// that merely happens to match.
-			isPage
-		)
-		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
-	}
+	// A batch import's slide→slide rule is enforced by checkSelectionCopyable before
+	// this traversal starts, so the recursion cannot reach an unselected page: by
+	// then every target is selected, already copied, or not a slide at all.
+	rebuildRels(ctx, {
+		source: sourcePart,
+		newPartName,
+		owned: scope,
+		// Reuse decides at the page boundary and never below it. A part reached from
+		// the page can be answered with the destination's own identical copy; a part
+		// reached from something this import *copied* is copied too, so a copied
+		// subgraph stays self-contained rather than half-linking into deck chrome
+		// that merely happens to match.
+		allowReuse: sourcePart.contentType === SLIDE_CONTENT_TYPE,
+	})
 
-	if (isMaster) {
+	if (sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE) {
 		clearLayoutIdList(ctx.dest, newPartName)
 		// Register the copied master in presentation.xml. Without a
 		// `p:sldMasterId` entry (and a presentation→master relationship) the
@@ -238,10 +226,69 @@ export function copyPart(
 		registerMaster(ctx.dest, newPartName)
 	}
 	if (sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
-		linkLayoutIntoMaster(ctx, sourceRels, newPartName)
+		linkLayoutIntoMaster(ctx, ctx.source.relationshipsFor(sourcePartName), newPartName)
 	}
 
 	return newPartName
+}
+
+/**
+ * What a caller decides about one relationship before the shared rule is asked: leave it out, or
+ * point it at a destination part of the caller's choosing. `undefined` hands it to the rule.
+ */
+export type RelOverride = 'skip' | { target: string } | undefined
+
+/** What {@link rebuildRels} rebuilds, and the caller's special cases. */
+export interface RebuildRelsOptions {
+	/** The source part whose relationships are copied. */
+	source: Part
+	/** The destination part they are rebuilt on. */
+	newPartName: string
+	/** The ownership scope of the page copy this part belongs to, if it belongs to one. */
+	owned?: OwnedScope | undefined
+	/** Whether a followed target the destination already holds may be bound to rather than copied. */
+	allowReuse: boolean
+	/** Sees every relationship first; see {@link RelOverride}. */
+	override?: (rel: Relationship) => RelOverride
+}
+
+/**
+ * Rebuild a copied part's relationships from its source's: the one loop every import that copies a
+ * part runs.
+ *
+ * Each relationship keeps its source id, so the copied body's `r:id` and `r:embed` references stay
+ * valid without the body being rewritten; only targets change. A caller's `override` sees each
+ * relationship first and may skip it or name its target: the rebinding import points the layout at
+ * this deck's, and a notes copy points its slide and its notes master at theirs. Everything else
+ * follows {@link copyTraversalStep}: skipped, carried as an external link, or followed into the
+ * part {@link copyPart} makes for it, inside `owned` unless {@link isSharedByPageCopies} says the
+ * page may share it.
+ */
+export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): void {
+	const { source, newPartName, owned, allowReuse, override } = options
+	const sourceRels = ctx.source.relationshipsFor(source.partName)
+	const targetRels = ctx.dest.opc.relationshipsFor(newPartName)
+	for (const rel of sourceRels) {
+		const decided = override?.(rel)
+		if (decided === 'skip') continue
+		if (decided) {
+			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, decided.target))
+			continue
+		}
+		const step = copyTraversalStep(source, rel)
+		if (step === 'skip') continue
+		if (step === 'external') {
+			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
+			continue
+		}
+		const target = copyPart(
+			ctx,
+			sourceRels.resolveTarget(rel.id),
+			isSharedByPageCopies(rel.type) ? undefined : owned,
+			allowReuse
+		)
+		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, target))
+	}
 }
 
 /**
