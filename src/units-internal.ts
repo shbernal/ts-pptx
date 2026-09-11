@@ -344,7 +344,7 @@ export function resolveCellMarginsInches(
  * @returns the row height in EMU, or `null` for an auto-height row
  */
 export function resolveTableRowHeightEmu(
-	rowH: number | number[] | undefined,
+	rowH: number | Array<number | null> | undefined,
 	rowIndex: number,
 	totalHeightEmu: number,
 	rowCount: number

@@ -851,6 +851,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter wrote an auto-height row in a mixed table as `rowH` 0.** In a table mixing
+  auto and fixed rows, each auto row became a `0` entry, which `addTable` rejects with a
+  `table/invalid-row-height` warning. The auto rows are now written as `null`, the silent spelling
+  of an unpinned row, and the `table.rowAuto` note says what `addTable` then does: it gives each
+  one an even share of the table's height rather than sizing it to its content. `rowH`'s type now
+  admits `null` entries, which the writer already read as an auto-height row.
+
 - **The script converter gave a table cell's unset margin sides zero inset.** A cell stating
   only some of `a:tcPr/@marL`, `@marR`, `@marT` and `@marB` had the others written as 0, so
   `<a:tcPr marL="0">` came out as `margin: [0, 0, 0, 0]`. They now take the schema defaults

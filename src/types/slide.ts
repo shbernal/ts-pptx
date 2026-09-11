@@ -54,7 +54,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	cy?: Coord
 	margin?: Margin
 	colW?: number | number[] // table
-	rowH?: number | number[] // table
+	rowH?: number | Array<number | null> // table
 	hasHeader?: boolean // table
 	hasFooter?: boolean // table
 	hasBandedRows?: boolean // table

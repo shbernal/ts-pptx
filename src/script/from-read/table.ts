@@ -77,7 +77,7 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
 			'table.rowAuto',
 			'approximated',
 			'unsupported',
-			'at least one row is auto-height (a:tr/@h of 0) while others are not; rowH must be given for every row or none, so the auto rows are emitted as 0 and come back pinned to the height their content produced'
+			'at least one row is auto-height (a:tr/@h of 0) while others are not; the auto rows are emitted as null in rowH, which pins nothing, so addTable gives each of them an even share of the table height rather than sizing it to its content'
 		)
 	}
 
@@ -104,7 +104,9 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
 		hasHeader: table.firstRowHeader ? true : undefined,
 		hasBandedRows: table.bandedRows ? true : undefined,
 		colW: columnWidths.every((w) => w === null) ? undefined : columnWidths.map((w) => inches(w ?? 0)),
-		rowH: rowHeights.every((h) => h === 0) ? undefined : rowHeights.map(inches),
+		// An auto row among fixed ones is `null`, the silent spelling of an unpinned row. It used to be
+		// `0`, which `addTable` rejects as not a height, with a `table/invalid-row-height` warning.
+		rowH: rowHeights.every((h) => h === 0) ? undefined : rowHeights.map((h) => (h === 0 ? null : inches(h))),
 	})
 
 	return { method: 'addTable', args: [rows, options ?? {}], ...nameOf(frame) }
