@@ -808,6 +808,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A linked or missing picture bullet image made `bulletDetail` throw.** A paragraph's
+  `a:buBlip` embed was resolved straight through the relationships, which throw on an id that
+  names no relationship and on an External target. The same embed on a picture already reads
+  `imagePartName: null`, so a deck with a linked bullet image took out a paragraph walk that its
+  pictures survived. A picture bullet now reports `imagePartName: null` in both cases.
+
 - **An embedded font face whose `r:id` names no relationship broke three imports three ways.**
   The embedded font list was read three times with different rules. `Presentation.embeddedFonts`
   skipped the face, while the import check and the font carry resolved it and threw

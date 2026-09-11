@@ -11,7 +11,7 @@
 
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
-import { TextFrame } from '../../dist/read.js'
+import { Relationships, TextFrame } from '../../dist/read.js'
 import { assertEqual } from '../helpers.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -122,6 +122,33 @@ describe('Paragraph getter edges', () => {
 
 		const bare = frame(`<a:p><a:r><a:t>x</a:t></a:r></a:p>`).paragraphs[0]
 		assertEqual(bare.bulletDetail, null, 'no a:pPr at all → inherited, reported as null')
+	})
+
+	test('a picture bullet whose embed names no internal part reads null rather than throwing', () => {
+		// A picture already reports a linked or missing image as `null`. The bullet resolved its embed
+		// straight through `resolveTarget`, so the same embed threw out of `bulletDetail`. No
+		// PowerPoint fixture carries a linked bullet image, so the relationships are built here.
+		const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+		const IMAGE_REL = `${R_NS}/image`
+		const rels = Relationships.empty('/ppt/slides/slide1.xml')
+		rels.addWithId('rId9', IMAGE_REL, 'https://example.invalid/bullet.png', 'External')
+		rels.addWithId('rId10', IMAGE_REL, '../media/image1.png')
+
+		/** The picture bullet of a paragraph whose `a:buBlip` embeds `relId`, read against `rels`. */
+		const bulletImage = (relId) => {
+			const xml =
+				`<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}" xmlns:r="${R_NS}"><a:bodyPr/>` +
+				`<a:p><a:pPr><a:buBlip><a:blip r:embed="${relId}"/></a:buBlip></a:pPr><a:r><a:t>x</a:t></a:r></a:p></p:txBody>`
+			const txBody = /** @type {any} */ (new DOMParser().parseFromString(xml, 'text/xml').documentElement)
+			const bullet = new TextFrame(txBody, /** @type {any} */ (stubPart()), undefined, undefined, rels).paragraphs[0]
+				.bulletDetail
+			if (bullet?.kind !== 'picture') throw new Error(`expected a picture bullet, got ${JSON.stringify(bullet)}`)
+			return bullet.imagePartName
+		}
+
+		assertEqual(bulletImage('rId8'), null, 'an embed naming no relationship reads null')
+		assertEqual(bulletImage('rId9'), null, 'a linked (External) image reads null')
+		assertEqual(bulletImage('rId10'), '/ppt/media/image1.png', 'an embedded image still resolves to its part')
 	})
 
 	test('bulletDetail reads startAt and the bullet own font / size / colour', () => {

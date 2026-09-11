@@ -7,6 +7,7 @@
  */
 import type { Part } from '../../opc/part.js'
 import type { Relationships } from '../../opc/relationships.js'
+import { resolvePartName } from '../../opc/partnames.js'
 import {
 	attr,
 	type Element,
@@ -241,12 +242,17 @@ export class Paragraph {
 		}
 	}
 
-	/** Resolve a picture bullet's `a:buBlip/a:blip/@r:embed` to an absolute partname. */
+	/**
+	 * Resolve a picture bullet's `a:buBlip/a:blip/@r:embed` to an absolute partname, or `null` when
+	 * it names no internal part.
+	 *
+	 * Through `resolvePartName` rather than `resolveTarget`, which throws on a dangling id and on an
+	 * External target: a linked or missing bullet image is "no part", as it already is for a picture,
+	 * not a throw out of `bulletDetail`.
+	 */
 	#bulletImagePartName(buBlip: Element): string | null {
 		const blip = firstChild(buBlip, 'a:blip')
-		const relId = blip && attr(blip, 'r:embed')
-		if (!relId || !this.relationships) return null
-		return this.relationships.resolveTarget(relId)
+		return resolvePartName(blip && attr(blip, 'r:embed'), this.relationships ?? null)
 	}
 
 	/** Points from a spacing child's `a:spcPts/@val` (hundredths of a point), or `null`. */
