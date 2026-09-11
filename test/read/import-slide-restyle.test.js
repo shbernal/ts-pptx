@@ -131,10 +131,11 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 			'restyle adds no new master part'
 		)
 
-		// The imported slide binds to a layout that already exists in the target deck.
+		// The imported slide binds to the first layout of the first master, in id-list order: the
+		// deck's own gallery order, not the order its `.rels` files happen to list parts in.
 		const last = reopened.slides[reopened.slides.length - 1]
 		const layout = resolveSingle(opc, last.partName, SLIDE_LAYOUT_REL)
-		assert(layout && opc.part(layout), `imported slide binds to an existing destination layout (${layout})`)
+		assertEqual(layout, reopened.layouts()[0].partName, 'imported slide binds to the first layout of the first master')
 
 		// No dangling internal relationships anywhere in the package.
 		for (const partName of opc.parts.keys()) {
@@ -184,6 +185,21 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		const sourceHasNoBg = !/<p:bg>/.test(partText(source.opc.part(source.slides[0].partName)))
 		assert(sourceHasNoBg, 'precondition: the source slide defines no own p:bg')
 		assert(!/<p:bg>/.test(xml), 'restyle does not bake an inherited p:bg onto the slide')
+	})
+
+	test('binds to the master a primary graft put first, not to the one its rels list first', async () => {
+		// `importSlideMasters({ primary: true })` moves the grafted master to the front of
+		// `p:sldMasterIdLst` but appends its relationship, so the deck's first master and the first
+		// master relationship in `presentation.xml.rels` are different parts.
+		const target = await openFixture('empty')
+		const [grafted] = target.importSlideMasters(await openFixture('image'), { primary: true })
+		const first = target.layouts()[0]
+		assertEqual(first.masterPartName, grafted.partName, 'the grafted master leads the gallery')
+
+		const imported = target.importSlide(await openFixture('multi-theme'), 0, { theme: 'restyle' })
+		const reopened = await Presentation.load(await target.save())
+		const layout = resolveSingle(reopened.opc, imported.partName, SLIDE_LAYOUT_REL)
+		assertEqual(layout, first.partName, 'the import binds to the grafted master’s first layout')
 	})
 
 	test('carryMasterGraphics composes with restyle, leaving carried decorations symbolic', async () => {

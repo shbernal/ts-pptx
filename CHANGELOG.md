@@ -808,6 +808,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`importSlide` in `preserve` and `restyle` modes bound to the wrong layout.** Both modes
+  rebind the imported slide to "the first layout of the first master", and took both firsts
+  from the order the `.rels` files list their relationships in, which carries no meaning. On
+  the PowerPoint-authored corpus decks that picked `slideLayout8` where the deck's own gallery
+  starts at `slideLayout1`, and after `importSlideMasters({ primary: true })` it still picked
+  the master the graft had moved behind. Both now walk `p:sldMasterIdLst` and
+  `p:sldLayoutIdLst`, the same order `layouts()` reports, and `SlideMaster.layouts` shares that
+  walk instead of spelling out a copy.
+
 - **Shapes carried onto a slide kept ids that clashed, and grouped connectors lost their
   binding.** `importSlide({ carryMasterGraphics: true })` copied the layout's and the master's
   decorations onto the slide with their source `p:cNvPr` ids, which routinely equal the

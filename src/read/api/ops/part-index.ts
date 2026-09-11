@@ -30,8 +30,13 @@ export function slideMasterPartNames(deck: DeckTarget): string[] {
 	return idListTargets(lst, 'p:sldMasterId', (relId) => rels.resolveTarget(relId))
 }
 
-/** A master's layout partnames in `p:sldLayoutIdLst` order -- its slice of the deck's gallery. */
-export function layoutPartNamesOf(deck: DeckTarget, masterPartName: string): string[] {
+/**
+ * A master's layout partnames in `p:sldLayoutIdLst` order -- its slice of the deck's gallery.
+ *
+ * Needs only the package, so a {@link SlideMaster} with no presentation part in reach walks its
+ * layouts through here too.
+ */
+export function layoutPartNamesOf(deck: Pick<DeckTarget, 'opc'>, masterPartName: string): string[] {
 	const root = deck.opc.part(masterPartName)?.dom.documentElement
 	const lst = root && firstChild(root, 'p:sldLayoutIdLst')
 	if (!lst) return []

@@ -39,6 +39,7 @@ import { AutoShape, buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHos
 import { TextFrame } from './text.js'
 import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
+import { layoutPartNamesOf } from './ops/part-index.js'
 import { COLOR_MAP_TOKENS, THEME_COLOR_SLOTS, type ColorMapToken, type ThemeColorSlot } from '../../ooxml/st-enums.js'
 
 /**
@@ -418,17 +419,10 @@ export class SlideMaster extends TemplatePart {
 
 	/** The layouts built on this master (via `p:sldLayoutIdLst` → its relationships), in list order. */
 	get layouts(): SlideLayout[] {
-		const root = this.part.dom.documentElement
-		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
-		if (!lst) return []
-		const rels = this.relationships
-		const out: SlideLayout[] = []
-		for (const entry of getElements(lst, 'p:sldLayoutId')) {
-			const relId = attr(entry, 'r:id')
-			const part = relId ? this.opc.part(rels.resolveTarget(relId)) : null
-			if (part) out.push(new SlideLayout(this.opc, part))
-		}
-		return out
+		return layoutPartNamesOf(this, this.part.partName)
+			.map((partName) => this.opc.part(partName))
+			.filter((part): part is Part => part !== undefined)
+			.map((part) => new SlideLayout(this.opc, part))
 	}
 
 	/**

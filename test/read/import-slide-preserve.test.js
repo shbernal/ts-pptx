@@ -582,10 +582,11 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			'preserve adds no new master part'
 		)
 
-		// The imported slide binds to a layout that already exists in the target deck.
+		// The imported slide binds to the first layout of the first master, in id-list order: the
+		// deck's own gallery order, not the order its `.rels` files happen to list parts in.
 		const last = reopened.slides[reopened.slides.length - 1]
 		const layout = resolveSingle(opc, last.partName, SLIDE_LAYOUT_REL)
-		assert(layout && opc.part(layout), `imported slide binds to an existing destination layout (${layout})`)
+		assertEqual(layout, reopened.layouts()[0].partName, 'imported slide binds to the first layout of the first master')
 
 		// No dangling internal relationships anywhere in the package.
 		for (const partName of opc.parts.keys()) {

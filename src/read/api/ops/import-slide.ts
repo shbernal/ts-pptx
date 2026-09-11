@@ -42,7 +42,7 @@ import { isSharedByPageCopies } from './page-owned.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
 import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
-import { resolveSingleRel } from './part-index.js'
+import { layoutPartNamesOf, resolveSingleRel, slideMasterPartNames } from './part-index.js'
 import { rewriteCarriedRels } from './carried-rels.js'
 import { sourceFlattenContext } from './flatten-context.js'
 
@@ -264,20 +264,20 @@ function carryMasterGraphics(
  * @return {string} partname of the destination layout
  */
 function destinationLayoutPartName(dest: Presentation): string {
-	const presRels = dest.opc.relationshipsFor(dest.presentationPart.partName)
-	const masterRel = presRels.byType(SLIDE_MASTER_REL)[0]
-	if (!masterRel)
+	// "First" in id-list order, which is the deck's gallery order. The order a `.rels` file lists
+	// its relationships in carries no meaning, and took `slideLayout8` over `slideLayout1` on
+	// PowerPoint-authored decks, and an appended master over one a primary graft had put first.
+	const [masterPartName] = slideMasterPartNames(dest)
+	if (!masterPartName)
 		throw new InvalidOptionError(
 			'import/destination-missing-master',
 			'importSlide preserve mode requires a slide master in the destination deck'
 		)
-	const masterPartName = presRels.resolveTarget(masterRel.id)
-	const masterRels = dest.opc.relationshipsFor(masterPartName)
-	const layoutRel = masterRels.byType(SLIDE_LAYOUT_REL)[0]
-	if (!layoutRel)
+	const [layoutPartName] = layoutPartNamesOf(dest, masterPartName)
+	if (!layoutPartName)
 		throw new InvalidOptionError(
 			'import/destination-missing-layout',
 			'importSlide preserve mode requires a slide layout in the destination deck'
 		)
-	return masterRels.resolveTarget(layoutRel.id)
+	return layoutPartName
 }
