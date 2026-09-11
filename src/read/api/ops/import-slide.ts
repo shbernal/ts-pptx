@@ -25,7 +25,6 @@
 
 import { ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { Part } from '../../opc/part.js'
-import { relativePartName } from '../../opc/partnames.js'
 import { PackageReadError, InvalidOptionError } from '../../../errors.js'
 import { flattenSlide, remapLiteralColors, restyleSlide } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
@@ -37,11 +36,10 @@ import {
 	spTreeOf,
 } from '../../oxml/slide-dom.js'
 import { copySourceTableStyles } from './table-styles.js'
-import { copyPart, newOwnedScope, type ImportContext, type OwnedScope } from './part-copy.js'
-import { isSharedByPageCopies } from './page-owned.js'
+import { newOwnedScope, rebuildRels, type ImportContext, type OwnedScope } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
-import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
+import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
 import { layoutPartNamesOf, resolveSingleRel, slideMasterPartNames } from './part-index.js'
 import { rewriteCarriedRels } from './carried-rels.js'
 import { sourceFlattenContext } from './flatten-context.js'
@@ -163,34 +161,21 @@ export function importSlideRebind(
 	if (!slideRoot)
 		throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)
 
-	// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
-	// destination layout, and copy every other internal target (media/charts).
-	const sourceRels = source.opc.relationshipsFor(sourceSlide.partName)
-	const targetRels = dest.opc.relationshipsFor(newPartName)
+	// Rebuild the slide's relationships: notes are dropped and every other internal target
+	// (media, charts) is copied as for any page, but the layout is this deck's own.
 	// This page is built here rather than by `copyPart`, so its ownership scope is
 	// opened here too: the chart or diagram under a page rebound twice must not be
 	// the same part twice (see `page-owned.ts`).
 	const owned = newOwnedScope()
-	for (const rel of sourceRels) {
-		if (rel.type === NOTES_SLIDE_REL) continue
-		if (rel.type === SLIDE_LAYOUT_REL) {
-			targetRels.addWithId(rel.id, SLIDE_LAYOUT_REL, relativePartName(newPartName, destLayout))
-			continue
-		}
-		if (rel.targetMode === 'External') {
-			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-			continue
-		}
-		const newTarget = copyPart(
-			ctx,
-			sourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : owned,
-			// These are the page's own relationships, so a target the destination already
-			// holds byte-for-byte is bound to rather than copied (see `part-reuse.ts`).
-			true
-		)
-		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
-	}
+	rebuildRels(ctx, {
+		source: sourcePart,
+		newPartName,
+		owned,
+		// These are the page's own relationships, so a target the destination already
+		// holds byte-for-byte is bound to rather than copied (see `part-reuse.ts`).
+		allowReuse: true,
+		override: (rel) => (rel.type === SLIDE_LAYOUT_REL ? { target: destLayout } : undefined),
+	})
 
 	// Optionally bake the source master/layout decorations (logos, accent shapes) onto the
 	// slide behind its own content. Done after the slide's own rels are in place (so carried
