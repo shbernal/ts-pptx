@@ -34,7 +34,7 @@
  * lost".
  */
 import { alignByKey } from './align.js'
-import { LAYOUT_NOTE_PREFIX, NOTE_CONSTRUCTS, type FidelityNote } from '../fidelity.js'
+import { LAYOUT_NOTE_PREFIX, NOTE_CONSTRUCTS, type FidelityNote, type NoteConstructEntry } from '../fidelity.js'
 import {
 	collectObjectNames,
 	type CanonicalCall,
@@ -570,8 +570,8 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
  * the same field. Only the two constructs with no slide twin need entries of their own.
  */
 function noteFields(construct: string): readonly string[] | undefined {
-	const table: Record<string, readonly string[] | undefined> = NOTE_CONSTRUCTS
-	return table[construct] ?? (construct.startsWith(LAYOUT_NOTE_PREFIX) ? table[construct.slice(LAYOUT_NOTE_PREFIX.length)] : undefined) // prettier-ignore
+	const table: Record<string, NoteConstructEntry | undefined> = NOTE_CONSTRUCTS
+	return table[construct]?.fields ?? (construct.startsWith(LAYOUT_NOTE_PREFIX) ? table[construct.slice(LAYOUT_NOTE_PREFIX.length)]?.fields : undefined) // prettier-ignore
 }
 
 /**

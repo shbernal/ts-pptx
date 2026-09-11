@@ -26,7 +26,7 @@
  * is why {@link DeckIr}'s calls are populated even for a carried slide.
  */
 import { uniqueTitle, type DeckIr, type IrValue, type MasterIr } from '../ir.js'
-import { NoteCollector, scopeNotes } from '../fidelity.js'
+import { NoteCollector, noteAppliesTo, scopeNotes } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
@@ -56,17 +56,6 @@ export interface PrintStandaloneScriptOptions {
 	packageName?: string
 }
 
-/**
- * Notes the IR declares that do not describe *this* output.
- *
- * Only one, and it is the mirror of the other tier's list. `slide.carried` says a slide will
- * be copied from the source package rather than transcribed; there is no source package here,
- * so the slide is transcribed and the construct that made it uncarryable has already recorded
- * its own note. Reporting both would double-count one loss and describe a behaviour this
- * script does not have.
- */
-const NOT_APPLICABLE = new Set(['slide.carried'])
-
 /** Turn a deck IR into a runnable TypeScript module that needs no template. */
 export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScriptOptions = {}): PrintedScript {
 	const { outputPath, assetDir, assetMode, packageName } = resolvePrintOptions(options)
@@ -86,7 +75,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 	// Printed up front too, for its asset references rather than its notes: the header counts, and
 	// the bindings declare, only the assets something printed.
 	const theme = Object.keys(ir.chrome.theme).length > 0 ? printValue(ir.chrome.theme as IrValue, 0, printAsset) : null
-	const notes = [...ir.fidelity.filter((note) => !NOT_APPLICABLE.has(note.construct)), ...collector.notes]
+	const notes = [...ir.fidelity, ...collector.notes].filter((note) => noteAppliesTo(note.construct, 'standalone'))
 
 	const needsReadFile = assetMode === 'file' && assets.printed.size > 0
 	const lines: string[] = [

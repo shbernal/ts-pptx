@@ -29,7 +29,7 @@
  * with no template at all and pays for it in the note list.
  */
 import type { DeckIr, SlideIr } from '../ir.js'
-import { LAYOUT_NOTE_PREFIX, NoteCollector, scopeNotes } from '../fidelity.js'
+import { NoteCollector, noteAppliesTo, scopeNotes } from '../fidelity.js'
 import { commentText, printString, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
@@ -68,46 +68,6 @@ export interface PrintScriptOptions {
 	packageName?: string
 }
 
-/**
- * Constructs the IR declares lost that a template-anchored output keeps anyway.
- *
- * Document properties are the obvious case: the read half notes that only five of the twelve
- * have write-API setters, which is true and matters for a standalone output — but this tier
- * never authors them at all. They ride in the template, untouched, all twelve of them.
- *
- * The whole of the chrome is the same story on a larger scale. The theme's format scheme, the
- * master's text styles and colour map, the layouts' decoration and placeholder definitions —
- * every one of them is a genuine loss for a script that has to rebuild the deck's design, and
- * none of them is touched here, because the design *is* the template. A caveat that does not
- * apply to the output in front of you is worse than no caveat: it teaches the reader to skim
- * the ones that do.
- *
- * Alongside this list, {@link isTemplateCarried} drops every note under
- * {@link LAYOUT_NOTE_PREFIX}. Those are the per-shape losses of re-authoring a layout's
- * decoration, recorded in the slide vocabulary because the shape mapper is shared — and every
- * one of them is about a layout, which this tier does not rebuild.
- */
-const TEMPLATE_CARRIED_CONSTRUCTS = new Set([
-	'deck.docProps',
-	'master.background',
-	'master.colorMap',
-	'master.decoration',
-	'master.multiple',
-	// Both are about a layout *title* the standalone tier has to invent — deduplicated because
-	// it doubles as a lookup key, whitespace-collapsed because the write path emits it as a raw
-	// XML attribute value. Here the layout keeps its own `p:cSld@name`, untouched.
-	'master.name',
-	'master.nameCollision',
-	'master.placeholders',
-	'master.txStyles',
-	'theme.fmtScheme',
-])
-
-/** `true` when the source deck carries this loss through untouched, so this tier does not have it. */
-function isTemplateCarried(construct: string): boolean {
-	return TEMPLATE_CARRIED_CONSTRUCTS.has(construct) || construct.startsWith(LAYOUT_NOTE_PREFIX)
-}
-
 /** Turn a deck IR into a runnable, template-anchored TypeScript module. */
 export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): PrintedScript {
 	const templatePath = options.templatePath ?? './template.pptx'
@@ -123,7 +83,9 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 	const needsFallbackLayout = ir.slides.some((slide) => slide.source === 'authored' && slide.layout === null)
 
 	// Built last: the tier's own notes are only known once the slides have been walked.
-	const notes = [...ir.fidelity.filter((note) => !isTemplateCarried(note.construct)), ...collector.notes]
+	// Each construct's catalogue entry says which tiers it applies to; the chrome's losses, for one,
+	// are carried by the template rather than lost here.
+	const notes = [...ir.fidelity, ...collector.notes].filter((note) => noteAppliesTo(note.construct, 'template'))
 
 	const lines: string[] = [
 		header(

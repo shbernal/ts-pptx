@@ -17,6 +17,42 @@
  * lives in {@link FidelityNote.detail}.
  */
 
+/** The two printers a note can apply to: template-anchored (`printScript`) and standalone (`printStandaloneScript`). */
+export type PrintTier = 'template' | 'standalone'
+
+/** One catalogue entry: the option paths a note excuses, and the printers whose output it describes. */
+export interface NoteConstructEntry {
+	/** Option paths the note is a promise about; see {@link NOTE_CONSTRUCTS}. */
+	readonly fields: readonly string[]
+	/** The printers that report the note. */
+	readonly tiers: readonly PrintTier[]
+}
+
+/** A loss both printers have. */
+const BOTH_TIERS = ['template', 'standalone'] as const
+
+/**
+ * A loss only the standalone printer has, because the template-anchored one keeps the construct in
+ * its template.
+ *
+ * Document properties are the plain case: the read half notes that only five of the twelve have
+ * write-API setters, which matters for a script that rebuilds the deck, but the template-anchored
+ * tier never authors them. They ride in the template, all twelve. The chrome is the same story on
+ * a larger scale: the theme's format scheme, the master's text styles and colour map, the layouts'
+ * decoration, names and placeholder definitions are genuine losses for a script that rebuilds the
+ * design, and untouched by one whose template *is* the design. A caveat that does not apply to the
+ * output in front of you is worse than none: it teaches the reader to skim the ones that do.
+ */
+const STANDALONE_ONLY = ['standalone'] as const
+
+/**
+ * A loss only the template-anchored printer has. `slide.carried` says a slide is copied from the
+ * source package rather than transcribed. The standalone tier has no source package, so it
+ * transcribes the slide, and the construct that made it uncarryable records its own note; reporting
+ * both would count one loss twice and describe a behaviour that script does not have.
+ */
+const TEMPLATE_ONLY = ['template'] as const
+
 /**
  * Option names each note construct is a promise about.
  *
@@ -51,72 +87,77 @@
  * so explicitly is what keeps it from looking like an oversight. A construct can leave that
  * state — `slide.transition` was an empty entry until the converter learned to transcribe
  * transitions, and the IR gaining a field is exactly when its note gains a mapping.
+ *
+ * Each entry also names the printers whose output the note describes (`tiers`), and each printer
+ * reports only the notes that apply to it. Two hand-kept sets used to decide that, one per printer,
+ * so a new chrome construct was reported by the template-anchored tier unless someone remembered
+ * to list it. An entry without `tiers` no longer satisfies the catalogue's type.
  */
 export const NOTE_CONSTRUCTS = {
-	'chart.blanks': ['values'],
-	'chart.combo': ['type'],
+	'chart.blanks': { fields: ['values'], tiers: BOTH_TIERS },
+	'chart.combo': { fields: ['type'], tiers: BOTH_TIERS },
 	// A chart with no cached plottable series is not emitted at all, so the whole frame is
 	// missing from the output. Distinct from `chart.workbook`, which is about a chart that IS
 	// emitted, rebuilt from the cache.
-	'chart.data': ['*'],
+	'chart.data': { fields: ['*'], tiers: BOTH_TIERS },
 	// Label flags the writer has no spelling for: the legend key on any plot, the category name on any
 	// but a pie or a doughnut. Absent from the IR on both sides, so there is nothing to exclude.
-	'chart.labels': [],
-	'chart.type': ['type'],
+	'chart.labels': { fields: [], tiers: BOTH_TIERS },
+	'chart.type': { fields: ['type'], tiers: BOTH_TIERS },
 	// A 3-D line, area or pie rebuilt flat: `type` names the flat chart on both sides, and the 3-D
 	// view is in neither IR.
-	'chart.type3D': [],
-	'chart.workbook': ['*'],
-	'chartEx.all': ['*'],
-	'connector.binding': [],
-	'connector.line': ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'],
-	'connector.rotation': ['rotate'],
+	'chart.type3D': { fields: [], tiers: BOTH_TIERS },
+	'chart.workbook': { fields: ['*'], tiers: BOTH_TIERS },
+	'chartEx.all': { fields: ['*'], tiers: BOTH_TIERS },
+	'connector.binding': { fields: [], tiers: BOTH_TIERS },
+	'connector.line': { fields: ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'], tiers: BOTH_TIERS },
+	'connector.rotation': { fields: ['rotate'], tiers: BOTH_TIERS },
 	// Empty, and the temptation to list title/author/subject/revision here has to be
 	// resisted: this note is about the *other* seven docProps, which have no setter and are
 	// absent from the IR. Listing the four that do have setters would excuse a printer that
 	// stopped writing them — measured, by exactly that mutation.
-	'deck.docProps': [],
+	'deck.docProps': { fields: [], tiers: STANDALONE_ONLY },
 	// Nothing to exclude: the differences it predicts are `added`, which WRITER_DEFAULTS covers
 	// by kind. The note exists so a reader of the emitted script learns the deck gained them.
-	'deck.docPropsDefault': [],
-	'deck.slideSize': ['slideSize.*'],
-	'diagram.all': ['*'],
+	'deck.docPropsDefault': { fields: [], tiers: STANDALONE_ONLY },
+	'deck.slideSize': { fields: ['slideSize.*'], tiers: BOTH_TIERS },
+	'diagram.all': { fields: ['*'], tiers: BOTH_TIERS },
 	// A gradient that cannot be expressed falls back to no gradient, so the difference lands on
 	// the fill option itself. The `line.` twins below are the same construct on a stroke —
 	// `gradientStops` is shared by both surfaces and scopes its notes by which one it is on.
-	'fill.gradient': ['gradient', 'fill'],
-	'fill.gradient.path': ['gradient', 'fill'],
-	'line.gradient': ['gradient', 'line'],
-	'line.gradient.path': ['gradient', 'line'],
-	'line.gradient.schemeToken': ['gradient', 'line'],
+	'fill.gradient': { fields: ['gradient', 'fill'], tiers: BOTH_TIERS },
+	'fill.gradient.path': { fields: ['gradient', 'fill'], tiers: BOTH_TIERS },
+	'line.gradient': { fields: ['gradient', 'line'], tiers: BOTH_TIERS },
+	'line.gradient.path': { fields: ['gradient', 'line'], tiers: BOTH_TIERS },
+	'line.gradient.schemeToken': { fields: ['gradient', 'line'], tiers: BOTH_TIERS },
 	// Recorded only when an image-filled surface cannot carry its *bytes* — a linked blip, an
 	// SVG the write path refuses, a part missing from the package. The fill option is then
 	// absent from the output entirely, so the difference lands on `fill` itself.
-	'fill.picture': ['fill'],
+	'fill.picture': { fields: ['fill'], tiers: BOTH_TIERS },
 	// Empty, and deliberately so: this note declares that a picture fill's tiling, crop, DPI
 	// and rotWithShape do not survive, and *none of them is in the IR on either side* — the
 	// write API expresses a picture fill as bytes plus transparency, so the converter never
 	// emits them. Widening this to `fill` would be the mistake it looks like a fix for: it
 	// would excuse an image fill that failed to come back at all, which is the thing the
 	// round trip is here to catch.
-	'fill.picture.geometry': [],
-	'fill.gradient.schemeToken': ['gradient', 'fill'],
-	'fill.schemeToken': ['fill', 'fill.color'],
+	'fill.picture.geometry': { fields: [], tiers: BOTH_TIERS },
+	'fill.gradient.schemeToken': { fields: ['gradient', 'fill'], tiers: BOTH_TIERS },
+	'fill.schemeToken': { fields: ['fill', 'fill.color'], tiers: BOTH_TIERS },
 	// The outline's twin on a glow, and `shadow.schemeToken` below on a shadow: a colour outside the
 	// ten tokens, baked to a literal.
-	'glow.schemeToken': ['glow.color'],
-	'graphicFrame.unknown': ['*'],
-	'group.child': ['*'],
-	'group.childSpace': ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'],
-	'group.empty': ['*'],
-	'group.transform': ['rotate', 'flipH', 'flipV'],
-	'image.data': ['data', '$asset'],
-	'image.recolor': ['duotone', 'grayscale', 'biLevel', 'clrChange'],
+	'glow.schemeToken': { fields: ['glow.color'], tiers: BOTH_TIERS },
+	'graphicFrame.unknown': { fields: ['*'], tiers: BOTH_TIERS },
+	'group.child': { fields: ['*'], tiers: BOTH_TIERS },
+	'group.childSpace': { fields: ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'], tiers: BOTH_TIERS },
+	'group.empty': { fields: ['*'], tiers: BOTH_TIERS },
+	'group.transform': { fields: ['rotate', 'flipH', 'flipV'], tiers: BOTH_TIERS },
+	'image.data': { fields: ['data', '$asset'], tiers: BOTH_TIERS },
+	'image.recolor': { fields: ['duotone', 'grayscale', 'biLevel', 'clrChange'], tiers: BOTH_TIERS },
 	// Covers the picture's bytes, not just an `svg` option: an SVG picture's raster fallback
 	// is regenerated rather than carried, so the blip the round trip compares is a different
 	// image from the source's — which is precisely the loss this note is about.
-	'image.svg': ['svg', 'data', '$asset'],
-	'line.arrowSize': ['beginArrowType', 'endArrowType'],
+	'image.svg': { fields: ['svg', 'data', '$asset'], tiers: BOTH_TIERS },
+	'line.arrowSize': { fields: ['beginArrowType', 'endArrowType'], tiers: BOTH_TIERS },
 	// The chrome notes. Most are empty for the reason stated above and it is the common case
 	// here rather than the exception: `a:fmtScheme`, `p:txStyles`, a *master's* decoration and a
 	// layout's placeholder definitions are all absent from the IR on *both* sides — the first two
@@ -130,17 +171,20 @@ export const NOTE_CONSTRUCTS = {
 	// describes, and writing `[]` is the honest spelling of it.
 	// Deck-scoped, so anchored at the root: a layout's background and title sit under
 	// `chrome.masters`, and a renamed layout also reaches every slide bound to it as `layoutName`.
-	'master.background': ['chrome.masters.background.*'],
-	'master.colorMap': [],
-	'master.decoration': [],
+	'master.background': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
+	'master.colorMap': { fields: [], tiers: STANDALONE_ONLY },
+	'master.decoration': { fields: [], tiers: STANDALONE_ONLY },
 	// Scoped to the `DEFAULT` layout's title, so a suffix: the whole added layout.
-	'master.default': ['master'],
-	'master.multiple': [],
-	'master.name': ['chrome.masters.title', 'layoutName'],
-	'master.nameCollision': ['chrome.masters.title', 'layoutName'],
-	'master.placeholders': [],
-	'master.txStyles': [],
-	'theme.fmtScheme': [],
+	'master.default': { fields: ['master'], tiers: STANDALONE_ONLY },
+	'master.multiple': { fields: [], tiers: STANDALONE_ONLY },
+	// Both are about a layout *title* the standalone tier has to invent: deduplicated because it doubles
+	// as a lookup key, whitespace-collapsed because the write path emits it as a raw XML attribute
+	// value. The template-anchored tier keeps the layout's own `p:cSld@name`.
+	'master.name': { fields: ['chrome.masters.title', 'layoutName'], tiers: STANDALONE_ONLY },
+	'master.nameCollision': { fields: ['chrome.masters.title', 'layoutName'], tiers: STANDALONE_ONLY },
+	'master.placeholders': { fields: [], tiers: STANDALONE_ONLY },
+	'master.txStyles': { fields: [], tiers: STANDALONE_ONLY },
+	'theme.fmtScheme': { fields: [], tiers: STANDALONE_ONLY },
 	// The two layout-shape notes with no slide counterpart to inherit a mapping from. Both are
 	// empty for the same reason, and it is worth spelling out because both *look* like they
 	// should exclude something. A table on a layout is absent from the `objects` array on both
@@ -149,47 +193,47 @@ export const NOTE_CONSTRUCTS = {
 	// source layout's group becomes N loose objects here and the output layout genuinely *has*
 	// N loose objects, so the two agree exactly and the note is a caveat for a human reading the
 	// emitted script, not an exclusion.
-	'layout.decoration': [],
-	'layout.group': [],
+	'layout.decoration': { fields: [], tiers: STANDALONE_ONLY },
+	'layout.group': { fields: [], tiers: STANDALONE_ONLY },
 	// `a:ln/@algn="in"` has no write option, so the stroke comes back centred on the edge. The
 	// IR carries no alignment on either side, so there is nothing to exclude and the note is a
 	// caveat for a human reading the emitted script.
-	'line.align': [],
+	'line.align': { fields: [], tiers: BOTH_TIERS },
 	// Path-qualified: the entries are matched as a suffix of the difference's own path, and a
 	// bare `width` also excused a table cell's bevel or border width.
-	'line.dash': ['line.dashType'],
+	'line.dash': { fields: ['line.dashType'], tiers: BOTH_TIERS },
 	// An outline colour outside the ten scheme tokens the write path maps, baked to a literal.
-	'line.schemeToken': ['line.color'],
-	'line.width': ['line.width'],
-	'media.audioVideo': ['*'],
-	'notes.formatting': ['notesText'],
-	'shadow.schemeToken': ['shadow.color'],
-	'shape.custGeom.guides': ['points'],
-	'shape.effects': ['shadow', 'glow'],
-	'shape.empty': ['*'],
-	'shape.frameInherited': ['x', 'y', 'w', 'h'],
+	'line.schemeToken': { fields: ['line.color'], tiers: BOTH_TIERS },
+	'line.width': { fields: ['line.width'], tiers: BOTH_TIERS },
+	'media.audioVideo': { fields: ['*'], tiers: BOTH_TIERS },
+	'notes.formatting': { fields: ['notesText'], tiers: BOTH_TIERS },
+	'shadow.schemeToken': { fields: ['shadow.color'], tiers: BOTH_TIERS },
+	'shape.custGeom.guides': { fields: ['points'], tiers: BOTH_TIERS },
+	'shape.effects': { fields: ['shadow', 'glow'], tiers: BOTH_TIERS },
+	'shape.empty': { fields: ['*'], tiers: BOTH_TIERS },
+	'shape.frameInherited': { fields: ['x', 'y', 'w', 'h'], tiers: BOTH_TIERS },
 	// A shape nothing places is dropped whole, so every difference on it is the loss.
-	'shape.frameUnresolved': ['*'],
-	'shape.hidden': ['*'],
-	'shape.placeholder': ['placeholder'],
-	'slide.animation': [],
+	'shape.frameUnresolved': { fields: ['*'], tiers: BOTH_TIERS },
+	'shape.hidden': { fields: ['*'], tiers: BOTH_TIERS },
+	'shape.placeholder': { fields: ['placeholder'], tiers: BOTH_TIERS },
+	'slide.animation': { fields: [], tiers: BOTH_TIERS },
 	// Slide-scoped, so anchored at the root. The diff compares the slide's `background` as one
 	// value, so the colour, transparency and picture bytes all land on that one path.
-	'slide.background': ['background'],
-	'slide.carried': ['*'],
-	'slide.layout': ['layoutName'],
-	'slide.name': [],
+	'slide.background': { fields: ['background'], tiers: BOTH_TIERS },
+	'slide.carried': { fields: ['*'], tiers: TEMPLATE_ONLY },
+	'slide.layout': { fields: ['layoutName'], tiers: BOTH_TIERS },
+	'slide.name': { fields: [], tiers: BOTH_TIERS },
 	// A transition the write vocabulary cannot name is dropped whole, so the difference lands
 	// on the slide's `transition` key itself. Deliberately *not* widened to the keys inside it:
 	// this note is only ever recorded when the whole transition is gone.
-	'slide.transition': ['transition'],
+	'slide.transition': { fields: ['transition'], tiers: BOTH_TIERS },
 	// The sound alone, one level down. Scoped to `transition.sound` so it cannot also excuse a
 	// transition whose type or timing came back wrong — the loss it declares is exactly the missing
 	// `p:sndAc`, and the `.*` also covers the case where the sound survives with other bytes.
-	'slide.transitionSound': ['transition.sound.*'],
+	'slide.transitionSound': { fields: ['transition.sound.*'], tiers: BOTH_TIERS },
 	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
 	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
-	'table.cell.borders.dash': ['border', 'diagonal'],
+	'table.cell.borders.dash': { fields: ['border', 'diagonal'], tiers: BOTH_TIERS },
 	// `table.cell.fill` used to live here, for a cell whose own fill could not be told apart
 	// from the one it inherited from the table style. `TableCell.hasOwnFill` tells them apart,
 	// so the mapper emits the right one and records nothing — the note is gone rather than
@@ -197,64 +241,64 @@ export const NOTE_CONSTRUCTS = {
 	// Empty, and correctly so: `a:tc/@id` and `a:tcPr/a:headers` have no write option — the
 	// IR has nowhere to put them on either side, so there is nothing to exclude. The note
 	// exists so a reader of the emitted script learns the association was there and is gone.
-	'table.cell.headers': [],
+	'table.cell.headers': { fields: [], tiers: BOTH_TIERS },
 	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
 	// same reasons.
-	'table.cell.fill.picture': ['fill'],
-	'table.cell.fill.picture.geometry': [],
+	'table.cell.fill.picture': { fields: ['fill'], tiers: BOTH_TIERS },
+	'table.cell.fill.picture.geometry': { fields: [], tiers: BOTH_TIERS },
 	// The table-side twins of `fill.schemeToken` / `text.color.schemeToken`: one of the seven
 	// `ST_SchemeColorVal` tokens the write path's `clrMap` does not carry, baked to the literal
 	// it resolves to. Three sites used to pass one through RAW, so the generated script warned
 	// `color/invalid-value` and painted the default text colour instead.
-	'table.cell.fill.schemeToken': ['fill', 'fill.color'],
-	'table.cell.borders.schemeToken': ['border', 'diagonal'],
+	'table.cell.fill.schemeToken': { fields: ['fill', 'fill.color'], tiers: BOTH_TIERS },
+	'table.cell.borders.schemeToken': { fields: ['border', 'diagonal'], tiers: BOTH_TIERS },
 	// The table-background twins. Scoped to `tableFill` rather than `fill`, because those are
 	// two different options: one lands on `a:tblPr`, the other is stamped onto every cell.
-	'table.fill.schemeToken': ['tableFill', 'tableFill.color'],
-	'table.fill.picture': ['tableFill'],
-	'table.fill.picture.geometry': [],
+	'table.fill.schemeToken': { fields: ['tableFill', 'tableFill.color'], tiers: BOTH_TIERS },
+	'table.fill.picture': { fields: ['tableFill'], tiers: BOTH_TIERS },
+	'table.fill.picture.geometry': { fields: [], tiers: BOTH_TIERS },
 	// A gradient that cannot be expressed falls back to no gradient, so the difference lands
 	// on the fill option itself — `tableFill` for the background, `fill` for a cell.
-	'table.fill.gradient': ['tableFill'],
-	'table.fill.gradient.path': ['tableFill'],
+	'table.fill.gradient': { fields: ['tableFill'], tiers: BOTH_TIERS },
+	'table.fill.gradient.path': { fields: ['tableFill'], tiers: BOTH_TIERS },
 	// A gradient STOP whose scheme token the write path cannot carry, baked to a literal. Scoped
 	// to the surface the stop sits on, like the two above it: the stop note used to hardcode the
 	// shape spelling, so a table gradient recorded `fill.gradient.schemeToken` while its
 	// difference landed on `tableFill` and the note could never match it.
-	'table.fill.gradient.schemeToken': ['tableFill'],
-	'table.cell.fill.gradient': ['fill'],
-	'table.cell.fill.gradient.path': ['fill'],
-	'table.cell.fill.gradient.schemeToken': ['fill'],
+	'table.fill.gradient.schemeToken': { fields: ['tableFill'], tiers: BOTH_TIERS },
+	'table.cell.fill.gradient': { fields: ['fill'], tiers: BOTH_TIERS },
+	'table.cell.fill.gradient.path': { fields: ['fill'], tiers: BOTH_TIERS },
+	'table.cell.fill.gradient.schemeToken': { fields: ['fill'], tiers: BOTH_TIERS },
 	// Narrowed to the East-Asian `ST_TextVerticalType` modes `textDirection` cannot spell —
 	// the four it can now round-trip, so this no longer excuses every vertical cell.
-	'table.cell.vert': ['textDirection', 'vert'],
-	'table.rowAuto': ['rowH'],
-	'table.style': ['tableStyle'],
-	'text.align': ['align'],
+	'table.cell.vert': { fields: ['textDirection', 'vert'], tiers: BOTH_TIERS },
+	'table.rowAuto': { fields: ['rowH'], tiers: BOTH_TIERS },
+	'table.style': { fields: ['tableStyle'], tiers: BOTH_TIERS },
+	'text.align': { fields: ['align'], tiers: BOTH_TIERS },
 	// `text.bullet.numberStartAt` and `text.bullet.style` used to live here, for
 	// `a:buAutoNum/@startAt` and for a bullet's own font/size/colour. `Paragraph.bulletDetail`
 	// reads all four, so the mapper emits `numberStartAt` / `fontFace` / `size` / `color` and
 	// records nothing — the notes are gone rather than unmapped. What remains of the size half
 	// is `text.bullet.sizePt`, which is a genuinely unwritable unit rather than an unread value.
-	'text.bullet.numberType': ['bullet'],
+	'text.bullet.numberType': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// An absolute bullet size (`a:buSzPts`) has no write option at all — `bullet.size` is a
 	// percentage of the run size — so the difference lands on the bullet option.
-	'text.bullet.sizePt': ['bullet'],
+	'text.bullet.sizePt': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// A percentage outside 25–400%, which the write path rejects with a warning and replaces
 	// with the run's own size.
-	'text.bullet.sizePct': ['bullet'],
+	'text.bullet.sizePct': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// A bullet colour outside the ten scheme tokens the write path maps, baked to a literal.
-	'text.bullet.schemeToken': ['bullet'],
+	'text.bullet.schemeToken': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// A picture bullet (`a:buBlip`): readable, and `bullet.image` could author it, but the
 	// paragraph mapper carries no asset resolver to re-embed the bytes with.
-	'text.bullet.picture': ['bullet'],
+	'text.bullet.picture': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// A run's colour, wherever the run sits: a shape, a group child or a table cell.
-	'text.color.default': ['options.color'],
-	'text.color.inherited': ['options.color'],
-	'text.color.schemeToken': ['options.color'],
-	'text.equation': ['*'],
-	'text.field': ['*'],
-	'text.bullet.glyph': ['bullet'],
+	'text.color.default': { fields: ['options.color'], tiers: BOTH_TIERS },
+	'text.color.inherited': { fields: ['options.color'], tiers: BOTH_TIERS },
+	'text.color.schemeToken': { fields: ['options.color'], tiers: BOTH_TIERS },
+	'text.equation': { fields: ['*'], tiers: BOTH_TIERS },
+	'text.field': { fields: ['*'], tiers: BOTH_TIERS },
+	'text.bullet.glyph': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// `text.bullet.inherited` used to live here — a paragraph stating no bullet of its own was
 	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that
 	// element rather than silence. `bullet: 'inherit'` says silence now, so the mapper carries
@@ -267,11 +311,11 @@ export const NOTE_CONSTRUCTS = {
 	// so the note is gone rather than unmapped.
 	// A baked `a:normAutofit` percentage outside 0-100, which the write API rejects: the frame
 	// re-emits a bare `<a:normAutofit/>`, so the difference lands on the `fit` option.
-	'text.autofit.fontScale': ['fit'],
-	'text.autofit.lnSpcReduction': ['fit'],
-	'text.paraSpaceZero': ['paraSpaceBefore', 'paraSpaceAfter'],
-	'text.vert': ['vert'],
-} as const satisfies Record<string, readonly string[]>
+	'text.autofit.fontScale': { fields: ['fit'], tiers: BOTH_TIERS },
+	'text.autofit.lnSpcReduction': { fields: ['fit'], tiers: BOTH_TIERS },
+	'text.paraSpaceZero': { fields: ['paraSpaceBefore', 'paraSpaceAfter'], tiers: BOTH_TIERS },
+	'text.vert': { fields: ['vert'], tiers: BOTH_TIERS },
+} as const satisfies Record<string, NoteConstructEntry>
 
 /**
  * Every construct a note may name.
@@ -398,6 +442,21 @@ export class NoteCollector {
  * under this prefix is always about a layout.
  */
 export const LAYOUT_NOTE_PREFIX = 'layout.'
+
+/**
+ * `true` when a note describes the output of the printer for `tier`.
+ *
+ * A construct's catalogue entry decides. A `layout.`-prefixed construct with no entry of its own is
+ * a slide construct borrowed for a loss in re-authoring a layout's decoration, so whatever its
+ * slide twin says, it applies only to the standalone tier: the template-anchored one does not
+ * rebuild layouts.
+ */
+export function noteAppliesTo(construct: string, tier: PrintTier): boolean {
+	const entry = (NOTE_CONSTRUCTS as Record<string, NoteConstructEntry | undefined>)[construct]
+	if (entry) return entry.tiers.includes(tier)
+	if (construct.startsWith(LAYOUT_NOTE_PREFIX)) return tier === 'standalone'
+	return true
+}
 
 /**
  * A {@link NoteCollector} bound to one slide and shape, so a mapping function can record
