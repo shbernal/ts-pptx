@@ -458,6 +458,53 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// `a:ln/@w` is ST_LineWidth, which is unsigned. `lineSize` kept any `typeof` number and went
+		// through a lenient conversion, so a negative width reached the attribute and a NaN one wrote
+		// 0, both without a word. The chart-level and per-series spellings share the stroke builder.
+		name: 'a negative lineSize clamps to 0 with a warning, and a NaN one throws',
+		fn: async () => {
+			/** @type {[string, object][]} */
+			const cases = [
+				['chart-level', { lineSize: -1 }],
+				['per-series', { seriesOptions: [{ lineSize: -1 }] }],
+			]
+			for (const [label, options] of cases) {
+				const { result, codes } = await captureDiagnostics(() =>
+					build((p) => p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.line, ...options }))
+				)
+				const xml = await chartXml(result.zip)
+				assertNotIncludes(xml, 'w="-', `${label}: no negative width reaches the part`)
+				assertIncludes(xml, '<a:ln w="0"', `${label}: the width clamps to 0`)
+				assert(codes.includes('line/width-out-of-range'), `${label}: and says so; got ${JSON.stringify(codes)}`)
+			}
+			let thrown = null
+			try {
+				const pres = new TsPptx()
+				pres.addSlide().addChart(SERIES, { ...BASE, type: ChartType.line, lineSize: NaN })
+				await pres.toBytes()
+			} catch (err) {
+				thrown = err
+			}
+			assert(thrown instanceof InvalidOptionError, 'a NaN lineSize throws')
+			assertEqual(thrown.code, 'coord/non-finite', 'with the converter code')
+		},
+	},
+	{
+		// `legendFontSize: 0` was dropped by a truthiness test, while `dataTableFontSize: 0` clamps to
+		// the ST_TextFontSize minimum and warns.
+		name: 'legendFontSize 0 clamps to the minimum with a warning, like dataTableFontSize',
+		fn: async () => {
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) =>
+					p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, showLegend: true, legendFontSize: 0 })
+				)
+			)
+			const legend = (await chartXml(result.zip)).match(/<c:legend>[\s\S]*<\/c:legend>/)?.[0] ?? ''
+			assertIncludes(legend, 'sz="100"', 'the legend carries the minimum size')
+			assert(codes.length > 0, 'and a warning says so')
+		},
+	},
+	{
 		// ST_GapAmount allows 0. The chart-level stacked default tested `!barGapWidthPct`, so a stated
 		// 0 became 50, while the same options inside a combo kept it.
 		name: 'a stacked bar keeps a stated gap width of 0, standalone and inside a combo',

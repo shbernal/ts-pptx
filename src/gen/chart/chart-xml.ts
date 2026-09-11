@@ -479,13 +479,17 @@ function makeLegendXml(rel: SlideRelChart): string {
 	}
 
 	let txPr = ''
-	if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
+	// `!= null` for the size, not truthiness: `legendFontSize: 0` is a stated size, and it clamps to
+	// the ST_TextFontSize minimum with a warning the way `dataTableFontSize: 0` does, instead of
+	// being dropped without one.
+	const legendFontSize = rel.opts.legendFontSize
+	if (rel.opts.legendFontFace || legendFontSize != null || rel.opts.legendColor) {
 		// No `Number()` here, and none at the ten sibling font-size options either: the
 		// option is typed `number`, and a caller from untyped JS who passes a string now
 		// gets `coord/non-finite` from the converter rather than a silent coercion.
 		const defRPr = el(
 			'a:defRPr',
-			{ sz: rel.opts.legendFontSize ? clampFontSizeSz(rel.opts.legendFontSize, 'legendFontSize') : undefined },
+			{ sz: legendFontSize != null ? clampFontSizeSz(legendFontSize, 'legendFontSize') : undefined },
 			[
 				raw(genXmlColorSelection(namedColorOr(rel.opts.legendColor, undefined, 'legendColor'))),
 				raw(rel.opts.legendFontFace ? createChartTextFonts(rel.opts.legendFontFace) : ''),

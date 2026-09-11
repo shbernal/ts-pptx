@@ -34,7 +34,13 @@ import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { borderLine, createLineCap, noStrokeLine, resolveDash, strokeDash, strokePaint } from '../drawingml/line.js'
 import { gridLineStroke, gridLineSuppressed } from './chart-stroke.js'
-import { convertAngleUnits, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import {
+	convertAngleUnits,
+	lineWidthToEmu,
+	mapStated,
+	percentToFixedPercent,
+	ptsToEmuLenient,
+} from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
 import { dataValues, type WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
@@ -385,6 +391,10 @@ function seriesFill(opts: ChartOptsInternal, serColor: string): string {
  * Three plot builders had this, differing only in whether a per-series `lineSize` could override
  * the chart's. `lineSize: 0` is the caller's "no outline" and is checked for explicitly, not by
  * truthiness, because it is a stated value rather than an absent one.
+ *
+ * Every other width goes through {@link lineWidthToEmu}, which is what `a:ln/@w` needs: ST_LineWidth
+ * is unsigned, so a negative width clamps to 0 with a warning, and `NaN` throws. A per-series
+ * `seriesOptions[].lineSize` never passes the definer, so this is the one place both are checked.
  * @param opts - the chart's normalized options
  * @param color - the series' resolved palette colour
  * @param serIndex - the series' index, for `lineDashValues`
@@ -393,7 +403,7 @@ function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 export function seriesStroke(opts: ChartOptsInternal, color: string, serIndex: number, sizePt?: number): string {
 	const widthPt = sizePt ?? opts.lineSize ?? 2
 	if (widthPt === 0) return el('a:ln', null, raw(voidEl('a:noFill')))
-	return el('a:ln', { w: ptsToEmuLenient(widthPt), cap: createLineCap(opts.lineCap) }, [
+	return el('a:ln', { w: lineWidthToEmu(widthPt), cap: createLineCap(opts.lineCap) }, [
 		raw(chartColorLineFill(color)),
 		raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
 		raw(voidEl('a:round')),

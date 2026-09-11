@@ -357,28 +357,14 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 	// "the caller said nothing" and "the caller said yes" distinguishable, and nothing read the
 	// distinction.
 
-	options.v3DRotX =
-		typeof options.v3DRotX === 'number' &&
-		Number.isFinite(options.v3DRotX) &&
-		options.v3DRotX >= -90 &&
-		options.v3DRotX <= 90
-			? options.v3DRotX
-			: 30
-	options.v3DRotY =
-		typeof options.v3DRotY === 'number' &&
-		Number.isFinite(options.v3DRotY) &&
-		options.v3DRotY >= 0 &&
-		options.v3DRotY <= 360
-			? options.v3DRotY
-			: 30
+	// `<c:rotX>` is ST_RotX (-90..90), `<c:rotY>` ST_RotY (0..360) and `<c:perspective>`
+	// ST_Perspective (0..240), all integers. They go through the chart clamp like every other bounded
+	// chart option: an out-of-range value used to be replaced by 30 without a word, so `v3DRotX: 200`
+	// came out further from what the caller asked than the bound it had passed.
+	options.v3DRotX = clampChartInt(options.v3DRotX, -90, 90, 'v3DRotX') ?? 30
+	options.v3DRotY = clampChartInt(options.v3DRotY, 0, 360, 'v3DRotY') ?? 30
 	// v3DRAngAx: same dead-ternary shape as the show* block above, same reason for its absence.
-	options.v3DPerspective =
-		typeof options.v3DPerspective === 'number' &&
-		Number.isFinite(options.v3DPerspective) &&
-		options.v3DPerspective >= 0 &&
-		options.v3DPerspective <= 240
-			? options.v3DPerspective
-			: 30
+	options.v3DPerspective = clampChartInt(options.v3DPerspective, 0, 240, 'v3DPerspective') ?? 30
 }
 
 /**
@@ -502,7 +488,10 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	// Set default format for Scatter chart labels to custom string if not defined
 	if (!options.dataLabelFormatScatter && options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
 	//
-	options.lineSize = typeof options.lineSize === 'number' ? options.lineSize : 2
+	// A stated width, `NaN` included, reaches `seriesStroke`, whose converter clamps a negative one
+	// and refuses a value that is not a number. This used to keep any `typeof` number and hand it to
+	// a lenient conversion, so `lineSize: -1` wrote `w="-12700"` and `NaN` wrote `w="0"`.
+	options.lineSize = options.lineSize ?? 2
 	if (typeof options.valAxisMajorUnit !== 'number') delete options.valAxisMajorUnit
 	if (typeof options.valAxisMinorUnit !== 'number') delete options.valAxisMinorUnit
 

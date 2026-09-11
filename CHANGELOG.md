@@ -851,6 +851,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Four chart options skipped the clamp-and-warn policy.**
+  - `lineSize` and `seriesOptions[].lineSize`: a negative width reached `a:ln/@w`
+    (`lineSize: -1` wrote `w="-12700"`) and `NaN` wrote `w="0"`, both silently. A negative width
+    now clamps to 0 and warns `line/width-out-of-range`. `NaN` throws `coord/non-finite`.
+  - `v3DRotX`, `v3DRotY` and `v3DPerspective`: an out-of-range value was replaced by 30 without a
+    word. **Output changes for that input:** it now clamps to the bound (-90..90, 0..360, 0..240)
+    and warns `chart/option-out-of-range`, and a fractional angle rounds, as every other bounded
+    chart option does. `NaN` throws `chart/option-non-finite`. Omitting them still gives 30.
+  - `legendFontSize: 0` was dropped. It now clamps to the minimum font size and warns, like
+    `dataTableFontSize: 0`.
+
 - **A stacked bar chart turned `barGapWidthPct: 0` into 50.** The narrower stacked-bar default
   tested for a falsy width, so a stated 0 (a legal gap) was replaced, while the same options on a
   stacked bar inside a combo kept it. Both now apply the default only when no width was stated.

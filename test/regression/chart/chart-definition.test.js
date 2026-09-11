@@ -245,10 +245,10 @@ defineRegressionSuite('Chart definition', [
 		},
 	},
 	{
-		// The 3D view angles are bounded (`rotX` -90..90, `rotY` 0..360, `perspective` 0..240) and,
-		// unlike the `clampChartPct` options, an out-of-range value is silently replaced by the
-		// default rather than clamped to the nearest bound -- so 200 does not become 240.
-		name: '3D view angles are kept when in range and replaced by the default when not',
+		// The 3D view angles are bounded (`rotX` -90..90, `rotY` 0..360, `perspective` 0..240) and
+		// follow the policy every bounded chart option does: an out-of-range value clamps to the
+		// nearest bound and warns. They used to be replaced by 30 without a word.
+		name: '3D view angles are kept when in range and clamped with a warning when not',
 		fn: async () => {
 			const inRange = await chartFrom(SERIES, {
 				...BASE,
@@ -261,16 +261,30 @@ defineRegressionSuite('Chart definition', [
 			assertIncludes(inRange, '<c:rotY val="340"/>', 'an in-range rotY')
 			assertIncludes(inRange, '<c:perspective val="100"/>', 'an in-range perspective')
 
-			const outOfRange = await chartFrom(SERIES, {
-				...BASE,
-				type: ChartType.bar3d,
-				v3DRotX: -100,
-				v3DRotY: 400,
-				v3DPerspective: 999,
+			const { zip, warnings } = await buildCapturingWarnings((p) => {
+				p.addSlide().addChart(SERIES, {
+					...BASE,
+					type: ChartType.bar3d,
+					v3DRotX: -100,
+					v3DRotY: 400,
+					v3DPerspective: 999,
+				})
 			})
-			assertIncludes(outOfRange, '<c:rotX val="30"/>', 'an out-of-range rotX falls back to 30')
-			assertIncludes(outOfRange, '<c:rotY val="30"/>', 'an out-of-range rotY falls back to 30')
-			assertIncludes(outOfRange, '<c:perspective val="30"/>', 'an out-of-range perspective falls back to 30')
+			const outOfRange = await chartXml(zip)
+			assertIncludes(outOfRange, '<c:rotX val="-90"/>', 'an out-of-range rotX clamps to -90')
+			assertIncludes(outOfRange, '<c:rotY val="360"/>', 'an out-of-range rotY clamps to 360')
+			assertIncludes(outOfRange, '<c:perspective val="240"/>', 'an out-of-range perspective clamps to 240')
+			for (const option of ['v3DRotX', 'v3DRotY', 'v3DPerspective']) {
+				assert(
+					warnings.some((w) => w.includes(option)),
+					`${option} warns; got ${JSON.stringify(warnings)}`
+				)
+			}
+
+			// Omitting them still takes the default.
+			const unstated = await chartFrom(SERIES, { ...BASE, type: ChartType.bar3d })
+			assertIncludes(unstated, '<c:rotX val="30"/>', 'an unstated rotX defaults to 30')
+			assertIncludes(unstated, '<c:perspective val="30"/>', 'an unstated perspective defaults to 30')
 		},
 	},
 	{
