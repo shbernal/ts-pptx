@@ -705,6 +705,18 @@ export function addChartDefinition(
 			)
 		}
 	}
+	// PowerPoint does not combine a bubble chart with any other plot, another bubble chart included.
+	// A combo holding one opens as corrupt (0x80070570) whether its sizes carry a workbook
+	// reference, a literal or nothing at all, while the same bubble chart alone opens and a bar and
+	// scatter combo opens. The combo workbook has no size columns either, so there is nothing to
+	// repair here short of a different chart.
+	if (tmpTypes?.some((sub) => isBubbleChart(asChartType(sub.type)))) {
+		throw new InvalidOptionError(
+			'chart/bubble-in-combo',
+			'addChart: a bubble chart cannot be combined with other chart types; PowerPoint refuses the deck. Add it as a chart of its own.',
+			{ detail: { types: tmpTypes.map((sub) => sub.type) } }
+		)
+	}
 	options._type = tmpTypes ?? asChartType(type as CHART_NAME)
 	// Default only what the caller omitted. The guard used to be `!isNaN(Number(x))`, which is
 	// false for every `Coord` that is not a bare number — so `x: '50%'` and `x: '2in'` were

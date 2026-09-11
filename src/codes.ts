@@ -200,6 +200,7 @@ export type InvalidOptionErrorCode =
 	| 'chart/secondary-axis-unused'
 	| 'chart/axis-count-mismatch'
 	| 'chart/too-many-columns'
+	| 'chart/bubble-in-combo'
 	// Shapes and connectors
 	| 'shape/missing-type'
 	| 'shape/unknown-preset'

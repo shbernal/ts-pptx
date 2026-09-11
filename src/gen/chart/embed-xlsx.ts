@@ -31,6 +31,7 @@ import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
 import { CORE_PROPS_NS, coreTimestamp } from '../opc/core.js'
 import {
+	bubbleSizeColumn,
 	dataLabels,
 	dataSizes,
 	dataValues,
@@ -326,7 +327,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 				// so an absent one omitted the attribute rather than writing an empty string.
 				return (
 					voidEl('tableColumn', { id: layout.valueColumn(obj._dataIndex), name: obj.name ?? '' }) +
-					voidEl('tableColumn', { id: layout.sizeColumn(obj._dataIndex), name: `Size${idx}` })
+					voidEl('tableColumn', { id: bubbleSizeColumn(obj._dataIndex), name: `Size${idx}` })
 				)
 			})
 			.join('')
@@ -425,7 +426,7 @@ function buildXlsxSheet(
 			let cells = cell(1, idx + 2, val)
 			for (const series of data.slice(1)) {
 				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, dataValues(series)[idx] ?? '')
-				cells += cell(layout.sizeColumn(series._dataIndex) ?? 0, idx + 2, dataSizes(series)[idx] ?? '')
+				cells += cell(bubbleSizeColumn(series._dataIndex), idx + 2, dataSizes(series)[idx] ?? '')
 			}
 			rows += sheetRow(idx + 2, colCount, cells)
 		})

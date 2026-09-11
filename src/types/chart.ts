@@ -363,7 +363,9 @@ export interface ChartPropsBase {
 	 * Element at index N applies to the **Nth series of the chart** — the same number the series
 	 * carries in `<c:idx>`/`<c:order>`. For most plots that is its position in `data`; on a combo
 	 * it counts across every subchart in order, so a bar(2) + line(1) combo reaches the line at
-	 * index 2. Missing indices or unset fields fall back to the chart-level option.
+	 * index 2. A scatter or bubble series counts one lower than its position, because the X row in
+	 * front of it is not a series: `seriesOptions[0]` styles `data[1]`. Missing indices or unset
+	 * fields fall back to the chart-level option.
 	 *
 	 * **Not every field reaches every plot**, and a stated field that cannot be resolved warns
 	 * (`chart/option-not-supported`) naming itself rather than being dropped in silence:

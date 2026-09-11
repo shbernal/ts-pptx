@@ -63,7 +63,9 @@ defineRegressionSuite('Pie data-label flags and slice count', [
 			})
 			const xml = await chartXml(zip)
 			assert(!/\$A\$2:\$A\$1|\$B\$2:\$B\$1/.test(xml), 'no reversed range; got: ' + xml)
-			assert(xml.includes('Sheet1!$B$2:$B$4'), 'the value range spans the three slices; got: ' + xml)
+			// An unlabelled pie's sheet has no label column, so its values are in column A.
+			assert(xml.includes('Sheet1!$A$2:$A$4'), 'the value range spans the three slices in column A; got: ' + xml)
+			assert(xml.includes('<c:f>Sheet1!$A$1</c:f>'), 'and its name is the header of that column; got: ' + xml)
 			assert(!xml.includes('<c:cat>'), 'and states no category names rather than an empty range')
 			assertEqual((xml.match(/<c:dPt>/g) || []).length, 3, 'one data point per slice')
 		},

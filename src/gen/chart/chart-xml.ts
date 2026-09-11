@@ -667,7 +667,7 @@ function makeChartType(
 			return makeSurfacePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet)
 		case ChartType.doughnut:
 		case ChartType.pie:
-			return makePiePlot(chartType, data, opts, valFmtCode)
+			return makePiePlot(chartType, data, opts, valFmtCode, sheet)
 		default:
 			// The unmatched members are exactly the chartEx catalog (`CHARTEX_TYPES` in `enums.ts`),
 			// which `chartExLayoutId` in `./chartex-xml` owns; callers pick between the two builders

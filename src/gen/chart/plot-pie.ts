@@ -14,7 +14,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { warn } from '../../diagnostics.js'
 import { createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { categoryRange, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef, type WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
@@ -137,9 +137,16 @@ function pieLabelFlags(opts: ChartOptsInternal, customLbl?: string): XmlChild[] 
 	})
 }
 
-/** The `<c:cat>` slice-name reference, keyed on the label count. */
-function pieCategories(labels: string[]): string {
-	return el('c:cat', null, raw(catRefBlock('str', categoryRange(labels.length), labels)))
+/**
+ * The `<c:cat>` slice-name reference, keyed on the label count.
+ *
+ * The cache holds the leaf labels, and the workbook writes the leaf level in the last label
+ * column, outermost level first. For one level that is column A. A pie with two label levels
+ * pointed at column A regardless, which holds the outer level.
+ */
+function pieCategories(labels: string[], sheet: WorksheetLayout): string {
+	const leafCol = sheet.labelCols
+	return el('c:cat', null, raw(catRefBlock('str', sheetRangeRef(leafCol, 2, leafCol, labels.length + 1), labels)))
 }
 
 /**
@@ -160,18 +167,24 @@ function pieCategories(labels: string[]): string {
  *   corrupt-file error — and so does `NaN` or `INF` in that position. A pie was therefore the one
  *   family where a non-finite value reached the deck instead of being warned about and dropped.
  */
-function pieValues(obj: OptsChartDataInternal, count: number, valFmtCode: string): string {
-	return numRefBlock('c:val', sheetRangeRef(2, 2, 2, count + 1), valFmtCode, dataValues(obj), count)
+function pieValues(obj: OptsChartDataInternal, count: number, valFmtCode: string, sheet: WorksheetLayout): string {
+	const valCol = sheet.valueColumn(obj._dataIndex)
+	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, count + 1), valFmtCode, dataValues(obj), count)
 }
 
 /**
  * Plot a single-series pie / doughnut chart into `<c:pieChart>` / `<c:doughnutChart>`.
+ *
+ * The series name and values take their column from the worksheet layout. Both were column B,
+ * which is right for one label level only: an unlabelled pie writes its values in column A, and
+ * a pie with two label levels in column C.
  */
 export function makePiePlot(
 	chartType: ChartType,
 	data: OptsChartDataInternal[],
 	opts: ChartOptsInternal,
-	valFmtCode: string
+	valFmtCode: string,
+	sheet: WorksheetLayout
 ): string {
 	/* EX:
 				data: [
@@ -224,7 +237,7 @@ export function makePiePlot(
 	const ser = el('c:ser', null, [
 		raw(voidEl('c:idx', { val: 0 })),
 		raw(voidEl('c:order', { val: 0 })),
-		raw(strRefBlock(sheetCellRef(2, 1), optsChartData.name ?? '')),
+		raw(strRefBlock(sheetCellRef(sheet.valueColumn(optsChartData._dataIndex), 1), optsChartData.name ?? '')),
 		raw(spPr),
 		raw(
 			Array.from({ length: sliceCount }, (_unused, idx) =>
@@ -234,8 +247,8 @@ export function makePiePlot(
 		raw(dLbls),
 		// `<c:cat>` is optional on a `CT_PieSer`; an unlabelled pie states no category names
 		// rather than referencing an empty range.
-		labels.length > 0 ? raw(pieCategories(labels)) : null,
-		raw(pieValues(optsChartData, sliceCount, valFmtCode)),
+		labels.length > 0 ? raw(pieCategories(labels, sheet)) : null,
+		raw(pieValues(optsChartData, sliceCount, valFmtCode, sheet)),
 	])
 
 	return el(`c:${chartType}Chart`, null, [

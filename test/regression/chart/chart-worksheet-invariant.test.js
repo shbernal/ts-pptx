@@ -364,12 +364,7 @@ const MATRIX = [
 ]
 
 /** The shapes that fail today, each named for what is wrong with it. */
-const BROKEN = new Set([
-	'unlabelled pie',
-	'pie with two label levels',
-	'bar and scatter combo',
-	'bar with a blank label',
-])
+const BROKEN = new Set(['bar with a blank label'])
 
 defineRegressionSuite('Chart formulas resolve to their cache through the embedded workbook', [
 	...MATRIX.map(([name, addChart]) => ({

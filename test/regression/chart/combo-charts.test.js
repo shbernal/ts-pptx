@@ -1,5 +1,5 @@
-import { ChartType } from '../../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import TsPptx, { ChartType } from '../../../dist/node.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual, assertRejects } from '../../helpers.js'
 
 defineRegressionSuite('Combo chart axes [legacy bug-06]', [
 	{
@@ -119,6 +119,70 @@ defineRegressionSuite('Combo chart axes [legacy bug-06]', [
 				dashes.includes('dash'),
 				'the second series should take `lineDashValues[1]` ("dash"); got ' + dashes.join(',')
 			)
+		},
+	},
+	{
+		// A scatter subchart counted its series from 0 inside its own loop, so behind a bar it took
+		// the bar's `<c:idx>` and the bar's palette entry. It now counts its Y series by position
+		// across the chart less the X row: the bar is series 0, the scatter's X row is not a series,
+		// and its Y series is 1.
+		name: 'a scatter behind a bar takes the next series index and colour',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ type: ChartType.bar, data: [{ name: 'A', labels: ['x', 'y', 'z'], values: [1, 2, 3] }], options: {} },
+						{
+							type: ChartType.scatter,
+							data: [
+								{ name: 'X', values: [10, 20, 30] },
+								{ name: 'Y', values: [5, 6, 7] },
+							],
+							options: { secondaryValAxis: true, secondaryCatAxis: true },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const scatter = xml.slice(xml.indexOf('<c:scatterChart>'), xml.indexOf('</c:scatterChart>'))
+			assert(scatter.includes('<c:idx val="1"/><c:order val="1"/>'), 'the scatter series is series 1; got: ' + scatter)
+			assert(scatter.includes('<a:srgbClr val="4F81BD"/>'), 'and paints with palette entry 1 (4F81BD)')
+			assert(!scatter.includes('<a:srgbClr val="C0504D"/>'), 'not entry 0 (C0504D), which is the bar')
+			// Its X and Y are the X row's and the Y series' own columns, after the label column.
+			assert(scatter.includes('<c:xVal><c:numRef><c:f>Sheet1!$C$2:$C$4</c:f>'), 'X is column C; got: ' + scatter)
+			assert(scatter.includes('<c:yVal><c:numRef><c:f>Sheet1!$D$2:$D$4</c:f>'), 'Y is column D; got: ' + scatter)
+		},
+	},
+	{
+		// PowerPoint refuses any combo holding a bubble chart as corrupt (0x80070570), another bubble
+		// chart included, whatever its sizes reference; the same bubble chart alone opens.
+		name: 'a combo refuses a bubble subchart',
+		fn: async () => {
+			const bubble = {
+				type: ChartType.bubble,
+				data: [
+					{ name: 'X', values: [10, 20, 30] },
+					{ name: 'Y', values: [5, 6, 7], sizes: [1, 2, 3] },
+				],
+				options: {},
+			}
+			for (const types of [
+				[
+					{ type: ChartType.bar, data: [{ name: 'A', labels: ['x', 'y', 'z'], values: [1, 2, 3] }], options: {} },
+					bubble,
+				],
+				[bubble, { ...bubble, type: ChartType.bubble3d }],
+			]) {
+				const pres = new TsPptx()
+				const slide = pres.addSlide()
+				const error = await assertRejects(
+					() => slide.addChart(types, { x: 1, y: 1, w: 6, h: 3 }),
+					/bubble chart cannot be combined/,
+					'addChart'
+				)
+				assertEqual(/** @type {any} */ (error).code, 'chart/bubble-in-combo', 'the refusal carries its code')
+			}
 		},
 	},
 ])

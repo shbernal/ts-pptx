@@ -101,15 +101,17 @@ export interface WorksheetLayout {
 	 * @param dataIndex - the series' position across the whole chart, its `_dataIndex`
 	 */
 	valueColumn(dataIndex: number): number
-	/**
-	 * The 1-based column a bubble series' sizes occupy, or `undefined` when the sheet has none.
-	 * @param dataIndex - the series' position across the whole chart, its `_dataIndex`
-	 */
-	sizeColumn(dataIndex: number): number | undefined
 }
 
-/** The size column of a sheet that has none. */
-const noSizeColumn = (): undefined => undefined
+/**
+ * The 1-based column a bubble series' sizes occupy on a bubble chart's sheet: the one after its
+ * values.
+ *
+ * Only a standalone bubble chart has size columns. A combo cannot hold a bubble subchart
+ * (`addChartDefinition` refuses one), so no other layout is ever asked.
+ * @param dataIndex - the series' position in the chart, its `_dataIndex`; 1 or more
+ */
+export const bubbleSizeColumn = (dataIndex: number): number => dataIndex * 2 + 1
 
 /**
  * The worksheet layout for one chart, decided by its kind.
@@ -121,10 +123,11 @@ const noSizeColumn = (): undefined => undefined
  * - Scatter: no label columns. The X row is column A and each Y series takes the next column,
  *   one row per X value.
  * - Bubble: no label columns. The X row is column A and each later series takes two columns, its
- *   values and then its sizes.
+ *   values and then its sizes ({@link bubbleSizeColumn}).
  *
  * A combo is laid out as a category chart whatever its subcharts are, because one workbook is
- * written from the combined series. So a bubble subchart in a combo has no size column.
+ * written from the combined series. A scatter subchart's X row is therefore a column like any
+ * other series.
  * @param rel - the chart, for its series and its normalized type
  */
 export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): WorksheetLayout {
@@ -137,7 +140,6 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 			// 1 for the X values, then 2 for every Y series.
 			colCount: (data.length - 1) * 2 + 1,
 			valueColumn: (dataIndex) => (dataIndex === 0 ? 1 : dataIndex * 2),
-			sizeColumn: (dataIndex) => (dataIndex === 0 ? undefined : dataIndex * 2 + 1),
 		}
 	}
 	if (isScatterChart(type)) {
@@ -146,7 +148,6 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 			rowCount: dataValues(data[0]).length,
 			colCount: data.length,
 			valueColumn: (dataIndex) => dataIndex + 1,
-			sizeColumn: noSizeColumn,
 		}
 	}
 	const labelCols = dataLabels(data[0]).length
@@ -155,7 +156,6 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 		rowCount: firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
 		colCount: data.length + labelCols,
 		valueColumn: (dataIndex) => dataIndex + labelCols + 1,
-		sizeColumn: noSizeColumn,
 	}
 }
 

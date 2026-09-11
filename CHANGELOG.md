@@ -851,6 +851,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo chart with a bubble subchart is refused at `addChart`.** PowerPoint does not combine
+  a bubble chart with any other plot, another bubble chart included, and reported every such deck
+  as corrupt (0x80070570). `addChart` now throws `InvalidOptionError` with
+  `chart/bubble-in-combo`. Add the bubble chart as a chart of its own.
+
+- **Pie charts and scatter subcharts pointed their formulas at cells the workbook never wrote.**
+  The chart still painted from its cache. Edit Data opened the wrong cells.
+  - An unlabelled pie named `Sheet1!$B$1` and `$B$2:$B$4` while its name and values are in
+    column A. A pie with two label levels read its categories from the outer level and its values
+    from the leaf labels.
+  - A scatter inside a combo read X from the category labels and Y from the first series' column,
+    and took `<c:idx val="0"/>` and the palette colour of the series in front of it. Its series
+    now count across the chart like every other plot's, one lower for the X row.
+
 - **A chartEx chart with more values than labels referenced rows its workbook does not have.** A
   waterfall with 2 labels and 4 values wrote `Sheet1!$A$2:$A$5` and `$B$2:$B$5`, while the
   embedded workbook has one row per label, rows 2 and 3. The formulas now span the rows the
