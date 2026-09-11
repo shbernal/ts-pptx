@@ -5,17 +5,7 @@ import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName, singleRelPart } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
-import {
-	OOXML_NS,
-	attr,
-	boolValue,
-	firstChild,
-	insertInOrder,
-	numberValue,
-	removeAttr,
-	setAttr,
-	type Element,
-} from '../oxml/dom.js'
+import { attr, boolValue, firstChild, insertInOrder, removeAttr, setAttr, type Element } from '../oxml/dom.js'
 import type { ThemeContext } from '../oxml/theme.js'
 import { resolveSlideColorContext, resolveSlideThemeParts, type SlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
@@ -48,7 +38,7 @@ import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-ty
 import { imageFormatForBytes } from '../../media/image-formats.js'
 import { checkFiniteEmu, checkPositiveEmu } from './coords.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
-import { cSldOf, spTreeOf } from '../oxml/slide-dom.js'
+import { cSldOf, nextDrawingId, spTreeOf } from '../oxml/slide-dom.js'
 import { buildPicture, buildTextBox } from './slide-build.js'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
@@ -717,15 +707,7 @@ export class Slide implements ShapeHost {
 
 	/** One past the highest drawing id (`p:cNvPr/@id`) in use on the slide. */
 	#nextShapeId(): number {
-		const root = this.part.dom.documentElement
-		let max = 1
-		if (root) {
-			for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
-				const id = numberValue(attr(cNvPr, 'id'))
-				if (id !== null && id > max) max = id
-			}
-		}
-		return max + 1
+		return nextDrawingId(this.part.dom.documentElement)
 	}
 
 	#cSld(): Element | null {

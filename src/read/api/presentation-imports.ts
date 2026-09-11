@@ -21,8 +21,8 @@
  */
 
 import type { OpcPackage } from '../opc/package.js'
-import { OOXML_NS, attr, createElement, firstChild, numberValue, setAttr } from '../oxml/dom.js'
-import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
+import { createElement, firstChild } from '../oxml/dom.js'
+import { cSldName, nthShapeChild, reassignDrawingIds } from '../oxml/slide-dom.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 import { NOTES_MASTER_REL } from '../../ooxml/rel-types.js'
 import { carryShapeAnimations } from './animation.js'
@@ -493,15 +493,10 @@ export function importShapes(
 			rescaleSpTree(holder, transform)
 		}
 
-		// Give the shape and any group children collision-free host ids, recording the
-		// source id → new id map so a carried build animation can be remapped onto it.
-		let nextId = target.nextShapeId()
-		const spidMap = new Map<number, number>()
-		for (const cNvPr of imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
-			const oldId = numberValue(attr(cNvPr, 'id'))
-			if (oldId !== null) spidMap.set(oldId, nextId)
-			setAttr(cNvPr, 'id', String(nextId++))
-		}
+		// Give the shape and any group children collision-free host ids and repoint the connector
+		// bindings inside it, keeping the source id → new id map so a carried build animation can be
+		// remapped onto it.
+		const { map: spidMap } = reassignDrawingIds([imported], target.nextShapeId())
 
 		// Insert into the host tree (this reparents it out of any holder).
 		spTree.insertBefore(imported, anchor)

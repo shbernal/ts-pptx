@@ -29,7 +29,13 @@ import { relativePartName } from '../../opc/partnames.js'
 import { PackageReadError, InvalidOptionError } from '../../../errors.js'
 import { flattenSlide, remapLiteralColors, restyleSlide } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
-import { carriedDecorations, firstShapeChild, spTreeOf } from '../../oxml/slide-dom.js'
+import {
+	carriedDecorations,
+	firstShapeChild,
+	nextDrawingId,
+	reassignDrawingIds,
+	spTreeOf,
+} from '../../oxml/slide-dom.js'
 import { copySourceTableStyles } from './table-styles.js'
 import { copyPart, newOwnedScope, type ImportContext, type OwnedScope } from './part-copy.js'
 import { isSharedByPageCopies } from './page-owned.js'
@@ -230,17 +236,23 @@ function carryMasterGraphics(
 	const relIdMap = new Map<string, string>()
 	// Insert ahead of the slide's own first shape so decorations render behind it.
 	const anchor = firstShapeChild(spTree)
+	// A decoration's source id means nothing on this slide and routinely equals one of the slide's
+	// own, which leaves an animation `spid` or a connector binding naming two shapes. Each part's
+	// set is renumbered past everything already on the slide.
+	let nextId = nextDrawingId(slideRoot)
 	// Master behind layout behind the slide (document order == z-order).
 	for (const partName of [masterPartName, layoutPartName]) {
 		if (!partName) continue
 		const decorations = carriedDecorations(sourceOpc.part(partName)?.dom.documentElement ?? null)
 		if (decorations.length === 0) continue
 		const sourceRels = sourceOpc.relationshipsFor(partName)
-		for (const deco of decorations) {
+		const carried = decorations.map((deco) => {
 			const imported = doc.importNode(deco, true)
 			rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap, owned)
 			spTree.insertBefore(imported, anchor)
-		}
+			return imported
+		})
+		nextId = reassignDrawingIds(carried, nextId).next
 	}
 }
 

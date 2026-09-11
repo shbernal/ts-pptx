@@ -6,7 +6,16 @@
  */
 
 import type { Part } from '../opc/part.js'
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, firstChildElement, type Element } from './dom.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	firstChild,
+	firstChildElement,
+	numberValue,
+	setAttr,
+	type Element,
+} from './dom.js'
 
 /**
  * The `p:cSld` of a slide/layout/master/notes part root.
@@ -108,6 +117,56 @@ export function firstShapeChild(spTree: Element): Element | null {
 		if (!isSpTreeOwnChild(el)) return el
 	}
 	return null
+}
+
+/** One past the highest drawing id (`p:cNvPr/@id`) under `root`, and never less than 2. */
+export function nextDrawingId(root: Element | null | undefined): number {
+	let max = 1
+	if (root) {
+		for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
+			const id = numberValue(attr(cNvPr, 'id'))
+			if (id !== null && id > max) max = id
+		}
+	}
+	return max + 1
+}
+
+/**
+ * Give every drawing in `subtrees` a fresh id counting up from `nextId`, and repoint each connector
+ * binding (`a:stCxn`/`a:endCxn`) that named a drawing inside them.
+ *
+ * For shapes being carried into another tree, whose source ids mean nothing there. A drawing id is
+ * what an animation's `spid` and a connector's bindings name a shape by, so a carried shape that
+ * kept its id could share it with a shape already on the slide, and a binding inside a renumbered
+ * subtree that kept the old id named a different shape. A binding naming a drawing outside
+ * `subtrees` is left as it is: nothing here knows what it should name instead.
+ *
+ * Pass every subtree carried together, so a connector bound to a sibling subtree is repointed too.
+ * @returns the next unused id, and each old id's new one (for remapping a carried animation's `spid`)
+ */
+export function reassignDrawingIds(
+	subtrees: readonly Element[],
+	nextId: number
+): { next: number; map: Map<number, number> } {
+	const map = new Map<number, number>()
+	let next = nextId
+	for (const root of subtrees) {
+		for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
+			const oldId = numberValue(attr(cNvPr, 'id'))
+			if (oldId !== null) map.set(oldId, next)
+			setAttr(cNvPr, 'id', String(next++))
+		}
+	}
+	for (const root of subtrees) {
+		for (const local of ['stCxn', 'endCxn']) {
+			for (const binding of root.getElementsByTagNameNS(OOXML_NS.a, local)) {
+				const oldId = numberValue(attr(binding, 'id'))
+				const newId = oldId === null ? undefined : map.get(oldId)
+				if (newId !== undefined) setAttr(binding, 'id', String(newId))
+			}
+		}
+	}
+	return { next, map }
 }
 
 /** Collect `node` and all its descendant elements (document order) into `out`. */

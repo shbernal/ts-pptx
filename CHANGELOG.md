@@ -808,6 +808,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Shapes carried onto a slide kept ids that clashed, and grouped connectors lost their
+  binding.** `importSlide({ carryMasterGraphics: true })` copied the layout's and the master's
+  decorations onto the slide with their source `p:cNvPr` ids, which routinely equal the
+  slide's own: three corpus decks came out with two shapes sharing ids 7, 8 and 9, and one
+  with six such pairs. A drawing id is what an animation's `spid` and a connector's binding
+  name a shape by, so both became ambiguous. The carried decorations are now renumbered past
+  everything on the slide. `importShape` did renumber, but left a connector binding inside the
+  lifted group naming the old id, so a PowerPoint-authored group's connector bound itself to
+  the group instead of the rectangle beside it. Both paths now share one renumbering that
+  repoints the bindings inside what was carried. A binding naming a shape outside it is left
+  as it was.
+
 - **`appendSlides` threw on a slide carrying speaker notes and a chart or a slide link.** The
   generator numbers a slide's relationships from `rId1`, and every media, hyperlink, chart and
   slide-link relationship is re-added under the id the slide body names. The slide's
