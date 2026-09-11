@@ -842,6 +842,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A connector with `width: 0` wrote no line width.** A shape and a line-shaped text box take the
+  1pt default for a zero width, and a connector kept the zero, which the emitter then left out, so
+  the stroke fell back to the theme's width. All three now apply the same outline defaults, and a
+  connector with `width: 0` draws at 1pt like the others.
+
 - **An auto-sized group could be smaller than the children it holds.** A group with no explicit
   frame sizes itself around its children, and it read their frames apart from the renderer that
   draws them. A child with no `w` counted as zero wide though it is drawn 75% of the slide wide,

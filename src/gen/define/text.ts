@@ -6,20 +6,21 @@
  * and pushes a `text` / `placeholder` object. `createBulletImageRels` handles the picture-bullet
  * media rels.
  */
-import { namedColorOr, rejectEmptyColor } from '../drawingml/color.js'
+import { rejectEmptyColor } from '../drawingml/color.js'
 import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../enums.js'
-import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
+import { DEF_FONT_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import type { ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
+import type { TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget } from '../utils.js'
 import { registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
-import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
+import { resolveFillKind } from '../drawingml/fill.js'
+import { withLineDefaults } from '../drawingml/line.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
-import { mapStated, ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
+import { ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -181,28 +182,10 @@ export function addTextDefinition(
 			// and an empty `<a:ln>` through the array one. Installing the bag first makes one pass
 			// enough, and makes the two overloads agree on the visible line.
 			itemOpts.line = itemOpts.line || {}
-			if (itemOpts.shape === ShapeType.line) {
-				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
-				// ShapeLineProps defaults, the same block as define/shape.ts. Spread first,
-				// override only what is defaulted here — see there for why listing the carried
-				// keys instead silently dropped `gradient`, `pattern` and `cap`. The kind is
-				// `resolveLineKind`'s answer, and only a solid stroke gets the default line
-				// color; every other kind takes its paint from its own sub-object.
-				const itemLineKind = resolveLineKind(itemLine)
-				const newLineOpts: ShapeLineProps = {
-					...itemLine,
-					type: itemLineKind,
-					transparency: itemLine.transparency || 0,
-					width: mapStated(itemLine.width, (width) => width) ?? 1,
-					dashType: itemLine.dashType || 'solid',
-				}
-				// Only the solid arm writes `color`. The spread already carried whatever colour the
-				// other kinds stated, so re-writing it would turn an unstated one into a present
-				// `undefined` — a distinction the next spread of this bag can see.
-				if (itemLineKind === 'solid')
-					newLineOpts.color = namedColorOr(itemLine.color, DEF_SHAPE_LINE_COLOR, 'line.color')
-				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
-			}
+			// A text box has no outline unless it is drawn as a line, so only a line takes the
+			// shape outline defaults.
+			if (itemOpts.shape === ShapeType.line && typeof itemOpts.line === 'object')
+				itemOpts.line = withLineDefaults(itemOpts.line, 'line.color')
 
 			// C: Line-spacing opts
 			// `NaN` is falsy, so the truthiness test is the whole guard; an out-of-range value is

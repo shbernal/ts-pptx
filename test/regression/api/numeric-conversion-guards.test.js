@@ -244,12 +244,23 @@ defineRegressionSuite('Numeric conversion guards', [
 	},
 	{
 		// `0` is how those options say "not stated", so it still emits what leaving them out emits.
+		// A line width takes the same default on every path that applies outline defaults: a shape,
+		// a line-shaped text box and a connector, which used to write no width at all for it.
 		name: 'a zero rotation or line width still reads as not stated',
 		fn: async () => {
 			const xfrm = await xfrmFor((p) => p.addSlide().addShape('rect', { ...BOX, rotate: 0 }))
 			assert(!/\brot=/.test(xfrm), 'rotate: 0 emits no rot; got: ' + xfrm)
-			const { zip } = await build((p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: 0 } }))
-			assertIncludes(await readEntry(zip, 'ppt/slides/slide1.xml'), '<a:ln w="12700"', 'width: 0 takes the 1pt default')
+			const paths = {
+				shape: (p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: 0 } }),
+				'line text box': (p) =>
+					p.addSlide().addText('', { ...BOX, h: 0, shape: 'line', line: { color: 'FF0000', width: 0 } }),
+				connector: (p) => p.addSlide().addConnector({ x1: 1, y1: 1, x2: 4, y2: 3, color: 'FF0000', width: 0 }),
+			}
+			for (const [label, buildFn] of Object.entries(paths)) {
+				const { zip } = await build(buildFn)
+				const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+				assertIncludes(xml, '<a:ln w="12700"', `${label}: width 0 takes the 1pt default`)
+			}
 		},
 	},
 	{

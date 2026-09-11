@@ -17,7 +17,8 @@ import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { LINE_END_TYPES, PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
-import { lineWidthToEmu } from '../../units-internal.js'
+import { lineWidthToEmu, mapStated } from '../../units-internal.js'
+import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /**
@@ -164,6 +165,37 @@ export function resolveBorderWidth(border: BorderProps, defaultPt: number): numb
 	warnUnknownBorderKeys(border)
 	const val = border.width
 	return typeof val === 'number' ? val : defaultPt
+}
+
+/**
+ * A shape outline with its defaults applied: the kind `resolveLineKind` answers, no transparency, a
+ * 1pt width, a solid dash, and on a solid stroke the default colour.
+ *
+ * Shapes, line-shaped text boxes and connectors each merged these themselves, and the connector
+ * disagreed about zero: `line.width: 0` took the 1pt default on a shape and a text box, and wrote no
+ * width at all on a connector. `0` means "not stated" for a line width, as it does for every option
+ * `mapStated` guards, so all three take the default.
+ *
+ * The caller's line is spread first and only the defaulted keys are written over it. Listing the
+ * carried keys instead is what once dropped `pattern`, `gradient` and `cap`: each was added to
+ * `ShapeLineProps` without being added to the list, so the emitter read a key normalization had
+ * already dropped. Only the solid arm writes `color`. The spread already carried whatever colour
+ * another kind stated, and re-writing it would turn an unstated one into a present `undefined`.
+ * @param line - the caller's line
+ * @param colorLabel - how the caller's colour option is named in a colour warning
+ * @returns the line with its defaults applied
+ */
+export function withLineDefaults(line: ShapeLineProps, colorLabel: string): ShapeLineProps {
+	const kind = resolveLineKind(line)
+	const resolved: ShapeLineProps = {
+		...line,
+		type: kind,
+		transparency: line.transparency || 0,
+		width: mapStated(line.width, (width) => width) ?? 1,
+		dashType: line.dashType || 'solid',
+	}
+	if (kind === 'solid') resolved.color = namedColorOr(line.color, DEF_SHAPE_LINE_COLOR, colorLabel)
+	return resolved
 }
 
 /**

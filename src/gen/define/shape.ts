@@ -5,13 +5,12 @@
  * presets PowerPoint can't parse), applies line defaults, registers hyperlink + image-fill rels,
  * and pushes a `text`-type shape object.
  */
-import { namedColorOr } from '../drawingml/color.js'
 import { type SHAPE_NAME, ShapeType, SlideObjectType } from '../../enums.js'
-import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
-import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
+import type { ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
-import { resolveFillKind, resolveLineKind } from '../drawingml/fill.js'
+import { resolveFillKind } from '../drawingml/fill.js'
+import { withLineDefaults } from '../drawingml/line.js'
 import { assertKnownPreset } from '../drawingml/geometry.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
@@ -19,7 +18,6 @@ import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { setOrClear } from '../../options-internal.js'
-import { mapStated } from '../../units-internal.js'
 
 /**
  * Map of common friendly shape names users pass as bare strings to their
@@ -86,31 +84,10 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// names the call the caller actually made.
 	assertKnownPreset(resolvedShapeName)
 
-	// 1: ShapeLineProps defaults
-	// A stroke can carry a non-solid paint just like a fill, so the kind comes from
-	// `resolveLineKind` and is stamped on before the emitter sees it. Only a solid stroke
-	// gets the default line color; every other kind takes its paint from its sub-object.
-	// This block used to infer `gradient` alone, which is how `line: { pattern }` came out
-	// a default-black solid: normalization had already written `type: 'solid'` over it.
-	//
-	// Spread first, then override only the keys this block actually defaults. Listing the
-	// carried keys instead is what broke `pattern` and `cap`: each was added to
-	// `ShapeLineProps` without being added here, so the emitter read a key normalization
-	// had already dropped — `line: { type: 'pattern' }` reached `genXmlPatternFill` with no
-	// pattern object and threw. A spread cannot fall out of sync with the type.
-	const lineType = resolveLineKind(options.line)
-	const newLineOpts: ShapeLineProps = {
-		...options.line,
-		type: lineType,
-		transparency: options.line.transparency || 0,
-		width: mapStated(options.line.width, (width) => width) ?? 1,
-		dashType: options.line.dashType || 'solid',
-	}
-	// Only the solid arm writes `color`. The spread already carried whatever colour the other kinds
-	// stated, so re-writing the key would turn an unstated one into a present `undefined` — which
-	// the next spread of this bag can tell apart from an absent one.
-	if (lineType === 'solid') newLineOpts.color = namedColorOr(options.line.color, DEF_SHAPE_LINE_COLOR, 'line.color')
-	if (typeof options.line === 'object' && options.line.type !== 'none') options.line = newLineOpts
+	// 1: ShapeLineProps defaults. A shape has an outline unless it asks for none, so every other
+	// line takes them.
+	if (typeof options.line === 'object' && options.line.type !== 'none')
+		options.line = withLineDefaults(options.line, 'line.color')
 
 	// 2: Set options defaults. A line is drawn with no height or no width on purpose.
 	Object.assign(

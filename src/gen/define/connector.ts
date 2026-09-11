@@ -5,9 +5,8 @@
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as
  * `<p:cxnSp>`.
  */
-import { namedColorOr } from '../drawingml/color.js'
+import { withLineDefaults } from '../drawingml/line.js'
 import { connectorPresetFor, SlideObjectType } from '../../enums.js'
-import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type { ConnectorProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
@@ -145,13 +144,11 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			// absent key rather than a key holding `undefined`, which is what the emitters test for.
 			...(connectorAdj.length ? { _connectorAdj: connectorAdj } : {}),
 			...pickDefined({ _startCxn: startCxn, _endCxn: endCxn }, ['_startCxn', '_endCxn']),
-			line: {
-				type: 'solid',
-				color: namedColorOr(opts.color, DEF_SHAPE_LINE_COLOR, 'connector color'),
-				width: typeof opts.width === 'number' ? opts.width : 1,
-				dashType: opts.dashType || 'solid',
-				...pickDefined(opts, ['beginArrowType', 'endArrowType']),
-			},
+			// The outline defaults every shape takes, so `width: 0` is the 1pt default here as well.
+			line: withLineDefaults(
+				{ type: 'solid', ...pickDefined(opts, ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType']) },
+				'connector color'
+			),
 			...pickDefined(opts, ['altText']),
 			objectName,
 		},
