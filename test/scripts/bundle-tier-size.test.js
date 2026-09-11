@@ -1,14 +1,13 @@
-// The tier gate's two halves that can be wrong without esbuild: the programs it bundles
-// and the verdict it draws from a number.
+// The half of the tier gate that can be wrong without esbuild: the programs it bundles.
 //
 // Bundling is not exercised here — it costs seconds per tier and what it proves is
 // esbuild's, not ours. What is ours is that each tier really is a superset of the one
 // before it (a `full` that lost its chart call would measure a cheaper program and read as
-// a win) and that a measurement sitting exactly on its budget is not a failure.
+// a win). The verdict it draws from a number is shared with the other size gate and tested
+// in `ratchet-utils.test.js`.
 
 import { describe, expect, test } from 'vitest'
-import { HEADROOM_PCT, SLACK_MIN_BYTES, SLACK_PCT } from '../../scripts/bundle-size-ratchet.mjs'
-import { frozenBudget, programFor, verdictFor } from '../../scripts/bundle-tier-size.mjs'
+import { programFor } from '../../scripts/bundle-tier-size.mjs'
 
 describe('programFor', () => {
 	test('each tier keeps every call of the tiers below it', () => {
@@ -69,40 +68,5 @@ describe('programFor', () => {
 
 	test('an unknown tier names itself rather than bundling nothing', () => {
 		expect(() => programFor('charts-only')).toThrow(/no such tier/)
-	})
-})
-
-describe('verdictFor', () => {
-	test('a measurement on its budget passes', () => {
-		expect(verdictFor(1000, 1000)).toBe('ok')
-	})
-
-	test('one byte over fails', () => {
-		expect(verdictFor(1001, 1000)).toBe('over')
-	})
-
-	// Both conditions have to hold, which is what keeps the nag off the small figures: a
-	// percentage of a tiny number is noise, and `--freeze` rounds up to a whole kB anyway.
-	test('a win is only worth banking when it clears both the percentage and the floor', () => {
-		const budget = 100 * 1024
-		expect(verdictFor(budget * (1 - SLACK_PCT / 100) - 1, budget)).toBe('under')
-		expect(verdictFor(budget - SLACK_MIN_BYTES + 1, budget)).toBe('ok')
-
-		const small = SLACK_MIN_BYTES * 2
-		expect(verdictFor(small * (1 - SLACK_PCT / 100) - 1, small)).toBe('ok')
-	})
-})
-
-describe('frozenBudget', () => {
-	test('leaves headroom above the measurement and rounds to a whole kB', () => {
-		expect(frozenBudget(100 * 1024)).toBe(Math.ceil(100 * (1 + HEADROOM_PCT / 100)) * 1024)
-		expect(frozenBudget(1)).toBe(1024)
-	})
-
-	// The property the pair has to have between them, or `--freeze` writes a budget its own
-	// `check` immediately fails.
-	test('a freshly frozen budget passes its own check', () => {
-		for (const bytes of [1, 1024, 40_000, 144_500, 211_000])
-			expect(verdictFor(bytes, frozenBudget(bytes))).not.toBe('over')
 	})
 })

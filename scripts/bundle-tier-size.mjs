@@ -72,8 +72,17 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import zlib from 'node:zlib'
 import esbuild from 'esbuild'
-import { HEADROOM_PCT, SLACK_MIN_BYTES, SLACK_PCT } from './bundle-size-ratchet.mjs'
-import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
+import {
+	HEADROOM_PCT,
+	SLACK_PCT,
+	budgetKeyDrift,
+	frozenBudget,
+	kb,
+	readBudget,
+	verdictFor,
+	writeBudget,
+} from './ratchet-utils.mjs'
+import { ROOT, isMain, parseCli, repoRel, runCli } from './script-utils.mjs'
 
 const DIST_ENTRY = path.join(ROOT, 'dist', 'browser.js')
 const DIST_FAMILIES = path.join(ROOT, 'dist', 'families.js')
@@ -313,9 +322,6 @@ function blockingChunks(metafile, entryChunk) {
 	return reached
 }
 
-/** @param {number} bytes */
-const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
-
 /**
  * Measure every tier against the built `dist/`.
  * @returns {Promise<Map<string, Awaited<ReturnType<typeof measureTier>>>>}
@@ -327,31 +333,6 @@ export async function measureTiers() {
 	const measured = new Map()
 	for (const tier of TIER_NAMES) measured.set(tier, await measureTier(tier))
 	return measured
-}
-
-/**
- * Compare one measurement against one budget, on the ratchet's terms.
- *
- * Split out from {@link main} because it is the whole of the verdict logic and needs no
- * esbuild to exercise — see `test/scripts/bundle-tier-size.test.js`.
- * @param {number} bytes - what was measured
- * @param {number} budget - what is frozen
- * @returns {'over' | 'under' | 'ok'} `under` means far enough under to be worth banking
- */
-export function verdictFor(bytes, budget) {
-	if (bytes > budget) return 'over'
-	if (bytes < budget * (1 - SLACK_PCT / 100) && budget - bytes >= SLACK_MIN_BYTES) return 'under'
-	return 'ok'
-}
-
-/**
- * The budget a measurement freezes to: {@link HEADROOM_PCT} above it, rounded up to a whole
- * kB so the file reads as a decision someone made rather than a build artifact copied in.
- * @param {number} bytes
- * @returns {number}
- */
-export function frozenBudget(bytes) {
-	return Math.ceil((bytes * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
 }
 
 // ---------------------------------------------------------------- CLI
@@ -401,19 +382,23 @@ export async function main(argv) {
 					` (measured ${kb(measurement.initial)} / ${kb(measurement.total)})`
 			)
 		}
-		fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
+		writeBudget(BUDGET, frozen)
 		return 0
 	}
 
-	/** @type {Record<string, Record<string, number> | undefined>} */
-	const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
-	const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+	const budgetFile = /** @type {Record<string, Record<string, number> | undefined>} */ (readBudget(BUDGET))
+	const relBudget = repoRel(BUDGET)
 
-	const missing = [...measured.keys()].filter((tier) =>
-		FIGURES.some((figure) => typeof budgetFile[tier]?.[figure] !== 'number')
+	const { missing, stale } = budgetKeyDrift(measured.keys(), budgetFile, (figures) =>
+		FIGURES.every((figure) => typeof figures?.[figure] === 'number')
 	)
 	if (missing.length) {
 		console.error(`bundle tier FAILED — no budget for ${missing.join(', ')} in ${relBudget}.`)
+		console.error('\n  pnpm run bundle-tier:freeze')
+		return 1
+	}
+	if (stale.length) {
+		console.error(`bundle tier FAILED — ${relBudget} budgets ${stale.join(', ')}, which this gate no longer measures.`)
 		console.error('\n  pnpm run bundle-tier:freeze')
 		return 1
 	}

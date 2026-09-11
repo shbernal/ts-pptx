@@ -52,7 +52,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import esbuild from 'esbuild'
-import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
+import {
+	HEADROOM_PCT,
+	SLACK_PCT,
+	budgetKeyDrift,
+	frozenBudget,
+	kb,
+	readBudget,
+	verdictFor,
+	writeBudget,
+} from './ratchet-utils.mjs'
+import { ROOT, isMain, parseCli, repoRel, runCli } from './script-utils.mjs'
 
 const DIST = path.join(ROOT, 'dist')
 const BUDGET = path.join(ROOT, 'scripts', 'bundle-size-budget.json')
@@ -88,29 +98,6 @@ const ENTRIES = [
 	'script.js',
 	'zip.js',
 ]
-
-/**
- * Room `--freeze` leaves above the measurement, so ordinary work is not a re-freeze.
- *
- * Exported because `bundle-tier-size.mjs` runs the same ratchet mechanics over a different
- * measurement, and two gates that disagree about what counts as ordinary work would teach a
- * reader that the numbers are arbitrary.
- */
-export const HEADROOM_PCT = 5
-
-/** Re-freeze is only worth asking for when an entry comes in this far under budget. */
-export const SLACK_PCT = 15
-
-/**
- * ...and this far under in absolute terms, which is what keeps the small entries usable.
- *
- * `--freeze` rounds the budget up to a whole kB, and on a 5 kB entry that rounding alone is
- * larger than {@link SLACK_PCT} of it: `zip.js` froze at 6 kB, measured 5 kB, and was
- * immediately 16% under — a nag no re-freeze could clear, because the next freeze rounds to the
- * same 6 kB. A percentage of a tiny number is noise; asking for a re-freeze over 1 kB is asking
- * for a gate to be switched off.
- */
-export const SLACK_MIN_BYTES = 2048
 
 /**
  * Relative specifiers, static and dynamic. Bare ones are the consumer's to resolve.
@@ -222,9 +209,6 @@ export function shippedBytes(name, dir = DIST) {
 	return zlib.gzipSync(Buffer.from(code), { level: 9 }).byteLength
 }
 
-/** @param {number} bytes */
-const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
-
 /**
  * Measure every budgeted entry against `dist/`.
  * @returns {Map<string, {files: Array<{name: string, bytes: number}>, bytes: number}>}
@@ -275,25 +259,27 @@ export function main(argv) {
 	if (values.freeze) {
 		/** @type {Record<string, number>} */
 		const frozen = {}
-		// Rounded up to a whole kB so the budget reads as a decision someone made rather than
-		// as a build artifact copied into a file.
 		for (const [entry, { bytes, files }] of measured) {
-			frozen[entry] = Math.ceil((bytes * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
+			frozen[entry] = frozenBudget(bytes)
 			console.log(
 				`bundle size: froze ${entry} at ${kb(frozen[entry])} (measured ${kb(bytes)}, ${files.length} file(s))`
 			)
 		}
-		fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
+		writeBudget(BUDGET, frozen)
 		return 0
 	}
 
-	/** @type {Record<string, number>} */
-	const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
-	const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+	const budgetFile = /** @type {Record<string, number>} */ (readBudget(BUDGET))
+	const relBudget = repoRel(BUDGET)
 
-	const missing = [...measured.keys()].filter((entry) => typeof budgetFile[entry] !== 'number')
+	const { missing, stale } = budgetKeyDrift(measured.keys(), budgetFile)
 	if (missing.length) {
 		console.error(`bundle size FAILED — no budget for ${missing.join(', ')} in ${relBudget}.`)
+		console.error('\n  pnpm run bundle-size:freeze')
+		return 1
+	}
+	if (stale.length) {
+		console.error(`bundle size FAILED — ${relBudget} budgets ${stale.join(', ')}, which this gate no longer measures.`)
 		console.error('\n  pnpm run bundle-size:freeze')
 		return 1
 	}
@@ -304,10 +290,8 @@ export function main(argv) {
 		files,
 		budget: budgetFile[entry] ?? 0,
 	}))
-	const over = checked.filter((row) => row.bytes > row.budget)
-	const under = checked.filter(
-		(row) => row.bytes < row.budget * (1 - SLACK_PCT / 100) && row.budget - row.bytes >= SLACK_MIN_BYTES
-	)
+	const over = checked.filter((row) => verdictFor(row.bytes, row.budget) === 'over')
+	const under = checked.filter((row) => verdictFor(row.bytes, row.budget) === 'under')
 
 	if (over.length) {
 		console.error('bundle size FAILED — an entry grew past its budget:\n')

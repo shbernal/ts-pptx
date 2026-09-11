@@ -70,6 +70,7 @@ are in every aggregate the repo has.
 | `powerpoint-com-smoke.mjs` | Gate | Opens decks in desktop PowerPoint over COM | manual, Windows only (`test:com`) |
 | `pptx-parts.mjs` | Library | Explode/diff `.pptx` packages | — |
 | `ooxml-literal-gate.mjs` | Gate | Schema URI and content-type literals outside `src/ooxml/` vs `ooxml-literal-allowlist.json`, each with its reason | `check:core` |
+| `ratchet-utils.mjs` | Library | Budget mechanics the two size gates share: headroom, slack, verdict, budget file and stale-key check | — |
 | `raw-xml-ratchet.mjs` | Gate | Hand-built XML per file vs `raw-xml-budget.json` | `check:core` |
 | `read-blindness-census.mjs` | Diagnostic | Which OOXML the read model never looks at | manual (`read:census`) |
 | `read-emit-edits.mjs` | Generator | Edited decks for the manual PowerPoint check | manual |
@@ -147,7 +148,7 @@ That indirection is gone too; every recipe there now resolves from its own locat
 
 **A shebang marks an entry point.** Anything invoked as a command — by `package.json`,
 `lefthook.yml`, `playwright.config.ts` or a human — starts with `#!/usr/bin/env node`.
-The four library modules (`docs-frontmatter`, `pack-utils`, `pptx-parts`, `script-utils`)
+The five library modules (`docs-frontmatter`, `pack-utils`, `pptx-parts`, `ratchet-utils`, `script-utils`)
 have none, so the first line tells you which kind of file you opened. The **exec bit is
 deliberately not part of this**: every script is invoked as `node scripts/x.mjs`, never
 `./scripts/x.mjs`, so all files are tracked `100644` and `core.filemode` is `false` on

@@ -8,6 +8,16 @@ import { parseArgs } from 'node:util'
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
+ * `file` relative to the repo root with forward slashes: how a script names a path in what it
+ * prints, the same on every platform.
+ * @param {string} file - an absolute path
+ * @returns {string}
+ */
+export function repoRel(file) {
+	return path.relative(ROOT, file).split(path.sep).join('/')
+}
+
+/**
  * The read-side fixture corpus: the PowerPoint-authored decks every read, round-trip and
  * census gate runs over.
  *
