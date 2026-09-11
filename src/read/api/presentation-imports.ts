@@ -83,6 +83,9 @@ export function importSlide(
 		{ pages: options.importNotes ? new Set([sourceSlide.partName]) : new Set(), copyMaster },
 		'importSlide'
 	)
+	// The font carry runs last, after the slide is already in the deck, so its dry run belongs
+	// here too.
+	if (options.embedFonts) checkEmbeddedFontsCopyable(source, 'importSlide')
 
 	// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
 	//    the slide and attaches it to this deck's master; 'restyle' attaches it
@@ -372,6 +375,10 @@ export function importSlideMasters(
 			'pass { requireEqualSize: false } to override'
 		)
 	}
+
+	// The font carry runs after the masters and layouts are copied, so a face it cannot copy is
+	// found now, before anything is.
+	if (options.embedFonts) checkEmbeddedFontsCopyable(source, 'importSlideMasters')
 
 	const pickMaster = options.masters ?? (() => true)
 	const pickLayout = options.layouts ?? (() => true)

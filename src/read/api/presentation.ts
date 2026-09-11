@@ -22,7 +22,6 @@ import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { attr, createElement, firstChild, getElements, getOrAddChild, numberValue, setAttr } from '../oxml/dom.js'
-import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
 import { PRESENTATION_AFTER_SLD_ID_LST } from '../../ooxml/sequence.js'
 import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
@@ -66,6 +65,7 @@ import type { ImportContext } from './ops/part-copy.js'
 import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { duplicateOwnedTargets } from './ops/page-owned.js'
+import { readEmbeddedFontEntries } from './ops/embedded-fonts.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
@@ -227,25 +227,11 @@ export class Presentation {
 	 * missing or dangling, is skipped (faithful degradation, no throw). Read-only.
 	 */
 	get embeddedFonts(): EmbeddedFontInfo[] {
-		const root = this.presentationPart.dom.documentElement
-		const lst = root && firstChild(root, 'p:embeddedFontLst')
-		if (!lst) return []
-		const rels = this.opc.relationshipsFor(this.presentationPart.partName)
-		const fonts: EmbeddedFontInfo[] = []
-		for (const entry of getElements(lst, 'p:embeddedFont')) {
-			const font = firstChild(entry, 'p:font')
-			const typeface = font && attr(font, 'typeface')
-			if (!typeface) continue
-			const faces: EmbeddedFontInfo['faces'] = []
-			for (const slot of EMBEDDED_FONT_SLOTS) {
-				const face = firstChild(entry, `p:${slot}`)
-				const relId = face && attr(face, 'r:id')
-				if (!relId || !rels.get(relId)) continue
-				faces.push({ slot, partName: rels.resolveTarget(relId) })
-			}
-			fonts.push({ typeface, panose: font ? attr(font, 'panose') : null, faces })
-		}
-		return fonts
+		return readEmbeddedFontEntries(this).map(({ typeface, panose, faces }) => ({
+			typeface,
+			panose,
+			faces: faces.flatMap(({ slot, partName }) => (partName === null ? [] : [{ slot, partName }])),
+		}))
 	}
 
 	/**

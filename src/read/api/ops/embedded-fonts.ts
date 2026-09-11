@@ -31,7 +31,58 @@ import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import { PackageReadError } from '../../../errors.js'
-import { presentationRels } from './deck-target.js'
+import { presentationRels, type DeckTarget } from './deck-target.js'
+
+/** One `p:embeddedFont` entry as {@link readEmbeddedFontEntries} reads it. */
+export interface EmbeddedFontEntry {
+	typeface: string
+	/** `p:font/@panose`, or `null` when the entry declares none. */
+	panose: string | null
+	/** `p:font` identity attrs other than `typeface` (panose/pitchFamily/charset), in document order. */
+	identity: Array<{ name: string; value: string }>
+	/**
+	 * Every face slot that carries an `r:id`, in schema order. `partName` is the part that id
+	 * resolves to, or `null` when it names no internal relationship of the presentation part.
+	 */
+	faces: Array<{ slot: EmbeddedFontSlot; relId: string; partName: string | null }>
+}
+
+/**
+ * A deck's `p:embeddedFontLst`, read once.
+ *
+ * The getter, the import check and the carry each walked the list themselves and disagreed on a
+ * face whose `r:id` names no relationship: the getter skipped it, the other two called
+ * `resolveTarget` and threw an option error. Reading it here, with the dangling face reported as
+ * `partName: null` rather than thrown, lets each consumer decide what that face means for it. An
+ * entry with no `@typeface` and a face slot with no `r:id` are left out, as all three always did.
+ */
+export function readEmbeddedFontEntries(deck: DeckTarget): EmbeddedFontEntry[] {
+	const root = deck.presentationPart.dom.documentElement
+	const lst = root && firstChild(root, 'p:embeddedFontLst')
+	if (!lst) return []
+	const rels = presentationRels(deck)
+	const entries: EmbeddedFontEntry[] = []
+	for (const entry of getElements(lst, 'p:embeddedFont')) {
+		const font = firstChild(entry, 'p:font')
+		const typeface = font && attr(font, 'typeface')
+		if (!font || !typeface) continue
+		const identity: EmbeddedFontEntry['identity'] = []
+		for (const name of ['panose', 'pitchFamily', 'charset']) {
+			const value = attr(font, name)
+			if (value !== null) identity.push({ name, value })
+		}
+		const faces: EmbeddedFontEntry['faces'] = []
+		for (const slot of EMBEDDED_FONT_SLOTS) {
+			const face = firstChild(entry, `p:${slot}`)
+			const relId = face && attr(face, 'r:id')
+			if (!relId) continue
+			const rel = rels.get(relId)
+			faces.push({ slot, relId, partName: rel && rel.targetMode !== 'External' ? rels.resolveTarget(relId) : null })
+		}
+		entries.push({ typeface, panose: attr(font, 'panose'), identity, faces })
+	}
+	return entries
+}
 
 /**
  * One typeface's faces normalized for the embedded-font merge core (`#mergeEmbeddedFontEntries`):
@@ -53,34 +104,30 @@ interface IncomingEmbeddedFont {
  * Dry-run {@link carryEmbeddedFonts} against one source, reading only the *source* package:
  * every face this deck would copy names a part that is actually there.
  *
- * `importSlides` needs it because that batch either applies in full or leaves the deck
- * byte-identical, and the font carry runs after the page copy — by which point a missing
- * binary would throw with parts already added and no way back. `importSlide` has no such
- * guarantee to keep and does not call it.
+ * Every import that carries fonts calls it before it changes anything, because the carry runs
+ * last — after the page or the masters are already in the deck — and a face it cannot copy would
+ * throw with parts added and no way back. A face whose `r:id` names no relationship and a face
+ * whose relationship names no part are the same failure to a caller, the face's binary is not in
+ * the package, so both are `package/part-missing`.
  *
- * Keep it in step with {@link carryEmbeddedFonts}: the two must skip the same entries (a
- * `p:font` with no `typeface`, a face slot with no `r:id`), or the guarantee is only as good
- * as the drift between them. The one throw the carry has past this point is
- * `package/part-has-no-root` on the *destination*, which the batch checks up front for its
- * own insert.
+ * It reads the list through {@link readEmbeddedFontEntries}, as the carry does, so the two cannot
+ * skip different entries. The one throw the carry has past this point is
+ * `package/part-has-no-root` on the *destination*.
+ * @param source - the deck whose fonts would be carried
+ * @param api - the public method asking, which opens the error message
  */
-export function checkEmbeddedFontsCopyable(source: Presentation): void {
-	const sourceRoot = source.presentationPart.dom.documentElement
-	const sourceLst = sourceRoot && firstChild(sourceRoot, 'p:embeddedFontLst')
-	if (!sourceLst) return
-	const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
-	for (const srcEntry of getElements(sourceLst, 'p:embeddedFont')) {
-		const srcFont = firstChild(srcEntry, 'p:font')
-		if (!srcFont || !attr(srcFont, 'typeface')) continue
-		for (const slot of EMBEDDED_FONT_SLOTS) {
-			const srcFace = firstChild(srcEntry, `p:${slot}`)
-			const srcRid = srcFace && attr(srcFace, 'r:id')
-			if (!srcFace || !srcRid) continue
-			const partName = sourcePresRels.resolveTarget(srcRid)
+export function checkEmbeddedFontsCopyable(source: Presentation, api = 'importSlides'): void {
+	for (const { typeface, faces } of readEmbeddedFontEntries(source)) {
+		for (const { slot, relId, partName } of faces) {
+			if (partName === null)
+				throw new PackageReadError(
+					'package/part-missing',
+					`${api}: embedded font ${typeface} (${slot}) names relationship ${relId}, which ${source.presentationPart.partName} does not have`
+				)
 			if (!source.opc.part(partName))
 				throw new PackageReadError(
 					'package/part-missing',
-					`importSlides: source package has no part ${partName} (embedded font face ${slot})`
+					`${api}: source package has no part ${partName} (embedded font ${typeface}, ${slot})`
 				)
 		}
 	}
@@ -95,36 +142,16 @@ export function checkEmbeddedFontsCopyable(source: Presentation): void {
  * {@link ImportSlideOptions.embedFonts}.
  */
 export function carryEmbeddedFonts(dest: Presentation, source: Presentation, ctx: ImportContext): void {
-	const sourceRoot = source.presentationPart.dom.documentElement
-	const sourceLst = sourceRoot && firstChild(sourceRoot, 'p:embeddedFontLst')
-	const sourceEntries = sourceLst ? getElements(sourceLst, 'p:embeddedFont') : []
-	if (sourceEntries.length === 0) return
-
-	const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
-	const incoming: IncomingEmbeddedFont[] = []
-	for (const srcEntry of sourceEntries) {
-		const srcFont = firstChild(srcEntry, 'p:font')
-		const typeface = srcFont ? attr(srcFont, 'typeface') : null
-		if (!srcFont || !typeface) continue
-
-		// Copy the source p:font identity attributes (panose/pitchFamily/charset).
-		const identity: IncomingEmbeddedFont['identity'] = []
-		for (const name of ['panose', 'pitchFamily', 'charset']) {
-			const value = attr(srcFont, name)
-			if (value !== null) identity.push({ name, value })
-		}
-
-		const faces: IncomingEmbeddedFont['faces'] = []
-		for (const slot of EMBEDDED_FONT_SLOTS) {
-			const srcFace = firstChild(srcEntry, `p:${slot}`)
-			const srcRid = srcFace && attr(srcFace, 'r:id')
-			if (!srcFace || !srcRid) continue
-			// Binary comes across via copyPart, so the per-source registry dedupes faces
-			// shared across repeated imports; the thunk runs only when the face is added.
-			faces.push({ slot, createPart: () => copyPart(ctx, sourcePresRels.resolveTarget(srcRid)) })
-		}
-		incoming.push({ typeface, identity, faces })
-	}
+	const incoming: IncomingEmbeddedFont[] = readEmbeddedFontEntries(source).map(({ typeface, identity, faces }) => ({
+		typeface,
+		identity,
+		// Every caller runs `checkEmbeddedFontsCopyable` first, so a face with no part cannot reach
+		// here. Binary comes across via copyPart, so the per-source registry dedupes faces shared
+		// across repeated imports; the thunk runs only when the face is added.
+		faces: faces.flatMap(({ slot, partName }) =>
+			partName === null ? [] : [{ slot, createPart: () => copyPart(ctx, partName) }]
+		),
+	}))
 	mergeEmbeddedFontEntries(dest, incoming)
 }
 

@@ -808,6 +808,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An embedded font face whose `r:id` names no relationship broke three imports three ways.**
+  The embedded font list was read three times with different rules. `Presentation.embeddedFonts`
+  skipped the face, while the import check and the font carry resolved it and threw
+  `InvalidOptionError` `relationship/not-found`. `importSlides` threw that from its dry run, but
+  `importSlide({ embedFonts: true })` and `importSlideMasters({ embedFonts: true })` carry fonts
+  last and threw it after the slide, or the masters, were already in the deck. All three now
+  check the fonts before they change anything and refuse the face with `PackageReadError`
+  `package/part-missing`, the error a face whose relationship names no part already raised. The
+  getter still skips it. One reader now serves all three consumers.
+
 - **`importShape({ carryAnimation: true })` mixed a build animation up with media timing.** A
   slide's embedded or online video is timed in an `interactiveSeq`, and PowerPoint's media
   slides carry one and no `mainSeq`. Both sides of the carry took the first `p:seq` in the

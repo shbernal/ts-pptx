@@ -8,9 +8,10 @@
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 
-import { assert, assertEqual } from '../helpers.js'
+import { Presentation } from '../../dist/read.js'
+import { assert, assertEqual, bytesEqual } from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
-import { openFixture } from './corpus.js'
+import { openFixture, readFixture } from './corpus.js'
 
 async function entries(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
@@ -98,5 +99,57 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 		target.importSlide(source, 0, { embedFonts: true })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// One embedded-font list, read one way. The getter skipped a face whose `r:id` names no
+// relationship, while the import check and the carry resolved it and threw an option error,
+// `relationship/not-found`. `importSlides` threw it from its dry run, but `importSlide` and
+// `importSlideMasters` carry fonts last and threw it after the slide or the masters were already
+// in the deck.
+describe('an embedded font face whose r:id names no relationship', () => {
+	/** `embedded-fonts.pptx` with the relationship behind its regular face removed. */
+	async function danglingFaceSource() {
+		const zip = await JSZip.loadAsync(await readFixture('embedded-fonts.pptx'))
+		const presentation = await zip.file('ppt/presentation.xml').async('string')
+		const relId = /<p:regular r:id="([^"]+)"/.exec(presentation)?.[1]
+		assert(relId, 'the fixture embeds a regular face')
+		const relsPath = 'ppt/_rels/presentation.xml.rels'
+		const rels = await zip.file(relsPath).async('string')
+		const pruned = rels.replace(new RegExp(`<Relationship [^>]*Id="${relId}"[^>]*/>`), '')
+		assert(pruned !== rels, 'the relationship behind the regular face was removed')
+		zip.file(relsPath, pruned)
+		return Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+	}
+
+	test('the getter lists only the faces that resolve', async () => {
+		const [font] = (await danglingFaceSource()).embeddedFonts
+		assertEqual(font.typeface, 'Silkscreen', 'the typeface is still read')
+		assertEqual(font.faces.map((face) => face.slot).join(','), 'bold', 'the dangling regular face is skipped')
+	})
+
+	/** @type {Record<string, (target: any, source: any) => unknown>} */
+	const imports = {
+		importSlide: (target, source) => target.importSlide(source, 0, { embedFonts: true }),
+		importSlides: (target, source) =>
+			target.importSlides([{ source, sourceIndex: 0, outputIndex: 0, embedFonts: true }]),
+		importSlideMasters: (target, source) => target.importSlideMasters(source, { embedFonts: true }),
+	}
+
+	test.for(Object.keys(imports))('%s refuses it as a package error and leaves the deck unchanged', async (name) => {
+		const source = await danglingFaceSource()
+		const target = await openFixture('empty')
+		const before = await target.save()
+		/** @type {any} */
+		let thrown = null
+		try {
+			imports[name](target, source)
+		} catch (error) {
+			thrown = error
+		}
+		assert(thrown, `${name} throws`)
+		assertEqual(thrown.code, 'package/part-missing', `${name} names the missing font part`)
+		assertEqual(thrown.name, 'PackageReadError', `${name} raises it as a package error`)
+		assert(bytesEqual(before, await target.save()), `${name} changed no byte of the deck`)
 	})
 })
