@@ -851,6 +851,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chartEx chart with more values than labels referenced rows its workbook does not have.** A
+  waterfall with 2 labels and 4 values wrote `Sheet1!$A$2:$A$5` and `$B$2:$B$5`, while the
+  embedded workbook has one row per label, rows 2 and 3. The formulas now span the rows the
+  workbook writes. The workbook and every chart family read one worksheet layout.
+
 - **A chart with more than 702 worksheet columns referenced columns named `undefined`.** Column
   names were converted for one or two letters only, so column 703 came out as `undefinedA` in
   every series formula and in the embedded workbook's `<dimension>`. Names now run through `XFD`,

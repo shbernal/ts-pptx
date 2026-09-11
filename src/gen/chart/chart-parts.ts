@@ -36,7 +36,7 @@ import { borderLine, createLineCap, noStrokeLine, resolveDash, strokeDash, strok
 import { gridLineStroke, gridLineSuppressed } from './chart-stroke.js'
 import { convertAngleUnits, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
-import { dataValues, type SheetLayout } from './data-refs.js'
+import { dataValues, type WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
@@ -211,7 +211,7 @@ export type PlotBuilder = (
 	valAxisId: string,
 	catAxisId: string,
 	valFmtCode: string,
-	sheet: SheetLayout
+	sheet: WorksheetLayout
 ) => string
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']

@@ -19,9 +19,8 @@ import {
 	dataLabels,
 	dataValues,
 	firstLabelGroup,
-	seriesColumn,
 	sheetCellRef,
-	type SheetLayout,
+	type WorksheetLayout,
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -144,8 +143,8 @@ function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): str
 }
 
 /** The `<c:val>` numeric cache: the series' own sheet column, one point per category. */
-function serValues(obj: OptsChartDataInternal, valFmtCode: string, sheet: SheetLayout): string {
-	const valCol = seriesColumn(obj, sheet)
+function serValues(obj: OptsChartDataInternal, valFmtCode: string, sheet: WorksheetLayout): string {
+	const valCol = sheet.valueColumn(obj._dataIndex)
 	// The sheet's row count, not this series' own label count: the workbook writes one row per
 	// category of the FIRST series and fills every series column across it, so a series with no
 	// labels of its own would otherwise take a range that runs backwards.
@@ -229,7 +228,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
-				raw(strRefBlock(sheetCellRef(seriesColumn(obj, sheet), 1), obj.name ?? '')),
+				raw(strRefBlock(sheetCellRef(sheet.valueColumn(obj._dataIndex), 1), obj.name ?? '')),
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, obj._dataIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,

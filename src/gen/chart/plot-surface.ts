@@ -16,9 +16,8 @@ import {
 	categoryRange,
 	dataValues,
 	firstLabelGroup,
-	seriesColumn,
 	sheetCellRef,
-	type SheetLayout,
+	type WorksheetLayout,
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -36,9 +35,9 @@ import {
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
 
 /** Emit the shared `<c:cat>` (strRef) + `<c:val>` (numRef) refs for a surface series. */
-function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string, sheet: SheetLayout): string {
+function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string, sheet: WorksheetLayout): string {
 	const cats = firstLabelGroup(obj)
-	const valCol = seriesColumn(obj, sheet)
+	const valCol = sheet.valueColumn(obj._dataIndex)
 	// The value range spans the sheet's own rows, which the first series' categories decide; a
 	// series carrying no labels states no categories rather than an empty, reversed range.
 	return (
@@ -58,9 +57,9 @@ function makeSurfaceSer(
 	obj: OptsChartDataInternal,
 	valFmtCode: string,
 	seriesColor: string,
-	sheet: SheetLayout
+	sheet: WorksheetLayout
 ): string {
-	const nameCol = seriesColumn(obj, sheet)
+	const nameCol = sheet.valueColumn(obj._dataIndex)
 	// A surface series carries 3-D shape props; the surface itself is colored by value band, but the
 	// per-series fill still styles the wireframe / legend key.
 	const spPr = el('c:spPr', null, [

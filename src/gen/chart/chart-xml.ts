@@ -41,7 +41,7 @@ import { borderLine, noStrokeLine } from '../drawingml/line.js'
 
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts, dimmedTextFill, dimmedTextLine, genXmlTitle } from './chart-parts.js'
-import { sheetLayout, type SheetLayout } from './data-refs.js'
+import { type WorksheetLayout, worksheetLayout } from './data-refs.js'
 import { makeCatAxis, makeSerAxis, makeValAxis } from './chart-axes.js'
 import { makeCatAxisPlot } from './plot-cat-axis.js'
 import { makeScatterPlot } from './plot-scatter.js'
@@ -511,7 +511,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	// about the WHOLE chart -- one workbook is written from `rel.data` -- so it is resolved once
 	// here and handed down; a combo subchart sees only its own slice of the series and could not
 	// derive it.
-	const sheet = sheetLayout(rel.data)
+	const sheet = worksheetLayout(rel)
 	let plots = ''
 	if (Array.isArray(rel.opts._type)) {
 		for (const type of rel.opts._type) {
@@ -635,7 +635,7 @@ function makeChartType(
 	opts: ChartOptsInternal,
 	valAxisId: string,
 	catAxisId: string,
-	sheet: SheetLayout
+	sheet: WorksheetLayout
 ): string {
 	// NOTE: "Chart Range" (as shown in "select Chart Area dialog") is calculated.
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)

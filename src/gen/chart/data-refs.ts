@@ -12,7 +12,8 @@
 
 import { LETTERS } from '../../constants-internal.js'
 import { InvalidOptionError } from '../../errors.js'
-import type { OptsChartDataInternal } from '../../types/internal.js'
+import type { OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
+import { isBubbleChart, isScatterChart } from './chart-kind.js'
 
 // ===== Series-data accessors =====
 // The normalized (internal) chart-series arrays are populated at addChart time but stay
@@ -81,51 +82,82 @@ export function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, r
 }
 
 /**
- * The shape of the embedded worksheet every series in one chart is laid out against.
+ * Where everything in one chart's embedded worksheet falls: the workbook writer lays the sheet
+ * out from it and every formula in the chart part points back into it.
  *
- * Both numbers are facts about the FIRST series, because that is how the workbook is written:
- * `data[0]`'s label groups take the leading columns and its categories decide the row count,
- * then every series gets one column. Neither is a fact about the series being emitted.
+ * Every number is a fact about the whole chart, not about the series being emitted. The chart XML
+ * once derived the label columns and row count per series, from that series' own labels, and the
+ * two sides disagreed the moment a caller labelled only the first series.
  */
-export interface SheetLayout {
+export interface WorksheetLayout {
 	/** How many leading columns the label groups occupy. */
 	labelCols: number
 	/** How many data rows the sheet has, header row excluded. */
 	rowCount: number
+	/** How many columns the sheet has. */
+	colCount: number
+	/**
+	 * The 1-based column a series' values occupy, and whose header row holds its name.
+	 * @param dataIndex - the series' position across the whole chart, its `_dataIndex`
+	 */
+	valueColumn(dataIndex: number): number
+	/**
+	 * The 1-based column a bubble series' sizes occupy, or `undefined` when the sheet has none.
+	 * @param dataIndex - the series' position across the whole chart, its `_dataIndex`
+	 */
+	sizeColumn(dataIndex: number): number | undefined
 }
 
+/** The size column of a sheet that has none. */
+const noSizeColumn = (): undefined => undefined
+
 /**
- * The worksheet layout for one chart's series set.
+ * The worksheet layout for one chart, decided by its kind.
  *
- * The chart XML derived both numbers per series instead, from that series' own labels, so the
- * two sides of the mapping this module exists to keep in step disagreed the moment a caller
- * labelled only the first series -- which is the shape the plot builders' own worked example
- * shows. From series 1 on that produced `Sheet1!$A$2:$$1`, a `<c:val>` range pointing backwards
- * at series A's column, and a `<c:tx>` naming series A's header. The workbook was right
- * throughout; only the references were wrong.
+ * - A category chart, every combo and every chartEx layout: `data[0]`'s label groups take the
+ *   leading columns, outermost first, and its categories decide the row count. Then one column
+ *   per series in data order. A category-less layout (a histogram feeds raw observations with no
+ *   labels) sizes the sheet from the longest value series instead.
+ * - Scatter: no label columns. The X row is column A and each Y series takes the next column,
+ *   one row per X value.
+ * - Bubble: no label columns. The X row is column A and each later series takes two columns, its
+ *   values and then its sizes.
  *
- * The row-count fallback is the workbook's: a category-less layout (a histogram feeds raw
- * observations with no labels) sizes the sheet from the longest value series instead.
- * @param data - the chart's normalized series, in data order
+ * A combo is laid out as a category chart whatever its subcharts are, because one workbook is
+ * written from the combined series. So a bubble subchart in a combo has no size column.
+ * @param rel - the chart, for its series and its normalized type
  */
-export function sheetLayout(data: readonly OptsChartDataInternal[]): SheetLayout {
+export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): WorksheetLayout {
+	const data = rel.data
+	const type = rel.opts._type
+	if (isBubbleChart(type)) {
+		return {
+			labelCols: 0,
+			rowCount: dataValues(data[0]).length,
+			// 1 for the X values, then 2 for every Y series.
+			colCount: (data.length - 1) * 2 + 1,
+			valueColumn: (dataIndex) => (dataIndex === 0 ? 1 : dataIndex * 2),
+			sizeColumn: (dataIndex) => (dataIndex === 0 ? undefined : dataIndex * 2 + 1),
+		}
+	}
+	if (isScatterChart(type)) {
+		return {
+			labelCols: 0,
+			rowCount: dataValues(data[0]).length,
+			colCount: data.length,
+			valueColumn: (dataIndex) => dataIndex + 1,
+			sizeColumn: noSizeColumn,
+		}
+	}
+	const labelCols = dataLabels(data[0]).length
 	return {
-		labelCols: dataLabels(data[0]).length,
+		labelCols,
 		rowCount: firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
+		colCount: data.length + labelCols,
+		valueColumn: (dataIndex) => dataIndex + labelCols + 1,
+		sizeColumn: noSizeColumn,
 	}
 }
-
-/**
- * The 1-based worksheet column a series' values occupy: the label groups come first, then one
- * column per series in data order.
- *
- * This is the one number the chart XML and the embedded workbook have to agree on, and six
- * emitters wrote the expression out. It belongs beside the reference builders for the same
- * reason they do.
- * @param d - the normalized series
- * @param sheet - the chart's worksheet layout, from {@link sheetLayout}
- */
-export const seriesColumn = (d: OptsChartDataInternal, sheet: SheetLayout): number => d._dataIndex + sheet.labelCols + 1
 
 /**
  * The category-name range in column A, header row excluded: `Sheet1!$A$2:$A$<count + 1>`.

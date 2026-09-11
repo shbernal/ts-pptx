@@ -15,7 +15,7 @@ import { ChartType } from '../../enums.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { dataLabels, dataValues, sheetCellRef, sheetRangeRef, type WorksheetLayout } from './data-refs.js'
 
 /**
  * The numeric-dimension tag PowerPoint expects varies by layout. The flat layouts (waterfall,
@@ -42,19 +42,24 @@ function valueDimType(type: ChartType): 'size' | 'val' | 'colorVal' {
  * leaf-first to match PowerPoint. The workbook ({@link ./embed-xlsx}) lays the levels out in
  * columns A..N (outermost in A, leaf in the last label column) with the value series in the next
  * column; the single `<cx:f>` range on each dimension spans exactly those columns.
+ *
+ * The rows come from the worksheet layout, the same one the workbook is written from. They were
+ * sized from the longer of the labels and the values here, while the workbook writes one row per
+ * label, so a waterfall with 2 labels and 4 values referenced rows 2 to 5 of a sheet with rows 2
+ * and 3.
  * @param {SlideRelChart} rel - the registered chart
+ * @param {WorksheetLayout} sheet - the chart's worksheet layout
  * @return {string} `<cx:chartData>…</cx:chartData>` XML
  */
-export function makeChartExData(rel: SlideRelChart): string {
+export function makeChartExData(rel: SlideRelChart, sheet: WorksheetLayout): string {
 	const series = rel.data[0]
 	const type = rel.opts._type as ChartType
 	const levels = dataLabels(series)
 	const totLvl = levels.length // 0 for a category-less layout (histogram), 1 flat, N hierarchical
 	const vals = dataValues(series)
-	// Row span is driven by whichever dimension has more points; the workbook writes both to the same rows.
-	const ptCount = Math.max(firstLabelGroup(series).length, vals.length)
+	const ptCount = sheet.rowCount
 	const lastRow = ptCount + 1
-	const valueCol = totLvl + 1 // value series sits in the column right after all label columns
+	const valueCol = sheet.valueColumn(0)
 
 	// Category (string) dimension — one <cx:lvl> per hierarchy level, leaf-first, over columns A..totLvl.
 	// A category-less layout (histogram bins raw observations itself) emits no strDim at all.
@@ -102,9 +107,9 @@ export function makeChartExData(rel: SlideRelChart): string {
  * The `Sheet1` cell holding the series name (the numeric dimension's header) — column immediately
  * after all label columns, row 1. A category-less histogram lands on `$A$1`; a flat chart on
  * `$B$1`; a 3-level treemap on `$D$1`.
- * @param {SlideRelChart} rel - the registered chart
+ * @param {WorksheetLayout} sheet - the chart's worksheet layout
  * @return {string} an absolute single-cell reference, e.g. `Sheet1!$B$1`
  */
-export function chartExSeriesNameRef(rel: SlideRelChart): string {
-	return sheetCellRef(dataLabels(rel.data[0]).length + 1, 1)
+export function chartExSeriesNameRef(sheet: WorksheetLayout): string {
+	return sheetCellRef(sheet.valueColumn(0), 1)
 }

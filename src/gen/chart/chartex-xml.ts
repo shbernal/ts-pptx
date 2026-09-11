@@ -27,6 +27,7 @@ import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts } from './chart-parts.js'
 import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
+import { type WorksheetLayout, worksheetLayout } from './data-refs.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
@@ -156,13 +157,13 @@ function makeGeographyLayoutPr(geo: ChartExGeography | undefined): string {
 }
 
 /** The `<cx:tx>` series-name cell/value block (shared by every layout that names its series). */
-function makeChartExSeriesName(rel: SlideRelChart): string {
+function makeChartExSeriesName(rel: SlideRelChart, sheet: WorksheetLayout): string {
 	return el(
 		'cx:tx',
 		null,
 		raw(
 			el('cx:txData', null, [
-				raw(el('cx:f', null, chartExSeriesNameRef(rel))),
+				raw(el('cx:f', null, chartExSeriesNameRef(sheet))),
 				raw(el('cx:v', null, rel.data[0]?.name ?? '')),
 			])
 		)
@@ -187,9 +188,9 @@ function makeChartExDataLabels(rel: SlideRelChart): string {
  * line. Series 1 is the `paretoLine` itself: it carries `ownerIdx="0"` (it derives its data from
  * series 0, so it has NO `<cx:tx>` or `<cx:dataId>`) and binds to the secondary percentage axis 2.
  */
-function makeParetoSeries(rel: SlideRelChart): string {
+function makeParetoSeries(rel: SlideRelChart, sheet: WorksheetLayout): string {
 	const bar = el('cx:series', { layoutId: 'clusteredColumn', uniqueId: chartExUniqueId(rel.globalId, 0) }, [
-		raw(makeChartExSeriesName(rel)),
+		raw(makeChartExSeriesName(rel, sheet)),
 		raw(makeChartExDataLabels(rel)),
 		raw(voidEl('cx:dataId', { val: 0 })),
 		raw(el('cx:layoutPr', null, raw(voidEl('cx:aggregation')))),
@@ -202,12 +203,12 @@ function makeParetoSeries(rel: SlideRelChart): string {
 }
 
 /** Build the `<cx:series>` (title cell, data labels, dataId, and layout-specific `<cx:layoutPr>`). */
-function makeChartExSeries(rel: SlideRelChart): string {
+function makeChartExSeries(rel: SlideRelChart, sheet: WorksheetLayout): string {
 	const opts = rel.opts
 	const type = opts._type as ChartType
 
 	// Pareto is multi-series (a column series + a cumulative line on a secondary axis).
-	if (type === ChartType.pareto) return makeParetoSeries(rel)
+	if (type === ChartType.pareto) return makeParetoSeries(rel, sheet)
 
 	// Layout-specific series props.
 	let layoutPr = ''
@@ -231,7 +232,7 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
-		raw(makeChartExSeriesName(rel)),
+		raw(makeChartExSeriesName(rel, sheet)),
 		raw(makeChartExDataLabels(rel)),
 		raw(voidEl('cx:dataId', { val: 0 })),
 		raw(layoutPr),
@@ -332,7 +333,8 @@ function makeChartExTitle(rel: SlideRelChart): string {
 export function makeXmlChartEx(rel: SlideRelChart): string {
 	const type = rel.opts._type as ChartType
 
-	const plotAreaRegion = el('cx:plotAreaRegion', null, raw(makeChartExSeries(rel)))
+	const sheet = worksheetLayout(rel)
+	const plotAreaRegion = el('cx:plotAreaRegion', null, raw(makeChartExSeries(rel, sheet)))
 	const plotArea = el('cx:plotArea', null, [raw(plotAreaRegion), raw(makeChartExAxes(type))])
 	const legend = rel.opts.showLegend
 		? voidEl('cx:legend', { pos: chartExLegendPos(rel.opts.legendPos), align: 'ctr', overlay: 0 })
@@ -342,7 +344,7 @@ export function makeXmlChartEx(rel: SlideRelChart): string {
 	return (
 		XML_DECL +
 		el('cx:chartSpace', { 'xmlns:cx': OOXML_NS.cx, 'xmlns:a': OOXML_NS.a, 'xmlns:r': OOXML_NS.r }, [
-			raw(makeChartExData(rel)),
+			raw(makeChartExData(rel, sheet)),
 			raw(chart),
 		])
 	)

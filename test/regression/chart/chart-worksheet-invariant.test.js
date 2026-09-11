@@ -191,7 +191,10 @@ async function problemsFor(addChart) {
 const FRAME = { x: 1, y: 1, w: 6, h: 4 }
 const LABELS = ['Jan', 'Feb', 'Mar']
 
-/** `[name, addChart]`, every shape the matrix covers. */
+/**
+ * `[name, addChart]`, every shape the matrix covers.
+ * @type {[string, (slide: any) => void][]}
+ */
 const MATRIX = [
 	[
 		'bar',
@@ -366,7 +369,6 @@ const BROKEN = new Set([
 	'pie with two label levels',
 	'bar and scatter combo',
 	'bar with a blank label',
-	'waterfall with more values than labels',
 ])
 
 defineRegressionSuite('Chart formulas resolve to their cache through the embedded workbook', [

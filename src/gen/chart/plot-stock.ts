@@ -22,9 +22,8 @@ import {
 	categoryRange,
 	dataValues,
 	firstLabelGroup,
-	seriesColumn,
 	sheetCellRef,
-	type SheetLayout,
+	type WorksheetLayout,
 	sheetRangeRef,
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -52,10 +51,10 @@ function stockCatVal(
 	obj: OptsChartDataInternal,
 	opts: ChartOptsInternal,
 	valFmtCode: string,
-	sheet: SheetLayout
+	sheet: WorksheetLayout
 ): string {
 	const cats = firstLabelGroup(obj)
-	const valColRow = seriesColumn(obj, sheet)
+	const valColRow = sheet.valueColumn(obj._dataIndex)
 	const catRef = categoryRange(cats.length)
 	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
 	// them as dates rather than serial numbers; text ones take a plain `strRef`.
@@ -82,8 +81,8 @@ function stockCatVal(
 }
 
 /** Emit the `<c:tx>` series-name reference for a stock/volume series. */
-function stockSeriesName(obj: OptsChartDataInternal, sheet: SheetLayout): string {
-	const nameCol = seriesColumn(obj, sheet)
+function stockSeriesName(obj: OptsChartDataInternal, sheet: WorksheetLayout): string {
+	const nameCol = sheet.valueColumn(obj._dataIndex)
 	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')
 }
 
@@ -93,7 +92,7 @@ function makeStockLineSer(
 	opts: ChartOptsInternal,
 	valFmtCode: string,
 	markCloseColor: string | null,
-	sheet: SheetLayout
+	sheet: WorksheetLayout
 ): string {
 	// Stock series draw no line themselves (the hi-low lines / up-down bars carry the visual).
 	const spPr = el('c:spPr', null, [
