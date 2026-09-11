@@ -166,8 +166,11 @@ export const CHART_STYLE_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartstyle+xml'
 export const CHART_COLOR_STYLE_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartcolorstyle+xml'
 /** An embedded `.xlsx` workbook: a chart's data, or an OLE payload. */
 export const XLSX_CONTENT_TYPE = OD_CONTENT + 'spreadsheetml.sheet'
-/** A whole `.pptx` package: the MIME type of a written deck, and of one embedded as an OLE payload. */
-export const PPTX_CONTENT_TYPE = OD_CONTENT + 'presentationml.presentation'
+/**
+ * A whole `.pptx` package: the MIME type of a written deck, and of one embedded as an OLE payload.
+ * Declared in `pptx-content-type.ts`, so the `zip` entry can import it without this table.
+ */
+export { PPTX_CONTENT_TYPE } from './pptx-content-type.js'
 /** The handout master part. */
 export const HANDOUT_MASTER_CONTENT_TYPE = OD_CONTENT + 'presentationml.handoutMaster+xml'
 /** A theme override part. Not `presentationml.`: like a theme, it is a DrawingML part. */

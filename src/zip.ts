@@ -1,7 +1,7 @@
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
 import type { ZIP_OUTPUT_TYPE } from './enums.js'
 import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
-import { PPTX_CONTENT_TYPE } from './ooxml/rel-types.js'
+import { PPTX_CONTENT_TYPE } from './ooxml/pptx-content-type.js'
 
 /**
  * ZIP backend seam for the write path.

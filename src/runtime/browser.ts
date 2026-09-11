@@ -3,7 +3,7 @@ import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 import { fetchFontBytes } from './fetch-media.js'
-import { PPTX_CONTENT_TYPE } from '../ooxml/rel-types.js'
+import { PPTX_CONTENT_TYPE } from '../ooxml/pptx-content-type.js'
 
 export function createBrowserRuntime(): RuntimeAdapter {
 	return {
