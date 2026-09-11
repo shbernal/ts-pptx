@@ -74,6 +74,16 @@ export const COMMENTS_REL = OFFICE_REL + 'comments'
 export const COMMENT_AUTHORS_REL = OFFICE_REL + 'commentAuthors'
 /** The presentation → the 2018 comment-author registry (`ppt/authors.xml`), a Microsoft rel type. */
 export const MODERN_COMMENT_AUTHORS_REL = MS_REL + '2018/10/relationships/authors'
+/** The presentation → `ppt/presProps.xml`. */
+export const PRES_PROPS_REL = OFFICE_REL + 'presProps'
+/** The presentation → `ppt/viewProps.xml`. */
+export const VIEW_PROPS_REL = OFFICE_REL + 'viewProps'
+/** The presentation → the handout master. */
+export const HANDOUT_MASTER_REL = OFFICE_REL + 'handoutMaster'
+/** A part → a theme override, which replaces the deck theme for that part alone. */
+export const THEME_OVERRIDE_REL = OFFICE_REL + 'themeOverride'
+/** The presentation → an embedded font part, one per face. */
+export const FONT_REL = OFFICE_REL + 'font'
 
 // --- Media -----------------------------------------------------------------
 
@@ -110,6 +120,8 @@ const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
 const PACKAGE_CONTENT = 'application/vnd.openxmlformats-package.'
 /** Root of the Microsoft Office content types the chartEx family uses. Private. */
 const MS_OFFICE_CONTENT = 'application/vnd.ms-office.'
+/** Root of the PowerPoint-specific Microsoft content types the 2018 comment parts use. Private. */
+const MS_POWERPOINT_CONTENT = 'application/vnd.ms-powerpoint.'
 
 /** `ppt/slides/slideN.xml`. */
 export const SLIDE_CONTENT_TYPE = OD_CONTENT + 'presentationml.slide+xml'
@@ -156,3 +168,65 @@ export const CHART_COLOR_STYLE_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartcolorsty
 export const XLSX_CONTENT_TYPE = OD_CONTENT + 'spreadsheetml.sheet'
 /** A whole `.pptx` package: the MIME type of a written deck, and of one embedded as an OLE payload. */
 export const PPTX_CONTENT_TYPE = OD_CONTENT + 'presentationml.presentation'
+/** The handout master part. */
+export const HANDOUT_MASTER_CONTENT_TYPE = OD_CONTENT + 'presentationml.handoutMaster+xml'
+/** A theme override part. Not `presentationml.`: like a theme, it is a DrawingML part. */
+export const THEME_OVERRIDE_CONTENT_TYPE = OD_CONTENT + 'themeOverride+xml'
+/** The 2018 comment-author registry. A PowerPoint content type, not an `openxmlformats` one. */
+export const MODERN_COMMENT_AUTHORS_CONTENT_TYPE = MS_POWERPOINT_CONTENT + 'authors+xml'
+
+// --- Parts a page points at without owning ---------------------------------
+
+/**
+ * How far a shared part's ownership reaches.
+ *
+ * - `deck`: chrome the whole deck owns — masters, layouts, themes, the property parts, the author
+ *   registries. A page points at it and never owns it, and it is not an orphan just because the
+ *   slide that last reached it is gone.
+ * - `media`: a blob PowerPoint stores once and points every shape that shows it at. Page copies
+ *   share it, but one that nothing references any more is an orphan.
+ * - `page`: another page, or an external link. A page copy points at whichever copy of the target
+ *   the import chose.
+ */
+export type SharedPartScope = 'deck' | 'media' | 'page'
+
+/** One kind of part a page may point at without owning it. */
+export interface SharedPartKind {
+	/** The relationship type a page reaches it by. */
+	readonly relType: string
+	/** Its content type, or `null` where nothing matches a part of this kind by content type. */
+	readonly contentType: string | null
+	readonly scope: SharedPartScope
+}
+
+/**
+ * Every kind of part a page points at without owning it.
+ *
+ * Two questions read this table, under different keys. Copying a page asks whether a relationship's
+ * target may be shared by the copies rather than copied (every row, by `relType`). Pruning after a
+ * slide is removed asks whether a part is deck chrome that stays even while nothing reaches it (the
+ * `deck` rows, by `contentType`). They were two hand-kept lists, and the two author registries were
+ * on the first and missing from the second.
+ */
+export const SHARED_PARTS: readonly SharedPartKind[] = [
+	{ relType: SLIDE_LAYOUT_REL, contentType: SLIDE_LAYOUT_CONTENT_TYPE, scope: 'deck' },
+	{ relType: SLIDE_MASTER_REL, contentType: SLIDE_MASTER_CONTENT_TYPE, scope: 'deck' },
+	{ relType: NOTES_MASTER_REL, contentType: NOTES_MASTER_CONTENT_TYPE, scope: 'deck' },
+	{ relType: THEME_REL, contentType: THEME_CONTENT_TYPE, scope: 'deck' },
+	{ relType: THEME_OVERRIDE_REL, contentType: THEME_OVERRIDE_CONTENT_TYPE, scope: 'deck' },
+	{ relType: HANDOUT_MASTER_REL, contentType: HANDOUT_MASTER_CONTENT_TYPE, scope: 'deck' },
+	{ relType: PRES_PROPS_REL, contentType: PRES_PROPS_CONTENT_TYPE, scope: 'deck' },
+	{ relType: VIEW_PROPS_REL, contentType: VIEW_PROPS_CONTENT_TYPE, scope: 'deck' },
+	{ relType: TABLE_STYLES_REL, contentType: TABLE_STYLES_CONTENT_TYPE, scope: 'deck' },
+	{ relType: OFFICE_DOCUMENT_REL, contentType: PRESENTATION_MAIN_CONTENT_TYPE, scope: 'deck' },
+	{ relType: COMMENT_AUTHORS_REL, contentType: COMMENT_AUTHORS_CONTENT_TYPE, scope: 'deck' },
+	{ relType: MODERN_COMMENT_AUTHORS_REL, contentType: MODERN_COMMENT_AUTHORS_CONTENT_TYPE, scope: 'deck' },
+	{ relType: IMAGE_REL, contentType: null, scope: 'media' },
+	{ relType: AUDIO_REL, contentType: null, scope: 'media' },
+	{ relType: VIDEO_REL, contentType: null, scope: 'media' },
+	{ relType: MS_MEDIA_REL, contentType: null, scope: 'media' },
+	{ relType: MODEL3D_REL, contentType: null, scope: 'media' },
+	{ relType: FONT_REL, contentType: null, scope: 'media' },
+	{ relType: SLIDE_REL, contentType: null, scope: 'page' },
+	{ relType: HYPERLINK_REL, contentType: null, scope: 'page' },
+]

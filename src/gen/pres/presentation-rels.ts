@@ -14,11 +14,12 @@ import { fontPath, NOTES_MASTER_PATH, slidePath, SLIDE_MASTER_PATH, targetFromPr
 import {
 	COMMENT_AUTHORS_REL,
 	NOTES_MASTER_REL,
-	OFFICE_REL,
+	PRES_PROPS_REL,
 	SLIDE_MASTER_REL,
 	SLIDE_REL,
 	TABLE_STYLES_REL,
 	THEME_REL,
+	VIEW_PROPS_REL,
 } from '../../ooxml/rel-types.js'
 
 /**
@@ -79,8 +80,8 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
 	}
 	rels.push(
 		relationshipEl(fixed.notesMaster, NOTES_MASTER_REL, targetFromPresentation(NOTES_MASTER_PATH)),
-		relationshipEl(fixed.presProps, OFFICE_REL + 'presProps', 'presProps.xml'),
-		relationshipEl(fixed.viewProps, OFFICE_REL + 'viewProps', 'viewProps.xml'),
+		relationshipEl(fixed.presProps, PRES_PROPS_REL, 'presProps.xml'),
+		relationshipEl(fixed.viewProps, VIEW_PROPS_REL, 'viewProps.xml'),
 		relationshipEl(fixed.theme, THEME_REL, 'theme/theme1.xml'),
 		relationshipEl(fixed.tableStyles, TABLE_STYLES_REL, 'tableStyles.xml')
 	)

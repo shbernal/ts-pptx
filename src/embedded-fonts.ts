@@ -21,14 +21,14 @@
  */
 
 import { encodeXmlAttrValue } from './xml-escape.js'
-import { OFFICE_REL } from './ooxml/rel-types.js'
+import { FONT_REL } from './ooxml/rel-types.js'
 
 /** Extension for the binary font parts (`/ppt/fonts/fontN.fntdata`). */
 export const FONT_DATA_EXTENSION = 'fntdata'
 /** Content type for a `.fntdata` part — one `Default` covers every font part. */
 export const FONT_DATA_CONTENT_TYPE = 'application/x-fontdata'
 /** Relationship type from `presentation.xml` to a font part (one per face). */
-export const FONT_REL_TYPE = OFFICE_REL + 'font'
+export const FONT_REL_TYPE = FONT_REL
 
 /**
  * The four face slots of `CT_EmbeddedFontListEntry`, in schema child order

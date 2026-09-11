@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`removeSlide` could prune a deck's comment-author registry.**
+  - Pruning after a removal keeps deck chrome even while nothing references it. Its list of chrome
+    content types left out the two comment-author registries (`commentAuthors.xml` and the 2018
+    `authors.xml`).
+  - A registry the removed slide's comment part was the last to reach was deleted with it.
+    PowerPoint's own decks also name the registry from `presentation.xml.rels`, which kept it in
+    practice.
+
 - **`inspect` assumed a widescreen slide for a deck that declares no slide size.**
   - A presentation with no `p:sldSz` opens in PowerPoint at 10in × 7.5in (4:3).
     `readPresentationSize` and `DEFAULT_INSPECT_SLIDE_SIZE` reported 13.333in × 7.5in, while the

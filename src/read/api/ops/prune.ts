@@ -10,35 +10,17 @@
 
 import { relsPartNameFor } from '../../opc/partnames.js'
 import type { Presentation } from '../presentation.js'
-import {
-	NOTES_MASTER_CONTENT_TYPE,
-	PRES_PROPS_CONTENT_TYPE,
-	PRESENTATION_MAIN_CONTENT_TYPE,
-	SLIDE_LAYOUT_CONTENT_TYPE,
-	SLIDE_MASTER_CONTENT_TYPE,
-	TABLE_STYLES_CONTENT_TYPE,
-	THEME_CONTENT_TYPE,
-	VIEW_PROPS_CONTENT_TYPE,
-} from '../../../ooxml/rel-types.js'
+import { SHARED_PARTS } from '../../../ooxml/rel-types.js'
 
 /**
- * Content types that are shared deck chrome: reachable through the
- * presentation → master → layout → theme graph, not owned by any one slide.
- * {@link Presentation.removeSlide} never prunes these as a removed slide's
+ * Content types that are shared deck chrome, not owned by any one slide: the `deck` rows of
+ * {@link SHARED_PARTS}, reached through the presentation → master → layout → theme graph or named
+ * by every comment part. {@link Presentation.removeSlide} never prunes these as a removed slide's
  * orphan, even while momentarily unreferenced.
  */
-const SHARED_CHROME_CONTENT_TYPES = new Set([
-	SLIDE_MASTER_CONTENT_TYPE,
-	SLIDE_LAYOUT_CONTENT_TYPE,
-	THEME_CONTENT_TYPE,
-	'application/vnd.openxmlformats-officedocument.themeOverride+xml',
-	NOTES_MASTER_CONTENT_TYPE,
-	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
-	PRES_PROPS_CONTENT_TYPE,
-	VIEW_PROPS_CONTENT_TYPE,
-	TABLE_STYLES_CONTENT_TYPE,
-	PRESENTATION_MAIN_CONTENT_TYPE,
-])
+const SHARED_CHROME_CONTENT_TYPES: ReadonlySet<string> = new Set(
+	SHARED_PARTS.flatMap((kind) => (kind.scope === 'deck' && kind.contentType !== null ? [kind.contentType] : []))
+)
 
 /**
  * Remove `partName` if it is neither shared chrome nor still referenced by any

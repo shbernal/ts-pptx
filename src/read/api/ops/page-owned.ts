@@ -34,54 +34,16 @@
 
 import type { OpcPackage } from '../../opc/package.js'
 import { relativePartName } from '../../opc/partnames.js'
-import {
-	AUDIO_REL,
-	COMMENT_AUTHORS_REL,
-	HYPERLINK_REL,
-	IMAGE_REL,
-	MODEL3D_REL,
-	MODERN_COMMENT_AUTHORS_REL,
-	MS_MEDIA_REL,
-	NOTES_MASTER_REL,
-	OFFICE_REL,
-	SLIDE_LAYOUT_REL,
-	SLIDE_MASTER_REL,
-	SLIDE_REL,
-	TABLE_STYLES_REL,
-	THEME_REL,
-	VIDEO_REL,
-} from '../../../ooxml/rel-types.js'
+import { SHARED_PARTS } from '../../../ooxml/rel-types.js'
 
-/** Relationship types whose target two copies of one page may point at together. */
-const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set([
-	// Deck furniture: reached through a page, owned by the deck.
-	SLIDE_LAYOUT_REL,
-	SLIDE_MASTER_REL,
-	NOTES_MASTER_REL,
-	THEME_REL,
-	OFFICE_REL + 'themeOverride',
-	OFFICE_REL + 'handoutMaster',
-	OFFICE_REL + 'presProps',
-	OFFICE_REL + 'viewProps',
-	TABLE_STYLES_REL,
-	// Package singletons that a page's own parts point back at — a comments part
-	// names the deck's author list, which is one list for the whole package.
-	COMMENT_AUTHORS_REL,
-	MODERN_COMMENT_AUTHORS_REL,
-	// Media blobs. PowerPoint stores one copy and points every shape that shows it
-	// at that copy, so sharing here is what the application does itself.
-	IMAGE_REL,
-	AUDIO_REL,
-	VIDEO_REL,
-	MS_MEDIA_REL,
-	MODEL3D_REL,
-	OFFICE_REL + 'font',
-	// Another page is its own page, never a part this one owns: a jump link points
-	// at whatever copy of the target page the import decided on.
-	SLIDE_REL,
-	// External by nature; an internal one resolves to a page, handled above.
-	HYPERLINK_REL,
-])
+/**
+ * Relationship types whose target two copies of one page may point at together: every kind in
+ * {@link SHARED_PARTS}. That is deck furniture a page reaches and the deck owns, including the
+ * author registry a comments part names; media blobs, which PowerPoint itself stores once and
+ * points every shape at; and another page or an external link, where a jump points at whatever
+ * copy of the target the import decided on.
+ */
+const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set(SHARED_PARTS.map((kind) => kind.relType))
 
 /**
  * Whether a page copy may point at this relationship's target rather than taking

@@ -9,6 +9,7 @@
 
 import { readFile } from 'node:fs/promises'
 
+import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
@@ -19,6 +20,8 @@ import { assertNoDanglingRels, resolveSingle } from './opc.js'
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const SLIDE_MASTER_REL = `${R_NS}/slideMaster`
 const SLIDE_LAYOUT_REL = `${R_NS}/slideLayout`
+const PR_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const MODERN_AUTHORS_REL = 'http://schemas.microsoft.com/office/2018/10/relationships/authors'
 
 function partNames(opc) {
 	return new Set(opc.parts.keys())
@@ -100,6 +103,29 @@ describe('Presentation.removeSlide', () => {
 
 		const rewritten = ['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml']
 		assertUnchangedExcept(inBodies, outBodies, [...rewritten, ...removed, ...removedNotes])
+	})
+
+	test('keeps a deck-wide comment-author registry that only a removed comment part still reached', async () => {
+		// Deck chrome survives a removal while momentarily unreferenced. The comment-author registries
+		// are deck chrome, but the prune kept its own list of chrome content types and they were
+		// missing from it; they survived only because presentation.xml.rels names them too. Here it
+		// does not, and the removed slide's comment part is the last thing pointing at the registry.
+		const comment = 'ppt/comments/modernComment_101_3BFDAB96.xml'
+		const zip = await JSZip.loadAsync(await readFile(fixturePath('modern-comments')))
+		const presRels = await zip.file('ppt/_rels/presentation.xml.rels').async('string')
+		const withoutAuthors = presRels.replace(/<Relationship [^>]*relationships\/authors"[^>]*\/>/, '')
+		assert(withoutAuthors !== presRels, 'the presentation names the author registry to begin with')
+		zip.file('ppt/_rels/presentation.xml.rels', withoutAuthors)
+		zip.file(
+			'ppt/comments/_rels/modernComment_101_3BFDAB96.xml.rels',
+			`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${PR_NS}"><Relationship Id="rId1" Type="${MODERN_AUTHORS_REL}" Target="../authors.xml"/></Relationships>`
+		)
+		const deck = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+		assert(deck.opc.part(`/${comment}`), 'the fixture carries the comment part')
+
+		deck.removeSlide(1)
+		assert(!deck.opc.part(`/${comment}`), 'the removed slide’s comment part goes with it')
+		assert(deck.opc.part('/ppt/authors.xml'), 'and the deck-wide author registry stays')
 	})
 
 	test('rejects an out-of-range index', async () => {
