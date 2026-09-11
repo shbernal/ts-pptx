@@ -505,6 +505,49 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// A chartEx chart reads about a dozen options and is styled from its sidecar parts, so every
+		// other `ChartOpts` key was accepted and dropped without a word, and `legendPos: 'tr'` became
+		// the top. Only what the caller stated is named, and a layout's own key counts only on it.
+		name: 'a chartEx chart names the options it ignores',
+		fn: async () => {
+			const data = [{ name: 'W', labels: ['a', 'b'], values: [1, 2] }]
+			const messagesFor = async (type, options) =>
+				(
+					await captureDiagnostics(() => build((p) => p.addSlide().addChart(data, { ...BASE, type, ...options })))
+				).diagnostics
+					.filter((d) => d.code === 'chart/option-not-supported')
+					.map((d) => d.message)
+
+			const styled = await messagesFor(ChartType.waterfall, { titleFontSize: 30, dataBorder: { color: 'FF0000' } })
+			assert(
+				styled.some((m) => m.includes('"dataBorder", "titleFontSize"')),
+				`the ignored options are named; got ${JSON.stringify(styled)}`
+			)
+			const subtotalsOnFunnel = await messagesFor(ChartType.funnel, { subtotals: [1] })
+			assert(
+				subtotalsOnFunnel.some((m) => m.includes('"subtotals"')),
+				'a waterfall-only key warns on a funnel'
+			)
+			const corner = await messagesFor(ChartType.waterfall, { showLegend: true, legendPos: 'tr' })
+			assert(
+				corner.some((m) => m.includes('top-right')),
+				`legendPos "tr" is reported; got ${JSON.stringify(corner)}`
+			)
+
+			const honoured = await messagesFor(ChartType.waterfall, {
+				title: 'T',
+				showTitle: true,
+				showLegend: true,
+				legendPos: 'b',
+				showValue: true,
+				subtotals: [1],
+				altText: 'alt',
+				objectName: 'name',
+			})
+			assertEqual(honoured.length, 0, `options a waterfall reads are not reported; got ${JSON.stringify(honoured)}`)
+		},
+	},
+	{
 		// A series shape the chart cannot plot as given lost data without a word: values past the
 		// category count, a bubble series with no sizes (which also wrote the backwards range
 		// `$C$2:$C$1`), and every series after the first on a chart that plots one.

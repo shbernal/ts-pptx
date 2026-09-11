@@ -503,6 +503,68 @@ const SERIES_OPTION_FIELDS: ReadonlyMap<ChartType, ReadonlySet<keyof ChartSeries
 	[ChartType.stock, new Set(['color'] as const)],
 ])
 
+/**
+ * The `ChartOpts` keys a chartEx chart (waterfall, funnel, treemap, sunburst, histogram, pareto,
+ * box and whisker, region map) acts on. Everything else is accepted by the type and read by no part
+ * of a chartEx chart, which PowerPoint styles from its own chart-style sidecar parts instead.
+ *
+ * Keep these in step with what `makeXmlChartEx` (`gen/chart/chartex-xml.ts`) and the chart frame
+ * (`gen/slide/objects/chart.ts`) read. Nothing derives them from those, so a key threaded through
+ * the emitter without being added here goes on warning that it does nothing.
+ *
+ * The frame and the call itself: placement, name, alt text, placeholder and the type.
+ */
+const CHARTEX_FRAME_KEYS = ['type', 'x', 'y', 'w', 'h', 'objectName', 'altText', 'placeholder'] as const
+/** `makeXmlChartEx`: title, legend and data labels. */
+const CHARTEX_CHART_KEYS = [
+	'showTitle',
+	'title',
+	'titleColor',
+	'titleFontFace',
+	'lang',
+	'showLegend',
+	'legendPos',
+	'showValue',
+	'showLabel',
+] as const
+/** The option one layout reads into its `<cx:layoutPr>`, and no other layout does. */
+const CHARTEX_LAYOUT_KEYS: Partial<Record<ChartType, string>> = {
+	[ChartType.waterfall]: 'subtotals',
+	[ChartType.histogram]: 'binning',
+	[ChartType.boxWhisker]: 'statistics',
+	[ChartType.regionMap]: 'geography',
+}
+
+/**
+ * Warn about each option a chartEx chart accepts and ignores, read off the caller's own options
+ * before any default is filled in, so only what the caller stated is named.
+ *
+ * `legendPos: 'tr'` is honoured in part: a chartEx legend has no top-right position, so it sits at
+ * the top, and that is said too.
+ * @param stated - the caller's options, before normalization
+ * @param type - the chart type
+ */
+function reportChartExOptions(stated: ChartOptsInternal, type: ChartType): void {
+	const layoutKey = CHARTEX_LAYOUT_KEYS[type]
+	const read: string[] = [...CHARTEX_CHART_KEYS, ...(layoutKey ? [layoutKey] : [])]
+	const allowed = new Set<string>([...CHARTEX_FRAME_KEYS, ...read])
+	const ignored = Object.keys(stated)
+		.filter((key) => (stated as Record<string, unknown>)[key] !== undefined && !allowed.has(key))
+		.sort()
+	if (ignored.length > 0) {
+		warn(
+			'chart/option-not-supported',
+			`addChart: ${ignored.map((key) => `"${key}"`).join(', ')} ${ignored.length === 1 ? 'has' : 'have'} no effect on a ${type} chart, which reads ${read.join('/')} besides its position and name.`
+		)
+	}
+	if (stated.legendPos === 'tr') {
+		warn(
+			'chart/option-not-supported',
+			`addChart: a ${type} chart has no top-right legend; legendPos "tr" places it at the top.`
+		)
+	}
+}
+
 function normalizeChartOptions(options: ChartOptsInternal): void {
 	options.barGapWidthPct = clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150
 	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
@@ -802,6 +864,8 @@ export function addChartDefinition(
 			{ detail: { types: tmpTypes.map((sub) => sub.type) } }
 		)
 	}
+	// Before `_type` and any default lands on the copy, so it holds exactly what the caller stated.
+	if (!tmpTypes && isChartExType(type)) reportChartExOptions(options, asChartType(type as CHART_NAME))
 	options._type = tmpTypes ?? asChartType(type as CHART_NAME)
 	// Default only what the caller omitted. The guard used to be `!isNaN(Number(x))`, which is
 	// false for every `Coord` that is not a bare number — so `x: '50%'` and `x: '2in'` were

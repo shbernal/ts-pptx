@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chartEx chart accepted most chart options and ignored them without a word.** Waterfall,
+  funnel, treemap, sunburst, histogram, pareto, box and whisker and region map charts read their
+  title, legend and data-label switches and one layout option each, and PowerPoint styles the rest
+  from the chart-style parts. `titleFontSize`, `dataBorder`, `chartColors` and the other options
+  now warn `chart/option-not-supported` naming each one the caller stated. So does a layout
+  option on another layout, such as `subtotals` on a funnel, and `legendPos: 'tr'`, which places
+  a chartEx legend at the top.
+
 - **A chart dropped data from mismatched series without a word.** `addChart` now warns
   `chart/point-count-mismatch` for each case:
   - A series with more values than the chart has categories, or a scatter or bubble series with
