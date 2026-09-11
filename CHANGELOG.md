@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`tableToSlides` ignored `x` when sizing a table and shrank a stated `w`.** The width was the
+  slide width (or `w`) less both slide margins. On a 10in slide `{ x: 3 }` gave a 9in table running
+  to 12in, `{ w: 8 }` gave a 7in table, and `x: 0` placed the table at the 0.5in margin. A stated
+  `w` is now used as given, an unstated one runs from the table's `x` to the right margin (as
+  `addTable` already does), and `x: 0` is honoured.
+
 - **`tableToSlides` sized a table for a `colspan` it then wrote as 1.** An HTML span past the
   1000-track ceiling was read as given when the grid was measured and its rows padded, while the
   auto-pager reset the same cell to span 1. `<td colspan="1500">` over a two-cell row gave a

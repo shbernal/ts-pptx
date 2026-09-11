@@ -36,7 +36,7 @@ import type {
 } from '../../types/index.js'
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal, TableCellInternal, TableToSlidesPropsInternal } from '../../types/internal.js'
-import { inch2Emu, resolveSlideMarginsInches } from '../../units-internal.js'
+import { getSmartParseNumber, inch2Emu, resolveSlideMarginsInches, usableTableWidthEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 import { createRowSpanOccupancy } from './grid.js'
@@ -660,7 +660,6 @@ export function genTableToSlides(
 	// call's *second* page did.
 	const opts: TableToSlidesPropsInternal = { ...options }
 	const masterSlide = resolveMasterSlide(pptx, opts.masterTitle)
-	let emuSlideTabW = opts.w || pptx.presLayout.width
 	const arrObjTabHeadRows: TableCellInternal[][] = []
 	const arrObjTabBodyRows: TableCellInternal[][] = []
 	const arrObjTabFootRows: TableCellInternal[][] = []
@@ -679,7 +678,18 @@ export function genTableToSlides(
 	// for an unstated one here made every deck look like it had asked for the default margin,
 	// which outranks and so suppresses the master's own.
 	arrInchMargins = resolveSlideMarginsInches(masterSlide?._margin, opts.slideMargin)
-	emuSlideTabW = (opts.w ? inch2Emu(opts.w) : pptx.presLayout.width) - inch2Emu(arrInchMargins[1] + arrInchMargins[3])
+	// A stated `w` is the table's width, as given. Otherwise the table runs from its own left edge to
+	// the right slide margin: `usableTableWidthEmu`, the reading `addTable` applies. This took the
+	// slide width (or `w`) less BOTH margins, so it ignored `x` -- `{ x: 3 }` on a 10in slide was
+	// 9in wide and ran to 12in -- and shrank a stated `w: 8` to 7in.
+	const tableXEmu =
+		opts.x === undefined || opts.x === null
+			? inch2Emu(arrInchMargins[3])
+			: getSmartParseNumber(opts.x, 'X', pptx.presLayout)
+	const emuSlideTabW =
+		opts.w === undefined || opts.w === null
+			? usableTableWidthEmu(pptx.presLayout, tableXEmu, arrInchMargins)
+			: getSmartParseNumber(opts.w, 'X', pptx.presLayout)
 
 	if (opts.verbose) {
 		console.log('[[VERBOSE MODE]]')
@@ -920,7 +930,8 @@ export function genTableToSlides(
 
 		// C: Add table to Slide
 		const slideTableProps: TableProps = {
-			x: opts.x || arrInchMargins[3],
+			// `??`: a stated `x: 0` is the left edge of the slide, not a missing `x`.
+			x: opts.x ?? arrInchMargins[3],
 			w: Number(emuSlideTabW) / EMU_PER_INCH,
 			colW: arrColW,
 			autoPage: false,
