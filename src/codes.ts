@@ -263,6 +263,7 @@ export type InvalidOptionErrorCode =
 	// Hyperlinks
 	| 'hyperlink/not-an-object'
 	| 'hyperlink/missing-target'
+	| 'hyperlink/conflicting-targets'
 	// HTML table conversion
 	| 'html/no-document'
 	| 'html/table-not-found'

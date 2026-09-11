@@ -15,6 +15,7 @@ import type {
 	TableCellInternal,
 } from '../../types/internal.js'
 import { getNewRelId, heldRelIds } from '../utils.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * The relationship record one hyperlink serializes to.
@@ -32,10 +33,42 @@ import { getNewRelId, heldRelIds } from '../utils.js'
 export function hyperlinkRel(rId: number, hyperlink: HyperlinkProps): SlideRel {
 	return {
 		type: SlideObjectType.hyperlink,
-		data: hyperlink.slide ? 'slide' : 'dummy',
+		// `url` decides both fields, as it decides the emitted `<a:hlinkClick>`. `validateHyperlink`
+		// refuses a link stating both, which once came out slide-typed with the URL as its target.
+		data: hyperlink.url ? 'dummy' : 'slide',
 		rId,
 		Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
 	}
+}
+
+/**
+ * Refuse a hyperlink the writer cannot express, the same way wherever one is authored.
+ *
+ * A hyperlink names exactly one destination: a `url`, a `slide`, or a slide-show `action`. The image
+ * definer and the run emitter each checked their own subset, and the shape path checked nothing. An
+ * image refused an action-only link that a shape accepted, and nothing refused `url` together with
+ * `slide`: that wrote two `<a:hlinkClick>` into one `<p:cNvPr>`, which allows one, over a slide-typed
+ * relationship whose target was built from the URL.
+ * @param hyperlink - the caller's `hyperlink` option
+ * @param call - the method or option the link was authored through, opening the message
+ */
+export function validateHyperlink(hyperlink: unknown, call: string): asserts hyperlink is HyperlinkPropsInternal {
+	if (typeof hyperlink !== 'object' || hyperlink === null)
+		throw new InvalidOptionError(
+			'hyperlink/not-an-object',
+			`${call}: \`hyperlink\` option should be an object. Ex: \`hyperlink:{url:'https://github.com'}\``
+		)
+	const { url, slide, action } = hyperlink as HyperlinkProps
+	if (url && slide)
+		throw new InvalidOptionError(
+			'hyperlink/conflicting-targets',
+			`${call}: \`hyperlink\` takes one destination but states both \`url\` and \`slide\`.`
+		)
+	if (!url && !slide && !action)
+		throw new InvalidOptionError(
+			'hyperlink/missing-target',
+			`${call}: \`hyperlink\` requires either \`url\`, \`slide\`, or \`action\``
+		)
 }
 
 /**
@@ -64,11 +97,14 @@ type HyperlinkTextObject = (TextProps | SlideObject | TableCellInternal) & {
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
  * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
  * @param {number | string | TextProps | TextProps[] | TableCellInternal[][]} text - text to parse
+ * @param options - options re-applied to each object by index (table cells lose theirs to recursion)
+ * @param call - the method the objects were authored through, for a refused hyperlink's message
  */
 export function createHyperlinkRels(
 	target: PresSlideInternal,
 	text: number | string | SlideObject | TextProps | TextProps[] | TableCellInternal[] | TableCellInternal[][],
-	options?: TextPropsOptions[]
+	options?: TextPropsOptions[],
+	call = 'addText'
 ): void {
 	let textObjs: Array<HyperlinkTextObject | TableCellInternal[]> = []
 
@@ -87,12 +123,15 @@ export function createHyperlinkRels(
 					cellOpts.push(tablecell.options)
 				}
 			})
-			createHyperlinkRels(target, text, cellOpts)
+			createHyperlinkRels(target, text, cellOpts, call)
 			return
 		}
 
 		// IMPORTANT: `options` are lost due to recursion/copy!
 		if (options && options[idx] && options[idx].hyperlink) text.options = { ...text.options, ...options[idx] }
+		// Refused when it is authored rather than when it is written, and by the same rules as an
+		// image's and a run's.
+		if (text.options?.hyperlink) validateHyperlink(text.options.hyperlink, call)
 		if (Array.isArray(text.text)) {
 			// A shape carrying a hyperlink AND a run list needs BOTH walked: its own `hlinkClick` goes
 			// on `p:cNvPr`, its runs' on their `a:rPr`, and they are two elements resolving two ids.
@@ -100,7 +139,7 @@ export function createHyperlinkRels(
 			// relationship nothing had minted -- invisible while `addText`'s bare-string form handed
 			// one options object to both the shape and its run, because the run then minted the id the
 			// shape went on to read off the same object.
-			createHyperlinkRels(target, text.text, options && options[idx] ? [options[idx]] : undefined)
+			createHyperlinkRels(target, text.text, options && options[idx] ? [options[idx]] : undefined, call)
 		}
 		if (
 			text &&
@@ -110,15 +149,10 @@ export function createHyperlinkRels(
 			!(text.options.hyperlink as HyperlinkPropsInternal)._rId
 		) {
 			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
-			// Only a `url` or a `slide` needs a relationship. Two other shapes reach here and mint
-			// nothing, for opposite reasons:
-			//   - A navigation action button (`action` alone) is legitimately rel-free — the
-			//     `ppaction://hlinkshowjump` action is self-contained, so the emitter writes `r:id=""`.
-			//   - A malformed hyperlink (not an object, or no target at all) is not reportable here.
-			//     The run emitter rejects the same input with `hyperlink/not-an-object` /
-			//     `hyperlink/missing-target` when the deck is written; a console line ahead of that
-			//     throw was one fault reported twice, the first time unroutably.
-			if (typeof hyperlink === 'object' && (hyperlink.url || hyperlink.slide)) {
+			// Only a `url` or a `slide` needs a relationship. A navigation action button (`action`
+			// alone) is legitimately rel-free: the `ppaction://hlinkshowjump` action is self-contained,
+			// so the emitter writes `r:id=""`. A malformed hyperlink never gets here; it was refused above.
+			if (hyperlink.url || hyperlink.slide) {
 				registerHyperlinkRel(target, hyperlink)
 			}
 		} else if (

@@ -103,7 +103,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	})
 
 	// 3: Create hyperlink rels
-	createHyperlinkRels(target, newObject)
+	createHyperlinkRels(target, newObject, undefined, 'addShape')
 
 	// 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
 	if (typeof options.fill === 'object' && resolveFillKind(options.fill) === 'image') {

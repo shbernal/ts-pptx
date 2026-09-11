@@ -20,7 +20,7 @@ import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { findLayoutPlaceholder } from './layout-placeholder.js'
 import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
-import { registerHyperlinkRel } from './hyperlinks.js'
+import { registerHyperlinkRel, validateHyperlink } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
 
@@ -121,7 +121,6 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const givenY = opt.y ?? phY
 	const givenW = opt.w ?? phW
 	const givenH = opt.h ?? phH
-	const objHyperlink = opt.hyperlink || ''
 	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.
 	// `data`/`path` win when also supplied, matching the documented precedence.
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
@@ -260,14 +259,12 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		newObject.imageRid = imageRelId
 	}
 
-	// STEP 6: Hyperlink support
-	if (typeof objHyperlink === 'object') {
-		if (!objHyperlink.url && !objHyperlink.slide)
-			throw new InvalidOptionError('hyperlink/missing-target', 'addImage: `hyperlink` requires either `url` or `slide`')
-		else {
-			registerHyperlinkRel(target, objHyperlink)
-			newObject.hyperlink = objHyperlink
-		}
+	// STEP 6: Hyperlink support. An `action` alone needs no relationship: the picture's `<p:cNvPr>`
+	// carries it, as an action button's does.
+	if (opt.hyperlink) {
+		validateHyperlink(opt.hyperlink, 'addImage')
+		if (opt.hyperlink.url || opt.hyperlink.slide) registerHyperlinkRel(target, opt.hyperlink)
+		newObject.hyperlink = opt.hyperlink
 	}
 
 	// STEP 7: Add object to slide

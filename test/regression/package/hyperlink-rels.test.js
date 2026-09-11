@@ -325,8 +325,8 @@ defineRegressionSuite('Hyperlink relationship registration', [
 	{
 		name: 'a `hyperlink` that is not an object is refused while emitting',
 		fn: async () => {
-			// `hyperlink: 'https://…'` is the shape people reach for first. Registration mints no rel
-			// and stays silent; the run emitter is where the condition is reported.
+			// `hyperlink: 'https://…'` is the shape people reach for first. Registration refuses it when
+			// the text is added, by the same rules the run emitter applies when it is written.
 			const error = await failedBuild((p) => {
 				p.addSlide().addText('link', { x: 1, y: 1, w: 4, h: 0.5, hyperlink: 'https://not-an-object.example.com' })
 			})
@@ -347,6 +347,68 @@ defineRegressionSuite('Hyperlink relationship registration', [
 			assert(error, 'a targetless hyperlink must not silently produce a deck')
 			assertEqual(error.code, 'hyperlink/missing-target', 'the emitter error code')
 			assertIncludes(error.message, 'requires either', 'the emitter error')
+		},
+	},
+	{
+		// A hyperlink has one destination. `url` together with `slide` wrote two `<a:hlinkClick>` into
+		// one `<p:cNvPr>`, which allows one, over a slide-typed rel whose target was built from the URL.
+		name: 'a hyperlink stating both url and slide is refused on a shape, an image, a run and a table cell',
+		fn: async () => {
+			const both = { url: 'https://both.example.com', slide: 1 }
+			const authors = {
+				shape: (p) => p.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 1, hyperlink: both }),
+				image: (p) => p.addSlide().addImage({ data: PNG, x: 1, y: 1, w: 1, h: 1, hyperlink: both }),
+				run: (p) =>
+					p.addSlide().addText([{ text: 'link', options: { hyperlink: both } }], { x: 1, y: 1, w: 4, h: 0.5 }),
+				'table cell': (p) =>
+					p.addSlide().addTable([[{ text: 'cell', options: { hyperlink: both } }]], { x: 1, y: 1, w: 4 }),
+			}
+			for (const [label, buildFn] of Object.entries(authors)) {
+				const error = await failedBuild(buildFn)
+				assertEqual(error?.code, 'hyperlink/conflicting-targets', label)
+			}
+		},
+	},
+	{
+		// An image refused `action` alone, which a shape accepted and the picture emitter already writes.
+		name: 'an action-only image hyperlink is written on the picture, with no relationship',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addImage({ data: PNG, x: 1, y: 1, w: 1, h: 1, hyperlink: { action: 'nextslide' } })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(xml, 'action="ppaction://hlinkshowjump?jump=nextslide"', 'the picture cNvPr')
+			const rels = relationships(await readEntry(zip, relsPath(1)))
+			const links = rels.filter((r) => r.type === 'hyperlink' || r.type === 'slide')
+			assertEqual(links.length, 0, 'an action needs no relationship')
+		},
+	},
+	{
+		name: 'a malformed image or shape hyperlink is refused like a run one',
+		fn: async () => {
+			const cases = [
+				{
+					label: 'image, not an object',
+					code: 'hyperlink/not-an-object',
+					buildFn: (p) =>
+						p.addSlide().addImage({ data: PNG, x: 1, y: 1, w: 1, h: 1, hyperlink: 'https://image.example.com' }),
+				},
+				{
+					label: 'shape, no target',
+					code: 'hyperlink/missing-target',
+					buildFn: (p) => p.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 1, hyperlink: {} }),
+				},
+				{
+					label: 'shape, not an object',
+					code: 'hyperlink/not-an-object',
+					buildFn: (p) =>
+						p.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 1, hyperlink: 'https://shape.example.com' }),
+				},
+			]
+			for (const { label, code, buildFn } of cases) {
+				const error = await failedBuild(buildFn)
+				assertEqual(error?.code, code, label)
+			}
 		},
 	},
 ])

@@ -609,7 +609,7 @@ export function addTableDefinition(
 	// (used internally by `tableToSlides()` to not engage recursion - we've already paged the table data, just add this one)
 	if (opt && !opt.autoPage) {
 		// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
-		createHyperlinkRels(target, arrRows)
+		createHyperlinkRels(target, arrRows, undefined, 'addTable')
 
 		// Same timing rule as the hyperlink rels above: resolve cell image fills to media rels
 		// on the slide this table actually landed on.
@@ -665,7 +665,7 @@ export function addTableDefinition(
 				}
 
 				// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
-				createHyperlinkRels(newSlide, slide.rows)
+				createHyperlinkRels(newSlide, slide.rows, undefined, 'addTable')
 
 				// Add rows to new slide. When `rowH` is an array it is keyed by *original* row index,
 				// which no longer matches the per-slide physical row order after pagination; use the

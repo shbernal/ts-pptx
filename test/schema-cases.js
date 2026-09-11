@@ -1255,6 +1255,20 @@ export default [
 		},
 	},
 	{
+		// An action-only hyperlink on a picture: a relationship-less `<a:hlinkClick action>` in the
+		// picture's `<p:cNvPr>`, the element an action button carries.
+		name: 'action-only image hyperlink',
+		fn: async () => {
+			const png =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({ data: png, x: 1, y: 1, w: 1, h: 1, hyperlink: { action: 'nextslide' } })
+				p.addSlide()
+			})
+			await expectNoSchemaErrors(buf, 'action-only-image-hyperlink')
+		},
+	},
+	{
 		// upstream-issue-446: the notes print layout slide-image placeholder. The notesMaster
 		// sldImg placeholder must carry its geometry (off/ext + 1pt black border) and the
 		// notesSlide must carry a bare <p:ph type="sldImg"/> that inherits it, so the slide image

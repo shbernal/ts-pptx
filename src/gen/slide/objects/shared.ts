@@ -137,28 +137,29 @@ export function cNvPrOpen(id: number, name: string | undefined, descr: string, o
 }
 
 /**
- * The `<a:hlinkClick>` children of a shape's `<p:cNvPr>` — a URL link and/or a jump to another
- * slide. Shared by the text and image renderers, which emitted identical copies.
+ * The `<a:hlinkClick>` child of a shape's `<p:cNvPr>`: a URL link, a jump to another slide, or a
+ * slide-show action. Shared by the text and image renderers, which emitted identical copies.
+ *
+ * `<p:cNvPr>` holds at most one, so one destination is written, in that order of precedence. The
+ * three used to be concatenated, which put two in one element for a link stating both `url` and
+ * `slide`; `validateHyperlink` now refuses that link before it gets here.
  *
  * NOTE: the tooltip is passed through UNESCAPED and escaped once by the element builder. Escaping
  * it here as well would emit `&amp;amp;` for a tooltip containing `&`.
  * @param link - the shape's hyperlink, if any
- * @returns zero, one or two `<a:hlinkClick>` elements
+ * @returns zero or one `<a:hlinkClick>` element
  */
 export function cNvPrHyperlink(link: HyperlinkPropsInternal | undefined): string {
 	if (!link) return ''
 	const tooltip = link.tooltip ?? ''
-	return (
-		(link.url ? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip }) : '') +
-		(link.slide
-			? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip, action: 'ppaction://hlinksldjump' })
-			: '') +
-		// Action buttons: a self-contained slide-show navigation action. No relationship, so `r:id`
-		// is emitted empty (schema-optional on CT_Hyperlink; matches PowerPoint's own output).
-		(link.action
-			? voidEl('a:hlinkClick', { 'r:id': '', tooltip, action: `ppaction://hlinkshowjump?jump=${link.action}` })
-			: '')
-	)
+	if (link.url) return voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip })
+	if (link.slide)
+		return voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip, action: 'ppaction://hlinksldjump' })
+	// Action buttons: a self-contained slide-show navigation action. No relationship, so `r:id`
+	// is emitted empty (schema-optional on CT_Hyperlink; matches PowerPoint's own output).
+	if (link.action)
+		return voidEl('a:hlinkClick', { 'r:id': '', tooltip, action: `ppaction://hlinkshowjump?jump=${link.action}` })
+	return ''
 }
 
 /**

@@ -22,6 +22,7 @@ import { createColorElement, namedColorOr, rejectEmptyColor } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
+import { validateHyperlink } from '../define/hyperlinks.js'
 import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -36,7 +37,6 @@ import {
 	clampParaMarginEmu,
 } from './clamp.js'
 import { genXmlInlineMath, genXmlMathParagraph } from './math.js'
-import { InvalidOptionError } from '../../errors.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 /** The 2018 hyperlink-color extension namespace, written on the `<ahyp:hlinkClr>` element itself. */
@@ -485,20 +485,13 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 
 	// Hyperlink support
 	if (opts.hyperlink) {
-		if (typeof opts.hyperlink !== 'object')
-			throw new InvalidOptionError(
-				'hyperlink/not-an-object',
-				"text `hyperlink` option should be an object. Ex: `hyperlink:{url:'https://github.com'}` "
-			)
-		else if (!opts.hyperlink.url && !opts.hyperlink.slide && !opts.hyperlink.action)
-			throw new InvalidOptionError(
-				'hyperlink/missing-target',
-				'text `hyperlink` requires either `url`, `slide`, or `action`'
-			)
+		// The same rules the definers apply. A run reaches here through paths that never registered
+		// its link (notes, for one), so the check stays at the emitter too.
+		validateHyperlink(opts.hyperlink, 'text')
 		// An action-only hyperlink (an action-button navigation) lives on the shape's `<p:cNvPr>`
 		// (see `cNvPrHyperlink`), NOT on the text run — a labeled action button emits no run-level
 		// `<a:hlinkClick>`.
-		else if (opts.hyperlink.url || opts.hyperlink.slide) {
+		if (opts.hyperlink.url || opts.hyperlink.slide) {
 			const link: HyperlinkPropsInternal = opts.hyperlink
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010!
 			// NOTE: `tooltip` is escaped by the builder now (the manual `encodeXmlEntities` is gone), and

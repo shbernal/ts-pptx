@@ -226,6 +226,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: a hyperlink is validated the same way wherever it is authored.** A `hyperlink`
+  stating both `url` and `slide` throws `InvalidOptionError` with `hyperlink/conflicting-targets`.
+  It used to write two `<a:hlinkClick>` into one shape, which allows one, over a slide-typed
+  relationship whose target was built from the URL. `addShape` and `addTable` now refuse a
+  hyperlink that is not an object or names no target when it is added, which a text run already
+  did when written, and `addImage` refuses one that is not an object, which it used to ignore.
+
+  Migration: give each link one of `url`, `slide` or `action`.
+
 - **Breaking: a zero extent is kept on every object and reported, and a `NaN` one is refused.**
   Each method applied its own default for an omitted `w`/`h` and treated `0` its own way.
   `w: 0, h: 0` gave `addMedia` a 2in square, `addChart` half the slide and `addImage` its
@@ -841,6 +850,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **`addImage` refused an action-only hyperlink.** `hyperlink: { action: 'nextslide' }` threw
+  `hyperlink/missing-target` on a picture while a shape accepted it. A picture now takes it and
+  writes it on its `<p:cNvPr>`, with no relationship, like an action button.
 
 - **A slide object could take its frame from a layout object that is not a placeholder.** An
   object naming a placeholder (`addText('x', { placeholder: 'body' })`) inherits options from the
