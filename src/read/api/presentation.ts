@@ -57,14 +57,13 @@ import type {
 	SlideSource,
 } from './presentation-types.js'
 import { cSldName } from '../oxml/slide-dom.js'
-import type { ImportContext } from './ops/part-copy.js'
+import { rebuildClonedPageRels, type ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
 // caller navigates *to*.
 import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
-import { duplicateOwnedTargets } from './ops/page-owned.js'
 import { readEmbeddedFontEntries } from './ops/embedded-fonts.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
@@ -340,19 +339,15 @@ export class Presentation {
 		const newPartName = opc.reservePartNameLike(sourcePart.partName)
 		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 
-		// 2. Copy the slide's relationships (targets resolve identically — same dir).
-		//    Through the live relationship set, not the `.rels` part bytes: a page
-		//    this session imported or edited holds its rels in memory until the deck
-		//    is saved, and copying the bytes gave such a clone no relationships at
-		//    all — a slide whose `r:id`s resolved to nothing.
-		const sourceRels = opc.relationshipsFor(sourcePart.partName)
-		const cloneRels = opc.relationshipsFor(newPartName)
-		for (const rel of sourceRels) cloneRels.addWithId(rel.id, rel.type, rel.target, rel.targetMode)
+		// 2. Give the clone the slide's relationships (targets resolve identically — same dir),
+		//    with copies of the parts the page owned and the shared ones left shared. Through
+		//    the live relationship set, not the `.rels` part bytes: a page this session
+		//    imported or edited holds its rels in memory until the deck is saved, and copying
+		//    the bytes gave such a clone no relationships at all — a slide whose `r:id`s
+		//    resolved to nothing.
+		rebuildClonedPageRels(this, sourcePart, newPartName)
 
-		// 3. Take copies of the parts the page owned, leaving the shared ones shared.
-		duplicateOwnedTargets(opc, sourcePart.partName, newPartName)
-
-		// 4. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
+		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
 		return this.#insertSlidePart(newPart, options.at)
 	}
 

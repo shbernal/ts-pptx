@@ -233,10 +233,11 @@ export function copyPart(
 }
 
 /**
- * What a caller decides about one relationship before the shared rule is asked: leave it out, or
- * point it at a destination part of the caller's choosing. `undefined` hands it to the rule.
+ * What a caller decides about one relationship before the shared rule is asked: leave it out
+ * (`skip`), carry it exactly as the source wrote it (`keep`), or point it at a destination part of
+ * the caller's choosing. `undefined` hands it to the rule.
  */
-export type RelOverride = 'skip' | { target: string } | undefined
+export type RelOverride = 'skip' | 'keep' | { target: string } | undefined
 
 /** What {@link rebuildRels} rebuilds, and the caller's special cases. */
 export interface RebuildRelsOptions {
@@ -271,6 +272,10 @@ export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): vo
 	for (const rel of sourceRels) {
 		const decided = override?.(rel)
 		if (decided === 'skip') continue
+		if (decided === 'keep') {
+			targetRels.addWithId(rel.id, rel.type, rel.target, rel.targetMode)
+			continue
+		}
 		if (decided) {
 			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, decided.target))
 			continue
@@ -289,6 +294,79 @@ export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): vo
 		)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, target))
 	}
+}
+
+/**
+ * Give a page cloned within its own package the source page's relationships, with its own copy of
+ * every part the source page owned.
+ *
+ * The page's shared targets are carried as the source wrote them. Each owned one is repointed at a
+ * fresh copy, and the subtree under it is copied the same way, so a chart's workbook and
+ * user-shapes drawing come along while the image inside that drawing stays shared. A relationship
+ * *back* to the source page — a notes slide names the slide it annotates — is repointed at the
+ * clone, which is what makes the copied notes belong to it.
+ *
+ * Unlike an import, a clone keeps its page's notes, and nothing here consults the copy registry or
+ * the reuse check: every relationship is decided by an override, so {@link copyTraversalStep} is
+ * never asked. A dangling relationship is left dangling rather than made to throw: cloning a
+ * damaged deck is not this function's problem to discover.
+ *
+ * @param dest            the deck both pages live in
+ * @param sourcePart      the page that was cloned
+ * @param clonePartName   partname of the clone, which has no relationships yet
+ */
+export function rebuildClonedPageRels(dest: DeckTarget, sourcePart: Part, clonePartName: string): void {
+	// Within one package the source is the destination.
+	const ctx: ImportContext = { dest, source: dest.opc, registry: new Map() }
+	// Seeded with the page itself, so a back-reference to it lands on the clone.
+	const copies = new Map<string, string>([[sourcePart.partName, clonePartName]])
+	const sourceRels = dest.opc.relationshipsFor(sourcePart.partName)
+	rebuildRels(ctx, {
+		source: sourcePart,
+		newPartName: clonePartName,
+		allowReuse: false,
+		override: (rel) => {
+			if (rel.targetMode === 'External' || isSharedByPageCopies(rel.type)) return 'keep'
+			const target = sourceRels.resolveTarget(rel.id)
+			const fresh = copyOwnedSubtree(ctx, target, copies)
+			return fresh === target ? 'keep' : { target: fresh }
+		},
+	})
+}
+
+/**
+ * Copy `partName` and, recursively, every part it owns, into fresh partnames in the same package.
+ * `copies` dedupes within the one page copy, so a part two of the page's relationships reach is
+ * copied once here even though the next page copy gets its own. Returns the copy's partname, or
+ * `partName` unchanged when there is no such part to copy.
+ */
+function copyOwnedSubtree(ctx: ImportContext, partName: string, copies: Map<string, string>): string {
+	const already = copies.get(partName)
+	if (already !== undefined) return already
+	const opc = ctx.dest.opc
+	const part = opc.part(partName)
+	if (!part) return partName
+
+	const fresh = opc.reservePartNameLike(partName)
+	opc.addPart(fresh, part.contentType, part.serialize())
+	// Record before recursing, so a cycle (a notes slide naming its slide) terminates.
+	copies.set(partName, fresh)
+
+	const sourceRels = opc.relationshipsFor(partName)
+	rebuildRels(ctx, {
+		source: part,
+		newPartName: fresh,
+		allowReuse: false,
+		override: (rel) => {
+			if (rel.targetMode === 'External') return 'keep'
+			const target = sourceRels.resolveTarget(rel.id)
+			// A shared target is still routed through `copies`: that is how the notes
+			// slide's `slide` relationship finds the clone instead of the original.
+			if (isSharedByPageCopies(rel.type)) return { target: copies.get(target) ?? target }
+			return { target: copyOwnedSubtree(ctx, target, copies) }
+		},
+	})
+	return fresh
 }
 
 /**

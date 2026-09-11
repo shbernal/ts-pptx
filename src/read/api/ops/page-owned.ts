@@ -32,8 +32,6 @@
  * that nobody has classified therefore lands on the safe side by default.
  */
 
-import type { OpcPackage } from '../../opc/package.js'
-import { relativePartName } from '../../opc/partnames.js'
 import { SHARED_PARTS } from '../../../ooxml/rel-types.js'
 
 /**
@@ -52,74 +50,4 @@ const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set(SHARED_PARTS.map((kin
  */
 export function isSharedByPageCopies(relType: string): boolean {
 	return SHARED_BY_PAGE_COPIES.has(relType)
-}
-
-/**
- * Give a just-cloned page its own copy of every part the source page owned,
- * within one package. The clone's relationships start as a byte copy of the
- * source page's, so this walks them and repoints the owned ones at fresh parts;
- * shared targets are left alone.
- *
- * The subtree under each owned part is copied the same way, so a chart's workbook
- * and user-shapes drawing come along while the image inside that drawing stays
- * shared. A relationship *back* to the source page — a notes slide names the
- * slide it annotates — is repointed at the clone, which is what makes the copied
- * notes belong to it.
- *
- * A dangling relationship is left dangling rather than made to throw: cloning a
- * damaged deck is not this function's problem to discover.
- *
- * @param opc               the package both pages live in
- * @param sourcePartName    partname of the page that was cloned
- * @param clonePartName     partname of the clone, whose rels are still the source's
- */
-export function duplicateOwnedTargets(opc: OpcPackage, sourcePartName: string, clonePartName: string): void {
-	// Seeded with the page itself, so a back-reference to it lands on the clone.
-	const copies = new Map<string, string>([[sourcePartName, clonePartName]])
-	const rels = opc.relationshipsFor(clonePartName)
-	// Snapshot: the loop repoints relationships, which rewrites the live set.
-	for (const rel of Array.from(rels)) {
-		if (rel.targetMode === 'External' || isSharedByPageCopies(rel.type)) continue
-		const target = rels.resolveTarget(rel.id)
-		const fresh = duplicateSubtree(opc, target, copies)
-		if (fresh === target) continue
-		rels.remove(rel.id)
-		rels.addWithId(rel.id, rel.type, relativePartName(clonePartName, fresh))
-	}
-}
-
-/**
- * Copy `partName` and, recursively, every part it owns, into fresh partnames.
- * `copies` dedupes within the one page copy, so a part two of the page's
- * relationships reach is copied once here even though the next page copy gets its
- * own. Returns the copy's partname, or `partName` unchanged when there is no such
- * part to copy.
- */
-function duplicateSubtree(opc: OpcPackage, partName: string, copies: Map<string, string>): string {
-	const already = copies.get(partName)
-	if (already !== undefined) return already
-	const part = opc.part(partName)
-	if (!part) return partName
-
-	const fresh = opc.reservePartNameLike(partName)
-	opc.addPart(fresh, part.contentType, part.serialize())
-	// Record before recursing, so a cycle (a notes slide naming its slide) terminates.
-	copies.set(partName, fresh)
-
-	const sourceRels = opc.relationshipsFor(partName)
-	const freshRels = opc.relationshipsFor(fresh)
-	for (const rel of sourceRels) {
-		if (rel.targetMode === 'External') {
-			freshRels.addWithId(rel.id, rel.type, rel.target, 'External')
-			continue
-		}
-		const target = sourceRels.resolveTarget(rel.id)
-		// A shared target is still routed through `copies`: that is how the notes
-		// slide's `slide` relationship finds the clone instead of the original.
-		const newTarget = isSharedByPageCopies(rel.type)
-			? (copies.get(target) ?? target)
-			: duplicateSubtree(opc, target, copies)
-		freshRels.addWithId(rel.id, rel.type, relativePartName(fresh, newTarget))
-	}
-	return fresh
 }
