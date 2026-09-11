@@ -5,72 +5,71 @@
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
 import type { BackgroundOption } from '../../types/index.js'
-import type { SlideLayoutInternal } from '../../types/internal.js'
+import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
-
-/**
- * Reduce a slide/layout name to something safe to embed in a media part name.
- *
- * A background rel's `Target` is used twice over: it is written into the `.rels` part *and*,
- * with `..` swapped for `ppt`, used verbatim as the ZIP entry name (`presentation.ts`). A layout's
- * name is caller-supplied (`defineSlideMaster({ title })`), so without this the caller can put
- * arbitrary characters into an OPC part name. XML-escaping does not help — the escaping is
- * undone before the target is resolved, and the ZIP entry is never escaped at all. Demonstrated
- * breakage before this was added:
- *   - `%` produced an invalid percent-escape, so the target would not decode at all
- *   - `?` and `#` began a query/fragment, truncating the resolved path (`what?now-image-1.png`
- *     resolves to `ppt/media/what`, which is not in the package)
- *   - `/` silently pushed the media into a subdirectory
- *
- * So the safe set is the URI "unreserved" characters. Runs of anything else collapse to a
- * single `-` (subsuming the whitespace handling this replaces), leading/trailing punctuation is
- * trimmed, and a name left empty — including an all-non-ASCII one — falls back to `media`.
- * The result is cosmetic: it names the media part, and nothing resolves a layout by it.
- */
-function sanitizeMediaNamePart(name: string): string {
-	const safe = name
-		.replace(/[^A-Za-z0-9._-]+/g, '-')
-		.replace(/^[-.]+/, '')
-		.replace(/[-.]+$/, '')
-	return safe || 'media'
-}
+import { getNewRelId, nextMediaTarget } from '../utils.js'
 
 /**
  * Adds a background image or color to a slide definition.
  *
  * Only an image background does anything here: it is the one that needs a media relationship.
  * A colour — object or the bare-string shorthand — carries no rel and is emitted straight from
- * `slide.background` at serialize time, so it falls through.
+ * `slide.background` at serialize time.
+ *
+ * The rel id and the part name come from the shared allocators. This used to take the id as
+ * `_relsMedia.length + 1`, which a hyperlink or chart rel could already hold, and to name the part
+ * after the slide or layout title. Titles are caller-supplied and different ones sanitize alike,
+ * so "A B" and "A-B", or a layout titled "Slide 1" beside slide 1, wrote one part that both
+ * backgrounds pointed at. {@link nextMediaTarget} keys the name by slide, layout or master, never
+ * by title, so it is unique and needs no sanitizing.
+ *
+ * Called on every assignment, so it replaces what an earlier one registered. A new image takes
+ * over the earlier background's rel in place, keeping its id and its part name, rather than
+ * pushing a second one; replacing it by removal would shift the media count every later part name
+ * is read from. A colour clears the image rel id, which `slideBackgroundXml` checks before it looks
+ * at a colour, so an image replaced by a colour stops painting.
  * @param {BackgroundOption} props - a bare colour, or an object with a colour or image definition
- * @param {PresSlideInternal} target - slide object that the background is set to
+ * @param {SlideLayoutInternal} target - slide or layout that the background is set on
  */
 export function addBackgroundDefinition(props: BackgroundOption | undefined, target: SlideLayoutInternal): void {
-	// Handle media
-	if (props && typeof props === 'object' && (props.path || props.data)) {
-		// The `data:` mime wins over `path`, as it does for `addImage()`: a background supplied as
-		// bytes alone used to fall back on the `preencoded.png` placeholder path and declare
-		// `image/png` no matter what it actually carried, so `{ data: 'data:image/svg+xml;…' }`
-		// shipped SVG bytes in a part the package announced as PNG.
-		let strImgExtn = imageExtensionForSource(props.path || '', props.data || '')
-		if (strImgExtn === 'jpg') strImgExtn = 'jpeg' // base64-encoded jpg's come out as "data:image/jpeg;base64,/9j/[...]", so correct exttnesion to avoid content warnings at PPT startup
+	if (!(props && typeof props === 'object' && (props.path || props.data))) {
+		delete target._bkgdImgRid
+		return
+	}
+
+	// The `data:` mime wins over `path`, as it does for `addImage()`: a background supplied as
+	// bytes alone used to fall back on the `preencoded.png` placeholder path and declare
+	// `image/png` no matter what it actually carried, so `{ data: 'data:image/svg+xml;…' }`
+	// shipped SVG bytes in a part the package announced as PNG.
+	let strImgExtn = imageExtensionForSource(props.path || '', props.data || '')
+	if (strImgExtn === 'jpg') strImgExtn = 'jpeg' // base64-encoded jpg's come out as "data:image/jpeg;base64,/9j/[...]", so correct exttnesion to avoid content warnings at PPT startup
+	const source = {
 		// Allow the use of only the data key (`path` isnt reqd). Kept local: `props` is the
 		// caller's own object on the `slide.background =` path, not a clone.
-		const strImgPath = props.path || `preencoded.${strImgExtn}`
-
-		target._relsMedia = target._relsMedia || []
-		const intRels = target._relsMedia.length + 1
-		// NOTE: `Target` cannot have spaces (eg:"Slide 1-image-1.jpg") or a "presentation is corrupt"
-		// warning comes up — `sanitizeMediaNamePart` covers that case along with the rest.
-		target._relsMedia.push({
-			path: strImgPath,
-			type: imageContentType(strImgExtn),
-			extn: strImgExtn,
-			// A path-only background carries no `data` key at all until `gen/media.ts` loads one;
-			// writing `undefined` here would be a second spelling of the state that pass tests for.
-			...(props.data ? { data: props.data } : {}),
-			rId: intRels,
-			Target: `../media/${sanitizeMediaNamePart(target._name || '')}-image-${target._relsMedia.length + 1}.${strImgExtn}`,
-		})
-		target._bkgdImgRid = intRels
+		path: props.path || `preencoded.${strImgExtn}`,
+		type: imageContentType(strImgExtn),
+		extn: strImgExtn,
+		// A path-only background carries no `data` key at all until `gen/media.ts` loads one;
+		// writing `undefined` here would be a second spelling of the state that pass tests for.
+		...(props.data ? { data: props.data } : {}),
 	}
+
+	const previous = target._relsMedia.findIndex((rel) => rel.rId === target._bkgdImgRid)
+	const replaced = target._relsMedia[previous]
+	if (replaced) {
+		target._relsMedia[previous] = {
+			...source,
+			rId: replaced.rId,
+			Target: replaced.Target.replace(/\.[^./]+$/, `.${strImgExtn}`),
+		}
+		return
+	}
+
+	// The allocators take a slide. A layout carries the same rel lists and a slide number of its
+	// own, which is all they read, and `master.ts` passes one the same way.
+	const slide = target as PresSlideInternal
+	const rId = getNewRelId(slide)
+	// `nextMediaTarget` reads the media count before this push, so it stays in the literal.
+	target._relsMedia.push({ ...source, rId, Target: nextMediaTarget(slide, 'image', strImgExtn) })
+	target._bkgdImgRid = rId
 }

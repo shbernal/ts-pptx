@@ -808,6 +808,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An image background could share a relationship id or a media part with something else.**
+  `slide.background` and `defineSlideMaster({ background })` numbered the image's relationship
+  from the media list alone, so a slide or layout that already held a hyperlink or chart
+  relationship got two `rId1`s. They also named the media part after the slide or layout title,
+  and different titles sanitize to the same name: masters titled "A B" and "A-B", or a master
+  titled "Slide 1" beside slide 1, wrote one part and both backgrounds showed whichever image won.
+  Both now go through the allocators every other media relationship uses, which name the part by
+  slide or layout and never by title. Assigning a background again now replaces the image
+  relationship instead of adding a second one, and assigning a colour after an image paints the
+  colour, where it used to keep painting the image.
+
 - **A linked or missing picture bullet image made `bulletDetail` throw.** A paragraph's
   `a:buBlip` embed was resolved straight through the relationships, which throw on an id that
   names no relationship and on an External target. The same embed on a picture already reads
