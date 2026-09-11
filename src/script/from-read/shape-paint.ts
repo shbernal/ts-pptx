@@ -12,12 +12,13 @@
 import type { AnyShape } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { type IrValue } from '../ir.js'
+import { LINE_END_TYPES } from '../../ooxml/st-enums.js'
 import { alphaToTransparency, colorOption, compact, orUndefined, WRITABLE_DASHES } from './values.js'
 import { type FillSubject, gradientStops, surfaceFill } from './surface-fill.js'
 import { type MapContext } from './context.js'
 
-/** Arrowhead types `ShapeLineProps` accepts; `a:headEnd/@type` uses the same tokens. */
-const WRITABLE_ARROWS = new Set(['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'])
+/** Arrowhead types `ShapeLineProps` accepts: every `ST_LineEndType`, the tokens `a:headEnd/@type` uses. */
+const WRITABLE_ARROWS: ReadonlySet<string> = new Set<string>(LINE_END_TYPES)
 
 /**
  * `a:ln/@cap` tokens → the `ShapeLineProps.cap` spelling that authors them. The read side

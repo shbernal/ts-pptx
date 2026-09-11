@@ -26,6 +26,8 @@
  */
 import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
 import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
+import { TEXT_VERTICAL } from '../../ooxml/st-enums.js'
+import type { TextBulletProps } from '../../types/text.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
 import {
@@ -48,34 +50,41 @@ const ALIGN: Record<string, string> = { l: 'left', ctr: 'center', r: 'right', ju
 /** `AutofitMode` → the write API's `fit`. */
 const FIT: Record<string, string> = { none: 'none', normAutofit: 'shrink', spAutoFit: 'resize' }
 
-/** `a:bodyPr/@vert` values the write API's `vert` accepts (`TextVertType`). */
-const WRITABLE_VERT = new Set(['eaVert', 'horz', 'mongolianVert', 'vert', 'vert270', 'wordArtVert', 'wordArtVertRtl'])
+/**
+ * `a:bodyPr/@vert` values the write API's `vert` accepts. `TextVertType` is the whole
+ * `ST_TextVerticalType`, so this is `TEXT_VERTICAL` itself, and `text.vert` fires only for a token
+ * outside the schema.
+ */
+const WRITABLE_VERT: ReadonlySet<string> = new Set<string>(TEXT_VERTICAL)
 
 /**
  * The `a:buAutoNum/@type` values the write API's `numberType` names.
  *
  * This used to be the *discriminator* between a numbered and a character bullet, back when
  * the read model reported both as one tagged string. `BulletDetail.kind` does that now, so
- * the set has one job left: telling a scheme the write path can spell from one it cannot.
+ * the lookup has one job left: telling a scheme the write path can spell from one it cannot.
+ *
+ * A `Record` over the write union, like `WRITABLE_TYPES` in `transition.ts`, so the compiler
+ * rejects a scheme the union lacks and one it gains that is missing here.
  */
-const AUTO_NUMBER_TYPES = new Set([
-	'alphaLcParenBoth',
-	'alphaLcParenR',
-	'alphaLcPeriod',
-	'alphaUcParenBoth',
-	'alphaUcParenR',
-	'alphaUcPeriod',
-	'arabicParenBoth',
-	'arabicParenR',
-	'arabicPeriod',
-	'arabicPlain',
-	'romanLcParenBoth',
-	'romanLcParenR',
-	'romanLcPeriod',
-	'romanUcParenBoth',
-	'romanUcParenR',
-	'romanUcPeriod',
-])
+const AUTO_NUMBER_TYPES: Record<NonNullable<TextBulletProps['numberType']>, true> = {
+	alphaLcParenBoth: true,
+	alphaLcParenR: true,
+	alphaLcPeriod: true,
+	alphaUcParenBoth: true,
+	alphaUcParenR: true,
+	alphaUcPeriod: true,
+	arabicParenBoth: true,
+	arabicParenR: true,
+	arabicPeriod: true,
+	arabicPlain: true,
+	romanLcParenBoth: true,
+	romanLcParenR: true,
+	romanLcPeriod: true,
+	romanUcParenBoth: true,
+	romanUcParenR: true,
+	romanUcPeriod: true,
+}
 
 /**
  * `Paragraph.bulletDetail` → the write API's `bullet` option.
@@ -108,7 +117,7 @@ function bulletOption(bullet: BulletDetail, notes: NoteScope): IrValue {
 	const style = bulletStyle(bullet, notes)
 
 	if (bullet.kind === 'autoNum') {
-		if (!AUTO_NUMBER_TYPES.has(bullet.scheme)) {
+		if (!Object.hasOwn(AUTO_NUMBER_TYPES, bullet.scheme)) {
 			notes.note(
 				'text.bullet.numberType',
 				'approximated',

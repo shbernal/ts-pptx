@@ -17,6 +17,7 @@
  */
 import type { CellBorder, Table, TableCell } from '../../read/api/table.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
+import type { TextBaseProps } from '../../types/text.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
 import type { MapContext } from './context.js'
@@ -232,21 +233,29 @@ function cellThreeD(cell: TableCell): IrValue | undefined {
 	)
 }
 
-/** The `ST_TextVerticalType` values `TextBaseProps.textDirection` accepts. */
-const WRITABLE_TEXT_DIRECTIONS = new Set(['horz', 'vert', 'vert270', 'wordArtVert'])
+/**
+ * The `ST_TextVerticalType` values `TextBaseProps.textDirection` accepts, as a `Record` over that
+ * union so the compiler catches a direction either side gains.
+ */
+const WRITABLE_TEXT_DIRECTIONS: Record<NonNullable<TextBaseProps['textDirection']>, true> = {
+	horz: true,
+	vert: true,
+	vert270: true,
+	wordArtVert: true,
+}
 
 /**
  * A cell's `a:tcPr/@vert` as the write API's `textDirection`.
  *
- * `ST_TextVerticalType` has nine values and the write option covers four. The rest
- * (`eaVert`, `mongolianVert`, the WordArt right-to-left variants) are East-Asian layout
+ * `ST_TextVerticalType` has seven values and the write option covers four. The other three
+ * (`eaVert`, `mongolianVert` and `wordArtVertRtl`) are East-Asian and right-to-left layout
  * modes with no `TextBaseProps` spelling, so they are noted rather than written — passing
  * one straight through would put a value the option does not admit into the attribute.
  */
 function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefined {
 	const vert = cell.verticalText
 	if (vert === null || vert === 'horz') return undefined
-	if (WRITABLE_TEXT_DIRECTIONS.has(vert)) return vert
+	if (Object.hasOwn(WRITABLE_TEXT_DIRECTIONS, vert)) return vert
 	notes.note(
 		'table.cell.vert',
 		'dropped',
