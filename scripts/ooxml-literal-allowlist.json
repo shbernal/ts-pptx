@@ -1,0 +1,137 @@
+[
+	{
+		"file": "src/gen/chart/embed-xlsx.ts",
+		"literal": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+		"reason": "SpreadsheetML main namespace. Only the chart's embedded workbook writes SpreadsheetML, and nothing in the library reads it."
+	},
+	{
+		"file": "src/gen/chart/embed-xlsx.ts",
+		"literal": "application/vnd.openxmlformats-officedocument.spreadsheetml.",
+		"reason": "Prefix of the embedded workbook's own part content types (workbook, worksheet, styles, shared strings, table). Only this module writes those parts."
+	},
+	{
+		"file": "src/gen/chart/embed-xlsx.ts",
+		"literal": "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main",
+		"reason": "The x15 SpreadsheetML extension namespace, written only into the embedded workbook."
+	},
+	{
+		"file": "src/gen/chart/embed-xlsx.ts",
+		"literal": "http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac",
+		"reason": "The x14ac SpreadsheetML extension namespace, written only into the embedded workbook's worksheet."
+	},
+	{
+		"file": "src/gen/chart/plot-scatter.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2014/chart",
+		"reason": "The c16 chart extension namespace, declared only on the scatter plot's data-label extension."
+	},
+	{
+		"file": "src/gen/define/ole.ts",
+		"literal": "application/vnd.openxmlformats-officedocument.",
+		"reason": "Prefix for the OLE payload formats this table alone names (docx, and the generic oleObject blob). The xlsx and pptx types it shares with other modules come from rel-types.ts."
+	},
+	{
+		"file": "src/gen/define/ole.ts",
+		"literal": "application/vnd.ms-excel.sheet.macroEnabled.12",
+		"reason": "Content type of an embedded .xlsm payload. Only the OLE payload table names it."
+	},
+	{
+		"file": "src/gen/define/ole.ts",
+		"literal": "application/vnd.ms-word.document.macroEnabled.12",
+		"reason": "Content type of an embedded .docm payload. Only the OLE payload table names it."
+	},
+	{
+		"file": "src/gen/define/ole.ts",
+		"literal": "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
+		"reason": "Content type of an embedded .pptm payload. Only the OLE payload table names it."
+	},
+	{
+		"file": "src/gen/drawingml/text-run.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor",
+		"reason": "The hyperlink-colour extension namespace, written only by the text-run emitter."
+	},
+	{
+		"file": "src/gen/opc/custom-props.ts",
+		"literal": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
+		"reason": "Default namespace of docProps/custom.xml, declared only by the custom-properties part writer."
+	},
+	{
+		"file": "src/gen/pres/theme.ts",
+		"literal": "http://schemas.microsoft.com/office/thememl/2012/main",
+		"reason": "The thm15 theme extension namespace. The theme emitter is the only module that builds it; the embedded workbook's copy sits inside a captured @raw-xml-asset theme and is not a second spelling."
+	},
+	{
+		"file": "src/gen/slide/object.ts",
+		"literal": "http://schemas.microsoft.com/office/mac/drawingml/2011/main",
+		"reason": "The ma14 Mac DrawingML extension namespace, written only by the slide-object emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/chart.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
+		"reason": "The dated chartEx namespace a waterfall frame declares. Only the chartEx frame emitter's per-type table names it."
+	},
+	{
+		"file": "src/gen/slide/objects/chart.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
+		"reason": "The dated chartEx namespace a funnel frame declares. Only the chartEx frame emitter's per-type table names it."
+	},
+	{
+		"file": "src/gen/slide/objects/chart.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2016/5/10/chartex",
+		"reason": "The dated chartEx namespace a region-map frame declares. Only the chartEx frame emitter's per-type table names it."
+	},
+	{
+		"file": "src/gen/slide/objects/model3d.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2017/model3d",
+		"reason": "The am3d namespace, written only by the 3D model frame emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/ole.ts",
+		"literal": "http://schemas.openxmlformats.org/presentationml/2006/ole",
+		"reason": "The graphicData URI of an OLE object frame, written only by the OLE frame emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/zoom.ts",
+		"literal": "http://schemas.microsoft.com/office/powerpoint/2016/slidezoom",
+		"reason": "The slide-zoom graphicData URI, written only by the zoom frame emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/zoom.ts",
+		"literal": "http://schemas.microsoft.com/office/powerpoint/2016/sectionzoom",
+		"reason": "The section-zoom graphicData URI, written only by the zoom frame emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/zoom.ts",
+		"literal": "http://schemas.microsoft.com/office/powerpoint/2016/summaryzoom",
+		"reason": "The summary-zoom graphicData URI, written only by the zoom frame emitter."
+	},
+	{
+		"file": "src/gen/slide/objects/zoom.ts",
+		"literal": "http://schemas.microsoft.com/office/powerpoint/2016/6/main",
+		"reason": "The p166 namespace of the zoom elements, written only by the zoom frame emitter."
+	},
+	{
+		"file": "src/read/api/comments.ts",
+		"literal": "http://schemas.microsoft.com/office/2018/10/relationships/comments",
+		"reason": "The 2018 modern-comments relationship type. Only the comments reader follows it; nothing writes modern comments."
+	},
+	{
+		"file": "src/read/api/comments.ts",
+		"literal": "application/vnd.ms-powerpoint.comments+xml",
+		"reason": "Content type of a 2018 modern-comments part. Only the comments reader matches on it; nothing writes modern comments."
+	},
+	{
+		"file": "src/read/api/presentation.ts",
+		"literal": "application/vnd.openxmlformats-officedocument.presentationml.template.main+xml",
+		"reason": "The main-part content type of a .potx template, matched only when a template is loaded. The writer never produces one."
+	},
+	{
+		"file": "src/read/api/shapes/base.ts",
+		"literal": "http://schemas.microsoft.com/office/drawing/2017/decorative",
+		"reason": "The adec decorative-flag extension namespace, read only by the shape base accessor."
+	},
+	{
+		"file": "src/read/api/tags.ts",
+		"literal": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags",
+		"reason": "The tags relationship type, followed only by the tags reader; rel-types.ts names tags as a single-module rel type."
+	}
+]

@@ -7,6 +7,7 @@
 
 import { XML_DECL } from '../../constants-internal.js'
 import { el, raw } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** Each property sits on its own indented line; the parent supplies the closing indent. */
 const PROP = { openPrefix: '\n\t\t' }
@@ -17,9 +18,9 @@ const PROP = { openPrefix: '\n\t\t' }
  * package of its own and so has a core-properties part of its own.
  */
 export const CORE_PROPS_NS = {
-	'xmlns:cp': 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
-	'xmlns:dc': 'http://purl.org/dc/elements/1.1/',
-	'xmlns:dcterms': 'http://purl.org/dc/terms/',
+	'xmlns:cp': OOXML_NS.cp,
+	'xmlns:dc': OOXML_NS.dc,
+	'xmlns:dcterms': OOXML_NS.dcterms,
 	'xmlns:dcmitype': 'http://purl.org/dc/dcmitype/',
 	'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
 }

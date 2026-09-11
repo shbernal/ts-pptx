@@ -84,7 +84,7 @@ const MESSAGE_SINKS = new Set(['warn', 'note'])
 const ASSET_MARKER = '@raw-xml-asset'
 
 /** @param {string} dir @returns {string[]} */
-function tsFilesUnder(dir) {
+export function tsFilesUnder(dir) {
 	return fs
 		.readdirSync(dir, { withFileTypes: true })
 		.flatMap((entry) =>
@@ -152,9 +152,11 @@ export function findingsIn(file) {
  * instead of a fixture file on disk.
  * @param {string} text TypeScript source
  * @param {string} [fileName] name used for the synthetic source file
+ * @param {RegExp} [pattern] what each literal is searched for, as a global regex. The OOXML literal
+ *   gate runs this same walk, and so the same exemptions, for schema URIs and content types.
  * @returns {Array<{ line: number, text: string }>}
  */
-export function scanSource(text, fileName = 'input.ts') {
+export function scanSource(text, fileName = 'input.ts', pattern = TAG_DELIMITER) {
 	const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true)
 	/** @type {Array<{ line: number, text: string }>} */
 	const found = []
@@ -168,7 +170,7 @@ export function scanSource(text, fileName = 'input.ts') {
 			!isMessageArgument(node) &&
 			!isCapturedAsset(node, text)
 		) {
-			for (const match of node.text.matchAll(TAG_DELIMITER)) {
+			for (const match of node.text.matchAll(pattern)) {
 				const { line } = source.getLineAndCharacterOfPosition(node.getStart(source))
 				found.push({ line: line + 1, text: match[0] })
 			}

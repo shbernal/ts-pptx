@@ -90,7 +90,7 @@ export type DiagramConnectionType = 'parOf' | 'presOf' | 'presParOf' | 'unknownR
 const CONNECTION_TYPES: readonly string[] = ['parOf', 'presOf', 'presParOf', 'unknownRelationship']
 
 /** The MS extension (`dgm:extLst/a:ext`) whose `@relId` names the fallback drawing part. */
-const DRAWING_EXT_URI = 'http://schemas.microsoft.com/office/drawing/2008/diagram'
+const DRAWING_EXT_URI = OOXML_NS.dsp
 
 /**
  * One edge of a diagram's data model (`dgm:cxn`) — an attribute-only element, so it reads as

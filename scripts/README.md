@@ -69,6 +69,7 @@ are in every aggregate the repo has.
 | `png-utils.mjs` | Library | Minimal PNG encode/decode, for the gates that read pixels | `powerpoint-com-smoke.mjs`; unit-tested |
 | `powerpoint-com-smoke.mjs` | Gate | Opens decks in desktop PowerPoint over COM | manual, Windows only (`test:com`) |
 | `pptx-parts.mjs` | Library | Explode/diff `.pptx` packages | — |
+| `ooxml-literal-gate.mjs` | Gate | Schema URI and content-type literals outside `src/ooxml/` vs `ooxml-literal-allowlist.json`, each with its reason | `check:core` |
 | `raw-xml-ratchet.mjs` | Gate | Hand-built XML per file vs `raw-xml-budget.json` | `check:core` |
 | `read-blindness-census.mjs` | Diagnostic | Which OOXML the read model never looks at | manual (`read:census`) |
 | `read-emit-edits.mjs` | Generator | Edited decks for the manual PowerPoint check | manual |
