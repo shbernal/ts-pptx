@@ -23,6 +23,7 @@ import { imageContentType, imageExtensionForSource } from '../../media/content-t
 import { ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
+import { findLayoutPlaceholder } from './layout-placeholder.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
 
@@ -131,13 +132,7 @@ export function addTextDefinition(
 
 			// A.3: Text targeting a placeholder need to inherit the placeholders options (eg: margin, valign, etc.)
 			if (itemOpts.placeholder && target._slideLayout && target._slideLayout._slideObjects) {
-				const placeHold = target._slideLayout._slideObjects.filter(
-					(item) =>
-						item._type === SlideObjectType.placeholder &&
-						item.options &&
-						item.options.placeholder &&
-						item.options.placeholder === itemOpts.placeholder
-				)[0]
+				const placeHold = findLayoutPlaceholder(target._slideLayout, itemOpts.placeholder)
 				if (placeHold?.options) {
 					// A placeholder SUPPLIES an option; it never IMPOSES one. Every key the caller wrote
 					// on this bag wins, and the placeholder fills in the rest -- which is what "text

@@ -18,6 +18,7 @@ import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
+import { findLayoutPlaceholder } from './layout-placeholder.js'
 import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
 import { registerHyperlinkRel } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -105,9 +106,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	let phW: Coord | undefined
 	let phH: Coord | undefined
 	if (opt.placeholder && target._slideLayout?._slideObjects) {
-		const placeHold = target._slideLayout._slideObjects.find(
-			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
-		)
+		const placeHold = findLayoutPlaceholder(target._slideLayout, opt.placeholder)
 		if (placeHold?.options) {
 			phX = placeHold.options.x
 			phY = placeHold.options.y

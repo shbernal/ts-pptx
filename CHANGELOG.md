@@ -842,6 +842,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A slide object could take its frame from a layout object that is not a placeholder.** An
+  object naming a placeholder (`addText('x', { placeholder: 'body' })`) inherits options from the
+  layout when it is defined and its frame and `<p:ph>` when it is written. Definition matched only
+  the layout's placeholders, but writing matched any layout object carrying a `placeholder`
+  option, so a master's plain text box with `placeholder: 'body'` gave the slide object its
+  position and size. Both now match placeholders only, and `addImage` and `addTable` use the same
+  lookup.
+
 - **A connector with `width: 0` wrote no line width.** A shape and a line-shaped text box take the
   1pt default for a zero width, and a connector kept the zero, which the emitter then left out, so
   the stroke fell back to the theme's width. All three now apply the same outline defaults, and a

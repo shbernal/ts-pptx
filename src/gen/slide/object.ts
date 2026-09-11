@@ -35,6 +35,7 @@ import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { cNvPrOpen, grpXfrmEl, type RenderContext, type RendererTable } from './objects/shared.js'
 // Not a renderer: it measures the box an image is drawn in, which a group's bounds need, and emits no XML.
 import { resolveImageExtent } from './objects/image-extent.js'
+import { findLayoutPlaceholder } from '../define/layout-placeholder.js'
 import { collectSlideShapeIds, shapeIdCount } from './shape-ids.js'
 import { InternalError } from '../../errors.js'
 import {
@@ -146,14 +147,9 @@ interface ObjectFrame {
 function resolveObjectFrame(obj: SlideObject, slide: PresSlideInternal | SlideLayoutInternal): ObjectFrame {
 	const itemOpts = obj.options ?? {}
 	const layout = slide._presLayout
-	const slideLayout = (slide as PresSlideInternal)._slideLayout
-	const wantedPlaceholder = itemOpts.placeholder
-	const placeholder =
-		slideLayout?._slideObjects !== undefined && wantedPlaceholder
-			? (slideLayout._slideObjects.filter(
-					(object: SlideObject) => object.options?.placeholder === wantedPlaceholder
-				)[0] ?? null)
-			: null
+	// The same lookup the definers use, so the frame and `<p:ph>` come from the placeholder the
+	// object's options were inherited from.
+	const placeholder = findLayoutPlaceholder((slide as PresSlideInternal)._slideLayout, itemOpts.placeholder)
 
 	const phOpts = placeholder?.options ?? {}
 	const inherited = <T>(own: T | undefined, ph: T | undefined): T | undefined =>

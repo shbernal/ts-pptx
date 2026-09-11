@@ -34,6 +34,7 @@ import {
 	usableTableWidthEmu,
 } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
+import { findLayoutPlaceholder } from './layout-placeholder.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { resolveFillKind } from '../drawingml/fill.js'
@@ -351,9 +352,7 @@ export function addTableDefinition(
 	// text placeholder inheritance. Explicit values always win; this only fills the gaps so
 	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
 	if (opt.placeholder && slideLayout?._slideObjects) {
-		const placeHold = slideLayout._slideObjects.find(
-			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
-		)
+		const placeHold = findLayoutPlaceholder(slideLayout, opt.placeholder)
 		if (placeHold?.options) {
 			// A placeholder that states none of its own leaves the gap open for the fallback
 			// below to fill, so the key stays absent rather than being written as `undefined`.
