@@ -199,6 +199,7 @@ export type InvalidOptionErrorCode =
 	| 'chart/unknown-type'
 	| 'chart/secondary-axis-unused'
 	| 'chart/axis-count-mismatch'
+	| 'chart/too-many-columns'
 	// Shapes and connectors
 	| 'shape/missing-type'
 	| 'shape/unknown-preset'

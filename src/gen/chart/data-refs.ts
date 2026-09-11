@@ -11,6 +11,7 @@
  */
 
 import { LETTERS } from '../../constants-internal.js'
+import { InvalidOptionError } from '../../errors.js'
 import type { OptsChartDataInternal } from '../../types/internal.js'
 
 // ===== Series-data accessors =====
@@ -26,26 +27,31 @@ export const firstLabelGroup = (d: OptsChartDataInternal | undefined): string[] 
 
 // ===== Worksheet-cell references =====
 
+/** The last column a worksheet has, `XFD`. */
+const MAX_WORKSHEET_COLUMN = 16384
+
 /**
- * Calc and return excel column name for a given column length
- * @param colIndex column index
+ * The worksheet column name for a 1-based column index: `A` to `Z`, `AA` to `ZZ`, `AAA` to `XFD`.
+ *
+ * Column names are bijective base 26. There is no zero digit, so each step takes one off before
+ * dividing. This used to handle two letters at most, and column 703 came out as `undefinedA`.
+ * @param colIndex column index, 1-based
  * @return column name
  * @example 1 returns 'A'
  * @example 27 returns 'AA'
+ * @example 703 returns 'AAA'
  */
 export function getExcelColName(colIndex: number): string {
-	let colStr: string
-	const colIdx = colIndex - 1 // Subtract 1 so `LETTERS[columnIndex]` returns "A" etc
-
-	if (colIdx <= 25) {
-		// A-Z
-		colStr = LETTERS[colIdx] ?? ''
-	} else {
-		// AA-ZZ (ZZ = index 702)
-		colStr = `${LETTERS[Math.floor(colIdx / LETTERS.length - 1)]}${LETTERS[colIdx % LETTERS.length]}`
+	if (colIndex > MAX_WORKSHEET_COLUMN)
+		throw new InvalidOptionError(
+			'chart/too-many-columns',
+			`A chart's worksheet would need column ${colIndex}, past XFD (column ${MAX_WORKSHEET_COLUMN}), the last column a worksheet has. Split the data across more than one chart.`
+		)
+	let name = ''
+	for (let n = colIndex; n > 0; n = Math.floor((n - 1) / LETTERS.length)) {
+		name = `${LETTERS[(n - 1) % LETTERS.length] ?? ''}${name}`
 	}
-
-	return colStr
+	return name
 }
 
 /**

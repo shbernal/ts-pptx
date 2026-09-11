@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chart with more than 702 worksheet columns referenced columns named `undefined`.** Column
+  names were converted for one or two letters only, so column 703 came out as `undefinedA` in
+  every series formula and in the embedded workbook's `<dimension>`. Names now run through `XFD`,
+  the last column a worksheet has, and a chart that would need a column past it throws
+  `InvalidOptionError` with `chart/too-many-columns`.
+
 - **`addImage` refused an action-only hyperlink.** `hyperlink: { action: 'nextslide' }` threw
   `hyperlink/missing-target` on a picture while a shape accepted it. A picture now takes it and
   writes it on its `<p:cNvPr>`, with no relationship, like an action button.
