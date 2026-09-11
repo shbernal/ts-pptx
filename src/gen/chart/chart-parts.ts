@@ -1134,6 +1134,11 @@ export function catRefBlock(kind: 'num' | 'str', ref: string, labels: string[], 
  * their arrays to the range instead and let the default stand. Both spellings mean the same
  * thing, and having only one of them derived by accident is how they drifted apart.
  *
+ * Values past `ptCount` are not cached. The range has no cells for them and the workbook does not
+ * write them, so a category series with more values than categories used to cache
+ * `<c:pt idx="2">` after `<c:ptCount val="2"/>`, which the reader then reported as a mismatch in
+ * the library's own output. `addChartDefinition` warns about the dropped values.
+ *
  * @param tag - the wrapping element: `c:val`, `c:xVal`, `c:yVal` or `c:bubbleSize`
  * @param ref - the `<c:f>` formula, from {@link sheetRangeRef} or written inline
  * @param formatCode - the cached `<c:formatCode>`
@@ -1150,7 +1155,12 @@ export function numRefBlock(
 	const numCache = el('c:numCache', null, [
 		raw(el('c:formatCode', null, formatCode)),
 		raw(voidEl('c:ptCount', { val: ptCount })),
-		raw(values.map((value, idx) => numCachePt(idx, value)).join('')),
+		raw(
+			values
+				.slice(0, ptCount)
+				.map((value, idx) => numCachePt(idx, value))
+				.join('')
+		),
 	])
 	const numRef = el('c:numRef', null, [raw(el('c:f', null, ref)), raw(numCache)])
 	return el(tag, null, raw(numRef))

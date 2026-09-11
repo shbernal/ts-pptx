@@ -505,6 +505,69 @@ defineRegressionSuite('Chart option validation', [
 		},
 	},
 	{
+		// A series shape the chart cannot plot as given lost data without a word: values past the
+		// category count, a bubble series with no sizes (which also wrote the backwards range
+		// `$C$2:$C$1`), and every series after the first on a chart that plots one.
+		name: 'series the chart cannot plot as given are reported',
+		fn: async () => {
+			const cases = [
+				['more values than labels', ChartType.bar, [{ name: 'S', labels: ['a', 'b'], values: [1, 2, 3, 4] }]],
+				[
+					'more values than labels on a chartEx chart',
+					ChartType.waterfall,
+					[{ name: 'W', labels: ['a', 'b'], values: [1, 2, 3] }],
+				],
+				[
+					'more Y values than X values',
+					ChartType.scatter,
+					[
+						{ name: 'X', values: [1, 2] },
+						{ name: 'Y', values: [3, 4, 5] },
+					],
+				],
+				[
+					'a bubble series with no sizes',
+					ChartType.bubble,
+					[
+						{ name: 'X', values: [1, 2] },
+						{ name: 'Y', values: [3, 4] },
+					],
+				],
+				[
+					'a doughnut with two series',
+					ChartType.doughnut,
+					[
+						{ name: 'A', labels: ['a', 'b'], values: [1, 2] },
+						{ name: 'B', labels: ['a', 'b'], values: [3, 4] },
+					],
+				],
+			]
+			for (const [what, type, data] of cases) {
+				const { result, codes } = await captureDiagnostics(() =>
+					build((p) => p.addSlide().addChart(data, { ...BASE, type }))
+				)
+				assert(codes.includes('chart/point-count-mismatch'), `${what}: warns; got ${JSON.stringify(codes)}`)
+				if (type === ChartType.bar) {
+					const xml = await chartXml(result.zip)
+					assertNotIncludes(xml, '<c:pt idx="2">', `${what}: no point is cached past the two categories`)
+				}
+				if (type === ChartType.bubble) {
+					const xml = await chartXml(result.zip)
+					assertIncludes(xml, '<c:bubbleSize><c:numRef><c:f>Sheet1!$C$2:$C$3</c:f>', `${what}: a forward size range`)
+				}
+			}
+
+			// A matching shape says nothing.
+			const { codes } = await captureDiagnostics(() =>
+				build((p) => p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar }))
+			)
+			assert(
+				!codes.includes('chart/point-count-mismatch'),
+				`a matching series is not reported; got ${JSON.stringify(codes)}`
+			)
+		},
+	},
+	{
 		// ST_GapAmount allows 0. The chart-level stacked default tested `!barGapWidthPct`, so a stated
 		// 0 became 50, while the same options inside a combo kept it.
 		name: 'a stacked bar keeps a stated gap width of 0, standalone and inside a combo',

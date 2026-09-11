@@ -851,6 +851,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chart dropped data from mismatched series without a word.** `addChart` now warns
+  `chart/point-count-mismatch` for each case:
+  - A series with more values than the chart has categories, or a scatter or bubble series with
+    more values or sizes than X values. The cache used to carry the extra points past its own
+    `ptCount`, which the workbook never had, and reading the deck back warned about the library's
+    own output. They are no longer cached.
+  - A bubble series with no sizes, which draws no bubbles. Its size range also ran backwards
+    (`Sheet1!$C$2:$C$1`) and now spans the X values.
+  - A pie, doughnut or chartEx chart given more than one series. It plots the first.
+
 - **`plotArea.border`, `chartArea.border` and `dataBorder` answered a bad border three ways.**
   `width: -2, color: 123` took the plot area's defaults silently, while the chart area wrote
   `w="0"` in black with a warning. `color: 'red'` became `F9F9F9` on a data border silently. All

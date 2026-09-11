@@ -129,12 +129,14 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 				xValues.map((_value, i) => yValues[i])
 			)
 			// The sizes carry a constant `General` format code: no option spells a size number format.
+			// Cached against the X series' length like the Y values: sized from the sizes themselves, a
+			// series with none wrote the backwards range `Sheet1!$C$2:$C$1`.
 			const sizes = dataSizes(obj)
 			const sizeVal = numRefBlock(
 				'c:bubbleSize',
-				sheetRangeRef(sizeCol, 2, sizeCol, sizes.length + 1),
+				sheetRangeRef(sizeCol, 2, sizeCol, xValues.length + 1),
 				'General',
-				sizes
+				xValues.map((_value, i) => sizes[i])
 			)
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: idx })),

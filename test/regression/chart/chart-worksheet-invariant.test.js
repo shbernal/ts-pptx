@@ -82,11 +82,12 @@ function points(lvl, ptName, valueOf) {
 
 /**
  * Compare one level of cached points with a run of cells. `ptCount` is the length of the range the
- * formula spans, so it has to equal the number of cells. Points at or past it are left to the
- * point-count checks, which are a separate question from where the range points.
+ * formula spans, so it has to equal the number of cells, and no point may sit at or past it: the
+ * range has no cell for one.
  */
 function compareLevel(problems, where, f, cells, ptCount, pts, read) {
 	if (ptCount !== cells.length) problems.push(`${where}: ${f} spans ${cells.length} cells, the cache says ${ptCount}`)
+	if (pts.length > ptCount) problems.push(`${where}: ${f} caches point ${pts.length - 1} past ptCount ${ptCount}`)
 	cells.forEach(([c, r], idx) => {
 		const cell = read(c, r)
 		const cached = pts[idx] ?? ''
@@ -361,6 +362,21 @@ const MATRIX = [
 			),
 	],
 	['histogram', (s) => s.addChart([{ name: 'H', values: [1, 2, 2, 3, 5] }], { type: ChartType.histogram, ...FRAME })],
+	[
+		'bar with more values than labels',
+		(s) => s.addChart([{ name: 'A', labels: ['a', 'b'], values: [1, 2, 3, 4] }], { type: ChartType.bar, ...FRAME }),
+	],
+	[
+		'bubble with a series that has no sizes',
+		(s) =>
+			s.addChart(
+				[
+					{ name: 'X', values: [10, 20, 30] },
+					{ name: 'Y1', values: [5, 6, 7] },
+				],
+				{ type: ChartType.bubble, ...FRAME }
+			),
+	],
 ]
 
 defineRegressionSuite('Chart formulas resolve to their cache through the embedded workbook', [

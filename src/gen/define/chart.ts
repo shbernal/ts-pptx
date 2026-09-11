@@ -49,7 +49,8 @@ import { resolveAuthoredFrame } from './frame.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { clampRangedInput, lineWidthToEmu, mapStated, ptsToEmuLenient } from '../../units-internal.js'
-import { isBubbleChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
+import { isBubbleChart, isXyChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
+import { dataSizes, dataValues, worksheetLayout } from '../chart/data-refs.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -74,6 +75,49 @@ function normalizeChartSeries(item: OptsChartData, index: number): OptsChartData
 	const series: OptsChartDataInternal = { ...rest, _dataIndex: index }
 	if (labels !== undefined) series.labels = Array.isArray(labels[0]) ? (labels as string[][]) : [labels as string[]]
 	return series
+}
+
+/**
+ * Report the series whose shape the chart cannot plot as given. Nothing is corrected here: the
+ * emitters already cache only what the worksheet has cells for, and this names what that loses.
+ *
+ * - More values than the chart has points: a category series' values past the category count, or a
+ *   scatter or bubble series' values or sizes past the X values. The worksheet writes one row per
+ *   point, so the extra values are in neither the workbook nor the cache.
+ * - A bubble series with no sizes, which draws no bubbles.
+ * - More than one series on a chart that plots one: pie, doughnut and every chartEx layout plot the
+ *   first series and ignore the rest, while the workbook still carries them.
+ * @param options - the chart's normalized options, for its type
+ * @param data - the chart's normalized series
+ */
+function reportMismatchedSeries(options: ChartOptsInternal, data: OptsChartDataInternal[]): void {
+	const type = options._type
+	const { rowCount } = worksheetLayout({ data, opts: options })
+	const xy = isXyChart(type)
+	const points = xy ? 'X values' : 'categories'
+	for (const series of xy ? data.slice(1) : data) {
+		const name = series.name ?? `series ${series._dataIndex + 1}`
+		const counts: Array<[string, number]> = [['values', dataValues(series).length]]
+		if (isBubbleChart(type)) counts.push(['sizes', dataSizes(series).length])
+		for (const [what, count] of counts) {
+			if (count > rowCount)
+				warn(
+					'chart/point-count-mismatch',
+					`addChart: "${name}" has ${count} ${what} but the chart has ${rowCount} ${points}; the ${what} past ${rowCount} are not plotted.`
+				)
+		}
+		if (isBubbleChart(type) && rowCount > 0 && dataSizes(series).length === 0)
+			warn(
+				'chart/point-count-mismatch',
+				`addChart: bubble series "${name}" has no sizes, so none of its bubbles are drawn.`
+			)
+	}
+	const plotsOneSeries = type === ChartType.pie || type === ChartType.doughnut || isChartExType(type)
+	if (plotsOneSeries && data.length > 1)
+		warn(
+			'chart/point-count-mismatch',
+			`addChart: a ${String(type)} chart plots one series; the ${data.length - 1} after the first ${data.length === 2 ? 'is' : 'are'} ignored.`
+		)
 }
 
 /**
@@ -896,6 +940,8 @@ export function addChartDefinition(
 			)
 		}
 	}
+
+	reportMismatchedSeries(options, tmpData)
 
 	// STEP 4: Set props
 	resultObject._type = SlideObjectType.chart

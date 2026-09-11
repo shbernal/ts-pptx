@@ -81,7 +81,8 @@ export function makeChartExData(rel: SlideRelChart, sheet: WorksheetLayout): str
 	// warn on non-finite, matching the classic side's `numCachePt` policy.
 	let valPts = ''
 	vals.forEach((value, idx) => {
-		if (value == null) return
+		// Past the sheet's rows there is no cell to mirror; `addChartDefinition` warns about these.
+		if (value == null || idx >= ptCount) return
 		if (!Number.isFinite(value)) {
 			warn(
 				'chart/non-finite-value',
