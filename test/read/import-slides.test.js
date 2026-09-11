@@ -196,6 +196,36 @@ describe('Presentation.importSlides', () => {
 		assert(bytesEqual(beforeBytes, await target.save()), 'and again, no byte changed')
 	})
 
+	test.for(/** @type {const} */ (['copy', 'preserve', 'restyle']))(
+		'importSlide in %s mode refuses a page whose jump link leaves the import, as importSlides does',
+		async (theme) => {
+			// `importSlide` used to follow the link and copy its target page too, as a slide part in
+			// no `p:sldIdLst` with a layout and master of its own. The rule the batch documents is the
+			// one a single import answers to.
+			const target = await generatedDeck(false)
+			const linked = await generatedDeck(true)
+			const beforeBytes = await target.save()
+			assertEqual(
+				catchCode(() => target.importSlide(linked, 0, { theme })),
+				'import/unresolved-slide-link',
+				'a link to a page the import does not bring is refused'
+			)
+			assert(bytesEqual(beforeBytes, await target.save()), 'the refused import changed no byte of the deck')
+		}
+	)
+
+	test('importSlide takes a linking page once the page it links to has come across', async () => {
+		const target = await generatedDeck(false)
+		const source = await generatedDeck(true)
+		const before = target.slides.length
+		target.importSlide(source, 1)
+		target.importSlide(source, 0)
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, before + 2, 'both pages are listed')
+		const slideParts = [...reopened.opc.parts.keys()].filter((name) => /\/slides\/slide\d+\.xml$/.test(name))
+		assertEqual(slideParts.length, reopened.slides.length, 'and no slide part is left out of the list')
+	})
+
 	test('a source whose dependency graph is broken is refused before anything is copied', async () => {
 		// The copy phase used to be the last place a batch could fail, and it failed
 		// with parts already added and the copied master already registered in

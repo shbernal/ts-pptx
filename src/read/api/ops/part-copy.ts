@@ -284,12 +284,14 @@ const NO_NOTES: NotesSelection = { pages: new Set(), copyMaster: false }
  * @param registry   the copy registry for that source (parts already in `dest`)
  * @param selected   source partnames of the pages this batch selected
  * @param notes      the pages of `selected` whose notes travel too; none by default
+ * @param api        the public method asking, which opens the error message
  */
 export function checkSelectionCopyable(
 	source: OpcPackage,
 	registry: ReadonlyMap<string, string>,
 	selected: ReadonlySet<string>,
-	notes: NotesSelection = NO_NOTES
+	notes: NotesSelection = NO_NOTES,
+	api = 'importSlides'
 ): void {
 	const visited = new Set<string>()
 
@@ -339,7 +341,7 @@ export function checkSelectionCopyable(
 			if (rel.type === SLIDE_REL && !selected.has(targetPartName) && !registry.has(targetPartName)) {
 				throw new InvalidOptionError(
 					'import/unresolved-slide-link',
-					`importSlides: source slide ${partName} links to ${targetPartName}, which is not among the selected imported pages`
+					`${api}: source slide ${partName} links to ${targetPartName}, which is not among the imported pages`
 				)
 			}
 			walk(targetPartName)

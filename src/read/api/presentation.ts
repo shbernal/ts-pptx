@@ -448,6 +448,11 @@ export class Presentation {
 	 * presentation's — pass `{ rescale: 'fit' | 'stretch' }` to rescale the imported
 	 * geometry onto this deck's canvas instead (geometry only, not fonts/line
 	 * widths). Source notes are dropped unless you pass `{ importNotes: true }`.
+	 *
+	 * A jump link on the page must land on a page an earlier import from the same source already
+	 * brought across, the rule {@link importSlides} applies to a batch: a link to any other page
+	 * throws `import/unresolved-slide-link`. Like that check, a missing or unparseable source part
+	 * is found before anything is copied, so a refused import leaves this deck unchanged.
 	 */
 	importSlide(source: Presentation, index: number, options: ImportSlideOptions = {}): Slide {
 		return importSlideInto(this, source, index, options)

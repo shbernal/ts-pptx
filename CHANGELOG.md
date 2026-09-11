@@ -808,6 +808,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`importSlide` copied a linked page's target as a slide nobody listed.** A page with a
+  jump link to another slide, imported with `importSlide`, followed the link and copied the
+  target page too: a slide part in no `p:sldIdLst`, with its own layout and master. The same
+  request through `importSlides` is refused with `import/unresolved-slide-link`, the rule the
+  read reference documents. `importSlide` now runs that dry run over its one page before it
+  changes anything, so it refuses the same way, and a missing or unparseable source part is
+  also caught before the deck is touched rather than partway through the import. A linking
+  page still imports once the page it links to has come across.
+
 - **`importSlide` in `preserve` and `restyle` modes bound to the wrong layout.** Both modes
   rebind the imported slide to "the first layout of the first master", and took both firsts
   from the order the `.rels` files list their relationships in, which carries no meaning. On

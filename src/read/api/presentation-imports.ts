@@ -69,11 +69,25 @@ export function importSlide(
 	else requireEqualSlideSize(target, incoming, 'importSlide', "pass { rescale: 'fit' | 'stretch' } to rescale")
 	const sizesDiffer = !slideSizesMatch(target, incoming)
 
+	// 1b. Dry-run the copy of this one page, reading only the source, before anything here moves.
+	//     It is the check `importSlides` runs over a batch, so a jump link to a page this import
+	//     does not bring is refused with the same code, where the copy used to follow the link and
+	//     leave the target page in the package listed nowhere. A source part that is missing or
+	//     will not parse throws here too, rather than after the deck is half changed.
+	const importCtx = deck.importContext(source.opc)
+	const copyMaster = deck.opc.relationshipsFor(deck.presentationPart.partName).byType(NOTES_MASTER_REL).length === 0
+	checkSelectionCopyable(
+		source.opc,
+		importCtx.registry,
+		new Set([sourceSlide.partName]),
+		{ pages: options.importNotes ? new Set([sourceSlide.partName]) : new Set(), copyMaster },
+		'importSlide'
+	)
+
 	// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
 	//    the slide and attaches it to this deck's master; 'restyle' attaches it
 	//    to this deck's master with theme refs left symbolic (re-brand); 'copy'
 	//    brings the source theme subgraph across wholesale.
-	const importCtx = deck.importContext(source.opc)
 	const newPartName =
 		options.theme === 'preserve'
 			? importSlidePreserve(deck, importCtx, source, sourceSlide, options.carryMasterGraphics === true)

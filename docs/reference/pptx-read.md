@@ -2172,7 +2172,9 @@ selected page must target another **selected** page (or one an earlier import
 from that source already brought across) and is rewritten to the fresh partname:
 importing page 3 of 10 does not drag pages 1–2 across as dependencies, and never
 strands the link. A link to an unselected page throws `import/unresolved-slide-link`:
-the same rule `appendSlides` enforces for generator decks.
+the same rule `appendSlides` enforces for generator decks. A single `importSlide` answers
+to it too, with the page it names as the whole selection, so a linking page comes across
+only after the page it links to has.
 
 One request is one output page, so naming the same source page in several
 requests is how you ask for several independent copies of it. This is the same
