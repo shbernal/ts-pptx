@@ -10,7 +10,7 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions } from '../../types/index.js'
 import type { PresSlideInternal, ShapeFillPropsInternal, SlideObject } from '../../types/internal.js'
-import { getNewRelId } from '../utils.js'
+import { getNewRelId, preencodedPath } from '../utils.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageExtensionForSource } from '../../media/content-type.js'
@@ -159,7 +159,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 
 	// STEP 2: Set type/path
 	newObject._type = SlideObjectType.image
-	newObject.image = strImagePath || 'preencoded.png'
+	newObject.image = strImagePath || preencodedPath('png')
 
 	// STEP 3: Default any missing dimension from the image's intrinsic (natural) size.
 	// For base64 `data` images the bytes are already in hand, so we can read the

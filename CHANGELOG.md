@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An image or media file whose name contained `preencoded` never reached the deck.**
+  - A source given inline as `data` carries a placeholder path that the media pass must not try
+    to load, and that pass recognised the placeholder by the word appearing anywhere in the path.
+    A real file such as `assets/preencoded-logo.png` was skipped along with it: nothing was read,
+    and no part was written for it.
+  - Only a path beginning `preencoded.` is now taken for the placeholder, and every other path is
+    loaded.
+
 - **U+FFFE and U+FFFF were written into parts as they were.**
   - XML 1.0 forbids both, like the control characters the escapers already strip, so a run of text
     carrying one produced a part PowerPoint offers to repair.

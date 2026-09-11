@@ -5,7 +5,7 @@
  * no single part:
  *   - XML text                encodeXmlEntities (re-exported from `xml-escape.ts`)
  *   - Identifiers & naming    getUuid, validateObjectName, getDuplicateObjectNames
- *   - Slide relationships     getNewRelId, isHyperlinkRel, nextMediaTarget
+ *   - Slide relationships     getNewRelId, isHyperlinkRel, nextMediaTarget, preencodedPath
  *
  * DrawingML fragment builders moved to `gen/drawingml/{color,effect,fill,line}.ts`;
  * unit conversion to `units-internal.ts` (over the public primitives in `units.ts`);
@@ -197,18 +197,24 @@ export function nextMediaTarget(
 }
 
 /**
- * The target the immediately preceding push named — for the second of two rels that must point
- * at one part. A video registers `relationships/video` and `relationships/media` against the
- * same bytes, so the second names the part the first created rather than a new one.
+ * The `path` a media rel carries when its bytes came inline as `data` and there is no file to
+ * name — `preencoded.png`, `preencoded.mp4`. Nothing loads it: the media pass tells it apart
+ * with {@link isPreencodedPath}.
  *
- * This was `_relsMedia.length + 0` beside seven `+ 1`s: the same expression with the same
- * shape meaning the opposite thing, and nothing saying so.
+ * The spelling still reaches a deck. An image object with no alt text falls back to its path for
+ * the shape's description, so an inline image is described as `preencoded.png`, and changing
+ * this changes those bytes.
+ *
+ * There were four spellings of it, one with no dot, and two SVG registrations that put the
+ * base64 payload itself in `path`. They worked only because the media pass skipped any path
+ * *containing* the word.
+ * @param extn - the part's file extension, without the dot
  */
-export function previousMediaTarget(
-	target: PresSlideInternal,
-	kind: string,
-	extn: string,
-	dir: 'media' | 'embeddings' = 'media'
-): string {
-	return `../${dir}/${kind}-${mediaSlideKey(target)}-${target._relsMedia.length}.${extn}`
+export function preencodedPath(extn: string): string {
+	return `preencoded.${extn}`
+}
+
+/** Whether `path` is a {@link preencodedPath} placeholder rather than a file or URL to load. */
+export function isPreencodedPath(path: string): boolean {
+	return path.startsWith('preencoded.')
 }

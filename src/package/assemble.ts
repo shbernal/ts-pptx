@@ -17,7 +17,8 @@ import type { PresentationPropsInternal, PresSlideInternal } from '../types/inte
 import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
-import { getNewRelId, nextMediaTarget } from '../gen/utils.js'
+import { getNewRelId } from '../gen/utils.js'
+import { pushMediaRel } from '../gen/define/image-rel.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
 import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from '../gen/prepare.js'
@@ -119,6 +120,11 @@ const ZIP_CONTAINER_EXTN = new Set(['xlsx', 'xlsm', 'docx', 'docm', 'pptx', 'ppt
  * `transition._sndRId` for the `p:sndAc/p:snd r:embed`. Runs before media encoding so
  * the bytes are loaded; idempotent (skips a sound already registered) so re-export is
  * safe. The stop-previous form (`sound.stopPrevious`) needs no part and is skipped.
+ *
+ * Registered here, at write time, rather than when `slide.transition` is assigned. A slide's rel
+ * ids and media part names are handed out in registration order, and a transition is often set
+ * before the slide's pictures and media are added; registering the sound then would move every
+ * later rel id and part name on the slide.
  */
 function registerTransitionSounds(slides: PresSlideInternal[]): void {
 	slides.forEach((slide) => {
@@ -138,14 +144,7 @@ function registerTransitionSounds(slides: PresSlideInternal[]): void {
 			: (pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 		const rId = getNewRelId(slide)
-		slide._relsMedia.push({
-			path: sound.path ?? `preencoded.${extn}`,
-			type: `audio/${extn}`,
-			extn,
-			data: sound.data ?? '',
-			rId,
-			Target: nextMediaTarget(slide, 'audio', extn),
-		})
+		pushMediaRel(slide, { kind: 'audio', extn, type: `audio/${extn}`, path: sound.path, data: sound.data, rId })
 		transition._sndRId = rId
 	})
 }

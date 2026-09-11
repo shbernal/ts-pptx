@@ -8,11 +8,12 @@ import type { RuntimeAdapter } from '../runtime/types.js'
 import { toMediaDataUri } from '../media/base64.js'
 import { warn } from '../diagnostics.js'
 import { MediaError } from '../errors.js'
+import { isPreencodedPath } from './utils.js'
 
 type SlideMediaRelWithPath = SlideRelMedia & { path: string }
 
 function hasEncodingPath(rel: SlideRelMedia): rel is SlideMediaRelWithPath {
-	return typeof rel.path === 'string' && rel.path.length > 0 && !rel.path.includes('preencoded')
+	return typeof rel.path === 'string' && rel.path.length > 0 && !isPreencodedPath(rel.path)
 }
 
 /**

@@ -8,7 +8,8 @@
 import { SlideObjectType } from '../../enums.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { getNewRelId, nextMediaTarget, previousMediaTarget } from '../utils.js'
+import { getNewRelId, preencodedPath } from '../utils.js'
+import { pushMediaRel } from './image-rel.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
@@ -53,7 +54,6 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strLink = opt.link || ''
 	const strPath = opt.path || ''
 	const strType = opt.type || 'audio'
-	let strExtn = ''
 	// Empty when the caller passed no cover: the default play-button poster is resolved later,
 	// by the async media pass, so that a deck carrying no media never links the artwork. The
 	// base64-header check below still guards a cover the caller *did* pass.
@@ -84,11 +84,12 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		throw new InvalidOptionError('media/online-missing-link', 'addMedia(): online videos require `link` value')
 	}
 
-	strExtn = opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'
+	const strExtn =
+		opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'
 
 	// STEP 2: Set type, media
 	slideData.mtype = strType
-	slideData.media = strPath || 'preencoded.mov'
+	slideData.media = strPath || preencodedPath('mov')
 	slideData.options = {}
 
 	// Playback looping (embedded audio/video only; online embeds have no timing tree)
@@ -117,88 +118,50 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	 * <Relationship Id="rId3" Target="../media/media1.mov" Type="http://schemas.microsoft.com/office/2007/relationships/media"/>
 	 */
 	if (strType === 'online') {
-		const relId1 = getNewRelId(target)
 		// A: ECMA video rel (external link) — referenced by <a:videoFile r:link>.
-		target._relsMedia.push({
-			path: strPath || 'preencoded' + strExtn,
-			data: 'dummy',
-			type: 'online',
-			extn: strExtn,
-			rId: relId1,
-			Target: strLink,
-		})
+		const relId1 = getNewRelId(target)
+		const online = { kind: 'media', extn: strExtn, type: 'online', path: strPath, data: 'dummy' }
+		pushMediaRel(target, { ...online, rId: relId1, target: { external: strLink } })
 		slideData.mediaRid = relId1
 
 		// B: MS-2007 media rel — PowerPoint authors a second external rel sharing the
 		// same link Target; the body points at it via <p14:media r:link>. (Mirrors the
 		// embedded A/V pair, but External and with no media binary part.)
 		const relId2 = getNewRelId(target)
-		target._relsMedia.push({
-			path: strPath || 'preencoded' + strExtn,
-			data: 'dummy',
-			type: 'online',
-			extn: strExtn,
-			rId: relId2,
-			Target: strLink,
-		})
+		pushMediaRel(target, { ...online, rId: relId2, target: { external: strLink } })
 
 		// C: Add cover (preview/overlay) image
 		const relId3 = getNewRelId(target)
-		target._relsMedia.push({
-			path: 'preencoded.png',
-			data: strCover,
-			type: 'image/png',
+		pushMediaRel(target, {
+			kind: 'image',
 			extn: 'png',
-			isDefaultCover: !strCover,
+			type: 'image/png',
+			data: strCover,
 			rId: relId3,
-			Target: nextMediaTarget(target, 'image', 'png'),
+			extra: { isDefaultCover: !strCover },
 		})
 		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	} else {
-		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
-		// Path-based media match by `path`; base64/`data` media (which share the `preencoded`
-		// placeholder path) match by their data payload so identical inline media embed once.
-		const dupeItem = target._relsMedia.find((item) => {
-			if (item.isDuplicate || !item.Target || item.type !== strType + '/' + strExtn) return false
-			return strPath ? item.path === strPath : !!strData && item.data === strData
-		})
-
-		// A: "relationships/video"
+		// A: "relationships/video". An identical source already on the slide — the same path, or the
+		// same inline payload — lends its part rather than embedding the bytes twice.
+		const embedded = { kind: 'media', extn: strExtn, type: strType + '/' + strExtn, path: strPath, data: strData }
 		const relId1 = getNewRelId(target)
-		target._relsMedia.push({
-			path: strPath || 'preencoded' + strExtn,
-			type: strType + '/' + strExtn,
-			extn: strExtn,
-			data: strData || '',
-			rId: relId1,
-			isDuplicate: !!dupeItem?.Target,
-			Target: dupeItem?.Target ? dupeItem.Target : nextMediaTarget(target, 'media', strExtn),
-		})
+		const video = pushMediaRel(target, { ...embedded, rId: relId1, dedupe: true })
 		slideData.mediaRid = relId1
 
-		// B: "relationships/media"
+		// B: "relationships/media", against the one part the `video` rel above named.
 		const relId2 = getNewRelId(target)
-		target._relsMedia.push({
-			path: strPath || 'preencoded' + strExtn,
-			type: strType + '/' + strExtn,
-			extn: strExtn,
-			data: strData || '',
-			rId: relId2,
-			isDuplicate: !!dupeItem?.Target,
-			// The `video` rel pushed just above named this part; both rels point at the one file.
-			Target: dupeItem?.Target ? dupeItem.Target : previousMediaTarget(target, 'media', strExtn),
-		})
+		pushMediaRel(target, { ...embedded, rId: relId2, target: { sameAs: video } })
 
 		// C: Add cover (preview/overlay) image
 		const relId3 = getNewRelId(target)
-		target._relsMedia.push({
-			path: 'preencoded.png',
-			type: 'image/png',
+		pushMediaRel(target, {
+			kind: 'image',
 			extn: 'png',
+			type: 'image/png',
 			data: strCover,
-			isDefaultCover: !strCover,
 			rId: relId3,
-			Target: nextMediaTarget(target, 'image', 'png'),
+			extra: { isDefaultCover: !strCover },
 		})
 		assertConsecutiveMediaRids(relId1, relId2, relId3)
 	}

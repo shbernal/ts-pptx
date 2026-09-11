@@ -12,8 +12,8 @@ import { DEF_FONT_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type { TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { getNewRelId, nextMediaTarget } from '../utils.js'
-import { registerSvgImageRels } from './image-rel.js'
+import { getNewRelId } from '../utils.js'
+import { pushMediaRel, registerSvgImageRels } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind } from '../drawingml/fill.js'
@@ -428,13 +428,13 @@ function createBulletImageRels(
 			bullet._rIdSvg = svgRid
 		} else {
 			const relId = bullet._rId || getNewRelId(target)
-			target._relsMedia.push({
-				path: img.path || 'preencoded.' + strImgExtn,
-				type: imageContentType(strImgExtn),
+			pushMediaRel(target, {
+				kind: 'image',
 				extn: strImgExtn,
+				type: imageContentType(strImgExtn),
+				path: img.path,
 				data: img.data || '',
 				rId: relId,
-				Target: nextMediaTarget(target, 'image', strImgExtn),
 			})
 			bullet._rId = relId
 		}

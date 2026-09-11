@@ -1,28 +1,100 @@
 /**
- * ts-pptx: the one place an image is registered as a slide media relationship.
+ * ts-pptx: the one place a media relationship is registered on a slide, layout or master.
  *
- * Three definers need the identical fifteen lines — an image *fill* on a shape or text box
- * (`registerImageFillMedia`), an `addImage()` raster (`addImageDefinition`), and the cached
- * preview raster a Zoom tile or OLE object is drawn from (`registerPreviewImage`). They had
- * three copies, and the drift had already started: only one of them still carried the comment
- * explaining the path-versus-data match below.
+ * Every definer that embeds bytes pushes a media rel — images, image fills, previews, picture
+ * bullets, backgrounds, audio and video, OLE payloads, 3D models, and the transition sound the
+ * packager adds. They pushed the record by hand, each spelled slightly differently: two copies of
+ * the dedupe match below, three spellings of the placeholder path, and one that put a base64
+ * payload in the `path` field. {@link pushMediaRel} is the record, spelled once.
  */
-import type { PresSlideInternal } from '../../types/internal.js'
-import { getNewRelId, nextMediaTarget } from '../utils.js'
+import type { PresSlideInternal, SlideRelMedia } from '../../types/internal.js'
+import { getNewRelId, nextMediaTarget, preencodedPath } from '../utils.js'
 import { imageContentType } from '../../media/content-type.js'
+
+/** One media source, as {@link pushMediaRel} registers it. */
+export interface MediaRelSource {
+	/** The part name's leading segment: `image`, `media`, `audio`, `model3d`, `oleObject`. */
+	kind: string
+	/** The part's file extension, without the dot. */
+	extn: string
+	/** The part's content type — or `online` for an external video link, which writes no part. */
+	type: string
+	/** A file or URL the media pass loads the bytes from, when the source is one. */
+	path?: string | undefined
+	/** The bytes, as base64 or a `data:` URI, when they came inline. */
+	data?: string | undefined
+	/** The relationship id, already allocated. */
+	rId: number
+	/** The sibling directory the part lands in. */
+	dir?: 'media' | 'embeddings'
+	/**
+	 * Point at the part an identical earlier source already has, rather than naming a new one.
+	 *
+	 * De-dup is per target and by source, not by bytes: a file-path source matches on `path`,
+	 * while inline `data` sources have no real path — they all share the {@link preencodedPath}
+	 * placeholder — so they match on their payload instead, which is what stops the same inline
+	 * image being embedded once per use. A rel already marked `isDuplicate` is never matched
+	 * against, so every duplicate points at the one original rather than at a chain.
+	 *
+	 * This is a *slide-local* optimization. `package/assemble.ts` runs a second, deck-wide collapse
+	 * keyed on extension + bytes once every rel's data is loaded, which subsumes this one for reuse
+	 * across slides and for sources that only turn out identical after loading.
+	 */
+	dedupe?: boolean
+	/**
+	 * Name no new part. `sameAs` points at the part another rel of this source already named, for
+	 * the second of two rels one part needs (a video's ECMA and MS-2007 rels). `external` is the
+	 * link an online video's rel carries as its Target, with no part behind it.
+	 */
+	target?: { sameAs: SlideRelMedia } | { external: string }
+	/** Flags a few kinds carry for the passes after this one, copied onto the record as given. */
+	extra?: Pick<SlideRelMedia, 'isSvgPng' | 'svgSize' | 'isDefaultCover' | 'oleRelType' | 'model3dRelType'>
+}
+
+/**
+ * Register one media rel on `target` and return the record.
+ *
+ * The part name is read before the push: {@link nextMediaTarget} counts the media rels already on
+ * the target, so the first one lands on `image-<key>-1`, and computing it after the push would
+ * rename every part.
+ * @param target - slide, layout or master the rel is registered on
+ * @param source - what the rel points at, and how
+ */
+export function pushMediaRel(target: PresSlideInternal, source: MediaRelSource): SlideRelMedia {
+	const path = source.path || ''
+	const data = source.data ?? ''
+	const linked = source.target && 'external' in source.target ? source.target.external : undefined
+	const shared = source.target && 'sameAs' in source.target ? source.target.sameAs : undefined
+	const dupe = source.dedupe
+		? target._relsMedia.find((item) => {
+				if (item.isDuplicate || !item.Target || item.type !== source.type) return false
+				return path ? item.path === path : !!data && item.data === data
+			})
+		: undefined
+
+	const rel: SlideRelMedia = {
+		path: path || preencodedPath(source.extn),
+		type: source.type,
+		extn: source.extn,
+		data,
+		rId: source.rId,
+		...(source.dedupe ? { isDuplicate: !!dupe?.Target } : shared ? { isDuplicate: !!shared.isDuplicate } : {}),
+		Target:
+			linked ??
+			shared?.Target ??
+			(dupe?.Target ? dupe.Target : nextMediaTarget(target, source.kind, source.extn, source.dir)),
+		...source.extra,
+	}
+	target._relsMedia.push(rel)
+	return rel
+}
 
 /**
  * Push an image media rel onto `target`, reusing an identical source's package part.
  *
- * De-dup is per target and by source, not by bytes: file-path images are matched on `path`,
- * while base64 `data` images have no real path — they all share the `preencoded.<extn>`
- * placeholder — so they are matched on their payload instead, which is what stops the same
- * inline image being embedded once per use. A rel already marked `isDuplicate` is never
- * matched against, so every duplicate points at the one original rather than at a chain.
- *
- * This is a *slide-local* optimization. `package/assemble.ts` runs a second, deck-wide collapse
- * keyed on extension + bytes once every rel's data is loaded, which subsumes this one for reuse
- * across slides and for sources that only turn out identical after loading.
+ * Three definers need it — an image *fill* on a shape or text box (`registerImageFillMedia`), an
+ * `addImage()` raster (`addImageDefinition`), and the cached preview raster a Zoom tile or OLE
+ * object is drawn from (`registerPreviewImage`). See {@link MediaRelSource.dedupe} for the match.
  * @param target - slide (or layout/master) the rel is registered on
  * @param source - the resolved image source: a `path`, a base64 `data` payload, or both
  * @param relId - the relationship id already allocated for this use
@@ -32,23 +104,14 @@ export function registerImageMediaRel(
 	source: { path?: string; data?: string; extn: string },
 	relId: number
 ): void {
-	const path = source.path || ''
-	const data = source.data || ''
-	const type = imageContentType(source.extn)
-	const dupe = target._relsMedia.find((item) => {
-		if (item.isDuplicate || !item.Target || item.type !== type) return false
-		return path ? item.path === path : !!data && item.data === data
-	})
-	target._relsMedia.push({
-		path: path || 'preencoded.' + source.extn,
-		type,
+	pushMediaRel(target, {
+		kind: 'image',
 		extn: source.extn,
-		data,
+		type: imageContentType(source.extn),
+		path: source.path || '',
+		data: source.data || '',
 		rId: relId,
-		isDuplicate: !!dupe?.Target,
-		// `nextMediaTarget` reads the rel count BEFORE this push, so the first rel on a slide
-		// lands on `image-<key>-1`. Keep the call here rather than hoisting it.
-		Target: dupe?.Target ? dupe.Target : nextMediaTarget(target, 'image', source.extn),
+		dedupe: true,
 	})
 }
 
@@ -62,11 +125,11 @@ export function registerImageMediaRel(
  * `addImage`'s own hyperlink then took the same number a third time. Both ids now come from
  * {@link getNewRelId}, which skips every id the slide already holds.
  *
- * Neither push goes through {@link registerImageMediaRel} and neither needs to. The PNG
- * fallback is rasterized per call from a per-call `svgSize`, so two uses at different sizes
- * are genuinely two different images; the SVG source has no such excuse, but the deck-wide
- * collapse in `package/assemble.ts` keys on extension + bytes and merges them, so the same
- * SVG placed twice measures as a single `ppt/media/*.svg` part.
+ * Neither push dedupes and neither needs to. The PNG fallback is rasterized per call from a
+ * per-call `svgSize`, so two uses at different sizes are genuinely two different images; the SVG
+ * source has no such excuse, but the deck-wide collapse in `package/assemble.ts` keys on
+ * extension + bytes and merges them, so the same SVG placed twice measures as a single
+ * `ppt/media/*.svg` part.
  *
  * @param target - slide (or layout/master) the rels are registered on
  * @param source - the resolved SVG source: a `path`, a base64 `data` payload, or both, plus
@@ -83,28 +146,20 @@ export function registerSvgImageRels(
 ): { pngRid: number; svgRid: number } {
 	const { path, data } = source
 
+	// The PNG fallback's name is read before the SVG's push, so the pair lands on consecutive names.
 	const pngRid = pinned ? pinned.pngRid : getNewRelId(target)
-	target._relsMedia.push({
-		path: path || data + 'png',
-		type: 'image/png',
+	pushMediaRel(target, {
+		kind: 'image',
 		extn: 'png',
+		type: 'image/png',
+		path,
 		data,
 		rId: pngRid,
-		// The count is read BEFORE each push, so the pair lands on consecutive names.
-		Target: nextMediaTarget(target, 'image', 'png'),
-		isSvgPng: true,
-		...(source.svgSize ? { svgSize: source.svgSize } : {}),
+		extra: { isSvgPng: true, ...(source.svgSize ? { svgSize: source.svgSize } : {}) },
 	})
 
 	const svgRid = pinned ? pinned.svgRid : getNewRelId(target)
-	target._relsMedia.push({
-		path: path || data || 'preencoded.svg',
-		type: 'image/svg+xml',
-		extn: 'svg',
-		data,
-		rId: svgRid,
-		Target: nextMediaTarget(target, 'image', 'svg'),
-	})
+	pushMediaRel(target, { kind: 'image', extn: 'svg', type: 'image/svg+xml', path, data, rId: svgRid })
 
 	return { pngRid, svgRid }
 }
