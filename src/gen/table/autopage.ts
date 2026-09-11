@@ -523,16 +523,16 @@ export function getSlidesForTableRows(
 	/** Whether a rowspan opened above `iRow` is still covering it. */
 	const spannedFromAbove = (iRow: number): boolean => coveredFromAbove(iRow) > 0
 
-	// STEP 3: Calculate width using tableProps.colW if possible
-	if (!tablePropW && tableProps.colW) {
+	// STEP 3: Calculate width using tableProps.colW if possible. Only an array reaches here:
+	// `addTableDefinition` turns a single `colW` into `w` before paging, and `tableToSlides` always
+	// passes one width per column.
+	if (!tablePropW && Array.isArray(tableProps.colW)) {
 		// The `0` seed is what `colW: []` needs: an empty array is truthy, so it reached an
 		// unseeded `reduce` and threw a raw `TypeError` — a failure this library did not raise as
 		// a `TsPptxError`. Seeded, it totals `0`, which falls through to `usableTableWidthEmu`
 		// exactly where `colW: undefined` lands. That is the reading intended: an empty array is a
 		// caller stating no columns, not a table of width zero.
-		tableCalcW = Array.isArray(tableProps.colW)
-			? tableProps.colW.reduce((p, n) => p + n, 0) * EMU_PER_INCH
-			: tableProps.colW * numCols || 0
+		tableCalcW = tableProps.colW.reduce((p, n) => p + n, 0) * EMU_PER_INCH
 		if (tableProps.verbose)
 			console.log(`| tableCalcW ...................................... = ${tableCalcW / EMU_PER_INCH}`)
 	}
