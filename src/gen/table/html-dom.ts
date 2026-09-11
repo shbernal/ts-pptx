@@ -40,6 +40,7 @@ import { inch2Emu, resolveSlideMarginsInches } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { DEFAULT_PX_PER_INCH, EMU_PER_INCH, POINTS_PER_INCH } from '../../units.js'
 import { createRowSpanOccupancy } from './grid.js'
+import { MAX_TABLE_SPAN, resolveSpan } from './spans.js'
 import { getSlidesForTableRows } from './autopage.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -402,9 +403,13 @@ type GridCellSpans = { colspan?: number; rowspan?: number }
  * @param {unknown} value - the raw attribute value
  * @returns {number} tracks covered, at least 1
  */
-function gridSpan(value: unknown): number {
+function gridSpan(value: unknown, kind: 'colspan' | 'rowspan'): number {
 	const num = Math.floor(Number(value))
-	return Number.isFinite(num) && num > 1 ? num : 1
+	if (!Number.isFinite(num) || num <= 1) return 1
+	// Past `MAX_TABLE_SPAN` is not lenient ground: `resolveSpan` reports it and reads 1, the value
+	// the pager's own span check would set. Without this ceiling the grid was measured and padded
+	// for `colspan="1500"` while the same cell was paged and written as one column wide.
+	return num > MAX_TABLE_SPAN ? resolveSpan(num, kind) : num
 }
 
 /**
@@ -436,9 +441,9 @@ export function measureGridColumns(rows: readonly (readonly GridCellSpans[])[]):
 		let col = 0
 		for (const cell of row) {
 			col = occupancy.nextFree(col)
-			const colspan = gridSpan(cell?.colspan)
+			const colspan = gridSpan(cell?.colspan, 'colspan')
 			// Held now, aged at the end of this row, so it leaves `rowspan - 1` behind.
-			occupancy.hold(col, colspan, gridSpan(cell?.rowspan))
+			occupancy.hold(col, colspan, gridSpan(cell?.rowspan, 'rowspan'))
 			col += colspan
 		}
 		// Trailing columns held from above count too: a row whose last cells are all rowspan
@@ -696,13 +701,23 @@ export function genTableToSlides(
 	// reports) and the computed CSS `width` (the only width statement available where nothing
 	// laid the table out). `pickColWidthBasis` decides which one STEP 3 runs on.
 	const domRows = collectTableRows(ctx.table)
+	// Each cell's spans, read once per conversion. The grid measure, the column widths and the cell
+	// options all need them, and reading the attributes once is what makes those three agree and
+	// reports a span past the ceiling once rather than once per reader.
+	const spansByCell = new Map<Element, { colspan: number; rowspan: number }>()
+	const spansOf = (cell: Element): { colspan: number; rowspan: number } => {
+		let spans = spansByCell.get(cell)
+		if (!spans) {
+			spans = {
+				colspan: gridSpan(cell.getAttribute('colspan'), 'colspan'),
+				rowspan: gridSpan(cell.getAttribute('rowspan'), 'rowspan'),
+			}
+			spansByCell.set(cell, spans)
+		}
+		return spans
+	}
 	const { columns: intColCnt, filled: arrRowFilled } = measureGridColumns(
-		domRows.map(({ row }) =>
-			rowCells(row).map((cell) => ({
-				colspan: Number(cell.getAttribute('colspan')),
-				rowspan: Number(cell.getAttribute('rowspan')),
-			}))
-		)
+		domRows.map(({ row }) => rowCells(row).map(spansOf))
 	)
 	// A table with no rows — or only empty ones — has nothing to convert. Say so here: the failure
 	// used to surface far downstream as `Reduce of empty array with no initial value` out of the
@@ -727,7 +742,7 @@ export function genTableToSlides(
 		arrTabColCssW.push(ctx.getComputedStyle(cell).getPropertyValue('width'))
 		// Guesstimate (divide evenly) col widths across a spanned cell.
 		// NOTE: both j$query and vanilla selectors return {0} when table is not visible)
-		const span = gridSpan(cell.getAttribute('colspan'))
+		const span = spansOf(cell).colspan
 		arrCellSpans.push(span)
 		for (let idxc = 0; idxc < span; idxc++) {
 			arrTabColW.push(Math.round(measured / span))
@@ -799,11 +814,10 @@ export function genTableToSlides(
 				.replace(/"/g, '')
 				.replace('inherit', '')
 				.replace('initial', '')
-			// Read through the same `gridSpan` the grid walk used, so what is emitted and what
-			// was measured cannot disagree: a `colspan="-2"` counted as one column above must
-			// not reach the table definition as `-2` and corrupt its own column count.
-			const colspan = gridSpan(cell.getAttribute('colspan'))
-			const rowspan = gridSpan(cell.getAttribute('rowspan'))
+			// The same spans the grid walk measured, so what is emitted and what was measured cannot
+			// disagree: a `colspan="-2"` counted as one column above must not reach the table
+			// definition as `-2` and corrupt its own column count.
+			const { colspan, rowspan } = spansOf(cell)
 			if (fontFace) cellOpts.fontFace = fontFace
 			if (colspan > 1) cellOpts.colspan = colspan
 			if (rowspan > 1) cellOpts.rowspan = rowspan

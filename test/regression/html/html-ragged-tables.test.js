@@ -1,6 +1,6 @@
 import { Window } from 'happy-dom'
 import { tableToSlides } from '../../../dist/html.js'
-import { build, readEntry, assert, assertEqual, defineRegressionSuite } from '../../helpers.js'
+import { build, readEntry, assert, assertEqual, defineRegressionSuite, setDiagnosticHandler } from '../../helpers.js'
 
 // Acceptance: what an imported RAGGED HTML table looks like on the slide.
 //
@@ -230,6 +230,37 @@ defineRegressionSuite('ragged HTML tables', [
 				['', ''],
 				['c', 'd'],
 			])
+		},
+	},
+	{
+		// A span past `MAX_TABLE_SPAN` is read as 1 by every stage, not only by the pager. The grid
+		// measure used to read `colspan="1500"` as 1500 columns and pad the second row to match, while
+		// the pager reset the same cell to span 1, so the table was sized for one grid and written for
+		// another: the definer's column count disagreed, and `b` was dropped past a one-column grid.
+		name: 'a span past the ceiling counts as one column everywhere, and says so',
+		fn: async () => {
+			const codes = []
+			setDiagnosticHandler((d) => codes.push(d.code))
+			let xml
+			try {
+				xml = await convert(`
+					<table id="t"><tbody>
+						<tr><td colspan="1500">wide</td></tr>
+						<tr><td>a</td><td>b</td></tr>
+					</tbody></table>`)
+			} finally {
+				setDiagnosticHandler(null)
+			}
+			assertGrid(xml, 2, [
+				['wide', ''],
+				['a', 'b'],
+			])
+			assertEqual(
+				codes.filter((code) => code === 'table/span-out-of-range').length,
+				1,
+				`the bad span is reported once; got ${JSON.stringify(codes)}`
+			)
+			assert(!codes.includes('table/cell-past-grid'), `no cell is dropped; got ${JSON.stringify(codes)}`)
 		},
 	},
 	{

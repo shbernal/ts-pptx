@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`tableToSlides` sized a table for a `colspan` it then wrote as 1.** An HTML span past the
+  1000-track ceiling was read as given when the grid was measured and its rows padded, while the
+  auto-pager reset the same cell to span 1. `<td colspan="1500">` over a two-cell row gave a
+  one-column table and dropped the second row's last cell. The HTML path now reads a span past the
+  ceiling as 1 at every stage and warns `table/span-out-of-range` once for it.
+
 - **A table span past the table's edge was written past it.** The auto-pager and `tableLayout()`
   clamp a `colspan` to the grid's width and a `rowspan` to the rows left, but the emitter wrote
   the spans as authored. `[[{ text: 'A', rowspan: 3 }, 'B'], ['C']]` wrote `rowSpan="3"` into a
