@@ -157,7 +157,7 @@
 		"docs:llms": "node scripts/generate-llms-docs.mjs",
 		"docs:index": "node scripts/docs-index.mjs",
 		"docs:check": "pnpm run docs:api && node scripts/docs-check.mjs",
-		"docs:prepare": "pnpm run docs:api && pnpm run docs:llms && pnpm run docs:index",
+		"docs:prepare": "pnpm run docs:api && pnpm run docs:index && pnpm run docs:llms",
 		"docs:dev": "pnpm run ensure-dist && pnpm run docs:prepare && vitepress dev docs",
 		"docs:build": "pnpm run ensure-dist && pnpm run docs:prepare && node scripts/docs-check.mjs && vitepress build docs && node scripts/docs-check.mjs --dist",
 		"docs:preview": "vitepress preview docs"

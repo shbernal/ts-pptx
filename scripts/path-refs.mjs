@@ -171,7 +171,7 @@ const ALLOWLIST = [
 		why: 'illustrative — `x.html` vs `x/index.html` is the cleanUrls mapping being described',
 	},
 	{
-		where: 'scripts/generate-llms-docs.mjs:tables/index.html',
+		where: 'scripts/docs-frontmatter.mjs:tables/index.html',
 		why: 'illustrative, same mapping',
 	},
 	{

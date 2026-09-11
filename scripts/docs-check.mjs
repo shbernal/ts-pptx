@@ -14,7 +14,15 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { ALLOWED_DOC_TYPES, compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
+import {
+	ALLOWED_DOC_TYPES,
+	canonicalBase,
+	compactStrings,
+	pageForRoute,
+	parseFrontmatter,
+	requireDocsDir,
+	walkDocs,
+} from './docs-frontmatter.mjs'
 import { ROOT, isMain, parseCliOrExit, runCli } from './script-utils.mjs'
 
 const REQUIRED_FIELDS = ['doc-schema-version', 'doc_type', 'read_when', 'summary', 'title']
@@ -240,35 +248,6 @@ export function checkLinks(docsDir, rel, routes) {
 	return errors
 }
 
-/**
- * The URL prefix the published site actually answers on, derived rather than restated: the
- * GitHub Pages host comes from `repository`, the path from the VitePress `base`. Writing the
- * value out a second time is what let `llms.txt` drift to a host that never existed.
- * @param {string} docsDir
- * @returns {{base: string | null, errors: string[]}}
- */
-function canonicalBase(docsDir) {
-	if (process.env.DOCS_BASE_URL) return { base: process.env.DOCS_BASE_URL.replace(/\/?$/, '/'), errors: [] }
-
-	const pkg = JSON.parse(readFileSync(path.join(docsDir, '..', 'package.json'), 'utf8'))
-	const slug = String(pkg.repository?.url ?? pkg.homepage ?? '').match(/github\.com\/([^/]+)\/([^/.#]+)/)
-	if (!slug) return { base: null, errors: ['package.json: cannot derive the GitHub Pages host from `repository`'] }
-
-	const config = readFileSync(path.join(docsDir, '.vitepress', 'config.mts'), 'utf8')
-	const configured = config.match(/^\s*base:.*?'([^']+)'/m)
-	if (!configured) return { base: null, errors: ['docs/.vitepress/config.mts: cannot read the `base` option'] }
-
-	// An unreadable `base` collapses to `/`, which the slug check below then rejects loudly.
-	const base = (process.env.VITEPRESS_BASE ?? configured[1] ?? '').replace(/\/?$/, '/')
-	const errors = []
-	// A project Pages site is served under /<repo>/, so a `base` that disagrees means the whole
-	// site 404s no matter how well-formed the routes underneath it are.
-	if (!process.env.VITEPRESS_BASE && base !== `/${slug[2]}/`) {
-		errors.push(`docs/.vitepress/config.mts: \`base\` is \`${base}\`, but Pages serves this repo at \`/${slug[2]}/\``)
-	}
-	return { base: `https://${slug[1]}.github.io${base}`, errors }
-}
-
 // How each generated file writes the URLs it advertises. These have to stay per-file rather than
 // being tried against both: llms-full.txt embeds whole page bodies, so a link pattern applied to
 // it would also match the ordinary markdown links *inside* those bodies.
@@ -290,8 +269,9 @@ function advertisedUrls(text, pattern) {
 
 /**
  * Every advertised URL must map to a file in the build. VitePress runs with `cleanUrls`, so a
- * leaf page is `x.html` and only a directory index is `x/index.html` — the mapping below is the
- * one the server applies, so a route the generator invents cannot pass by looking plausible.
+ * leaf page is `x.html` and only a directory index is `x/index.html` — {@link pageForRoute} is
+ * the mapping the server applies, and a route that maps to no emitted file fails however
+ * plausible it looks.
  * @param {string} docsDir
  * @returns {string[]}
  */
@@ -319,7 +299,7 @@ function checkGeneratedUrls(docsDir) {
 				continue
 			}
 			const rest = url.slice(base.length)
-			const page = rest === '' ? 'index.html' : rest.endsWith('/') ? `${rest}index.html` : `${rest}.html`
+			const page = pageForRoute(rest)
 			if (!existsSync(path.join(dist, page))) errors.push(`${name}: \`${url}\` has no page in the build (${page})`)
 		}
 	}

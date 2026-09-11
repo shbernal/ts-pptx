@@ -48,7 +48,7 @@ are in every aggregate the repo has.
 | `coverage-project.mjs` | Library | Re-expresses the browser lane's hits in the Node report's own instrumentation maps, so merging can move counts but never the denominator | `coverage-merge.mjs` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
 | `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `check:core`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
-| `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |
+| `docs-frontmatter.mjs` | Library | Frontmatter parsing, the docs walk, the site's base URL and page routes, shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
 | `docs-list.mjs` | Diagnostic | Lists docs with their `read_when` hints | manual (`docs:list`) |
 | `docs-new.mjs` | Generator | Creates a new doc page from the template | manual (`docs:new`) |

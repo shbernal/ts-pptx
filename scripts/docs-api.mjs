@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { parseCliOrExit } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
@@ -17,7 +17,7 @@ Options:
 	options: {},
 })
 
-const root = process.cwd()
+const root = ROOT
 const outDir = path.join(root, 'docs', 'reference', 'api')
 // TypeDoc lives in the tools/api-docs workspace package, not at the root, because it needs
 // a TypeScript 6 that the root no longer has: TypeScript 7 ships a native binary and no JS

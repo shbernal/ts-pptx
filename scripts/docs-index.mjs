@@ -15,7 +15,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
-import { parseCliOrExit } from './script-utils.mjs'
+import { parseCliOrExit, repoRel } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
@@ -93,6 +93,4 @@ for (const entry of entries) {
 
 const outputPath = path.join(docsDir, OUTPUT_NAME)
 writeFileSync(outputPath, lines.join('\n').replace(/\s+$/, '') + '\n', 'utf8')
-console.log(
-	`docs:index: wrote ${path.relative(process.cwd(), outputPath).split(path.sep).join('/')} (${entries.length} doc(s))`
-)
+console.log(`docs:index: wrote ${repoRel(outputPath)} (${entries.length} doc(s))`)

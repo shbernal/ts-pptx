@@ -14,6 +14,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
+import { ROOT } from './script-utils.mjs'
+
 /** Subtrees that are documentation-adjacent but not part of the checked docs set. */
 export const EXCLUDED_DIRS = new Set(['archive', 'changelog-archive', 'research'])
 
@@ -76,11 +78,13 @@ function parseInlineList(value) {
 /**
  * Parse a markdown file's frontmatter block.
  * @param {string} filePath - absolute path to the markdown file
- * @returns {{ data: Record<string, unknown>, error: string | null }}
+ * @returns {{ data: Record<string, unknown>, error: string | null, body: string }} `body` is the
+ *   page after its frontmatter block, or the whole file when it has none
  */
 export function parseFrontmatter(filePath) {
 	const raw = readFileSync(filePath, 'utf8')
-	if (!raw.startsWith('---\n') && !raw.startsWith('---\r\n')) return { data: {}, error: 'missing front matter' }
+	if (!raw.startsWith('---\n') && !raw.startsWith('---\r\n'))
+		return { data: {}, error: 'missing front matter', body: raw }
 
 	const lines = raw.split(/\r?\n/)
 	let endIndex = -1
@@ -91,7 +95,7 @@ export function parseFrontmatter(filePath) {
 			break
 		}
 	}
-	if (endIndex < 0) return { data: {}, error: 'unterminated front matter' }
+	if (endIndex < 0) return { data: {}, error: 'unterminated front matter', body: raw }
 
 	/** @type {Record<string, unknown>} */
 	const data = {}
@@ -123,7 +127,7 @@ export function parseFrontmatter(filePath) {
 		}
 	}
 
-	return { data, error: null }
+	return { data, error: null, body: lines.slice(endIndex + 1).join('\n') }
 }
 
 /**
@@ -162,7 +166,7 @@ export function walkDocs(docsDir, skipName) {
  * @returns {string}
  */
 export function requireDocsDir(label) {
-	const docsDir = path.resolve('docs')
+	const docsDir = path.join(ROOT, 'docs')
 	let ok
 	try {
 		ok = statSync(docsDir).isDirectory()
@@ -170,8 +174,65 @@ export function requireDocsDir(label) {
 		ok = false
 	}
 	if (!ok) {
-		console.error(`${label}: missing docs directory. Run from repo root.`)
+		console.error(`${label}: missing docs directory at ${docsDir}.`)
 		process.exit(1)
 	}
 	return docsDir
+}
+
+/**
+ * The URL prefix the published site actually answers on, derived rather than restated: the
+ * GitHub Pages host comes from `repository`, the path from the VitePress `base`. Writing the
+ * value out a second time is what let `llms.txt` drift to a host that never existed, which is
+ * why the llms generator and `docs-check.mjs` both read it from here. `DOCS_BASE_URL` overrides it.
+ * @param {string} docsDir - absolute path to the docs directory
+ * @returns {{base: string | null, errors: string[]}}
+ */
+export function canonicalBase(docsDir) {
+	if (process.env.DOCS_BASE_URL) return { base: process.env.DOCS_BASE_URL.replace(/\/?$/, '/'), errors: [] }
+
+	const pkg = JSON.parse(readFileSync(path.join(docsDir, '..', 'package.json'), 'utf8'))
+	const slug = String(pkg.repository?.url ?? pkg.homepage ?? '').match(/github\.com\/([^/]+)\/([^/.#]+)/)
+	if (!slug) return { base: null, errors: ['package.json: cannot derive the GitHub Pages host from `repository`'] }
+
+	const config = readFileSync(path.join(docsDir, '.vitepress', 'config.mts'), 'utf8')
+	const configured = config.match(/^\s*base:.*?'([^']+)'/m)
+	if (!configured) return { base: null, errors: ['docs/.vitepress/config.mts: cannot read the `base` option'] }
+
+	// An unreadable `base` collapses to `/`, which the slug check below then rejects loudly.
+	const base = (process.env.VITEPRESS_BASE ?? configured[1] ?? '').replace(/\/?$/, '/')
+	const errors = []
+	// A project Pages site is served under /<repo>/, so a `base` that disagrees means the whole
+	// site 404s no matter how well-formed the routes underneath it are.
+	if (!process.env.VITEPRESS_BASE && base !== `/${slug[2]}/`) {
+		errors.push(`docs/.vitepress/config.mts: \`base\` is \`${base}\`, but Pages serves this repo at \`/${slug[2]}/\``)
+	}
+	return { base: `https://${slug[1]}.github.io${base}`, errors }
+}
+
+/**
+ * The route VitePress serves a docs page at, relative to the site base.
+ *
+ * VitePress builds with `cleanUrls`, which emits `tables.html` rather than `tables/index.html`.
+ * GitHub Pages serves that as `/tables` and 404s on `/tables/`, so only a directory index may
+ * carry the trailing slash. A README is not one of those: VitePress leaves it at `README.html`.
+ * @param {string} rel - docs-relative POSIX path of the page
+ * @returns {string} `''` for the site index, `dir/` for a directory index, the bare path otherwise
+ */
+export function routeForPage(rel) {
+	const withoutExt = rel.replace(/\.md$/, '')
+	if (withoutExt === 'index') return ''
+	if (withoutExt.endsWith('/index')) return withoutExt.slice(0, withoutExt.lastIndexOf('/') + 1)
+	return withoutExt
+}
+
+/**
+ * The built file that serves a route, relative to the site's output directory: the inverse of
+ * {@link routeForPage}, and the mapping the server applies under `cleanUrls`.
+ * @param {string} route - a route relative to the site base
+ * @returns {string}
+ */
+export function pageForRoute(route) {
+	if (route === '') return 'index.html'
+	return route.endsWith('/') ? `${route}index.html` : `${route}.html`
 }

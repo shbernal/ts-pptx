@@ -1,8 +1,21 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+// Generate `docs/public/llms.txt` (a linked list of the docs pages) and `llms-full.txt` (every
+// page's body) from the docs tree.
+//
+// Runs in `docs:prepare` after `docs:index`, because the flat index that script writes is one of
+// the pages listed here. It used to run first and saw the index only when an earlier run had left
+// one behind, so a fresh checkout, which is what CI builds, published an `llms.txt` without it and
+// a second local run published one with it.
+//
+// The page set, the frontmatter, the site's base URL and the page routes all come from
+// `docs-frontmatter.mjs`, where `docs-check.mjs` reads them too, so the published list and the
+// check that verifies its URLs cannot disagree about what a page is or where it is served.
+
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { parseCliOrExit } from './script-utils.mjs'
+import { canonicalBase, parseFrontmatter, routeForPage, walkDocs } from './docs-frontmatter.mjs'
+import { ROOT, parseCliOrExit, repoRel } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
@@ -19,53 +32,34 @@ Options:
 	options: {},
 })
 
-const root = process.cwd()
-const docsDir = path.join(root, 'docs')
+const docsDir = path.join(ROOT, 'docs')
 const publicDir = path.join(docsDir, 'public')
 const docsConfig = JSON.parse(readFileSync(path.join(docsDir, 'docs.json'), 'utf8'))
-const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
-const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/ts-pptx/').replace(/\/?$/, '/')
-const excludedDirs = new Set(['.vitepress', 'archive', 'public', 'research'])
+const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 
 /**
- * Every documented `.md` file under `dir`, recursively, sorted.
- * @param {string} dir
- * @returns {string[]}
+ * The published site's base URL. Exits when it cannot be derived, rather than advertising links
+ * under a guess.
+ * @returns {string}
  */
-function walkMarkdown(dir) {
-	/** @type {string[]} */
-	const out = []
-	for (const entry of readdirSync(dir, { withFileTypes: true })) {
-		if (entry.isDirectory()) {
-			if (!excludedDirs.has(entry.name)) out.push(...walkMarkdown(path.join(dir, entry.name)))
-			continue
-		}
-		if (entry.isFile() && entry.name.endsWith('.md')) {
-			if (entry.name === 'README.md' && existsSync(path.join(dir, 'index.md'))) continue
-			out.push(path.join(dir, entry.name))
-		}
-	}
-	return out.sort()
+function siteBase() {
+	const { base, errors } = canonicalBase(docsDir)
+	if (base && errors.length === 0) return base
+	for (const error of errors) console.error(`docs:llms: ${error}`)
+	process.exit(1)
 }
 
-/**
- * Split a page into its frontmatter fields and its body.
- * @param {string} markdown
- * @returns {[Record<string, string>, string]}
- */
-function parseFrontmatter(markdown) {
-	if (!markdown.startsWith('---\n')) return [{}, markdown]
-	const end = markdown.indexOf('\n---\n', 4)
-	if (end === -1) return [{}, markdown]
+const baseUrl = siteBase()
 
-	/** @type {Record<string, string>} */
-	const frontmatter = {}
-	for (const line of markdown.slice(4, end).split('\n')) {
-		const match = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/)
-		if (!match?.[1]) continue
-		frontmatter[match[1]] = (match[2] ?? '').replace(/^"|"$/g, '')
-	}
-	return [frontmatter, markdown.slice(end + 5).trimStart()]
+/**
+ * Whether VitePress serves a docs page at a route of its own. A README beside an `index.md` is
+ * superseded by it.
+ * @param {string} rel - docs-relative POSIX path of the page
+ * @returns {boolean}
+ */
+function isServedPage(rel) {
+	if (path.posix.basename(rel) !== 'README.md') return true
+	return !existsSync(path.join(docsDir, path.posix.dirname(rel), 'index.md'))
 }
 
 /**
@@ -79,21 +73,12 @@ function titleFromBody(body, fallback) {
 }
 
 /**
- * @param {string} filePath
- * @returns {string}
+ * A frontmatter value, when it is a single string.
+ * @param {unknown} value
+ * @returns {string | undefined}
  */
-function routeFor(filePath) {
-	const rel = path.relative(docsDir, filePath).split(path.sep).join('/')
-	const withoutExt = rel.replace(/\.md$/, '')
-	if (withoutExt === 'index') return baseUrl
-	// VitePress builds with `cleanUrls`, which emits `tables.html` rather than
-	// `tables/index.html`. GitHub Pages serves that as `/tables` and 404s on
-	// `/tables/`, so only a directory index may carry the trailing slash. A
-	// README is not one of those: VitePress leaves it at `README.html`, and the
-	// walk above already drops any README that a sibling `index.md` supersedes.
-	const isDirectoryIndex = withoutExt.endsWith('/index')
-	const route = isDirectoryIndex ? `${withoutExt.slice(0, withoutExt.lastIndexOf('/'))}/` : withoutExt
-	return new URL(route, baseUrl).toString()
+function scalar(value) {
+	return typeof value === 'string' ? value : undefined
 }
 
 /**
@@ -102,20 +87,18 @@ function routeFor(filePath) {
  */
 
 /**
- * @param {string} filePath
+ * @param {string} rel - docs-relative POSIX path of the page
  * @returns {PageRecord}
  */
-function pageRecord(filePath) {
-	const raw = readFileSync(filePath, 'utf8')
-	const [frontmatter, body] = parseFrontmatter(raw)
-	const rel = path.relative(docsDir, filePath).split(path.sep).join('/')
-	const fallbackTitle = rel.replace(/\.md$/, '')
+function pageRecord(rel) {
+	const { data, body: rawBody } = parseFrontmatter(path.join(docsDir, rel))
+	const body = rawBody.trimStart()
 	return {
 		body,
 		rel,
-		summary: frontmatter.summary ?? '',
-		title: frontmatter.title ?? titleFromBody(body, fallbackTitle),
-		url: routeFor(filePath),
+		summary: scalar(data.summary) ?? '',
+		title: scalar(data.title) ?? titleFromBody(body, rel.replace(/\.md$/, '')),
+		url: new URL(routeForPage(rel), baseUrl).toString(),
 	}
 }
 
@@ -140,7 +123,7 @@ function docsNavigationOrder(records) {
 	return ordered
 }
 
-const records = docsNavigationOrder(walkMarkdown(docsDir).map(pageRecord))
+const records = docsNavigationOrder(walkDocs(docsDir).filter(isServedPage).map(pageRecord))
 
 const llms = [
 	`# ${docsConfig.name}`,
@@ -176,5 +159,5 @@ mkdirSync(publicDir, { recursive: true })
 writeFileSync(path.join(publicDir, 'llms.txt'), llms, 'utf8')
 writeFileSync(path.join(publicDir, 'llms-full.txt'), llmsFull, 'utf8')
 
-console.log(`generated ${path.relative(root, path.join(publicDir, 'llms.txt'))}`)
-console.log(`generated ${path.relative(root, path.join(publicDir, 'llms-full.txt'))}`)
+console.log(`generated ${repoRel(path.join(publicDir, 'llms.txt'))}`)
+console.log(`generated ${repoRel(path.join(publicDir, 'llms-full.txt'))}`)
