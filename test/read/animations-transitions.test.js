@@ -401,6 +401,61 @@ describe('importShape carryAnimation (Phase 2 capability A)', () => {
 		assert.equal((await Presentation.load(saved)).slides[0].hasAnimations, true)
 	})
 
+	/**
+	 * Each `p:seq` on a slide, in document order: its `p:cTn/@nodeType`, and the XML of each group
+	 * in its child list.
+	 * @param {any} slide
+	 */
+	function sequencesOf(slide) {
+		const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+		const children = (/** @type {any} */ node, local = '') =>
+			[...node.childNodes].filter((child) => child.nodeType === 1 && (!local || child.localName === local))
+		return [...slide.part.dom.documentElement.getElementsByTagNameNS(P_NS, 'seq')].map((seq) => {
+			const [cTn] = children(seq, 'cTn')
+			const [list] = cTn ? children(cTn, 'childTnLst') : []
+			return { nodeType: cTn?.getAttribute('nodeType') ?? null, groups: list ? children(list).map(String) : [] }
+		})
+	}
+
+	test('carries into the main sequence of a media slide, leaving its media trigger sequence alone', async () => {
+		// PowerPoint times a slide's embedded or online video in an `interactiveSeq`, and these media
+		// slides have no `mainSeq`. The carry took the first `p:seq` as the main one, so the click step
+		// landed in the media trigger sequence and no main sequence was ever created.
+		for (const name of ['av-media', 'online-video']) {
+			const target = await openFixture(name)
+			const source = await openFixture('slide-animation-basic')
+			const slide = target.slides[0]
+			const before = sequencesOf(slide)
+			assert.deepEqual(
+				before.map((seq) => seq.nodeType),
+				['interactiveSeq'],
+				`${name}: only a media trigger sequence`
+			)
+			const newSpid = slide.nextShapeId()
+			target.importShape(slide, source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
+
+			const after = sequencesOf(slide)
+			const main = after.find((seq) => seq.nodeType === 'mainSeq')
+			assert.ok(main, `${name}: a mainSeq was created`)
+			assert.equal(main.groups.length, 1, `${name}: holding the one carried click step`)
+			assert.ok(main.groups[0].includes(`spid="${newSpid}"`), `${name}: which targets the carried shape`)
+			const media = after.filter((seq) => seq.nodeType === 'interactiveSeq')
+			assert.equal(media.length, 1, `${name}: still one media trigger sequence`)
+			assert.deepEqual(media[0].groups, before[0].groups, `${name}: and it is unchanged`)
+		}
+	})
+
+	test('does not carry a media trigger as a click step', async () => {
+		// The source side read click groups from the first `p:seq` too, so lifting the video off a
+		// media slide turned its play trigger into a build step on a slide that had no animation.
+		const target = await openFixture('slide-transition')
+		const source = await openFixture('av-media')
+		const slide = target.slides[0]
+		target.importShape(slide, source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
+		assert.deepEqual(sequencesOf(slide), [], 'no timing sequence was created')
+		assert.equal(slide.hasAnimations, false, 'and the slide still reports no animation')
+	})
+
 	test.skipIf(!validatorInstalled)('the carried package stays schema-valid', async () => {
 		const target = await openFixture('slide-animation-rich')
 		const source = await openFixture('slide-animation-basic')

@@ -234,6 +234,24 @@ function importScaffold(doc: Document, xml: string): Element {
 	return doc.importNode(parseXml(xml).documentElement as Element, true)
 }
 
+/**
+ * A slide timing's main sequence: the `p:seq` whose `p:cTn` is marked `nodeType="mainSeq"`, or
+ * `null` when it has none.
+ *
+ * Not simply the first `p:seq`. A slide's embedded or online media is timed in an
+ * `interactiveSeq`, and PowerPoint's media slides carry one and no `mainSeq`, so the first
+ * `p:seq` there is the media trigger sequence. Taken as the main one, a carried click step landed
+ * in it on the destination, and a media trigger lifted off such a slide was carried as a click
+ * step.
+ */
+function mainSeqOf(timing: Element): Element | null {
+	for (const seq of timing.getElementsByTagNameNS(P_NS, 'seq')) {
+		const cTn = firstChild(seq, 'p:cTn')
+		if (cTn && attr(cTn, 'nodeType') === 'mainSeq') return seq
+	}
+	return null
+}
+
 /** The destination `mainSeq` `p:childTnLst` to append click groups into, creating the timing/seq scaffold as needed. */
 function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 	let timing = firstChild(root, 'p:timing')
@@ -242,7 +260,7 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		insertInOrder(root, timing, ['p:extLst'])
 	}
 	// Reuse an existing mainSeq if present.
-	const existingSeq = timing.getElementsByTagNameNS(P_NS, 'seq')[0]
+	const existingSeq = mainSeqOf(timing)
 	if (existingSeq) {
 		const seqCTn = firstChild(existingSeq, 'p:cTn')
 		if (seqCTn) {
@@ -300,7 +318,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 	const carriedSpids = new Set(spidMap.keys())
 
 	// Source click groups (direct children of the mainSeq child list) that target a carried shape.
-	const sourceSeq = sourceTiming.getElementsByTagNameNS(P_NS, 'seq')[0]
+	const sourceSeq = mainSeqOf(sourceTiming)
 	const groups: Element[] = []
 	if (sourceSeq) {
 		const seqCTn = firstChild(sourceSeq, 'p:cTn')

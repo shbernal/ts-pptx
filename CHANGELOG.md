@@ -808,6 +808,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`importShape({ carryAnimation: true })` mixed a build animation up with media timing.** A
+  slide's embedded or online video is timed in an `interactiveSeq`, and PowerPoint's media
+  slides carry one and no `mainSeq`. Both sides of the carry took the first `p:seq` in the
+  timing as the main sequence. Onto such a slide, the carried click step was appended to the
+  video's trigger sequence and no main sequence was created. Off such a slide, the video's play
+  trigger was carried as a click step, so the destination gained an animation it never had.
+  Both now look for the sequence marked `mainSeq`, and create one when the destination has
+  none.
+
 - **`importSlide` copied a linked page's target as a slide nobody listed.** A page with a
   jump link to another slide, imported with `importSlide`, followed the link and copied the
   target page too: a slide part in no `p:sldIdLst`, with its own layout and master. The same
