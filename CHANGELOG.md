@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A written deck's zip entry timestamps depended on the machine's timezone.**
+  - Every entry is stamped with one fixed date so a deck is reproducible, but that date was a UTC
+    instant, and a zip stores its dates as local wall-clock fields. The same deck therefore had
+    different archive bytes in Los Angeles and in Tokyo, and west of UTC its entries were dated
+    2000-12-31.
+  - The stamp is now local midnight on 2001-01-01, which gives the same bytes in every timezone.
+    The parts inside the package are unchanged.
+
 - **`removeSlide` could prune a deck's comment-author registry.**
   - Pruning after a removal keeps deck chrome even while nothing references it. Its list of chrome
     content types left out the two comment-author registries (`commentAuthors.xml` and the 2018
