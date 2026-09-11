@@ -658,8 +658,11 @@ export function getSlidesForTableRows(
 				options: newCellOptions,
 			}
 
-			// E-1: Exempt cells with `rowspan` from increasing lineHeight (or we could create a new slide when unecessary!)
-			if (newCellOptions.rowspan) newCell._lineHeight = 0
+			// E-1: Exempt a cell that spans rows from increasing lineHeight (or we could create a new slide
+			// when unnecessary!). The grid's clamped span decides, not the option: `rowspan: 1` is a
+			// valid "no span" that `withCheckedSpans` passes through, and testing the option priced
+			// every such row at its margins alone -- 80 two-cell rows paged onto 2 slides instead of 6.
+			if (placed && placed.rowSpan > 1) newCell._lineHeight = 0
 
 			// E-2: **MAIN** Parse cell contents into lines based upon col width, font, etc.
 			// A spanning cell is as wide as the columns it covers; the seed keeps a row longer

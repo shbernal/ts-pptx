@@ -851,6 +851,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An auto-paged row whose cells state `rowspan: 1` was priced as if it had no text.** The pager
+  exempted any cell with a `rowspan` option from the row's line height, `rowspan: 1` included,
+  so eighty such rows paged onto 2 slides with 46 rows on the first, where 6 slides fit. Only a
+  cell that really spans rows is exempt now.
+
 - **An auto-paged table with a table-level `fontSize` ran rows off the bottom of each page.** The
   pager wrapped cell text at the cell's own `fontSize` or the 12pt default and never at the
   table's, while the row height and the emitted text used the table's. Thirty rows of long text at
