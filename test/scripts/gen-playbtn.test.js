@@ -20,6 +20,16 @@ function pixel(rgba, w, x, y) {
 	return [rgba[i], rgba[i + 1], rgba[i + 2], rgba[i + 3]]
 }
 
+/**
+ * One render of the full frame, shared by the pixel checks.
+ *
+ * A full render is 960 x 692 pixels at 16 samples each, which takes over ten seconds under
+ * coverage instrumentation. Each case rendering its own put the file past vitest's per-test
+ * timeout in most `test:coverage` runs.
+ */
+let fullFrame
+const renderedFrame = () => (fullFrame ??= renderPlayButton(FRAME))
+
 describe('gen-playbtn', () => {
 	test('src/media/playbtn.ts is what the generator writes', () => {
 		expect(fs.readFileSync(PLAYBTN_PATH, 'utf8')).toBe(playbtnModule())
@@ -36,7 +46,7 @@ describe('gen-playbtn', () => {
 
 	test('the four design colours land where the design says', () => {
 		const { w, h } = FRAME
-		const rgba = renderPlayButton(FRAME)
+		const rgba = renderedFrame()
 		// The scrim, well outside the button.
 		expect(pixel(rgba, w, 4, 4)).toEqual([9, 9, 9, 55])
 		// The disc, well inside it: the ring's inner edge is at 316/1383 == 0.229 of the height.
@@ -60,7 +70,7 @@ describe('gen-playbtn', () => {
 		// Straight averaging would give `255c + 9(1 - c)` instead, which is 62 lower at half
 		// coverage. Rounding to 8 bits is the only slack allowed.
 		const { w, h } = FRAME
-		const rgba = renderPlayButton(FRAME)
+		const rgba = renderedFrame()
 		const cx = Math.round(w / 2)
 		const rOuter = (357 / 1383) * h
 		const edge = []
@@ -78,11 +88,16 @@ describe('gen-playbtn', () => {
 	})
 
 	test('a changed design constant changes the bytes', () => {
-		const base = renderPlayButton(FRAME)
-		const wider = renderPlayButton({ w: FRAME.w, h: FRAME.h + 2 })
-		expect(wider.length).not.toBe(base.length)
+		// A small frame: the design is fractions of the frame height, so it draws the same shape at
+		// any size, and three full-frame renders took 40 to 51 seconds under coverage. The full
+		// frame's own determinism is already pinned by the first case, which compares the committed
+		// module against a fresh render.
+		const small = { w: 96, h: 69 }
+		const base = renderPlayButton(small)
+		const taller = renderPlayButton({ w: small.w, h: small.h + 2 })
+		expect(taller.length).not.toBe(base.length)
 		// Same frame, same pixels: the renderer is deterministic, which is what makes the
 		// file-comparison case above meaningful rather than flaky.
-		expect(Buffer.from(renderPlayButton(FRAME))).toEqual(Buffer.from(base))
+		expect(Buffer.from(renderPlayButton(small))).toEqual(Buffer.from(base))
 	})
 })
