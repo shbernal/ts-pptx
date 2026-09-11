@@ -39,7 +39,7 @@ export interface ChartLegend {
 	overlay: boolean | null
 }
 
-/** A chart's data-label settings (`c:dLbls`), read from the first plot group. */
+/** Data-label settings (`c:dLbls`), read from a plot group or from one series. */
 export interface ChartDataLabels {
 	/** Show the point value (`c:showVal`). */
 	showValue: boolean | null
@@ -160,28 +160,16 @@ export class Chart {
 	/**
 	 * The chart-level data-label settings, read from the first plot group's
 	 * aggregate `c:dLbls` (the group-wide block after the series). `null` when the
-	 * plot group carries no data-label block (e.g. pie via a different builder).
+	 * plot group carries no data-label block.
+	 *
+	 * A pie keeps its labels on the series instead: PowerPoint writes the flags the
+	 * user set into `c:ser/c:dLbls` and leaves this block all off, and this library's
+	 * writer emits no group block for a pie at all. Read those through
+	 * {@link ChartSeries.dataLabels}.
 	 */
 	get dataLabels(): ChartDataLabels | null {
 		const group = this.#chartGroups()[0]
-		const dLbls = group && firstChild(group, 'c:dLbls')
-		if (!dLbls) return null
-		const flag = (qname: string): boolean | null => {
-			const el = firstChild(dLbls, qname)
-			return el ? boolValue(attr(el, 'val')) : null
-		}
-		const pos = firstChild(dLbls, 'c:dLblPos')
-		return {
-			showValue: flag('c:showVal'),
-			showSeriesName: flag('c:showSerName'),
-			showCategoryName: flag('c:showCatName'),
-			showPercent: flag('c:showPercent'),
-			showLegendKey: flag('c:showLegendKey'),
-			showBubbleSize: flag('c:showBubbleSize'),
-			showLeaderLines: flag('c:showLeaderLines'),
-			position: pos ? attr(pos, 'val') : null,
-			numberFormat: readNumberFormat(dLbls),
-		}
+		return readDataLabels(group ? firstChild(group, 'c:dLbls') : null)
 	}
 
 	/** The data series (`c:ser`) across all chart groups, in document order. */
@@ -198,6 +186,12 @@ export class Chart {
 	get categories(): (string | null)[] {
 		const firstSer = this.series[0]
 		return firstSer ? firstSer.categories : []
+	}
+
+	/** Every category level of the first series, leaf first; see {@link ChartSeries.categoryLevels}. */
+	get categoryLevels(): (string | null)[][] {
+		const firstSer = this.series[0]
+		return firstSer ? firstSer.categoryLevels : []
 	}
 
 	/** Escape hatch: the underlying `c:chartSpace` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -427,16 +421,62 @@ export class ChartSeries {
 		return points[0] ?? null
 	}
 
-	/** Cached numeric values (`c:val`); non-numeric or missing points are `null`. */
+	/**
+	 * Cached numeric values (`c:val`); non-numeric or missing points are `null`. Empty on a
+	 * scatter or bubble series, which caches its values as {@link yValues} instead.
+	 */
 	get values(): (number | null)[] {
-		const val = firstChild(this.ser, 'c:val')
-		return readPoints(val && findCache(val)).map(numberValue)
+		return this.#numbers('c:val')
 	}
 
-	/** Cached category labels for this series (`c:cat`), as written. */
+	/**
+	 * Cached X values of a scatter or bubble series (`c:xVal`); missing points are `null`.
+	 * A scatter plotted against text X labels caches them as strings, and those read as `null`
+	 * too, since they are not coordinates.
+	 */
+	get xValues(): (number | null)[] {
+		return this.#numbers('c:xVal')
+	}
+
+	/** Cached Y values of a scatter or bubble series (`c:yVal`); non-numeric or missing points are `null`. */
+	get yValues(): (number | null)[] {
+		return this.#numbers('c:yVal')
+	}
+
+	/** Cached bubble sizes of a bubble series (`c:bubbleSize`); non-numeric or missing points are `null`. */
+	get bubbleSizes(): (number | null)[] {
+		return this.#numbers('c:bubbleSize')
+	}
+
+	/**
+	 * Cached category labels for this series (`c:cat`), as written. On a multi-level axis this
+	 * is the leaf level, the labels next to the plot; {@link categoryLevels} has the rest.
+	 */
 	get categories(): (string | null)[] {
+		return this.categoryLevels[0] ?? []
+	}
+
+	/**
+	 * Every level of cached category labels (`c:cat`), leaf first: the order PowerPoint writes the
+	 * `c:multiLvlStrCache/c:lvl` children in, and the order `OptsChartData.labels` takes them.
+	 * Each level is as long as the leaf level. An outer level names a group once, at the group's
+	 * first category, so the other slots of that group are `null`. A single-level axis reads as
+	 * one level, and a series with no categories as none.
+	 */
+	get categoryLevels(): (string | null)[][] {
 		const cat = firstChild(this.ser, 'c:cat')
-		return readPoints(cat && findCache(cat))
+		const cache = cat && findCache(cat)
+		if (!cache) return []
+		if (cache.localName !== 'multiLvlStrCache') return [readPoints(cache)]
+		return readCategoryLevels(cache)
+	}
+
+	/**
+	 * The data-label settings this series carries itself (`c:ser/c:dLbls`), or `null` when it has
+	 * none. This is where a pie's labels are: see {@link Chart.dataLabels}.
+	 */
+	get dataLabels(): ChartDataLabels | null {
+		return readDataLabels(firstChild(this.ser, 'c:dLbls'))
 	}
 
 	/** Escape hatch: the underlying `c:ser` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -448,6 +488,57 @@ export class ChartSeries {
 	markDirty(): void {
 		this.part.markDirty()
 	}
+
+	/** The cached points of a numeric child of the series (`c:val`, `c:xVal`, …), as numbers. */
+	#numbers(qname: string): (number | null)[] {
+		const container = firstChild(this.ser, qname)
+		return readPoints(container && findCache(container)).map(numberValue)
+	}
+}
+
+/** Read a `c:dLbls` block's show flags, position and number format, or `null` when there is no block. */
+function readDataLabels(dLbls: Element | null): ChartDataLabels | null {
+	if (!dLbls) return null
+	const flag = (qname: string): boolean | null => {
+		const el = firstChild(dLbls, qname)
+		return el ? boolValue(attr(el, 'val')) : null
+	}
+	const pos = firstChild(dLbls, 'c:dLblPos')
+	return {
+		showValue: flag('c:showVal'),
+		showSeriesName: flag('c:showSerName'),
+		showCategoryName: flag('c:showCatName'),
+		showPercent: flag('c:showPercent'),
+		showLegendKey: flag('c:showLegendKey'),
+		showBubbleSize: flag('c:showBubbleSize'),
+		showLeaderLines: flag('c:showLeaderLines'),
+		position: pos ? attr(pos, 'val') : null,
+		numberFormat: readNumberFormat(dLbls),
+	}
+}
+
+/**
+ * Read a `c:multiLvlStrCache` into its levels, in document order.
+ *
+ * The cache's `c:ptCount` counts categories, which is the leaf level's length, so only the leaf
+ * is checked against it. An outer level is sparse by design, one point per group, and checking
+ * it would warn about every multi-level chart PowerPoint writes. Every level is then widened to
+ * the longest, so `levels[n][i]` is category `i`'s label at level `n`.
+ */
+function readCategoryLevels(cache: Element): (string | null)[][] {
+	const ptCount = firstChild(cache, 'c:ptCount')
+	const declared = ptCount ? numberValue(attr(ptCount, 'val')) : null
+	const levels = getElements(cache, 'c:lvl').map((lvl, depth) =>
+		readIndexedPoints(
+			getElements(lvl, 'c:pt'),
+			depth === 0 ? declared : null,
+			(pt) => firstChild(pt, 'c:v')?.textContent ?? null,
+			'c:multiLvlStrCache/c:ptCount'
+		)
+	)
+	const width = Math.max(0, ...levels.map((level) => level.length))
+	for (const level of levels) while (level.length < width) level.push(null)
+	return levels
 }
 
 /** Concatenate the rich-text runs of a `c:title` element, or `null` when absent/empty. */

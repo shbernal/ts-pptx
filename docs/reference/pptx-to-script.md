@@ -291,7 +291,7 @@ check must exclude from its diff.
 
 ## What actually gets lost
 
-Measured across the 49-fixture corpus by `pnpm run script:census`, which is
+Measured across the 50-fixture corpus by `pnpm run script:census`, which is
 what keeps the numbers below honest. A closed reader gap or a new fixture
 moves them without failing anything. The count is how many fixtures raise the
 note at least once, not how many notes fired. The corpus is
@@ -302,17 +302,18 @@ Both tiers, in corpus order:
 
 | construct | fixtures | cause | what it costs |
 |---|---|---|---|
-| `text.color.inherited` | 30/49 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
-| `shape.placeholder` | 10/49 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
-| `shape.frameInherited` | 9/49 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen: it stops tracking layout edits |
-| `text.color.default` | 8/49 | unread | nothing resolves what this run inherits, so the write path paints it black: the one case where the output colour is not merely frozen but possibly *wrong* |
-| `line.width` | 7/49 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
-| `slide.animation` | 7/49 | unread | build animation has no structural reader |
-| `slide.carried` | 3/49 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
-| `media.audioVideo` | 2/49 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
-| `text.equation` | 2/49 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
+| `text.color.inherited` | 30/50 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
+| `shape.placeholder` | 10/50 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
+| `shape.frameInherited` | 9/50 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen: it stops tracking layout edits |
+| `text.color.default` | 8/50 | unread | nothing resolves what this run inherits, so the write path paints it black: the one case where the output colour is not merely frozen but possibly *wrong* |
+| `line.width` | 7/50 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
+| `slide.animation` | 7/50 | unread | build animation has no structural reader |
+| `chart.workbook` | 3/50 | unsupported | a chart is rebuilt from its cached plot values, so its embedded workbook is regenerated: the numbers match, the source sheet's formulas, extra columns and formatting do not survive |
+| `slide.carried` | 3/50 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
+| `media.audioVideo` | 2/50 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
+| `text.equation` | 2/50 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
-Plus, at 1–2 fixtures each: `chart.workbook`, `diagram.all`,
+Plus, at 1–2 fixtures each: `diagram.all`,
 `graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
 `shape.empty`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
 `group.child`, `image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,

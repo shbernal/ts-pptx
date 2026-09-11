@@ -61,10 +61,11 @@ const FLATTENED_3D: ReadonlySet<string> = new Set(['area3D', 'line3D', 'pie3D'])
 const CATEGORY_NAME_TYPES: ReadonlySet<string> = new Set(['doughnut', 'pie'])
 
 /**
- * The plot types that cache their values in `c:yVal` rather than `c:val`. `ChartSeries.values` reads
- * only `c:val`, so every series of one reads back empty whatever the deck holds.
+ * The plot types that pair every value with an X value of its own (`c:xVal` and `c:yVal`, plus
+ * `c:bubbleSize` on a bubble) rather than with a category. `addChart` spells them as a leading row
+ * of X values followed by one row per series.
  */
-const Y_VALUE_TYPES: ReadonlySet<string> = new Set(['bubble', 'bubble3D', 'scatter'])
+const XY_TYPES: ReadonlySet<string> = new Set(['bubble', 'bubble3D', 'scatter'])
 
 /** `c:legendPos/@val` → the write API's `legendPos`. */
 const LEGEND_POS: Record<string, string> = { r: 'r', l: 'l', t: 't', b: 'b', tr: 'tr' }
@@ -102,21 +103,12 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		)
 	}
 
-	const data = seriesData(chart, notes)
+	const xy = XY_TYPES.has(type)
+	const data = xy ? xyData(chart, type, notes) : seriesData(chart, notes)
 	// Series that all read no points plot nothing either. `addChart` would draw an empty frame the
 	// source never showed as a chart, and checking only for zero series let those through.
-	if (data.length === 0 || chart.series.every((series) => series.values.length === 0)) {
-		// A scatter or bubble lands here whatever it caches, so its note blames the reader, not the deck.
-		if (Y_VALUE_TYPES.has(type)) {
-			notes.note(
-				'chart.data',
-				'dropped',
-				'unread',
-				`a ${type} chart caches its values in c:yVal, and the read model's series values read only c:val, so there are no values to rebuild it from and it is omitted`
-			)
-		} else {
-			notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
-		}
+	if (data.length === 0 || chart.series.every((series) => (xy ? series.yValues : series.values).length === 0)) {
+		notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
 		return null
 	}
 
@@ -161,33 +153,88 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
  * practice.
  */
 function seriesData(chart: Chart, notes: NoteScope): IrValue[] {
-	const categories = chart.categories.map((label) => label ?? '')
-	let sawBlank = false
+	// Leaf level first, which is also how `OptsChartData.labels` takes several levels. An outer
+	// level names each group once, and the writer spells the rest of the group as `''`.
+	const levels = chart.categoryLevels.map((level) => level.map((label) => label ?? ''))
+	const labels = levels.length > 1 ? levels : levels[0]
+	const dense = blanksToZero(notes)
 
-	const data = chart.series.map((series, index) => {
-		const values = series.values.map((value) => {
-			if (value === null) sawBlank = true
-			return value ?? 0
-		})
+	return chart.series.map((series, index) => {
+		const values = dense(series.values)
 		return (
 			compact({
 				name: orUndefined(series.name),
 				values,
 				// Only the first series carries labels, matching how addChart reads them.
-				labels: index === 0 && categories.length > 0 ? categories : undefined,
+				labels: index === 0 && levels[0]?.length ? labels : undefined,
 			}) ?? { values }
 		)
 	})
+}
 
-	if (sawBlank) {
-		notes.note(
-			'chart.blanks',
-			'approximated',
-			'unwritable',
-			'a blank cached data point becomes 0, because OptsChartData.values is number[] and has no spelling for a gap; on a line chart this draws a dip to the axis where the source showed a break'
+/**
+ * A scatter or bubble chart as `OptsChartData[]`: the X row, then one row per series with its Y
+ * values and, on a bubble, its sizes. The X row is not a series and has no name in the chart part;
+ * its column header lives only in the workbook, which is regenerated anyway.
+ *
+ * `addChart` plots every series against that one X row, while a chart part gives each series a
+ * `c:xVal` of its own. The first series' X values are taken, and a series whose own differ is noted.
+ * @param type - the write-API chart type the chart is rebuilt as
+ */
+function xyData(chart: Chart, type: string, notes: NoteScope): IrValue[] {
+	const series = chart.series
+	const first = series[0]
+	if (!first) return []
+	const dense = blanksToZero(notes)
+	const xValues = first.xValues
+	const withSizes = type !== 'scatter'
+
+	const rows: IrValue[] = [{ values: dense(xValues) }]
+	let ownX = false
+	for (const one of series) {
+		const own = one.xValues
+		if (own.length !== xValues.length || own.some((value, i) => value !== xValues[i])) ownX = true
+		const values = dense(one.yValues)
+		rows.push(
+			compact({
+				name: orUndefined(one.name),
+				values,
+				sizes: withSizes ? dense(one.bubbleSizes) : undefined,
+			}) ?? { values }
 		)
 	}
-	return data
+
+	if (ownX) {
+		notes.note(
+			'chart.xValues',
+			'approximated',
+			'unwritable',
+			`the series of this ${type} chart do not share one set of X values, and addChart plots every series against a single X row, so each is rebuilt against the first series' X values`
+		)
+	}
+	return rows
+}
+
+/**
+ * Densify cached points for `number[]`, noting once per chart when a blank had to become 0.
+ * The returned function is called once per point list, and the note is recorded on the first blank.
+ */
+function blanksToZero(notes: NoteScope): (points: (number | null)[]) => number[] {
+	let noted = false
+	return (points) =>
+		points.map((value) => {
+			if (value !== null) return value
+			if (!noted) {
+				noted = true
+				notes.note(
+					'chart.blanks',
+					'approximated',
+					'unwritable',
+					'a blank cached data point becomes 0, because OptsChartData.values is number[] and has no spelling for a gap; on a line chart this draws a dip to the axis where the source showed a break'
+				)
+			}
+			return 0
+		})
 }
 
 function titleOptions(chart: Chart): Record<string, IrValue | undefined> {
@@ -211,12 +258,16 @@ function legendOptions(chart: Chart): Record<string, IrValue | undefined> {
  * as `showCatName` and `showLegendKey` anyway. Neither is a `ChartOpts` key, so the writer ignored
  * both and nothing said so. `ChartOpts` spells the category name `showLabel`, which a pie and a
  * doughnut write as one; nothing spells the legend-key swatch.
+ *
+ * A pie and a doughnut are read from the series' own block. PowerPoint writes the flags the user set
+ * there and an all-off block for the group, so reading the group block rebuilt a labelled pie
+ * without its labels.
  * @param type - the write-API chart type the chart is rebuilt as
  */
 function labelOptions(chart: Chart, type: string, notes: NoteScope): Record<string, IrValue | undefined> {
-	const labels = chart.dataLabels
-	if (!labels) return {}
 	const carriesCategoryName = CATEGORY_NAME_TYPES.has(type)
+	const labels = (carriesCategoryName ? chart.series[0]?.dataLabels : null) ?? chart.dataLabels
+	if (!labels) return {}
 
 	if (labels.showLegendKey === true) {
 		notes.note(
@@ -241,7 +292,9 @@ function labelOptions(chart: Chart, type: string, notes: NoteScope): Record<stri
 		showLabel: carriesCategoryName ? (labels.showCategoryName ?? undefined) : undefined,
 		showPercent: labels.showPercent ?? undefined,
 		showLeaderLines: labels.showLeaderLines ?? undefined,
-		dataLabelPosition: orUndefined(labels.position),
+		// A pie's labels with no `c:dLblPos` sit at best fit (PowerPoint reports
+		// `xlLabelPositionBestFit` for them), and the writer spells an unset pie position `ctr`.
+		dataLabelPosition: orUndefined(labels.position) ?? (type === 'pie' ? 'bestFit' : undefined),
 		dataLabelFormatCode: labels.numberFormat?.formatCode ?? undefined,
 	}
 }

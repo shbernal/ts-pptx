@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The chart read model reads scatter, bubble and multi-level data, and the labels a series
+  carries itself.**
+  - `ChartSeries.xValues`, `yValues` and `bubbleSizes` read `c:xVal`, `c:yVal` and
+    `c:bubbleSize`. A scatter or bubble caches its data there rather than in `c:val`, so its
+    series read back with no values and its X values were unreachable.
+  - `ChartSeries.categoryLevels` and `Chart.categoryLevels` read every level of a multi-level
+    category axis, leaf first, the order PowerPoint writes them in and `OptsChartData.labels`
+    takes them. An outer level names each group once, so the rest of its group reads `null`.
+  - `ChartSeries.dataLabels` reads the series' own `c:dLbls`. PowerPoint keeps a pie's label
+    flags there and leaves the group's block, which is all `Chart.dataLabels` reads, all off.
+  - The ground truth is the new `chart-series-shapes.pptx` fixture, authored in desktop
+    PowerPoint.
+
 - **`createPresentation` composes a deck from the construct families it needs, and a program
   pays for what it composes.** Every entry publishes it beside `TsPptx`, and the families are
   values on the new `pptx-ts/families` subpath:
@@ -918,9 +931,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     flatten silently.
   - A chart whose series all cache no values is dropped with a `chart.data` note, like a chart
     with no series, instead of being emitted as an empty frame.
-  - For now that includes every scatter and bubble chart. The reader takes series values from
-    `c:val`, and those charts cache theirs in `c:yVal`, so each used to become a chart with no
-    values. Each is now dropped, and its note says the values are unread rather than absent.
+
+- **`Chart.categories` read nothing on a multi-level category axis, and warned about it.**
+  - The reader looked for points directly under `c:multiLvlStrCache`, and they sit one level down
+    in each `c:lvl`. PowerPoint's own multi-level charts read no categories and raised
+    `chart/point-count-mismatch`.
+  - `categories` is now the leaf level, the labels next to the plot.
+
+- **The script converter lost the data of scatter, bubble and multi-level charts, and a pie's
+  labels.**
+  - A scatter or bubble chart became a chart with no values. It is rebuilt from its X row, its Y
+    values and, on a bubble, its sizes. `addChart` plots every series against one X row, so when
+    the series carry different X values each is rebuilt against the first series' and a
+    `chart.xValues` note says so.
+  - A multi-level category axis came back unlabelled. Its levels are emitted as
+    `labels: string[][]`, leaf first.
+  - A PowerPoint pie came back without its labels, because the converter read the group's label
+    block. A pie or doughnut now takes its flags from its series. A pie with no label position is
+    given `dataLabelPosition: 'bestFit'`, where PowerPoint puts those labels, since the writer's
+    own default is `ctr`.
 
 - **A template-anchored script bound media it never used.**
   - A layout's background picture and logo come from the template, and a carried slide is

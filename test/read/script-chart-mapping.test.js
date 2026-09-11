@@ -9,15 +9,39 @@
 // The decks are authored with the write API and then edited in the chart part, because the
 // write path cannot produce most of these: it has no unwritable plot type and no blank point.
 
-import { describe, test } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import JSZip from 'jszip'
 import { Presentation } from '../../dist/read.js'
 import { readModelToIr } from '../../dist/script.js'
 import { ChartType } from '../../dist/node.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
+import { readFixture } from './corpus.js'
 
 const SERIES = [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }]
+
+/** A scatter's data: the X row, then two Y series. */
+const XY = [
+	{ name: 'X', values: [1, 2, 3] },
+	{ name: 'Y1', values: [4, 5, 6] },
+	{ name: 'Y2', values: [7, 8, 9] },
+]
+
+/** The first chart call in the IR. */
+function chartCall(ir) {
+	const call = ir.slides.flatMap((slide) => slide.calls).find((one) => one.method === 'addChart')
+	assert(call, 'the IR has a chart call')
+	return call
+}
+
+/** The chart call for the graphic frame named `objectName`. */
+function chartNamed(ir, objectName) {
+	const call = ir.slides
+		.flatMap((slide) => slide.calls)
+		.find((one) => one.method === 'addChart' && one.args[1].objectName === objectName)
+	assert(call, `the IR has a chart call for ${objectName}`)
+	return call
+}
 
 /** Apply `rewrite` to every chart part of `buf`, reload, and convert. */
 async function irWithChartXml(buf, rewrite) {
@@ -118,24 +142,55 @@ describe('the chart mapper declares what it cannot carry', () => {
 		)
 	})
 
-	test('a scatter is dropped with a note that its values are unread, not absent', async () => {
-		// `ChartSeries.values` reads `c:val`, and a scatter caches its values in `c:yVal`, so every
-		// series of one reads back empty. It used to become an `addChart` with no values. Dropping it
-		// is the better failure, but only with a note that blames the reader rather than the deck.
+	test('scatter series with X values of their own are rebuilt against the first, and say so', async () => {
+		// `addChart` plots every series against one X row, and a chart part gives each series a
+		// `c:xVal` of its own. When they differ, the second series moves.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addChart(XY, { type: ChartType.scatter, x: 1, y: 1, w: 6, h: 4 })
+		})
+		// The last X point 1 is the second series' own: its `c:xVal` comes after the first series,
+		// and no Y value is 1.
+		const ir = await irWithChartXml(buf, (xml) => {
+			const find = '<c:pt idx="0"><c:v>1</c:v></c:pt>'
+			const at = xml.lastIndexOf(find)
+			assert(at > xml.indexOf(find), 'the second series caches its own X row')
+			return xml.slice(0, at) + '<c:pt idx="0"><c:v>10</c:v></c:pt>' + xml.slice(at + find.length)
+		})
+		assert(constructs(ir).includes('chart.xValues'), 'the move is noted; got ' + JSON.stringify(constructs(ir)))
+		expect(chartCall(ir).args[0][0]).toEqual({ values: [1, 2, 3] })
+	})
+})
+
+describe('chart data keeps the shape addChart takes', () => {
+	test('a scatter keeps its X values as the leading X row', async () => {
+		// The read model had no accessor for `c:xVal` or `c:yVal`, so a scatter's series read back
+		// empty and the chart was dropped.
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addChart(
-				[
-					{ name: 'X', values: [1, 2, 3] },
-					{ name: 'Y', values: [4, 5, 6] },
-				],
-				{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 4 }
-			)
+			pres.addSlide().addChart(XY, { type: ChartType.scatter, x: 1, y: 1, w: 6, h: 4 })
 		})
 		const ir = readModelToIr(presentation)
-		assertEqual(ir.slides[0].calls.filter((call) => call.method === 'addChart').length, 0, 'no empty chart is emitted')
-		const note = ir.fidelity.find((entry) => entry.construct === 'chart.data')
-		assertEqual(note?.cause, 'unread', "the loss is the reader's")
-		assert(String(note?.detail).includes('c:yVal'), 'and the note names what it cannot read; got ' + note?.detail)
+		expect(chartCall(ir).args[0]).toEqual([
+			{ values: [1, 2, 3] },
+			{ name: 'Y1', values: [4, 5, 6] },
+			{ name: 'Y2', values: [7, 8, 9] },
+		])
+		assert(!constructs(ir).includes('chart.data'), 'and nothing is dropped; got ' + JSON.stringify(constructs(ir)))
+	})
+
+	test('a PowerPoint bubble keeps its sizes', async () => {
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		expect(chartNamed(ir, 'bubble-chart').args[0]).toEqual([
+			{ values: [1, 2, 3, 4] },
+			{ values: [2, 4, 3, 6], sizes: [5, 10, 7, 12] },
+		])
+	})
+
+	test('PowerPoint multi-level categories become labels leaf first, the outer level filled in with blanks', async () => {
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		expect(chartNamed(ir, 'multilevel-bar-chart').args[0][0].labels).toEqual([
+			['Q1', 'Q2', 'Q1', 'Q2'],
+			['North', '', 'South', ''],
+		])
 	})
 })
 
@@ -158,31 +213,17 @@ function flipFlag(qname, from, to) {
 describe('chart options are spelled the way ChartOpts spells them', () => {
 	// `showCatName` and `showLegendKey` were emitted from the read model's flags, and neither is a
 	// `ChartOpts` key: the writer ignored both, and nothing noted it.
-	test("a pie's category-name labels are `showLabel`", async () => {
-		// `Chart.dataLabels` reads the plot group's own `c:dLbls`, which PowerPoint writes after the
-		// series. This library's pie writes its flags per series and per point instead, so the group
-		// block a PowerPoint pie carries is put in by hand.
-		const { buf } = await chartDeck(ChartType.pie)
-		const flags = [
-			['c:showLegendKey', 0],
-			['c:showVal', 0],
-			['c:showCatName', 1],
-			['c:showSerName', 0],
-			['c:showPercent', 0],
-			['c:showBubbleSize', 0],
-		]
-		const groupLabels = `<c:dLbls>${flags.map(([name, val]) => `<${name} val="${val}"/>`).join('')}</c:dLbls>`
-		let inserted = 0
-		const ir = await irWithChartXml(buf, (xml) =>
-			xml.replace('<c:firstSliceAng', () => {
-				inserted++
-				return `${groupLabels}<c:firstSliceAng`
-			})
-		)
-		assertEqual(inserted, 1, 'the pie group takes its labels block')
-		const options = chartOptions(ir)
+	test("a pie's category-name labels are `showLabel`, read from the series where PowerPoint keeps them", async () => {
+		// PowerPoint writes a pie's label flags into `c:ser/c:dLbls` and an all-off block for the
+		// group. Read from the group block, the fixture's labelled pie was rebuilt with no labels.
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		const options = chartNamed(ir, 'pie-chart').args[1]
 		assertEqual(options.showLabel, true, 'the slice names are asked for the way the writer reads them')
 		assert(!('showCatName' in options), 'and not under a key the writer ignores')
+		assertEqual(options.showPercent, true, 'the percentages are kept')
+		assertEqual(options.showValue, false, 'and the values stay off')
+		// No `c:dLblPos` is best fit, and the writer spells an unset pie position `ctr`.
+		assertEqual(options.dataLabelPosition, 'bestFit', 'the position is written out')
 	})
 
 	test('label flags with no ChartOpts spelling are dropped and noted', async () => {

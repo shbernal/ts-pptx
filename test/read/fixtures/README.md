@@ -73,7 +73,10 @@ by the `ts-pptx/read` harness. Two groups:
   separate gestures, behind the write-side rule that a run does not inherit its shape's
   `shadow`.
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
-  `c:dPt`/`c:dLbl` + workbook cache), `math-omml.pptx` (native **display**
+  `c:dPt`/`c:dLbl` + workbook cache), `chart-series-shapes.pptx` (the chart caches
+  that are not a `c:val` beside a flat `c:cat`: scatter and bubble `c:xVal`/`c:yVal`/
+  `c:bubbleSize`, a two-level `c:multiLvlStrCache`, and a pie's series-level `c:dLbls`),
+  `math-omml.pptx` (native **display**
   equation OMML `a14:m`/`m:oMathPara`), and `math-omml-inline.pptx` (an
   **inline**, in-sentence equation `a14:m`/`m:oMath` with no `m:oMathPara`, flowing
   between plain `a:r` runs in one `a:p`).
@@ -111,6 +114,7 @@ by the `ts-pptx/read` harness. Two groups:
 | `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `chart-series-shapes.pptx`    | Microsoft Office PowerPoint | 16.0000    | 4      |
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `math-omml-inline.pptx`       | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
@@ -160,6 +164,7 @@ f6dcd2658c15c9559879452d6ce4d9c22db5101a92c532d59a3cd5d1c270d90b  shadow-shape-v
 f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
+e9030f19952bfc57d2b266adec45ca7e249a394b4d2f832e07d4c3d0f33d3f6f  chart-series-shapes.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 74ef4bd84b39fb8668277c0300372b13bdc984f311a0e2783d630ac5b8c9f7f8  math-omml-inline.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
@@ -678,6 +683,19 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `Sheet1!$A$2:$A$5`, numCache values `10`/`25`/`18`/`30` at `Sheet1!$B$2:$B$5`,
   workbook in `ppt/embeddings/`). Pins the exact per-point `c:dPt`/`c:dLbl`
   ordering inside `CT_BarSer` plus the cache the labels derive from.
+- `chart-series-shapes.pptx` — **read oracle** for the chart caches that are not a
+  `c:val` beside a flat `c:cat`, authored by `authoring/author-chart-series-shapes.ps1`.
+  Four slides, one chart each: `scatter-chart` (`c:scatterChart`, one series `Y`
+  whose `c:xVal` caches 1–4 and `c:yVal` 2.5/4/3.5/6); `bubble-chart`
+  (`c:bubbleChart`, `c:xVal` 1–4, `c:yVal` 2/4/3/6, `c:bubbleSize` 5/10/7/12);
+  `multilevel-bar-chart` (a clustered column whose `c:cat` is a `c:multiLvlStrRef`
+  with `c:ptCount` 4 and two `c:lvl`, leaf first: `Q1`/`Q2`/`Q1`/`Q2`, then `North`
+  at idx 0 and `South` at idx 2 with no point at idx 1 or 3); and `pie-chart`
+  (`c:pieChart` with labels showing percent and category name over
+  `North`/`South`/`East`/`West` = 35/25/22/18). The pie pins where PowerPoint keeps
+  a pie's label flags: in `c:ser/c:dLbls`, after the `c:dPt` run and before `c:cat`,
+  with no `c:dLblPos` (COM reports best fit) and no `c:numFmt`, while the group's own
+  `c:dLbls` after the series has every flag off.
 - `math-omml.pptx` — **authoring oracle** for a native equation (OMML) text run
   (`upstream-issue-1456`). One slide with a text box (`equation-box`) holding the
   equation 𝑥²+1=𝑦. `ppt/slides/slide1.xml` carries `<mc:AlternateContent>` →
@@ -1117,6 +1135,7 @@ fixtures opened clean with no repair prompt:
 - [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `chart-series-shapes.pptx` — Windows desktop PowerPoint, 2026-09-12 (authored + reopened clean via COM, no repair prompt)
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 - [x] `math-omml-inline.pptx` — Windows desktop PowerPoint, 2026-07-07 (authored via Word→PowerPoint paste + opened clean via COM, no repair prompt)
 - [x] `table-styles.pptx` — Windows desktop PowerPoint, 2026-07-15 (COM-authored, then the default table style set interactively — no COM surface exists for it — and re-saved; reopened clean via COM, no repair prompt)

@@ -1464,7 +1464,8 @@ class Chart {
 	readonly chartTypes: string[] // all groups (combo charts have >1)
 	readonly title: string | null // c:chart/c:title rich text
 	readonly series: ChartSeries[]
-	readonly categories: (string | null)[] // from the first series' cache
+	readonly categories: (string | null)[] // from the first series' cache (the leaf level)
+	readonly categoryLevels: (string | null)[][] // the first series' levels, leaf first
 	readonly axes: ChartAxis[] // plot-area order
 	readonly categoryAxis: ChartAxis | null // the c:catAx/c:dateAx
 	readonly valueAxis: ChartAxis | null // the c:valAx
@@ -1476,7 +1477,12 @@ class ChartSeries {
 	readonly index: number | null // c:ser/c:idx
 	readonly name: string | null // cached c:tx
 	readonly values: (number | null)[] // cached c:val (c:numCache)
-	readonly categories: (string | null)[] // cached c:cat
+	readonly xValues: (number | null)[] // cached c:xVal (scatter, bubble)
+	readonly yValues: (number | null)[] // cached c:yVal (scatter, bubble)
+	readonly bubbleSizes: (number | null)[] // cached c:bubbleSize
+	readonly categories: (string | null)[] // cached c:cat (the leaf level)
+	readonly categoryLevels: (string | null)[][] // every c:multiLvlStrCache level, leaf first
+	readonly dataLabels: ChartDataLabels | null // the series' own c:ser/c:dLbls
 	readonly fill: ChartFill | null // c:spPr solid / no-fill
 	readonly line: ChartLine | null // c:spPr/a:ln — width, dash, colour
 }
@@ -1511,6 +1517,8 @@ interface ChartDataLabels {
 	showCategoryName: boolean
 	showPercent: boolean
 	showLegendKey: boolean
+	showBubbleSize: boolean
+	showLeaderLines: boolean
 	position: string | null // c:dLblPos/@val
 	numberFormat: AxisNumberFormat | null
 }
@@ -1540,10 +1548,27 @@ data (which means rewriting the embedded `.xlsx`) is not yet supported.
 
 The chart part has **no theme context**, so series/axis colours surface as a raw
 `color` (srgbClr hex) plus an unresolved `schemeColor` token: deliberately *not*
-flattened to an effective hex the way shape/run colours are. `dataLabels` is the
-group-wide block after the series (not the per-series ones). Note that bar/area
+flattened to an effective hex the way shape/run colours are. Note that bar/area
 series carry no `a:ln` by default, so `ChartSeries.line` is `null` for them; the
 stroke path is exercised by line/radar series.
+
+Not every plot caches its data as `c:val` beside a flat `c:cat`, and three of the
+accessors exist for the ones that do not. The ground truth for all three is
+`test/read/fixtures/chart-series-shapes.pptx`.
+
+- **Scatter and bubble.** A series pairs every value with an X value of its own, so
+  `values` is empty and the data is in `xValues`, `yValues` and, on a bubble,
+  `bubbleSizes`. A scatter plotted against text X labels caches them as strings, and
+  `xValues` reads those as `null`.
+- **Multi-level categories.** `categoryLevels` holds every level of a
+  `c:multiLvlStrCache`, leaf first, which is the order PowerPoint writes them in and
+  the order `OptsChartData.labels` takes them. Every level is as long as the leaf, and
+  an outer level names each group once, at its first category, so the rest of the
+  group is `null`. `categories` is the leaf level.
+- **Data labels.** `Chart.dataLabels` is the group-wide block after the series, and
+  `ChartSeries.dataLabels` is the series' own. A pie keeps its labels on the series:
+  PowerPoint writes the flags the user set into `c:ser/c:dLbls` and an all-off block
+  for the group.
 
 ### `ChartEx`: Office-2016 charts (waterfall / funnel / treemap / …)
 

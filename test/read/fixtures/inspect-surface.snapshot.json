@@ -1134,6 +1134,56 @@
 		],
 		"diagnostics": []
 	},
+	"chart-series-shapes.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"scatter-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			},
+			{
+				"index": 1,
+				"name": "Slide 2",
+				"path": "ppt/slides/slide2.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"bubble-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			},
+			{
+				"index": 2,
+				"name": "Slide 3",
+				"path": "ppt/slides/slide3.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"multilevel-bar-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			},
+			{
+				"index": 3,
+				"name": "Slide 4",
+				"path": "ppt/slides/slide4.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"pie-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			}
+		],
+		"diagnostics": []
+	},
 	"custgeom.pptx": {
 		"slideSize": {"widthIn":13.333,"heightIn":7.5},
 		"slides": [
