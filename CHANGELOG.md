@@ -851,6 +851,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter placed a shape it could not position at the default spot.**
+  - A shape with no transform of its own (`a:xfrm`) and no placeholder geometry to inherit was
+    emitted with no `x`, `y`, `w` or `h`, so the writer put it at its default position.
+  - A connector in the same state vanished with no fidelity note.
+  - Every kind of shape (auto shape, picture, connector, group, table, chart, and a connector
+    on a layout) is now omitted with a `shape.frameUnresolved` note.
+
 - **The script converter rounded gradient stop positions and transparencies to whole percent.**
   - A stop at 33.333% with a 12.5% transparency came out as 33 and 13, although the writer
     takes thousandths of a percent. The re-read deck agreed with the rounded values, so the

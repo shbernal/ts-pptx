@@ -37,7 +37,7 @@ import {
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
-import { compact, emu, nameOf, positionOptions } from './values.js'
+import { compact, emu, frameOf, nameOf, positionOptions } from './values.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
@@ -117,6 +117,8 @@ function autoShapeText(shape: AutoShape, notes: NoteScope): TextFrame | null {
 
 function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 	const { notes } = ctx
+	const box = frameOf(shape, notes)
+	if (!box) return null
 	const preset = shape.presetGeometry
 	const custom = shape.customGeometry
 	const frame = autoShapeText(shape, notes)
@@ -131,7 +133,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 	}
 
 	const common = {
-		...positionOptions(shape, notes),
+		...positionOptions(box),
 		...transformOptions(shape),
 		...styleOptions(shape, ctx),
 		objectName: shape.name || undefined,
@@ -265,6 +267,8 @@ function customGeometryPoints(shape: AutoShape, custom: CustomGeometry): IrValue
  */
 function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 	const { notes, assets } = ctx
+	const box = frameOf(shape, notes)
+	if (!box) return null
 	if (isAudioVideo(shape.element_)) {
 		notes.note(
 			'media.audioVideo',
@@ -313,7 +317,7 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 
 	const crop = shape.crop
 	const options = compact({
-		...positionOptions(shape, notes),
+		...positionOptions(box),
 		...transformOptions(shape),
 		objectName: shape.name || undefined,
 		// `crop`, not `sizing`. Both exist and they are not interchangeable: `crop` is
@@ -348,7 +352,7 @@ const CONNECTOR_LINE_KEYS = ['color', 'width', 'dashType', 'beginArrowType', 'en
  * in the output, so a connector lands unbound and stops following its shapes when they move.
  */
 function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
-	const frame = shape.absoluteFrame
+	const frame = frameOf(shape, notes)
 	if (!frame) return null
 
 	if (shape.startConnection || shape.endConnection) {
@@ -481,6 +485,8 @@ function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
  */
 function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 	const { notes } = ctx
+	const box = frameOf(shape, notes)
+	if (!box) return null
 	const children: IrValue[] = []
 	for (const child of shape.shapes) {
 		const call = shapeCall(child, ctx)
@@ -533,7 +539,7 @@ function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 
 	return {
 		method: 'addGroup',
-		args: [children, compact({ ...positionOptions(shape, notes), objectName: shape.name || undefined }) ?? {}],
+		args: [children, compact({ ...positionOptions(box), objectName: shape.name || undefined }) ?? {}],
 		...nameOf(shape),
 	}
 }
@@ -673,7 +679,8 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
  * carries `rotate`, so this keeps it.
  */
 function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
-	if (!shape.absoluteFrame) return null
+	const box = frameOf(shape, notes)
+	if (!box) return null
 
 	if (shape.startConnection || shape.endConnection) {
 		notes.note(
@@ -688,7 +695,7 @@ function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
 	// `fillOption` for one would resolve the `p:style/a:fillRef` a `p:cxnSp` always carries into
 	// a colour that paints nothing on the source and a filled box on the output.
 	const options = compact({
-		...positionOptions(shape, notes),
+		...positionOptions(box),
 		...transformOptions(shape),
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),

@@ -246,12 +246,28 @@ export function alphaToTransparency(alpha: number | null | undefined): number | 
 	return transparency > 0 ? transparency : undefined
 }
 
+/** A shape's box in EMU, as {@link frameOf} resolves it. */
+export interface ShapeBox {
+	left: number
+	top: number
+	width: number
+	height: number
+}
+
 /**
- * Position as `Coord`-typed EMU strings, so the source geometry survives exactly.
+ * Where a shape sits on the slide, or `null` when nothing places it — in which case a
+ * `shape.frameUnresolved` note has been recorded and the caller drops the shape.
  *
  * `absoluteFrame` rather than the raw `left`/`top`: a shape inside a group is positioned in
  * its group's child coordinate space, which a flattened call list cannot express, so the
  * group transform has to be composed in here. For a top-level shape the two are identical.
+ *
+ * Neither frame resolves for a shape with no `a:xfrm` of its own that is not a placeholder, or a
+ * placeholder whose layout and master define no geometry either. The mappers used to part ways
+ * there: a connector returned `null` with no note, breaking the rule that a dropped shape is
+ * never silent, and every other kind was emitted with no `x/y/w/h`, which the writer places at
+ * its default position. Neither is where the source put it, and the second looks deliberate, so
+ * every kind now drops the shape and says so.
  *
  * Takes the `Shape` base rather than `AnyShape` so a `p:graphicFrame` — a table or a chart —
  * gets the same fallback and the same note. It had its own `positionOfFrame`, which returned
@@ -259,9 +275,9 @@ export function alphaToTransparency(alpha: number | null | undefined): number | 
  * whenever an enclosing group lacks a usable transform, so a table inside such a group emitted
  * `addTable(rows, { objectName, tableStyle })` with no geometry at all.
  */
-export function positionOptions(shape: Shape, notes?: NoteScope): Record<string, IrValue> {
+export function frameOf(shape: Shape, notes: NoteScope): ShapeBox | null {
 	const frame = shape.absoluteFrame
-	if (frame) return { x: emu(frame.left), y: emu(frame.top), w: emu(frame.width), h: emu(frame.height) }
+	if (frame) return frame
 
 	// No usable absolute frame — a placeholder taking its geometry from the layout or master, or
 	// a shape inside a group whose own transform is missing or degenerate. `resolvedFrame` walks
@@ -270,11 +286,19 @@ export function positionOptions(shape: Shape, notes?: NoteScope): Record<string,
 	// `x=0 y=0 w=<slide width> h=0` — a zero-height box in the corner, which is broken output
 	// rather than lossy output.
 	const resolved = shape.resolvedFrame
-	if (!resolved) return {}
+	if (!resolved) {
+		notes.note(
+			'shape.frameUnresolved',
+			'dropped',
+			'unread',
+			'this shape has no transform of its own (a:xfrm) and no placeholder geometry to inherit, so nothing places it; it is omitted rather than emitted at the default position'
+		)
+		return null
+	}
 	// `source: 'own'` means the shape DOES have its own `a:xfrm` and it is the enclosing group
 	// that could not be composed, so the prose says that rather than "takes its geometry from
 	// the own".
-	notes?.note(
+	notes.note(
 		'shape.frameInherited',
 		'flattened',
 		'unsupported',
@@ -282,5 +306,10 @@ export function positionOptions(shape: Shape, notes?: NoteScope): Record<string,
 			? 'this shape sits in a group whose transform could not be composed, so its own position is baked in as a slide-absolute one'
 			: `this shape has no transform of its own and takes its geometry from the ${resolved.source}; a regenerated slide inherits nothing, so the resolved position is baked in and stops tracking later edits to that ${resolved.source}`
 	)
-	return { x: emu(resolved.left), y: emu(resolved.top), w: emu(resolved.width), h: emu(resolved.height) }
+	return resolved
+}
+
+/** A box from {@link frameOf} as `Coord`-typed EMU strings, so the source geometry survives exactly. */
+export function positionOptions(box: ShapeBox): Record<string, IrValue> {
+	return { x: emu(box.left), y: emu(box.top), w: emu(box.width), h: emu(box.height) }
 }

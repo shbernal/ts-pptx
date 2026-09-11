@@ -162,6 +162,8 @@ export const NOTE_CONSTRUCTS = {
 	'shape.effects': ['shadow', 'glow'],
 	'shape.empty': ['*'],
 	'shape.frameInherited': ['x', 'y', 'w', 'h'],
+	// A shape nothing places is dropped whole, so every difference on it is the loss.
+	'shape.frameUnresolved': ['*'],
 	'shape.hidden': ['*'],
 	'shape.placeholder': ['placeholder'],
 	'slide.animation': [],

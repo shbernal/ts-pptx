@@ -25,6 +25,7 @@ import {
 	ANCHOR_TO_VALIGN,
 	colorOption,
 	compact,
+	frameOf,
 	inches,
 	nameOf,
 	orUndefined,
@@ -34,8 +35,10 @@ import {
 import { surfaceFill } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
 
-export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): CallIr {
+export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): CallIr | null {
 	const { notes } = ctx
+	const box = frameOf(frame, notes)
+	if (!box) return null
 	const styleId = table.styleId
 	const hasStyle = table.resolvedStyle !== null
 	const rows: IrValue[] = []
@@ -92,7 +95,7 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
 
 	const columnWidths = table.columnWidths
 	const options = compact({
-		...positionOptions(frame, notes),
+		...positionOptions(box),
 		objectName: frame.name || undefined,
 		// The source GUID resolves against the destination's own tableStyles.xml, which a
 		// template-anchored output carries over intact.

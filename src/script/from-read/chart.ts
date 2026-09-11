@@ -21,7 +21,7 @@ import type { Chart } from '../../read/api/chart.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
-import { compact, literalColor, nameOf, orUndefined, positionOptions } from './values.js'
+import { compact, frameOf, literalColor, nameOf, orUndefined, positionOptions } from './values.js'
 
 /**
  * Read chart-group token → `CHART_NAME`. The read model strips the `Chart` suffix from the
@@ -52,6 +52,8 @@ const CHART_TYPE: Record<string, string> = {
 const LEGEND_POS: Record<string, string> = { r: 'r', l: 'l', t: 't', b: 'b', tr: 'tr' }
 
 export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): CallIr | null {
+	const box = frameOf(frame, notes)
+	if (!box) return null
 	const sourceType = chart.chartType
 	const type = sourceType === null ? undefined : CHART_TYPE[sourceType]
 	if (!type) {
@@ -95,7 +97,7 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 	// typechecks nowhere and throws "a chart `type` is required" at run time.
 	const options = compact({
 		type,
-		...positionOptions(frame, notes),
+		...positionOptions(box),
 		objectName: frame.name || undefined,
 		...titleOptions(chart),
 		...legendOptions(chart),

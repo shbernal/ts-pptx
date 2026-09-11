@@ -226,6 +226,50 @@ describe('a graphic frame with no absolute frame is mapped like a shape', () => 
 	})
 })
 
+describe('a shape nothing can place is dropped with a note', () => {
+	// `absoluteFrame` and `resolvedFrame` are both null for a shape with no `a:xfrm` that is not a
+	// placeholder. The connector mapper returned `null` there with no note, and every other kind was
+	// emitted with no geometry, which the writer places at its default position.
+
+	/** Delete the own `a:xfrm` of every shape and connector on the slide, and count them. */
+	async function withoutFrames(buf) {
+		let stripped = 0
+		const ir = await irWithSlideXml(buf, (xml) =>
+			xml.replace(/(<p:spPr>)\s*<a:xfrm\b[^>]*>[\s\S]*?<\/a:xfrm>/g, (_, open) => {
+				stripped++
+				return open
+			})
+		)
+		return { ir, stripped }
+	}
+
+	test('an auto shape', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } })
+		})
+		const { ir, stripped } = await withoutFrames(buf)
+		assertEqual(stripped, 1, 'the shape loses its transform')
+		assert(!ir.slides[0].calls.some((call) => call.method === 'addShape'), 'the unplaceable shape is not emitted')
+		assert(
+			constructs(ir).includes('shape.frameUnresolved'),
+			'and its omission is noted; got ' + JSON.stringify(constructs(ir))
+		)
+	})
+
+	test('a connector', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addConnector({ type: 'straight', x1: 1, y1: 1, x2: 4, y2: 3 })
+		})
+		const { ir, stripped } = await withoutFrames(buf)
+		assertEqual(stripped, 1, 'the connector loses its transform')
+		assert(!ir.slides[0].calls.some((call) => call.method === 'addConnector'), 'the connector is not emitted')
+		assert(
+			constructs(ir).includes('shape.frameUnresolved'),
+			'and its omission is noted; got ' + JSON.stringify(constructs(ir))
+		)
+	})
+})
+
 describe('a fully opaque source emits no transparency key', () => {
 	// `alphaToTransparency` documents that fully opaque is `undefined`, not `0`, because the
 	// write path emits no `a:alphaModFix` for a zero transparency. One of five callers
