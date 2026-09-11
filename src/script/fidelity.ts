@@ -59,7 +59,13 @@ export const NOTE_CONSTRUCTS = {
 	// missing from the output. Distinct from `chart.workbook`, which is about a chart that IS
 	// emitted, rebuilt from the cache.
 	'chart.data': ['*'],
+	// Label flags the writer has no spelling for: the legend key on any plot, the category name on any
+	// but a pie or a doughnut. Absent from the IR on both sides, so there is nothing to exclude.
+	'chart.labels': [],
 	'chart.type': ['type'],
+	// A 3-D line, area or pie rebuilt flat: `type` names the flat chart on both sides, and the 3-D
+	// view is in neither IR.
+	'chart.type3D': [],
 	'chart.workbook': ['*'],
 	'chartEx.all': ['*'],
 	'connector.binding': [],

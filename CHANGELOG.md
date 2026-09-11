@@ -851,6 +851,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter mapped chart options the write API does not have.**
+  - Data labels showing category names were emitted as `showCatName`, which is not a `ChartOpts`
+    key, so a converted pie lost its slice names. A pie or doughnut now takes `showLabel`. On any
+    other chart, a scatter included, the writer has no spelling for the flag, so it is dropped
+    with a `chart.labels` note, as is a legend-key swatch.
+  - A 2-D surface chart came back as a 3-D one; it now carries `surface3D: false`.
+  - A 3-D line, area or pie chart is rebuilt flat with a `chart.type3D` note, where it used to
+    flatten silently.
+  - A chart whose series all cache no values is dropped with a `chart.data` note, like a chart
+    with no series, instead of being emitted as an empty frame.
+  - For now that includes every scatter and bubble chart. The reader takes series values from
+    `c:val`, and those charts cache theirs in `c:yVal`, so each used to become a chart with no
+    values. Each is now dropped, and its note says the values are unread rather than absent.
+
 - **A template-anchored script bound media it never used.**
   - A layout's background picture and logo come from the template, and a carried slide is
     copied with its own images, so the script prints none of them.

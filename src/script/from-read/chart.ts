@@ -48,6 +48,24 @@ const CHART_TYPE: Record<string, string> = {
 	surface3D: 'surface',
 }
 
+/**
+ * The 3-D groups rebuilt flat, because the write API has no 3-D type for them. `bar3D` and
+ * `bubble3D` keep their own, and a 3-D surface is what the write side's `surface` already draws.
+ */
+const FLATTENED_3D: ReadonlySet<string> = new Set(['area3D', 'line3D', 'pie3D'])
+
+/**
+ * The plot types whose `showLabel` writes the category name. A scatter's writes nothing unless a
+ * `dataLabelFormatScatter` is also set, so a scatter is not among them.
+ */
+const CATEGORY_NAME_TYPES: ReadonlySet<string> = new Set(['doughnut', 'pie'])
+
+/**
+ * The plot types that cache their values in `c:yVal` rather than `c:val`. `ChartSeries.values` reads
+ * only `c:val`, so every series of one reads back empty whatever the deck holds.
+ */
+const Y_VALUE_TYPES: ReadonlySet<string> = new Set(['bubble', 'bubble3D', 'scatter'])
+
 /** `c:legendPos/@val` → the write API's `legendPos`. */
 const LEGEND_POS: Record<string, string> = { r: 'r', l: 'l', t: 't', b: 'b', tr: 'tr' }
 
@@ -66,6 +84,15 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		return null
 	}
 
+	if (sourceType !== null && FLATTENED_3D.has(sourceType)) {
+		notes.note(
+			'chart.type3D',
+			'flattened',
+			'unwritable',
+			`a 3-D ${type} chart (c:${sourceType}Chart) is rebuilt as a flat ${type} chart: the write API has no 3-D ${type} type, so its depth, rotation and perspective are gone`
+		)
+	}
+
 	if (chart.chartTypes.length > 1) {
 		notes.note(
 			'chart.combo',
@@ -76,8 +103,20 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 	}
 
 	const data = seriesData(chart, notes)
-	if (data.length === 0) {
-		notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
+	// Series that all read no points plot nothing either. `addChart` would draw an empty frame the
+	// source never showed as a chart, and checking only for zero series let those through.
+	if (data.length === 0 || chart.series.every((series) => series.values.length === 0)) {
+		// A scatter or bubble lands here whatever it caches, so its note blames the reader, not the deck.
+		if (Y_VALUE_TYPES.has(type)) {
+			notes.note(
+				'chart.data',
+				'dropped',
+				'unread',
+				`a ${type} chart caches its values in c:yVal, and the read model's series values read only c:val, so there are no values to rebuild it from and it is omitted`
+			)
+		} else {
+			notes.note('chart.data', 'dropped', 'unsupported', 'this chart caches no plottable series values')
+		}
 		return null
 	}
 
@@ -97,11 +136,14 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 	// typechecks nowhere and throws "a chart `type` is required" at run time.
 	const options = compact({
 		type,
+		// `c:surfaceChart` is the 2-D contour; the write side's `surface` draws the 3-D one unless told
+		// otherwise, so a flat surface came back tilted.
+		surface3D: sourceType === 'surface' ? false : undefined,
 		...positionOptions(box),
 		objectName: frame.name || undefined,
 		...titleOptions(chart),
 		...legendOptions(chart),
-		...labelOptions(chart),
+		...labelOptions(chart, type, notes),
 		...axisOptions(chart),
 		chartColors: seriesColors(chart),
 	})
@@ -162,15 +204,42 @@ function legendOptions(chart: Chart): Record<string, IrValue | undefined> {
 	}
 }
 
-function labelOptions(chart: Chart): Record<string, IrValue | undefined> {
+/**
+ * Data-label flags as `ChartOpts`.
+ *
+ * Two of the read model's flags have no key of their own on the write side, and they were emitted
+ * as `showCatName` and `showLegendKey` anyway. Neither is a `ChartOpts` key, so the writer ignored
+ * both and nothing said so. `ChartOpts` spells the category name `showLabel`, which a pie and a
+ * doughnut write as one; nothing spells the legend-key swatch.
+ * @param type - the write-API chart type the chart is rebuilt as
+ */
+function labelOptions(chart: Chart, type: string, notes: NoteScope): Record<string, IrValue | undefined> {
 	const labels = chart.dataLabels
 	if (!labels) return {}
+	const carriesCategoryName = CATEGORY_NAME_TYPES.has(type)
+
+	if (labels.showLegendKey === true) {
+		notes.note(
+			'chart.labels',
+			'dropped',
+			'unwritable',
+			'the data labels show the legend key swatch (c:showLegendKey), which no ChartOpts option spells, so the labels come back without it'
+		)
+	}
+	if (labels.showCategoryName === true && !carriesCategoryName) {
+		notes.note(
+			'chart.labels',
+			'dropped',
+			'unwritable',
+			`the data labels show the category name (c:showCatName); ChartOpts spells that showLabel, which only a pie and a doughnut write as the category name, so on this ${type} chart the labels come back without it`
+		)
+	}
+
 	return {
 		showValue: labels.showValue ?? undefined,
 		showSerName: labels.showSeriesName ?? undefined,
-		showCatName: labels.showCategoryName ?? undefined,
+		showLabel: carriesCategoryName ? (labels.showCategoryName ?? undefined) : undefined,
 		showPercent: labels.showPercent ?? undefined,
-		showLegendKey: labels.showLegendKey ?? undefined,
 		showLeaderLines: labels.showLeaderLines ?? undefined,
 		dataLabelPosition: orUndefined(labels.position),
 		dataLabelFormatCode: labels.numberFormat?.formatCode ?? undefined,

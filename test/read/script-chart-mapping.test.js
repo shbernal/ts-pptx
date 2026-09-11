@@ -97,4 +97,125 @@ describe('the chart mapper declares what it cannot carry', () => {
 		const values = call.args[0][0].values
 		assertEqual(values[1], 0, 'and the gap reads as a zero: ' + JSON.stringify(values))
 	})
+
+	test('a chart whose every series caches no values is dropped, like one with no series', async () => {
+		// Only an empty series *list* was caught. Series that each cache nothing produced an `addChart`
+		// of empty value arrays: a blank frame where the source showed no chart.
+		const { buf } = await chartDeck(ChartType.bar)
+		let removed = 0
+		const ir = await irWithChartXml(buf, (xml) =>
+			xml.replace(/<c:val>[\s\S]*?<\/c:val>/g, () => {
+				removed++
+				return ''
+			})
+		)
+		assert(removed > 0, 'the value caches are removed')
+		assert(constructs(ir).includes('chart.data'), 'the empty chart is noted; got ' + JSON.stringify(constructs(ir)))
+		assertEqual(
+			ir.slides[0].calls.filter((call) => call.method === 'addChart').length,
+			0,
+			'and no chart call is emitted'
+		)
+	})
+
+	test('a scatter is dropped with a note that its values are unread, not absent', async () => {
+		// `ChartSeries.values` reads `c:val`, and a scatter caches its values in `c:yVal`, so every
+		// series of one reads back empty. It used to become an `addChart` with no values. Dropping it
+		// is the better failure, but only with a note that blames the reader rather than the deck.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addChart(
+				[
+					{ name: 'X', values: [1, 2, 3] },
+					{ name: 'Y', values: [4, 5, 6] },
+				],
+				{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 4 }
+			)
+		})
+		const ir = readModelToIr(presentation)
+		assertEqual(ir.slides[0].calls.filter((call) => call.method === 'addChart').length, 0, 'no empty chart is emitted')
+		const note = ir.fidelity.find((entry) => entry.construct === 'chart.data')
+		assertEqual(note?.cause, 'unread', "the loss is the reader's")
+		assert(String(note?.detail).includes('c:yVal'), 'and the note names what it cannot read; got ' + note?.detail)
+	})
+})
+
+/** The options argument of slide 1's chart call. */
+const chartOptions = (ir) => ir.slides[0].calls.find((call) => call.method === 'addChart').args[1]
+
+/** Rewrite every `<qname val="from"/>` in the chart part to `to`, asserting at least one was there. */
+function flipFlag(qname, from, to) {
+	return (xml) => {
+		let flipped = 0
+		const out = xml.replaceAll(`<${qname} val="${from}"/>`, () => {
+			flipped++
+			return `<${qname} val="${to}"/>`
+		})
+		assert(flipped > 0, `the chart part carries <${qname} val="${from}"/>`)
+		return out
+	}
+}
+
+describe('chart options are spelled the way ChartOpts spells them', () => {
+	// `showCatName` and `showLegendKey` were emitted from the read model's flags, and neither is a
+	// `ChartOpts` key: the writer ignored both, and nothing noted it.
+	test("a pie's category-name labels are `showLabel`", async () => {
+		// `Chart.dataLabels` reads the plot group's own `c:dLbls`, which PowerPoint writes after the
+		// series. This library's pie writes its flags per series and per point instead, so the group
+		// block a PowerPoint pie carries is put in by hand.
+		const { buf } = await chartDeck(ChartType.pie)
+		const flags = [
+			['c:showLegendKey', 0],
+			['c:showVal', 0],
+			['c:showCatName', 1],
+			['c:showSerName', 0],
+			['c:showPercent', 0],
+			['c:showBubbleSize', 0],
+		]
+		const groupLabels = `<c:dLbls>${flags.map(([name, val]) => `<${name} val="${val}"/>`).join('')}</c:dLbls>`
+		let inserted = 0
+		const ir = await irWithChartXml(buf, (xml) =>
+			xml.replace('<c:firstSliceAng', () => {
+				inserted++
+				return `${groupLabels}<c:firstSliceAng`
+			})
+		)
+		assertEqual(inserted, 1, 'the pie group takes its labels block')
+		const options = chartOptions(ir)
+		assertEqual(options.showLabel, true, 'the slice names are asked for the way the writer reads them')
+		assert(!('showCatName' in options), 'and not under a key the writer ignores')
+	})
+
+	test('label flags with no ChartOpts spelling are dropped and noted', async () => {
+		const { buf } = await chartDeck(ChartType.bar, { showValue: true })
+		const ir = await irWithChartXml(buf, (xml) =>
+			flipFlag('c:showCatName', '0', '1')(flipFlag('c:showLegendKey', '0', '1')(xml))
+		)
+		const options = chartOptions(ir)
+		for (const key of ['showLegendKey', 'showCatName', 'showLabel']) {
+			assert(!(key in options), `a bar chart emits no ${key}; got ${JSON.stringify(options)}`)
+		}
+		assertEqual(
+			constructs(ir).filter((construct) => construct === 'chart.labels').length,
+			2,
+			'the legend key and the category name are each noted; got ' + JSON.stringify(constructs(ir))
+		)
+	})
+
+	test('a 3-D line chart is rebuilt flat, and says so', async () => {
+		const { buf } = await chartDeck(ChartType.line)
+		const ir = await irWithChartXml(buf, (xml) => xml.replaceAll('c:lineChart>', 'c:line3DChart>'))
+		assertEqual(chartOptions(ir).type, 'line', 'it is rebuilt as a line chart')
+		assert(
+			constructs(ir).includes('chart.type3D'),
+			'and the lost depth is noted; got ' + JSON.stringify(constructs(ir))
+		)
+	})
+
+	test('a 2-D surface stays flat', async () => {
+		// The write side's `surface` draws the 3-D one unless `surface3D` is false.
+		const flat = await chartDeck(ChartType.surface, { surface3D: false })
+		assertEqual(chartOptions(readModelToIr(flat.presentation)).surface3D, false, 'a contour says so')
+		const tilted = await chartDeck(ChartType.surface)
+		assert(!('surface3D' in chartOptions(readModelToIr(tilted.presentation))), 'and a 3-D surface keeps the default')
+	})
 })
