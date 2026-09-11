@@ -20,6 +20,7 @@ import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
 import type { MapContext } from './context.js'
+import { TABLE_CELL_MARGIN_DEFAULTS_EMU } from '../../ooxml/body-insets.js'
 import {
 	ANCHOR_TO_VALIGN,
 	colorOption,
@@ -165,9 +166,17 @@ function cellIr(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue {
 		horzOverflow: cell.horzOverflow === 'clip' || cell.horzOverflow === 'overflow' ? cell.horzOverflow : undefined,
 		colspan: cell.gridSpan > 1 ? cell.gridSpan : undefined,
 		rowspan: cell.rowSpan > 1 ? cell.rowSpan : undefined,
-		// `margin` takes inches, and the read model reports the insets in EMU.
+		// `margin` takes inches, and the read model reports the insets in EMU. A side the cell does
+		// not state takes the schema default, not zero: `<a:tcPr marL="0">` is a cell with no left
+		// inset and the default 0.05in/0.1in on the other three, and filling those with 0 wrote a
+		// cell with no insets at all.
 		margin: margins
-			? [inches(margins.top ?? 0), inches(margins.right ?? 0), inches(margins.bottom ?? 0), inches(margins.left ?? 0)]
+			? [
+					inches(margins.top ?? TABLE_CELL_MARGIN_DEFAULTS_EMU.top),
+					inches(margins.right ?? TABLE_CELL_MARGIN_DEFAULTS_EMU.right),
+					inches(margins.bottom ?? TABLE_CELL_MARGIN_DEFAULTS_EMU.bottom),
+					inches(margins.left ?? TABLE_CELL_MARGIN_DEFAULTS_EMU.left),
+				]
 			: undefined,
 		// A cell's own runs may each carry formatting; the first run's options double as the
 		// cell default, which is how the write path applies cell-level character formatting.

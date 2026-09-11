@@ -851,6 +851,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The script converter gave a table cell's unset margin sides zero inset.** A cell stating
+  only some of `a:tcPr/@marL`, `@marR`, `@marT` and `@marB` had the others written as 0, so
+  `<a:tcPr marL="0">` came out as `margin: [0, 0, 0, 0]`. They now take the schema defaults
+  (0.05in top and bottom, 0.1in left and right): `[0.05, 0.1, 0.05, 0]`.
+
 - **`addTable`'s `columns` option styled a cell under a rowspan with the wrong column.** The
   sugar counted each cell's `colspan` along its row but not a `rowspan` holding a column from an
   earlier row, so in `[[{ text: 'A', rowspan: 2 }, 'B'], ['C']]` the cell `C`, which sits in the
