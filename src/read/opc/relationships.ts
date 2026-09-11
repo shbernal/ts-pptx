@@ -2,6 +2,8 @@ import { getElements, parseXml } from '../oxml/dom.js'
 import { encodeXmlAttrValue } from '../../xml-escape.js'
 import { resolveRelativePartName } from './partnames.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { XML_DECL } from '../../ooxml/xml-decl.js'
 
 export interface Relationship {
 	id: string
@@ -189,10 +191,7 @@ export class Relationships {
 	}
 
 	serialize(): string {
-		const lines: string[] = [
-			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
-		]
+		const lines: string[] = [XML_DECL, `<Relationships xmlns="${OOXML_NS.pr}">`]
 		for (const { id, type, target, targetMode } of this.#byId.values()) {
 			const mode = targetMode ? ` TargetMode="${targetMode}"` : ''
 			lines.push(

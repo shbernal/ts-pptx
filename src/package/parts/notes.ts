@@ -20,9 +20,7 @@ import {
 } from '../../gen/slide/notes.js'
 import { NOTES_MASTER_PATH, notesSlidePath, overrideName, relsPath } from '../../gen/opc/part-paths.js'
 import type { PartContributor } from './shared.js'
-
-const CT_NOTES_MASTER = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
-const CT_NOTES_SLIDE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
+import { NOTES_MASTER_CONTENT_TYPE, NOTES_SLIDE_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
 export const notesContributor: PartContributor = {
 	order: 10,
@@ -40,12 +38,12 @@ export const notesContributor: PartContributor = {
 	},
 	contentTypes: {
 		presentation(): ContentTypeOverride[] {
-			return [{ partName: overrideName(NOTES_MASTER_PATH), contentType: CT_NOTES_MASTER }]
+			return [{ partName: overrideName(NOTES_MASTER_PATH), contentType: NOTES_MASTER_CONTENT_TYPE }]
 		},
 		trailing(pres: PresentationPropsInternal): ContentTypeOverride[] {
 			return pres.slides.map((_slide, idx) => ({
 				partName: overrideName(notesSlidePath(idx + 1)),
-				contentType: CT_NOTES_SLIDE,
+				contentType: NOTES_SLIDE_CONTENT_TYPE,
 			}))
 		},
 	},

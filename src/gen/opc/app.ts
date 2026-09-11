@@ -8,6 +8,7 @@
 import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /** This part is pretty-printed, one element per line, at three nesting depths. */
 const INDENT_1 = '\n\t'
@@ -18,8 +19,8 @@ const VECTOR = { openPrefix: INDENT_2, closePrefix: INDENT_2 }
 const ITEM = { openPrefix: INDENT_3 }
 
 const NS = {
-	xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
-	'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+	xmlns: OOXML_NS.ep,
+	'xmlns:vt': OOXML_NS.vt,
 }
 
 /** One `<vt:variant>` of a heading pair: the section's name, then its count. */

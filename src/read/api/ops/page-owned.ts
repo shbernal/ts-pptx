@@ -36,8 +36,11 @@ import type { OpcPackage } from '../../opc/package.js'
 import { relativePartName } from '../../opc/partnames.js'
 import {
 	AUDIO_REL,
+	COMMENT_AUTHORS_REL,
 	HYPERLINK_REL,
 	IMAGE_REL,
+	MODEL3D_REL,
+	MODERN_COMMENT_AUTHORS_REL,
 	MS_MEDIA_REL,
 	NOTES_MASTER_REL,
 	OFFICE_REL,
@@ -63,15 +66,15 @@ const SHARED_BY_PAGE_COPIES: ReadonlySet<string> = new Set([
 	TABLE_STYLES_REL,
 	// Package singletons that a page's own parts point back at — a comments part
 	// names the deck's author list, which is one list for the whole package.
-	OFFICE_REL + 'commentAuthors',
-	'http://schemas.microsoft.com/office/2018/10/relationships/authors',
+	COMMENT_AUTHORS_REL,
+	MODERN_COMMENT_AUTHORS_REL,
 	// Media blobs. PowerPoint stores one copy and points every shape that shows it
 	// at that copy, so sharing here is what the application does itself.
 	IMAGE_REL,
 	AUDIO_REL,
 	VIDEO_REL,
 	MS_MEDIA_REL,
-	'http://schemas.microsoft.com/office/2017/06/relationships/model3d',
+	MODEL3D_REL,
 	OFFICE_REL + 'font',
 	// Another page is its own page, never a part this one owns: a jump link points
 	// at whatever copy of the target page the import decided on.

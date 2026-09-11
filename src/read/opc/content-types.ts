@@ -2,6 +2,8 @@ import { getElements, parseXml } from '../oxml/dom.js'
 import { encodeXmlAttrValue } from '../../xml-escape.js'
 import { partNameExtension } from './partnames.js'
 import { PackageReadError } from '../../errors.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { XML_DECL } from '../../ooxml/xml-decl.js'
 
 /**
  * Overlay over `[Content_Types].xml`, used to resolve part content types at
@@ -85,10 +87,7 @@ export class ContentTypes {
 	}
 
 	serialize(): string {
-		const lines: string[] = [
-			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-			'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
-		]
+		const lines: string[] = [XML_DECL, `<Types xmlns="${OOXML_NS.ct}">`]
 		for (const [extension, contentType] of this.#defaults) {
 			lines.push(
 				`<Default Extension="${encodeXmlAttrValue(extension)}" ContentType="${encodeXmlAttrValue(contentType)}"/>`

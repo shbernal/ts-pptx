@@ -107,9 +107,9 @@ export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 // emit rather than a per-locale table.) Consumed in `gen/slide/object.ts`.
 export const SLDNUM_PLACEHOLDER_TEXT = '‹#›'
 
-// The XML prolog every emitted OOXML part begins with. Kept as one constant so a
-// stray edit can't desync one part's declaration from the rest.
-export const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+// The XML prolog every emitted OOXML part begins with. It lives in `ooxml/` so the read side's
+// serializers use the same one; re-exported for the generators that import it from here.
+export { XML_DECL } from './ooxml/xml-decl.js'
 
 /**
  * The nine list levels' default left margins (`a:lvlNpPr/@marL`), half an inch apart.

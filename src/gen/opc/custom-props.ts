@@ -8,12 +8,13 @@
 import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { CustomPropertyValue } from '../../types/index.js'
 import { el, raw } from '../oxml/el.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
 
 const PROPS_NS = {
 	xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/custom-properties',
-	'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+	'xmlns:vt': OOXML_NS.vt,
 }
 
 /** Serialize one custom-property value to its typed `vt:` element. */

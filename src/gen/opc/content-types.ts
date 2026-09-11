@@ -17,11 +17,21 @@ import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { overrideName, PRESENTATION_PATH, slideLayoutPath, SLIDE_MASTER_PATH, slidePath } from './part-paths.js'
-
-/** Content-type prefixes; spelled out per part below so each entry stays greppable by its suffix. */
-const OD = 'application/vnd.openxmlformats-officedocument.'
-const PKG = 'application/vnd.openxmlformats-package.'
-const CT_THEME = OD + 'theme+xml'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
+import {
+	CORE_PROPS_CONTENT_TYPE,
+	CUSTOM_PROPS_CONTENT_TYPE,
+	EXTENDED_PROPS_CONTENT_TYPE,
+	PRES_PROPS_CONTENT_TYPE,
+	PRESENTATION_MAIN_CONTENT_TYPE,
+	RELATIONSHIPS_CONTENT_TYPE,
+	SLIDE_CONTENT_TYPE,
+	SLIDE_LAYOUT_CONTENT_TYPE,
+	SLIDE_MASTER_CONTENT_TYPE,
+	TABLE_STYLES_CONTENT_TYPE,
+	THEME_CONTENT_TYPE,
+	VIEW_PROPS_CONTENT_TYPE,
+} from '../../ooxml/rel-types.js'
 
 /**
  * Some Override entries have always been emitted with a leading space. It is insignificant
@@ -100,7 +110,7 @@ export function makeXmlContTypes(opts: {
 }): string {
 	const { slides, slideLayouts, masterSlide, hasCustomProps, embeddedFonts } = opts
 	const contributions = opts.contributions ?? NO_CONTENT_TYPE_CONTRIBUTIONS
-	const parts: string[] = [contentDefault('xml', 'application/xml'), contentDefault('rels', PKG + 'relationships+xml')]
+	const parts: string[] = [contentDefault('xml', 'application/xml'), contentDefault('rels', RELATIONSHIPS_CONTENT_TYPE)]
 
 	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
@@ -141,27 +151,27 @@ export function makeXmlContTypes(opts: {
 	}
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
-	parts.push(override(overrideName(PRESENTATION_PATH), OD + 'presentationml.presentation.main+xml'))
+	parts.push(override(overrideName(PRESENTATION_PATH), PRESENTATION_MAIN_CONTENT_TYPE))
 	contributions.presentation.forEach((entry) => parts.push(contributedOverride(entry)))
 	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
-	parts.push(override(overrideName(SLIDE_MASTER_PATH), OD + 'presentationml.slideMaster+xml'))
+	parts.push(override(overrideName(SLIDE_MASTER_PATH), SLIDE_MASTER_CONTENT_TYPE))
 	slides.forEach((_slide, idx) => {
-		parts.push(override(overrideName(slidePath(idx + 1)), OD + 'presentationml.slide+xml'))
+		parts.push(override(overrideName(slidePath(idx + 1)), SLIDE_CONTENT_TYPE))
 		;(contributions.perSlide[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
 	// STEP 3: Core PPT
-	parts.push(override('/ppt/presProps.xml', OD + 'presentationml.presProps+xml'))
-	parts.push(override('/ppt/viewProps.xml', OD + 'presentationml.viewProps+xml'))
-	parts.push(override('/ppt/theme/theme1.xml', CT_THEME))
+	parts.push(override('/ppt/presProps.xml', PRES_PROPS_CONTENT_TYPE))
+	parts.push(override('/ppt/viewProps.xml', VIEW_PROPS_CONTENT_TYPE))
+	parts.push(override('/ppt/theme/theme1.xml', THEME_CONTENT_TYPE))
 	// notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
-	parts.push(override('/ppt/theme/theme2.xml', CT_THEME))
-	parts.push(override('/ppt/tableStyles.xml', OD + 'presentationml.tableStyles+xml'))
+	parts.push(override('/ppt/theme/theme2.xml', THEME_CONTENT_TYPE))
+	parts.push(override('/ppt/tableStyles.xml', TABLE_STYLES_CONTENT_TYPE))
 
 	// STEP 4: Add Slide Layouts
 	slideLayouts.forEach((_layout, idx) => {
-		parts.push(override(overrideName(slideLayoutPath(idx + 1)), OD + 'presentationml.slideLayout+xml'))
+		parts.push(override(overrideName(slideLayoutPath(idx + 1)), SLIDE_LAYOUT_CONTENT_TYPE))
 		;(contributions.perLayout[idx] || []).forEach((entry) => parts.push(contributedOverride(entry)))
 	})
 
@@ -169,13 +179,9 @@ export function makeXmlContTypes(opts: {
 	contributions.trailing.forEach((entry) => parts.push(contributedOverride(entry)))
 
 	// LAST: Finish XML (Resume core)
-	parts.push(override('/docProps/core.xml', PKG + 'core-properties+xml', LEADING_SPACE))
-	parts.push(override('/docProps/app.xml', OD + 'extended-properties+xml', LEADING_SPACE))
-	if (hasCustomProps) parts.push(override('/docProps/custom.xml', OD + 'custom-properties+xml', LEADING_SPACE))
+	parts.push(override('/docProps/core.xml', CORE_PROPS_CONTENT_TYPE, LEADING_SPACE))
+	parts.push(override('/docProps/app.xml', EXTENDED_PROPS_CONTENT_TYPE, LEADING_SPACE))
+	if (hasCustomProps) parts.push(override('/docProps/custom.xml', CUSTOM_PROPS_CONTENT_TYPE, LEADING_SPACE))
 
-	return (
-		XML_DECL +
-		CRLF +
-		el('Types', { xmlns: 'http://schemas.openxmlformats.org/package/2006/content-types' }, parts.map(raw))
-	)
+	return XML_DECL + CRLF + el('Types', { xmlns: OOXML_NS.ct }, parts.map(raw))
 }

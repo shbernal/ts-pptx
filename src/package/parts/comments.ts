@@ -12,10 +12,9 @@ import type { PresentationPropsInternal } from '../../types/internal.js'
 import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '../../gen/slide/comments.js'
 import { commentPath, overrideName } from '../../gen/opc/part-paths.js'
 import type { PartContributor } from './shared.js'
+import { COMMENT_AUTHORS_CONTENT_TYPE, COMMENTS_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
 const COMMENT_AUTHORS_PATH = 'ppt/commentAuthors.xml'
-const CT_COMMENTS = 'application/vnd.openxmlformats-officedocument.presentationml.comments+xml'
-const CT_COMMENT_AUTHORS = 'application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml'
 
 export const commentsContributor: PartContributor = {
 	order: 20,
@@ -38,10 +37,11 @@ export const commentsContributor: PartContributor = {
 			const entries: ContentTypeOverride[] = []
 			pres.slides.forEach((slide, idx) => {
 				if ((slide._comments || []).length > 0) {
-					entries.push({ partName: overrideName(commentPath(idx + 1)), contentType: CT_COMMENTS })
+					entries.push({ partName: overrideName(commentPath(idx + 1)), contentType: COMMENTS_CONTENT_TYPE })
 				}
 			})
-			if (entries.length > 0) entries.push({ partName: '/' + COMMENT_AUTHORS_PATH, contentType: CT_COMMENT_AUTHORS })
+			if (entries.length > 0)
+				entries.push({ partName: '/' + COMMENT_AUTHORS_PATH, contentType: COMMENT_AUTHORS_CONTENT_TYPE })
 			return entries
 		},
 	},

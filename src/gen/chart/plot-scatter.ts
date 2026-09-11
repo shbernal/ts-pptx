@@ -16,6 +16,7 @@ import { getUuid } from '../utils.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 import {
 	chartDataLabels,
 	dLblsBlock,
@@ -114,7 +115,7 @@ function scatterCustomLabel(
 		raw(
 			voidEl('c:ext', {
 				uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
-				'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
+				'xmlns:c15': OOXML_NS.c15,
 			})
 		),
 		raw(
@@ -164,7 +165,7 @@ function scatterXYLabels(opts: ChartOptsInternal, over?: ChartSeriesOpts): strin
 				'c:ext',
 				{
 					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
-					'xmlns:c15': 'http://schemas.microsoft.com/office/drawing/2012/chart',
+					'xmlns:c15': OOXML_NS.c15,
 				},
 				raw(voidEl('c15:showLeaderLines', { val: 1 }))
 			)

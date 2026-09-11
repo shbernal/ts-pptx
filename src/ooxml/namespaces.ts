@@ -11,8 +11,9 @@
  * module imports `@xmldom/xmldom` at module scope and pulling an XML DOM into the write-only
  * bundle is a real cost. So the write side hand-wrote the URIs instead: three separate `A_NS`
  * constants and seven copies of the same `xmlns:a`/`xmlns:r`/`xmlns:p` triple. This module has
- * **no runtime imports** — like `rel-types.ts`, `st-enums.ts` and `sequence.ts` beside it — so
- * both sides can reach it and neither pays for the other's dependencies. `read/oxml/dom.ts`
+ * **no runtime imports**, and the modules beside it (`rel-types.ts`, `st-enums.ts`, `sequence.ts`)
+ * import nothing but each other, so both sides can reach it and neither pays for the other's
+ * dependencies. `read/oxml/dom.ts`
  * re-exports it, so no read-side import path changed.
  */
 
@@ -22,6 +23,7 @@ export const OOXML_NS = Object.freeze({
 	a14: 'http://schemas.microsoft.com/office/drawing/2010/main',
 	asvg: 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
 	c: 'http://schemas.openxmlformats.org/drawingml/2006/chart',
+	c15: 'http://schemas.microsoft.com/office/drawing/2012/chart',
 	cp: 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
 	ct: 'http://schemas.openxmlformats.org/package/2006/content-types',
 	cx: 'http://schemas.microsoft.com/office/drawing/2014/chartex',
@@ -30,6 +32,7 @@ export const OOXML_NS = Object.freeze({
 	dgm: 'http://schemas.openxmlformats.org/drawingml/2006/diagram',
 	dsp: 'http://schemas.microsoft.com/office/drawing/2008/diagram',
 	ep: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+	m: 'http://schemas.openxmlformats.org/officeDocument/2006/math',
 	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
 	p14: 'http://schemas.microsoft.com/office/powerpoint/2010/main',
@@ -38,6 +41,7 @@ export const OOXML_NS = Object.freeze({
 	p188: 'http://schemas.microsoft.com/office/powerpoint/2018/8/main',
 	pr: 'http://schemas.openxmlformats.org/package/2006/relationships',
 	r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+	vt: 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
 })
 
 /**

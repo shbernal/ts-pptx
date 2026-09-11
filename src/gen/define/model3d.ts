@@ -29,11 +29,10 @@ import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
 import { ANGLE_UNITS_PER_DEGREE } from '../../units.js'
+import { MODEL3D_REL } from '../../ooxml/rel-types.js'
 
 /** OPC content type for a glTF binary, as PowerPoint spells it in `[Content_Types].xml`. */
 const GLB_CONTENT_TYPE = 'model/gltf.binary'
-/** `.rels` `Type` URI for the embedded 3D model part. Note `2017/06` — not the namespace's `2017`. */
-const MODEL3D_REL_TYPE = 'http://schemas.microsoft.com/office/2017/06/relationships/model3d'
 
 /** Fixed-point denominator for `am3d` linear values: `am3d:up@dy="36000000"` is the unit vector. */
 const AM3D_UNIT = 36000000
@@ -130,7 +129,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 		extn: 'glb',
 		data: strData,
 		rId: modelRid,
-		model3dRelType: MODEL3D_REL_TYPE,
+		model3dRelType: MODEL3D_REL,
 		Target: nextMediaTarget(target, 'model3d', 'glb'),
 	})
 

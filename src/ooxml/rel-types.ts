@@ -13,22 +13,16 @@
  * — a round-trip bug with no compile-time signal.
  *
  * Only types used by more than one module live here. A rel type exactly one module cares about
- * (`chart`, `hyperlink`, `tags`, the two comments parts, `oleObject`, the MS media rels, …) stays
- * declared next to the code that reads or emits it — hoisting those would trade a definition you
- * can see for one you have to go and find, and buy nothing.
+ * (`tags`, `oleObject`, the modern comments part, …) stays declared next to the code that reads or
+ * emits it — hoisting those would trade a definition you can see for one you have to go and find,
+ * and buy nothing. A writer and a reader of the same part count as two modules even when each
+ * names the string once: that pair is exactly the divergence this module exists to prevent.
  *
  * The same reasoning covers **part content types**, which are the same kind of fact and fail the
- * same silent way. The write side is the exception at the bottom of this file: `[Content_Types].xml`
- * spells its entries out locally so each one stays greppable by its suffix next to the part it
- * declares.
- *
- * That exception has been re-examined and kept, because the failure it risks is not silent after
- * all: the nine part kinds it restates are in every deck this library writes, so changing one of
- * them on the write side moves the bytes of `[Content_Types].xml` and fails the byte-identity gate
- * along with the suites that read a written deck back; changing one here fails the read tests that
- * find a layout or a master by content type. Both halves are pinned by the corpus rather than by
- * agreement between two literals, which is what makes the local spelling affordable.
+ * same silent way, including every entry the writer's `[Content_Types].xml` declares.
  */
+
+import { OOXML_NS } from './namespaces.js'
 
 /** Root of every ECMA-376 schema URI. Private: callers want one of the prefixes below. */
 const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
@@ -40,7 +34,7 @@ const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
 export const OFFICE_REL = SCHEMA_BASE + 'officeDocument/2006/relationships/'
 
 /** `xmlns` of every `<Relationships>` part. Also the prefix of the package-scoped rel types. */
-export const PACKAGE_REL_NS = SCHEMA_BASE + 'package/2006/relationships'
+export const PACKAGE_REL_NS = OOXML_NS.pr
 
 /**
  * Prefix for the Microsoft rel types this library emits and reads. Exported for the same reason
@@ -74,6 +68,12 @@ export const CORE_PROPS_REL = PACKAGE_REL_NS + '/metadata/core-properties'
 export const EXTENDED_PROPS_REL = OFFICE_REL + 'extended-properties'
 /** The package root → `docProps/custom.xml`. */
 export const CUSTOM_PROPS_REL = OFFICE_REL + 'custom-properties'
+/** A slide → its legacy comments part (`ppt/comments/commentN.xml`). */
+export const COMMENTS_REL = OFFICE_REL + 'comments'
+/** The presentation → the deck-wide legacy comment-author registry (`ppt/commentAuthors.xml`). */
+export const COMMENT_AUTHORS_REL = OFFICE_REL + 'commentAuthors'
+/** The presentation → the 2018 comment-author registry (`ppt/authors.xml`), a Microsoft rel type. */
+export const MODERN_COMMENT_AUTHORS_REL = MS_REL + '2018/10/relationships/authors'
 
 // --- Media -----------------------------------------------------------------
 
@@ -86,6 +86,8 @@ export const VIDEO_REL = OFFICE_REL + 'video'
  * same target. It is what `<p14:media r:embed>` resolves, so a media shape needs both.
  */
 export const MS_MEDIA_REL = MS_REL + '2007/relationships/media'
+/** A slide → an embedded 3D model (`.glb`). Note `2017/06`, not the `2017` of the model3d namespace. */
+export const MODEL3D_REL = MS_REL + '2017/06/relationships/model3d'
 
 // --- Charts and embeddings -------------------------------------------------
 
@@ -104,6 +106,10 @@ export const PACKAGE_REL = OFFICE_REL + 'package'
 
 /** Root of the ECMA-376 content types. Private: callers want one of the constants below. */
 const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
+/** Root of the OPC package-level content types. Private, like {@link OD_CONTENT}. */
+const PACKAGE_CONTENT = 'application/vnd.openxmlformats-package.'
+/** Root of the Microsoft Office content types the chartEx family uses. Private. */
+const MS_OFFICE_CONTENT = 'application/vnd.ms-office.'
 
 /** `ppt/slides/slideN.xml`. */
 export const SLIDE_CONTENT_TYPE = OD_CONTENT + 'presentationml.slide+xml'
@@ -123,4 +129,30 @@ export const TABLE_STYLES_CONTENT_TYPE = OD_CONTENT + 'presentationml.tableStyle
 /** `ppt/presentation.xml` in an editable `.pptx`. A `.potx` template's main part is a different one. */
 export const PRESENTATION_MAIN_CONTENT_TYPE = OD_CONTENT + 'presentationml.presentation.main+xml'
 /** Every `.rels` part. Declared once as a `Default` for the `rels` extension, never as an Override. */
-export const RELATIONSHIPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.relationships+xml'
+export const RELATIONSHIPS_CONTENT_TYPE = PACKAGE_CONTENT + 'relationships+xml'
+/** `ppt/presProps.xml`. */
+export const PRES_PROPS_CONTENT_TYPE = OD_CONTENT + 'presentationml.presProps+xml'
+/** `ppt/viewProps.xml`. */
+export const VIEW_PROPS_CONTENT_TYPE = OD_CONTENT + 'presentationml.viewProps+xml'
+/** `ppt/comments/commentN.xml`, a legacy comments part. */
+export const COMMENTS_CONTENT_TYPE = OD_CONTENT + 'presentationml.comments+xml'
+/** `ppt/commentAuthors.xml`. */
+export const COMMENT_AUTHORS_CONTENT_TYPE = OD_CONTENT + 'presentationml.commentAuthors+xml'
+/** `docProps/core.xml`. Package-scoped, so not under the officedocument prefix. */
+export const CORE_PROPS_CONTENT_TYPE = PACKAGE_CONTENT + 'core-properties+xml'
+/** `docProps/app.xml`. */
+export const EXTENDED_PROPS_CONTENT_TYPE = OD_CONTENT + 'extended-properties+xml'
+/** `docProps/custom.xml`. */
+export const CUSTOM_PROPS_CONTENT_TYPE = OD_CONTENT + 'custom-properties+xml'
+/** `ppt/charts/chartN.xml`, a classic (`c:`) chart. */
+export const CHART_CONTENT_TYPE = OD_CONTENT + 'drawingml.chart+xml'
+/** `ppt/charts/chartExN.xml`. A chartEx part carries a Microsoft content type, not an `openxmlformats` one. */
+export const CHARTEX_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartex+xml'
+/** A chart's mandatory `style{N}.xml` sidecar. */
+export const CHART_STYLE_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartstyle+xml'
+/** A chart's mandatory `colors{N}.xml` sidecar. */
+export const CHART_COLOR_STYLE_CONTENT_TYPE = MS_OFFICE_CONTENT + 'chartcolorstyle+xml'
+/** An embedded `.xlsx` workbook: a chart's data, or an OLE payload. */
+export const XLSX_CONTENT_TYPE = OD_CONTENT + 'spreadsheetml.sheet'
+/** A whole `.pptx` package: the MIME type of a written deck, and of one embedded as an OLE payload. */
+export const PPTX_CONTENT_TYPE = OD_CONTENT + 'presentationml.presentation'

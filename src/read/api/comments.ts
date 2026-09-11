@@ -16,18 +16,15 @@ import { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { singleRelPart } from '../opc/partnames.js'
 import { attr, firstChild, getElements, numberValue, type Element } from '../oxml/dom.js'
+import {
+	COMMENT_AUTHORS_REL,
+	COMMENTS_CONTENT_TYPE,
+	COMMENTS_REL,
+	MODERN_COMMENT_AUTHORS_REL,
+} from '../../ooxml/rel-types.js'
 
-/** The slide → comments-part relationship type (legacy comments). */
-const COMMENTS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments'
-/** The presentation → commentAuthors-part relationship type. */
-const COMMENT_AUTHORS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors'
-
-/** Content type of a legacy per-slide comments part (`ppt/comments/commentN.xml`). */
-const LEGACY_COMMENTS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.comments+xml'
-/** The slide → modern-comments-part relationship type (2018 schema). */
+/** The slide → modern-comments-part relationship type (2018 schema). Only this module reads one. */
 const MODERN_COMMENTS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/comments'
-/** The presentation → modern-authors-part relationship type (2018 schema). */
-const MODERN_AUTHORS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/authors'
 /** Content type of the modern per-slide comments part (`ppt/comments/modernComment_*.xml`). */
 const MODERN_COMMENTS_CONTENT_TYPE = 'application/vnd.ms-powerpoint.comments+xml'
 
@@ -82,7 +79,7 @@ function parseCommentAuthors(root: Element | null): CommentAuthor[] {
  * presentation part's `commentAuthors` relationship. `[]` when the deck has no comments.
  */
 export function readCommentAuthors(opc: OpcPackage, presentationPartName: string): CommentAuthor[] {
-	const part = singleRelPart(opc, presentationPartName, COMMENT_AUTHORS_REL_TYPE)
+	const part = singleRelPart(opc, presentationPartName, COMMENT_AUTHORS_REL)
 	return parseCommentAuthors(part?.dom.documentElement ?? null)
 }
 
@@ -93,7 +90,7 @@ export function readCommentAuthors(opc: OpcPackage, presentationPartName: string
  * no comments part.
  */
 export function readSlideComments(opc: OpcPackage, slidePart: Part, authors: CommentAuthor[]): Comment[] {
-	const root = singleRelPart(opc, slidePart.partName, COMMENTS_REL_TYPE)?.dom.documentElement
+	const root = singleRelPart(opc, slidePart.partName, COMMENTS_REL)?.dom.documentElement
 	if (!root) return []
 
 	const byId = new Map(authors.map((a) => [a.id, a]))
@@ -205,7 +202,7 @@ function parseModernComment(
  * modern authors part.
  */
 export function readModernCommentAuthors(opc: OpcPackage, presentationPartName: string): ModernCommentAuthor[] {
-	const root = singleRelPart(opc, presentationPartName, MODERN_AUTHORS_REL_TYPE)?.dom.documentElement
+	const root = singleRelPart(opc, presentationPartName, MODERN_COMMENT_AUTHORS_REL)?.dom.documentElement
 	if (!root) return []
 	return getElements(root, 'p188:author').map((el) => ({
 		id: attr(el, 'id'),
@@ -243,6 +240,6 @@ export function readModernSlideComments(
  */
 export function commentSchema(opc: OpcPackage): CommentSchema {
 	if (opc.partsByContentType(MODERN_COMMENTS_CONTENT_TYPE).length > 0) return 'modern'
-	if (opc.partsByContentType(LEGACY_COMMENTS_CONTENT_TYPE).length > 0) return 'legacy'
+	if (opc.partsByContentType(COMMENTS_CONTENT_TYPE).length > 0) return 'legacy'
 	return 'none'
 }

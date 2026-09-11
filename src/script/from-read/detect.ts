@@ -21,9 +21,6 @@
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { boolValue } from '../../ooxml/xsd-boolean.js'
 
-/** Office MathML namespace — the equation body itself, wrapped by `a14:m` in a text run. */
-const MATH_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-
 /** Shape-tree children that carry drawing content, as opposed to the tree's own properties. */
 const SHAPE_ELEMENTS = new Set(['sp', 'pic', 'graphicFrame', 'grpSp', 'cxnSp'])
 
@@ -99,7 +96,8 @@ export function isAudioVideo(element: unknown): boolean {
  * input), which makes this a read-side gap rather than a hard limit.
  */
 export function hasEquation(element: unknown): boolean {
-	return has(element, MATH_NS, 'oMath')
+	// The OMML body itself, wrapped by `a14:m` in a text run.
+	return has(element, OOXML_NS.m, 'oMath')
 }
 
 /**

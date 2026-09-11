@@ -23,18 +23,16 @@ import type {
 } from '../../types/internal.js'
 import { createExcelWorksheet } from '../../gen/chart/embed-xlsx.js'
 import type { PartContributor, PartTarget } from './shared.js'
+import {
+	CHART_COLOR_STYLE_CONTENT_TYPE,
+	CHART_CONTENT_TYPE,
+	CHART_STYLE_CONTENT_TYPE,
+	CHARTEX_CONTENT_TYPE,
+	XLSX_CONTENT_TYPE,
+} from '../../ooxml/rel-types.js'
 
-const CT_CHART = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
-// chartEx (cx:) parts use Microsoft content types, NOT the openxmlformats prefix. Each chartEx
-// chart part also requires a chart-style + color-style sidecar part.
-const CT_CHARTEX = 'application/vnd.ms-office.chartex+xml'
-const CT_CHARTEX_STYLE = 'application/vnd.ms-office.chartstyle+xml'
-const CT_CHARTEX_COLORS = 'application/vnd.ms-office.chartcolorstyle+xml'
 /** The embedded workbook every chart carries; one Default covers all of them. */
-const XLSX_DEFAULT: ContentTypeDefault = {
-	extension: 'xlsx',
-	contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-}
+const XLSX_DEFAULT: ContentTypeDefault = { extension: 'xlsx', contentType: XLSX_CONTENT_TYPE }
 
 /**
  * Content-type Override(s) for a chart rel. A classic chart is one Override; a chartEx chart is
@@ -42,11 +40,11 @@ const XLSX_DEFAULT: ContentTypeDefault = {
  * (keyed to the same `globalId`).
  */
 function chartOverrides(rel: SlideRelChart, leadingSpace = false): ContentTypeOverride[] {
-	if (!rel.isChartEx) return [{ partName: rel.Target, contentType: CT_CHART, leadingSpace }]
+	if (!rel.isChartEx) return [{ partName: rel.Target, contentType: CHART_CONTENT_TYPE, leadingSpace }]
 	return [
-		{ partName: rel.Target, contentType: CT_CHARTEX, leadingSpace },
-		{ partName: `/ppt/charts/style${rel.globalId}.xml`, contentType: CT_CHARTEX_STYLE, leadingSpace },
-		{ partName: `/ppt/charts/colors${rel.globalId}.xml`, contentType: CT_CHARTEX_COLORS, leadingSpace },
+		{ partName: rel.Target, contentType: CHARTEX_CONTENT_TYPE, leadingSpace },
+		{ partName: `/ppt/charts/style${rel.globalId}.xml`, contentType: CHART_STYLE_CONTENT_TYPE, leadingSpace },
+		{ partName: `/ppt/charts/colors${rel.globalId}.xml`, contentType: CHART_COLOR_STYLE_CONTENT_TYPE, leadingSpace },
 	]
 }
 

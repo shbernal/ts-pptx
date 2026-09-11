@@ -3,6 +3,7 @@ import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 import { fetchFontBytes } from './fetch-media.js'
+import { PPTX_CONTENT_TYPE } from '../ooxml/rel-types.js'
 
 export function createBrowserRuntime(): RuntimeAdapter {
 	return {
@@ -85,9 +86,7 @@ async function writeFile(fileName: string, data: string | ArrayBuffer | Blob | U
 	eleLink.dataset['interception'] = 'off'
 	document.body.appendChild(eleLink)
 
-	const url = window.URL.createObjectURL(
-		new Blob([data as Blob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
-	)
+	const url = window.URL.createObjectURL(new Blob([data as Blob], { type: PPTX_CONTENT_TYPE }))
 	eleLink.href = url
 	eleLink.download = fileName
 	eleLink.click()

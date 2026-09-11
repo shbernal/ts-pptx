@@ -16,6 +16,7 @@ import { relativePartName } from '../../opc/partnames.js'
 import { OOXML_NS, attr, getElements, ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
 import { TABLE_STYLES_CONTENT_TYPE, TABLE_STYLES_REL } from '../../../ooxml/rel-types.js'
+import { XML_DECL } from '../../../ooxml/xml-decl.js'
 
 // The well-known "no style / table grid" GUID PowerPoint uses as a tblStyleLst @def.
 const TABLE_STYLES_DEFAULT_GUID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
@@ -126,7 +127,7 @@ function ensureTableStylesPart(dest: DeckTarget): Part {
 	const existing = dest.opc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]
 	if (existing) return existing
 	const partName = dest.opc.reservePartNameLike('/ppt/tableStyles.xml')
-	const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<a:tblStyleLst xmlns:a="${OOXML_NS.a}" def="${TABLE_STYLES_DEFAULT_GUID}"/>`
+	const xml = `${XML_DECL}\r\n<a:tblStyleLst xmlns:a="${OOXML_NS.a}" def="${TABLE_STYLES_DEFAULT_GUID}"/>`
 	const part = dest.opc.addPart(partName, TABLE_STYLES_CONTENT_TYPE, textEncoder.encode(xml))
 	const presRels = dest.opc.relationshipsFor(dest.presentationPart.partName)
 	presRels.add(TABLE_STYLES_REL, relativePartName(dest.presentationPart.partName, partName))

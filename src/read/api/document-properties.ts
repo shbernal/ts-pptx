@@ -16,18 +16,16 @@ import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
 import { singleRelPart } from '../opc/partnames.js'
 import { attr, childElements, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
-import { CORE_PROPS_REL, CUSTOM_PROPS_REL, EXTENDED_PROPS_REL } from '../../ooxml/rel-types.js'
+// The content types are the fallback lookup for when a part's rel is absent.
+import {
+	CORE_PROPS_CONTENT_TYPE,
+	CORE_PROPS_REL,
+	CUSTOM_PROPS_CONTENT_TYPE,
+	CUSTOM_PROPS_REL,
+	EXTENDED_PROPS_CONTENT_TYPE,
+	EXTENDED_PROPS_REL,
+} from '../../ooxml/rel-types.js'
 import { boolValue } from '../../ooxml/xsd-boolean.js'
-
-// The two content types below are the fallback lookup for when the rel is absent, and this is
-// the only module that matches on them — the write side spells its own out next to the part it
-// declares (`gen/opc/content-types.ts`). The rel types themselves are shared with that side.
-/** Content type of the core-properties part. */
-const CORE_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.core-properties+xml'
-/** Content type of the extended-properties part. */
-const EXTENDED_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.extended-properties+xml'
-/** Content type of the custom-properties part. */
-const CUSTOM_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.custom-properties+xml'
 
 /**
  * Decoded `docProps/core.xml`. Every field is optional (present only when the

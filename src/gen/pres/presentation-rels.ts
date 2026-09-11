@@ -12,6 +12,7 @@ import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../em
 import { relationshipEl, relationshipsPart } from '../opc/rels.js'
 import { fontPath, NOTES_MASTER_PATH, slidePath, SLIDE_MASTER_PATH, targetFromPresentation } from '../opc/part-paths.js'
 import {
+	COMMENT_AUTHORS_REL,
 	NOTES_MASTER_REL,
 	OFFICE_REL,
 	SLIDE_MASTER_REL,
@@ -86,7 +87,7 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
 	// The presentation-level commentAuthors part is shared by every slide's comments, so it is
 	// related once from the presentation (only when the deck has at least one comment).
 	if (fixed.commentAuthors !== null) {
-		rels.push(relationshipEl(fixed.commentAuthors, OFFICE_REL + 'commentAuthors', 'commentAuthors.xml'))
+		rels.push(relationshipEl(fixed.commentAuthors, COMMENT_AUTHORS_REL, 'commentAuthors.xml'))
 	}
 	// Embedded fonts: one `font` rel per face, ids continuing past the fixed rels above.
 	for (const face of flattenEmbeddedFaces(embeddedFonts || [], presentationFontRelStart(slides))) {

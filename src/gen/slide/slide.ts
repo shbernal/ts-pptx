@@ -14,7 +14,7 @@ import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import type { RendererTable } from './objects/shared.js'
 import { InternalError } from '../../errors.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
-import { NOTES_SLIDE_REL, OFFICE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
+import { COMMENTS_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
 import { commentPath, notesSlidePath, slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 /**
@@ -94,8 +94,7 @@ export function makeXmlSlideRel(
 	if ((slide._comments || []).length > 0) {
 		defaultRels.push({
 			target: targetFromPptSubpart(commentPath(slideNumber)),
-			// Only this module emits a comments rel, so it is built here rather than hoisted.
-			type: OFFICE_REL + 'comments',
+			type: COMMENTS_REL,
 		})
 	}
 	return slideObjectRelationsToXml(slide, defaultRels)

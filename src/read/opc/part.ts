@@ -1,5 +1,6 @@
 import { parseXml, serializeXml, type Document } from '../oxml/dom.js'
 import { InvalidOptionError } from '../../errors.js'
+import { XML_DECL } from '../../ooxml/xml-decl.js'
 
 const textDecoder = new TextDecoder('utf-8')
 const textEncoder = new TextEncoder()
@@ -89,7 +90,7 @@ export class Part {
 		let xml = serializeXml(this.dom)
 		if (!xml.startsWith('<?xml')) {
 			const declaration = XML_DECLARATION_RE.exec(textDecoder.decode(this.#bytes))?.[0]
-			xml = (declaration ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n') + xml
+			xml = (declaration ?? XML_DECL + '\r\n') + xml
 		}
 		return textEncoder.encode(xml)
 	}

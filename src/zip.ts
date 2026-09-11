@@ -1,6 +1,7 @@
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
 import type { ZIP_OUTPUT_TYPE } from './enums.js'
 import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
+import { PPTX_CONTENT_TYPE } from './ooxml/rel-types.js'
 
 /**
  * ZIP backend seam for the write path.
@@ -166,8 +167,6 @@ async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 	}
 }
 
-const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-
 /** Map fflate's `Uint8Array` to the requested {@link ZIP_OUTPUT_TYPE} output shape. */
 function convertZipOutput(bytes: Uint8Array, type: ZIP_OUTPUT_TYPE): string | ArrayBuffer | Blob | Uint8Array {
 	switch (type) {
@@ -185,7 +184,7 @@ function convertZipOutput(bytes: Uint8Array, type: ZIP_OUTPUT_TYPE): string | Ar
 			return Buffer.from(bytes)
 		case 'blob':
 			// Copy into an ArrayBuffer-backed view so it is a valid BlobPart.
-			return new Blob([new Uint8Array(bytes)], { type: PPTX_MIME })
+			return new Blob([new Uint8Array(bytes)], { type: PPTX_CONTENT_TYPE })
 		case 'base64':
 			return bytesToBinaryString(bytes, true)
 		case 'binarystring':

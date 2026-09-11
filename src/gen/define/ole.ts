@@ -20,7 +20,7 @@ import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
-import { OFFICE_REL, PACKAGE_REL } from '../../ooxml/rel-types.js'
+import { OFFICE_REL, PACKAGE_REL, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
 const OD = 'application/vnd.openxmlformats-officedocument.'
 /** Rel type for a generic OLE-server blob — a compound-file `.bin` (ECMA-376 Part 1 §15.2.10). */
@@ -43,7 +43,7 @@ interface OleFormat {
  * blob under {@link BIN_FORMAT}.
  */
 const OLE_FORMATS: Record<string, OleFormat> = {
-	xlsx: { contentType: OD + 'spreadsheetml.sheet', relType: PACKAGE_REL, progId: 'Excel.Sheet.12', name: 'Worksheet' },
+	xlsx: { contentType: XLSX_CONTENT_TYPE, relType: PACKAGE_REL, progId: 'Excel.Sheet.12', name: 'Worksheet' },
 	xlsm: {
 		contentType: 'application/vnd.ms-excel.sheet.macroEnabled.12',
 		relType: PACKAGE_REL,
@@ -63,7 +63,7 @@ const OLE_FORMATS: Record<string, OleFormat> = {
 		name: 'Document',
 	},
 	pptx: {
-		contentType: OD + 'presentationml.presentation',
+		contentType: PPTX_CONTENT_TYPE,
 		relType: PACKAGE_REL,
 		progId: 'PowerPoint.Show.12',
 		name: 'Presentation',

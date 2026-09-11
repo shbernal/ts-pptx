@@ -23,9 +23,13 @@ import type { Relationships } from '../../opc/relationships.js'
 import { InvalidOptionError } from '../../../errors.js'
 import {
 	AUDIO_REL,
+	CHART_COLOR_STYLE_CONTENT_TYPE,
 	CHART_COLOR_STYLE_REL,
+	CHART_CONTENT_TYPE,
 	CHART_REL,
+	CHART_STYLE_CONTENT_TYPE,
 	CHART_STYLE_REL,
+	CHARTEX_CONTENT_TYPE,
 	CHARTEX_REL,
 	HYPERLINK_REL,
 	IMAGE_REL,
@@ -38,6 +42,7 @@ import {
 	SLIDE_LAYOUT_REL,
 	SLIDE_REL,
 	VIDEO_REL,
+	XLSX_CONTENT_TYPE,
 } from '../../../ooxml/rel-types.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
@@ -46,15 +51,6 @@ import { carryGeneratedEmbeddedFonts } from './embedded-fonts.js'
 import { ensureNotesMasterFromXml } from './notes-master.js'
 import { requireEqualSlideSize } from './slide-size.js'
 import { pickDefined } from '../../../options-internal.js'
-
-// The chart part content types stay here: this is the only module that matches on them, and the
-// write side spells its own out next to the part it declares (`gen/opc/content-types.ts`).
-const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
-// chartEx parts carry Microsoft content types, not the `openxmlformats` ones.
-const CHARTEX_CONTENT_TYPE = 'application/vnd.ms-office.chartex+xml'
-const CHART_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartstyle+xml'
-const CHART_COLOR_STYLE_CONTENT_TYPE = 'application/vnd.ms-office.chartcolorstyle+xml'
-const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 const textEncoder = new TextEncoder()
 

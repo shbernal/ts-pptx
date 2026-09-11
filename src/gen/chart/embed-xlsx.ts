@@ -19,12 +19,15 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	CHART_COLOR_STYLE_REL,
 	CHART_STYLE_REL,
+	CORE_PROPS_CONTENT_TYPE,
 	CORE_PROPS_REL,
+	EXTENDED_PROPS_CONTENT_TYPE,
 	EXTENDED_PROPS_REL,
 	OFFICE_DOCUMENT_REL,
 	OFFICE_REL,
 	PACKAGE_REL,
 	RELATIONSHIPS_CONTENT_TYPE,
+	THEME_CONTENT_TYPE,
 	THEME_REL,
 } from '../../ooxml/rel-types.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
@@ -49,8 +52,7 @@ import { FMT_SCHEME_XML } from '../oxml/fmt-scheme.js'
 
 /** The SpreadsheetML namespace every part of the embedded workbook is written in. */
 const SML_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
-/** OPC content types, and the prefix the four SpreadsheetML part types share. */
-const CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+/** The prefix the embedded workbook's SpreadsheetML part types share. */
 const SML_CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.'
 
 /** One `<si>` shared string carrying literal text. */
@@ -107,19 +109,19 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			zipExcel.add(
 				'[Content_Types].xml',
 				XML_DECL +
-					el('Types', { xmlns: CT_NS }, [
+					el('Types', { xmlns: OOXML_NS.ct }, [
 						raw(
 							voidEl('Default', { Extension: 'rels', ContentType: RELATIONSHIPS_CONTENT_TYPE }, { openPrefix: '  ' })
 						),
 						raw(voidEl('Default', { Extension: 'xml', ContentType: 'application/xml' }, { openPrefix: '  ' })),
 						raw(override('/xl/workbook.xml', SML_CT + 'sheet.main+xml')),
 						raw(override('/xl/worksheets/sheet1.xml', SML_CT + 'worksheet+xml')),
-						raw(override('/xl/theme/theme1.xml', 'application/vnd.openxmlformats-officedocument.theme+xml')),
+						raw(override('/xl/theme/theme1.xml', THEME_CONTENT_TYPE)),
 						raw(override('/xl/styles.xml', SML_CT + 'styles+xml')),
 						raw(override('/xl/sharedStrings.xml', SML_CT + 'sharedStrings+xml')),
 						raw(override('/xl/tables/table1.xml', SML_CT + 'table+xml')),
-						raw(override('/docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml')),
-						raw(override('/docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml')),
+						raw(override('/docProps/core.xml', CORE_PROPS_CONTENT_TYPE)),
+						raw(override('/docProps/app.xml', EXTENDED_PROPS_CONTENT_TYPE)),
 					]) +
 					'\n'
 			)
@@ -143,8 +145,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					el(
 						'Properties',
 						{
-							xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
-							'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+							xmlns: OOXML_NS.ep,
+							'xmlns:vt': OOXML_NS.vt,
 						},
 						[
 							raw(el('Application', null, 'Microsoft Macintosh Excel')),

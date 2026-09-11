@@ -12,11 +12,13 @@ import { relsPartNameFor } from '../../opc/partnames.js'
 import type { Presentation } from '../presentation.js'
 import {
 	NOTES_MASTER_CONTENT_TYPE,
+	PRES_PROPS_CONTENT_TYPE,
 	PRESENTATION_MAIN_CONTENT_TYPE,
 	SLIDE_LAYOUT_CONTENT_TYPE,
 	SLIDE_MASTER_CONTENT_TYPE,
 	TABLE_STYLES_CONTENT_TYPE,
 	THEME_CONTENT_TYPE,
+	VIEW_PROPS_CONTENT_TYPE,
 } from '../../../ooxml/rel-types.js'
 
 /**
@@ -32,8 +34,8 @@ const SHARED_CHROME_CONTENT_TYPES = new Set([
 	'application/vnd.openxmlformats-officedocument.themeOverride+xml',
 	NOTES_MASTER_CONTENT_TYPE,
 	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
+	PRES_PROPS_CONTENT_TYPE,
+	VIEW_PROPS_CONTENT_TYPE,
 	TABLE_STYLES_CONTENT_TYPE,
 	PRESENTATION_MAIN_CONTENT_TYPE,
 ])
