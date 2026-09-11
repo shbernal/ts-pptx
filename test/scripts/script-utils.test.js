@@ -10,7 +10,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { describe, expect, test, vi } from 'vitest'
-import { CliExit, ROOT, isMain, parseCli, resolveLocalBin, runCli } from '../../scripts/script-utils.mjs'
+import { CliExit, ROOT, collect, isMain, parseCli, resolveLocalBin, runCli } from '../../scripts/script-utils.mjs'
 
 const OPTIONS = { dir: { type: 'string' }, verbose: { type: 'boolean', default: false } }
 const parse = (argv) => parseCli(argv, { options: OPTIONS, usage: 'usage: thing [--dir <path>]' })
@@ -154,5 +154,34 @@ describe('resolveLocalBin', () => {
 
 	test('a bin the package does not declare resolves to null', () => {
 		expect(resolveLocalBin('typescript', 'no-such-bin')).toBeNull()
+	})
+})
+
+// The render and COM smokes report a tool's exit rather than throwing on it, so the helper they
+// share must resolve on every outcome: a failing exit, a command that is not there, and a hang.
+describe('collect', () => {
+	test('reports a non-zero exit and what the process printed, without rejecting', async () => {
+		const script = 'process.stdout.write("out"); process.stderr.write("err"); process.exit(3)'
+		expect(await collect(process.execPath, ['-e', script])).toEqual({
+			code: 3,
+			out: 'out',
+			err: 'err',
+			timedOut: false,
+		})
+	})
+
+	test('a command that cannot be spawned resolves with code -1 and the error', async () => {
+		const result = await collect('no-such-command-installed-here', [])
+		expect(result.code).toBe(-1)
+		expect(result.err).toMatch(/ENOENT/)
+		expect(result.timedOut).toBe(false)
+	})
+
+	// The timeout is what stops a hung LibreOffice holding a job for the rest of its budget.
+	test('kills a process that outlives its timeout, and says so', async () => {
+		const started = Date.now()
+		const result = await collect(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { timeoutMs: 200 })
+		expect(result.timedOut).toBe(true)
+		expect(Date.now() - started).toBeLessThan(10000)
 	})
 })

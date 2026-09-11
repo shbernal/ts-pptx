@@ -60,6 +60,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { isMain, parseCli, ROOT, run, runCli } from '../script-utils.mjs'
+import { unzipSync } from '../pptx-parts.mjs'
 import { measureHealth } from './health.mjs'
 import { measureHygiene } from './hygiene.mjs'
 import { PROBES, probeSource, resetCorpusData, SUBJECTS } from './probes.mjs'
@@ -103,12 +104,6 @@ function shippedBundles(upstreamRoot) {
 			.map((name) => path.join(dist, name)),
 		pptxgenjs: ['pptxgen.es.js', 'pptxgen.cjs.js'].map((name) => path.join(upstreamRoot, 'dist', name)),
 	}
-}
-
-/** fflate's `unzipSync`, loaded by URL out of the repo's own node_modules, as the other package tooling does. */
-async function unzipSync() {
-	const fflate = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'fflate', 'esm', 'browser.js')).href)
-	return fflate.unzipSync
 }
 
 /**

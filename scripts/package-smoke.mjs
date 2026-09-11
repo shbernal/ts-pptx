@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
 import { isBuiltin } from 'node:module'
-import os from 'node:os'
 import path from 'node:path'
 import esbuild from 'esbuild'
-import { assertFile, assertNoFile, packPackage } from './pack-utils.mjs'
+import { assertFile, assertNoFile, withPackedTarball } from './pack-utils.mjs'
 import { ROOT, run, runNodeBin } from './script-utils.mjs'
 
 const packageJson = JSON.parse(await fs.readFile(path.join(ROOT, 'package.json'), 'utf8'))
@@ -515,15 +514,7 @@ console.log('  require(esm): ' + MATRIX.length + ' subpaths loaded from CommonJS
 	}
 }
 
-const tmpRoot = process.env.TSPPTX_PACKAGE_SMOKE_TMPDIR || os.tmpdir()
-await fs.mkdir(tmpRoot, { recursive: true })
-const tmp = await fs.mkdtemp(path.join(tmpRoot, '.ts-pptx-package-smoke-'))
-const keepTmp = process.env.TSPPTX_KEEP_PACKAGE_SMOKE === '1'
-
-try {
-	const packDir = path.join(tmp, 'pack')
-	const packInfo = await packPackage(packDir)
-
+await withPackedTarball('package-smoke', async (packInfo, tmp) => {
 	for (const manager of ['npm', 'pnpm']) {
 		const fixtureDir = path.join(tmp, manager + '-fixture')
 		await writeFixtureManifest(fixtureDir, manager)
@@ -532,7 +523,4 @@ try {
 	}
 
 	console.log('Packed package smoke test passed with npm and pnpm: ' + packInfo.filename)
-} finally {
-	if (keepTmp) console.log('Keeping package smoke temp directory: ' + tmp)
-	else await fs.rm(tmp, { recursive: true, force: true })
-}
+})

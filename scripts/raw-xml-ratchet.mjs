@@ -70,7 +70,7 @@ import path from 'node:path'
 // hard-codes the bare specifier and therefore needs the tools/api-docs workspace package,
 // an alias is enough here because the import is ours to name.
 import ts from 'typescript-6'
-import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
+import { ROOT, isMain, parseCli, repoRel, runCli } from './script-utils.mjs'
 
 const SRC = path.join(ROOT, 'src')
 const BUDGET = path.join(ROOT, 'scripts', 'raw-xml-budget.json')
@@ -188,7 +188,7 @@ export function scanSource(text, fileName = 'input.ts', pattern = TAG_DELIMITER)
 export function collectFindings() {
 	const findings = new Map()
 	for (const file of tsFilesUnder(SRC)) {
-		const rel = path.relative(ROOT, file).split(path.sep).join('/')
+		const rel = repoRel(file)
 		if (rel.startsWith(EXEMPT_DIR)) continue
 		const found = findingsIn(file)
 		if (found.length) findings.set(rel, found)
@@ -248,7 +248,7 @@ export function main(argv) {
 	/** @param {string} file @returns {number} */
 	const budget = (file) => budgetFile[file] ?? 0
 
-	const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+	const relBudget = repoRel(BUDGET)
 	const overBudget = ordered.filter((file) => found(file) > budget(file))
 	const underBudget = ordered.filter((file) => found(file) < budget(file))
 	const cleared = Object.keys(budgetFile).filter((file) => !findings.has(file))

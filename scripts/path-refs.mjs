@@ -59,7 +59,7 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import path from 'node:path'
 
-import { isMain, parseCli, ROOT, runCli } from './script-utils.mjs'
+import { isMain, parseCli, repoRel, ROOT, runCli } from './script-utils.mjs'
 
 /** Trees worth scanning. Everything else is either generated or third-party. */
 const SCAN_ROOTS = ['docs', 'src', 'test', 'scripts', 'tools', 'demos', 'www', '.github']
@@ -196,20 +196,11 @@ function walk(dir, out = []) {
 		if (SKIP_DIRS.has(entry.name)) continue
 		const full = path.join(dir, entry.name)
 		if (entry.isDirectory()) {
-			if (SKIP_PATHS.has(rel(full))) continue
+			if (SKIP_PATHS.has(repoRel(full))) continue
 			walk(full, out)
 		} else out.push(full)
 	}
 	return out
-}
-
-/**
- * Repo-relative, forward-slashed — the form every message and allowlist key uses.
- * @param {string} file
- * @returns {string}
- */
-function rel(file) {
-	return path.relative(ROOT, file).split(path.sep).join('/')
 }
 
 /**
@@ -237,7 +228,7 @@ export function resolves(token, from, known) {
 	// A comment citing `./pattern-fill.js` means the module whose source is `pattern-fill.ts`.
 	if (/\.m?js$/.test(token)) candidates.push(token.replace(/\.js$/, '.ts').replace(/\.mjs$/, '.mts'))
 
-	const fromDir = path.posix.dirname(rel(from))
+	const fromDir = path.posix.dirname(repoRel(from))
 	for (const candidate of candidates) {
 		const bare = candidate.replace(/^(\.{1,2}\/)+/, '')
 		// Relative to the repo root.
@@ -259,14 +250,14 @@ function collect() {
 		if (existsSync(full)) files.push(full)
 	}
 
-	const known = new Set(files.map(rel))
+	const known = new Set(files.map(repoRel))
 	/** @type {{file: string, line: number, token: string, ok: boolean}[]} */
 	const citations = []
 	/** @type {{file: string, line: number, text: string}[]} */
 	const stale = []
 	for (const file of files) {
 		if (!CITED_EXT.test(file)) continue
-		const relFile = rel(file)
+		const relFile = repoRel(file)
 		if (relFile === SELF) continue
 		const lines = readFileSync(file, 'utf8').split(/\r?\n/)
 		lines.forEach((line, index) => {

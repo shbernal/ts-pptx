@@ -78,8 +78,11 @@ export async function loadShowcase(slug) {
 	return found
 }
 
-/** fflate's `unzipSync`, loaded the same way `byte-identity.mjs` has always loaded it. */
-async function unzipSync() {
+/**
+ * fflate's `unzipSync`, loaded by URL out of the repo's own `node_modules`, the way
+ * `byte-identity.mjs` has always loaded it. Exported for the comparison tooling, which kept a copy.
+ */
+export async function unzipSync() {
 	const fflate = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'fflate', 'esm', 'browser.js')).href)
 	return fflate.unzipSync
 }

@@ -407,6 +407,47 @@ export function runNodeBin(pkg, args, { bin = pkg, from = ROOT, ...options } = {
 	return run(process.execPath, [entry, ...args], options)
 }
 
+/**
+ * Spawn a command and collect what it printed, without ever rejecting.
+ *
+ * For the tools whose exit a caller reports rather than throws on. LibreOffice writes noise to
+ * stderr on a perfectly good run (a bundled-Python warning, `Could not find platform independent
+ * libraries`), so a helper that read stderr as failure would fail every time; the COM smoke
+ * retries a PowerPoint that was still launching. A spawn failure resolves with code `-1` and the
+ * error as `err`, and so does a process killed by a signal, so a caller's retry treats the two
+ * alike.
+ * @param {string} command
+ * @param {readonly string[]} args
+ * @param {{timeoutMs?: number, cwd?: string}} [options] - `timeoutMs`: kill the child after this
+ *   long and resolve with `timedOut` set
+ * @returns {Promise<{code: number, out: string, err: string, timedOut: boolean}>}
+ */
+export function collect(command, args, { timeoutMs, cwd } = {}) {
+	return new Promise((resolve) => {
+		const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...(cwd === undefined ? {} : { cwd }) })
+		let out = ''
+		let err = ''
+		let timedOut = false
+		const timer =
+			timeoutMs === undefined
+				? undefined
+				: setTimeout(() => {
+						timedOut = true
+						child.kill()
+					}, timeoutMs)
+		child.stdout?.on('data', (chunk) => (out += chunk))
+		child.stderr?.on('data', (chunk) => (err += chunk))
+		child.on('close', (code) => {
+			clearTimeout(timer)
+			resolve({ code: code ?? -1, out, err, timedOut })
+		})
+		child.on('error', (error) => {
+			clearTimeout(timer)
+			resolve({ code: -1, out, err: String(error), timedOut })
+		})
+	})
+}
+
 // `pnpm pack` helpers used to live here. They moved to `pack-utils.mjs`: only the two
 // package-boundary gates call them, while nearly every other importer of this module
 // wants `ROOT` and nothing else.

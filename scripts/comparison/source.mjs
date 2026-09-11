@@ -25,8 +25,7 @@
  * both because an absolute path is noise to a reader and because a committed snapshot must
  * not carry the directory layout of whichever machine measured it.
  */
-import path from 'node:path'
-import { ROOT } from '../script-utils.mjs'
+import { ROOT, repoRel } from '../script-utils.mjs'
 
 /** Strings longer than this are printed truncated, with an ellipsis marking the cut. */
 const ELIDE_OVER = 60
@@ -82,7 +81,7 @@ export function functionBody(fn) {
 export function literal(value, options = {}) {
 	const elideOver = options.elideOver ?? ELIDE_OVER
 	if (typeof value === 'string') {
-		const shown = value.startsWith(ROOT) ? path.relative(ROOT, value).split(path.sep).join('/') : value
+		const shown = value.startsWith(ROOT) ? repoRel(value) : value
 		const cut = shown.length > elideOver ? shown.slice(0, elideOver) + '…' : shown
 		return "'" + cut.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"
 	}

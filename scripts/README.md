@@ -77,7 +77,7 @@ are in every aggregate the repo has.
 | `read-emit-roundtrip.mjs` | Generator | `load()`→`save()` decks for the manual PowerPoint check | manual |
 | `run-steps.mjs` | Library | Runs a list of package scripts as one sequence; assembles every aggregate | `verify`, `verify:full`, `check:core`, `check:static`, `check:package` |
 | `script-roundtrip.mjs` | Gate | Generated script must rebuild the deck it came from | `verify:full`, CI |
-| `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
+| `script-utils.mjs` | Library | `ROOT` and `repoRel`, the process helpers (`run()`, `runNodeBin`, `collect`), and the shared CLI front end | — |
 | `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
 | `xml-equivalence.mjs` | Library | Proves two XML parts differ only in inert inter-element whitespace | `byte-identity.mjs prove-whitespace`; unit-tested |
 | `com/contract.mjs` | Library | The shape names, `ProgID`s and `PpActionType` values the COM decks, VBScripts and verifiers all have to agree on | `powerpoint-com-smoke.mjs` |

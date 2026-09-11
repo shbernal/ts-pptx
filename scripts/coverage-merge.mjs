@@ -79,7 +79,7 @@ import libReport from 'istanbul-lib-report'
 import reports from 'istanbul-reports'
 import { parseAstAsync } from 'vitest/node'
 import { project } from './coverage-project.mjs'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, repoRel } from './script-utils.mjs'
 
 const NODE_REPORT = path.join(ROOT, 'coverage', 'coverage-final.json')
 const BROWSER_DIR = path.join(ROOT, '.tmp', 'browser-coverage')
@@ -97,27 +97,22 @@ function fail(message) {
 	process.exit(1)
 }
 
-/** @param {string} file */
-function relative(file) {
-	return path.relative(ROOT, file).replace(/\\/g, '/')
-}
-
 // --- inputs ---
 
 function readNodeMap() {
 	if (!fs.existsSync(NODE_REPORT)) {
-		fail(`no Node report at ${relative(NODE_REPORT)}.\n  Run: pnpm run test:coverage`)
+		fail(`no Node report at ${repoRel(NODE_REPORT)}.\n  Run: pnpm run test:coverage`)
 	}
 	return libCoverage.createCoverageMap(JSON.parse(fs.readFileSync(NODE_REPORT, 'utf8')))
 }
 
 function readBrowserRecords() {
 	if (!fs.existsSync(BROWSER_DIR)) {
-		fail(`no browser coverage at ${relative(BROWSER_DIR)}/.\n  Run: pnpm run test:browser`)
+		fail(`no browser coverage at ${repoRel(BROWSER_DIR)}/.\n  Run: pnpm run test:browser`)
 	}
 	const files = fs.readdirSync(BROWSER_DIR).filter((name) => name.endsWith('.json'))
 	if (!files.length) {
-		fail(`${relative(BROWSER_DIR)}/ is empty.\n  Run: pnpm run test:browser`)
+		fail(`${repoRel(BROWSER_DIR)}/ is empty.\n  Run: pnpm run test:browser`)
 	}
 	return files.map((name) => JSON.parse(fs.readFileSync(path.join(BROWSER_DIR, name), 'utf8')))
 }
@@ -299,7 +294,7 @@ for (const file of browserMap.files()) {
 if (unknownFiles.length) {
 	fail(
 		`${unknownFiles.length} browser file(s) are absent from the Node report:\n` +
-			unknownFiles.map((file) => `    ${relative(file)}\n`).join('') +
+			unknownFiles.map((file) => `    ${repoRel(file)}\n`).join('') +
 			'  The Node report includes every file reachable from `dist/**`, so this is a finding about\n' +
 			'  its `include` glob (vitest.config.ts) rather than a file to merge on different terms.'
 	)
@@ -341,5 +336,5 @@ console.log(
 	`  ${orphans} of ${measured} browser locations (${orphanShare.toFixed(2)}%) had no slot in the Node ` +
 		`report's shape and were dropped`
 )
-console.log(`  report: ${relative(OUT_DIR)}/`)
+console.log(`  report: ${repoRel(OUT_DIR)}/`)
 console.log('')

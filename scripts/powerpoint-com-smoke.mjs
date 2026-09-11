@@ -49,9 +49,9 @@
 import os from 'node:os'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { spawn, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { decodePng } from './png-utils.mjs'
-import { parseCliOrExit, skipOrFail } from './script-utils.mjs'
+import { collect, parseCliOrExit, skipOrFail } from './script-utils.mjs'
 import {
 	EXPECTED_ACTION,
 	EXPECTED_OLE_PROGID,
@@ -121,24 +121,6 @@ function clearResiliency() {
 }
 
 /**
- * @param {string} vbsFile
- * @returns {Promise<{code: number, out: string, err: string}>}
- */
-function runCscript(vbsFile) {
-	return new Promise((resolve) => {
-		const child = spawn('cscript', ['//nologo', '//B', vbsFile], { stdio: ['ignore', 'pipe', 'pipe'] })
-		let out = ''
-		let err = ''
-		child.stdout.on('data', (d) => (out += d))
-		child.stderr.on('data', (d) => (err += d))
-		// A `null` code means the process was killed by a signal; report it the way the
-		// spawn-error path does, so the retry in `driveDeck` treats the two alike.
-		child.on('close', (code) => resolve({ code: code ?? -1, out, err }))
-		child.on('error', (e) => resolve({ code: -1, out, err: String(e) }))
-	})
-}
-
-/**
  * Write a VBS for `file`, drive PowerPoint (retry once), and return the raw cscript result.
  * @param {string} label
  * @param {string} file the deck to open
@@ -153,7 +135,7 @@ async function driveDeck(label, file, buildVbs) {
 	let result = { code: -1, out: '', err: 'cscript was never run' }
 	for (let attempt = 1; attempt <= 2; attempt++) {
 		clearResiliency()
-		result = await runCscript(vbsFile)
+		result = await collect('cscript', ['//nologo', '//B', vbsFile])
 		if (result.code !== -1 && !/OPEN_ERR/.test(result.out)) break
 		if (attempt === 1) console.log(`[${label}] first attempt failed; retrying once...`)
 	}

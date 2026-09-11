@@ -10,8 +10,35 @@
  */
 
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { ROOT, run } from './script-utils.mjs'
+
+/**
+ * Pack the package into a fresh temporary directory, hand the tarball to `fn`, and remove the
+ * directory afterwards unless asked to keep it.
+ *
+ * Both package gates spelled this sequence out, each with a keep variable of its own, and only
+ * the smoke test let the temporary root be moved. One pair now serves both:
+ * `TSPPTX_PACKAGE_TMPDIR` for where the directory is made (the OS temporary directory by
+ * default), and `TSPPTX_KEEP_PACKAGE_TMP=1` to leave it behind for inspection.
+ * @template T
+ * @param {string} label - which gate is packing, for the directory name and the keep message
+ * @param {(packInfo: Awaited<ReturnType<typeof packPackage>>, tmp: string) => Promise<T>} fn -
+ *   receives the pack result and the temporary directory, which it may use for its own files
+ * @returns {Promise<T>}
+ */
+export async function withPackedTarball(label, fn) {
+	const tmpRoot = process.env.TSPPTX_PACKAGE_TMPDIR || os.tmpdir()
+	await fs.mkdir(tmpRoot, { recursive: true })
+	const tmp = await fs.mkdtemp(path.join(tmpRoot, `.ts-pptx-${label}-`))
+	try {
+		return await fn(await packPackage(path.join(tmp, 'pack')), tmp)
+	} finally {
+		if (process.env.TSPPTX_KEEP_PACKAGE_TMP === '1') console.log(`Keeping ${label} temp directory: ${tmp}`)
+		else await fs.rm(tmp, { recursive: true, force: true })
+	}
+}
 
 /**
  * Pull the JSON payload out of a `pnpm pack --json` run.

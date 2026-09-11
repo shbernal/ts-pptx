@@ -67,9 +67,9 @@
 import os from 'node:os'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { spawn, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
-import { ROOT, parseCliOrExit, skipOrFail } from './script-utils.mjs'
+import { ROOT, collect, parseCliOrExit, skipOrFail } from './script-utils.mjs'
 
 // --- args -------------------------------------------------------------------
 const USAGE = `LibreOffice render smoke — paint decks in a renderer with no SmartArt engine.
@@ -389,38 +389,6 @@ async function findPdfToText() {
 }
 
 // --- running them -----------------------------------------------------------
-/**
- * Spawn and collect. Never rejects: the caller decides what a non-zero code means, because
- * LibreOffice writes noise to stderr on a perfectly good run (a bundled-Python warning,
- * `Could not find platform independent libraries`), and a script that read stderr as failure
- * would fail every time.
- * @param {string} command
- * @param {string[]} args
- * @param {number} timeoutMs
- * @returns {Promise<{code: number, out: string, err: string, timedOut: boolean}>}
- */
-function runTool(command, args, timeoutMs) {
-	return new Promise((resolve) => {
-		const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
-		let out = ''
-		let err = ''
-		let timedOut = false
-		const timer = setTimeout(() => {
-			timedOut = true
-			child.kill()
-		}, timeoutMs)
-		child.stdout?.on('data', (d) => (out += d))
-		child.stderr?.on('data', (d) => (err += d))
-		child.on('close', (code) => {
-			clearTimeout(timer)
-			resolve({ code: code ?? -1, out, err, timedOut })
-		})
-		child.on('error', (e) => {
-			clearTimeout(timer)
-			resolve({ code: -1, out, err: String(e), timedOut })
-		})
-	})
-}
 
 /**
  * Convert every deck to PDF in one LibreOffice invocation.
@@ -435,7 +403,7 @@ function runTool(command, args, timeoutMs) {
  * @returns {Promise<string[]>} one message per failure
  */
 async function convertToPdf(soffice, decks, outDir, profileDir) {
-	const result = await runTool(
+	const result = await collect(
 		soffice,
 		[
 			'--headless',
@@ -448,7 +416,7 @@ async function convertToPdf(soffice, decks, outDir, profileDir) {
 			outDir,
 			...decks,
 		],
-		CONVERT_TIMEOUT_MS
+		{ timeoutMs: CONVERT_TIMEOUT_MS }
 	)
 	if (result.timedOut) return [`LibreOffice did not finish within ${CONVERT_TIMEOUT_MS / 1000}s and was killed`]
 	if (result.code !== 0) return [`LibreOffice exited ${result.code}: ${(result.err || result.out).trim()}`]
@@ -472,7 +440,7 @@ async function convertToPdf(soffice, decks, outDir, profileDir) {
 async function paintedText(pdftotext, pdf, page, layout = false) {
 	const txt = pdf.replace(/\.pdf$/, layout ? '.layout.txt' : '.txt')
 	const args = [...(layout ? ['-layout'] : []), '-f', String(page), '-l', String(page), pdf, txt]
-	const result = await runTool(pdftotext, args, CONVERT_TIMEOUT_MS)
+	const result = await collect(pdftotext, args, { timeoutMs: CONVERT_TIMEOUT_MS })
 	if (result.code !== 0) {
 		return { text: '', failures: [`pdftotext exited ${result.code}: ${(result.err || result.out).trim()}`] }
 	}

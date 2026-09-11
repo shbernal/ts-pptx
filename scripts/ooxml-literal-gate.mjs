@@ -29,7 +29,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
+import { ROOT, isMain, parseCli, repoRel, runCli } from './script-utils.mjs'
 import { scanSource, tsFilesUnder } from './raw-xml-ratchet.mjs'
 
 const SRC = path.join(ROOT, 'src')
@@ -53,7 +53,7 @@ export function collectLiterals() {
 	/** @type {Finding[]} */
 	const found = []
 	for (const file of tsFilesUnder(SRC)) {
-		const rel = path.relative(ROOT, file).split(path.sep).join('/')
+		const rel = repoRel(file)
 		if (rel.startsWith(HOME_DIR)) continue
 		for (const { line, text } of scanSource(fs.readFileSync(file, 'utf8'), file, OOXML_LITERAL)) {
 			found.push({ file: rel, line, literal: text })
@@ -109,7 +109,7 @@ export function main(argv) {
 
 	/** @type {AllowlistEntry[]} */
 	const allowlist = JSON.parse(fs.readFileSync(ALLOWLIST, 'utf8'))
-	const relAllowlist = path.relative(ROOT, ALLOWLIST).split(path.sep).join('/')
+	const relAllowlist = repoRel(ALLOWLIST)
 	const { unlisted, stale, reasonless } = compareToAllowlist(found, allowlist)
 
 	if (unlisted.length || stale.length || reasonless.length) {
