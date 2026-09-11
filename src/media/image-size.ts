@@ -38,8 +38,9 @@ export function getImageSizeFromBase64(dataB64: string): { w: number; h: number 
 export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } | null {
 	if (!b || b.length < 24) return null
 
-	// Bounds-checked byte read: every access below is already guarded by an
-	// explicit length check, so the `?? 0` fallback is unreachable in practice.
+	// A byte read that turns an index past the end into 0 rather than `undefined`. That keeps the
+	// arithmetic below defined, but a zero is not a real field: each format checks the length its own
+	// fields need before it trusts a value, and the 24-byte floor above covers only the shortest.
 	const u = (n: number): number => b[n] ?? 0
 
 	// PNG: 8-byte signature, then IHDR with width@16 / height@20 (big-endian uint32)
@@ -56,8 +57,20 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 		return w > 0 && h > 0 ? { w, h } : null
 	}
 
-	// BMP: "BM", width@18 / height@22 (little-endian int32; height may be negative for top-down)
+	// BMP: "BM", then a DIB header whose size at offset 14 says which layout the dimensions use.
 	if (IMAGE_FORMATS.bmp.magic?.(b)) {
+		const dibHeaderSize = u(14) | (u(15) << 8) | (u(16) << 16) | (u(17) << 24)
+		// An OS/2 BITMAPCOREHEADER (12 bytes) stores width@18 / height@20 as unsigned 16-bit values.
+		// Read as 32-bit, the width swallowed the height's bytes and the height ran into the planes and
+		// bit-count fields, so the image measured tens of thousands of pixels wide.
+		if (dibHeaderSize === 12) {
+			const w = u(18) | (u(19) << 8)
+			const h = u(20) | (u(21) << 8)
+			return w > 0 && h > 0 ? { w, h } : null
+		}
+		// Every later header: width@18 / height@22 as little-endian int32, the height negative for a
+		// top-down bitmap. The height ends at byte 25, past the 24-byte floor, so it is checked here.
+		if (b.length < 26) return null
 		const w = u(18) | (u(19) << 8) | (u(20) << 16) | (u(21) << 24)
 		const h = u(22) | (u(23) << 8) | (u(24) << 16) | (u(25) << 24)
 		const aw = Math.abs(w)
@@ -99,6 +112,12 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
 				continue
 			}
 			const marker = u(i + 1)
+			// Any marker may be preceded by 0xFF fill bytes. Taken as a marker of its own, the next two
+			// bytes read as a segment length and the walk jumped clean past the frame header.
+			if (marker === 0xff) {
+				i++
+				continue
+			}
 			// SOF0..SOF15 carry frame dimensions, excluding DHT(C4)/JPG(C8)/DAC(CC)
 			if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
 				const h = (u(i + 5) << 8) | u(i + 6)

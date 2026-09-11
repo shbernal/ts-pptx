@@ -851,6 +851,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Two legal image headers measured wrong for `sizing` and unsized images.**
+  - A JPEG with a `0xFF` fill byte before its frame marker was unmeasurable, so `cover` and
+    `contain` fell back with `image/unmeasurable-natural-size` and an unsized image came out 1in
+    square.
+  - An OS/2 bitmap, whose 12-byte core header stores 16-bit dimensions, was read as the 32-bit
+    layout and measured tens of thousands of pixels in each direction.
+  - Both now read their real natural size.
+
 - **A written deck's zip entry timestamps depended on the machine's timezone.**
   - Every entry is stamped with one fixed date so a deck is reproducible, but that date was a UTC
     instant, and a zip stores its dates as local wall-clock fields. The same deck therefore had

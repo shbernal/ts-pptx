@@ -75,6 +75,35 @@ const JPEG_60x40_OBSTACLE =
 		0x00, // pad to keep length >= 24
 	]).toString('base64')
 
+// A JPEG with one 0xFF fill byte before its SOF0 marker, which declares 4x2. A fill byte is legal
+// before any marker; the scanner used to read it as a marker of its own, take the next two bytes as
+// a segment length, and skip past the frame header, so the image fell back to 1in.
+const JPEG_4x2_FILL_BYTE =
+	'image/jpeg;base64,' +
+	Buffer.concat([
+		Buffer.from([0xff, 0xd8]), // SOI
+		Buffer.from([0xff]), // fill byte
+		Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08]), // SOF0, length 17, precision 8
+		Buffer.from([0x00, 0x02]), // height = 2
+		Buffer.from([0x00, 0x04]), // width = 4
+		Buffer.alloc(12), // pad to keep length >= 24
+	]).toString('base64')
+
+// An OS/2 bitmap: a 12-byte BITMAPCOREHEADER stores 16-bit dimensions at offsets 18 and 20. Read as
+// the 32-bit BITMAPINFOHEADER layout, the width swallowed the height and the height ran into the
+// planes and bit-count fields.
+const BMP_OS2_4x2 =
+	'image/bmp;base64,' +
+	Buffer.concat([
+		Buffer.from('BM'),
+		Buffer.alloc(12), // file size, reserved, pixel-data offset
+		Buffer.from([0x0c, 0x00, 0x00, 0x00]), // DIB header size = 12
+		Buffer.from([0x04, 0x00]), // width = 4
+		Buffer.from([0x02, 0x00]), // height = 2
+		Buffer.from([0x01, 0x00]), // planes = 1
+		Buffer.from([0x18, 0x00]), // 24 bits per pixel
+	]).toString('base64')
+
 // A JPEG with only an APP0 segment and no SOF: the scanner walks off the end and
 // reports no measurable size → the 1in fallback applies.
 const JPEG_NO_SOF =
@@ -162,6 +191,22 @@ defineRegressionSuite('Image intrinsic-size defaults', [
 		fn: async () => {
 			const r = await extFor({ data: JPEG_60x40_OBSTACLE, x: 1, y: 1 })
 			assert(r.cx === 571500 && r.cy === 381000, `expected cx=571500 cy=381000; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// A 0xFF fill byte before SOF0 is skipped rather than read as a segment (4x2 → 38100x19050 EMU).
+		name: 'no w/h: jpeg with a fill byte before its SOF marker still reads the dimensions',
+		fn: async () => {
+			const r = await extFor({ data: JPEG_4x2_FILL_BYTE, x: 1, y: 1 })
+			assert(r.cx === 38100 && r.cy === 19050, `expected cx=38100 cy=19050; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// An OS/2 BITMAPCOREHEADER's 16-bit dimensions are read as 16-bit (4x2 → 38100x19050 EMU).
+		name: 'no w/h: os/2 bmp reads its 16-bit core-header dimensions',
+		fn: async () => {
+			const r = await extFor({ data: BMP_OS2_4x2, x: 1, y: 1 })
+			assert(r.cx === 38100 && r.cy === 19050, `expected cx=38100 cy=19050; got ${JSON.stringify(r)}`)
 		},
 	},
 	{
