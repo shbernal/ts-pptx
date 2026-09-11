@@ -2780,6 +2780,46 @@ export default [
 		},
 	},
 	{
+		// `valAxes` used to decide which axes existed, so a 3-D bar with one override lost the series
+		// axis its plot references.
+		name: 'a 3-D bar chart with a valAxes override keeps its series axis',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					type: ChartType.bar3d,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					valAxes: [{ valAxisTitle: 'Value', showValAxisTitle: true }],
+				})
+			})
+			await expectNoSchemaErrors(buf, 'bar3d-valaxes-override')
+		},
+	},
+	{
+		// A `secondaryValAxis` subchart plots on the secondary pair, which is emitted, with its
+		// unrequested category axis hidden, even when `valAxes` carries one entry.
+		name: 'a combo line on the secondary value axis with one valAxes override',
+		fn: async () => {
+			const labels = ['A', 'B', 'C']
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ type: ChartType.bar, data: [{ name: 'Bar', labels, values: [1, 2, 3] }], options: {} },
+						{
+							type: ChartType.line,
+							data: [{ name: 'Line', labels, values: [40, 50, 60] }],
+							options: { secondaryValAxis: true },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3, valAxes: [{ valAxisTitle: 'Value', showValAxisTitle: true }] }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo-secondary-val-axis-valaxes-override')
+		},
+	},
+	{
 		name: 'chart with per-series color and data-label overrides',
 		fn: async () => {
 			const { buf } = await build((p) => {

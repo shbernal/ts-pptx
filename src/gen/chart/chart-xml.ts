@@ -193,10 +193,27 @@ interface ComboCatAxis {
 
 /** Which axes a combo chart needs, and what each of its category axes has to be. */
 interface ComboAxisPlan {
+	/** Whether any subchart plots on the secondary axis pair, so both secondary axes are emitted. */
+	secondary: boolean
+	/** Whether a subchart asked for the secondary value axis. When none did, that axis is hidden. */
 	secondaryVal: boolean
+	/** Whether a subchart asked for the secondary category axis. When none did, that axis is hidden. */
 	secondaryCat: boolean
 	cat: Record<'primary' | 'secondary', ComboCatAxis>
 }
+
+/**
+ * Whether a subchart plots on the secondary axis pair: it asked for the secondary value axis, the
+ * secondary category axis, or both.
+ *
+ * A plot group has to reference a category axis and a value axis that cross each other, so one
+ * flag moves the subchart onto both secondary axes. A line on the primary category axis and the
+ * secondary value axis was refused by PowerPoint as corrupt (0x80070570), whether or not a
+ * secondary category axis was also emitted; on the secondary pair it opens.
+ * @param options - the subchart's merged options
+ */
+const plotsOnSecondaryAxes = (options: ChartOptsInternal): boolean =>
+	Boolean(options.secondaryValAxis || options.secondaryCatAxis)
 
 /**
  * Read a combo chart's subcharts for what its axes have to be.
@@ -210,6 +227,7 @@ interface ComboAxisPlan {
  */
 function planComboAxes(chartOptions: ChartOptsInternal, types: ChartMultiInternal[] | undefined): ComboAxisPlan {
 	const plan: ComboAxisPlan = {
+		secondary: false,
 		secondaryVal: false,
 		secondaryCat: false,
 		cat: {
@@ -221,11 +239,11 @@ function planComboAxes(chartOptions: ChartOptsInternal, types: ChartMultiInterna
 		// The MERGED options, exactly as the plot walk resolves them: a subchart that states
 		// neither flag inherits the chart-level one, and the axis ids it plots against follow that.
 		const options = resolveSubchartOptions(chartOptions, type.options)
-		const secondaryVal = options.secondaryValAxis ?? false
-		const secondaryCat = options.secondaryCatAxis ?? false
-		plan.secondaryVal = plan.secondaryVal || secondaryVal
-		plan.secondaryCat = plan.secondaryCat || secondaryCat
-		const axis = plan.cat[secondaryCat ? 'secondary' : 'primary']
+		const secondary = plotsOnSecondaryAxes(options)
+		plan.secondary = plan.secondary || secondary
+		plan.secondaryVal = plan.secondaryVal || Boolean(options.secondaryValAxis)
+		plan.secondaryCat = plan.secondaryCat || Boolean(options.secondaryCatAxis)
+		const axis = plan.cat[secondary ? 'secondary' : 'primary']
 		const subType = asChartType(type.type)
 		if (isXyChart(subType)) axis.xyType = subType
 		else axis.hasCategoryChart = true
@@ -256,7 +274,7 @@ function makeChartAxesXml(rel: SlideRelChart, plan: ComboAxisPlan): string {
 	}
 	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
-		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !plan.secondaryVal) {
+		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !plan.secondary) {
 			throw new InvalidOptionError(
 				'chart/secondary-axis-unused',
 				'Secondary axis must be used by one of the multiple charts'
@@ -282,59 +300,54 @@ function makeChartAxesXml(rel: SlideRelChart, plan: ComboAxisPlan): string {
 			return { _type: valType }
 		}
 
-		if (rel.opts.catAxes) {
-			if (!rel.opts.valAxes || rel.opts.valAxes.length !== rel.opts.catAxes.length) {
-				throw new InvalidOptionError(
-					'chart/axis-count-mismatch',
-					'There must be the same number of value and category axes.'
-				)
-			}
-			strXml += makeCatAxis(
-				{ ...rel.opts, ...rel.opts.catAxes[0], ...comboCatAxisType(false) },
-				AXIS_ID_CATEGORY_PRIMARY,
-				AXIS_ID_VALUE_PRIMARY
-			)
-		} else {
-			strXml += makeCatAxis(
-				{ ...rel.opts, ...comboCatAxisType(false) },
-				AXIS_ID_CATEGORY_PRIMARY,
-				AXIS_ID_VALUE_PRIMARY
+		if (rel.opts.catAxes && (!rel.opts.valAxes || rel.opts.valAxes.length !== rel.opts.catAxes.length)) {
+			throw new InvalidOptionError(
+				'chart/axis-count-mismatch',
+				'There must be the same number of value and category axes.'
 			)
 		}
 
-		if (rel.opts.valAxes) {
-			strXml += makeValAxis({ ...rel.opts, ...rel.opts.valAxes[0] }, AXIS_ID_VALUE_PRIMARY)
-			if (rel.opts.valAxes[1]) {
-				strXml += makeValAxis({ ...rel.opts, ...rel.opts.valAxes[1] }, AXIS_ID_VALUE_SECONDARY)
-			}
-		} else {
-			strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_PRIMARY)
-
-			// Add series axis for 3D bar and surface (both plot over a category × series grid)
-			if (rel.opts._type === ChartType.bar3d || rel.opts._type === ChartType.surface) {
-				strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
-			}
-
-			// For combo charts referencing a secondary value axis via the
-			// `secondaryValAxis: true` flag (without a `valAxes` array),
-			// auto-synthesise the missing secondary value axis def so that
-			// the axId references in <c:plotArea> all resolve.
-			if (plan.secondaryVal) {
-				strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_SECONDARY)
-			}
+		// What the plots reference comes first, and the `catAxes[i]`/`valAxes[i]` overrides apply to
+		// it. The overrides used to decide which axes existed: with `valAxes` set, the series axis of
+		// a 3-D bar or surface chart and the secondary value axis a `secondaryValAxis` subchart
+		// plots on were never emitted, and the plot referenced ids no axis carried.
+		const catOverride = (idx: number) => rel.opts.catAxes?.[idx]
+		const valOverride = (idx: number) => rel.opts.valAxes?.[idx]
+		const overrideCount = rel.opts.valAxes?.length ?? 0
+		if (overrideCount > 2) {
+			warn(
+				'chart/option-not-supported',
+				`"valAxes" and "catAxes" have ${overrideCount} entries, but a chart has one primary and one secondary axis of each kind; the entries past the second are ignored.`
+			)
 		}
 
-		// Combo Charts: Add secondary axes after all vals
-		if (rel.opts?.catAxes && rel.opts?.catAxes[1]) {
-			strXml += makeCatAxis(
-				{ ...rel.opts, ...rel.opts.catAxes[1], ...comboCatAxisType(true) },
-				AXIS_ID_CATEGORY_SECONDARY,
+		strXml += makeCatAxis(
+			{ ...rel.opts, ...catOverride(0), ...comboCatAxisType(false) },
+			AXIS_ID_CATEGORY_PRIMARY,
+			AXIS_ID_VALUE_PRIMARY
+		)
+		strXml += makeValAxis({ ...rel.opts, ...valOverride(0) }, AXIS_ID_VALUE_PRIMARY)
+
+		// 3D bar and surface plot over a category × series grid.
+		if (rel.opts._type === ChartType.bar3d || rel.opts._type === ChartType.surface) {
+			strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
+		}
+
+		// A subchart on either secondary axis plots on both, so both are emitted, and the one no
+		// subchart asked for is hidden: the arrangement PowerPoint gives a series moved to its
+		// secondary axis. An override can still show it.
+		if (plan.secondary) {
+			strXml += makeValAxis(
+				{ ...rel.opts, ...(plan.secondaryVal ? {} : { valAxisHidden: true }), ...valOverride(1) },
 				AXIS_ID_VALUE_SECONDARY
 			)
-		} else if (plan.secondaryCat && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
-			// Same as above for the secondary category axis.
 			strXml += makeCatAxis(
-				{ ...rel.opts, ...comboCatAxisType(true) },
+				{
+					...rel.opts,
+					...(plan.secondaryCat ? {} : { catAxisHidden: true }),
+					...catOverride(1),
+					...comboCatAxisType(true),
+				},
 				AXIS_ID_CATEGORY_SECONDARY,
 				AXIS_ID_VALUE_SECONDARY
 			)
@@ -516,8 +529,9 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	if (Array.isArray(rel.opts._type)) {
 		for (const type of rel.opts._type) {
 			const options = resolveSubchartOptions(rel.opts, type.options)
-			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
-			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
+			const secondary = plotsOnSecondaryAxes(options)
+			const valAxisId = secondary ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
+			const catAxisId = secondary ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			plots += makeChartType(asChartType(type.type), type.data, options, valAxisId, catAxisId, sheet)
 		}
 	} else if (rel.opts._type) {

@@ -851,6 +851,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo subchart on one secondary axis, and a 3-D chart with `valAxes`, referenced axes that
+  were never written.** The axes a chart emitted were decided by its `valAxes` override list rather
+  than by what its plots reference.
+  - A `bar3D` or `surface` chart with `valAxes` lost its series axis.
+  - A subchart with `secondaryValAxis` and one `valAxes` entry lost the secondary value axis.
+  - A subchart with only `secondaryValAxis`, or only `secondaryCatAxis`, plotted on one primary
+    and one secondary axis, which do not cross. PowerPoint reported the deck as corrupt
+    (0x80070570), with or without `valAxes`.
+
+  A subchart that asks for either secondary axis now plots on both, and both are written. The
+  one it did not ask for is hidden, which is how PowerPoint shows a series moved to its secondary
+  axis. `catAxes[1]` or `valAxes[1]` can still show it. Entries past the second in `valAxes` and
+  `catAxes` were ignored silently and now warn `chart/option-not-supported`.
+
 - **A blank category label broke every later label in a chart's embedded workbook.** With one
   label level, a blank label had no shared string but its cell still pointed at the next index,
   so `labels: ['A', '', 'C']` put "C" in the blank's cell and pointed the "C" cell past the end
