@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An auto-paged table with a table-level `fontSize` ran rows off the bottom of each page.** The
+  pager wrapped cell text at the cell's own `fontSize` or the 12pt default and never at the
+  table's, while the row height and the emitted text used the table's. Thirty rows of long text at
+  `fontSize: 24` paged as 6 slides of 5 rows where 3 rows fit. A table-level size now pages exactly
+  as the same size set on every cell.
+
 - **A chartEx chart accepted most chart options and ignored them without a word.** Waterfall,
   funnel, treemap, sunburst, histogram, pareto, box and whisker and region map charts read their
   title, legend and data-label switches and one layout option each, and PowerPoint styles the rest

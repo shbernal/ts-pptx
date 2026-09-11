@@ -68,8 +68,14 @@ function workingCell(text: string | TableCellInternal[], options: TableCellProps
  * differ by call site: the row-height probe read the cell's own value while the main loop had
  * just overwritten it with the table's. Both callers now resolve it the same way, and the more
  * specific statement wins, as it does everywhere else in this codebase.
+ *
+ * `fontSizePt` arrives resolved for the same reason. This read `cell.options.fontSize` or the
+ * library default and never the table's `fontSize`, while the row's line height and the emitted
+ * `sz` both used the table's. A table of 24pt text was wrapped as if it were 12pt, so the pager
+ * counted about half the lines and rows ran off the bottom of each page.
  * @param {TableCellInternal} cell - table cell
  * @param {number} colWidth - table column width (inches)
+ * @param {number} fontSizePt - resolved font size: the cell's, else the table's, else the default
  * @param {number} charWeight - resolved `autoPageCharWeight`: the cell's, else the table's, else 0
  * @param {boolean} [verbose] - dump the four wrapping stages; carries `addTable({ verbose })`
  *   down, which is the only stage of the pager that flag did not reach
@@ -78,6 +84,7 @@ function workingCell(text: string | TableCellInternal[], options: TableCellProps
 function parseTextToLines(
 	cell: TableCellInternal,
 	colWidth: number,
+	fontSizePt: number,
 	charWeight: number,
 	verbose?: boolean
 ): TableCellInternal[][] {
@@ -92,16 +99,12 @@ function parseTextToLines(
 	// point, and `Math.floor` takes the hit. Over the 200,000 widths from 0.001in to 200in the two
 	// forms disagree on 51, always by one point low: 6.625in is exactly 477 points, and the old
 	// form floored 476.9999... to 476.
-	const CPL =
-		Math.floor(colWidth * POINTS_PER_INCH) / ((cell.options?.fontSize ? cell.options.fontSize : DEF_FONT_SIZE) / FOCO) // Chars-Per-Line
+	const CPL = Math.floor(colWidth * POINTS_PER_INCH) / (fontSizePt / FOCO) // Chars-Per-Line
 
 	// The number the four dumps below exist to explain: every wrap decision in step 4 is
 	// `strCurrLine.length + word.length > CPL`, so a wrap that looks wrong is almost always
 	// a CPL that is wrong, and CPL is not recoverable from the lines themselves.
-	if (verbose)
-		console.log(
-			`[0/4] colWidth=${colWidth}in fontSize=${cell.options?.fontSize ?? DEF_FONT_SIZE} FOCO=${FOCO} CPL=${CPL}`
-		)
+	if (verbose) console.log(`[0/4] colWidth=${colWidth}in fontSize=${fontSizePt} FOCO=${FOCO} CPL=${CPL}`)
 
 	const parsedLines: TableCellInternal[][] = []
 	let inputCells: TableCellInternal[] = []
@@ -359,7 +362,13 @@ function headerRowHeightEmu(
 		colCursor = Math.min(colCursor + cellColspan, numCols)
 		const totalColW = colWidthsIn.slice(colStart, colStart + cellColspan).reduce((prev, curr) => prev + curr, 0)
 
-		const lines = parseTextToLines(cell, totalColW, resolveCellCharWeight(cellOpts, tableProps), false).length
+		const lines = parseTextToLines(
+			cell,
+			totalColW,
+			resolveCellFontSize(cellOpts, tableProps),
+			resolveCellCharWeight(cellOpts, tableProps),
+			false
+		).length
 		if (lines > maxLines) maxLines = lines
 		const lineHeightEmu = autoPageLineHeightEmu(
 			resolveCellFontSize(cellOpts, tableProps),
@@ -661,6 +670,7 @@ export function getSlidesForTableRows(
 			newCell._lines = parseTextToLines(
 				cell,
 				totalColW,
+				resolveCellFontSize(cell.options, tableProps),
 				resolveCellCharWeight(cell.options, tableProps),
 				tableProps.verbose
 			)
