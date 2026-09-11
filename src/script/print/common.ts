@@ -38,6 +38,23 @@ export interface PrintedScript {
 	notes: FidelityNote[]
 }
 
+/** The print options both tiers take. */
+export interface CommonPrintOptions {
+	/** Path the emitted script writes to, resolved against the script's own location. @default './output.pptx' */
+	outputPath?: string
+	/** Directory the emitted script reads image assets from, when {@link assets} is `'file'`. @default './assets' */
+	assetDir?: string
+	/** @default 'file' */
+	assets?: AssetMode
+	/**
+	 * Import specifier the emitted script uses; the template-anchored tier also imports its `/read`
+	 * subpath. Defaults to this package's own published name; override it to point a generated
+	 * script at a local build or a fork.
+	 * @default 'pptx-ts'
+	 */
+	packageName?: string
+}
+
 /**
  * Default import specifier for an emitted script — this package's *published* name, which is
  * not its directory name. Getting it wrong produces a script that prints and typechecks and
@@ -64,12 +81,7 @@ interface ResolvedPrintOptions {
  * difference is the whole reason there are two printers.
  * @param options - the caller's options, any of which may be absent
  */
-export function resolvePrintOptions(options: {
-	outputPath?: string
-	assetDir?: string
-	assets?: AssetMode
-	packageName?: string
-}): ResolvedPrintOptions {
+export function resolvePrintOptions(options: CommonPrintOptions): ResolvedPrintOptions {
 	return {
 		outputPath: options.outputPath ?? './output.pptx',
 		// A trailing slash would print `./assets/` and then join another, so it is stripped once
@@ -348,6 +360,28 @@ export function printedScript(
 /** The IR's assets a script printed, in `DeckIr.assets` order. */
 function printedAssets(ir: DeckIr, printed: ReadonlySet<string>): DeckIr['assets'] {
 	return ir.assets.filter((asset) => printed.has(asset.name))
+}
+
+/**
+ * The emitted script's imports and its `here` helper, which every path it reads or writes goes
+ * through.
+ *
+ * Both tiers printed this block line by line and differed only in what they import: the
+ * template-anchored one reads and writes files and opens the source deck through the read half,
+ * while the standalone one reads files only when it has media to load.
+ * @param packageName - the import specifier, from the print options
+ * @param imports - the `node:fs/promises` names to import, and whether to import the read half
+ */
+export function printPreamble(packageName: string, imports: { fs: readonly string[]; read: boolean }): string[] {
+	return [
+		...(imports.fs.length > 0 ? [`import { ${imports.fs.join(', ')} } from 'node:fs/promises'`] : []),
+		"import { fileURLToPath } from 'node:url'",
+		`import TsPptx from ${printString(packageName)}`,
+		...(imports.read ? [`import { Presentation } from ${printString(`${packageName}/read`)}`] : []),
+		'',
+		'/** Resolve a path against this script rather than against the working directory. */',
+		'const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))',
+	]
 }
 
 /**

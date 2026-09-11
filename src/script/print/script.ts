@@ -37,35 +37,23 @@ import {
 	header,
 	printAssetBindings,
 	printLayoutSetup,
+	printPreamble,
 	printSlide,
 	printedScript,
 	resolvePrintOptions,
-	type AssetMode,
+	type CommonPrintOptions,
 	type PrintedScript,
 } from './common.js'
 
 export type { AssetMode, PrintedScript } from './common.js'
 
-export interface PrintScriptOptions {
+export interface PrintScriptOptions extends CommonPrintOptions {
 	/**
 	 * Path the emitted script loads its template from, resolved against the script's own
 	 * location. This is the **source deck unchanged** — `fromTemplate` strips its slides.
 	 * @default './template.pptx'
 	 */
 	templatePath?: string
-	/** Path the emitted script writes to, resolved against the script's own location. @default './output.pptx' */
-	outputPath?: string
-	/** Directory the emitted script reads image assets from, when {@link assets} is `'file'`. @default './assets' */
-	assetDir?: string
-	/** @default 'file' */
-	assets?: AssetMode
-	/**
-	 * Import specifier the emitted script uses, with `/read` appended for the read half.
-	 * Defaults to this package's own published name; override it to point a generated
-	 * script at a local build or a fork.
-	 * @default 'pptx-ts'
-	 */
-	packageName?: string
 }
 
 /** Turn a deck IR into a runnable, template-anchored TypeScript module. */
@@ -108,13 +96,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 			notes
 		),
 		'',
-		"import { readFile, writeFile } from 'node:fs/promises'",
-		"import { fileURLToPath } from 'node:url'",
-		`import TsPptx from ${printString(packageName)}`,
-		`import { Presentation } from ${printString(`${packageName}/read`)}`,
-		'',
-		'/** Resolve a path against this script rather than against the working directory. */',
-		'const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))',
+		...printPreamble(packageName, { fs: ['readFile', 'writeFile'], read: true }),
 		'',
 		'// The source deck is the template: fromTemplate strips its slides and leaves its masters,',
 		'// layouts, theme and document properties exactly as they were.',

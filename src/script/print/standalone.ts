@@ -34,27 +34,16 @@ import {
 	header,
 	printAssetBindings,
 	printLayoutSetup,
+	printPreamble,
 	printSlide,
 	printedScript,
 	resolvePrintOptions,
-	type AssetMode,
+	type CommonPrintOptions,
 	type PrintedScript,
 } from './common.js'
 
-export interface PrintStandaloneScriptOptions {
-	/** Path the emitted script writes to, resolved against the script's own location. @default './output.pptx' */
-	outputPath?: string
-	/** Directory the emitted script reads image assets from, when {@link assets} is `'file'`. @default './assets' */
-	assetDir?: string
-	/** @default 'file' */
-	assets?: AssetMode
-	/**
-	 * Import specifier the emitted script uses. Defaults to this package's own published
-	 * name; override it to point a generated script at a local build or a fork.
-	 * @default 'pptx-ts'
-	 */
-	packageName?: string
-}
+/** The standalone printer's options: exactly the ones both tiers share. */
+export type PrintStandaloneScriptOptions = CommonPrintOptions
 
 /** Turn a deck IR into a runnable TypeScript module that needs no template. */
 export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScriptOptions = {}): PrintedScript {
@@ -97,12 +86,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 			notes
 		),
 		'',
-		...(needsReadFile ? ["import { readFile } from 'node:fs/promises'"] : []),
-		"import { fileURLToPath } from 'node:url'",
-		`import TsPptx from ${printString(packageName)}`,
-		'',
-		'/** Resolve a path against this script rather than against the working directory. */',
-		'const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))',
+		...printPreamble(packageName, { fs: needsReadFile ? ['readFile'] : [], read: false }),
 		'',
 		...printLayoutSetup(ir.slideSize),
 	]
