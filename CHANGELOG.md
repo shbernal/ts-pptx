@@ -851,6 +851,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`inspect` assumed a widescreen slide for a deck that declares no slide size.**
+  - A presentation with no `p:sldSz` opens in PowerPoint at 10in × 7.5in (4:3).
+    `readPresentationSize` and `DEFAULT_INSPECT_SLIDE_SIZE` reported 13.333in × 7.5in, while the
+    script converter already used 4:3, so the two readers disagreed about the same deck.
+  - Both now take the one fallback, and `DEFAULT_INSPECT_SLIDE_SIZE` is `{ widthIn: 10, heightIn: 7.5 }`.
+
 - **The script converter mapped chart options the write API does not have.**
   - Data labels showing category names were emitted as `showCatName`, which is not a `ChartOpts`
     key, so a converted pie lost its slice names. A pie or doughnut now takes `showLabel`. On any

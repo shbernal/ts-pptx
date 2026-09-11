@@ -9,9 +9,11 @@ import {
 	readPptxTextPart,
 	PackageReadError,
 } from '../../../dist/inspect.js'
+import { Presentation } from '../../../dist/read.js'
+import { readModelToIr } from '../../../dist/script.js'
 import JSZip from 'jszip'
 import { defineRegressionSuite, build, assert, assertEqual, setDiagnosticHandler } from '../../helpers.js'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -115,6 +117,27 @@ async function captureWarnings(fn) {
 }
 
 defineRegressionSuite('PPTX inspection primitives', [
+	{
+		name: 'a deck that declares no slide size reads as the 10in × 7.5in PowerPoint opens it at, in inspect and the script converter alike',
+		fn: async () => {
+			// `p:sldSz` is optional and the schema gives no size for its absence. PowerPoint opens such a
+			// deck at 720 × 540 pt, measured over COM. `inspect` assumed widescreen while the script
+			// converter assumed 4:3, so the two readers disagreed about the same bytes.
+			const zip = await JSZip.loadAsync(readFileSync(join(FIXTURES, 'empty.pptx')))
+			const declared = '<p:sldSz cx="12192000" cy="6858000"/>'
+			const xml = await zip.file('ppt/presentation.xml').async('string')
+			assert(xml.includes(declared), 'the fixture declares the slide size this removes')
+			zip.file('ppt/presentation.xml', xml.replace(declared, ''))
+			const bytes = await zip.generateAsync({ type: 'uint8array' })
+
+			const inspection = await inspectPptx(bytes)
+			assertEqual(inspection.slideSize.widthIn, 10, 'inspect width')
+			assertEqual(inspection.slideSize.heightIn, 7.5, 'inspect height')
+			const ir = readModelToIr(await Presentation.load(bytes))
+			assertEqual(ir.slideSize.widthEmu, 9144000, 'script converter width')
+			assertEqual(ir.slideSize.heightEmu, 6858000, 'script converter height')
+		},
+	},
 	{
 		name: 'inspectPptx extracts slide size, named objects, geometry, and text style',
 		fn: async () => {

@@ -24,14 +24,8 @@ import type { AssetResolver, MapContext } from './context.js'
 import { chromeToIr } from './chrome.js'
 import { transitionToIr } from './transition.js'
 import { compact, inches } from './values.js'
-import { STANDARD_LAYOUTS } from '../../units.js'
+import { ABSENT_SLIDE_SIZE_EMU } from '../../ooxml/slide-size.js'
 import { assetFilenameExtension } from '../../media/content-type.js'
-
-/** Default slide size for a deck whose `presentation.xml` declares none: the 10in × 7.5in 4:3 layout. */
-const DEFAULT_SLIDE_SIZE = {
-	widthEmu: STANDARD_LAYOUTS.LAYOUT_4x3.widthEmu,
-	heightEmu: STANDARD_LAYOUTS.LAYOUT_4x3.heightEmu,
-}
 
 /**
  * Collects media as shapes reference it, assigning each part a stable sequential name.
@@ -91,7 +85,7 @@ export function readModelToIr(pres: Presentation): DeckIr {
 			'deck.slideSize',
 			'approximated',
 			'unsupported',
-			`this deck declares no slide size, so the output uses the ${inches(DEFAULT_SLIDE_SIZE.widthEmu)}in × ${inches(DEFAULT_SLIDE_SIZE.heightEmu)}in default`
+			`this deck declares no slide size, so the output uses the ${inches(ABSENT_SLIDE_SIZE_EMU.widthEmu)}in × ${inches(ABSENT_SLIDE_SIZE_EMU.heightEmu)}in PowerPoint opens such a deck at`
 		)
 	}
 
@@ -103,7 +97,7 @@ export function readModelToIr(pres: Presentation): DeckIr {
 	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets, layouts))
 
 	return {
-		slideSize: size ? { widthEmu: size.widthEmu, heightEmu: size.heightEmu } : DEFAULT_SLIDE_SIZE,
+		slideSize: size ? { widthEmu: size.widthEmu, heightEmu: size.heightEmu } : { ...ABSENT_SLIDE_SIZE_EMU },
 		props: deckProps(pres, deckScope),
 		chrome,
 		slides,

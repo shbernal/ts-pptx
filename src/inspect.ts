@@ -28,8 +28,9 @@ import { Presentation } from './read/api/presentation.js'
 import type { AnyShape } from './read/api/shapes.js'
 import type { GraphicFrame } from './read/api/shapes/graphic-frame.js'
 import type { Run, TextFrame } from './read/api/text.js'
-import { POINTS_PER_INCH, STANDARD_LAYOUTS, emuToInches } from './units.js'
+import { POINTS_PER_INCH, emuToInches } from './units.js'
 import { BODY_INSET_DEFAULTS_PT } from './ooxml/body-insets.js'
+import { ABSENT_SLIDE_SIZE_EMU } from './ooxml/slide-size.js'
 
 /**
  * Input to the inspect surface. A `string` is a **filesystem path** (Node) read
@@ -205,9 +206,14 @@ export interface PptxInspection {
 export type PptxBoxAxis = 'x' | 'y'
 export type PptxBoxAnchor = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'
 
+/**
+ * The size reported for a deck that declares no `p:sldSz`: the 10in × 7.5in PowerPoint opens such
+ * a deck at, which is also what the script converter assumes. It was the widescreen size, so the
+ * two readers disagreed about the same deck. See `ABSENT_SLIDE_SIZE_EMU`.
+ */
 export const DEFAULT_INSPECT_SLIDE_SIZE: PptxSlideSize = Object.freeze({
-	widthIn: round(STANDARD_LAYOUTS.LAYOUT_WIDE.widthIn, 3),
-	heightIn: STANDARD_LAYOUTS.LAYOUT_WIDE.heightIn,
+	widthIn: round(emuToInches(ABSENT_SLIDE_SIZE_EMU.widthEmu), 3),
+	heightIn: round(emuToInches(ABSENT_SLIDE_SIZE_EMU.heightEmu), 3),
 })
 
 /* ────────────────────────────────────────────────────────────────────────────
