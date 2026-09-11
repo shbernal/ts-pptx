@@ -24,7 +24,6 @@ import type { OpcPackage } from '../opc/package.js'
 import { createElement, firstChild } from '../oxml/dom.js'
 import { cSldName, nthShapeChild, reassignDrawingIds } from '../oxml/slide-dom.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
-import { NOTES_MASTER_REL } from '../../ooxml/rel-types.js'
 import { carryShapeAnimations } from './animation.js'
 import { flattenShape } from './ops/flatten.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
@@ -40,11 +39,19 @@ import type {
 import { rewriteCarriedRels } from './ops/carried-rels.js'
 import { carryEmbeddedFonts, checkEmbeddedFontsCopyable } from './ops/embedded-fonts.js'
 import { sourceFlattenContext } from './ops/flatten-context.js'
-import { importSlidePreserve, importSlideRestyle } from './ops/import-slide.js'
+import { importSlidePreserve, importSlideRestyle, planSlideRebind } from './ops/import-slide.js'
 import { promoteMasters } from './ops/master-registry.js'
 import { carryNotes } from './ops/notes-master.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
-import { checkSelectionCopyable, copyPart, copySlidePart, newOwnedScope, type ImportContext } from './ops/part-copy.js'
+import {
+	copyPart,
+	CopyPlan,
+	copySlidePart,
+	newOwnedScope,
+	type CopyTarget,
+	type ImportContext,
+} from './ops/part-copy.js'
+import { resolveSlideThemeParts } from './theme-context.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
 import { rescaleImportedGeometry } from './ops/rescale-import.js'
 import { requireEqualSlideSize, requireKnownSlideSizes, slideSizesMatch } from './ops/slide-size.js'
@@ -69,20 +76,13 @@ export function importSlide(
 	else requireEqualSlideSize(target, incoming, 'importSlide', "pass { rescale: 'fit' | 'stretch' } to rescale")
 	const sizesDiffer = !slideSizesMatch(target, incoming)
 
-	// 1b. Dry-run the copy of this one page, reading only the source, before anything here moves.
-	//     It is the check `importSlides` runs over a batch, so a jump link to a page this import
-	//     does not bring is refused with the same code, where the copy used to follow the link and
-	//     leave the target page in the package listed nowhere. A source part that is missing or
-	//     will not parse throws here too, rather than after the deck is half changed.
+	// 1b. Dry-run the copy of this one page, reading only the source, before anything here moves:
+	//     steps 2 and 4 run as a plan. A jump link to a page this import does not bring is refused
+	//     with the code `importSlides` uses, where the copy used to follow the link and leave the
+	//     target page in the package listed nowhere. A source part that is missing or will not
+	//     parse throws here too, rather than after the deck is half changed.
+	planSlideImport(deck, source, sourceSlide, options)
 	const importCtx = deck.importContext(source.opc)
-	const copyMaster = deck.opc.relationshipsFor(deck.presentationPart.partName).byType(NOTES_MASTER_REL).length === 0
-	checkSelectionCopyable(
-		source.opc,
-		importCtx.registry,
-		new Set([sourceSlide.partName]),
-		{ pages: options.importNotes ? new Set([sourceSlide.partName]) : new Set(), copyMaster },
-		'importSlide'
-	)
 	// The font carry runs last, after the slide is already in the deck, so its dry run belongs
 	// here too.
 	if (options.embedFonts) checkEmbeddedFontsCopyable(source, 'importSlide')
@@ -173,24 +173,12 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 	}
 
 	const finalSlideCount = deck.slides.length + resolved.length
-	// Which pages each source is being asked for. A page may appear in several
-	// requests: the set is what the dry run walks, and the per-request output
-	// parts are allocated in step 2. `notesPages` is the subset whose notes are
-	// coming too, which the dry run has to walk past the dropped notes rel.
 	// `fontSources` and `rescaleBySource` are the two deck-level options wearing a
 	// per-request spelling, reconciled here so the copy below reads one answer per
 	// source rather than re-deciding per page.
-	const selectedPages = new Map<OpcPackage, Set<string>>()
-	const notesPages = new Map<OpcPackage, Set<string>>()
 	const fontSources = new Map<OpcPackage, Presentation>()
 	const rescaleBySource = new Map<OpcPackage, 'fit' | 'stretch' | false>()
 	for (const request of resolved) {
-		let pages = selectedPages.get(request.source.opc)
-		if (!pages) {
-			pages = new Set()
-			selectedPages.set(request.source.opc, pages)
-		}
-		pages.add(request.sourceSlide.partName)
 		if (request.embedFonts) fontSources.set(request.source.opc, request.source)
 		// A rescale rewrites the shared imported layout and master as well as the
 		// page, so the requests naming one source have to agree on it: rescaling one
@@ -206,13 +194,6 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 			)
 		}
 		rescaleBySource.set(request.source.opc, rescale)
-		if (!request.importNotes) continue
-		let withNotes = notesPages.get(request.source.opc)
-		if (!withNotes) {
-			withNotes = new Set()
-			notesPages.set(request.source.opc, withNotes)
-		}
-		withNotes.add(request.sourceSlide.partName)
 	}
 
 	const target = deck.slideSize
@@ -244,89 +225,25 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 			)
 	}
 
-	// 1b. Dry-run the copy against each source, still reading only source
-	//     packages: every part the traversal will reach exists and parses, and
-	//     no selected page links outside the selection. Once this passes the
-	//     copy below has no reachable throw, which is what lets a rejected
+	// 1b. Dry-run the copy against every source, still reading only source
+	//     packages: steps 2 to 3b, run as a plan (see `copyBatch`). Every part the
+	//     traversal will reach exists and parses, no selected page links outside
+	//     the selection, and the notes asked for can be carried. Once this passes
+	//     the copy below has no reachable throw, which is what lets a rejected
 	//     batch leave this deck byte-identical instead of half-stitched.
-	//     `copyMaster` is read once, before anything moves: a destination that
-	//     already has a notesMaster keeps it, so no source master is copied at
-	//     all, and one that has none takes the first carried master — after which
-	//     the rest bind to it. Walking every source's master when the deck has
-	//     none is deliberately the strict side of that: it can only reject a
-	//     source deck whose own notes master is already broken.
-	const copyMaster = deck.opc.relationshipsFor(deck.presentationPart.partName).byType(NOTES_MASTER_REL).length === 0
-	for (const [sourceOpc, pages] of selectedPages) {
-		checkSelectionCopyable(sourceOpc, deck.importContext(sourceOpc).registry, pages, {
-			pages: notesPages.get(sourceOpc) ?? new Set(),
-			copyMaster,
-		})
-	}
+	copyBatch(deck, resolved, new CopyPlan(deck, 'importSlides'))
 	// The font carry runs after the copy and reaches parts the page graph never
 	// touches, so it gets its own dry run for the same reason the notes do.
 	for (const source of fontSources.values()) checkEmbeddedFontsCopyable(source)
 
-	// 2. Materialize each request's output page now, so the copy traversals can
-	//    wire slide→slide relationships to their pre-allocated destinations.
-	//    One request is one output page, so a source page asked for twice gets
-	//    two reservations, in request order.
-	//    The reservation list is typed non-empty, so round 0 needs no fallback.
-	const destinationsBySource = new Map<OpcPackage, Map<string, [string, ...string[]]>>()
-	const planned = resolved.map((request) => {
-		let destinations = destinationsBySource.get(request.source.opc)
-		if (!destinations) {
-			destinations = new Map()
-			destinationsBySource.set(request.source.opc, destinations)
-		}
-		const sourcePart = request.sourceSlide.part
-		const newPartName = deck.opc.reservePartNameLike(request.sourceSlide.partName)
-		const destPart = deck.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
-		const reserved = destinations.get(request.sourceSlide.partName)
-		if (reserved) reserved.push(newPartName)
-		else destinations.set(request.sourceSlide.partName, [newPartName])
+	// 2–3b. Materialize each request's output page, copy the pages with their
+	//     dependencies, and carry the notes that were asked for.
+	const planned = copyBatch(deck, resolved).map((request) => {
+		const destPart = deck.opc.part(request.destPartName)
+		if (!destPart)
+			throw new InternalError('import/part-went-missing', `Imported slide part went missing: ${request.destPartName}`)
 		return { ...request, destPart }
 	})
-
-	// 3. Copy each selected page and its dependency subgraph (theme/master/
-	//    layout/media/…), with links constrained to the selection.
-	//
-	//    `copyPart`'s plan holds one destination per source page, so a page
-	//    requested N times is copied in N rounds: round K materializes every
-	//    page that has a Kth reservation, and names each other page's *first*
-	//    copy so a jump link out of the round still lands on a page of this
-	//    batch. A page duplicated alongside another therefore links to its
-	//    round-mate, and a link into a single-copy page resolves to that one
-	//    copy from every round. Rounds after the first re-materialize only the
-	//    pages they name: everything else is a registry hit `copyPart` returns
-	//    unchanged.
-	for (const [sourceOpc, destinations] of destinationsBySource) {
-		const base = deck.importContext(sourceOpc)
-		const rounds = Math.max(...[...destinations.values()].map((reserved) => reserved.length))
-		for (let round = 0; round < rounds; round++) {
-			const plan = new Map<string, string>()
-			for (const [sourcePartName, reserved] of destinations) plan.set(sourcePartName, reserved[round] ?? reserved[0])
-			const ctx: ImportContext = { ...base, selection: { destinations: plan } }
-			for (const [sourcePartName, reserved] of destinations) {
-				if (round < reserved.length) void copyPart(ctx, sourcePartName)
-			}
-		}
-	}
-
-	// 3b. Carry the notes of the pages that asked for them, in request order, so
-	//     the deck's single notesMaster comes from the first such page — the same
-	//     order the dry run assumed. The copy above dropped every notesSlide rel,
-	//     so this is the only thing that re-adds one, and a page named twice gets
-	//     a notes part per copy.
-	for (const request of planned) {
-		if (!request.importNotes) continue
-		carryNotes(
-			deck,
-			request.source,
-			deck.importContext(request.source.opc),
-			request.sourceSlide.partName,
-			request.destPart.partName
-		)
-	}
 
 	// 3c. Rescale each rescaling source's pages onto this deck's canvas. Nothing
 	//     to do where the sizes already match, and the memo makes the shared layout
@@ -359,6 +276,118 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 		added[request.requestIndex] = deck.insertSlidePart(request.destPart, request.outputIndex)
 	}
 	return added
+}
+
+/**
+ * The copy {@link importSlide} makes, run as a {@link CopyPlan}: its steps 2 and 4 with nothing
+ * written. Throws what the copy would throw, which is why `importSlide` calls it before anything
+ * moves.
+ * @param deck - the deck the page would land in
+ * @param source - the deck the page comes from
+ * @param sourceSlide - the page
+ * @param options - the import's options
+ * @returns the plan, listing the parts the import would add
+ */
+export function planSlideImport(
+	deck: Presentation,
+	source: Presentation,
+	sourceSlide: Slide,
+	options: ImportSlideOptions = {}
+): CopyPlan {
+	// The page the import builds is the whole selection a jump link may land on.
+	const plan = new CopyPlan(deck, 'importSlide', new Set([sourceSlide.partName]))
+	const ctx = plan.contextFor(deck.importContext(source.opc))
+	let newPartName: string
+	if (options.theme === 'preserve' || options.theme === 'restyle') {
+		// A restyle that remaps literals reads the source theme chain after the rebind has written,
+		// so read it now: a part there that will not parse is refused first. `preserve` reads the
+		// same chain before it writes anything.
+		if (options.theme === 'restyle' && options.remapLiterals) resolveSlideThemeParts(source.opc, sourceSlide.partName)
+		newPartName = planSlideRebind(deck, ctx, source, sourceSlide, options.carryMasterGraphics === true)
+	} else {
+		newPartName = copySlidePart(ctx, sourceSlide.partName)
+	}
+	if (options.importNotes) carryNotes(deck, source, ctx, sourceSlide.partName, newPartName)
+	return plan
+}
+
+/**
+ * Steps 2 to 3b of {@link importSlides}: materialize each request's output page, copy each source's
+ * selected pages with their dependency subgraphs, and carry the notes of the pages that asked.
+ * Returns each request with the partname of its output page.
+ *
+ * `importSlides` runs it twice, first as a {@link CopyPlan}, which is the batch's dry run, and then
+ * for real, so the dry run is this code rather than a transcription of it.
+ * @param deck - the deck the batch lands in
+ * @param requests - the batch, each request resolved to its source page
+ * @param plan - plan instead of copying: nothing in `deck` is written
+ * @returns each request with its output page's partname
+ */
+export function copyBatch<R extends ImportSlidesRequest & { readonly sourceSlide: Slide }>(
+	deck: Presentation,
+	requests: readonly R[],
+	plan?: CopyPlan
+): Array<R & { destPartName: string }> {
+	const target: CopyTarget = plan ?? deck.opc
+	const contextFor = (opc: OpcPackage): ImportContext =>
+		plan ? plan.contextFor(deck.importContext(opc)) : deck.importContext(opc)
+
+	// 2. Materialize each request's output page now, so the copy traversals can
+	//    wire slide→slide relationships to their pre-allocated destinations.
+	//    One request is one output page, so a source page asked for twice gets
+	//    two reservations, in request order.
+	//    The reservation list is typed non-empty, so round 0 needs no fallback.
+	const destinationsBySource = new Map<OpcPackage, Map<string, [string, ...string[]]>>()
+	const placed = requests.map((request) => {
+		let destinations = destinationsBySource.get(request.source.opc)
+		if (!destinations) {
+			destinations = new Map()
+			destinationsBySource.set(request.source.opc, destinations)
+		}
+		const sourcePart = request.sourceSlide.part
+		const destPartName = target.reservePartNameLike(request.sourceSlide.partName)
+		target.addPart(destPartName, sourcePart.contentType, sourcePart.serialize())
+		const reserved = destinations.get(request.sourceSlide.partName)
+		if (reserved) reserved.push(destPartName)
+		else destinations.set(request.sourceSlide.partName, [destPartName])
+		return { ...request, destPartName }
+	})
+
+	// 3. Copy each selected page and its dependency subgraph (theme/master/
+	//    layout/media/…), with links constrained to the selection.
+	//
+	//    `copyPart`'s selection holds one destination per source page, so a page
+	//    requested N times is copied in N rounds: round K materializes every
+	//    page that has a Kth reservation, and names each other page's *first*
+	//    copy so a jump link out of the round still lands on a page of this
+	//    batch. A page duplicated alongside another therefore links to its
+	//    round-mate, and a link into a single-copy page resolves to that one
+	//    copy from every round. Rounds after the first re-materialize only the
+	//    pages they name: everything else is a registry hit `copyPart` returns
+	//    unchanged.
+	for (const [sourceOpc, destinations] of destinationsBySource) {
+		const base = contextFor(sourceOpc)
+		const rounds = Math.max(...[...destinations.values()].map((reserved) => reserved.length))
+		for (let round = 0; round < rounds; round++) {
+			const roundDestinations = new Map<string, string>()
+			for (const [sourcePartName, reserved] of destinations)
+				roundDestinations.set(sourcePartName, reserved[round] ?? reserved[0])
+			const ctx: ImportContext = { ...base, selection: { destinations: roundDestinations } }
+			for (const [sourcePartName, reserved] of destinations) {
+				if (round < reserved.length) void copyPart(ctx, sourcePartName)
+			}
+		}
+	}
+
+	// 3b. Carry the notes of the pages that asked for them, in request order, so
+	//     the deck's single notesMaster comes from the first such page. The copy
+	//     above dropped every notesSlide rel, so this is the only thing that
+	//     re-adds one, and a page named twice gets a notes part per copy.
+	for (const request of placed) {
+		if (!request.importNotes) continue
+		carryNotes(deck, request.source, contextFor(request.source.opc), request.sourceSlide.partName, request.destPartName)
+	}
+	return placed
 }
 
 /** Body of {@link Presentation.importSlideMasters}, whose doc comment carries the contract. */

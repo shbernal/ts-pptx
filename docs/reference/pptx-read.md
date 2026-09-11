@@ -2162,8 +2162,8 @@ even though it was inserted after the closer.
 
 Every request is validated before any byte moves: source pages exist, output
 positions are unique and within the final slide list, slide sizes match (or the
-request rescales), one source's requests agree about that rescale, and a
-read-only dry run of the copy proves every part it would reach is present. A
+request rescales), one source's requests agree about that rescale, and the copy
+itself, run once without writing, proves every part it would reach is present. A
 rejected batch therefore leaves the target byte-identical whichever rule rejected
 it, where a loop of `importSlide` could leave a half-stitched deck behind.
 
@@ -2223,9 +2223,10 @@ Two batch-specific consequences:
   a batch that could not finish carrying them would otherwise be the one way back
   into a half-stitched deck. The up-front check walks each opted-in page's notes
   subgraph under the same rules, and a batch it rejects still leaves the deck
-  byte-identical. Because the check mirrors the copy rather than exceeding it, a
-  source whose notes master is unreadable is refused only when that master would
-  actually be copied, i.e. when the destination has none of its own.
+  byte-identical. Because the check is the copy run without writing, a source whose
+  notes master is unreadable is refused only when that master would actually be
+  copied: when the destination has none of its own and no earlier request in the
+  batch has installed one.
 - **A page named twice gets notes twice.** The notes slide is a part its page
   *owns*, as is anything hanging off it, so each copy takes its own (see
   [Owned vs shared parts](#owned-vs-shared-parts)).

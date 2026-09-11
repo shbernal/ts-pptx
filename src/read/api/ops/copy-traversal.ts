@@ -1,12 +1,12 @@
 /**
  * ts-pptx: the one rule three copy traversals follow.
  *
- * Copying a page into another deck means walking its part graph, and three places walk it:
- * `copyPart`, which does the copying; `checkSelectionCopyable`, the dry run that has to reach
- * exactly the same parts before anything moves; and `identicalSubgraph`, which asks whether
- * the destination already holds what the copy would have produced. Each wrote the rule out,
- * and two of them carried a comment asking the reader to keep the copies in step by hand —
- * the dry run's said the guarantee is "only as good as the drift between them".
+ * Copying a page into another deck means walking its part graph, and two places walk it:
+ * `rebuildRels`, the loop under every copy (and, run as a `CopyPlan`, under the dry run that has
+ * to reach exactly the same parts before anything moves); and `identicalSubgraph`, which asks
+ * whether the destination already holds what the copy would have produced. Each used to write
+ * the rule out, and a separate dry run did too, with a comment asking the reader to keep the
+ * copies in step by hand — it said the guarantee was "only as good as the drift between them".
  *
  * A leaf module rather than an export from `part-copy.ts`, because `part-copy.ts` already
  * imports from `part-reuse.ts` and the rule has to be reachable from both.
@@ -26,9 +26,8 @@ import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_CONTENT_TYPE } from '..
  * copied layouts re-link themselves, and skipping the list is also what keeps one edited
  * layout from disqualifying every other layout that shares its master.
  *
- * Each caller still owns its own extra arms — the dry run walks a selected page's notes and
- * refuses an unselected jump target, the reuse check compares bytes — which is why this
- * answers only the part all three share.
+ * Each caller still owns its own extra arms — a copy's overrides and its jump-link rule, the reuse
+ * check's byte comparison — which is why this answers only the part they share.
  * @param part - the part the relationship belongs to
  * @param rel - the relationship being considered
  */

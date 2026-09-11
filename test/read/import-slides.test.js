@@ -214,6 +214,28 @@ describe('Presentation.importSlides', () => {
 		}
 	)
 
+	test.for(/** @type {const} */ (['preserve', 'restyle']))(
+		'importSlide in %s mode takes a page whose source layout is missing, which it never reads',
+		async (theme) => {
+			// Both modes bind the page to this deck's own layout, so the source's is never copied. The
+			// dry run used to walk it regardless and refuse the page with `package/part-missing`; it is
+			// now the copy itself, run as a plan.
+			const target = await generatedDeck(false)
+			const source = await generatedDeck(false)
+			const rels = source.opc.relationshipsFor(source.slides[0].partName)
+			const layoutRel = [...rels].find((rel) => rel.type === SLIDE_LAYOUT_REL)
+			assert(layoutRel !== undefined, 'the generated page has a layout to snap')
+			source.opc.removePart(rels.resolveTarget(layoutRel.id))
+
+			const before = target.slides.length
+			target.importSlide(source, 0, { theme })
+
+			const reopened = await Presentation.load(await target.save())
+			assertNoDanglingRels(reopened.opc)
+			assertEqual(reopened.slides.length, before + 1, 'the page came across')
+		}
+	)
+
 	test('importSlide takes a linking page once the page it links to has come across', async () => {
 		const target = await generatedDeck(false)
 		const source = await generatedDeck(true)
@@ -666,6 +688,30 @@ describe('Presentation.importSlides', () => {
 			'Speaker notes so PowerPoint emits the notes slide.',
 			'the notes bound to the destination master'
 		)
+	})
+
+	test('a notes master the batch will not read does not refuse its source', async () => {
+		// The copy installs the first carried notes master in a deck that has none and binds every
+		// later notes slide to it, so a second source's own master is never read. The dry run used to
+		// walk every source's master anyway and refuse the batch; it is now the copy, run as a plan.
+		const target = await openFixture('textbox')
+		const first = await openFixture('notes-slide-image')
+		const second = await openFixture('notes-slide-image')
+		second.opc.removePart(notesMasterOf(second, second.slides[0].notesSlide.partName))
+		assertEqual(notesMasters(target).length, 0, 'the destination starts without a notes master')
+
+		const [a, b] = target.importSlides([
+			{ source: first, sourceIndex: 0, outputIndex: 0, importNotes: true },
+			{ source: second, sourceIndex: 0, outputIndex: 1, importNotes: true },
+		])
+
+		const reopened = await Presentation.load(await target.save())
+		assertNoDanglingRels(reopened.opc)
+		const masters = notesMasters(reopened)
+		assertEqual(masters.length, 1, 'one notes master was installed')
+		const masterOf = (slide) => notesMasterOf(reopened, reopened.slides[slide.index].notesSlide.partName)
+		assertEqual(masterOf(a), masters[0], 'the first page binds to it')
+		assertEqual(masterOf(b), masters[0], 'and so does the second, whose own master was never read')
 	})
 
 	test.skipIf(!validatorInstalled)('a batch that carried notes stays schema-valid', async () => {

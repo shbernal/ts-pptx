@@ -172,8 +172,12 @@ export class OpcPackage {
 	 * `/ppt/slideLayouts/slideLayout<n>.xml`, `/ppt/media/image1.png` →
 	 * `/ppt/media/image<n>.png`. Used when copying a part in from another package.
 	 * Does not create the part.
+	 *
+	 * `taken` names partnames to count as existing although the package does not hold them yet:
+	 * an import plan's names for the parts it would add, so the names it predicts are the ones the
+	 * copy itself is then given.
 	 */
-	reservePartNameLike(templatePartName: string): string {
+	reservePartNameLike(templatePartName: string, taken?: ReadonlySet<string>): string {
 		const slash = templatePartName.lastIndexOf('/')
 		const dir = templatePartName.slice(0, slash)
 		const fileName = templatePartName.slice(slash + 1)
@@ -182,7 +186,7 @@ export class OpcPackage {
 		const stem = dot > 0 ? fileName.slice(0, dot) : fileName
 		const base = stem.replace(/\d+$/, '')
 		const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-		const next = this.#nextPartIndex(new RegExp(`^${escape(`${dir}/${base}`)}(\\d+)${escape(ext)}$`))
+		const next = this.#nextPartIndex(new RegExp(`^${escape(`${dir}/${base}`)}(\\d+)${escape(ext)}$`), taken)
 		return `${dir}/${base}${next}${ext}`
 	}
 
@@ -190,11 +194,13 @@ export class OpcPackage {
 	 * One past the highest numeric index any existing partname matches, or `1` when none does.
 	 * `re` must capture the index as its first group.
 	 */
-	#nextPartIndex(re: RegExp): number {
+	#nextPartIndex(re: RegExp, taken: Iterable<string> = []): number {
 		let max = 0
-		for (const partName of this.#parts.keys()) {
-			const match = re.exec(partName)
-			if (match) max = Math.max(max, Number(match[1]))
+		for (const names of [this.#parts.keys(), taken]) {
+			for (const partName of names) {
+				const match = re.exec(partName)
+				if (match) max = Math.max(max, Number(match[1]))
+			}
 		}
 		return max + 1
 	}

@@ -7,18 +7,19 @@
  * bookkeeping it hands off to lives in `master-registry.ts`. It takes an
  * {@link ImportContext} rather than a `Presentation`, so it stays independent of
  * the class that calls it.
+ *
+ * The same traversal is every import's dry run. With a {@link CopyPlan} in its
+ * context it writes nothing and throws what the copy would throw, so an import
+ * runs it that way before anything in the deck moves.
  */
 
 import type { OpcPackage } from '../../opc/package.js'
 import type { Part } from '../../opc/part.js'
-import type { Relationship } from '../../opc/relationships.js'
+import type { Relationship, Relationships } from '../../opc/relationships.js'
 import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
 import {
-	NOTES_MASTER_REL,
-	NOTES_SLIDE_CONTENT_TYPE,
-	NOTES_SLIDE_REL,
 	SLIDE_LAYOUT_CONTENT_TYPE,
 	SLIDE_CONTENT_TYPE,
 	SLIDE_MASTER_CONTENT_TYPE,
@@ -68,6 +69,11 @@ export interface ImportContext {
 	 * other pages' first — see `importSlides` step 3.
 	 */
 	readonly selection?: SelectionPlan
+	/**
+	 * Set when the traversal is planning rather than copying: every write goes to the
+	 * plan instead of `dest`, and `registry` is the plan's own copy of the real one.
+	 */
+	readonly plan?: CopyPlan
 }
 
 /**
@@ -94,6 +100,123 @@ interface SelectionPlan {
 }
 
 /**
+ * What a copy writes through: the destination package, or a {@link CopyPlan} standing in for it.
+ * `OpcPackage` satisfies it.
+ */
+export interface CopyTarget {
+	reservePartNameLike(templatePartName: string): string
+	part(partName: string): unknown
+	addPart(partName: string, contentType: string, bytes: Uint8Array): unknown
+	relationshipsFor(partName: string): Pick<Relationships, 'add' | 'addWithId'>
+}
+
+/** Where a traversal writes: its plan when it is planning, its destination package otherwise. */
+export function copyTarget(ctx: ImportContext): CopyTarget {
+	return ctx.plan ?? ctx.dest.opc
+}
+
+/** One part a {@link CopyPlan} would add. */
+export interface PlannedPart {
+	readonly partName: string
+	readonly contentType: string
+}
+
+/** One relationship a {@link CopyPlan} would add; `id` is absent where the copy allocates one. */
+export interface PlannedRel {
+	readonly from: string
+	readonly id?: string
+	readonly type: string
+	readonly target: string
+	readonly targetMode?: 'Internal' | 'External'
+}
+
+/**
+ * An import's copy, run without writing: the parts and relationships it would add, and every error
+ * it would throw, found before anything in the destination moves.
+ *
+ * This is what lets a refused import leave the deck byte-identical. The copy changes the deck as it
+ * goes — parts added, a master registered in `presentation.xml`, a layout linked into its master —
+ * so a failure it met halfway would leave all of that behind. An import therefore runs the same
+ * traversal twice: first with a plan in its context, which throws what the copy would and writes
+ * nothing, then for real. The dry run used to be a separate walk of the source, transcribed from the
+ * copy under a comment asking readers to keep the two in step, and it had drifted: it walked a
+ * rebinding import's source layout chain, which the rebind never reads, and every source's notes
+ * master in a batch, where the copy reads only the first one it installs.
+ *
+ * A plan stands in for the destination package as a {@link CopyTarget}. It hands out the partnames
+ * the copy will be given, keeps its own copy of each source's registry so a part it planned is found
+ * again as the copy would find it, and remembers the notes master it would install in a deck that has
+ * none. Destination bookkeeping that adds no part — registering a master, linking a layout into it —
+ * is not recorded.
+ */
+export class CopyPlan implements CopyTarget {
+	/** The parts the copy would add, in the order it would add them. */
+	readonly parts: PlannedPart[] = []
+	/** The relationships the copy would add to the parts it copies. */
+	readonly rels: PlannedRel[] = []
+	/** The notes master the copy would install in a deck that has none; later notes bind to it. */
+	notesMaster: string | undefined
+	readonly #dest: DeckTarget
+	/** Every partname handed out, added or not yet added. */
+	readonly #names = new Set<string>()
+	readonly #added = new Set<string>()
+	readonly #registries = new Map<OpcPackage, Map<string, string>>()
+
+	/**
+	 * @param dest      the deck the import copies into
+	 * @param api       the public method planning, which opens every error the plan throws
+	 * @param linkable  the pages a jump link may land on when the traversal has no selection of its
+	 *                  own: the page a rebinding import builds itself
+	 */
+	constructor(
+		dest: DeckTarget,
+		readonly api: string,
+		readonly linkable?: ReadonlySet<string>
+	) {
+		this.#dest = dest
+	}
+
+	/** This plan's context for an import out of `ctx.source`, over the plan's copy of its registry. */
+	contextFor(ctx: ImportContext): ImportContext {
+		let registry = this.#registries.get(ctx.source)
+		if (!registry) {
+			registry = new Map(ctx.registry)
+			this.#registries.set(ctx.source, registry)
+		}
+		return { dest: ctx.dest, source: ctx.source, registry, plan: this }
+	}
+
+	reservePartNameLike(templatePartName: string): string {
+		const partName = this.#dest.opc.reservePartNameLike(templatePartName, this.#names)
+		this.#names.add(partName)
+		return partName
+	}
+
+	part(partName: string): unknown {
+		return this.#added.has(partName) || this.#dest.opc.part(partName)
+	}
+
+	addPart(partName: string, contentType: string): void {
+		this.#names.add(partName)
+		this.#added.add(partName)
+		this.parts.push({ partName, contentType })
+	}
+
+	relationshipsFor(from: string): Pick<Relationships, 'add' | 'addWithId'> {
+		const record = (rel: PlannedRel): Relationship => {
+			this.rels.push(rel)
+			const { id = `planned${this.rels.length}`, type, target, targetMode } = rel
+			return { id, type, target, ...(targetMode ? { targetMode } : {}) }
+		}
+		return {
+			add: (type, target, targetMode) => record({ from, type, target, ...(targetMode ? { targetMode } : {}) }),
+			addWithId: (id, type, target, targetMode) =>
+				record({ from, id, type, target, ...(targetMode ? { targetMode } : {}) }),
+		}
+	}
+}
+
+/**
  * Copy one slide page across as a part of its own, deduping everything under it
  * but never the page itself. This is the `theme: 'copy'` arm of
  * {@link Presentation.importSlide}.
@@ -113,7 +236,7 @@ interface SelectionPlan {
  * @return                partname of the new slide part in `ctx.dest`
  */
 export function copySlidePart(ctx: ImportContext, sourcePartName: string): string {
-	const destinations = new Map([[sourcePartName, ctx.dest.opc.reservePartNameLike(sourcePartName)]])
+	const destinations = new Map([[sourcePartName, copyTarget(ctx).reservePartNameLike(sourcePartName)]])
 	return copyPart({ ...ctx, selection: { destinations } }, sourcePartName)
 }
 
@@ -130,10 +253,11 @@ export function copySlidePart(ctx: ImportContext, sourcePartName: string): strin
  * With `ctx.selection`, partnames for the selected slides were already reserved
  * by the caller ({@link Presentation.importSlides}); this traversal wires their
  * relationships to each other instead of re-copying them. The batch's rule that
- * a `slide → slide` link may not leave the selection is enforced ahead of the
- * copy by {@link checkSelectionCopyable}, which also proves every part this
- * traversal will reach exists — so once copying starts there is nothing left to
- * throw, and a rejected batch never leaves a half-copied deck behind.
+ * a `slide → slide` link may not leave the selection is enforced as each link is
+ * followed (see {@link rebuildRels}). Imports run this traversal as a
+ * {@link CopyPlan} first, which throws that and every other failure the copy
+ * could meet — so once copying starts there is nothing left to throw, and a
+ * rejected batch never leaves a half-copied deck behind.
  *
  * Idempotence stops at the page's own parts. Reaching a page opens an
  * {@link OwnedScope}, and everything under it that {@link isSharedByPageCopies}
@@ -185,13 +309,17 @@ export function copyPart(
 
 	const sourcePart = ctx.source.part(sourcePartName)
 	if (!sourcePart)
-		throw new PackageReadError('package/part-missing', `importSlide: source package has no part ${sourcePartName}`)
+		throw new PackageReadError(
+			'package/part-missing',
+			`${ctx.plan?.api ?? 'importSlide'}: source package has no part ${sourcePartName}`
+		)
 
+	const target = copyTarget(ctx)
 	const newPartName = owned
-		? ctx.dest.opc.reservePartNameLike(sourcePartName)
-		: (ctx.selection?.destinations.get(sourcePartName) ?? ctx.dest.opc.reservePartNameLike(sourcePartName))
+		? target.reservePartNameLike(sourcePartName)
+		: (ctx.selection?.destinations.get(sourcePartName) ?? target.reservePartNameLike(sourcePartName))
 	// A selected page's part was already materialized by the batch allocator.
-	if (!ctx.dest.opc.part(newPartName)) ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
+	if (!target.part(newPartName)) target.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
 	// Record before recursing so the master↔layout cycle terminates.
 	if (owned) owned.set(sourcePartName, newPartName)
 	else ctx.registry.set(sourcePartName, newPartName)
@@ -200,9 +328,6 @@ export function copyPart(
 	// stay inside it. See `page-owned.ts` for what that scope covers and why.
 	const scope = owned ?? (ctx.selection?.destinations.has(sourcePartName) ? newOwnedScope() : undefined)
 
-	// A batch import's slide→slide rule is enforced by checkSelectionCopyable before
-	// this traversal starts, so the recursion cannot reach an unselected page: by
-	// then every target is selected, already copied, or not a slide at all.
 	rebuildRels(ctx, {
 		source: sourcePart,
 		newPartName,
@@ -214,6 +339,15 @@ export function copyPart(
 		// that merely happens to match.
 		allowReuse: sourcePart.contentType === SLIDE_CONTENT_TYPE,
 	})
+
+	if (ctx.plan) {
+		// A plan registers and links nothing. The dry run has always parsed a master or
+		// layout it would copy, as the copy re-parses a master to empty its layout id
+		// list, so XML that will not parse is refused before anything moves.
+		if (sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE || sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE)
+			void sourcePart.dom
+		return newPartName
+	}
 
 	if (sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE) {
 		clearLayoutIdList(ctx.dest, newPartName)
@@ -264,11 +398,18 @@ export interface RebuildRelsOptions {
  * follows {@link copyTraversalStep}: skipped, carried as an external link, or followed into the
  * part {@link copyPart} makes for it, inside `owned` unless {@link isSharedByPageCopies} says the
  * page may share it.
+ *
+ * It is also where a jump link is held to the pages the import brings. A `slide` relationship the
+ * rule would follow must land on a page of `ctx.selection` (or, for a traversal with no selection of
+ * its own, a page its plan names), or on one an earlier import from this source already brought
+ * across. Anything else would drag a page nobody asked for into the deck, or strand the link, so it
+ * is refused; imports plan first, so the refusal comes before anything moves.
  */
 export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): void {
 	const { source, newPartName, owned, allowReuse, override } = options
 	const sourceRels = ctx.source.relationshipsFor(source.partName)
-	const targetRels = ctx.dest.opc.relationshipsFor(newPartName)
+	const targetRels = copyTarget(ctx).relationshipsFor(newPartName)
+	const linkable = ctx.selection?.destinations ?? ctx.plan?.linkable
 	for (const rel of sourceRels) {
 		const decided = override?.(rel)
 		if (decided === 'skip') continue
@@ -286,12 +427,14 @@ export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): vo
 			targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 			continue
 		}
-		const target = copyPart(
-			ctx,
-			sourceRels.resolveTarget(rel.id),
-			isSharedByPageCopies(rel.type) ? undefined : owned,
-			allowReuse
-		)
+		const targetPartName = sourceRels.resolveTarget(rel.id)
+		if (rel.type === SLIDE_REL && linkable && !linkable.has(targetPartName) && !ctx.registry.has(targetPartName)) {
+			throw new InvalidOptionError(
+				'import/unresolved-slide-link',
+				`${ctx.plan?.api ?? 'importSlides'}: source slide ${source.partName} links to ${targetPartName}, which is not among the imported pages`
+			)
+		}
+		const target = copyPart(ctx, targetPartName, isSharedByPageCopies(rel.type) ? undefined : owned, allowReuse)
 		targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, target))
 	}
 }
@@ -367,113 +510,6 @@ function copyOwnedSubtree(ctx: ImportContext, partName: string, copies: Map<stri
 		},
 	})
 	return fresh
-}
-
-/**
- * Which of a batch's selected pages are also carrying their speaker notes across,
- * and whether the notes subgraph will pull a `notesMaster` with it. Handed to
- * {@link checkSelectionCopyable} so the dry run walks what `carryNotes` will walk.
- */
-interface NotesSelection {
-	/** Source partnames of the selected pages whose request asked for `importNotes`. */
-	readonly pages: ReadonlySet<string>
-	/**
-	 * Whether a source `notesMaster` would be copied. False once the destination
-	 * has one of its own, since `p:notesMasterIdLst` is `0..1` and `carryNotes`
-	 * then binds to the destination's master instead of copying the source's.
-	 */
-	readonly copyMaster: boolean
-}
-
-const NO_NOTES: NotesSelection = { pages: new Set(), copyMaster: false }
-
-/**
- * Dry-run {@link copyPart} over one source's batch selection, reading only the
- * *source* package: walk the graph the copy will walk, under the same
- * relationship-skipping rules, and throw what the copy would throw — a source
- * part that is missing, XML that will not parse, or a `slide → slide` link that
- * escapes the selection.
- *
- * This is what makes a rejected batch leave the destination byte-identical.
- * `importSlides` reserves partnames and mutates the destination only after this
- * passes, at which point the copy has no reachable failure left; a check that
- * lived inside the traversal instead would fire with parts already added, a
- * master already registered in `presentation.xml`, and no way back.
- *
- * Keep this in step with `copyPart`: the two must skip the same relationships
- * and stop at the same registry hits, or the guarantee is only as good as the
- * drift between them. With `notes` the same obligation extends to `carryNotes`,
- * which runs after the copy and is the batch's other way to reach a source part.
- *
- * @param source     the package the pages are coming from
- * @param registry   the copy registry for that source (parts already in `dest`)
- * @param selected   source partnames of the pages this batch selected
- * @param notes      the pages of `selected` whose notes travel too; none by default
- * @param api        the public method asking, which opens the error message
- */
-export function checkSelectionCopyable(
-	source: OpcPackage,
-	registry: ReadonlyMap<string, string>,
-	selected: ReadonlySet<string>,
-	notes: NotesSelection = NO_NOTES,
-	api = 'importSlides'
-): void {
-	const visited = new Set<string>()
-
-	const walk = (partName: string): void => {
-		if (visited.has(partName)) return
-		// `copyPart` reuses an already-copied part rather than recursing into it,
-		// and its subgraph was validated when that copy happened. A *selected*
-		// page is the exception the batch re-materializes, so it is always walked.
-		if (registry.has(partName) && !selected.has(partName)) return
-		visited.add(partName)
-
-		const part = source.part(partName)
-		if (!part)
-			throw new PackageReadError('package/part-missing', `importSlides: source package has no part ${partName}`)
-
-		const isMaster = part.contentType === SLIDE_MASTER_CONTENT_TYPE
-		const isNotesSlide = part.contentType === NOTES_SLIDE_CONTENT_TYPE
-		// The copy re-parses a master/layout to rebuild its layout id list; force
-		// the same parse here so unparseable XML fails before anything moves.
-		if (isMaster || part.contentType === SLIDE_LAYOUT_CONTENT_TYPE) void part.dom
-
-		const rels = source.relationshipsFor(partName)
-		for (const rel of rels) {
-			// `copyPart` always drops the notes rel; `carryNotes` picks it up
-			// afterwards for the pages that asked, so those subgraphs are walked here
-			// and no other.
-			if (rel.type === NOTES_SLIDE_REL) {
-				if (notes.pages.has(partName)) walk(rels.resolveTarget(rel.id))
-				continue
-			}
-			if (isNotesSlide) {
-				// The notes' back-rel to the page it annotates is repointed at the new
-				// slide, not copied — walking it would re-enter the page graph.
-				if (rel.type === SLIDE_REL) continue
-				// A deck already holding a notesMaster keeps it; the source's is then
-				// never read, so a dry run that walked it would reject a batch the copy
-				// would have accepted.
-				if (rel.type === NOTES_MASTER_REL && !notes.copyMaster) continue
-			}
-			// The rest of the rule is `copyPart`'s own, so the dry run cannot reach a part the
-			// copy would not, or stop short of one it would.
-			if (copyTraversalStep(part, rel) !== 'recurse') continue
-			const targetPartName = rels.resolveTarget(rel.id)
-			// A jump link must land on another selected page, or on one an earlier
-			// import from this source already brought across. Anything else would
-			// drag a page nobody asked for into the deck, or strand the link.
-			if (rel.type === SLIDE_REL && !selected.has(targetPartName) && !registry.has(targetPartName)) {
-				throw new InvalidOptionError(
-					'import/unresolved-slide-link',
-					`${api}: source slide ${partName} links to ${targetPartName}, which is not among the imported pages`
-				)
-			}
-			walk(targetPartName)
-		}
-	}
-
-	for (const partName of selected) walk(partName)
 }
 
 /**

@@ -226,6 +226,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`importSlide` and `importSlides` check a source against the copy they will make.**
+  - Both refuse a damaged source before anything in the deck moves. That check used to be a
+    separate walk of the source, written out beside the copy, and it had come to refuse two kinds
+    of source the copy handles.
+  - A `preserve` or `restyle` import no longer refuses a page because a part of its source layout
+    chain is missing. Both modes bind the page to this deck's own layout and never copy the
+    source's.
+  - A batch carrying notes into a deck with no notes master no longer refuses a source whose own
+    notes master is missing, when an earlier request in the batch installs one. The copy binds
+    every later notes slide to that first master and never reads the others.
+  - The check is now the copy itself, run once without writing, so it cannot refuse a source the
+    copy would complete or pass one the copy would fail on halfway.
+
 - **Breaking: a hyperlink is validated the same way wherever it is authored.** A `hyperlink`
   stating both `url` and `slide` throws `InvalidOptionError` with `hyperlink/conflicting-targets`.
   It used to write two `<a:hlinkClick>` into one shape, which allows one, over a slide-typed

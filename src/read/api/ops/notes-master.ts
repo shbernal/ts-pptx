@@ -11,7 +11,7 @@
 
 import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { copyPart, newOwnedScope, rebuildRels, type ImportContext } from './part-copy.js'
+import { copyPart, copyTarget, newOwnedScope, rebuildRels, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import {
 	NOTES_MASTER_CONTENT_TYPE,
@@ -62,9 +62,10 @@ export function carryNotes(
 	if (!sourceNotesPart) return
 
 	// Copy the notesSlide's current body into a fresh partname, then wire slide → notesSlide.
-	const newNotesPartName = dest.opc.reservePartNameLike(sourceNotesPartName)
-	dest.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.serialize())
-	dest.opc.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
+	const target = copyTarget(ctx)
+	const newNotesPartName = target.reservePartNameLike(sourceNotesPartName)
+	target.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.serialize())
+	target.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
 
 	// A notes slide is a part its page *owns* (see `page-owned.ts`), and so is
 	// whatever it owns in turn. Two copies of one source page — `importSlide`
@@ -106,7 +107,10 @@ function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMa
 	const existing = presRels.byType(NOTES_MASTER_REL)[0]
 	if (existing) return presRels.resolveTarget(existing.id)
 
-	// No notesMaster yet: copy the source's (pulls its theme) and register it.
+	// No notesMaster yet: copy the source's (pulls its theme) and register it. A plan
+	// registers nothing, so it remembers the master it would install instead, and the
+	// later notes it plans bind to that one as they would to the registered master.
+	if (ctx.plan) return (ctx.plan.notesMaster ??= copyPart(ctx, sourceNotesMasterPartName))
 	return registerNotesMaster(dest, copyPart(ctx, sourceNotesMasterPartName))
 }
 

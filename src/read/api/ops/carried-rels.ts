@@ -36,7 +36,7 @@ export function rewriteCarriedRels(
 	ctx: ImportContext,
 	sourceRels: Relationships,
 	destPartName: string,
-	destRels: Relationships,
+	destRels: Pick<Relationships, 'add'>,
 	relIdMap: Map<string, string>,
 	owned?: OwnedScope
 ): void {
@@ -73,7 +73,7 @@ function carryRel(
 	sourceRels: Relationships,
 	id: string,
 	destPartName: string,
-	destRels: Relationships,
+	destRels: Pick<Relationships, 'add'>,
 	relIdMap: Map<string, string>,
 	owned?: OwnedScope
 ): string {

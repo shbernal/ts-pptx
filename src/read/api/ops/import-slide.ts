@@ -25,7 +25,7 @@
 
 import { ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { Part } from '../../opc/part.js'
-import { PackageReadError, InvalidOptionError } from '../../../errors.js'
+import { InternalError, PackageReadError, InvalidOptionError } from '../../../errors.js'
 import { flattenSlide, remapLiteralColors, restyleSlide } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
 import {
@@ -36,7 +36,7 @@ import {
 	spTreeOf,
 } from '../../oxml/slide-dom.js'
 import { copySourceTableStyles } from './table-styles.js'
-import { newOwnedScope, rebuildRels, type ImportContext, type OwnedScope } from './part-copy.js'
+import { copyTarget, newOwnedScope, rebuildRels, type ImportContext, type OwnedScope } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
@@ -145,19 +145,55 @@ export function importSlideRebind(
 	sourceSlide: Slide,
 	carryGraphics: boolean
 ): RebindResult {
+	const { newPartName, slideRoot } = rebind(dest, ctx, source, sourceSlide, carryGraphics)
+	const newPart = dest.opc.part(newPartName)
+	if (!newPart) throw new InternalError('import/part-went-missing', `Imported slide part went missing: ${newPartName}`)
+	return { newPartName, slideRoot, newPart }
+}
+
+/**
+ * The rebind run as a plan (`ctx.plan` set): what {@link importSlideRebind} would copy and what it
+ * would throw, with nothing written. Returns the partname the page would be given.
+ * @param {Presentation} dest - the destination deck
+ * @param {ImportContext} ctx - the plan's context for the import out of the source package
+ * @param {Presentation} source - the source deck
+ * @param {Slide} sourceSlide - the slide being imported
+ * @param {boolean} carryGraphics - bake the source master/layout decorations onto the slide
+ * @return {string} the partname the new slide part would be given
+ */
+export function planSlideRebind(
+	dest: Presentation,
+	ctx: ImportContext,
+	source: Presentation,
+	sourceSlide: Slide,
+	carryGraphics: boolean
+): string {
+	return rebind(dest, ctx, source, sourceSlide, carryGraphics).newPartName
+}
+
+/** {@link importSlideRebind}'s body, which a plan runs too. */
+function rebind(
+	dest: Presentation,
+	ctx: ImportContext,
+	source: Presentation,
+	sourceSlide: Slide,
+	carryGraphics: boolean
+): { newPartName: string; slideRoot: Element } {
 	const destLayout = destinationLayoutPartName(dest)
 
 	// Copy the slide's current body into a fresh partname; we then mutate that copy's DOM
-	// (a distinct document, so the source package is never touched).
+	// (a distinct document, so the source package is never touched). A plan adds no part, so
+	// it reads the source's root instead: the same bytes, and nothing is written to them.
 	const sourcePart = source.opc.part(sourceSlide.partName)
 	if (!sourcePart)
 		throw new PackageReadError(
 			'package/part-missing',
 			`importSlide: source package has no part ${sourceSlide.partName}`
 		)
-	const newPartName = dest.opc.reservePartNameLike(sourceSlide.partName)
-	const newPart = dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
-	const slideRoot = newPart.dom.documentElement
+	const target = copyTarget(ctx)
+	const newPartName = target.reservePartNameLike(sourceSlide.partName)
+	target.addPart(newPartName, sourcePart.contentType, sourcePart.serialize())
+	const slideRoot = (ctx.plan ? sourcePart : dest.opc.part(newPartName))?.dom.documentElement
 	if (!slideRoot)
 		throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)
 
@@ -181,9 +217,9 @@ export function importSlideRebind(
 	// slide behind its own content. Done after the slide's own rels are in place (so carried
 	// media get fresh, non-colliding ids) but before the caller's flatten/restyle pass acts
 	// on the carried shapes.
-	if (carryGraphics) carryMasterGraphics(dest, ctx, slideRoot, newPartName, sourceSlide.partName, owned)
+	if (carryGraphics) carryMasterGraphics(ctx, slideRoot, newPartName, sourceSlide.partName, owned)
 
-	return { newPartName, slideRoot, newPart }
+	return { newPartName, slideRoot }
 }
 
 /**
@@ -195,7 +231,9 @@ export function importSlideRebind(
  * package and its `r:embed`/`r:id`/… references rewritten to fresh slide-local ids. The
  * injected shapes are left for the caller's {@link flattenSlide} pass to resolve any theme
  * references they carry.
- * @param {Presentation} dest - the destination deck
+ *
+ * A plan carries a throwaway copy of each decoration, so rewriting its references writes to
+ * neither package, and inserts nothing: `slideRoot` is then the source slide's own.
  * @param {ImportContext} ctx - the open import out of the source package
  * @param {Element} slideRoot - root element of the new slide part (mutated in place)
  * @param {string} newPartName - partname of the new slide part
@@ -203,7 +241,6 @@ export function importSlideRebind(
  * @param {OwnedScope} owned - the page's ownership scope, so a decoration's own parts land in it
  */
 function carryMasterGraphics(
-	dest: Presentation,
 	ctx: ImportContext,
 	slideRoot: Element,
 	newPartName: string,
@@ -217,7 +254,7 @@ function carryMasterGraphics(
 	if (!spTree) return
 
 	const doc = ownerDocumentOf(slideRoot)
-	const slideRels = dest.opc.relationshipsFor(newPartName)
+	const slideRels = copyTarget(ctx).relationshipsFor(newPartName)
 	const relIdMap = new Map<string, string>()
 	// Insert ahead of the slide's own first shape so decorations render behind it.
 	const anchor = firstShapeChild(spTree)
@@ -232,12 +269,12 @@ function carryMasterGraphics(
 		if (decorations.length === 0) continue
 		const sourceRels = sourceOpc.relationshipsFor(partName)
 		const carried = decorations.map((deco) => {
-			const imported = doc.importNode(deco, true)
+			const imported = ctx.plan ? (deco.cloneNode(true) as Element) : doc.importNode(deco, true)
 			rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap, owned)
-			spTree.insertBefore(imported, anchor)
+			if (!ctx.plan) spTree.insertBefore(imported, anchor)
 			return imported
 		})
-		nextId = reassignDrawingIds(carried, nextId).next
+		if (!ctx.plan) nextId = reassignDrawingIds(carried, nextId).next
 	}
 }
 
