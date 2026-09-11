@@ -29,8 +29,9 @@ import { EMU_PER_INCH } from '../../../units.js'
 import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
-import { tableColCount } from '../../table/grid.js'
+import { type GridPlacement, tableColCount, walkTableGrid } from '../../table/grid.js'
 import { CELL_INHERITED_KEYS } from '../../table/cell-inherit.js'
+import { warn } from '../../../diagnostics.js'
 
 /**
  * The table-level options a cell inherits when it states none of its own.
@@ -122,6 +123,89 @@ function inheritTableOptions(cellOpts: TableCellProps | undefined, tableOpts: Ob
 }
 
 /**
+ * The origin cell a placement writes: the authored cell, carrying the spans the grid gave it.
+ *
+ * `walkTableGrid` clamps a colspan to the columns left and a rowspan to the rows left. The emitter
+ * used to write the authored spans unclamped, so `[[{ text: 'A', rowspan: 3 }, 'B'], ['C']]` wrote
+ * `rowSpan="3"` into a two-row table while the auto-pager and `tableLayout()` described the clamped
+ * one. A span the grid had to shorten is reported and written shortened. A cell whose spans stand
+ * is returned by identity, which is what its covered cells' `_spanOrigin` points at.
+ * @param placement - the cell's placement on the grid
+ */
+function placedOrigin({ cell, rowSpan, colSpan }: GridPlacement): TableCellInternal {
+	const opts = cell.options
+	const statedCol = resolveSpan(opts?.colspan, 'colspan')
+	const statedRow = resolveSpan(opts?.rowspan, 'rowspan')
+	if (statedCol === colSpan && statedRow === rowSpan) return cell
+	if (statedCol !== colSpan)
+		warn(
+			'table/span-out-of-range',
+			`table cell: colspan ${statedCol} reaches past the table's last column; using ${colSpan}.`
+		)
+	if (statedRow !== rowSpan)
+		warn(
+			'table/span-out-of-range',
+			`table cell: rowspan ${statedRow} reaches past the table's last row; using ${rowSpan}.`
+		)
+	return { ...cell, options: { ...opts, colspan: colSpan, rowspan: rowSpan } }
+}
+
+/**
+ * The table as the grid it is written on: one cell per row and grid column.
+ *
+ * Every position is filled. An origin sits at its `walkTableGrid` placement, and each position its
+ * span covers gets a covered cell pointing back at it: `_hmerge` right of the origin, `_vmerge`
+ * below it, both where the span runs both ways. A covered cell in the origin's own row repeats the
+ * origin's `rowspan`, and one in its column repeats its `colspan`, which is how PowerPoint writes a
+ * merged region. A position no cell reaches (a row shorter than the grid) is a blank cell, and a cell
+ * starting past the last column is dropped and reported, because a `<a:tr>` whose `<a:tc>` count
+ * differs from `<a:tblGrid>` is a table PowerPoint repairs.
+ *
+ * Two splice passes used to insert the covered cells into the authored rows by index. They read the
+ * spans unclamped, so a span past the table edge wrote cells past it:
+ * `[['A', 'B'], [{ text: 'D', colspan: 3 }]]` wrote three `<a:tc>` against two `<a:gridCol>`.
+ * @param rows - the table's rows, spans already range-checked
+ * @param numCols - the grid's column count
+ */
+function buildMergeGrid(rows: TableCellInternal[][], numCols: number): TableCellInternal[][] {
+	const grid: Array<Array<TableCellInternal | undefined>> = rows.map(() =>
+		Array.from({ length: numCols }, (): TableCellInternal | undefined => undefined)
+	)
+	const placedPerRow = rows.map(() => 0)
+	for (const placement of walkTableGrid(rows, numCols)) {
+		placedPerRow[placement.row] = (placedPerRow[placement.row] ?? 0) + 1
+		const origin = placedOrigin(placement)
+		const { row, col, rowSpan, colSpan } = placement
+		for (let dr = 0; dr < rowSpan; dr++) {
+			const target = grid[row + dr]
+			if (!target) continue
+			for (let dc = 0; dc < colSpan; dc++) {
+				if (dr === 0 && dc === 0) {
+					target[col] = origin
+					continue
+				}
+				const options: TableCellProps = {}
+				if (dr === 0 && rowSpan > 1) options.rowspan = rowSpan
+				if (dc === 0 && colSpan > 1) options.colspan = colSpan
+				const covered: TableCellInternal = { _type: SlideObjectType.tablecell, options, _spanOrigin: origin }
+				if (dr > 0) covered._vmerge = true
+				if (dc > 0) covered._hmerge = true
+				target[col + dc] = covered
+			}
+		}
+	}
+	const dropped = rows.reduce((count, row, r) => count + row.length - (placedPerRow[r] ?? 0), 0)
+	if (dropped > 0)
+		warn(
+			'table/cell-past-grid',
+			`table: ${dropped} cell(s) start past the last of the table's ${numCols} grid columns and are not written. The first row decides how many columns a table has.`
+		)
+	return grid.map((cells) =>
+		cells.map((cell): TableCellInternal => cell ?? { _type: SlideObjectType.tablecell, text: '' })
+	)
+}
+
+/**
  * Render a `table` slide object to its `<p:graphicFrame>` XML (merge-grid, row/col spans, per-cell styling).
  */
 export function renderTableObject(ctx: RenderContext): string {
@@ -136,12 +220,11 @@ export function renderTableObject(ctx: RenderContext): string {
 	// `slideObjectToXml`). Read it rather than re-narrowing the field: this function has exactly
 	// one call site, and a contract stated there beats a defensive re-assignment here.
 	let tblInner = ''
-	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
-	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
-	// Checked again here, not only in `addTableDefinition`: this is where the merge grid allocates
-	// from a span, and an emitter must not size an array from a number it has not seen. Rows that
-	// came through the definer are already correct, so this warns about nothing and copies nothing.
-	const arrTabRows: TableCellInternal[][] = withCheckedSpans((slideItemObj.arrTabRows ?? []).map((row) => [...row]))
+	// Checked again here, not only in `addTableDefinition`: the merge grid below is laid out from the
+	// spans, and an emitter must not size anything from a number it has not seen. Rows that came
+	// through the definer are already correct, so this warns about nothing. Nothing below writes to
+	// the rows, so the stored `arrTabRows` survive repeated `write()` calls without a copy.
+	const arrTabRows: TableCellInternal[][] = withCheckedSpans(slideItemObj.arrTabRows ?? [])
 	const objTabOpts: ObjectOptions = itemOpts
 	const intColCnt = tableColCount(arrTabRows)
 
@@ -267,58 +350,12 @@ export function renderTableObject(ctx: RenderContext): string {
 					|      |      |  C2  |  D2  |
 					\------|------|------|------/
 				*/
-	// A: add _hmerge cell for colspan. should reserve rowspan
-	arrTabRows.forEach((cells) => {
-		for (let cIdx = 0; cIdx < cells.length;) {
-			const cell = cells[cIdx]
-			if (!cell) break
-			const colspan = resolveSpan(cell.options?.colspan, 'colspan')
-			const rowspan = cell.options?.rowspan
-			if (colspan > 1) {
-				const vMergeCells = new Array(colspan - 1).fill(undefined).map((): TableCellInternal => {
-					// A dummy that inherits no rowspan carries no `rowspan` key, rather than one
-					// holding `undefined`: absent is the model's one spelling of "not spanning".
-					return {
-						_type: SlideObjectType.tablecell,
-						options: rowspan === undefined ? {} : { rowspan },
-						_hmerge: true,
-						_spanOrigin: cell,
-					}
-				})
-				cells.splice(cIdx + 1, 0, ...vMergeCells)
-				cIdx += colspan
-			} else {
-				cIdx += 1
-			}
-		}
-	})
-	// B: add _vmerge cell for rowspan. should reserve colspan/_hmerge
-	arrTabRows.forEach((cells, rIdx) => {
-		const nextRow = arrTabRows[rIdx + 1]
-		if (!nextRow) return
-		cells.forEach((cell, cIdx) => {
-			const rowspan = cell._rowContinue || resolveSpan(cell.options?.rowspan, 'rowspan')
-			const colspan = cell.options?.colspan
-			const _hmerge = cell._hmerge
-			if (rowspan && rowspan > 1) {
-				// Point back to the true origin cell: when `cell` is itself an `_hmerge` dummy
-				// (combined colspan+rowspan), use its origin rather than the dummy.
-				const _spanOrigin = cell._spanOrigin || cell
-				const hMergeCell: TableCellInternal = {
-					_type: SlideObjectType.tablecell,
-					options: colspan === undefined ? {} : { colspan },
-					_rowContinue: rowspan - 1,
-					_vmerge: true,
-					_spanOrigin,
-				}
-				if (_hmerge !== undefined) hMergeCell._hmerge = _hmerge
-				nextRow.splice(cIdx, 0, hMergeCell)
-			}
-		})
-	})
+	// Placement comes from `walkTableGrid`, the traversal the auto-pager and the measured-fit pass
+	// read, so the table written is the one they paged and measured.
+	const grid = buildMergeGrid(arrTabRows, intColCnt)
 
 	// STEP 4: Build table rows/cells
-	arrTabRows.forEach((cells, rIdx) => {
+	grid.forEach((cells, rIdx) => {
 		// A: `rowH` pins the row; a table height provided without one is split evenly.
 		// The height comes from the PLACED frame, not from `options.h`, which is why this does not
 		// go through `resolveTableGridEmu` the way `pptx.tableLayout()` and the measured-fit pass

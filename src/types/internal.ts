@@ -170,12 +170,12 @@ export interface ObjectOptionsInternal extends ObjectOptions, TextPropsOptionsIn
 }
 
 /**
- * A table cell carrying the seven members the auto-pager and the table emitter write onto it.
+ * A table cell carrying the six members the auto-pager and the table emitter write onto it.
  *
- * All seven are produced by the write path rather than authored: the span dummies
- * (`_hmerge`/`_vmerge`) and the `_spanOrigin` they inherit their paint from, the per-line
- * split (`_lines`, `_lineHeight`) the auto-pager computes, `_rowContinue`, and the object-kind
- * tag. A caller who set one by hand would be feeding the pager its own output.
+ * All six are produced by the write path rather than authored: the covered cells of a merge
+ * (`_hmerge`/`_vmerge`) and the `_spanOrigin` they inherit their paint from, the per-line split
+ * (`_lines`, `_lineHeight`) the auto-pager computes, and the object-kind tag. A caller who set one
+ * by hand would be feeding the pager its own output.
  *
  * `_lines` and `_spanOrigin` refer to *this* type rather than to the public `TableCell`,
  * because a split line and a span origin are themselves pager output.
@@ -191,7 +191,6 @@ export interface TableCellInternal extends TableCell {
 	_lineHeight?: number
 	_hmerge?: boolean
 	_vmerge?: boolean
-	_rowContinue?: number
 	/** origin cell of a colspan/rowspan span, set on the dummy `_hmerge`/`_vmerge` cells so they can
 	 * inherit the origin's border/fill and render the merged region's outer edges */
 	_spanOrigin?: TableCellInternal

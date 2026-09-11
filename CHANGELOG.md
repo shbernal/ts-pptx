@@ -851,6 +851,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A table span past the table's edge was written past it.** The auto-pager and `tableLayout()`
+  clamp a `colspan` to the grid's width and a `rowspan` to the rows left, but the emitter wrote
+  the spans as authored. `[[{ text: 'A', rowspan: 3 }, 'B'], ['C']]` wrote `rowSpan="3"` into a
+  two-row table, and `[['A', 'B'], [{ text: 'D', colspan: 3 }]]` wrote three cells against two
+  grid columns; PowerPoint repairs both. The emitter now lays the table out through the same grid
+  walk: a clamped span is written clamped and warns `table/span-out-of-range`, a short row is
+  filled with blank cells, and a cell starting past the last grid column is dropped with a
+  `table/cell-past-grid` warning.
+
 - **`addTable({ autoPage })` placed continuation tables lower than the pager budgeted them.** The
   pager sizes each continuation page from where its table starts, and `addTable` then placed the
   table with a rule of its own that dropped `autoPageSlideStartY: 0` and ignored a `y` above the

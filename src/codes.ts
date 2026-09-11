@@ -91,6 +91,7 @@ export type DiagnosticCode =
 	| 'table/col-width-count-mismatch'
 	| 'table/invalid-col-width'
 	| 'table/span-out-of-range'
+	| 'table/cell-past-grid'
 	| 'table/autopage-height-too-small'
 	| 'table/autopage-rowspan-too-tall'
 	| 'table/invalid-row-height'

@@ -95,9 +95,12 @@ export interface GridPlacement {
 /**
  * Walk a table's cell grid in row-major order, resolving each authored cell to its
  * grid origin (`row`/`col`) and clamped colspan/rowspan. Tracks rowspan occupancy so
- * a cell never lands beneath one spanned from above (grid build). This is
- * the single traversal shared by the measured-fit shrink pass and
- * {@link computeTableLayout}, so cell placement cannot drift between them.
+ * a cell never lands beneath one spanned from above. This is the single traversal the
+ * auto-pager, the measured-fit shrink pass, {@link computeTableLayout} and the table emitter's
+ * merge grid all read, so the table that is paged and measured is the table that is written.
+ *
+ * A cell that starts past the last grid column is not yielded: a row longer than the first is
+ * ragged input, and the grid is the one `a:tblGrid` declares.
  */
 export function* walkTableGrid(rows: TableCellInternal[][], numCols: number): Generator<GridPlacement> {
 	const occupancy = createRowSpanOccupancy()
