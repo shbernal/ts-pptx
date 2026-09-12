@@ -29,6 +29,11 @@ import { pushMediaRel } from './image-rel.js'
  * pushing a second one; replacing it by removal would shift the media count every later part name
  * is read from. A colour clears the image rel id, which `slideBackgroundXml` checks before it looks
  * at a colour, so an image replaced by a colour stops painting.
+ *
+ * The image's rel stays in `_relsMedia` for the same reason, so a package whose image background
+ * was replaced by a colour still carries the image part and an `image` relationship nothing
+ * references. That is valid OPC, only unused bytes. Dropping it would need either a tombstone the
+ * rel and part emitters skip, or media part names that do not depend on the count.
  * @param {BackgroundOption} props - a bare colour, or an object with a colour or image definition
  * @param {SlideLayoutInternal} target - slide or layout that the background is set on
  */
