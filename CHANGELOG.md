@@ -890,6 +890,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo chart opening with a scatter wrote its categories against the scatter's X values.**
+  - A combo's embedded workbook took its label columns and row count from the chart's first
+    series. When the first subchart is a scatter, that series is its X row, which carries no
+    labels, so the sheet had no label column while a bar or line after it still wrote `<c:cat>`
+    against column A, which held the X values. The chart painted from its cache, and "Edit Data"
+    showed categories that were numbers.
+  - The sheet now takes its label columns from the first series that carries labels. A chart
+    whose first series has labels, or where none has, is byte-identical.
+
 - **A master placeholder's `fill` and `hyperlink` were refused by the types.**
   - A layout placeholder's options reach the slide objects that fill it as text options, so a
     placeholder honours a `fill` (an image fill included) and a `hyperlink`, and the slide copies

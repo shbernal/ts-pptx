@@ -26,6 +26,19 @@ export const dataSizes = (d: OptsChartDataInternal | undefined): number[] => d?.
 // The first label group of a series (`labels[0]`), empty when the series or group is absent.
 export const firstLabelGroup = (d: OptsChartDataInternal | undefined): string[] => dataLabels(d)[0] ?? []
 
+/**
+ * The series a category sheet takes its label columns and row count from: the first one that
+ * carries labels, else the first.
+ *
+ * On a plain category chart that is `data[0]`. On a combo it need not be: a scatter subchart's
+ * first series is its X row, which carries no labels, so a combo that opens with a scatter gave the
+ * sheet no label column while a bar or line after it still wrote `<c:cat>` against column A, which
+ * then held the scatter's X values.
+ * @param data - the chart's series, across every subchart
+ */
+export const labelSeries = (data: readonly OptsChartDataInternal[]): OptsChartDataInternal | undefined =>
+	data.find((series) => dataLabels(series).length > 0) ?? data[0]
+
 // ===== Worksheet-cell references =====
 
 /** The last column a worksheet has, `XFD`. */
@@ -116,8 +129,9 @@ export const bubbleSizeColumn = (dataIndex: number): number => dataIndex * 2 + 1
 /**
  * The worksheet layout for one chart, decided by its kind.
  *
- * - A category chart, every combo and every chartEx layout: `data[0]`'s label groups take the
- *   leading columns, outermost first, and its categories decide the row count. Then one column
+ * - A category chart, every combo and every chartEx layout: the label groups of
+ *   {@link labelSeries} take the leading columns, outermost first, and its categories decide the
+ *   row count. Then one column
  *   per series in data order. A category-less layout (a histogram feeds raw observations with no
  *   labels) sizes the sheet from the longest value series instead.
  * - Scatter: no label columns. The X row is column A and each Y series takes the next column,
@@ -150,10 +164,11 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 			valueColumn: (dataIndex) => dataIndex + 1,
 		}
 	}
-	const labelCols = dataLabels(data[0]).length
+	const labelled = labelSeries(data)
+	const labelCols = dataLabels(labelled).length
 	return {
 		labelCols,
-		rowCount: firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
+		rowCount: firstLabelGroup(labelled).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
 		colCount: data.length + labelCols,
 		valueColumn: (dataIndex) => dataIndex + labelCols + 1,
 	}

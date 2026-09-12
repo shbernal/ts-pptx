@@ -39,6 +39,7 @@ import {
 	dataSizes,
 	dataValues,
 	getExcelColName,
+	labelSeries,
 	type WorksheetLayout,
 	worksheetLayout,
 } from './data-refs.js'
@@ -262,11 +263,11 @@ interface LabelCell {
  * therefore `data.length + 1 + k`, after the blank entry and the series names, whether or not any
  * label before it was blank. The one-level arm used to index every row as if none were, so from
  * the first blank label on each cell read the next label's string or ran past the end.
- * @param data - the chart's series; the labels are the first series'
+ * @param data - the chart's series; the labels are {@link labelSeries}'
  */
 function categoryLabelCells(data: readonly OptsChartDataInternal[]): LabelCell[] {
 	// labels[0] is the leaf level and the last is the outermost, which takes column A.
-	return dataLabels(data[0])
+	return dataLabels(labelSeries(data))
 		.slice()
 		.reverse()
 		.flatMap((group, level) =>
@@ -353,7 +354,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 	} else {
 		// The leading columns are the label groups; the series follow them.
 		columns =
-			dataLabels(data[0])
+			dataLabels(labelSeries(data))
 				.map((_labelsGroup, idx) => voidEl('tableColumn', { id: idx + 1, name: `Column${idx + 1}` }))
 				.join('') +
 			data

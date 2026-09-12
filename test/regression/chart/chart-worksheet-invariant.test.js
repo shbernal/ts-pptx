@@ -302,6 +302,30 @@ const MATRIX = [
 			),
 	],
 	[
+		// The sheet took its label columns from `data[0]`, which here is the scatter's unlabelled X row,
+		// so the bar's categories were written against a column A holding the X values.
+		'scatter and bar combo, the scatter first',
+		(s) =>
+			s.addChart(
+				[
+					{
+						type: ChartType.scatter,
+						data: [
+							{ name: 'X', values: [10, 20, 30] },
+							{ name: 'Y', values: [5, 6, 7] },
+						],
+						options: {},
+					},
+					{
+						type: ChartType.bar,
+						data: [{ name: 'A', labels: LABELS, values: [1, 2, 3] }],
+						options: { secondaryValAxis: true, secondaryCatAxis: true },
+					},
+				],
+				FRAME
+			),
+	],
+	[
 		'bar with a blank label',
 		(s) =>
 			s.addChart(
