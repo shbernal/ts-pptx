@@ -393,12 +393,15 @@ export function getSlidesForTableRows(
 	 * is what the paragraph above is about; there is now one.
 	 */
 	function startYEmu(): number {
-		if (tableRowSlides.length === 0) return tablePropY || inch2Emu(arrInchMargins[0])
+		// A stated `y: 0` is the top edge of the slide, not a missing `y`: tested for truthiness, it
+		// was budgeted from the top margin while `addTable` placed the page at 0.
+		const statedY = tableProps.y !== undefined && tableProps.y !== null
+		if (tableRowSlides.length === 0) return statedY ? tablePropY : inch2Emu(arrInchMargins[0])
 		if (typeof tableProps.autoPageSlideStartY === 'number') return inch2Emu(tableProps.autoPageSlideStartY)
 		// RULE: after the first page the table starts at the top margin rather than at its
 		// own `y` -- unless `y` is ABOVE the margin, in which case paging must not push the
 		// table down and lose the space. Whichever is higher on the slide wins.
-		return inch2Emu(tablePropY ? Math.min(tablePropY / EMU_PER_INCH, arrInchMargins[0]) : arrInchMargins[0])
+		return inch2Emu(statedY ? Math.min(tablePropY / EMU_PER_INCH, arrInchMargins[0]) : arrInchMargins[0])
 	}
 
 	function calcSlideTabH(): void {

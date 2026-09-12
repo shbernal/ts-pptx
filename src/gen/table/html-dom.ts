@@ -913,16 +913,16 @@ export function genTableToSlides(
 		opts,
 		pptx.presLayout,
 		masterSlide
-	).forEach((slide, idxTr) => {
+	).forEach((slide) => {
 		// A: Create new Slide
 		const newSlide = pptx.addSlide(opts.masterTitle ? { masterTitle: opts.masterTitle } : {})
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide.
-		// A continuation goes where the pager started it when it budgeted the page's height
-		// (`slide.y`). This used to restate that rule, and the copy had drifted twice:
-		// `autoPageSlideStartY: 0` read as unset, and a `y` above the top margin was pushed back down.
-		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
-		if (idxTr > 0 && slide.y !== undefined) opts.y = slide.y
+		// Every page goes where the pager started it when it budgeted the page's height
+		// (`slide.y`). This used to restate that rule, and the copy had drifted three times:
+		// `autoPageSlideStartY: 0` read as unset, a `y` above the top margin was pushed back down,
+		// and a first page stated at `y: 0` was moved down to the margin.
+		if (slide.y !== undefined) opts.y = slide.y
 		if (opts.verbose)
 			console.log(
 				`| opts.autoPageSlideStartY: ${opts.autoPageSlideStartY} / arrInchMargins[0]: ${arrInchMargins[0]} => opts.y = ${opts.y}`

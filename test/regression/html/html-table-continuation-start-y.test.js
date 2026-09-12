@@ -48,6 +48,16 @@ async function frameYs(opts) {
 
 defineRegressionSuite('tableToSlides continuation start-Y', [
 	{
+		// The first page was placed at `opts.y || margin`, so a stated `y: 0` moved the table down to
+		// the margin, below the start the pager had budgeted its height from.
+		name: 'y: 0 keeps every page at the top of the slide',
+		fn: async () => {
+			const ys = await frameYs({ y: 0 })
+			assert(ys.length > 1, `the fixture must page; got ${ys.length} slide(s)`)
+			for (const [idx, y] of ys.entries()) assertEqual(y, 0, `slide ${idx + 1} must start at 0; got ${y}`)
+		},
+	},
+	{
 		name: 'autoPageSlideStartY: 0 puts continuations at the top of the slide',
 		fn: async () => {
 			const ys = await frameYs({ y: 1.5, autoPageSlideStartY: 0 })

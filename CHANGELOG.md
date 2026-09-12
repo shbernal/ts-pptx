@@ -879,6 +879,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A paged table stated at `y: 0` lost the top half inch of its first page.**
+  - The pager budgeted the first page from `y || margin`, so `addTable({ y: 0, autoPage: true })`
+    was paged as if it started at the 0.5in top margin while the table was placed at 0, leaving
+    half an inch of the first page unused. `tableToSlides` placed its first page at
+    `opts.y || margin`, which moved a `y: 0` table down to the margin.
+  - A stated `0` is now the top of the slide on every page, as a `y` above the margin already
+    was on continuations, and `tableToSlides` places each page where the pager budgeted it.
+
 - **A converted custom shape inside an uncomposable group printed its points in path units.**
   - `pptxToScript` scaled a `custGeom` path onto the shape's `absoluteFrame`, which is `null`
     in a group whose transform cannot be composed, such as one with a zero `a:chExt`. The shape
