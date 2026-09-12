@@ -879,6 +879,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `preserve` or `restyle` import of a page linking to itself copied the page twice.**
+  - The rebind builds its page itself and did not enter it in the copy registry before following
+    its relationships, so a jump link back to the page missed the registry. The source page was
+    copied again, as a slide part no `p:sldIdLst` lists, and the link pointed at that orphan.
+  - The page is now registered before its links are followed, as the `copy` theme already did, so
+    the link lands on the page being imported.
+
 - **An imported connector could come out bound to the wrong shape.**
   - `importShape` and `carryMasterGraphics` renumber the drawings they carry and repoint each
     connector binding (`a:stCxn`/`a:endCxn`) that names one of them. A binding naming a shape

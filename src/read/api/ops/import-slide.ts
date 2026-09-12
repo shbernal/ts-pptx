@@ -197,11 +197,16 @@ function rebind(
 	if (!slideRoot)
 		throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)
 
+	// This page is built here rather than by `copyPart`, so it is entered in the copy registry
+	// here too, before its relationships are followed, as `copyPart` records a page before
+	// recursing. Otherwise a jump link from the page to itself is a registry miss, and `copyPart`
+	// materializes the source page a second time, as a slide part no `p:sldIdLst` lists.
+	ctx.registry.set(sourceSlide.partName, newPartName)
+
 	// Rebuild the slide's relationships: notes are dropped and every other internal target
 	// (media, charts) is copied as for any page, but the layout is this deck's own.
-	// This page is built here rather than by `copyPart`, so its ownership scope is
-	// opened here too: the chart or diagram under a page rebound twice must not be
-	// the same part twice (see `page-owned.ts`).
+	// Its ownership scope is opened here for the same reason: the chart or diagram under a
+	// page rebound twice must not be the same part twice (see `page-owned.ts`).
 	const owned = newOwnedScope()
 	rebuildRels(ctx, {
 		source: sourcePart,

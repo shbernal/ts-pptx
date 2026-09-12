@@ -214,6 +214,32 @@ describe('Presentation.importSlides', () => {
 		}
 	)
 
+	test.for(/** @type {const} */ (['copy', 'preserve', 'restyle']))(
+		'importSlide in %s mode brings a page that links to itself once, with the link on the new page',
+		async (theme) => {
+			// The rebind builds its page itself and did not enter it in the copy registry before
+			// following its links, so a jump link back to the page was a registry miss and `copyPart`
+			// copied the source page a second time, as a slide part in no `p:sldIdLst`.
+			const pptx = new TsPptx()
+			pptx.addSlide().addText('self', { x: 1, y: 1, w: 4, h: 1, hyperlink: { slide: 1 } })
+			const source = await Presentation.load(await pptx.write({ outputType: 'uint8array' }))
+			const target = await generatedDeck(false)
+			const before = target.slides.length
+
+			const imported = target.importSlide(source, 0, { theme })
+			assertEqual(JSON.stringify(slideLinkTargets(target.opc, imported.partName)), JSON.stringify([imported.partName]), 'the link names the imported page') // prettier-ignore
+
+			const bytes = await target.save()
+			const reopened = await Presentation.load(bytes)
+			assertEqual(reopened.slides.length, before + 1, 'one page was added to the slide list')
+			const slideParts = Object.keys((await JSZip.loadAsync(bytes)).files).filter((name) =>
+				/^ppt\/slides\/slide\d+\.xml$/.test(name)
+			)
+			assertEqual(slideParts.length, reopened.slides.length, 'and no slide part sits outside it')
+			assertNoDanglingRels(reopened.opc)
+		}
+	)
+
 	test.for(/** @type {const} */ (['preserve', 'restyle']))(
 		'importSlide in %s mode takes a page whose source layout is missing, which it never reads',
 		async (theme) => {
