@@ -177,27 +177,50 @@ function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
  * twice over: it is also what `addSlide({ masterTitle })` binds on.
  */
 function printMasters(ir: DeckIr, collector: NoteCollector, printAsset: AssetPrinter): string[] {
-	// Recorded before the early return, because the extra layout is there either way: it is
-	// seeded in the constructor, not by anything printed below. Scoped to that layout's own
-	// title rather than deck-wide, because the round trip matches a note's `shapeName` against
-	// the identity of what differed, and an unscoped note would declare *any* extra layout.
-	//
-	// That title is `DEFAULT` unless a source layout already carries it, which every deck written
-	// by this library does. The output then holds two, and the reader makes the second unique the
-	// way it made the source's titles unique, so the extra one is reported under that spelling.
-	const sourceTitles = new Set(ir.chrome.masters.map((master) => master.props['title']).filter((t): t is string => typeof t === 'string')) // prettier-ignore
-	scopeNotes(collector, null, uniqueTitle('DEFAULT', sourceTitles)).note(
-		'master.default',
-		'approximated',
-		'unsupported',
-		"the write path seeds every presentation with a blank layout of its own named DEFAULT, and there is no way to remove it, so the output deck's layout gallery carries one extra entry ahead of the source's layouts; nothing binds to it, but it is visible in PowerPoint's layout picker"
-	)
-	if (ir.chrome.masters.length === 0) return []
+	// A deck written by this library opens its gallery with the layout the constructor seeds, and
+	// the output's constructor seeds it again. Re-authoring it gave the output two layouts named
+	// `DEFAULT`, so `addSlide({ masterTitle: 'DEFAULT' })` was ambiguous there; the slides bound to
+	// it bind to the seed instead, which is the same layout.
+	const seeded = ir.chrome.masters.find(isSeedLayout)
+
+	// Otherwise the extra layout is there whatever is printed below, so the note is recorded before
+	// the early return. Scoped to that layout's own title rather than deck-wide, because the round
+	// trip matches a note's `shapeName` against the identity of what differed, and an unscoped note
+	// would declare *any* extra layout. That title is `DEFAULT` unless a source layout that is not
+	// the seed already carries it; the reader then makes the second unique the way it made the
+	// source's titles unique, so the extra one is reported under that spelling.
+	if (!seeded) {
+		const sourceTitles = new Set(ir.chrome.masters.map((master) => master.props['title']).filter((t): t is string => typeof t === 'string')) // prettier-ignore
+		scopeNotes(collector, null, uniqueTitle('DEFAULT', sourceTitles)).note(
+			'master.default',
+			'approximated',
+			'unsupported',
+			"the write path seeds every presentation with a blank layout of its own named DEFAULT, and there is no way to remove it, so the output deck's layout gallery carries one extra entry ahead of the source's layouts; nothing binds to it, but it is visible in PowerPoint's layout picker"
+		)
+	}
+	const authored = ir.chrome.masters.filter((master) => master !== seeded)
+	if (authored.length === 0) return []
 	return [
 		'// One master per source layout, carrying its name, background and decoration. What a',
 		'// layout does not bring across is its placeholder definitions; see the fidelity notes.',
-		...ir.chrome.masters.map((master) => printArguments('pptx.defineSlideMaster', [master.props], 0, printAsset)),
+		...authored.map((master) => printArguments('pptx.defineSlideMaster', [master.props], 0, printAsset)),
 	]
+}
+
+/**
+ * What the layout the write path seeds every presentation with reads back as: blank, titled
+ * `DEFAULT`, on the white its master's `p:bgRef` resolves to. `compact` sorts an IR object's keys,
+ * so the serialized form is stable.
+ */
+const SEED_LAYOUT_PROPS = JSON.stringify({ background: { color: 'FFFFFF' }, title: 'DEFAULT' })
+
+/**
+ * Whether a source layout is the one the output's constructor seeds: first in the gallery, where
+ * the seed sits, and identical to it. Anything else is re-authored, even a layout named `DEFAULT`,
+ * because binding its slides to the seed would lose what sets it apart.
+ */
+function isSeedLayout(master: MasterIr): boolean {
+	return master.layoutIndex === 0 && JSON.stringify(master.props) === SEED_LAYOUT_PROPS
 }
 
 /** Every slide, in source order, each bound to the master its source layout became. */

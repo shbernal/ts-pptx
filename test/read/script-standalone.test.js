@@ -230,6 +230,27 @@ describe('standalone printer — the emitted script runs, with no template in re
 		)
 		assertEqual(report.undeclared.length, 0, 'no undeclared difference')
 	})
+
+	test('a deck written by this library does not get its seeded DEFAULT layout twice', async () => {
+		// Its gallery opens with the layout the constructor seeds, and the output's constructor seeds
+		// it again. Re-authoring it left two layouts named DEFAULT, so the slide bound to it printed an
+		// `addSlide({ masterTitle: 'DEFAULT' })` that was ambiguous in the output.
+		const bytes = await authored((pptx) => {
+			pptx.defineSlideMaster({ title: 'BRAND', background: { color: '112233' } })
+			pptx.addSlide().addText('on the seed', { x: 1, y: 1, w: 4, h: 1 })
+			pptx.addSlide({ masterTitle: 'BRAND' }).addText('on the brand', { x: 1, y: 1, w: 4, h: 1 })
+		})
+		const { printed, outputIr, report } = await runStandalone(bytes)
+		assert(!/defineSlideMaster\(\{[^\n]*'DEFAULT'/.test(printed.code), 'the seeded layout is not re-authored')
+		assert(printed.code.includes("pptx.addSlide({ masterTitle: 'DEFAULT' })"), 'its slide still binds by name')
+		assert(!printed.notes.some((note) => note.construct === 'master.default'), 'and no extra layout is declared')
+		assertEqual(
+			outputIr.chrome.masters.map((master) => master.props.title).join(),
+			'DEFAULT,BRAND',
+			'the output holds one DEFAULT, where the source had it'
+		)
+		assertEqual(report.undeclared.length, 0, 'no undeclared difference')
+	})
 })
 
 describe('standalone printer — cases the fixture corpus does not contain', () => {

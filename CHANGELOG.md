@@ -890,6 +890,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A standalone script of a deck written by this library gave the output two `DEFAULT`
+  layouts.**
+  - Such a deck's layout gallery opens with the blank `DEFAULT` layout the constructor seeds.
+    `printStandaloneScript` re-authored it with `defineSlideMaster({ title: 'DEFAULT' })` while
+    the output's own constructor seeded another, so a slide bound to it printed
+    `addSlide({ masterTitle: 'DEFAULT' })`, which was ambiguous in the output, and the reader
+    reported the second layout as `DEFAULT (2)`.
+  - A source layout that is the seed, first in the gallery and identical to it, is no longer
+    re-authored, and its slides bind to the output's seed. `master.default` is raised only when
+    the output really gains a layout the source lacked.
+
 - **A combo chart opening with a scatter wrote its categories against the scatter's X values.**
   - A combo's embedded workbook took its label columns and row count from the chart's first
     series. When the first subchart is a scatter, that series is its X row, which carries no
