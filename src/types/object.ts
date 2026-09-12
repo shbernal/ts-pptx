@@ -9,7 +9,13 @@ import type { ImageProps } from './media.js'
 import type { ShapeProps } from './shape.js'
 import type { TextBaseProps, TextProps, TextPropsOptions } from './text.js'
 
-export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNameProps {
+/**
+ * A layout placeholder's options. They reach the slide objects that fill the placeholder as text
+ * options, so beside the text formatting a placeholder takes the shape `fill` (an image fill
+ * included) and the `hyperlink` a text box does, and `bullet` through {@link TextBaseProps}.
+ */
+export interface PlaceholderProps
+	extends PositionProps, TextBaseProps, ObjectNameProps, Pick<TextPropsOptions, 'fill' | 'hyperlink'> {
 	name: string
 	type: PLACEHOLDER_TYPE
 	/**

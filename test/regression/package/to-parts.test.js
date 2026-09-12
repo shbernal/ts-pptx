@@ -92,16 +92,7 @@ describe('toParts()', () => {
 				{ placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.5, w: 9, h: 1 }, text: '' } },
 				{
 					placeholder: {
-						// `PlaceholderProps` does not declare `fill`, but a placeholder honours it at runtime.
-						options: /** @type {any} */ ({
-							name: 'body',
-							type: 'body',
-							x: 0.5,
-							y: 2,
-							w: 9,
-							h: 3,
-							fill: { image: { data: PNG } },
-						}),
+						options: { name: 'body', type: 'body', x: 0.5, y: 2, w: 9, h: 3, fill: { image: { data: PNG } } },
 						text: '',
 					},
 				},

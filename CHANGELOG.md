@@ -879,6 +879,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A master placeholder's `fill` and `hyperlink` were refused by the types.**
+  - A layout placeholder's options reach the slide objects that fill it as text options, so a
+    placeholder honours a `fill` (an image fill included) and a `hyperlink`, and the slide copies
+    them when it seeds an empty placeholder. `PlaceholderProps` declared neither, so a typed
+    `defineSlideMaster({ objects: [{ placeholder: { options: { fill } } }] })` failed with
+    TS2353.
+  - Both are now declared, with the types `addText` gives them. `bullet` already was.
+
 - **A `preserve` or `restyle` import of a page linking to itself copied the page twice.**
   - The rebind builds its page itself and did not enter it in the copy registry before following
     its relationships, so a jump link back to the page missed the registry. The source page was
