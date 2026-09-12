@@ -224,6 +224,40 @@ describe('a graphic frame with no absolute frame is mapped like a shape', () => 
 			'the frame whose position had to be baked in says so; got ' + JSON.stringify(constructs(ir))
 		)
 	})
+
+	test("a custom shape's points are scaled onto the box it is placed at", async () => {
+		// A 2in triangle whose path viewport is doubled, so each path unit is half an EMU. Scaling
+		// took `absoluteFrame`, which the degenerate group makes null, and fell back to a scale of 1:
+		// the shape was placed at its resolved box and its points printed in raw path units.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('custGeom', {
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				points: [
+					{ x: 0, y: 0 },
+					{ x: 2, y: 0 },
+					{ x: 1, y: 2, close: true },
+				],
+			})
+		})
+		const ir = await irWithSlideXml(buf, (xml) => {
+			const shape = /<p:sp>[\s\S]*?<\/p:sp>/.exec(xml)[0]
+			const doubled = shape.replace(/<a:path w="(\d+)" h="(\d+)"/, (_, w, h) => `<a:path w="${w * 2}" h="${h * 2}"`)
+			const group =
+				'<p:grpSp><p:nvGrpSpPr><p:cNvPr id="99" name="Grp"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>' +
+				'<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000" cy="1000"/>' +
+				'<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>' +
+				doubled +
+				'</p:grpSp>'
+			return xml.replace(shape, group)
+		})
+		assert(constructs(ir).includes('shape.frameInherited'), 'the shape took its resolved box')
+		const call = JSON.stringify(ir.slides[0].calls)
+		assert(call.includes('"x":"914400emu"'), 'the far corner lands at half the path width; got ' + call)
+		assert(!call.includes('"x":"1828800emu"'), 'no point is printed in raw path units; got ' + call)
+	})
 })
 
 describe('a shape nothing can place is dropped with a note', () => {

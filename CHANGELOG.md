@@ -879,6 +879,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A converted custom shape inside an uncomposable group printed its points in path units.**
+  - `pptxToScript` scaled a `custGeom` path onto the shape's `absoluteFrame`, which is `null`
+    in a group whose transform cannot be composed, such as one with a zero `a:chExt`. The shape
+    itself was placed at its resolved box, but its points were scaled by 1 and printed in raw
+    path units.
+  - The points are now scaled onto the box the call is placed at.
+
 - **An image or media file whose name contained `preencoded` never reached the deck.**
   - A source given inline as `data` carries a placeholder path that the media pass must not try
     to load, and that pass recognised the placeholder by the word appearing anywhere in the path.

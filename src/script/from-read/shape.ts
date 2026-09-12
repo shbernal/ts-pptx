@@ -37,7 +37,7 @@ import {
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
-import { compact, emu, frameOf, nameOf, positionOptions } from './values.js'
+import { compact, emu, frameOf, nameOf, positionOptions, type ShapeBox } from './values.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
@@ -146,7 +146,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 			'unread',
 			'custGeom guides, adjust handles and connection sites (a:gdLst / a:ahLst / a:cxnLst) have no accessor, so only the path outline carries'
 		)
-		const options = compact({ ...common, points: customGeometryPoints(shape, custom) })
+		const options = compact({ ...common, points: customGeometryPoints(box, custom) })
 		return { method: 'addShape', args: ['custGeom', options ?? {}], ...nameOf(shape) }
 	}
 
@@ -204,16 +204,19 @@ function adjustOptions(shape: AutoShape): Record<string, IrValue | undefined> {
  * `custGeom` path commands as the write API's `points` array.
  *
  * Path coordinates are integers in the path's own `0..w`/`0..h` viewport, not EMU, so each
- * is scaled onto the shape's box before being printed as EMU. A path that declares no
- * viewport (`@w`/`@h` of 0) is already in the shape's own space and passes through.
+ * is scaled onto the box the call is placed at before being printed as EMU. A path that
+ * declares no viewport (`@w`/`@h` of 0) is already in the shape's own space and passes through.
+ *
+ * The box is the one {@link frameOf} placed the call at, not `absoluteFrame`: in a group whose
+ * transform cannot be composed that is `null`, the shape is placed at its resolved box, and
+ * scaling by 1 would print its points in raw path units.
  */
-function customGeometryPoints(shape: AutoShape, custom: CustomGeometry): IrValue {
-	const frame = shape.absoluteFrame
+function customGeometryPoints(box: ShapeBox, custom: CustomGeometry): IrValue {
 	const points: IrValue[] = []
 
 	for (const path of custom.paths) {
-		const sx = path.w > 0 && frame ? frame.width / path.w : 1
-		const sy = path.h > 0 && frame ? frame.height / path.h : 1
+		const sx = path.w > 0 ? box.width / path.w : 1
+		const sy = path.h > 0 ? box.height / path.h : 1
 		const px = (v: number): string => emu(v * sx)
 		const py = (v: number): string => emu(v * sy)
 
