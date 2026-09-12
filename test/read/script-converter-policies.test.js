@@ -184,6 +184,40 @@ describe('an unwritable scheme token is baked and noted, not passed through raw'
 		assert(/^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
 	})
 
+	/** A shape with a pattern fill whose foreground is `fgColor`, authored and read back. */
+	const patternDeck = (fgColor) =>
+		authorRead((pres) => {
+			pres.addSlide().addShape('rect', {
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				fill: { type: 'pattern', pattern: { preset: 'pct50', fgColor, bgColor: 'FFFFFF' } },
+			})
+		})
+
+	test("a pattern's writable token stays a token", async () => {
+		// The pattern emitter writes a token as `a:schemeClr`, but the read model reported only the
+		// resolved hex, so a theme-coloured hatch was baked with nothing to tell it from a literal.
+		const { presentation } = await patternDeck('accent2')
+		const ir = readModelToIr(presentation)
+		const pattern = effectOf(ir, 'fill')?.pattern
+		assertEqual(pattern?.fgColor, 'accent2', 'the foreground keeps its token')
+		assertEqual(pattern?.bgColor, 'FFFFFF', 'and a literal background stays a literal')
+		assert(!constructs(ir).includes('fill.pattern.schemeToken'), 'and nothing is noted')
+	})
+
+	test("a pattern's unwritable token is baked and noted", async () => {
+		const { buf } = await patternDeck('accent2')
+		const ir = await irWithSlideXml(buf, (xml) => xml.replaceAll('val="accent2"', 'val="dk1"'))
+		assert(
+			constructs(ir).includes('fill.pattern.schemeToken'),
+			'the pattern bake is noted; got ' + JSON.stringify(constructs(ir))
+		)
+		const color = effectOf(ir, 'fill')?.pattern?.fgColor
+		assert(/^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
+	})
+
 	test('a writable token still passes through as a token', async () => {
 		// The point of preferring the token is that the copy keeps tracking its theme, so the
 		// guard has to prove the bake is the exception rather than the rule.

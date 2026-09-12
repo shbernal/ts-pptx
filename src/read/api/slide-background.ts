@@ -24,7 +24,7 @@ import type { Relationships } from '../opc/relationships.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
-import { readPatternFill } from './pattern-fill.js'
+import { readPatternFill, type PatternFill } from './pattern-fill.js'
 import { cSldOf } from '../oxml/slide-dom.js'
 
 /** Where a slide's effective background comes from in the slide → layout → master chain. */
@@ -44,7 +44,7 @@ export type BackgroundFill =
 	| { type: 'solid'; color: ResolvedColor | null }
 	| { type: 'gradient'; gradient: GradientFill }
 	| { type: 'image'; picture: PictureFill; relId: string | null; partName: string | null }
-	| { type: 'pattern'; preset: string | null; foreground: ResolvedColor | null; background: ResolvedColor | null }
+	| ({ type: 'pattern' } & PatternFill)
 	| { type: 'none' }
 
 /**
@@ -60,13 +60,7 @@ export type SlideBackground =
 	| { type: 'solid'; source: BackgroundSource; color: ResolvedColor | null }
 	| { type: 'gradient'; source: BackgroundSource; gradient: GradientFill }
 	| { type: 'image'; source: BackgroundSource; picture: PictureFill; relId: string | null; partName: string | null }
-	| {
-			type: 'pattern'
-			source: BackgroundSource
-			preset: string | null
-			foreground: ResolvedColor | null
-			background: ResolvedColor | null
-	  }
+	| ({ type: 'pattern'; source: BackgroundSource } & PatternFill)
 	| {
 			type: 'themeRef'
 			source: BackgroundSource
@@ -98,7 +92,7 @@ function decodeBackgroundFill(container: Element, ctx: ThemeContext, rels: Relat
 	if (picture) return { type: 'image', picture, relId: picture.relId, partName: picture.partName }
 
 	const patt = readPatternFill(container, ctx)
-	if (patt) return { type: 'pattern', preset: patt.preset, foreground: patt.foreground, background: patt.background }
+	if (patt) return { type: 'pattern', ...patt }
 
 	return { type: 'none' }
 }

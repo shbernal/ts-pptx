@@ -58,6 +58,8 @@ describe('slide background — imported-only p:bg variants', () => {
 		assertEqual(bg.foreground?.effectiveHex, 'C00000', 'the literal fgClr resolves')
 		// bgClr is a token, so it exercises the colour-map + scheme walk, not just a literal.
 		assertEqual(bg.background?.effectiveHex, 'FFFFFF', 'the bgClr schemeClr resolves through bg1 → lt1 → white')
+		assertEqual(bg.backgroundSchemeColor, 'bg1', 'and its token is reported beside the resolution')
+		assertEqual(bg.foregroundSchemeColor, null, 'a literal fgClr has no token')
 	})
 
 	test('a pattFill with no prst and no colour wrappers reads all-null, not undefined', async () => {
@@ -66,6 +68,8 @@ describe('slide background — imported-only p:bg variants', () => {
 		assertEqual(bg.preset, null, 'a missing @prst reads null')
 		assertEqual(bg.foreground, null, 'a missing a:fgClr reads null')
 		assertEqual(bg.background, null, 'a missing a:bgClr reads null')
+		assertEqual(bg.foregroundSchemeColor, null, 'and neither side has a token')
+		assertEqual(bg.backgroundSchemeColor, null, 'and neither side has a token')
 	})
 
 	test('an explicit a:noFill is a transparent background, not an absent one', async () => {

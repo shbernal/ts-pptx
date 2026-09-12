@@ -9,6 +9,7 @@
  * {@link import('./picture-fill.js').readPictureFill} are shared.
  */
 import { attr, firstChild, firstChildElement, type Element } from '../oxml/dom.js'
+import { colorValueIf } from '../oxml/fill.js'
 import type { ColorContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 
@@ -16,15 +17,20 @@ import { resolveColorElement, type ResolvedColor } from './theme-context.js'
  * A pattern fill (`a:pattFill`) — a two-colour preset hatch. The write-side
  * `fill: { type: 'pattern', pattern: { preset, fgColor, bgColor } }` emits the same element,
  * so the {@link preset} name and both colours round-trip. Colours resolve against the theme
- * (a scheme token → literal hex) the same way a solid fill does.
+ * (a scheme token → literal hex) the same way a solid fill does, and a scheme colour's token is
+ * reported beside its resolution, the split {@link import('./gradient.js').GradientStop} makes.
  */
 export interface PatternFill {
 	/** Preset pattern name (`@prst`, e.g. `pct50`/`diagCross`/`ltUpDiag`), or `null` when unset. */
 	preset: string | null
 	/** Foreground colour (`a:fgClr`) resolved against the theme, or `null`. */
 	foreground: ResolvedColor | null
+	/** Theme colour token of the foreground (`a:fgClr/a:schemeClr/@val`), or `null` for another colour model. */
+	foregroundSchemeColor: string | null
 	/** Background colour (`a:bgClr`) resolved against the theme, or `null`. */
 	background: ResolvedColor | null
+	/** Theme colour token of the background (`a:bgClr/a:schemeClr/@val`), or `null` for another colour model. */
+	backgroundSchemeColor: string | null
 }
 
 /**
@@ -36,14 +42,17 @@ export interface PatternFill {
 export function readPatternFill(container: Element, ctx: ColorContext): PatternFill | null {
 	const patt = firstChild(container, 'a:pattFill')
 	if (!patt) return null
-	const wrapColor = (qname: string): ResolvedColor | null => {
+	const colorOf = (qname: string): Element | null => {
 		const wrap = firstChild(patt, qname)
-		const colorEl = wrap && firstChildElement(wrap)
-		return colorEl ? resolveColorElement(colorEl, ctx) : null
+		return wrap ? firstChildElement(wrap) : null
 	}
+	const foreground = colorOf('a:fgClr')
+	const background = colorOf('a:bgClr')
 	return {
 		preset: attr(patt, 'prst') ?? null,
-		foreground: wrapColor('a:fgClr'),
-		background: wrapColor('a:bgClr'),
+		foreground: foreground ? resolveColorElement(foreground, ctx) : null,
+		foregroundSchemeColor: colorValueIf(foreground, 'schemeClr'),
+		background: background ? resolveColorElement(background, ctx) : null,
+		backgroundSchemeColor: colorValueIf(background, 'schemeClr'),
 	}
 }

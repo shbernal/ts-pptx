@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A pattern fill reports each colour's theme token, and `pptxToScript` keeps it.**
+  - `PatternFill.foregroundSchemeColor` and `backgroundSchemeColor` read the `a:schemeClr`
+    token of `a:fgClr` and `a:bgClr`, beside the resolved colours, the split `GradientStop`
+    already makes. `foreground` and `background` carry only the resolved hex, so a
+    theme-coloured hatch could not be told from a literal one. A slide background's `pattern`
+    variant carries both fields too.
+  - The script converter gave both colours as hex, so a converted hatch stopped tracking its
+    theme with nothing to say so. A token the write path maps is now kept as a token, which the
+    pattern emitter writes as `a:schemeClr`, and any other token is baked to hex and noted as
+    `fill.pattern.schemeToken`, or its table and cell twins.
+
 - **The chart read model reads scatter, bubble and multi-level data, and the labels a series
   carries itself.**
   - `ChartSeries.xValues`, `yValues` and `bubbleSizes` read `c:xVal`, `c:yVal` and

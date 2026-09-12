@@ -88,17 +88,21 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
  * names no preset — `a:pattFill/@prst` is what selects the hatch, so without it there is
  * nothing to reproduce.
  *
- * Both colours are emitted as literals rather than scheme tokens: `PatternFillProps` types
- * `fgColor`/`bgColor` as hex, so a token would not survive the write side anyway.
+ * Each colour takes the ladder every other colour does. `PatternFillProps.fgColor`/`bgColor` are
+ * `Color`, and the pattern emitter writes a token as `a:schemeClr`, so a writable token stays a
+ * token. Both used to be baked to hex, and a theme-coloured hatch could not be told from a literal
+ * one, so the copy stopped tracking its theme with nothing to say so.
  */
-function patternOption(pattern: PatternFill | null): IrValue | undefined {
+function patternOption(pattern: PatternFill | null, notes: NoteScope, where: FillSurface): IrValue | undefined {
 	if (!pattern?.preset) return undefined
+	const color = (scheme: string | null, resolved: ResolvedColor | null, label: string): string | undefined =>
+		colorOption({ scheme, resolvedHex: resolved?.effectiveHex ?? null }, notes, `${where}.pattern.schemeToken`, label)
 	return {
 		type: 'pattern',
 		pattern: compact({
 			preset: pattern.preset,
-			fgColor: pattern.foreground ? literalColor(pattern.foreground.effectiveHex) : undefined,
-			bgColor: pattern.background ? literalColor(pattern.background.effectiveHex) : undefined,
+			fgColor: color(pattern.foregroundSchemeColor, pattern.foreground, 'pattern foreground'),
+			bgColor: color(pattern.backgroundSchemeColor, pattern.background, 'pattern background'),
 		}) ?? { preset: pattern.preset },
 	}
 }
@@ -180,7 +184,7 @@ export function surfaceFill(
 		if (stops) return { type: 'gradient', gradient: stops }
 	}
 
-	const pattern = patternOption(subject.patternFill)
+	const pattern = patternOption(subject.patternFill, notes, where)
 	if (pattern) return pattern
 
 	const picture = subject.pictureFill

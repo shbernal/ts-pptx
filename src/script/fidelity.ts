@@ -145,6 +145,9 @@ export const NOTE_CONSTRUCTS = {
 	// round trip is here to catch.
 	'fill.picture.geometry': { fields: [], tiers: BOTH_TIERS },
 	'fill.gradient.schemeToken': { fields: ['gradient', 'fill'], tiers: BOTH_TIERS },
+	// A hatch colour outside the tokens the write path maps, baked to a literal. The table twins
+	// below are scoped to their own option, like the gradient-stop ones.
+	'fill.pattern.schemeToken': { fields: ['fill.pattern.fgColor', 'fill.pattern.bgColor'], tiers: BOTH_TIERS },
 	'fill.schemeToken': { fields: ['fill', 'fill.color'], tiers: BOTH_TIERS },
 	// The outline's twin on a glow, and `shadow.schemeToken` below on a shadow: a colour outside the
 	// ten tokens, baked to a literal.
@@ -269,9 +272,17 @@ export const NOTE_CONSTRUCTS = {
 	// shape spelling, so a table gradient recorded `fill.gradient.schemeToken` while its
 	// difference landed on `tableFill` and the note could never match it.
 	'table.fill.gradient.schemeToken': { fields: ['tableFill'], tiers: BOTH_TIERS },
+	'table.fill.pattern.schemeToken': {
+		fields: ['tableFill.pattern.fgColor', 'tableFill.pattern.bgColor'],
+		tiers: BOTH_TIERS,
+	},
 	'table.cell.fill.gradient': { fields: ['fill'], tiers: BOTH_TIERS },
 	'table.cell.fill.gradient.path': { fields: ['fill'], tiers: BOTH_TIERS },
 	'table.cell.fill.gradient.schemeToken': { fields: ['fill'], tiers: BOTH_TIERS },
+	'table.cell.fill.pattern.schemeToken': {
+		fields: ['fill.pattern.fgColor', 'fill.pattern.bgColor'],
+		tiers: BOTH_TIERS,
+	},
 	// Narrowed to the East-Asian `ST_TextVerticalType` modes `textDirection` cannot spell —
 	// the four it can now round-trip, so this no longer excuses every vertical cell.
 	'table.cell.vert': { fields: ['textDirection', 'vert'], tiers: BOTH_TIERS },

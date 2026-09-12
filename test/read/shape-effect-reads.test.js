@@ -266,6 +266,19 @@ describe('Shape.patternFill — preset hatch reads', () => {
 		assertEqual(pat.preset, 'diagCross', 'the preset pattern name is surfaced')
 		assertEqual(pat.foreground.effectiveHex, 'C00000', 'foreground resolved to literal hex')
 		assertEqual(pat.background.effectiveHex, 'FFFF00', 'background resolved to literal hex')
+		assertEqual(pat.foregroundSchemeColor, null, 'a literal colour has no token')
+	})
+
+	test('a scheme colour reports its token, whether or not it resolves', () => {
+		// The resolved colour alone cannot tell a theme-coloured hatch from a literal one. This shape
+		// has no theme to resolve against, so the token is all there is.
+		const pat = sp(
+			`<p:spPr><a:pattFill prst="pct50"><a:fgClr><a:schemeClr val="accent1"/></a:fgClr>` +
+				`<a:bgClr><a:srgbClr val="FFFFFF"/></a:bgClr></a:pattFill></p:spPr>`
+		).patternFill
+		assertEqual(pat.foregroundSchemeColor, 'accent1', 'the foreground token is surfaced')
+		assertEqual(pat.backgroundSchemeColor, null, 'a literal background has no token')
+		assertEqual(pat.background.effectiveHex, 'FFFFFF', 'and resolves as before')
 	})
 
 	test('a pattern with missing fg/bg colours reports null for the absent side', () => {
