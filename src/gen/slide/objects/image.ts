@@ -16,7 +16,7 @@ import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlChild } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
-import { fractionToFixedPercent, getSmartParseNumber, transparencyToAlpha } from '../../../units-internal.js'
+import { fractionToFixedPercent, getSmartParseNumber, mapStated, transparencyToAlpha } from '../../../units-internal.js'
 import { warn } from '../../../diagnostics.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 import { imageNaturalSize, resolveImageExtent } from './image-extent.js'
@@ -78,9 +78,9 @@ export function renderImageObject(ctx: RenderContext): string {
 	// NOTE: the SVG branch writes ` <a:alphaModFix` with a LEADING space and the raster branch
 	// writes none. That space is byte-significant, so it is passed in rather than normalized away.
 	const blipEffects = (alphaPrefix: string): XmlChild[] => [
-		imgOpts.transparency
-			? raw(voidEl('a:alphaModFix', { amt: transparencyToAlpha(imgOpts.transparency) }, { openPrefix: alphaPrefix }))
-			: null,
+		mapStated(imgOpts.transparency, (transparency) =>
+			raw(voidEl('a:alphaModFix', { amt: transparencyToAlpha(transparency) }, { openPrefix: alphaPrefix }))
+		) ?? null,
 		imgOpts.duotone
 			? raw(
 					el('a:duotone', null, [

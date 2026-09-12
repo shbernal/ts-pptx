@@ -23,7 +23,7 @@ import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
 import { validateHyperlink } from '../define/hyperlinks.js'
-import { inch2Emu, lineWidthToEmu, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
+import { inch2Emu, lineWidthToEmu, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -378,7 +378,12 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		// OPTION: tabStops
 		if (opts.tabStops && Array.isArray(opts.tabStops)) {
 			const tabStopsXml = opts.tabStops
-				.map((stop) => voidEl('a:tab', { pos: inch2Emu(stop.position || 1), algn: stop.alignment || 'l' }))
+				.map((stop) =>
+					voidEl('a:tab', {
+						pos: inch2Emu(mapStated(stop.position, (position) => position) ?? 1),
+						algn: stop.alignment || 'l',
+					})
+				)
 				.join('')
 			strXmlTabStops = el('a:tabLst', null, raw(tabStopsXml))
 		}
@@ -419,7 +424,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		lang: opts.lang ? opts.lang : 'en-US',
 		altLang: opts.lang ? 'en-US' : null,
 		// NOTE: clamp+round so sizes like '7.5' or out-of-range values wont cause corrupt presentations
-		sz: opts.fontSize ? clampFontSizeSz(opts.fontSize) : null,
+		sz: mapStated(opts.fontSize, clampFontSizeSz) ?? null,
 		// NOTE: `b`/`i` were written as `opts.bold ? '1' : '0'` inside a truthiness guard, so the
 		// "0" arm was unreachable — the emitted value is always "1".
 		b: xsdBoolIfTrue(opts?.bold),
@@ -447,7 +452,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		if (opts.outline && typeof opts.outline === 'object') {
 			runProps += el(
 				'a:ln',
-				{ w: lineWidthToEmu(opts.outline.size || 0.75) },
+				{ w: lineWidthToEmu(mapStated(opts.outline.size, (size) => size) ?? 0.75) },
 				raw(genXmlColorSelection(namedColorOr(opts.outline.color, 'FFFFFF', 'outline.color')))
 			)
 		}

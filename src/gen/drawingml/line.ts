@@ -190,7 +190,7 @@ export function withLineDefaults(line: ShapeLineProps, colorLabel: string): Shap
 	const resolved: ShapeLineProps = {
 		...line,
 		type: kind,
-		transparency: line.transparency || 0,
+		transparency: mapStated(line.transparency, (transparency) => transparency) ?? 0,
 		width: mapStated(line.width, (width) => width) ?? 1,
 		dashType: line.dashType || 'solid',
 	}

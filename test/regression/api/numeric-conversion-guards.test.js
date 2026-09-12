@@ -89,14 +89,15 @@ defineRegressionSuite('Numeric conversion guards', [
 		},
 	},
 	{
-		// `NaN` never reaches the converter on these paths -- every caller guards on truthiness,
-		// and `NaN` is falsy, so the option reads as absent and the attribute is simply omitted.
-		// Pinned because it is the reason the guard above is written against `Infinity`.
-		name: 'a NaN fontSize reads as absent, leaving no sz at all',
+		// `fontSize` used to be tested for truthiness, so `NaN` read as absent and the run took the
+		// inherited size without a word while `Infinity` on the same option threw.
+		name: 'a NaN fontSize is refused rather than read as absent',
 		fn: async () => {
-			const { zip } = await build((p) => p.addSlide().addText('x', { ...BOX, fontSize: NaN }))
-			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			assert(!/sz="(NaN|Infinity)"/.test(xml), 'no degenerate sz reaches the part; got: ' + xml.slice(0, 400))
+			assertEqual(
+				await codeFrom((p) => p.addSlide().addText('x', { ...BOX, fontSize: NaN })),
+				'coord/non-finite',
+				'NaN font size'
+			)
 		},
 	},
 	{
@@ -220,6 +221,49 @@ defineRegressionSuite('Numeric conversion guards', [
 					label: 'fill transparency',
 					code: 'percent/non-finite',
 					buildFn: (p) => p.addSlide().addShape('rect', { ...BOX, fill: { color: 'FF0000', transparency: NaN } }),
+				},
+			]
+			for (const { label, code, buildFn } of cases) assertEqual(await codeFrom(buildFn), code, label)
+		},
+	},
+	{
+		// The same truthiness guard stood in front of these: a NaN line transparency painted opaque,
+		// a NaN text outline took the 0.75pt default, a NaN image rotation or transparency was dropped
+		// and a NaN tab stop landed at one inch.
+		name: 'a NaN line transparency, outline size, image rotation or transparency, or tab stop is refused',
+		fn: async () => {
+			const png =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const cases = [
+				{
+					label: 'shape line transparency',
+					code: 'percent/non-finite',
+					buildFn: (p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', transparency: NaN } }),
+				},
+				{
+					label: 'text line transparency',
+					code: 'percent/non-finite',
+					buildFn: (p) => p.addSlide().addText('x', { ...BOX, line: { color: 'FF0000', transparency: NaN } }),
+				},
+				{
+					label: 'text outline size',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addText('x', { ...BOX, outline: { color: 'FF0000', size: NaN } }),
+				},
+				{
+					label: 'image rotate',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addImage({ ...BOX, data: png, rotate: NaN }),
+				},
+				{
+					label: 'image transparency',
+					code: 'percent/non-finite',
+					buildFn: (p) => p.addSlide().addImage({ ...BOX, data: png, transparency: NaN }),
+				},
+				{
+					label: 'tab stop position',
+					code: 'coord/non-finite',
+					buildFn: (p) => p.addSlide().addText('x', { ...BOX, tabStops: [{ position: NaN }] }),
 				},
 			]
 			for (const { label, code, buildFn } of cases) assertEqual(await codeFrom(buildFn), code, label)

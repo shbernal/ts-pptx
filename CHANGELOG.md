@@ -275,13 +275,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking: a `NaN` option is refused, an infinite length clamps, and a coordinate outside
   the DrawingML range throws.**
-  - `rotate`, a shape or text `line.width`, a `margin` component, a fill `transparency`,
-    `titleRotate`, `catAxisLabelRotate`, `valAxisLabelRotate`, a chart border `width` and
-    `lineDataSymbolLineSize` tested their value for truthiness before converting it. `NaN` is
-    falsy, so it was dropped or took the default without a word, while `Infinity` on the same
-    option threw. `NaN` now throws `InvalidOptionError` with `coord/non-finite`, or
-    `percent/non-finite` for a transparency. `0` and an absent value still mean "not stated",
-    so `rotate: 0` writes no `rot` and `line.width: 0` still takes the 1pt default.
+  - `rotate` (an image's included), a shape or text `line.width` and `line.transparency`, a
+    `margin` component, a fill or image `transparency`, `fontSize`, a text `outline.size`, a
+    tab stop `position`, `titleRotate`, `catAxisLabelRotate`, `valAxisLabelRotate`, a chart
+    border `width` and `lineDataSymbolLineSize` tested their value for truthiness before
+    converting it. `NaN` is falsy, so it was dropped or took the default without a word, while
+    `Infinity` on the same option threw. `NaN` now throws `InvalidOptionError` with
+    `coord/non-finite`, or `percent/non-finite` for a transparency. `0` and an absent value
+    still mean "not stated", so `rotate: 0` writes no `rot` and `line.width: 0` still takes the
+    1pt default.
   - A line width, shadow `blur` or `offset`, or glow `size` given as `Infinity` clamps to the top
     of its schema range and warns, like any other value past it. `NaN` throws
     `coord/non-finite`. Both used to become `0` silently. A string that does not read as a
