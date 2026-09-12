@@ -133,14 +133,17 @@ export function nextDrawingId(root: Element | null | undefined): number {
 }
 
 /**
- * Give every drawing in `subtrees` a fresh id counting up from `nextId`, and repoint each connector
- * binding (`a:stCxn`/`a:endCxn`) that named a drawing inside them.
+ * Give every drawing in `subtrees` a fresh id counting up from `nextId`, repoint each connector
+ * binding (`a:stCxn`/`a:endCxn`) that named a drawing inside them, and drop each binding that named
+ * a drawing outside them.
  *
  * For shapes being carried into another tree, whose source ids mean nothing there. A drawing id is
  * what an animation's `spid` and a connector's bindings name a shape by, so a carried shape that
  * kept its id could share it with a shape already on the slide, and a binding inside a renumbered
- * subtree that kept the old id named a different shape. A binding naming a drawing outside
- * `subtrees` is left as it is: nothing here knows what it should name instead.
+ * subtree that kept the old id named a different shape. A binding to a drawing that was not carried
+ * has nothing to name in the new tree: kept, its source id named whatever shape holds that id there,
+ * including one inside the carried subtree once renumbering hands out small ids. The connector keeps
+ * its geometry and lands unbound, which is how PowerPoint leaves a connector whose shape is deleted.
  *
  * Pass every subtree carried together, so a connector bound to a sibling subtree is repointed too.
  * @returns the next unused id, and each old id's new one (for remapping a carried animation's `spid`)
@@ -160,10 +163,12 @@ export function reassignDrawingIds(
 	}
 	for (const root of subtrees) {
 		for (const local of ['stCxn', 'endCxn']) {
-			for (const binding of root.getElementsByTagNameNS(OOXML_NS.a, local)) {
+			// Copied out first: removing a binding from a live collection skips the one after it.
+			for (const binding of Array.from(root.getElementsByTagNameNS(OOXML_NS.a, local))) {
 				const oldId = numberValue(attr(binding, 'id'))
 				const newId = oldId === null ? undefined : map.get(oldId)
-				if (newId !== undefined) setAttr(binding, 'id', String(newId))
+				if (newId === undefined) binding.parentNode?.removeChild(binding)
+				else setAttr(binding, 'id', String(newId))
 			}
 		}
 	}

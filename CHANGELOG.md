@@ -879,6 +879,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An imported connector could come out bound to the wrong shape.**
+  - `importShape` and `carryMasterGraphics` renumber the drawings they carry and repoint each
+    connector binding (`a:stCxn`/`a:endCxn`) that names one of them. A binding naming a shape
+    the import did not carry kept its source id, which on the destination slide named some other
+    shape, or, once renumbering handed out small ids, a shape inside the carried group itself.
+    `mixed.pptx` slide 5 shape 3, imported onto slide 1, came out bound to its own group.
+  - Such a binding is now dropped. The connector keeps its geometry and lands unbound, as
+    PowerPoint leaves a connector whose shape is deleted.
+
 - **A paged table stated at `y: 0` lost the top half inch of its first page.**
   - The pager budgeted the first page from `y || margin`, so `addTable({ y: 0, autoPage: true })`
     was paged as if it started at the 0.5in top margin while the table was placed at 0, leaving
