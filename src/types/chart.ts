@@ -280,7 +280,9 @@ export interface ChartPropsBase {
 	 * Enable data labels, with a meaning that is **overloaded per plot type** — it is not a
 	 * plain duplicate of {@link ChartPropsBase.showValue}:
 	 * - pie / doughnut: shows the **category name** (`c:showCatName`);
-	 * - scatter: shows **both** the value and the category name;
+	 * - scatter: turns on the labels {@link ChartPropsDataLabel.dataLabelFormatScatter} describes,
+	 *   and shows nothing without it: `'XY'` shows both the value and the category name, and
+	 *   `'custom'`/`'customXY'` show each point's label text;
 	 * - chartEx (waterfall/funnel/…): OR-combined with `showValue` to show the **value** label.
 	 *
 	 * For the common "show the numeric value" case on standard plots, prefer `showValue`.
@@ -939,6 +941,14 @@ export interface ChartPropsDataLabel {
 	 * @example '$0.00' // shows values as '$0.00'
 	 */
 	dataLabelFormatCode?: string
+	/**
+	 * What a scatter's data labels show when {@link ChartPropsBase.showLabel} is set. A scatter
+	 * writes series labels only for one of these, so `showLabel` alone shows nothing.
+	 * - `'XY'`: each point's value and category name, composed by PowerPoint;
+	 * - `'custom'`: each point's label text;
+	 * - `'customXY'`: each point's label text followed by its X and Y values, for a label that is
+	 *   not blank.
+	 */
 	dataLabelFormatScatter?: 'custom' | 'customXY' | 'XY'
 	/**
 	 * Where a data label sits relative to its point (`ST_DLblPos`).
