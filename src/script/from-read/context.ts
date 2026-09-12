@@ -44,9 +44,14 @@ export interface MapContext {
  * emitted script find the shape a loss belongs to. Callers used to re-derive this inline as
  * `notes.forShape(shape.name || null)`, sometimes twice in one function and once in a callee
  * that already had a scoped one.
+ *
+ * An unnamed shape scopes to `''`, not `null`. `null` is how a slide or deck note is scoped, and
+ * the round trip matches such a note's fields from the root of the diff, where a shape's
+ * `line.width` is never found, so a correctly noted loss on an unnamed shape was reported as
+ * undeclared.
  * @param ctx - the enclosing context
- * @param shape - the shape to scope to; an unnamed one scopes to `null`
+ * @param shape - the shape to scope to; an unnamed one scopes to `''`
  */
 export function forShape(ctx: MapContext, shape: { name: string | null }): MapContext {
-	return { notes: ctx.notes.forShape(shape.name || null), assets: ctx.assets }
+	return { notes: ctx.notes.forShape(shape.name || ''), assets: ctx.assets }
 }

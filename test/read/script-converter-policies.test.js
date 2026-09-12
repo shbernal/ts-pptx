@@ -132,6 +132,23 @@ describe('an unwritable scheme token is baked and noted, not passed through raw'
 		assert(color !== 'dk1' && /^[0-9A-F]{6}$/.test(String(color)), `the token is baked to hex; got ${color}`)
 	})
 
+	test("an unnamed shape's note is scoped to that shape, not to the slide", async () => {
+		// A shape with an empty `p:cNvPr/@name` scoped its notes to `null`, the spelling of a slide
+		// note, so the round trip matched their fields from the root and found nothing. PowerPoint
+		// always names a shape; a generator that does not is what this stands in for.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 2, line: { color: 'accent4', width: 2 } })
+		})
+		const ir = await irWithSlideXml(buf, (xml) =>
+			xml
+				.replaceAll('val="accent4"', 'val="dk1"')
+				.replace(/(<p:sp>\s*<p:nvSpPr>\s*<p:cNvPr [^>]*?)name="[^"]*"/, '$1name=""')
+		)
+		const note = ir.fidelity.find((entry) => entry.construct === 'line.schemeToken')
+		assert(note, 'the outline bake is noted; got ' + JSON.stringify(constructs(ir)))
+		assertEqual(note.shapeName, '', 'scoped to the unnamed shape')
+	})
+
 	/** A shape with an outer shadow in `color`, authored and read back. */
 	const shadowDeck = (color) =>
 		authorRead((pres) => {

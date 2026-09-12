@@ -612,7 +612,7 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
 	const { notes } = ctx
 	// The connector arm bypasses `shapeCall`, so it carries the hidden check with it.
 	if (isConnector(shape)) {
-		const scoped = notes.forShape(shape.name || null)
+		const scoped = notes.forShape(shape.name || '')
 		if (shape.hidden) {
 			noteHidden(scoped)
 			return null
@@ -641,7 +641,7 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
 			// that invariant if `chartCall` ever loosens.
 			if (type === undefined || first === undefined) {
 				notes
-					.forShape(shape.name || null)
+					.forShape(shape.name || '')
 					.note(
 						'decoration',
 						'dropped',
@@ -654,7 +654,7 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
 		}
 		default:
 			notes
-				.forShape(shape.name || null)
+				.forShape(shape.name || '')
 				.note(
 					'decoration',
 					'dropped',

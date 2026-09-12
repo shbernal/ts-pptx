@@ -390,7 +390,10 @@ export type Cause =
 export interface FidelityNote {
 	/** 1-based source slide, or `null` for a deck-level loss. */
 	slideNumber: number | null
-	/** Source shape name (`p:cNvPr/@name`), or `null` when the loss is not shape-scoped. */
+	/**
+	 * Source shape name (`p:cNvPr/@name`), `''` for a shape that has none, or `null` when the loss is
+	 * not shape-scoped.
+	 */
 	shapeName: string | null
 	/**
 	 * Stable dotted identifier for the lost construct — `line.width`, `text.tabStops`,

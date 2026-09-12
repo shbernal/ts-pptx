@@ -258,7 +258,7 @@ function collectObjects(shapes: AnyShape[], out: IrValue[], ctx: MapContext): vo
 
 		if (isGroupShape(shape)) {
 			notes
-				.forShape(shape.name || null)
+				.forShape(shape.name || '')
 				.note(
 					'group',
 					'flattened',

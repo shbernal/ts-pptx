@@ -890,6 +890,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A noted loss on an unnamed shape was reported as undeclared by `diffDeckIr`.**
+  - The converter scoped a shape's notes by its name and used `null` for a shape with an empty
+    `p:cNvPr/@name`, which is how a slide or deck note is scoped. `diffDeckIr` matches such a
+    note's fields from the root of the diff, where a shape's `line.width` or `fill` never is, so a
+    deck from a generator that leaves names empty failed the round trip on losses it declared.
+  - Breaking for a caller reading `FidelityNote.shapeName`: a note on an unnamed shape now carries
+    `''`, and `null` means only that the loss is not shape-scoped. Such a note covers the
+    differences on the unnamed shapes of its slide, and neither a named shape nor the slide's own
+    properties.
+
 - **A standalone script of a deck written by this library gave the output two `DEFAULT`
   layouts.**
   - Such a deck's layout gallery opens with the blank `DEFAULT` layout the constructor seeds.

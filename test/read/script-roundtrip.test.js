@@ -190,6 +190,37 @@ describe('script round trip — a note covers a PATH, not a key at any depth', (
 		assertEqual(report.undeclared.length, 0, 'the note names exactly this width')
 	})
 
+	/** Strip the source shape name from slide 1's text call on both sides, as an unnamed shape reads. */
+	const unname = (before, after) => {
+		for (const deck of [before, after]) deck.slides[0].calls.find((c) => c.method === 'addText').shapeName = null
+	}
+
+	test('a note on an unnamed shape excuses its own difference', async () => {
+		// An unnamed shape used to scope its notes to `null`, the scope of a slide note, whose fields
+		// match from the root of the diff, where a shape's `line.width` never is. A correctly noted loss
+		// was reported as undeclared.
+		const [before, after] = await pair('textbox.pptx')
+		unname(before, after)
+		perturbLeaf(before, after, 'line', { width: 1 }, { width: 3 })
+
+		const report = diffDeckIr(before, after, note('line.width', ''))
+		assertEqual(report.differences.length, 1, 'exactly one difference, on the outline width')
+		assertEqual(report.undeclared.length, 0, 'the unnamed shape note declares it')
+	})
+
+	test('a note on an unnamed shape does not excuse a named shape, nor the slide itself', async () => {
+		const [named, namedAfter] = await pair('textbox.pptx')
+		perturbLeaf(named, namedAfter, 'line', { width: 1 }, { width: 3 })
+		assertEqual(diffDeckIr(named, namedAfter, note('line.width', '')).undeclared.length, 1, 'a named shape is not it') // prettier-ignore
+
+		// `shape.hidden` covers every field, so matched against anything but a call it would excuse a
+		// slide's own `hidden` flag.
+		const [before, after] = await pair('textbox.pptx')
+		unname(before, after)
+		after.slides[0].hidden = !before.slides[0].hidden
+		assertEqual(diffDeckIr(before, after, note('shape.hidden', '')).undeclared.length, 1, 'nor is the slide') // prettier-ignore
+	})
+
 	test("the write path's docProps defaults do not excuse a title one level down", async () => {
 		const [before, after] = await pair('textbox.pptx')
 		const call = after.slides[0].calls.find((c) => c.method === 'addText')

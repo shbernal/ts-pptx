@@ -536,6 +536,20 @@ function specCovers(spec: string, difference: IrDifference, anchor: 'suffix' | '
 	return wanted.every((segment, index) => segment === keys[keys.length - wanted.length + index])
 }
 
+/**
+ * Whether the shape a shape-scoped note names is the one a difference sits on: the call itself, or
+ * a group child inside it.
+ *
+ * A shape with no name of its own is scoped as `''`, and its call carries no name to match, so a
+ * note on one covers the unnamed calls on its slide and nothing else. Not a named shape, and not
+ * the slide's own keys either, which a `*` note would otherwise excuse. An unnamed group child is
+ * not matched through its group: the group's call names no such child.
+ */
+function coversShape(shapeName: string, difference: IrDifference): boolean {
+	if (shapeName === '') return difference.shapeName === null && difference.path.startsWith('calls[')
+	return shapeName === difference.shapeName || difference.nestedNames.includes(shapeName)
+}
+
 /** The first note that covers this difference, or `null` if none does. */
 function declaringNote(difference: IrDifference, notes: FidelityNote[]): FidelityNote | null {
 	for (const note of notes) {
@@ -547,13 +561,7 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
 		if (note.construct.startsWith(LAYOUT_NOTE_PREFIX) && difference.slideNumber !== 0) continue
 		// A shape-scoped note covers only that shape; a slide- or deck-scoped one covers any, which
 		// is why its fields are anchored at the root of the diff rather than matched as a suffix.
-		if (
-			note.shapeName !== null &&
-			note.shapeName !== difference.shapeName &&
-			!difference.nestedNames.includes(note.shapeName)
-		) {
-			continue
-		}
+		if (note.shapeName !== null && !coversShape(note.shapeName, difference)) continue
 		const fields = noteFields(note.construct)
 		if (!fields) continue
 		const anchor = note.shapeName === null ? 'root' : 'suffix'
