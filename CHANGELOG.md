@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ChartSeries.xValues`, `yValues` and `bubbleSizes` read `c:xVal`, `c:yVal` and
     `c:bubbleSize`. A scatter or bubble caches its data there rather than in `c:val`, so its
     series read back with no values and its X values were unreachable.
+  - `ChartSeries.xLabels` reads the X labels of a scatter plotted against text. One text cell
+    makes PowerPoint cache the whole X column as strings and plot the points at 1 to n, so
+    `xValues` reads `null` at every such point, even a label that reads as a number.
   - `ChartSeries.categoryLevels` and `Chart.categoryLevels` read every level of a multi-level
     category axis, leaf first, the order PowerPoint writes them in and `OptsChartData.labels`
     takes them. An outer level names each group once, so the rest of its group reads `null`.
@@ -1026,6 +1029,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     values and, on a bubble, its sizes. `addChart` plots every series against one X row, so when
     the series carry different X values each is rebuilt against the first series' and a
     `chart.xValues` note says so.
+  - A scatter plotted against text X labels is rebuilt against the positions 1 to n that
+    PowerPoint plots it at, and a `chart.xLabels` note says the labels are gone. Read as X values,
+    every label had become a 0 under a note about blank points.
   - A multi-level category axis came back unlabelled. Its levels are emitted as
     `labels: string[][]`, leaf first.
   - A PowerPoint pie came back without its labels, because the converter read the group's label

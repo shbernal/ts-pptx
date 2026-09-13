@@ -175,6 +175,24 @@ describe('chart data keeps the shape addChart takes', () => {
 			{ name: 'Y2', values: [7, 8, 9] },
 		])
 		assert(!constructs(ir).includes('chart.data'), 'and nothing is dropped; got ' + JSON.stringify(constructs(ir)))
+		assert(
+			!constructs(ir).includes('chart.xLabels'),
+			'and numbers are not labels; got ' + JSON.stringify(constructs(ir))
+		)
+	})
+
+	test('a PowerPoint scatter against text X labels is rebuilt at the positions it is plotted at, and says so', async () => {
+		// PowerPoint caches the X column as strings and draws the points at X = 1..4, which is also
+		// what an X row of 1..4 draws. Read as X values, every label was a blank that became a 0,
+		// under a note about gaps in a line chart.
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		expect(chartNamed(ir, 'scatter-text-x-chart').args[0]).toEqual([
+			{ values: [1, 2, 3, 4] },
+			{ name: 'Y', values: [2.5, 4, 3.5, 6] },
+		])
+		const seen = constructs(ir)
+		assert(seen.includes('chart.xLabels'), 'the lost labels are noted; got ' + JSON.stringify(seen))
+		assert(!seen.includes('chart.blanks'), 'and no point is called a blank; got ' + JSON.stringify(seen))
 	})
 
 	test('a PowerPoint bubble keeps its sizes', async () => {

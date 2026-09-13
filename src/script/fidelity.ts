@@ -110,6 +110,9 @@ export const NOTE_CONSTRUCTS = {
 	// Scatter or bubble series with X values of their own, rebuilt against the first series' X row.
 	// The IR carries only that row on both sides, so the per-series X values are in neither.
 	'chart.xValues': { fields: [], tiers: BOTH_TIERS },
+	// Scatter or bubble series plotted against text X labels, rebuilt against the 1..n positions
+	// PowerPoint plots them at. Both IRs carry those positions, and the labels are in neither.
+	'chart.xLabels': { fields: [], tiers: BOTH_TIERS },
 	'chart.workbook': { fields: ['*'], tiers: BOTH_TIERS },
 	'chartEx.all': { fields: ['*'], tiers: BOTH_TIERS },
 	'connector.binding': { fields: [], tiers: BOTH_TIERS },

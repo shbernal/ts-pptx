@@ -431,11 +431,26 @@ export class ChartSeries {
 
 	/**
 	 * Cached X values of a scatter or bubble series (`c:xVal`); missing points are `null`.
-	 * A scatter plotted against text X labels caches them as strings, and those read as `null`
-	 * too, since they are not coordinates.
+	 * A series plotted against text X labels reads `null` at every point, a label that looks like a
+	 * number included: {@link xLabels} has the text.
 	 */
 	get xValues(): (number | null)[] {
-		return this.#numbers('c:xVal')
+		const cache = findCache(firstChild(this.ser, 'c:xVal'))
+		if (cache && isTextCache(cache)) return textPoints(cache).map(() => null)
+		return readPoints(cache).map(numberValue)
+	}
+
+	/**
+	 * The X labels of a series plotted against text (`c:xVal` holding a string cache rather than
+	 * numbers), as written, or `null` when its X values are numbers or absent.
+	 *
+	 * One text cell makes the whole X column a string cache, so the numbers in it arrive as text too.
+	 * PowerPoint then plots the points at X = 1, 2, … n in point order and uses none of the labels
+	 * as a coordinate, not even one that reads as a number.
+	 */
+	get xLabels(): (string | null)[] | null {
+		const cache = findCache(firstChild(this.ser, 'c:xVal'))
+		return cache && isTextCache(cache) ? textPoints(cache) : null
 	}
 
 	/** Cached Y values of a scatter or bubble series (`c:yVal`); non-numeric or missing points are `null`. */
@@ -583,6 +598,20 @@ function findCache(container: Element | null): Element | null {
 	}
 	// Inline literals (no workbook reference).
 	return firstChild(container, 'c:numLit') ?? firstChild(container, 'c:strLit')
+}
+
+/**
+ * Whether a cache holds text rather than numbers. `c:xVal` takes any of the data-source forms a
+ * `c:cat` does, so a scatter's X values can arrive as a string cache, a string literal or even a
+ * multi-level cache.
+ */
+function isTextCache(cache: Element): boolean {
+	return cache.localName !== 'numCache' && cache.localName !== 'numLit'
+}
+
+/** A text cache's labels, idx-ordered: the leaf level of a multi-level cache. */
+function textPoints(cache: Element): (string | null)[] {
+	return cache.localName === 'multiLvlStrCache' ? (readCategoryLevels(cache)[0] ?? []) : readPoints(cache)
 }
 
 /** Read a cache's points (`c:pt[@idx]/c:v`) into an idx-ordered array; `c:ptCount` is the declared count. */

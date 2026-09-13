@@ -17,7 +17,7 @@
  * double-clicking it in PowerPoint opens data that matches the plot but has lost the source
  * sheet's formulas, extra columns, and formatting.
  */
-import type { Chart } from '../../read/api/chart.js'
+import type { Chart, ChartSeries } from '../../read/api/chart.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
@@ -186,13 +186,13 @@ function xyData(chart: Chart, type: string, notes: NoteScope): IrValue[] {
 	const first = series[0]
 	if (!first) return []
 	const dense = blanksToZero(notes)
-	const xValues = first.xValues
+	const xValues = plottedX(first)
 	const withSizes = type !== 'scatter'
 
 	const rows: IrValue[] = [{ values: dense(xValues) }]
 	let ownX = false
 	for (const one of series) {
-		const own = one.xValues
+		const own = plottedX(one)
 		if (own.length !== xValues.length || own.some((value, i) => value !== xValues[i])) ownX = true
 		const values = dense(one.yValues)
 		rows.push(
@@ -212,7 +212,25 @@ function xyData(chart: Chart, type: string, notes: NoteScope): IrValue[] {
 			`the series of this ${type} chart do not share one set of X values, and addChart plots every series against a single X row, so each is rebuilt against the first series' X values`
 		)
 	}
+	if (series.some((one) => one.xLabels !== null)) {
+		notes.note(
+			'chart.xLabels',
+			'dropped',
+			'unwritable',
+			`this ${type} chart is plotted against text X labels, which PowerPoint places at 1 to n in point order; it is rebuilt against those positions and plots the same, but addChart takes numbers for its X row, so the labels are gone`
+		)
+	}
 	return rows
+}
+
+/**
+ * The X coordinates a series is plotted at. A series plotted against text has none of its own:
+ * PowerPoint places its points at 1 to n, and an X row of those positions draws the same chart.
+ * Taking its X values instead turned every label into a blank, and the blank into a 0.
+ */
+function plottedX(series: ChartSeries): (number | null)[] {
+	const labels = series.xLabels
+	return labels === null ? series.xValues : labels.map((_label, i) => i + 1)
 }
 
 /**

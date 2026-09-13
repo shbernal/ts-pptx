@@ -1478,6 +1478,7 @@ class ChartSeries {
 	readonly name: string | null // cached c:tx
 	readonly values: (number | null)[] // cached c:val (c:numCache)
 	readonly xValues: (number | null)[] // cached c:xVal (scatter, bubble)
+	readonly xLabels: (string | null)[] | null // c:xVal cached as text, else null
 	readonly yValues: (number | null)[] // cached c:yVal (scatter, bubble)
 	readonly bubbleSizes: (number | null)[] // cached c:bubbleSize
 	readonly categories: (string | null)[] // cached c:cat (the leaf level)
@@ -1558,8 +1559,12 @@ accessors exist for the ones that do not. The ground truth for all three is
 
 - **Scatter and bubble.** A series pairs every value with an X value of its own, so
   `values` is empty and the data is in `xValues`, `yValues` and, on a bubble,
-  `bubbleSizes`. A scatter plotted against text X labels caches them as strings, and
-  `xValues` reads those as `null`.
+  `bubbleSizes`.
+- **Scatter against text.** One text cell makes a scatter's whole X column a string
+  cache, the numbers in it included, and PowerPoint then plots the points at X = 1,
+  2, … n in point order. None of the labels is a coordinate, not even one that reads
+  as a number, so `xValues` is `null` at every point and `xLabels` holds the text.
+  `xLabels` is `null` when the X values are numbers.
 - **Multi-level categories.** `categoryLevels` holds every level of a
   `c:multiLvlStrCache`, leaf first, which is the order PowerPoint writes them in and
   the order `OptsChartData.labels` takes them. Every level is as long as the leaf, and

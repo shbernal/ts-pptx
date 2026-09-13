@@ -7,6 +7,7 @@ param(
 #   slide 2  bubble-chart          c:bubbleChart   -> c:xVal + c:yVal + c:bubbleSize
 #   slide 3  multilevel-bar-chart  c:barChart      -> c:cat/c:multiLvlStrRef (region > quarter)
 #   slide 4  pie-chart             c:pieChart      -> data labels showing percent and category name
+#   slide 5  scatter-text-x-chart  c:scatterChart  -> c:xVal/c:strRef over a column holding one text cell
 $ErrorActionPreference = 'Stop'
 $Out = [IO.Path]::GetFullPath($Out)
 if (Test-Path $Out) { Remove-Item $Out -Force }
@@ -51,6 +52,13 @@ function Set-ChartData($chart, [object[]]$rows, [string]$range) {
   }
   $chart.SetSourceData("'" + $ws.Name + "'!" + $range)
   $wb.Close()
+  # Closing the workbook shuts its Excel down asynchronously. A next chart whose Activate attaches to
+  # the instance still exiting fails part-way with "The RPC server is unavailable" (0x800706BA), so
+  # wait for the Excel this run started to be gone.
+  for ($attempt = 1; $attempt -le 80; $attempt++) {
+    if (-not (Get-Process EXCEL -ErrorAction SilentlyContinue | Where-Object { $preexisting -notcontains $_.Id })) { break }
+    Start-Sleep -Milliseconds 250
+  }
 }
 
 $pp = $null
@@ -120,6 +128,21 @@ try {
   $labels.ShowValue = $false
   $labels.ShowPercentage = $true
   $labels.ShowCategoryName = $true
+
+  # --- slide 5: scatter against a column of years, one of them the text "2026e" ---
+  # One text cell is enough for the whole X column to be cached as strings, the numbers included,
+  # and PowerPoint then plots the points at X = 1..4 rather than at the years. The Y values are
+  # slide 1's, so the two slides render the same.
+  $slide = $pres.Slides.Add(5, 12)
+  $shape = $slide.Shapes.AddChart2(-1, -4169, 60, 60, 840, 420)
+  $shape.Name = 'scatter-text-x-chart'
+  Set-ChartData $shape.Chart @(
+    @('X', 'Y'),
+    @(2023, 2.5),
+    @(2024, 4),
+    @(2025, 3.5),
+    @('2026e', 6)
+  ) '$A$1:$B$5'
 
   $pres.SaveAs($Out)
   $pres.Saved = $true

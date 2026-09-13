@@ -7,10 +7,12 @@
 // this library's writer and reader agree on the same shapes.
 
 import { describe, expect, test } from 'vitest'
+import JSZip from 'jszip'
 import { ChartType } from '../../dist/node.js'
+import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual, captureDiagnostics } from '../helpers.js'
 import { authorRead } from './authored.js'
-import { openFixture } from './corpus.js'
+import { openFixture, readFixture } from './corpus.js'
 
 /** The chart in the graphic frame named `name`, on any slide. */
 function chartNamed(presentation, name) {
@@ -47,6 +49,48 @@ describe('Scatter and bubble series read their X, Y and size caches', () => {
 		expect(series.yValues).toEqual([2.5, 4, 3.5, 6])
 		expect(series.values).toEqual([])
 		expect(series.bubbleSizes).toEqual([])
+		assertEqual(series.xLabels, null, 'numeric X values are not labels')
+	})
+
+	test('a PowerPoint scatter against a column holding text reads X labels, and no X values', async () => {
+		// One text cell ("2026e") makes PowerPoint cache the whole X column as strings, the years with
+		// it, and plot the points at X = 1..4: the slide renders pixel-identical to slide 1's scatter,
+		// which has the same Y values against X = 1..4. So no label is a coordinate, not even "2023".
+		const [series] = chartNamed(await openFixture('chart-series-shapes'), 'scatter-text-x-chart').series
+		expect(series.xLabels).toEqual(['2023', '2024', '2025', '2026e'])
+		expect(series.xValues).toEqual([null, null, null, null])
+		expect(series.yValues).toEqual([2.5, 4, 3.5, 6])
+	})
+
+	test('X labels read from a string literal, and from the leaf level of a multi-level cache', async () => {
+		// Neither is PowerPoint output. `c:xVal` takes every data-source form `c:cat` does, so both
+		// are the fixture's string cache respelled.
+		const buf = await readFixture('chart-series-shapes')
+		const labelsAfter = async (respell) => {
+			const zip = await JSZip.loadAsync(buf)
+			const part = 'ppt/charts/chart5.xml'
+			const xml = await zip.file(part).async('string')
+			const cache =
+				/<c:xVal><c:strRef><c:f>[^<]*<\/c:f><c:strCache><c:ptCount val="4"\/>([\s\S]*?)<\/c:strCache><\/c:strRef><\/c:xVal>/
+			assert(cache.test(xml), 'slide 5 caches its X labels as a string reference')
+			zip.file(
+				part,
+				xml.replace(cache, (_match, points) => `<c:xVal>${respell(points)}</c:xVal>`)
+			)
+			const presentation = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+			const [series] = chartNamed(presentation, 'scatter-text-x-chart').series
+			return { labels: series.xLabels, values: series.xValues }
+		}
+
+		const literal = await labelsAfter((points) => `<c:strLit><c:ptCount val="4"/>${points}</c:strLit>`)
+		expect(literal).toEqual({ labels: ['2023', '2024', '2025', '2026e'], values: [null, null, null, null] })
+
+		const outer = '<c:lvl><c:pt idx="0"><c:v>Actual</c:v></c:pt><c:pt idx="3"><c:v>Estimate</c:v></c:pt></c:lvl>'
+		const levels = await labelsAfter(
+			(points) =>
+				`<c:multiLvlStrRef><c:f>Sheet1!$A$2:$B$5</c:f><c:multiLvlStrCache><c:ptCount val="4"/><c:lvl>${points}</c:lvl>${outer}</c:multiLvlStrCache></c:multiLvlStrRef>`
+		)
+		expect(levels).toEqual({ labels: ['2023', '2024', '2025', '2026e'], values: [null, null, null, null] })
 	})
 
 	test('a PowerPoint bubble series reads its sizes beside X and Y', async () => {
