@@ -8,6 +8,9 @@ param(
 #   slide 3  multilevel-bar-chart  c:barChart      -> c:cat/c:multiLvlStrRef (region > quarter)
 #   slide 4  pie-chart             c:pieChart      -> data labels showing percent and category name
 #   slide 5  scatter-text-x-chart  c:scatterChart  -> c:xVal/c:strRef over a column holding one text cell
+#   slide 6  bubble-text-x-chart   c:bubbleChart   -> the same c:xVal/c:strRef, beside c:yVal + c:bubbleSize
+#   slide 7  bubble-no-x-chart     c:bubbleChart   -> c:yVal + c:bubbleSize with no c:xVal
+#   slide 8  scatter-no-x-chart    c:scatterChart  -> c:yVal with no c:xVal
 $ErrorActionPreference = 'Stop'
 $Out = [IO.Path]::GetFullPath($Out)
 if (Test-Path $Out) { Remove-Item $Out -Force }
@@ -30,8 +33,9 @@ function Wait-Com([scriptblock]$call, [string]$what) {
 }
 
 # Fill a chart's embedded workbook from row arrays (row 1 first, column A first; $null leaves a
-# cell empty), point the chart at the range, and close the workbook.
-function Set-ChartData($chart, [object[]]$rows, [string]$range) {
+# cell empty), point the chart at the range, and close the workbook. `$after` runs with the chart and
+# the worksheet while the workbook is still open.
+function Set-ChartData($chart, [object[]]$rows, [string]$range, [scriptblock]$after) {
   $chart.ChartData.Activate()
   $wb = Wait-Com { $chart.ChartData.Workbook } 'the chart workbook'
   $ws = Wait-Com { $wb.Worksheets.Item(1) } 'the chart worksheet'
@@ -51,6 +55,7 @@ function Set-ChartData($chart, [object[]]$rows, [string]$range) {
     }
   }
   $chart.SetSourceData("'" + $ws.Name + "'!" + $range)
+  if ($after) { & $after $chart $ws }
   $wb.Close()
   # Closing the workbook shuts its Excel down asynchronously. A next chart whose Activate attaches to
   # the instance still exiting fails part-way with "The RPC server is unavailable" (0x800706BA), so
@@ -143,6 +148,48 @@ try {
     @(2025, 3.5),
     @('2026e', 6)
   ) '$A$1:$B$5'
+
+  # --- slide 6: bubble against the same years and "2026e", with slide 2's Y values and sizes ---
+  # SetSourceData cannot build this one. Given the text column A it leaves the first series without
+  # an X range, takes A as its Y values and adds a second series. So the source is the Y and size
+  # columns alone, which is slide 7's chart, and the X range is assigned to the series afterwards.
+  $slide = $pres.Slides.Add(6, 12)
+  $shape = $slide.Shapes.AddChart2(-1, 15, 60, 60, 840, 420)
+  $shape.Name = 'bubble-text-x-chart'
+  Set-ChartData $shape.Chart @(
+    @('X', 'Y', 'Size'),
+    @(2023, 2, 5),
+    @(2024, 4, 10),
+    @(2025, 3, 7),
+    @('2026e', 6, 12)
+  ) '$B$2:$C$5' {
+    param($chart, $ws)
+    $chart.SeriesCollection(1).XValues = "='" + $ws.Name + "'!`$A`$2:`$A`$5"
+  }
+
+  # --- slide 7: bubble with no X column, with slide 2's Y values and sizes ---
+  $slide = $pres.Slides.Add(7, 12)
+  $shape = $slide.Shapes.AddChart2(-1, 15, 60, 60, 840, 420)
+  $shape.Name = 'bubble-no-x-chart'
+  Set-ChartData $shape.Chart @(
+    @($null, 'Y', 'Size'),
+    @($null, 2, 5),
+    @($null, 4, 10),
+    @($null, 3, 7),
+    @($null, 6, 12)
+  ) '$B$2:$C$5'
+
+  # --- slide 8: scatter with no X column, with slide 1's Y values ---
+  $slide = $pres.Slides.Add(8, 12)
+  $shape = $slide.Shapes.AddChart2(-1, -4169, 60, 60, 840, 420)
+  $shape.Name = 'scatter-no-x-chart'
+  Set-ChartData $shape.Chart @(
+    @($null, 'Y'),
+    @($null, 2.5),
+    @($null, 4),
+    @($null, 3.5),
+    @($null, 6)
+  ) '$B$1:$B$5'
 
   $pres.SaveAs($Out)
   $pres.Saved = $true

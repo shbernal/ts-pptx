@@ -57,6 +57,10 @@ async function irWithChartXml(buf, rewrite) {
 /** Every note construct the IR recorded. */
 const constructs = (ir) => ir.fidelity.map((note) => note.construct)
 
+/** The note constructs the IR recorded against the shape named `shapeName`. */
+const constructsOn = (ir, shapeName) =>
+	ir.fidelity.filter((note) => note.shapeName === shapeName).map((note) => note.construct)
+
 /** A one-chart deck of `type`. */
 function chartDeck(type, options = {}) {
 	return authorRead((pres) => {
@@ -201,6 +205,37 @@ describe('chart data keeps the shape addChart takes', () => {
 			{ values: [1, 2, 3, 4] },
 			{ values: [2, 4, 3, 6], sizes: [5, 10, 7, 12] },
 		])
+	})
+
+	test('a PowerPoint bubble against text X labels is rebuilt at the positions it is plotted at, and says so', async () => {
+		// A bubble caches text X labels the way a scatter does, and PowerPoint draws it at X = 1..4 too.
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		expect(chartNamed(ir, 'bubble-text-x-chart').args[0]).toEqual([
+			{ values: [1, 2, 3, 4] },
+			{ values: [2, 4, 3, 6], sizes: [5, 10, 7, 12] },
+		])
+		const seen = constructsOn(ir, 'bubble-text-x-chart')
+		assert(seen.includes('chart.xLabels'), 'the lost labels are noted; got ' + JSON.stringify(seen))
+		assert(!seen.includes('chart.blanks'), 'and no point is called a blank; got ' + JSON.stringify(seen))
+	})
+
+	test('a PowerPoint scatter or bubble with no X values is rebuilt at the positions it is plotted at', async () => {
+		// With no `c:xVal` PowerPoint draws the points at X = 1..4. The empty X row these came back with
+		// gave addChart no point to plot.
+		const ir = readModelToIr(await Presentation.load(await readFixture('chart-series-shapes')))
+		expect(chartNamed(ir, 'scatter-no-x-chart').args[0]).toEqual([
+			{ values: [1, 2, 3, 4] },
+			{ name: 'Y', values: [2.5, 4, 3.5, 6] },
+		])
+		expect(chartNamed(ir, 'bubble-no-x-chart').args[0]).toEqual([
+			{ values: [1, 2, 3, 4] },
+			{ values: [2, 4, 3, 6], sizes: [5, 10, 7, 12] },
+		])
+		for (const name of ['scatter-no-x-chart', 'bubble-no-x-chart']) {
+			const seen = constructsOn(ir, name)
+			for (const construct of ['chart.xLabels', 'chart.xValues', 'chart.blanks'])
+				assert(!seen.includes(construct), `${name} loses nothing to ${construct}; got ${JSON.stringify(seen)}`)
+		}
 	})
 
 	test('PowerPoint multi-level categories become labels leaf first, the outer level filled in with blanks', async () => {

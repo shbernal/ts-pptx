@@ -1191,6 +1191,39 @@
 				"elements": [
 					{"id":2,"name":"scatter-text-x-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
 				]
+			},
+			{
+				"index": 5,
+				"name": "Slide 6",
+				"path": "ppt/slides/slide6.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"bubble-text-x-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			},
+			{
+				"index": 6,
+				"name": "Slide 7",
+				"path": "ppt/slides/slide7.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"bubble-no-x-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
+			},
+			{
+				"index": 7,
+				"name": "Slide 8",
+				"path": "ppt/slides/slide8.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+					{"id":2,"name":"scatter-no-x-chart","kind":"graphicFrame","graphicKind":"chart","zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":11.666666666666666,"h":5.833333333333333},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":null,"autofitFontScale":null,"bodyInsets":null,"textRuns":[],"paragraphs":[],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":null}
+				]
 			}
 		],
 		"diagnostics": []

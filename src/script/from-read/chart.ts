@@ -224,13 +224,22 @@ function xyData(chart: Chart, type: string, notes: NoteScope): IrValue[] {
 }
 
 /**
- * The X coordinates a series is plotted at. A series plotted against text has none of its own:
- * PowerPoint places its points at 1 to n, and an X row of those positions draws the same chart.
- * Taking its X values instead turned every label into a blank, and the blank into a 0.
+ * The X coordinates a series is plotted at. A series plotted against text has none of its own, and
+ * neither has a series with no `c:xVal`: PowerPoint places the points of both at 1 to n, and an X row
+ * of those positions draws the same chart. Taking the X values instead turned every label into a
+ * blank and the blank into a 0, and gave a series with no `c:xVal` an empty X row, against which
+ * `addChart` plots no point at all.
  */
 function plottedX(series: ChartSeries): (number | null)[] {
 	const labels = series.xLabels
-	return labels === null ? series.xValues : labels.map((_label, i) => i + 1)
+	if (labels !== null) return positions(labels.length)
+	const xValues = series.xValues
+	return xValues.length === 0 ? positions(series.yValues.length) : xValues
+}
+
+/** The positions 1 to `count`. */
+function positions(count: number): number[] {
+	return Array.from({ length: count }, (_unused, i) => i + 1)
 }
 
 /**

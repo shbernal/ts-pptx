@@ -75,8 +75,8 @@ by the `ts-pptx/read` harness. Two groups:
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
   `c:dPt`/`c:dLbl` + workbook cache), `chart-series-shapes.pptx` (the chart caches
   that are not a `c:val` beside a flat `c:cat`: scatter and bubble `c:xVal`/`c:yVal`/
-  `c:bubbleSize`, a scatter's `c:xVal` cached as text, a two-level `c:multiLvlStrCache`, and a
-  pie's series-level `c:dLbls`),
+  `c:bubbleSize`, a scatter's and a bubble's `c:xVal` cached as text, a scatter and a bubble
+  with no `c:xVal`, a two-level `c:multiLvlStrCache`, and a pie's series-level `c:dLbls`),
   `math-omml.pptx` (native **display**
   equation OMML `a14:m`/`m:oMathPara`), and `math-omml-inline.pptx` (an
   **inline**, in-sentence equation `a14:m`/`m:oMath` with no `m:oMathPara`, flowing
@@ -115,7 +115,7 @@ by the `ts-pptx/read` harness. Two groups:
 | `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
-| `chart-series-shapes.pptx`    | Microsoft Office PowerPoint | 16.0000    | 5      |
+| `chart-series-shapes.pptx`    | Microsoft Office PowerPoint | 16.0000    | 8      |
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `math-omml-inline.pptx`       | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
@@ -165,7 +165,7 @@ f6dcd2658c15c9559879452d6ce4d9c22db5101a92c532d59a3cd5d1c270d90b  shadow-shape-v
 f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
-8d51797abf5174ac5d382508f27bd5c1ccc949a330b781ce9192913ce4566cad  chart-series-shapes.pptx
+ab5fea0f0a13c2833ef7b376643b019b02b4a7c35001c5f3f96ac6e55d0a15ca  chart-series-shapes.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 74ef4bd84b39fb8668277c0300372b13bdc984f311a0e2783d630ac5b8c9f7f8  math-omml-inline.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
@@ -686,7 +686,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   ordering inside `CT_BarSer` plus the cache the labels derive from.
 - `chart-series-shapes.pptx` — **read oracle** for the chart caches that are not a
   `c:val` beside a flat `c:cat`, authored by `authoring/author-chart-series-shapes.ps1`.
-  Five slides, one chart each: `scatter-chart` (`c:scatterChart`, one series `Y`
+  Eight slides, one chart each: `scatter-chart` (`c:scatterChart`, one series `Y`
   whose `c:xVal` caches 1–4 and `c:yVal` 2.5/4/3.5/6); `bubble-chart`
   (`c:bubbleChart`, `c:xVal` 1–4, `c:yVal` 2/4/3/6, `c:bubbleSize` 5/10/7/12);
   `multilevel-bar-chart` (a clustered column whose `c:cat` is a `c:multiLvlStrRef`
@@ -701,7 +701,11 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   values. That one text cell makes PowerPoint cache the whole X column as a
   `c:xVal/c:strRef` string cache, the years included, and plot the points at X = 1–4:
   the slide exports pixel-identical to `scatter-chart`, and a control scatter at X =
-  2–5 does not.
+  2–5 does not. `bubble-text-x-chart` is a bubble against the same X column, with
+  `bubble-chart`'s Y values and sizes, cached the same way. `bubble-no-x-chart` and
+  `scatter-no-x-chart` are `bubble-chart` and `scatter-chart` without their X column,
+  so their series carry no `c:xVal` at all. Each of the three exports pixel-identical
+  to the chart with its values at X = 1–4, and a control at X = 2–5 does not.
 - `math-omml.pptx` — **authoring oracle** for a native equation (OMML) text run
   (`upstream-issue-1456`). One slide with a text box (`equation-box`) holding the
   equation 𝑥²+1=𝑦. `ppt/slides/slide1.xml` carries `<mc:AlternateContent>` →

@@ -1560,11 +1560,14 @@ accessors exist for the ones that do not. The ground truth for all three is
 - **Scatter and bubble.** A series pairs every value with an X value of its own, so
   `values` is empty and the data is in `xValues`, `yValues` and, on a bubble,
   `bubbleSizes`.
-- **Scatter against text.** One text cell makes a scatter's whole X column a string
-  cache, the numbers in it included, and PowerPoint then plots the points at X = 1,
-  2, … n in point order. None of the labels is a coordinate, not even one that reads
-  as a number, so `xValues` is `null` at every point and `xLabels` holds the text.
-  `xLabels` is `null` when the X values are numbers.
+- **Scatter and bubble against text.** One text cell makes a series' whole X column a
+  string cache, the numbers in it included, and PowerPoint then plots the points at
+  X = 1, 2, … n in point order. None of the labels is a coordinate, not even one that
+  reads as a number, so `xValues` is `null` at every point and `xLabels` holds the
+  text. `xLabels` is `null` when the X values are numbers.
+- **Scatter and bubble with no X values.** A chart whose source has no X column
+  writes its series without a `c:xVal`, and PowerPoint plots those points at 1 to n
+  too. `xValues` reads `[]` and `xLabels` reads `null`.
 - **Multi-level categories.** `categoryLevels` holds every level of a
   `c:multiLvlStrCache`, leaf first, which is the order PowerPoint writes them in and
   the order `OptsChartData.labels` takes them. Every level is as long as the leaf, and

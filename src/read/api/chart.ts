@@ -432,7 +432,8 @@ export class ChartSeries {
 	/**
 	 * Cached X values of a scatter or bubble series (`c:xVal`); missing points are `null`.
 	 * A series plotted against text X labels reads `null` at every point, a label that looks like a
-	 * number included: {@link xLabels} has the text.
+	 * number included: {@link xLabels} has the text. A series with no `c:xVal` reads `[]`, and
+	 * PowerPoint plots it at X = 1, 2, … n, as it does a series plotted against text.
 	 */
 	get xValues(): (number | null)[] {
 		const cache = findCache(firstChild(this.ser, 'c:xVal'))

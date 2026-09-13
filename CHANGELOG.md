@@ -1029,9 +1029,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     values and, on a bubble, its sizes. `addChart` plots every series against one X row, so when
     the series carry different X values each is rebuilt against the first series' and a
     `chart.xValues` note says so.
-  - A scatter plotted against text X labels is rebuilt against the positions 1 to n that
+  - A scatter or bubble plotted against text X labels is rebuilt against the positions 1 to n that
     PowerPoint plots it at, and a `chart.xLabels` note says the labels are gone. Read as X values,
     every label had become a 0 under a note about blank points.
+  - A scatter or bubble series with no X values is rebuilt against 1 to n too, which is where
+    PowerPoint plots it. It came back with an empty X row, and `addChart` plots no point against
+    one.
   - A multi-level category axis came back unlabelled. Its levels are emitted as
     `labels: string[][]`, leaf first.
   - A PowerPoint pie came back without its labels, because the converter read the group's label

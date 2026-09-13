@@ -100,6 +100,30 @@ describe('Scatter and bubble series read their X, Y and size caches', () => {
 		expect(series.bubbleSizes).toEqual([5, 10, 7, 12])
 	})
 
+	test('a PowerPoint bubble against a column holding text reads X labels, and no X values', async () => {
+		// The bubble takes the same `c:xVal` as a scatter, and renders pixel-identical to slide 2's
+		// bubble, which has the same Y values and sizes against X = 1..4.
+		const [series] = chartNamed(await openFixture('chart-series-shapes'), 'bubble-text-x-chart').series
+		expect(series.xLabels).toEqual(['2023', '2024', '2025', '2026e'])
+		expect(series.xValues).toEqual([null, null, null, null])
+		expect(series.yValues).toEqual([2, 4, 3, 6])
+		expect(series.bubbleSizes).toEqual([5, 10, 7, 12])
+	})
+
+	test('a PowerPoint scatter or bubble with no X column reads no X values and no X labels', async () => {
+		// Neither series has a `c:xVal`. Each renders pixel-identical to the same chart against X = 1..4.
+		const presentation = await openFixture('chart-series-shapes')
+		const [scatter] = chartNamed(presentation, 'scatter-no-x-chart').series
+		const [bubble] = chartNamed(presentation, 'bubble-no-x-chart').series
+		expect([scatter.xValues, scatter.xLabels, scatter.yValues]).toEqual([[], null, [2.5, 4, 3.5, 6]])
+		expect([bubble.xValues, bubble.xLabels, bubble.yValues, bubble.bubbleSizes]).toEqual([
+			[],
+			null,
+			[2, 4, 3, 6],
+			[5, 10, 7, 12],
+		])
+	})
+
 	test('a written scatter reads every series against the X row it was given', async () => {
 		const chart = await writtenChart(
 			[
