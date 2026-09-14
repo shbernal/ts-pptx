@@ -1,7 +1,7 @@
 /**
  * ts-pptx: helpers shared by more than one slide-object renderer
  *
- * The `<p:cNvPr>` open tag, its `<a:hlinkClick>` children and the `<a:ln>` outline are each
+ * The `<p:cNvPr>` element, its `<a:hlinkClick>` children and the `<a:ln>` outline are each
  * emitted by several shape kinds. They live here — rather than in the dispatch module — so a
  * renderer never has to import from its own caller.
  */
