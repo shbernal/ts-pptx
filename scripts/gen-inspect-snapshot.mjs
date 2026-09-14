@@ -33,7 +33,7 @@ export function fixtureDecks() {
 /**
  * Inspect one deck, recording the diagnostics it emitted alongside the result.
  * Only the diagnostic `code` is kept: the message is explicitly not API
- * (docs/diagnostics.md), so recording it would make a reworded sentence look
+ * (docs/errors-and-warnings.md), so recording it would make a reworded sentence look
  * like a behaviour change.
  *
  * @typedef {import('../dist/inspect.js').PptxInspection} Inspection

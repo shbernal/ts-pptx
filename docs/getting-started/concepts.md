@@ -117,7 +117,7 @@ build each runtime loads.
 When the library cannot produce the deck you asked for, it throws a `TsPptxError` subclass carrying a
 stable `code` you can branch on. When it can, by ignoring, clamping or falling back on part of the
 input, it reports a diagnostic and carries on. Diagnostics go to the console unless you route them
-with `setDiagnosticHandler`. See [Errors](../errors.md) and [Diagnostics](../diagnostics.md).
+with `setDiagnosticHandler`. See [Errors and warnings](../errors-and-warnings.md).
 
 ## Two ways to start
 

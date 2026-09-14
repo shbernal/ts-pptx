@@ -90,7 +90,7 @@ forms:
   side cannot see.
 
 Neither fits? File a blank issue. A good issue in the wrong shape beats a bad issue in
-the right one. See [errors](docs/errors.md#which-failures-are-worth-reporting) for
+the right one. See [errors and warnings](docs/errors-and-warnings.md#which-failures-are-worth-reporting) for
 which failures are worth a report.
 
 Describe a downstream consumer's need **anonymously**. Issues are public, see

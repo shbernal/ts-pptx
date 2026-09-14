@@ -309,7 +309,7 @@ The read model has no accessor for a picture's freeform clip path. See
 
 ## See also
 
-- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - [`ImageProps`](reference/api/index/type-aliases/ImageProps.md) and [`ImageBaseProps`](reference/api/index/interfaces/ImageBaseProps.md)
 - [`clipPath`](reference/api/index/functions/clipPath.md), [`ClipShape`](reference/api/index/type-aliases/ClipShape.md) and [`GeometryPoint`](reference/api/index/type-aliases/GeometryPoint.md)
 - [PPTX read and round-trip](reference/pptx-read.md)

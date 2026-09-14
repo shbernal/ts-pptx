@@ -269,7 +269,7 @@ slide.addAnimation({ preset: "fadeIn", objectName: "boxInGroup" })
 | more than one top-level object has the name | throws `InvalidOptionError` | `group/ambiguous-object-name` |
 | the object's kind cannot be grouped, or it is a placeholder | throws `UnsupportedFeatureError` | `group/kind-not-groupable` |
 
-Composing a presentation from construct families is covered in [Smaller bundles](bundle-size.md). [Diagnostics](diagnostics.md) covers routing warnings, and [Errors](errors.md) covers the error classes.
+Composing a presentation from construct families is covered in [Smaller bundles](bundle-size.md). [Errors and warnings](errors-and-warnings.md) covers the error classes and how to route warnings.
 
 ## Limits
 
@@ -292,5 +292,5 @@ Composing a presentation from construct families is covered in [Smaller bundles]
 - [Positions and sizes](reference/layout-units.md#positions-and-sizes)
 - [Text that fits](text-fit.md)
 - [Demos](demos.md), whose showcase deck groups its content
-- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - API reference: [`Slide`](reference/api/index/interfaces/Slide.md), [`GroupProps`](reference/api/index/interfaces/GroupProps.md), [`GroupChildProps`](reference/api/index/type-aliases/GroupChildProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md)

@@ -139,7 +139,7 @@ builds a quarterly review deck in your browser and previews the slides.
 - [Tables](docs/tables.md), [connectors](docs/connectors.md), [groups](docs/groups.md) and
   [HTML tables to slides](docs/html-tables.md)
 - [Smaller bundles](docs/bundle-size.md) for a browser program that composes only what it uses
-- [Errors](docs/errors.md), [diagnostics](docs/diagnostics.md) and
+- [Errors and warnings](docs/errors-and-warnings.md) and
   [troubleshooting](docs/troubleshooting.md)
 
 ## Something wrong, or missing?

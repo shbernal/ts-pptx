@@ -1,5 +1,5 @@
 // A number option that is not a number, or is out of range, on the write side. The rule the library
-// follows elsewhere (`clampRangedInput`, docs/diagnostics.md "Warn or throw?") is that a finite
+// follows elsewhere (`clampRangedInput`, docs/contributing/development.md "Warn or throw?") is that a finite
 // value past a bound has a nearest legal neighbour, so it moves there with a warning, and `NaN` has
 // none, so it throws naming the option. The paths below each did something else: threw without
 // naming the option, dropped the value without a word, or wrote `NaN` into the part.

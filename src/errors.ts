@@ -28,7 +28,7 @@
  * `InvalidOptionError` is worth reporting only if the deck it refused is one PowerPoint can
  * express. See `skills/ts-pptx-upstream` for how to file one.
  *
- * @see `docs/errors.md` for the consumer-facing contract.
+ * @see `docs/errors-and-warnings.md` for the consumer-facing contract.
  * @see `codes.ts` for the code vocabulary, which is shared with the diagnostic (warning) surface.
  */
 

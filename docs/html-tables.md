@@ -211,6 +211,6 @@ The slides hold ordinary tables. Open the deck with `Presentation.load` and read
 ## See also
 
 - [Tables](tables.md)
-- [Errors](errors.md) and [Diagnostics](diagnostics.md)
+- [Errors and warnings](errors-and-warnings.md)
 - [`TableToSlidesProps`](reference/api/index/interfaces/TableToSlidesProps.md)
 - [`TableProps`](reference/api/index/interfaces/TableProps.md)

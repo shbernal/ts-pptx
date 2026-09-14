@@ -42,8 +42,7 @@
         "reference/api/index",
         "reference/layout-units",
         "reference/object-identity",
-        "errors",
-        "diagnostics",
+        "errors-and-warnings",
         "troubleshooting"
       ]
     },

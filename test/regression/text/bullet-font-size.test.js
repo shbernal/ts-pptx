@@ -61,7 +61,7 @@ defineRegressionSuite('Bullet glyph font and size', [
 			// 25-400% is ST_TextBulletSizePercent's range, and a finite value outside it has a
 			// nearest legal neighbour, so it moves there and says so. Emitting nothing instead
 			// resized the glyph to whatever the list style inherits, which is a discarded
-			// request reported as a warning (docs/diagnostics.md, "Warn or throw?").
+			// request reported as a warning (docs/contributing/development.md, "Warn or throw?").
 			assert(
 				/<a:buSzPct val="400000"\/>/.test(ppr),
 				'expected <a:buSzPct val="400000"/> for a clamped size; got: ' + ppr

@@ -164,4 +164,4 @@ MathML instead.
 ## See also
 
 - [`TextProps`](reference/api/index/interfaces/TextProps.md), for `math` and `inline`
-- [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)

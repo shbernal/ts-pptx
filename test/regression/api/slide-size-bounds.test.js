@@ -18,7 +18,7 @@ import { InvalidOptionError } from '../../../dist/node.js'
 // No showcase deck defines a layout, so the byte-identity corpus cannot see any of this. These
 // are the evidence.
 //
-// The policy being applied is `docs/diagnostics.md`'s: a finite out-of-range number clamps and
+// The policy being applied is `docs/contributing/development.md`'s ("Warn or throw?"): a finite out-of-range number clamps and
 // warns; a value that is not a number at all throws. `deck-argument-guards.test.js` pins the
 // other half of the contract — a numeric string is advice, not an error — so the bound had to be
 // a clamp rather than a rejection.
@@ -42,7 +42,7 @@ defineRegressionSuite('Slide size bounds', [
 		fn: async () => {
 			// It used to warn `layout/invalid-definition` and then die on the next line's
 			// `layout.name`, so the caller got a `TypeError` describing a property access — after
-			// a warning describing the very input that could not survive. `docs/errors.md` says
+			// a warning describing the very input that could not survive. `docs/errors-and-warnings.md` says
 			// every failure this library raises is a `TsPptxError`.
 			for (const bad of [undefined, null, 'LAYOUT_WIDE', 42]) {
 				let err = null

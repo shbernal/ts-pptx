@@ -439,6 +439,93 @@ apply to every file that is not ignored. So both trees are named in
 Starting to lint them is a decision worth taking on its own merits, not a side
 effect of changing linters.
 
+## Errors and diagnostics
+
+[Errors and warnings](../errors-and-warnings.md) is the contract a consumer sees. This
+section covers adding a throw or warning site.
+
+### Adding one
+
+- Name the condition in `src/codes.ts` first. `warn` and `warnOnce` take a `DiagnosticCode`,
+  and each error class constructor takes its own code union, so a site whose condition has
+  no code does not compile.
+- Reuse an existing code when the condition is the same, even when the wording differs or
+  another entry point raises it. A condition that can arrive under two error classes needs
+  two codes, because the class is part of what a consumer branches on.
+- Do not add an error class per throw site. The five classes are the whole taxonomy, and the
+  code carries the specificity.
+- Report a warning through `warn` or `warnOnce` from `src/diagnostics.ts`. Use `warnOnce`
+  for a condition that can repeat across a deck, and keep the offending value in its message
+  so that a different value still reports.
+- Write a warning message without a `ts-pptx:` prefix, because the default handler adds one.
+  Write an error message without an `ERROR:` prefix, because the class name labels it.
+- Do not report a condition with `console.log`, `console.warn` or `console.error`. A console
+  line cannot be captured, silenced or branched on, and oxlint rejects it under
+  `eslint/no-console`. `.oxlintrc.jsonc` exempts three files: `src/diagnostics.ts`, which
+  owns the default handler, and the two `verbose: true` table tracers,
+  `src/gen/table/autopage.ts` and `src/gen/table/html-dom.ts`, whose output reports no
+  condition and is opt-in.
+
+### Warn or throw?
+
+Ask what the library does next, not how bad the input looks.
+
+- Warn when the library can carry on and still produce a deck the caller would recognise.
+  Clamping the value, ignoring the option and falling back to a default all qualify.
+- Throw when the request is dropped and the deck would come out without what was asked for.
+  A deck that opens and is missing an image is worse than a failed build.
+
+`addImage()` and a picture bullet sit on either side of this line. An image with neither
+`data` nor `path` has nothing to place, so `addImage()` throws `image/missing-source`. A
+bullet image whose `data` lacks a base64 header warns `bullet/image-missing-base64-header`
+and draws a default bullet glyph.
+
+Dropping a request and reporting only a warning is the combination the rule excludes. The
+caller reads a warning and gets a deck that ignored the option.
+
+### An out-of-range number
+
+`clampRangedInput` in `src/units-internal.ts` applies this rule to a number whose OOXML
+attribute has a range, such as a percentage, a size or an angle. Route a new ranged option
+through it.
+
+| Value | Answer | Why |
+| --- | --- | --- |
+| Finite and out of range | Clamp to the nearest bound and warn | A legal value sits next to the one asked for. `shadow.transparency: 120` paints at 100, `bullet.size: 500` draws the glyph at 400%, `fit.fontScale: 150` scales at 100. |
+| `Infinity` or `-Infinity` | Clamp to the nearest bound and warn | It has a nearest bound like any other out-of-range number. |
+| `NaN`, or a value that is not a number, such as `'50'` | Throw `InvalidOptionError` | No legal value is nearest, and clamping would write `val="NaN"` into the part. |
+
+The throw carries `percent/non-finite` unless the caller passes its own code, such as
+`shadow/angle-non-finite`. Rejecting a finite out-of-range value and emitting nothing is not
+a third answer. It drops the request and reports only a warning.
+
+### An empty colour string
+
+A paint has three states, and each has one spelling: omit the option, `{ type: 'inherit' }`,
+or `{ type: 'none' }`. `''` is not a fourth. It comes from the caller's own missing value,
+such as an unset template field. The library reports it under `color/empty-string`, then
+resolves it the way omitting the option resolves.
+
+What omission resolves to depends on the option:
+
+| Option | `''` and omission both resolve to |
+| --- | --- |
+| a text box's `fill` | `<a:noFill/>` |
+| a shape's `line.color` | the shape line default |
+| a chart's `dataLabelColor` | `DEF_FONT_COLOR` (`000000`) |
+| a slide's `background` colour | the layout's background |
+| `bullet.color` | no `<a:buClr>` element |
+
+A gradient stop and a duotone half require a colour, so they have no omitted state. `''`
+there paints `DEF_FONT_COLOR` and reports the same code.
+
+`rejectEmptyColor` and `namedColorOr` in `src/gen/drawingml/color.ts` implement the rule.
+Call one before the site's own fallback, so the diagnostic names the option that carried the
+empty string. `createColorElement` handles the slots that require a colour. Painting a
+default for `''` would put black on a shape whose caller expected the theme's paint.
+Emitting nothing would make `''` differ from omission wherever omission means `<a:noFill/>`
+or a stated default.
+
 ## OOXML changes
 
 Before changing emitted OOXML, read

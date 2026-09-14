@@ -197,5 +197,5 @@ for (const font of deck.embeddedFonts) {
 
 - [Text that fits](text-fit.md)
 - [Reading and round-tripping existing decks](reference/pptx-read.md)
-- [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - API reference: [`TsPptx.embedFont`](reference/api/index/classes/TsPptx.md#embedfont), [`TsPptx.registerFontMetrics`](reference/api/index/classes/TsPptx.md#registerfontmetrics)

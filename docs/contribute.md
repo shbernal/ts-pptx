@@ -12,7 +12,7 @@ doc_type: "overview"
 
 Report wrong output, a repair prompt or a missing accessor through the
 [new-issue chooser](https://github.com/shbernal/ts-pptx/issues/new/choose).
-[Errors](errors.md#which-failures-are-worth-reporting) says which failures are worth a report.
+[Errors and warnings](errors-and-warnings.md#which-failures-are-worth-reporting) says which failures are worth a report.
 Security issues go through
 [SECURITY.md](https://github.com/shbernal/ts-pptx/blob/master/SECURITY.md), never a public issue.
 

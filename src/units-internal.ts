@@ -402,7 +402,7 @@ export function mapStated<T extends number | string, R>(
  * category — it clamps to the bound like any other out-of-range number, and warns.
  *
  * **This is the one policy for an out-of-range number**, and it is the policy
- * `docs/diagnostics.md` ("Warn or throw?") describes: a finite value has a nearest legal
+ * `docs/contributing/development.md` ("Warn or throw?") describes: a finite value has a nearest legal
  * neighbour, so the deck still comes out recognisable and the move is a warning; a value that
  * is not a number at all has no neighbour, so the request is discarded and that throws.
  * Rejecting a finite out-of-range value and emitting nothing is neither, and was how five

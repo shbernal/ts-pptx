@@ -149,9 +149,9 @@ Throws happen inside the `addModel3d()` call, as `InvalidOptionError`. A file th
 | `preview.data` has no base64 header | warns, and the gray placeholder is embedded | `preview-image/missing-base64-header` |
 | `path` or `preview.path` fails to load (when written) | throws `MediaError` | `media/load-failed` |
 | the same, with `onMediaError: 'placeholder'` | warns, and a broken-image PNG is written in place of the file | `media/load-failed` |
-| `objectName` is empty, too long, or holds control characters | warns | `object-name/empty`, `object-name/too-long`, `object-name/control-characters` |
+| `objectName` is only whitespace, longer than 255 characters, or holds control characters | warns | `object-name/empty`, `object-name/too-long`, `object-name/control-characters` |
 
-[Diagnostics](diagnostics.md) covers warnings, and [Errors](errors.md) covers the error classes.
+[Errors and warnings](errors-and-warnings.md) covers the error classes and how to route warnings.
 
 ## Limits
 
@@ -188,5 +188,5 @@ for (const slide of deck.slides) {
 - [OLE embedded objects](ole-objects.md)
 - [Groups](groups.md), for `slide.objects`
 - [Reading and round-tripping existing decks](reference/pptx-read.md)
-- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - API reference: [`Model3dProps`](reference/api/index/type-aliases/Model3dProps.md), [`Model3dCameraProps`](reference/api/index/interfaces/Model3dCameraProps.md), [`Model3dPoint`](reference/api/index/interfaces/Model3dPoint.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md)

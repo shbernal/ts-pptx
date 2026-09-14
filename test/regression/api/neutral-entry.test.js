@@ -5,7 +5,7 @@
 // entry, and this pins both halves of that: everything that returns bytes still works, and the
 // one thing that cannot work fails by name.
 //
-// Messages are deliberately not asserted (`docs/errors.md`: the class and the code are API,
+// Messages are deliberately not asserted (`docs/errors-and-warnings.md`: the class and the code are API,
 // the message is not) — the assertions are on `instanceof` and `code`.
 import { describe, test, expect } from 'vitest'
 import NeutralTsPptx, { UnsupportedFeatureError } from '../../../dist/index.js'

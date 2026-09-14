@@ -320,5 +320,5 @@ A resized box's baked height is the shape's `height`, in EMU. See [PPTX read and
 - [Embedded fonts](embedded-fonts.md)
 - [Smaller bundles](bundle-size.md)
 - [PPTX read and round-trip](reference/pptx-read.md)
-- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - API reference: [`TsPptx`](reference/api/index/classes/TsPptx.md), [`TextFitShrinkProps`](reference/api/index/interfaces/TextFitShrinkProps.md), [`MeasureTextOptions`](reference/api/index/interfaces/MeasureTextOptions.md), [`OverflowBoxOptions`](reference/api/index/interfaces/OverflowBoxOptions.md), [`TextMeasurement`](reference/api/index/interfaces/TextMeasurement.md)

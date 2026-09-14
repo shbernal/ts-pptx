@@ -1,7 +1,7 @@
 import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
 
 // `shadow.transparency` and `shadow.angle` were the last two options outside the rule
-// `docs/diagnostics.md` states for an out-of-range number: clamp to the nearest bound and warn,
+// `docs/contributing/development.md` states for an out-of-range number: clamp to the nearest bound and warn,
 // throw when the value is not a number at all.
 //
 // Both broke it in the way that rule exists to rule out. `transparency: 120` warned and then

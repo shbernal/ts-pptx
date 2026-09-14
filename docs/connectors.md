@@ -212,10 +212,10 @@ Throws happen inside the `addConnector()` call, as `InvalidOptionError`. The row
 | `startShape` or `endShape` is empty | throws | `connector/invalid-binding-name` |
 | a site index is negative or fractional | throws | `connector/invalid-connection-site` |
 | a bound name resolves to nothing (when written) | warns | `connector/unresolved-binding` |
-| `objectName` is empty, too long, or holds control characters | warns | `object-name/empty`, `object-name/too-long`, `object-name/control-characters` |
+| `objectName` is only whitespace, longer than 255 characters, or holds control characters | warns | `object-name/empty`, `object-name/too-long`, `object-name/control-characters` |
 | an `objectName` appears twice on the slide (when written) | warns | `object-name/duplicate` |
 
-[Diagnostics](diagnostics.md) covers routing warnings, and [Errors](errors.md) covers the error classes.
+[Errors and warnings](errors-and-warnings.md) covers the error classes and how to route warnings.
 
 ## Limits
 
@@ -238,5 +238,5 @@ Throws happen inside the `addConnector()` call, as `InvalidOptionError`. The row
 - [Groups](groups.md)
 - [Positions and sizes](reference/layout-units.md#positions-and-sizes)
 - [Core concepts](getting-started/concepts.md)
-- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [Errors and warnings](errors-and-warnings.md)
 - API reference: [`ConnectorProps`](reference/api/index/interfaces/ConnectorProps.md), [`ConnectorType`](reference/api/index/type-aliases/ConnectorType.md), [`Slide`](reference/api/index/interfaces/Slide.md), [`SHAPE_NAME`](reference/api/index/type-aliases/SHAPE_NAME.md)
