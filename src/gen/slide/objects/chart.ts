@@ -11,17 +11,38 @@ import { prstGeomRect } from '../../drawingml/geometry.js'
 import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
+import { alternateContentEl } from '../../oxml/alternate-content.js'
 import { cNvPrOpen, graphicFrameEl, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
+
+/** The chart types `isChartExType` accepts: the ones emitted as a chartEx part. */
+type ChartExChartType =
+	| ChartType.waterfall
+	| ChartType.funnel
+	| ChartType.treemap
+	| ChartType.sunburst
+	| ChartType.histogram
+	| ChartType.pareto
+	| ChartType.boxWhisker
+	| ChartType.regionMap
+
+/** The first chartEx feature level, which every chartEx type without a later one requires. */
+const CX1 = { prefix: 'cx1', uri: 'http://schemas.microsoft.com/office/drawing/2015/9/8/chartex' }
 
 /**
  * chartEx feature-version namespace declared on `<mc:Choice Requires>`. Each 2016 chart wave
  * introduced a feature level a consumer must "understand" to render the chart; a consumer that
- * doesn't falls through to `<mc:Fallback>`. Keyed by `ChartType`.
+ * doesn't falls through to `<mc:Fallback>`. Keyed by every chartEx `ChartType`, so a lookup cannot
+ * miss: the five types that name no later level used to reach `cx1` through a fallback instead.
  */
-const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: string }>> = {
-	[ChartType.waterfall]: { prefix: 'cx1', uri: 'http://schemas.microsoft.com/office/drawing/2015/9/8/chartex' },
+const CHARTEX_FEATURE_NS: Readonly<Record<ChartExChartType, { prefix: string; uri: string }>> = {
+	[ChartType.waterfall]: CX1,
 	[ChartType.funnel]: { prefix: 'cx2', uri: 'http://schemas.microsoft.com/office/drawing/2015/10/21/chartex' },
+	[ChartType.treemap]: CX1,
+	[ChartType.sunburst]: CX1,
+	[ChartType.histogram]: CX1,
+	[ChartType.pareto]: CX1,
+	[ChartType.boxWhisker]: CX1,
 	[ChartType.regionMap]: { prefix: 'cx4', uri: 'http://schemas.microsoft.com/office/drawing/2016/5/10/chartex' },
 }
 
@@ -80,14 +101,11 @@ export function renderChartObject(ctx: RenderContext): string {
 
 	// chartEx: wrap the graphicFrame in <mc:AlternateContent>. The Choice declares the feature-level
 	// namespace it Requires; the Fallback is a plain shape so non-2016 consumers show something.
-	const feature = (chartType && CHARTEX_FEATURE_NS[chartType]) ?? CHARTEX_FEATURE_NS[ChartType.waterfall]
-	const choice = el(
-		'mc:Choice',
-		{ [`xmlns:${feature?.prefix ?? 'cx1'}`]: feature?.uri, Requires: feature?.prefix ?? 'cx1' },
-		raw(graphicFrame)
-	)
-	const fallback = el('mc:Fallback', null, raw(renderChartExFallback(shapeId, itemOpts, x, y, cx, cy)))
-	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [raw(choice), raw(fallback)])
+	return alternateContentEl({
+		requires: CHARTEX_FEATURE_NS[chartType as ChartExChartType],
+		choice: graphicFrame,
+		fallback: renderChartExFallback(shapeId, itemOpts, x, y, cx, cy),
+	})
 }
 
 /**

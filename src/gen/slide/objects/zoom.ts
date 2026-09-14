@@ -9,6 +9,7 @@
 
 import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { alternateContentEl } from '../../oxml/alternate-content.js'
 import {
 	cNvPrOpen,
 	FALLBACK_PICTURE_LOCKS,
@@ -19,7 +20,6 @@ import {
 	type XfrmFrame,
 } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
-import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { xsdBool } from '../../../ooxml/xsd-boolean.js'
 
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
@@ -173,7 +173,6 @@ export function renderZoomObject(ctx: RenderContext): string {
 		uri,
 		payload: el(`${prefix}:${zm}`, null, objectsXml),
 	})
-	const choice = el('mc:Choice', { [`xmlns:${prefix}`]: uri, Requires: prefix }, raw(graphicFrame))
 
 	// Fallback: a hyperlinked picture per tile at its slide-absolute position.
 	let fallbackInner: string
@@ -199,8 +198,5 @@ export function renderZoomObject(ctx: RenderContext): string {
 		fallbackInner = zoomFallbackPic(shapeId, objectName, firstTile, { x, y, cx, cy })
 	}
 
-	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
-		raw(choice),
-		raw(el('mc:Fallback', null, raw(fallbackInner))),
-	])
+	return alternateContentEl({ requires: { prefix, uri }, choice: graphicFrame, fallback: fallbackInner })
 }

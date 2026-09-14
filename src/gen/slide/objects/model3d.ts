@@ -15,6 +15,7 @@
 import type { Model3dInternal } from '../../../types/internal.js'
 import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
+import { alternateContentEl } from '../../oxml/alternate-content.js'
 import {
 	FALLBACK_PICTURE_LOCKS,
 	type RenderContext,
@@ -24,7 +25,6 @@ import {
 	xfrmEl,
 } from './shared.js'
 import { GRAPHIC_FRAME_LOCK_ATTRS, PICTURE_LOCK_ATTRS, genXmlObjectLock } from '../../drawingml/locks.js'
-import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /** The `am3d` namespace, doubling as `a:graphicData@uri` and the `mc:Choice Requires` token's URI. */
 const AM3D_NS = 'http://schemas.microsoft.com/office/drawing/2017/model3d'
@@ -194,8 +194,9 @@ export function renderModel3dObject(ctx: RenderContext): string {
 		payload: model3d,
 	})
 
-	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
-		raw(el('mc:Choice', { 'xmlns:am3d': AM3D_NS, Requires: 'am3d' }, raw(graphicFrame))),
-		raw(el('mc:Fallback', null, raw(fallbackPic(shapeId, opts.objectName, altText, model, { x, y, cx, cy })))),
-	])
+	return alternateContentEl({
+		requires: { prefix: 'am3d', uri: AM3D_NS },
+		choice: graphicFrame,
+		fallback: fallbackPic(shapeId, opts.objectName, altText, model, { x, y, cx, cy }),
+	})
 }

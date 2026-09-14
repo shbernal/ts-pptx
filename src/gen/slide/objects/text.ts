@@ -14,6 +14,7 @@ import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
 import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { alternateContentEl } from '../../oxml/alternate-content.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
@@ -115,11 +116,7 @@ export function renderTextObject(ctx: RenderContext): string {
 	// wraps the whole shape in <mc:AlternateContent><mc:Choice Requires="a14"> so non-a14
 	// consumers (and schema validators) treat the a14:m subtree as a known extension.
 	if (objectHasMath(slideItemObj)) {
-		return el(
-			'mc:AlternateContent',
-			{ 'xmlns:mc': OOXML_NS.mc },
-			raw(el('mc:Choice', { 'xmlns:a14': OOXML_NS.a14, Requires: 'a14' }, raw(strSlideXml)))
-		)
+		return alternateContentEl({ requires: { prefix: 'a14', uri: OOXML_NS.a14 }, choice: strSlideXml })
 	}
 	return strSlideXml
 }

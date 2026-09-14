@@ -9,6 +9,7 @@
 import type { TransitionProps, TransitionType } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { alternateContentEl } from '../oxml/alternate-content.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
@@ -101,14 +102,9 @@ export function slideTransitionToXml(slide: PresSlideInternal, soundRId?: number
 	if (!hasDuration) return el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)])
 
 	const dur = Math.round(transition.durationMs as number)
-	return el('mc:AlternateContent', { 'xmlns:mc': OOXML_NS.mc }, [
-		raw(
-			el(
-				'mc:Choice',
-				{ 'xmlns:p14': OOXML_NS.p14, Requires: 'p14' },
-				raw(el('p:transition', { ...baseAttrs, 'p14:dur': dur }, [raw(typeEl), raw(sndAc)]))
-			)
-		),
-		raw(el('mc:Fallback', null, raw(el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)])))),
-	])
+	return alternateContentEl({
+		requires: { prefix: 'p14', uri: OOXML_NS.p14 },
+		choice: el('p:transition', { ...baseAttrs, 'p14:dur': dur }, [raw(typeEl), raw(sndAc)]),
+		fallback: el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)]),
+	})
 }
