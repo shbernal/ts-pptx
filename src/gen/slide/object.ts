@@ -33,7 +33,7 @@ import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { cNvPrOpen, grpXfrmEl, type RenderContext, type RendererTable } from './objects/shared.js'
+import { cNvPrOpen, grpXfrmEl, spTreeEl, type RenderContext, type RendererTable } from './objects/shared.js'
 // Not a renderer: it measures the box an image is drawn in, which a group's bounds need, and emits no XML.
 import { resolveImageExtent } from './objects/image-extent.js'
 import { findLayoutPlaceholder } from '../define/layout-placeholder.js'
@@ -263,27 +263,6 @@ function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal | Sli
 }
 
 /**
- * The fixed opening of a slide's `<p:spTree>`.
- *
- * OOXML requires the shape tree to open with the implicit top-level group's non-visual props
- * (`<p:nvGrpSpPr>`, the reserved `cNvPr id="1"`) and an identity group transform (off/ext and
- * chOff/chExt all zero) before any child shape. This is the slide's built-in root group, not a
- * user-authored `addGroup` — hence the zeroed frame, and hence taking no arguments: every slide,
- * layout and master opens its tree with exactly these bytes.
- */
-function spTreeOpenXml(): string {
-	let strSlideXml = ''
-	strSlideXml += '<p:spTree>'
-	strSlideXml += el('p:nvGrpSpPr', null, [
-		raw(voidEl('p:cNvPr', { id: '1', name: '' })),
-		raw(voidEl('p:cNvGrpSpPr')),
-		raw(voidEl('p:nvPr')),
-	])
-	strSlideXml += el('p:grpSpPr', null, raw(grpXfrmEl({ x: '0', y: '0', cx: '0', cy: '0' })))
-	return strSlideXml
-}
-
-/**
  * The slide-number placeholder shape.
  *
  * Emitted after every authored object, so its `<p:cNvPr>` id can come from the same monotonic
@@ -427,8 +406,8 @@ export function slideObjectToXml(
 	// STEP 1: Add the background, if this part defines one
 	strSlideXml += slideBackgroundXml(slide)
 
-	// STEP 2: Continue slide by starting spTree node
-	strSlideXml += spTreeOpenXml()
+	// STEP 2: The shapes of the tree, wrapped by `spTreeEl` once they are all rendered
+	const spTreeChildren: string[] = []
 
 	// Every object's <p:cNvPr> id, allocated once, up front. It has to be up front for the
 	// references that cannot wait for the walk below to reach their target (connector shape
@@ -625,7 +604,7 @@ export function slideObjectToXml(
 	}
 
 	slide._slideObjects.forEach((slideItemObj: SlideObject) => {
-		strSlideXml += renderSlideObjectXml(slideItemObj)
+		spTreeChildren.push(renderSlideObjectXml(slideItemObj))
 	})
 
 	// STEP 4: Add slide numbers (if any) last.
@@ -643,11 +622,11 @@ export function slideObjectToXml(
 			const lastId = id + shapeIdCount(obj) - 1
 			if (lastId > maxShapeId) maxShapeId = lastId
 		}
-		strSlideXml += slideNumberPlaceholderXml(slide, slide._slideNumberProps, maxShapeId + 1)
+		spTreeChildren.push(slideNumberPlaceholderXml(slide, slide._slideNumberProps, maxShapeId + 1))
 	}
 
-	// STEP 5: Close spTree and finalize slide XML
-	strSlideXml += '</p:spTree>'
+	// STEP 5: The tree, then close the slide
+	strSlideXml += spTreeEl(spTreeChildren)
 	strSlideXml += '</p:cSld>'
 
 	// LAST: Return

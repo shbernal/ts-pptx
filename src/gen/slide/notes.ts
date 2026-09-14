@@ -20,7 +20,7 @@ import { externalHyperlinkRel, relationshipEl, relationshipsEl, relationshipsPar
 import { hyperlinkRel } from '../define/hyperlinks.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
-import { xfrmEl } from './objects/shared.js'
+import { spTreeEl, xfrmEl } from './objects/shared.js'
 import { NOTES_MASTER_PATH, slidePath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 /**
@@ -114,42 +114,6 @@ function genXmlNotesParagraphs(runs: TextProps[]): string {
 			])
 		)
 		.join('')
-}
-
-/**
- * The `p:spTree` wrapper a notes master and a notes slide both open with: the group's own
- * non-visual properties and an identity `a:xfrm`, followed by that part's placeholders.
- *
- * The two parts differ only in which placeholders they carry — the master has six (header, date,
- * thumbnail, body, footer, slide number), a notes slide has three — so everything around the
- * `children` argument was written out twice, `chOff`/`chExt` and all.
- * @param children - the placeholder shapes, already serialized, in document order
- */
-function notesSpTree(children: string[]): string {
-	return el('p:spTree', null, [
-		raw(
-			el('p:nvGrpSpPr', null, [
-				raw(voidEl('p:cNvPr', { id: 1, name: '' })),
-				raw(voidEl('p:cNvGrpSpPr')),
-				raw(voidEl('p:nvPr')),
-			])
-		),
-		raw(
-			el(
-				'p:grpSpPr',
-				null,
-				raw(
-					el('a:xfrm', null, [
-						raw(voidEl('a:off', { x: 0, y: 0 })),
-						raw(voidEl('a:ext', { cx: 0, cy: 0 })),
-						raw(voidEl('a:chOff', { x: 0, y: 0 })),
-						raw(voidEl('a:chExt', { cx: 0, cy: 0 })),
-					])
-				)
-			)
-		),
-		...children.map((child) => raw(child)),
-	])
 }
 
 /**
@@ -335,7 +299,7 @@ export function makeXmlNotesMaster(): string {
 		),
 	])
 
-	const spTree = notesSpTree([header, date, slideImg, notesPlaceholder, footer, slideNum])
+	const spTree = spTreeEl([header, date, slideImg, notesPlaceholder, footer, slideNum])
 
 	const extLst = notesExtLst()
 
@@ -445,7 +409,7 @@ export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: n
 		),
 	])
 
-	const spTree = notesSpTree([slideImgPh, notesPh, slideNumPh])
+	const spTree = spTreeEl([slideImgPh, notesPh, slideNumPh])
 
 	const extLst = notesExtLst()
 

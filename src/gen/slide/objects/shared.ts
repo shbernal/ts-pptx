@@ -236,6 +236,29 @@ export function grpXfrmEl(frame: XfrmFrame, attrs: XmlAttrs | null = null): stri
 }
 
 /**
+ * A part's `<p:spTree>`: the implicit top-level group's non-visual properties (the reserved
+ * `cNvPr id="1"`) and an identity group transform, zeroed, then the shapes.
+ *
+ * This is the part's built-in root group, not a user-authored `addGroup`, hence the zeroed frame.
+ * Every slide, layout, master, notes slide and notes master opens its tree with exactly these
+ * bytes, and the slide emitter and the notes emitter each used to write them out.
+ * @param children - the shapes, already serialized, in document order
+ */
+export function spTreeEl(children: readonly string[]): string {
+	return el('p:spTree', null, [
+		raw(
+			el('p:nvGrpSpPr', null, [
+				raw(voidEl('p:cNvPr', { id: 1, name: '' })),
+				raw(voidEl('p:cNvGrpSpPr')),
+				raw(voidEl('p:nvPr')),
+			])
+		),
+		raw(el('p:grpSpPr', null, raw(grpXfrmEl({ x: 0, y: 0, cx: 0, cy: 0 })))),
+		...children.map((child) => raw(child)),
+	])
+}
+
+/**
  * A `<p:graphicFrame>`: its non-visual properties, its transform, and the `<a:graphic>` /
  * `<a:graphicData>` envelope around a payload.
  *
