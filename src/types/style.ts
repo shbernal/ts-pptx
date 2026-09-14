@@ -339,8 +339,9 @@ export interface ConnectorProps {
 	 * The shape's `objectName` must be set and unique on the slide. `x1`/`y1` remain the static
 	 * fallback geometry (and are used if the name can't be resolved).
 	 *
-	 * A shape inside a group is a valid target — group children are named on the same slide — though
-	 * the connector itself cannot be a group child (see {@link Slide.addGroup}).
+	 * A shape inside a group is a valid target — group children are named on the same slide. The
+	 * connector itself is not an {@link Slide.addGroup} child, but {@link Slide.groupObjects} can
+	 * group one that is already on the slide.
 	 */
 	startShape?: string
 	/**
@@ -366,7 +367,7 @@ export interface ConnectorProps {
 	y2: Coord
 	/**
 	 * Line color (6-digit hex, no `#`)
-	 * @default '000000'
+	 * @default '333333'
 	 */
 	color?: HexColor
 	/**

@@ -1,255 +1,296 @@
 ---
 doc-schema-version: 1
-title: "Grouping objects"
-summary: "Wrap slide objects in a PowerPoint group (<p:grpSp>) with addGroup() or groupObjects(), including nesting, framing, and cross-references."
+title: "Groups"
+summary: "Combine slide objects into one PowerPoint group with addGroup() or groupObjects(), list a slide's objects with slide.objects, and control a group's frame, nesting and stacking order."
 read_when:
-  - Grouping shapes/text/images into one selectable PowerPoint group
-  - Grouping objects that were already added to a slide (groupObjects)
-  - Listing what a slide already holds, to decide what to group (slide.objects)
-  - Understanding why a group never moves or scales its children
-  - Binding a connector or animation to a shape inside a group
+  - Grouping shapes, text and images into one selectable PowerPoint group
+  - Grouping objects already on a slide by their objectName (groupObjects)
+  - Listing a slide's objects to decide what to group (slide.objects)
+  - Setting a group's frame, or finding out why a group never moves its children
+  - Pointing a connector or animation at a shape inside a group
 doc_type: "guide"
 ---
 
-# Grouping objects
+# Groups
 
-A group is a single selectable PowerPoint object (`<p:grpSp>`) that contains other
-objects. ts-pptx offers two entry points:
+A group turns several slide objects into one PowerPoint object, with one Selection Pane entry, one drag target and one rotation handle.
 
-- `slide.addGroup(children, options?)` builds a group from child *descriptors*,
-  the same shorthand `addShape` / `addText` / `addImage` accept, in one call.
-- `slide.groupObjects(objectNames, options?)` wraps objects that are **already on
-  the slide**, addressed by their `objectName`. Use this when independent renderers
-  each added their own objects and you want to group them after the fact without
-  replaying their descriptors.
+```ts
+import TsPptx from "pptx-ts"
 
-Both produce the same XML and share the same framing and naming rules.
-`slide.objects` reports what is already there, which is how a caller that did not
-author the objects learns the names `groupObjects()` takes.
-
-## The identity child space (why a group never moves its children)
-
-Every group ts-pptx writes keeps an **identity child coordinate space**:
-`chOff/chExt == off/ext` at every nesting depth. The practical consequence:
-
-> A group's own frame only places the selection handle and the rotate pivot. It
-> never moves or scales the children: they keep their slide-absolute `x/y/w/h`.
-
-This makes grouping visually a no-op: the objects render exactly where they did
-before, but PowerPoint now treats them as one unit (one Selection Pane entry, one
-drag target, one rotate handle). It also means you never recompute child
-coordinates to "put them inside" a group: you author each child at its final
-slide position and let the group wrap it.
-
-## `addGroup()`: build a group from descriptors
-
-```js
+const pptx = new TsPptx()
+const slide = pptx.addSlide()
 slide.addGroup(
   [
-    { rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } },
-    { text: { text: 'Label', options: { x: 1.2, y: 1.2, w: 1.6, h: 0.6, color: 'FFFFFF' } } },
-    { image: { path: 'logo.png', x: 3.5, y: 1, w: 1, h: 1 } },
+    { rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: "CC0000" } } },
+    { text: { text: "Label", options: { x: 1.2, y: 1.2, w: 1.6, h: 0.6, color: "FFFFFF" } } },
   ],
-  { objectName: 'Branding' }
+  { objectName: "Badge" },
+)
+await pptx.writeFile({ fileName: "group.pptx" })
+```
+
+`slide.addGroup(children, options?)` builds a group from child descriptors. `slide.groupObjects(objectNames, options?)` groups objects that are already on the slide. Both take the same options and return the slide.
+
+## Options at a glance
+
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `x`, `y`, `w`, `h` | `Coord` | the children's bounding box | The group frame. Pass all four or none |
+| `rotate` | `number` | none | Rotates the whole group, in degrees |
+| `flipH`, `flipV` | `boolean` | `false` | Mirrors the whole group |
+| `objectName` | `string` | `Group 1`, `Group 2`, ... | Selection Pane name |
+| `altText` | `string` | none | Alt text for the group |
+| `objectLock` | `ObjectLockProps` | none | Locks. A group takes `noGrp`, `noSelect`, `noRot`, `noChangeAspect`, `noMove` and `noResize` |
+
+## The identity child space
+
+A group never moves or scales its children. Each child stays at the slide position you gave it, and the group frame only sets the selection box and the centre the group rotates about.
+
+<svg role="img" aria-label="Left: a group with no frame given. Its dashed frame is the bounding box of a rectangle and a circle. Right: the same rectangle and circle at the same positions, with an explicit frame drawn larger around them. The children have not moved." viewBox="0 0 520 200" width="100%" style="max-width: 520px" fill="none" stroke="currentColor" font-size="12">
+  <rect x="50" y="50" width="90" height="40" stroke-width="2"/>
+  <circle cx="175" cy="95" r="25" stroke-width="2"/>
+  <rect x="50" y="50" width="150" height="70" stroke-dasharray="4 3" opacity="0.6"/>
+  <rect x="320" y="50" width="90" height="40" stroke-width="2"/>
+  <circle cx="445" cy="95" r="25" stroke-width="2"/>
+  <rect x="295" y="30" width="200" height="125" stroke-dasharray="4 3" opacity="0.6"/>
+  <g fill="currentColor" stroke="none" text-anchor="middle">
+    <text x="125" y="175">no frame given:</text>
+    <text x="125" y="191">the frame is the bounding box</text>
+    <text x="395" y="175">all four of x, y, w, h given:</text>
+    <text x="395" y="191">the children stay where they are</text>
+  </g>
+</svg>
+
+So you place every child at its final slide position, and grouping leaves the slide looking exactly as it did. Text inside a group takes part in [measured text fit](measured-text-fit.md) at its authored size, like any other text box.
+
+## Build a group from descriptors
+
+```ts
+slide.addGroup(
+  [
+    { roundRect: { x: 1, y: 1, w: 3, h: 1.5, fill: { color: "1F3A5F" } } },
+    { shape: { type: "ellipse", options: { x: 1.2, y: 1.2, w: 1, h: 1, fill: { color: "FFFFFF" } } } },
+    { image: { path: "logo.png", x: 2.5, y: 1.25, w: 1, h: 1 } },
+    { line: { x: 1, y: 2.7, w: 3, h: 0, line: { color: "1F3A5F" } } },
+  ],
+  { objectName: "Logo lockup" },
 )
 ```
 
-Supported child descriptors: `rect`, `roundRect`, `line`, `shape` (any preset),
-`text`, `image`, and `group` (nesting). Each child is authored in slide-absolute
-inches, exactly as the top-level `add*` methods take them.
+| Descriptor | Adds |
+| --- | --- |
+| `{ rect: ShapeProps }`, `{ roundRect: ShapeProps }`, `{ line: ShapeProps }` | a shape of that preset |
+| `{ shape: { type, options } }` | a shape of any preset in `SHAPE_NAME` |
+| `{ text: { text, options } }` | a text box |
+| `{ image: ImageProps }` | an image |
+| `{ group: { children, options } }` | a nested group |
 
-**Not supported as children yet:** `chart`, `table`, `media`, and `placeholder`.
-Each is skipped with a warning (the relationship/id/transform plumbing to nest them
-is pending). A group left with no renderable children, because every child was an
-unsupported kind, warns and emits a degenerate zero-size group rather than
-producing one in silence.
+- Each child takes slide coordinates, the same options its `add*` method takes.
+- The array order is the stacking order. The first child is at the bottom.
+- Charts, tables, media and placeholders cannot be group children. The type rejects them, and at run time each one warns and is skipped.
 
-### Framing: auto-bounds or an explicit frame (all-or-nothing)
+## Set the group frame
 
-The group frame is **all-or-nothing**:
+| You pass | Frame written |
+| --- | --- |
+| none of `x`, `y`, `w`, `h` | the bounding box of the children as they are drawn, nested groups included |
+| all four | that box, exactly |
+| one, two or three of them | a `group/partial-frame` warning, then the bounding box |
 
-- **Omit all of `x/y/w/h`** → the frame auto-computes to the bounding box of the
-  children (recursing into nested auto-sized groups). This is the usual case.
-- **Pass all four** → the frame is used verbatim. Because the child space stays
-  identity, this only relocates the handle/pivot; the children do not move.
+```ts
+// The frame is larger than the rectangle, and the rectangle stays at x 1, y 1
+slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1 } }], { x: 0.5, y: 0.5, w: 3, h: 2 })
+```
 
-A **partial** frame (some axes set, others not) is ambiguous: `{ x: 5 }` reads
-like a reposition but cannot be one without moving the children out from under the
-box. So a partial frame **warns and falls back to auto-bounds** on every axis. Pass
-all four or none.
+- A partial frame such as `{ x: 5 }` reads like a move, and a group frame cannot move its children, so ts-pptx falls back to the bounding box rather than draw the frame away from its content.
+- The bounding box uses the size each child is drawn at. A text box with no `w` counts at its default width, and an image with a `sizing` box counts at that box.
+- A negative `w` or `h` on an explicit frame becomes a positive size plus a flip. See [Positions and sizes](reference/layout-units.md#positions-and-sizes).
 
-### Rotate, flip, lock, and alt text
+## Rotate, flip and lock a group
 
-`GroupProps` accepts the same identity/formatting options as other objects; they
-apply to the group as a whole:
-
-```js
+```ts
 slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1 } }], {
-  rotate: 45,          // whole group rotates about its pivot
+  rotate: 45,
   flipH: true,
-  flipV: true,
-  objectName: 'Badge',
-  altText: 'Award badge',           // -> group cNvPr @descr
-  objectLock: { noMove: true, noResize: true }, // -> a:grpSpLocks
+  objectName: "Badge",
+  altText: "Award badge",
+  objectLock: { noMove: true, noResize: true },
 })
 ```
 
-Group locks are the group-valid subset (`noGrp`, `noSelect`, `noRot`,
-`noChangeAspect`, `noMove`, `noResize`); a flag valid only on shapes/pictures
-(e.g. `noCrop`) is dropped with a warning rather than silently coerced.
+- `rotate`, `flipH` and `flipV` apply to the whole group, about the centre of its frame.
+- A lock flag that groups do not support, such as `noCrop`, warns and is left out.
 
-### Nesting
+## Nest groups
 
-A `group` child nests. Names number **per slide** and **inside-out** (a nested
-group built first takes the lower `Group N` index):
-
-```js
-slide.addGroup([
-  { rect: { x: 1, y: 1, w: 1, h: 1 } },
-  { group: { children: [
-    { rect: { x: 3, y: 1, w: 1, h: 1 } },
-    { text: { text: 'Nested', options: { x: 3, y: 1, w: 1, h: 1 } } },
-  ], options: { objectName: 'Inner' } } },
-], { objectName: 'Outer' })
+```ts
+slide.addGroup(
+  [
+    { rect: { x: 1, y: 1, w: 1, h: 1 } },
+    {
+      group: {
+        children: [
+          { rect: { x: 3, y: 1, w: 1, h: 1 } },
+          { text: { text: "Nested", options: { x: 3, y: 1, w: 1, h: 1 } } },
+        ],
+        options: { objectName: "Inner" },
+      },
+    },
+  ],
+  { objectName: "Outer" },
+)
 ```
 
-## `groupObjects()`: group objects already on the slide
+- A `group` child nests to any depth, and every level keeps its children where they were placed.
+- Default names count per slide, and a nested group takes its number before the group around it. An unnamed group holding an unnamed group, on a slide with no other groups, writes `Group 2` outside and `Group 1` inside.
+- `groupObjects()` also accepts an existing group as a member.
 
-```js
-const s = pptx.addSlide()
-s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, objectName: 'Header' })
-s.addText('Caption', { x: 1.2, y: 2.2, w: 1.6, h: 0.6, objectName: 'Caption' })
-s.addShape('rect', { x: 5, y: 1, w: 1, h: 1, objectName: 'Loose' })
+## Group objects already on a slide
 
-s.groupObjects(['Header', 'Caption'], { objectName: 'Banner' })
-// 'Header' and 'Caption' are now inside 'Banner'; 'Loose' stays top-level.
+`groupObjects()` takes the `objectName` of each top-level object to group. It suits a slide built by separate functions, where replaying each object's descriptor just to group it is not an option.
+
+```ts
+slide.addShape("rect", { x: 1, y: 1, w: 2, h: 1, objectName: "Header" })
+slide.addText("Caption", { x: 1.2, y: 2.2, w: 1.6, h: 0.6, objectName: "Caption" })
+slide.addShape("rect", { x: 5, y: 1, w: 1, h: 1, objectName: "Loose" })
+
+slide.groupObjects(["Header", "Caption"], { objectName: "Banner" })
+// "Header" and "Caption" are now inside "Banner". "Loose" stays top-level.
 ```
 
-Two ordering rules keep the lift visually a no-op:
+| Object | Groupable |
+| --- | --- |
+| shapes, text boxes, images, connectors and groups | yes |
+| charts, tables, media, 3D models, OLE objects and zooms | no, the call throws |
+| any object in a layout placeholder | no, the call throws |
 
-- **Children keep their existing slide z-order**: *not* the order you name them.
-  Naming is a selection, not a restack; `['Top', 'Bottom']` never lifts `Top`
-  above `Bottom`.
-- **The wrapper takes the topmost member's former slot**: it sits above everything
-  the selection sat above and below everything it sat below. A non-member that sat
-  between two members surfaces above the group.
+The call keeps the slide looking the same. Here `A` and `C` are grouped with `slide.groupObjects(["C", "A"])`, and each column lists the stack from the top down:
 
-An existing group can be a member, so you can compose larger logical groups out of
-groups you already made.
+<svg role="img" aria-label="Stacking order before and after grouping A and C. Before, from the top: Over, C, B, A, Under. After, from the top: Over, then a group holding C above A, then B, then Under." viewBox="0 0 480 200" width="100%" style="max-width: 480px" fill="none" stroke="currentColor" font-size="12">
+  <rect x="40" y="36" width="140" height="24"/>
+  <rect x="40" y="66" width="140" height="24" fill="currentColor" fill-opacity="0.15"/>
+  <rect x="40" y="96" width="140" height="24"/>
+  <rect x="40" y="126" width="140" height="24" fill="currentColor" fill-opacity="0.15"/>
+  <rect x="40" y="156" width="140" height="24"/>
+  <rect x="280" y="36" width="140" height="24"/>
+  <rect x="280" y="66" width="140" height="60" stroke-dasharray="4 3"/>
+  <rect x="292" y="73" width="116" height="20" fill="currentColor" fill-opacity="0.15"/>
+  <rect x="292" y="99" width="116" height="20" fill="currentColor" fill-opacity="0.15"/>
+  <rect x="280" y="132" width="140" height="24"/>
+  <rect x="280" y="162" width="140" height="24"/>
+  <g fill="currentColor" stroke="none" text-anchor="middle">
+    <text x="110" y="22">Before</text>
+    <text x="110" y="52">Over</text>
+    <text x="110" y="82">C</text>
+    <text x="110" y="112">B</text>
+    <text x="110" y="142">A</text>
+    <text x="110" y="172">Under</text>
+    <text x="350" y="22">After</text>
+    <text x="350" y="52">Over</text>
+    <text x="350" y="87">C</text>
+    <text x="350" y="113">A</text>
+    <text x="350" y="148">B</text>
+    <text x="350" y="178">Under</text>
+    <text x="448" y="100">group</text>
+  </g>
+</svg>
 
-### Failure is a throw, not a warn
+1. The members keep their stacking order among themselves. The order of the names in the array does not matter.
+2. The group takes the place of the topmost member.
+3. An object that sat between two members ends up above the group.
+4. Every name is checked before anything moves, so a call that throws leaves the slide unchanged.
 
-Unlike `addGroup`, which warns and skips, every `groupObjects` failure **throws**.
-Each one would otherwise leave the intended object loose on the slide without
-saying so, which is the footgun the group was meant to remove. Resolution runs
-fully *before* anything moves, so a bad name leaves the slide untouched rather
-than half-grouped:
+The frame and naming rules are the same as for `addGroup()`.
 
-- a name no top-level object has (distinguished from one that is already inside
-  another group),
-- an ambiguous name shared by more than one object,
-- an ungroupable kind (`chart`/`table`/`media`/`placeholder`),
-- an empty or duplicate-laden `objectNames` array.
+## List what a slide holds
 
-## `slide.objects`: what is on the slide, and what can be grouped
+`slide.objects` returns the objects on the slide, bottom of the stack first, with the names `groupObjects()` accepts. It is how code that did not add the objects finds out what to group.
 
-`groupObjects()` addresses objects by name, so something has to know the names.
-When one caller authored everything, that is easy. When a slide is assembled by
-independent renderers, it is not: nobody kept the descriptors, and a parallel
-ledger of what was added is wrong the moment a renderer adds an object it did not
-announce. `slide.objects` is the read-back half.
+```ts
+slide.addShape("rect", { x: 1, y: 1, w: 3, h: 2, objectName: "card:frame" })
+slide.addText("Revenue", { x: 1.2, y: 1.2, w: 2.6, h: 0.5, objectName: "card:title" })
+slide.addText("Draft", { x: 5, y: 1, w: 1, h: 0.5 })
 
-```js
-const s = pptx.addSlide()
-renderHeader(s) // adds 'card:header', 'card:header_icon'
-renderBody(s) // adds 'card:body', 'card:body_label'
-
-for (const o of s.objects) {
+for (const o of slide.objects) {
   console.log(o.type, o.objectName, o.canGroup)
 }
-// text  card:header       true
-// image card:header_icon  true
-// text  card:body         true
-// text  card:body_label   true
+// text card:frame true
+// text card:title true
+// text Text 3 true
 
-const card = s.objects.filter((o) => o.canGroup && o.objectName.startsWith('card:'))
-s.groupObjects(
-  card.map((o) => o.objectName),
-  { objectName: 'Card' }
-)
+const card = slide.objects.filter((o) => o.canGroup && o.objectName.startsWith("card:"))
+slide.groupObjects(card.map((o) => o.objectName), { objectName: "Card" })
 ```
 
 Each entry is a `SlideObjectInfo`:
 
-| field           | meaning                                                                |
-| --------------- | ---------------------------------------------------------------------- |
-| `type`          | the kind the object was authored as (a shape is a `text` object)        |
-| `objectName`    | the Selection Pane name, in the spelling that resolves (see below)      |
-| `isPlaceholder` | occupies a layout placeholder, which grouping refuses on top of kind    |
-| `canGroup`      | whether `groupObjects()` accepts this object's kind                     |
-| `children`      | a group's members, same shape, nested to any depth; empty for a leaf    |
+| Field | Meaning |
+| --- | --- |
+| `type` | the kind the object was added as. Shapes and text boxes both report `"text"` |
+| `objectName` | the name you gave, spelled as you gave it, or the generated name PowerPoint shows, such as `Shape 3` |
+| `isPlaceholder` | the object fills a layout placeholder, which `groupObjects()` refuses |
+| `canGroup` | `groupObjects()` accepts this kind of object |
+| `children` | a group's members, bottom first, nested to any depth. Empty for anything else |
 
-Three things are worth knowing:
+- A name read from `slide.objects` resolves when you pass it back, including names that contain `&`, `<` or quotes.
+- `canGroup` speaks for the object alone. A call can still throw for a name that matches nothing, or more than one object.
+- Each read returns a fresh snapshot. Changing it does nothing to the slide.
 
-- **The order is z-order**, bottom to top, the same order the objects were added
-  and the same order `groupObjects()` uses when it stacks a group's children.
-- **`objectName` is always a string.** An object authored without one still gets
-  the generated `Shape 3` / `Text 1` / `Group 2` identity PowerPoint shows in the
-  Selection Pane, and that name addresses it just as well. Nothing records which
-  is which, so if the distinction matters, make it with your own naming
-  convention.
-- **`canGroup` answers about the object, not the call.** It is the same predicate
-  `groupObjects()` throws on, so it will not drift from the groupable-kinds list.
-  The remaining failures are about the *selection* (a name that resolves to
-  nothing, or to two objects), which no single object can speak for.
+## Target a shape inside a group
 
-It is a snapshot, not a live handle: a fresh array on every access, describing the
-slide as it was, and writing to it does nothing. To change the slide, call the
-authoring API with the names it gave you.
+Group children are named on the slide like top-level objects, so a connector end or an animation can point at one.
 
-### Why the name comes back decoded
-
-`objectName` is stored attribute-escaped, and `groupObjects()` escapes the
-caller's spelling before it compares. So `slide.objects` reports the *caller's*
-spelling: a shape named `Q&A` reads back as `Q&A`, not the stored `Q&amp;A`,
-which would escape a second time on the way in and resolve to nothing.
-
-The guarantee is the round trip, not invertibility: a name that comes out of
-`slide.objects` goes back into `groupObjects()` and finds its object. That holds
-even for a name that is itself an entity spelling (`&amp;` authored literally).
-
-## Cross-references into a group
-
-A connector or animation can target a shape **inside** a group by its `objectName`:
-group children are `<p:cNvPr>`-named on the same slide and are valid targets:
-
-```js
-s.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'boxInGroup' } }], { objectName: 'Grp' })
-s.addConnector({ type: 'elbow', x1: 3, y1: 1.5, x2: 6, y2: 4.5, startShape: 'boxInGroup' })
-s.addAnimation({ preset: 'fadeIn', objectName: 'boxInGroup' })
+```ts
+slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: "boxInGroup" } }], { objectName: "Grp" })
+slide.addConnector({ type: "elbow", x1: 3, y1: 1.5, x2: 6, y2: 4.5, startShape: "boxInGroup", startShapeIdx: 3 })
+slide.addAnimation({ preset: "fadeIn", objectName: "boxInGroup" })
 ```
 
-If two objects share a name, a top-level object wins the reference over a group
-child (duplicate names are warned about separately). A reference naming nothing on
-the slide warns rather than emitting a dangling target.
+[Bind a connector to a shape](connectors.md#bind-a-connector-to-a-shape) has the lookup order and what happens when a name does not resolve. An animation whose name resolves to nothing warns `animation/target-not-found` and is left out.
 
-## Reading groups back
+## Invalid input
 
-On the read side, a `<p:grpSp>` surfaces as a `GroupShape` whose `.shapes` are its
-children; each child's `absoluteFrame` composes the enclosing group transforms
-(scale, rotation, flips) to report its true slide-absolute geometry. `inspect()`
-reports a `group` element with its children and applies the same composition. See
-[PPTX read API](reference/pptx-read.md) and
-[PPTX Inspection](reference/pptx-inspection.md).
+`addGroup()` warns and carries on. `groupObjects()` throws instead, because a failed lookup would otherwise leave an object outside the group with no sign of it. Rows marked "when written" are reported while the deck is exported.
 
-Grouped text still participates in the export-time measured-fit pass: the fit pass
-descends into groups, and because the child space is identity, a grouped text box's
-authored `w/h` is its true rendered size (see `docs/measured-text-fit.md`).
+| Condition | Warns or throws | Code |
+| --- | --- | --- |
+| an `addGroup()` child is a chart, table, media or placeholder | warns, child skipped | `group/unsupported-child` |
+| an `addGroup()` child has a key no descriptor uses | warns, child skipped | `group/unrecognized-child` |
+| an `addGroup()` child needs a construct family the presentation was composed without | warns, child skipped | `family/child-not-composed` |
+| `addGroup()` is left with no child to draw | warns, writes a zero-size group | `group/no-children` |
+| one to three of `x`, `y`, `w`, `h` are set (when written) | warns, uses the bounding box | `group/partial-frame` |
+| a lock flag groups do not support (when written) | warns, flag left out | `object-lock/unsupported-on-shape` |
+| an `objectName` appears twice on the slide, group children included (when written) | warns | `object-name/duplicate` |
+| `groupObjects()` gets an empty list, or no list | throws `InvalidOptionError` | `group/missing-object-names` |
+| a name is not a non-empty string | throws `InvalidOptionError` | `group/invalid-object-name` |
+| a name appears twice in the list | throws `InvalidOptionError` | `group/duplicate-object-name` |
+| no top-level object has the name. The message says when it is already inside a group | throws `InvalidOptionError` | `group/unresolved-object-name` |
+| more than one top-level object has the name | throws `InvalidOptionError` | `group/ambiguous-object-name` |
+| the object's kind cannot be grouped, or it is a placeholder | throws `UnsupportedFeatureError` | `group/kind-not-groupable` |
+
+Composing a presentation from construct families is covered in [Smaller bundles](bundle-size.md). [Diagnostics](diagnostics.md) covers routing warnings, and [Errors](errors.md) covers the error classes.
+
+## Limits
+
+- `addGroup()` takes only the descriptors in the table above.
+- `groupObjects()` takes shapes, text boxes, images, connectors and groups only.
+- `groupObjects()` reaches top-level objects only, so an object belongs to one group at a time.
+- A written group never scales its children.
+- There is no call to ungroup.
+- A group takes no fill or outline of its own.
+
+## Reading it back
+
+- Before export, `slide.objects` reports groups and their `children`, as described above.
+- After loading a deck with `pptx-ts/read`, a group is a `GroupShape` whose `shapes` are its children. [PPTX read API](reference/pptx-read.md) covers each child's slide-absolute geometry through the groups around it.
+- [PPTX inspection](reference/pptx-inspection.md#geometry-groups-and-z-order) reports groups as `kind: 'group'` elements, and gives each child a slide-absolute box.
 
 ## See also
 
-- Runnable demo: the KPI cards in `demos/showcases/quarterly-review/index.mjs`
-  (run with `pnpm demos:build quarterly-review`).
-- Regression coverage: `test/regression/shape/group-shapes.test.js`.
-- Schema fixtures: `flat-group`, `nested-group`, `group-cross-references`,
-  `group-existing-objects` in `test/schema-cases.js`.
+- [Connectors](connectors.md)
+- [Positions and sizes](reference/layout-units.md#positions-and-sizes)
+- [Measured text fit](measured-text-fit.md)
+- [Demos](demos.md), whose showcase deck groups its content
+- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- API reference: [`Slide`](reference/api/index/interfaces/Slide.md), [`GroupProps`](reference/api/index/interfaces/GroupProps.md), [`GroupChildProps`](reference/api/index/type-aliases/GroupChildProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md)

@@ -57,3 +57,32 @@ The public unit constants are:
 - `EMU_PER_INCH`: `914400`
 - `EMU_PER_POINT`: `12700`
 - `POINTS_PER_INCH`: `72`
+
+## Positions and sizes
+
+Every object is placed by `x`, `y`, `w` and `h`, in any of the units listed in
+[Core concepts](../getting-started/concepts.md#positions-and-sizes). A negative
+`w` or `h` measures the box the other way, left of `x` or above `y`. ts-pptx
+writes that box with a positive size and a flip, because PowerPoint refuses to
+open a file that stores a negative size.
+
+```ts
+// Runs upward, from (1, 3) to (2.5, 1)
+slide.addShape("line", { x: 1, y: 3, w: 1.5, h: -2 })
+```
+
+| You pass | Box written | Flip written |
+| --- | --- | --- |
+| `x: 1, y: 3, w: 1.5, h: -2` | `x: 1, y: 1, w: 1.5, h: 2` | vertical |
+| `x: 4, y: 1, w: -3, h: 1` | `x: 1, y: 1, w: 3, h: 1` | horizontal |
+| `x: 4, y: 1, w: -3, h: 1, flipH: true` | `x: 1, y: 1, w: 3, h: 1` | none |
+
+- A flip that comes from a negative size combines with the `flipH` or `flipV`
+  you set. Either one alone mirrors the object, and the two together cancel.
+- Unit strings behave the same way: `w: "-2in"` and `w: "-25%"` are handled
+  like a negative number.
+- Shapes, text boxes, images, media and group frames get the flip. Charts,
+  tables, OLE objects, 3D models and zooms get the corrected box with no flip.
+- `addConnector()` takes two endpoints instead of a size, and derives its box
+  and flips from them the same way. See
+  [Place the endpoints](../connectors.md#place-the-endpoints).
