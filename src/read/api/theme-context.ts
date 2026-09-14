@@ -112,9 +112,12 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
  * through a shape's `p:style` `fillRef`/`lnRef` can be resolved like the
  * `theme: 'preserve'` flatten path does). The `fmtScheme` is `null` when the
  * slide's theme is missing.
+ * @param opc - the package, for the presentation's default text style
+ * @param parts - the slide's theme parts, as {@link resolveSlideThemeParts} walks them; a caller that
+ *   also needs the part names walks once and hands the result to both
  */
-export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): ThemeContext {
-	const { clrMap, themeElements, layoutRoot, masterRoot } = resolveSlideThemeParts(opc, slidePartName)
+export function resolveSlideColorContext(opc: OpcPackage, parts: SlideThemeParts): ThemeContext {
+	const { clrMap, themeElements, layoutRoot, masterRoot } = parts
 	return {
 		clrMap,
 		// `fontScheme` is what lets the run font getters resolve a +mj-*/+mn-* token (the

@@ -153,7 +153,7 @@ export class Slide implements ShapeHost {
 	 * the theme chain is incomplete, in which case tokens simply stay unresolved.
 	 */
 	themeContext(): ThemeContext {
-		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.partName))
+		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.#slideThemeParts()))
 	}
 
 	#themeParts?: SlideThemeParts
@@ -161,9 +161,9 @@ export class Slide implements ShapeHost {
 	/**
 	 * The slide's layout, master and theme parts, walked once and cached on this proxy.
 	 *
-	 * {@link background} needs the part *names* as well as the roots, which the colour context
-	 * does not carry, so it walked the chain a second time on the same read. One walk, one
-	 * cache, both readers.
+	 * The colour context is built from them, and {@link background} also needs the part *names*,
+	 * which the context does not carry. Each resolved the chain itself, so reading a background
+	 * walked it twice.
 	 */
 	#slideThemeParts(): SlideThemeParts {
 		return (this.#themeParts ??= resolveSlideThemeParts(this.presentation.opc, this.partName))
@@ -499,9 +499,7 @@ export class Slide implements ShapeHost {
 	 */
 	get background(): SlideBackground | null {
 		const opc = this.presentation.opc
-		// `themeContext()` walks slide -> layout -> master -> theme and caches the result on
-		// this proxy; taking the parts from it rather than resolving them a second time here
-		// is what makes that cache do its job on the first read too.
+		// The colour context and the part names both come from the one parts walk this proxy caches.
 		const ctx = this.themeContext()
 		const parts = this.#slideThemeParts()
 		const candidates: { root: Element | null; source: 'slide' | 'layout' | 'master'; partName: string | null }[] = [

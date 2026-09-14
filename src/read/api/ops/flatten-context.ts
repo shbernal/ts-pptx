@@ -11,10 +11,10 @@
  * private method on `Presentation` that used no instance state.
  */
 
-import { firstChild, type Element } from '../../oxml/dom.js'
+import type { Element } from '../../oxml/dom.js'
 import type { OpcPackage } from '../../opc/package.js'
 import type { FlattenContext } from './flatten.js'
-import { resolveSlideThemeParts } from '../theme-context.js'
+import { resolveSlideColorContext, resolveSlideThemeParts } from '../theme-context.js'
 import { backgroundElementOf } from '../slide-background.js'
 
 /**
@@ -35,24 +35,22 @@ function effectiveBackground(
 }
 
 /**
- * Gather the flatten context for a source slide: walk slide → layout → master → theme,
- * reading the effective colour map (the slide's `clrMapOvr` override, or the master
- * `clrMap`), the theme `clrScheme`, and the theme `fmtScheme`.
+ * Gather the flatten context for a source slide: the colour context the slide's read-model
+ * getters resolve against, built from one slide → layout → master → theme walk, plus the
+ * background the slide inherits.
+ *
+ * The presentation's default text style is left out of it. A `preserve` import does not bake that
+ * tier, so a run that inherits from it re-resolves against the destination deck, and leaving it
+ * out keeps it from reaching the bake.
  * @param {OpcPackage} sourceOpc - the source package to read
  * @param {string} slidePartName - partname of the source slide
  * @return {FlattenContext} the context {@link flattenSlide} / {@link flattenShape} resolve against
  */
 export function sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: string): FlattenContext {
-	// Reuse the shared slide → layout → master → theme walk (also backing the read-model
-	// colour getters), then layer the flatten-only needs on top.
 	const parts = resolveSlideThemeParts(sourceOpc, slidePartName)
-	const themeElements = parts.themeElements
+	const { defaultTextStyle: _notBaked, ...ctx } = resolveSlideColorContext(sourceOpc, parts)
 	return {
-		clrMap: parts.clrMap,
-		clrScheme: parts.clrScheme,
-		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		...ctx,
 		inheritedBackground: effectiveBackground(sourceOpc, parts.slideRoot, parts.layoutPartName, parts.masterPartName),
-		layoutRoot: parts.layoutRoot,
-		masterRoot: parts.masterRoot,
 	}
 }
