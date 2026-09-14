@@ -96,7 +96,9 @@ export interface ThemeContext extends ColorContext {
 	 * `presentation.xml`), keyed by level — PowerPoint's lowest-priority text
 	 * fallback, applying to any run (placeholder or not) that resolves nothing
 	 * above it. Only ever set on a *slide* context (see `resolveSlideColorContext`);
-	 * absent on notes/master/layout contexts, so their chains are unaffected.
+	 * absent on notes/master/layout contexts, so their chains are unaffected. A table
+	 * cell's text is read against a copy that holds the slide master's `p:otherStyle`
+	 * here instead, the tier PowerPoint resolves cell text through (`TableCell.textFrame`).
 	 * Read-only — never mutated.
 	 */
 	defaultTextStyle?: Element | null

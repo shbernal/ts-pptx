@@ -1001,6 +1001,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The text in a table cell resolves what it inherits.**
+  - `Run.resolvedSizePt`, `resolvedFontFace`, `resolvedColor`, `resolvedBold` and `resolvedItalic`
+    read `null` for every run in a table cell that set nothing of its own. They now resolve the way
+    PowerPoint paints the cell. Face, colour and bold come from the table style's `a:tcTxStyle` for
+    the cell's region, with the theme's `tx1` and minor font where no style names a colour or a
+    face. Size, and bold and italic the table style leaves unstated, come from the slide master's
+    `p:otherStyle`. Cell text never reads `p:defaultTextStyle`, the tier a text box falls back to.
+  - `TextInheritance` gains `tableText`, typed by the newly exported `TableCellTextStyle`.
+  - `pptxToScript` now bakes the resolved colour of such a run and notes it as
+    `text.color.inherited`, where it wrote no colour and noted `text.color.default`.
+  - The ground truth is the new `table-text-inheritance.pptx` fixture, authored in desktop
+    PowerPoint and checked against its exported pixels.
+
 - **`Table.mergeCells` writes a merge the way PowerPoint does.**
   - PowerPoint repeats a merged region's spans on its covered cells: those in the region's first
     row carry its `rowSpan`, and those in its first column its `gridSpan`. `mergeCells` stripped

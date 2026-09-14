@@ -291,7 +291,7 @@ check must exclude from its diff.
 
 ## What actually gets lost
 
-Measured across the 52-fixture corpus by `pnpm run script:census`, which is
+Measured across the 53-fixture corpus by `pnpm run script:census`, which is
 what keeps the numbers below honest. A closed reader gap or a new fixture
 moves them without failing anything. The count is how many fixtures raise the
 note at least once, not how many notes fired. The corpus is
@@ -302,22 +302,21 @@ Both tiers, in corpus order:
 
 | construct | fixtures | cause | what it costs |
 |---|---|---|---|
-| `text.color.inherited` | 31/52 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
-| `shape.placeholder` | 10/52 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
-| `shape.frameInherited` | 9/52 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen: it stops tracking layout edits |
-| `text.color.default` | 9/52 | unread | nothing resolves what this run inherits, so the write path paints it black: the one case where the output colour is not merely frozen but possibly *wrong* |
-| `line.width` | 8/52 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
-| `slide.animation` | 7/52 | unread | build animation has no structural reader |
-| `chart.workbook` | 3/52 | unsupported | a chart is rebuilt from its cached plot values, so its embedded workbook is regenerated: the numbers match, the source sheet's formulas, extra columns and formatting do not survive |
-| `slide.carried` | 3/52 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
-| `media.audioVideo` | 2/52 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
-| `text.equation` | 2/52 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
+| `text.color.inherited` | 37/53 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
+| `shape.placeholder` | 10/53 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
+| `shape.frameInherited` | 9/53 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen: it stops tracking layout edits |
+| `line.width` | 8/53 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
+| `slide.animation` | 7/53 | unread | build animation has no structural reader |
+| `chart.workbook` | 3/53 | unsupported | a chart is rebuilt from its cached plot values, so its embedded workbook is regenerated: the numbers match, the source sheet's formulas, extra columns and formatting do not survive |
+| `slide.carried` | 3/53 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
+| `media.audioVideo` | 2/53 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
+| `text.equation` | 2/53 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
 Plus, at 1–2 fixtures each: `diagram.all`,
 `graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
 `shape.empty`, `chart.xLabels`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
 `image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
-`slide.background`, `slide.layout`, `slide.transitionSound`,
+`slide.background`, `slide.layout`, `slide.transitionSound`, `table.style`,
 `table.cell.fill.picture.geometry`, `table.rowAuto`, `text.bullet.schemeToken`, `text.field`,
 `text.paraSpaceZero`.
 
@@ -439,7 +438,7 @@ library wrote could not survive its own converter, and nothing said so.
 that sits half its width further in. `ctr` is what an omitted `@algn` already
 renders as, so noting that one would fire on most PowerPoint-authored shapes
 while describing no loss. No corpus fixture states `in`, so the note reads
-0/52.
+0/53.
 
 **A baked autofit carries its scale, and a bare one is a different state.** A
 `normAutofit` frame maps onto `fit`, but not onto a single spelling. One that
@@ -456,7 +455,7 @@ the frame. Neither case notes. `text.autofit.fontScale` and
 rejects a percentage outside 0–100 and drops the attribute with a warning. So
 a malformed source falls back to bare `'shrink'` with the loss declared,
 rather than passing through a number that would vanish silently. No corpus
-fixture is malformed, so both read 0/52.
+fixture is malformed, so both read 0/53.
 
 **The explicit off for a text decoration is a state, not silence.**
 `u="none"`, `strike="noStrike"` and `cap="none"` carry into the IR as
@@ -488,18 +487,18 @@ fixture, which is the honest headline of that tier:
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `theme.fmtScheme` | 52/52 | the output carries Office's format scheme |
-| `master.txStyles` | 52/52 | placeholder text falls back to built-in defaults |
-| `master.placeholders` | 52/52 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 52/52 | 5 of 13 document properties round-trip |
-| `deck.docPropsDefault` | 52/52 | the write path stamps its own value for each property the source left blank |
-| `master.default` | 52/52 | every presentation carries an unremovable blank `DEFAULT` layout |
-| `master.background` | 51/52 | a `p:bgRef` theme reference is baked to the fill it resolves to |
-| `master.decoration` | 6/52 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |
-| `master.name` | 5/52 | a layout name containing a tab or line break collapses |
-| `master.colorMap` | 4/52 | `p:clrMap` has no setter |
-| `master.multiple` | 1/52 | multi-master decks collapse to one |
-| `master.nameCollision` | 1/52 | layout titles are deduplicated, since a title doubles as a lookup key |
+| `theme.fmtScheme` | 53/53 | the output carries Office's format scheme |
+| `master.txStyles` | 53/53 | placeholder text falls back to built-in defaults |
+| `master.placeholders` | 53/53 | layout placeholder definitions are not reproduced |
+| `deck.docProps` | 53/53 | 5 of 13 document properties round-trip |
+| `deck.docPropsDefault` | 53/53 | the write path stamps its own value for each property the source left blank |
+| `master.default` | 53/53 | every presentation carries an unremovable blank `DEFAULT` layout |
+| `master.background` | 52/53 | a `p:bgRef` theme reference is baked to the fill it resolves to |
+| `master.decoration` | 6/53 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |
+| `master.name` | 5/53 | a layout name containing a tab or line break collapses |
+| `master.colorMap` | 4/53 | `p:clrMap` has no setter |
+| `master.multiple` | 1/53 | multi-master decks collapse to one |
+| `master.nameCollision` | 1/53 | layout titles are deduplicated, since a title doubles as a lookup key |
 
 A **`layout.` prefix** marks the rest: a loss in re-authoring a *layout's* own
 decoration, which the standalone tier rebuilds into that layout's
@@ -511,19 +510,19 @@ layout, and the round trip would let one excuse the same difference on a *slide*
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `layout.text.color.inherited` | 4/52 | an inherited run colour on a decorative text box, resolved and baked in |
-| `layout.group` | 2/52 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
-| `layout.fill.schemeToken` | 1/52 | a token outside the ten the write path maps is baked to hex |
-| `layout.fill.gradient.schemeToken` | 1/52 | the same, for a gradient stop's token |
-| `layout.shape.custGeom.guides` | 1/52 | a freeform's guides and adjust handles, as on a slide |
-| `layout.decoration` | 0/52 | a table on a layout: no `SlideMasterObject` variant at all |
+| `layout.text.color.inherited` | 4/53 | an inherited run colour on a decorative text box, resolved and baked in |
+| `layout.group` | 2/53 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
+| `layout.fill.schemeToken` | 1/53 | a token outside the ten the write path maps is baked to hex |
+| `layout.fill.gradient.schemeToken` | 1/53 | the same, for a gradient stop's token |
+| `layout.shape.custGeom.guides` | 1/53 | a freeform's guides and adjust handles, as on a slide |
+| `layout.decoration` | 0/53 | a table on a layout: no `SlideMasterObject` variant at all |
 
 The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 857
-notes against the template-anchored tier's 465).
+on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 868
+notes against the template-anchored tier's 469).
 
 ### The read path is the binding constraint
 
@@ -542,7 +541,7 @@ an absolute `a:buSzPts` the write API has no unit for, and
 `text.bullet.picture`, where the bytes of an `a:buBlip` are readable but the
 paragraph mapper carries no asset resolver to re-embed them with. Reading the
 colour also opened one write-side gap of its own: `text.bullet.schemeToken`
-(1/52), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
+(1/53), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
 which is baked to a literal hex and stops tracking the theme.
 
 `text.bullet.inherited` is the counter-example to this section's thesis, and it

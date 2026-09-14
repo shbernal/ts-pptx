@@ -278,7 +278,7 @@ function runColor(run: Run, notes: NoteScope): string | undefined {
 			'text.color.default',
 			'approximated',
 			'unread',
-			'this run inherits its colour and nothing resolves what it inherits (a table style tier, or a list style the read model does not walk), so the write path paints it black — the one case where the output colour is not merely frozen but possibly wrong'
+			'this run inherits its colour and nothing resolves what it inherits (a list style the read model does not walk), so the write path paints it black — the one case where the output colour is not merely frozen but possibly wrong'
 		)
 		return undefined
 	}

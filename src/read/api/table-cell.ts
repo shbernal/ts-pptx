@@ -47,12 +47,18 @@ import {
 import { checkFiniteEmu, checkLineWidthEmu, ptFromEmu } from './coords.js'
 import { isHMerge, isVMerge } from './table-structure.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
-import type { ThemeContext } from '../oxml/theme.js'
+import { resolveSchemeToken, resolveThemeFont, type ThemeContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPatternFill, type PatternFill } from './pattern-fill.js'
 import { readLineBasics } from './line.js'
-import { resolveTableCellStyleFill, type ResolvedTableStyle, type TableConditionFlags } from './table-style-resolve.js'
+import {
+	resolveTableCellStyleFill,
+	resolveTableCellTextStyle,
+	type ResolvedTableStyle,
+	type TableCellTextStyle,
+	type TableConditionFlags,
+} from './table-style-resolve.js'
 import { resolveSolidFillColor, type ColorRef, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
@@ -168,15 +174,53 @@ export class TableCell {
 		private readonly rels: Relationships
 	) {}
 
-	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
+	/**
+	 * The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant).
+	 *
+	 * A run that sets nothing of its own resolves the way PowerPoint paints it
+	 * (`test/read/fixtures/table-text-inheritance.pptx`). Its colour, face, bold and italic come
+	 * first from the table style's text style for the cell's region, and a colour or face no part
+	 * states is the theme's `tx1` and minor font, with no table style at all as much as with one.
+	 * Below that, the chain a text box's runs walk bottoms out in the slide master's
+	 * `p:otherStyle` rather than in `p:defaultTextStyle`, which cell text never reads. So size comes
+	 * from `p:otherStyle`, and so do bold and italic where the table style says nothing.
+	 */
 	get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.tc, 'a:txBody')
+		if (!txBody) return null
+		const ctx = this.themeContext
+		const txStyles = ctx.masterRoot ? firstChild(ctx.masterRoot, 'p:txStyles') : null
+		const styled = this.style ? this.#styleText() : null
+		const tx1 = resolveSchemeToken('tx1', ctx)
+		const tableText = {
+			color: styled?.color ?? (tx1 ? { hex: tx1, transforms: [], effectiveHex: tx1 } : null),
+			face: styled?.face ?? resolveThemeFont('+mn-lt', ctx.fontScheme ?? null),
+			bold: styled?.bold ?? null,
+			italic: styled?.italic ?? null,
+		}
 		// The cell's own relationships, so a run's `<a:hlinkClick r:id>` resolves to a url the same
-		// way the identical run in a text box on this slide does. A cell's runs inherit through no
-		// placeholder chain, and not through `p:defaultTextStyle` either.
-		return txBody
-			? new TextFrame(txBody, { part: this.part, ctx: this.themeContext, rels: this.rels, inherit: null })
-			: null
+		// way the identical run in a text box on this slide does.
+		return new TextFrame(txBody, {
+			part: this.part,
+			ctx: { ...ctx, defaultTextStyle: txStyles ? firstChild(txStyles, 'p:otherStyle') : null },
+			rels: this.rels,
+			inherit: { ph: null, fontRef: null, tableText },
+		})
+	}
+
+	/** The text style this cell takes from the table style graph. */
+	#styleText(): TableCellTextStyle | null {
+		const s = this.style
+		if (!s) return null
+		return resolveTableCellTextStyle(
+			s.style.element_,
+			s.flags,
+			this.rowIndex,
+			this.colIndex,
+			s.rowCount,
+			s.colCount,
+			s.ctx
+		)
 	}
 
 	/** The cell's text, paragraphs joined by `\n`. */

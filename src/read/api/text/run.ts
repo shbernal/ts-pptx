@@ -36,6 +36,7 @@ import { InvalidOptionError } from '../../../errors.js'
 import { ptToHundredths } from '../../../units.js'
 import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../../ooxml/sequence.js'
 import { ptFromHundredths } from '../coords.js'
+import type { TableCellTextStyle } from '../table-style-resolve.js'
 
 /**
  * What a text body is read against, handed from a {@link TextFrame} to each paragraph and run: the
@@ -54,12 +55,12 @@ export interface TextContext {
 	rels: Relationships | null
 	/**
 	 * What a run that sets no colour, size, face, bold or italic of its own inherits through, or
-	 * `null` for text that inherits through nothing: a table cell's and a SmartArt point's.
+	 * `null` for text that inherits through nothing, such as a SmartArt point's.
 	 */
 	inherit: TextInheritance | null
 }
 
-/** The inheritance a shape's text resolves through below its own run properties. */
+/** The inheritance a shape's or a table cell's text resolves through below its own run properties. */
 export interface TextInheritance {
 	/**
 	 * The placeholder the text lives in, or `null` for a non-placeholder shape, which still resolves
@@ -68,6 +69,12 @@ export interface TextInheritance {
 	ph: PlaceholderRef | null
 	/** The shape's resolved `p:style/a:fontRef` colour and face, or `null` when it has none. */
 	fontRef: StyleFontRef | null
+	/**
+	 * A table cell's text style: what the table style's `a:tcTxStyle` gives the cell's region, with
+	 * the theme's `tx1` and minor font where it names no colour or face. Read after {@link fontRef}
+	 * and before the list-style chain. Absent for text outside a table.
+	 */
+	tableText?: TableCellTextStyle | null
 }
 
 /**
@@ -392,7 +399,8 @@ export class Run {
 	get resolvedColor(): ResolvedColor | null {
 		const rPr = this.#rPr()
 		if (hasFillChoice(rPr)) return resolveSolidFillColor(rPr, this.context.ctx)
-		return this.context.inherit?.fontRef?.color ?? this.inherited?.color() ?? null
+		const inherit = this.context.inherit
+		return inherit?.fontRef?.color ?? inherit?.tableText?.color ?? this.inherited?.color() ?? null
 	}
 
 	/**
@@ -421,7 +429,8 @@ export class Run {
 	get resolvedFontFace(): string | null {
 		const own = this.fontName
 		if (own !== null) return resolveThemeFont(own, this.context.ctx.fontScheme ?? null)
-		return this.context.inherit?.fontRef?.face ?? this.inherited?.face() ?? null
+		const inherit = this.context.inherit
+		return inherit?.fontRef?.face ?? inherit?.tableText?.face ?? this.inherited?.face() ?? null
 	}
 
 	/**
@@ -433,7 +442,7 @@ export class Run {
 	 * resolved counterpart of {@link bold}, which reports only the run's own value.
 	 */
 	get resolvedBold(): boolean | null {
-		return this.bold ?? this.inherited?.bold() ?? null
+		return this.bold ?? this.context.inherit?.tableText?.bold ?? this.inherited?.bold() ?? null
 	}
 
 	/**
@@ -447,7 +456,7 @@ export class Run {
 	 * can be authored with an inherited italic can be read back with one.
 	 */
 	get resolvedItalic(): boolean | null {
-		return this.italic ?? this.inherited?.italic() ?? null
+		return this.italic ?? this.context.inherit?.tableText?.italic ?? this.inherited?.italic() ?? null
 	}
 
 	/** Escape hatch: the underlying `a:r` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */

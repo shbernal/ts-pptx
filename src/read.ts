@@ -123,7 +123,11 @@ export {
 	type TableCellBorderEdit,
 } from './read/api/table.js'
 export type { TableCellEdge } from './read/api/table-edit.js'
-export { type ResolvedTableStyle, type TableConditionFlags } from './read/api/table-style-resolve.js'
+export {
+	type ResolvedTableStyle,
+	type TableCellTextStyle,
+	type TableConditionFlags,
+} from './read/api/table-style-resolve.js'
 export {
 	Chart,
 	ChartSeries,

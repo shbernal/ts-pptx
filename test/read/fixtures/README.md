@@ -50,6 +50,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `shape-line-style-override.pptx` | Microsoft Office PowerPoint | 16.0000 | 1   |
 | `table-merge-encoding.pptx` | Microsoft Office PowerPoint | 16.0000    | 5      |
+| `table-text-inheritance.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
@@ -188,6 +189,7 @@ cc17c7b216445435c30addbdf5c1aa042e10a22ccd46f9e71fc5d41efc9578c0  slide-backgrou
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 500d082451a2b1bbed9db2b0646b1542cb8512660359f6412a1cedb1d11a011b  shape-line-style-override.pptx
 c2756f8f042c92c8a05236e4c426846f4d344c07d51f54665983b786e27a9132  table-merge-encoding.pptx
+b157017fd0af12dd3c03595a8fa5c60037574c8fceb912c61e24da2b2b5a8627  table-text-inheritance.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
@@ -559,6 +561,21 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   cell into the origin as its own paragraph, in row-major order, and leaves the covered cells
   empty. Authored via PowerPoint COM on Windows (2026-09-14,
   `authoring/author-table-merge-encoding.ps1`).
+- `table-text-inheritance.pptx` — one slide, read by `table-text-inheritance.test.js`, pinning
+  where the bare run of a table cell takes its size, face, colour, bold and italic. Every tier is
+  given a value no other tier has: `p:defaultTextStyle` lvl1 is 28pt `C00000` Courier New, the
+  master's `p:otherStyle` lvl1 is 14pt `0070C0` Georgia italic, and the theme's `dk1` is `7030A0`
+  and its minor Latin font Verdana. `TextBox` is the control. `StyledTable` carries Medium Style 2
+  - Accent 1, `NoGridTable` "No Style, No Grid", and `NoStyleTable` no `a:tableStyleId` at all.
+  Exported to PNG, the text box paints 28pt Courier New in `C00000`, and every cell paints 14pt
+  italic Verdana in `7030A0`, apart from `StyledTable`'s header row, which paints white and bold.
+  So cell text never reads `p:defaultTextStyle`. Its size and italic come from `p:otherStyle`. Its
+  face, colour and bold come from the table style's `a:tcTxStyle` for its region, where the
+  style's own colour beats the colour inside its `a:fontRef`, and a face or colour no style
+  states is the theme's minor font and `tx1`, never `p:otherStyle`'s, even with no table style.
+  The text styles, the theme edits and the removed style id have no COM surface, so they were
+  injected into the package PowerPoint saved, which PowerPoint then reopened and re-saved.
+  Authored via PowerPoint COM on Windows (2026-09-14, `authoring/author-table-text-inheritance.ps1`).
 - `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
   (2018) `p188` comment schema**, read by `modern-comments.test.js`
   (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
@@ -1193,6 +1210,7 @@ fixtures opened clean with no repair prompt:
 - [x] `import-animation-merge.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `shape-line-style-override.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 - [x] `table-merge-encoding.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
+- [x] `table-text-inheritance.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored, edits injected, reopened + re-saved clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

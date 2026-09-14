@@ -14,7 +14,7 @@
 
 import type { OpcPackage } from '../opc/package.js'
 import { attr, firstChild, firstChildElement, getElements, type Element } from '../oxml/dom.js'
-import { styleRefFill, type ThemeContext } from '../oxml/theme.js'
+import { resolveThemeFont, styleRefFill, type ThemeContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { TABLE_STYLES_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
@@ -163,4 +163,85 @@ export function resolveTableCellStyleFill(
 		if (outcome.stop) return outcome.color
 	}
 	return null
+}
+
+/**
+ * What a table style's text styles (`a:tcTxStyle`) give the text of one cell. Each property is
+ * taken from the highest-precedence part that states it, so a `firstRow` that makes the header
+ * bold and white still leaves the header's other properties to `wholeTbl`. Every field is `null`
+ * when no applicable part states it.
+ */
+export interface TableCellTextStyle {
+	/** The text colour: the style's own colour child, else its `a:fontRef` colour, resolved. */
+	color: ResolvedColor | null
+	/** The face its `a:font/a:latin` names, or the theme font its `a:fontRef/@idx` names, resolved. */
+	face: string | null
+	/** `@b`: `on` is `true` and `off` is `false`; `def`, the schema default, states nothing. */
+	bold: boolean | null
+	/** `@i`, read the same way as {@link bold}. */
+	italic: boolean | null
+}
+
+/** The `EG_ColorChoice` members, the colour a `CT_TableStyleTextStyle` states after its font. */
+const COLOR_CHOICES = ['a:scrgbClr', 'a:srgbClr', 'a:hslClr', 'a:sysClr', 'a:schemeClr', 'a:prstClr'] as const
+
+/** An `ST_OnOffStyleType` value as a flag: `def` and absence state nothing. */
+function onOff(value: string | null): boolean | null {
+	return value === 'on' ? true : value === 'off' ? false : null
+}
+
+/** The face a `tcTxStyle` names: `a:font/a:latin`, or the major or minor font of its `a:fontRef`. */
+function textStyleFace(txStyle: Element, ctx: ThemeContext): string | null {
+	const fontScheme = ctx.fontScheme ?? null
+	const font = firstChild(txStyle, 'a:font')
+	if (font) {
+		const latin = firstChild(font, 'a:latin')
+		return resolveThemeFont(latin && attr(latin, 'typeface'), fontScheme)
+	}
+	const idx = attr(firstChild(txStyle, 'a:fontRef') ?? txStyle, 'idx')
+	return idx === 'major'
+		? resolveThemeFont('+mj-lt', fontScheme)
+		: idx === 'minor'
+			? resolveThemeFont('+mn-lt', fontScheme)
+			: null
+}
+
+/**
+ * The colour a `tcTxStyle` gives its text. Its own colour child wins over the colour inside its
+ * `a:fontRef`: Medium Style 2 names `a:prstClr black` in the fontRef and `dk1` beside it, and a
+ * cell paints `dk1` (`test/read/fixtures/table-text-inheritance.pptx`, with `dk1` set to purple).
+ */
+function textStyleColor(txStyle: Element, ctx: ThemeContext): ResolvedColor | null {
+	for (const qname of COLOR_CHOICES) {
+		const color = firstChild(txStyle, qname)
+		if (color) return resolveColorElement(color, ctx)
+	}
+	const fontRef = firstChild(txStyle, 'a:fontRef')
+	return fontRef ? resolveColorElement(firstChildElement(fontRef), ctx) : null
+}
+
+/**
+ * The text style the table style gives the cell at `(row, col)`: each property from the first
+ * part in {@link cellStyleParts} order whose `a:tcTxStyle` states it.
+ */
+export function resolveTableCellTextStyle(
+	style: Element,
+	flags: TableConditionFlags,
+	row: number,
+	col: number,
+	rowCount: number,
+	colCount: number,
+	ctx: ThemeContext
+): TableCellTextStyle {
+	const out: TableCellTextStyle = { color: null, face: null, bold: null, italic: null }
+	for (const partName of cellStyleParts(flags, row, col, rowCount, colCount)) {
+		const part = firstChild(style, partName)
+		const txStyle = part && firstChild(part, 'a:tcTxStyle')
+		if (!txStyle) continue
+		out.bold ??= onOff(attr(txStyle, 'b'))
+		out.italic ??= onOff(attr(txStyle, 'i'))
+		out.face ??= textStyleFace(txStyle, ctx)
+		out.color ??= textStyleColor(txStyle, ctx)
+	}
+	return out
 }
