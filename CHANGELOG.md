@@ -282,6 +282,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Migration:** write `'in'` and `'out'` for `'inside'` and `'outside'`. Pass a finite number
     for an axis bound or an error-bar value, or leave it out.
 
+- **A combo subchart's options go through the same checks and defaults as a chart of its own.**
+  A `ChartMulti` entry's `options` is a whole `ChartOpts`, but thirteen hand-listed keys were
+  checked, and none of the defaults that depend on the chart type ran for a subchart.
+  - A subchart's `shadow`, `dataBorder`, `radarStyle` and `chartColorsOpacity` were written as
+    given, so `shadow: { type: 'weird' }` wrote `<a:weirdShdw>`, an element that does not exist.
+    Each now warns, clamps or throws as it does on a single chart, when the chart is added.
+  - A scatter subchart with `showLabel` drew no labels, because the `dataLabelFormatScatter`
+    default keyed on the chart's type. It draws the labels a scatter chart draws, with the
+    `General` label format a scatter chart takes.
+  - The default gap width is decided per subchart. A clustered bar under a chart-level
+    `barGrouping: 'stacked'` took the stacked gap of 50; it takes 150, as a clustered bar chart
+    does.
+  - A subchart's `lineDataSymbolLineSize: 0` takes the 0.75pt default, as the chart-level option
+    does. It wrote a zero-width marker outline.
+  - **Migration:** a subchart that relied on an invalid value reaching the part gets the corrected
+    value and a warning. A clustered bar subchart that wants the narrower gap states
+    `barGapWidthPct: 50`.
+
 - **Breaking: `chartColorsOpacity: 0` paints a fully transparent series, and `NaN` throws.** The
   option is a percentage of opacity, and `0` was deleted, so the series painted fully opaque. `NaN`
   went the same way without a word. `0` now writes `<a:alpha val="0"/>`, an invisible series, and
@@ -936,6 +954,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **`addChart` no longer empties the caller's `barSeriesLine`.** Scrubbing an out-of-range width
+  or an unknown cap deleted them from the caller's own object, so `{ width: 0, cap: 'bevel' }` was
+  `{}` after the call, and a second chart built from the same options drew the default line in
+  silence.
 
 - **A chart `layout` that states only some of `x`, `y`, `w` and `h` no longer warns about the
   rest.** Each key left out was reported as `chart/layout-out-of-range`, though an absent key only

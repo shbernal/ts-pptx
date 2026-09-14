@@ -40,6 +40,16 @@ export function isXyChart(type: ChartTypeOrCombo): boolean {
 }
 
 /**
+ * A grouping that stacks its series: `stacked` or `percentStacked`, on a bar, line or area plot.
+ *
+ * Two call sites tested this with `includes('tacked')` and two compared exactly, so an unchecked
+ * value such as `'unstacked'` was stacked for one reader and not for the other.
+ */
+export function isStackedGrouping(grouping: string | undefined): grouping is 'stacked' | 'percentStacked' {
+	return grouping === 'stacked' || grouping === 'percentStacked'
+}
+
+/**
  * The stock-chart styles, keyed off the public option so the type is the source rather than a
  * fourth transcription of the same four names.
  */

@@ -25,7 +25,7 @@ import {
 } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
-import { RADAR_STYLE_ALIASES, type RadarStyleAlias } from '../../ooxml/st-enums.js'
+import { isStackedGrouping } from './chart-kind.js'
 import {
 	catRefBlock,
 	chartDataLabels,
@@ -55,24 +55,23 @@ const isLineLike = (chartType: ChartType): boolean => chartType === ChartType.li
 /** The two bar families, which share `<c:barDir>`, `<c:invertIfNegative>` and a gap width. */
 const isBarLike = (chartType: ChartType): boolean => chartType === ChartType.bar || chartType === ChartType.bar3d
 
-/** The type-gated children that open a plot element, before `<c:varyColors>`. */
+/**
+ * The type-gated children that open a plot element, before `<c:varyColors>`.
+ *
+ * `barGrouping`, `barDir` and `radarStyle` arrive resolved for this plot's own type, a combo
+ * subchart's included (`normalizePlotOptions` in `gen/define/chart.ts`), so they are written as
+ * found. The radar arm used to apply the alias map a second time, which looked like handling and
+ * let a subchart's `radarStyle: 'bogus'` through untouched.
+ */
 function plotGrouping(chartType: ChartType, opts: ChartOptsInternal): string {
 	if (chartType === ChartType.area || chartType === ChartType.line) {
 		// CT_Line/AreaChart take ST_Grouping, which has no `clustered`; anything not stacked is standard.
-		const lineGrouping =
-			opts.barGrouping === 'stacked' || opts.barGrouping === 'percentStacked' ? opts.barGrouping : 'standard'
-		return voidEl('c:grouping', { val: lineGrouping })
+		return voidEl('c:grouping', { val: isStackedGrouping(opts.barGrouping) ? opts.barGrouping : 'standard' })
 	}
 	if (isBarLike(chartType)) {
-		return voidEl('c:barDir', { val: opts.barDir }) + voidEl('c:grouping', { val: opts.barGrouping || 'clustered' })
+		return voidEl('c:barDir', { val: opts.barDir }) + voidEl('c:grouping', { val: opts.barGrouping })
 	}
-	if (chartType === ChartType.radar) {
-		// `normalizeChartOptions` has already resolved this to an `ST_RadarStyle` member; the alias
-		// map is applied again here only because it is the one that types the value, and it is
-		// idempotent (no wire member is also an alias key).
-		const radarStyle = opts.radarStyle ?? 'standard'
-		return voidEl('c:radarStyle', { val: RADAR_STYLE_ALIASES[radarStyle as RadarStyleAlias] ?? radarStyle })
-	}
+	if (chartType === ChartType.radar) return voidEl('c:radarStyle', { val: opts.radarStyle })
 	return ''
 }
 
@@ -254,7 +253,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 	if (chartType === ChartType.bar) {
 		plotOptions =
 			voidEl('c:gapWidth', { val: opts.barGapWidthPct }) +
-			voidEl('c:overlap', { val: opts.barOverlapPct ?? ((opts.barGrouping || '').includes('tacked') ? 100 : 0) }) +
+			voidEl('c:overlap', { val: opts.barOverlapPct ?? (isStackedGrouping(opts.barGrouping) ? 100 : 0) }) +
 			// `<c:serLines>` connects data points across stacked bar/column series.
 			createSerLinesElement(opts.barSeriesLine)
 	} else if (chartType === ChartType.bar3d) {

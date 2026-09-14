@@ -34,13 +34,9 @@ import { chartXml } from './chart-parts.js'
 //      `normalizeChartPlotAreaOptions` (L174-187), plus `v3DRAngAx` (L200) and `dataLabelBkgrdColors`
 //      (L516). No input reaches the `: false` / `: true` arms because none exists. Worth collapsing
 //      one day, but that is a `src` edit and so gated on a byte-identity baseline.
-//   2. Combo fallbacks whose input the chart-level pass has already filled in. By the time
-//      `normalizeComboSubchartOptions` runs, `barDir`, `bar3DShape`, `lineDataSymbol`,
-//      `barGapWidthPct`, `barGapDepthPct` and `lineDataSymbolSize` all carry a normalized
-//      chart-level value, and the merged bag inherits it -- so `fixed.barDir || ''` (L361, L363,
-//      L365), the `?? chartOptions.barGap*Pct` fallbacks (L377, L378) and the `!= null` guard's else
-//      (L383) have no reachable input. Same reason `options.barGrouping || ''` (L136, L139) cannot
-//      be empty: `normalizeChartBarGrouping` ran first and a bar chart always leaves with one.
+//   2. Plot fallbacks whose input an earlier step has already filled in. The `?? 150` behind a
+//      stated `barGapWidthPct` in `normalizePlotOptions` has no reachable input: a stated width is
+//      "stated" because it is not absent, and the clamp returns a number or throws.
 //   3. Options-bag guards the builder makes unreachable. `SlideBuilder.addChart` resolves its
 //      options to `arg2 ?? {}`, so the object it hands down is never missing -- which leaves
 //      `tmpOpt = ... : opt` (L481) and `copyChartOptions(tmpOpt && ... ? tmpOpt : {})` (L487)

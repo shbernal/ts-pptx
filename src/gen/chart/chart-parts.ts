@@ -308,9 +308,9 @@ export function defaultChartPalette(type: ChartOptsInternal['_type']): string[] 
  * entries, otherwise {@link defaultChartPalette} for this chart's type.
  *
  * `addChartDefinition` resolves `chartColors` the same way, so for a plain chart this agrees with
- * what normalization already put there. It is not redundant: a combo subchart's options are not
- * put through that pass (`SUBCHART_VALIDATED_KEYS` does not list `chartColors`), so this is the
- * only place a subchart's palette is decided. Six plot builders wrote the lookup out; going
+ * what normalization already put there. It is not redundant: the palette is resolved once for the
+ * whole chart, and a combo subchart that states `chartColors: []` is not put through that pass, so
+ * this is the only place such a subchart's palette is decided. Six plot builders wrote the lookup out; going
  * through one function is what makes "no colours named" a single decision rather than six.
  */
 export function resolveChartPalette(opts: ChartOptsInternal): string[] {
@@ -438,7 +438,8 @@ export function serMarker(opts: ChartOptsInternal, markerColor: string, seriesCo
 	const spPr = el('c:spPr', null, [
 		raw(markerColor === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(markerColor)),
 		raw(
-			el('a:ln', { w: opts.lineDataSymbolLineSize, cap: 'flat' }, [
+			// Points, clamped into ST_LineWidth by the define layer, so the conversion has nothing to refuse.
+			el('a:ln', { w: ptsToEmuLenient(opts.lineDataSymbolLineSize ?? 0.75), cap: 'flat' }, [
 				raw(chartColorLineFill(namedColorOr(opts.lineDataSymbolLineColor, seriesColor, 'lineDataSymbolLineColor'))),
 				raw(voidEl('a:prstDash', { val: 'solid' })),
 				raw(voidEl('a:round')),

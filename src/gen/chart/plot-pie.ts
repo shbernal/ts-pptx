@@ -254,9 +254,8 @@ export function makePiePlot(
 	return el(`c:${chartType}Chart`, null, [
 		raw(voidEl('c:varyColors', { val: 1 })),
 		raw(ser),
-		raw(voidEl('c:firstSliceAng', { val: opts.firstSliceAng ? Math.round(opts.firstSliceAng) : 0 })),
-		chartType === ChartType.doughnut
-			? raw(voidEl('c:holeSize', { val: typeof opts.holeSize === 'number' ? opts.holeSize : 50 }))
-			: null,
+		// Both arrive clamped and rounded (`clampChartInt` in `gen/define/chart.ts`), or absent.
+		raw(voidEl('c:firstSliceAng', { val: opts.firstSliceAng ?? 0 })),
+		chartType === ChartType.doughnut ? raw(voidEl('c:holeSize', { val: opts.holeSize ?? 50 })) : null,
 	])
 }

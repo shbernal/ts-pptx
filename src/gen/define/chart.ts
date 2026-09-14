@@ -63,8 +63,8 @@ import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
-import { clampRangedInput, lineWidthToEmu, mapStated, ptsToEmuLenient } from '../../units-internal.js'
-import { isBubbleChart, isXyChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
+import { clampRangedInput, lineWidthToEmu, mapStated } from '../../units-internal.js'
+import { isBubbleChart, isStackedGrouping, isXyChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 import { dataSizes, dataValues, worksheetLayout } from '../chart/data-refs.js'
 
 /**
@@ -565,9 +565,7 @@ function dataLabelPositionsFor(
 		case ChartType.scatter:
 			return DATA_LABEL_POSITIONS_POINT
 		case ChartType.bar:
-			return barGrouping === 'stacked' || barGrouping === 'percentStacked'
-				? DATA_LABEL_POSITIONS_BAR_STACKED
-				: DATA_LABEL_POSITIONS_BAR_CLUSTERED
+			return isStackedGrouping(barGrouping) ? DATA_LABEL_POSITIONS_BAR_STACKED : DATA_LABEL_POSITIONS_BAR_CLUSTERED
 		default:
 			return isBubbleChart(chartType) ? DATA_LABEL_POSITIONS_POINT : null
 	}
@@ -598,17 +596,115 @@ function normalizeChartBarGrouping(options: ChartOptsOverrides, chartType: Chart
 }
 
 /**
- * Give a stacked bar group the narrower default gap, 50 rather than 150, unless the caller stated a
- * width.
+ * Resolve everything a plot builder reads off an options bag: its enumerations, its bounded numbers,
+ * its outline, shadow and series-line shapes, and the defaults that depend on the plot type.
  *
- * Written twice once, and the chart-level copy tested `!barGapWidthPct`, so a stated `0` (legal
- * for ST_GapAmount) became 50 there while the same options inside a combo kept it. "Stated" is any
- * value other than absent: a `NaN` is stated too, and the clamp after this reports it.
- * @param options - options bag to correct in place
- * @param callerSet - whether the caller stated a gap width for this bag
+ * A single-type chart runs this once, on its own options. A combo chart runs it on its own options
+ * with no `plotType`, which resolves everything that does not depend on one, and then once per
+ * subchart, on the subchart's options merged over the chart's and keyed to the subchart's own type
+ * ({@link normalizeComboSubchartOptions}). So every step is idempotent: a second pass over a value
+ * the first pass resolved changes nothing and says nothing. That is why the marker line width stays
+ * in points here and `serMarker` converts it, since converting twice would draw a hairline.
+ *
+ * A subchart used to go through thirteen hand-listed keys. Its `shadow` reached the part as
+ * `<a:weirdShdw>`, its `dataBorder` skipped the border defaults, its `radarStyle` was written as
+ * given, a scatter subchart took no label format and drew no labels, and a clustered bar under a
+ * stacked chart took the stacked gap.
+ * @param options - the bag to correct in place
+ * @param plotType - the plot these options are emitted for; `undefined` for a combo chart's own options
+ * @param callerSetGap - whether the caller stated `barGapWidthPct` for this plot, at either level
  */
-function applyStackedGapDefault(options: ChartOptsOverrides, callerSet: boolean): void {
-	if (options.barGrouping?.includes('tacked') && !callerSet) options.barGapWidthPct = 50
+function normalizePlotOptions(
+	options: ChartOptsOverrides,
+	plotType: ChartType | undefined,
+	callerSetGap: boolean
+): void {
+	// Enumerations emitted verbatim: `<c:barDir>` (ST_BarDir), `<c:grouping>`, `<c:shape>` (ST_Shape),
+	// `<c:symbol>` (ST_MarkerStyle), `<c:radarStyle>` (ST_RadarStyle).
+	if (!chartEnum(options.barDir, BAR_DIRECTIONS, 'barDir')) options.barDir = 'col'
+	normalizeChartBarGrouping(options, plotType)
+	if (!chartEnum(options.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) options.bar3DShape = 'box'
+	if (!chartEnum(options.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) options.lineDataSymbol = 'circle'
+	normalizeRadarStyle(options)
+	// Depends on the corrected grouping, so it runs after it.
+	// REFERENCE: https://docs.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e2b1697c-7adc-463d-9081-3daef72f656f?redirectedfrom=MSDN
+	normalizeChartDataLabelPosition(options, plotType)
+
+	// `<c:gapWidth>`/`<c:gapDepth>` are ST_GapAmount (integer 0..500), `<c:overlap>` ST_Overlap
+	// (integer -100..100), `<c:holeSize>` ST_HoleSize (10..90), `<c:firstSliceAng>` ST_FirstSliceAng
+	// (0..360). An unstated gap width is decided per plot: a stacked group takes the narrower 50 and
+	// anything else 150. "Stated" is any value other than absent, `0` and `NaN` included, and the clamp
+	// reports the second.
+	options.barGapWidthPct = callerSetGap
+		? (clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150)
+		: isStackedGrouping(options.barGrouping)
+			? 50
+			: 150
+	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
+	// These three have no default, so a value the clamp rejects has to *leave*, not become an explicit
+	// `undefined`: a bag is spread over another (the axis builders merge `catAxes[n]`/`valAxes[n]` onto
+	// the chart's), where a present-but-undefined key overrides and an absent one inherits.
+	setOrClear(options, 'barOverlapPct', clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct'))
+	setOrClear(options, 'holeSize', clampChartPct(options.holeSize, 10, 90, 'holeSize'))
+	setOrClear(options, 'firstSliceAng', clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng'))
+	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
+	options.lineDataSymbolSize = clampSymbolSize(options.lineDataSymbolSize) ?? 6
+	// `a:ln/@w` is ST_LineWidth, so an out-of-range width clamps rather than collapsing to a hairline.
+	// `0` means what leaving it out means, the 0.75pt default.
+	options.lineDataSymbolLineSize =
+		mapStated(options.lineDataSymbolLineSize, (width) =>
+			clampRangedInput(width, 0, 1584, 'line/width-out-of-range', 'lineDataSymbolLineSize', 'coord/non-finite')
+		) ?? 0.75
+
+	// `barSeriesLine` reaches the gridline emitter through the gridline shape. Scrubbed on a copy,
+	// because `scrubGridLine` mutates and the object is the caller's. `true` is the "let PowerPoint
+	// style it" spelling and carries nothing to scrub.
+	if (options.barSeriesLine && options.barSeriesLine !== true) {
+		options.barSeriesLine = { ...options.barSeriesLine }
+		scrubGridLine(options.barSeriesLine, 'chart.barSeriesLine')
+	}
+	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
+	// Tested against `undefined`, not truthiness. `0` is a stated opacity, a fully transparent fill
+	// that makes the series invisible. `NaN` has no nearest legal value, so it throws.
+	if (options.chartColorsOpacity !== undefined) {
+		options.chartColorsOpacity = clampRangedInput(
+			options.chartColorsOpacity,
+			0,
+			100,
+			'chart/option-out-of-range',
+			'chartColorsOpacity',
+			'chart/option-non-finite'
+		)
+	}
+	// `dataBorder`'s defaults are `createDataBorderLine`'s, so an unstated width or colour paints as
+	// it did when the emitter supplied them.
+	setOrClear(
+		options,
+		'dataBorder',
+		normalizeChartBorder(options.dataBorder, { defaultWidth: 0.75, defaultColor: '363636', option: 'dataBorder' })
+	)
+	// A stated width, `NaN` included, reaches `seriesStroke`, whose converter clamps a negative one
+	// and refuses a value that is not a number.
+	options.lineSize = options.lineSize ?? 2
+
+	// A scatter's label format defaults to `custom`. A value it does not recognise matched none of the
+	// plot builder's three arms, so `showLabel` drew no labels and said nothing.
+	if (!chartEnum(options.dataLabelFormatScatter, SCATTER_LABEL_FORMATS, 'dataLabelFormatScatter')) {
+		if (plotType === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
+		else delete options.dataLabelFormatScatter
+	}
+	// The label number format's default depends on the plot, so a combo chart's own options leave it
+	// to each subchart.
+	if (plotType !== undefined) {
+		if (!options.dataLabelFormatCode && plotType === ChartType.scatter) options.dataLabelFormatCode = 'General'
+		if (!options.dataLabelFormatCode && (plotType === ChartType.pie || plotType === ChartType.doughnut)) {
+			options.dataLabelFormatCode = options.showPercent ? '0%' : 'General'
+		}
+		options.dataLabelFormatCode =
+			options.dataLabelFormatCode && typeof options.dataLabelFormatCode === 'string'
+				? options.dataLabelFormatCode
+				: '#,##0'
+	}
 }
 
 /**
@@ -640,10 +736,6 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 	options.v3DPerspective = clampChartInt(options.v3DPerspective, 0, 240, 'v3DPerspective') ?? 30
 }
 
-/**
- * Apply chart-level option defaults: gap/overlap/hole clamps, chart colors, plotArea/chartArea
- * borders and fills, data border, data-label format codes, line size and multi-level cat labels.
- */
 /** The five data-label font fields, which every per-series `<c:dLbls>` builder reads. */
 const SERIES_LABEL_FONT_FIELDS = [
 	'dataLabelColor',
@@ -750,38 +842,17 @@ function reportChartExOptions(stated: ChartOptsInternal, type: ChartType): void 
 	}
 }
 
+/**
+ * Resolve the options that belong to the chart as a whole rather than to one plot: the palette, the
+ * plot-area and chart-area borders and fills, the category axis' multi-level labels and a waterfall's
+ * subtotals. The plot's own options are {@link normalizePlotOptions}'.
+ */
 function normalizeChartOptions(options: ChartOptsInternal): void {
-	options.barGapWidthPct = clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150
-	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
-	// These three have no default, so a value the clamp rejects has to *leave*, not become an
-	// explicit `undefined`: this bag is spread over other bags (`gen/chart/chart-xml.ts` merges a
-	// subchart's overrides onto it, and the axis builders merge `catAxes[n]`/`valAxes[n]` onto it),
-	// where a present-but-undefined key overrides and an absent one inherits. `delete` is already
-	// how the rest of this module spells "the caller's value did not survive" — see
-	// `normalizeChartDataLabelPosition`.
-	setOrClear(options, 'barOverlapPct', clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct'))
-	// `<c:holeSize>` is ST_HoleSize (10..90); `<c:firstSliceAng>` is ST_FirstSliceAng (0..360).
-	setOrClear(options, 'holeSize', clampChartPct(options.holeSize, 10, 90, 'holeSize'))
-	setOrClear(options, 'firstSliceAng', clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng'))
-
 	// An empty array is not a palette, so it means what saying nothing means: the built-in
 	// default for this chart type. It used to survive this pass (`Array.isArray([])` is true)
 	// and meet the plot builders' fallback instead, which was the *bar* palette on every type —
 	// so `{ chartColors: [] }` on a pie was neither the caller's colours nor the pie default.
 	options.chartColors = options.chartColors?.length ? options.chartColors : defaultChartPalette(options._type)
-	// Tested against `undefined`, not truthiness. `0` is a stated opacity, a fully transparent fill
-	// that makes the series invisible, and it used to be deleted so the series painted opaque. `NaN`
-	// went the same way in silence; it has no nearest legal value, so it throws.
-	if (options.chartColorsOpacity !== undefined) {
-		options.chartColorsOpacity = clampRangedInput(
-			options.chartColorsOpacity,
-			0,
-			100,
-			'chart/option-out-of-range',
-			'chartColorsOpacity',
-			'chart/option-non-finite'
-		)
-	}
 	options.plotArea = options.plotArea || {}
 	setOrClear(
 		options.plotArea,
@@ -808,34 +879,6 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	)
 	options.chartArea.roundedCorners =
 		typeof options.chartArea.roundedCorners === 'boolean' ? options.chartArea.roundedCorners : true
-	// `dataBorder`'s defaults are `createDataBorderLine`'s, so an unstated width or colour paints as
-	// it did when the emitter supplied them.
-	setOrClear(
-		options,
-		'dataBorder',
-		normalizeChartBorder(options.dataBorder, { defaultWidth: 0.75, defaultColor: '363636', option: 'dataBorder' })
-	)
-	//
-	if (!options.dataLabelFormatCode && options._type === ChartType.scatter) options.dataLabelFormatCode = 'General'
-	if (!options.dataLabelFormatCode && (options._type === ChartType.pie || options._type === ChartType.doughnut)) {
-		options.dataLabelFormatCode = options.showPercent ? '0%' : 'General'
-	}
-	options.dataLabelFormatCode =
-		options.dataLabelFormatCode && typeof options.dataLabelFormatCode === 'string'
-			? options.dataLabelFormatCode
-			: '#,##0'
-	//
-	// A scatter's label format defaults to `custom`. A value it does not recognise used to pass, and
-	// matched none of the plot builder's three arms, so `showLabel` drew no labels and said nothing.
-	if (!chartEnum(options.dataLabelFormatScatter, SCATTER_LABEL_FORMATS, 'dataLabelFormatScatter')) {
-		if (options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
-		else delete options.dataLabelFormatScatter
-	}
-	//
-	// A stated width, `NaN` included, reaches `seriesStroke`, whose converter clamps a negative one
-	// and refuses a value that is not a number. This used to keep any `typeof` number and hand it to
-	// a lenient conversion, so `lineSize: -1` wrote `w="-12700"` and `NaN` wrote `w="0"`.
-	options.lineSize = options.lineSize ?? 2
 
 	if (
 		options._type === ChartType.area ||
@@ -867,44 +910,20 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 }
 
 /**
- * Options a combo subchart may override that land in a bounded or enumerated OOXML attribute,
- * i.e. the ones {@link normalizeComboSubchartOptions} is allowed to write back.
- */
-const SUBCHART_VALIDATED_KEYS = [
-	'barDir',
-	'barGrouping',
-	'barGapWidthPct',
-	'barGapDepthPct',
-	'barOverlapPct',
-	'bar3DShape',
-	'holeSize',
-	'firstSliceAng',
-	'lineDataSymbol',
-	'lineDataSymbolSize',
-	'lineDataSymbolLineSize',
-	'dataLabelPosition',
-	'barSeriesLine',
-] as const
-
-/**
- * Clamp and correct one combo subchart's option overrides.
+ * Resolve one combo subchart's options against its own plot type.
  *
- * `addChartDefinition` normalizes the chart-level options once, but a combo chart's per-subchart
- * `ChartMulti.options` are merged over them only at emit time (`gen/chart/chart-xml.ts`) — after
- * every clamp and enum correction has already run. Anything set there therefore reached the part
- * verbatim: `barOverlapPct: 250` emitted `<c:overlap val="250"/>` where ST_Overlap is -100..100,
- * `barGapWidthPct: 9999` blew past ST_GapAmount's 500, and `barGrouping: 'sideways'` failed the
- * ST_Grouping enumeration — three PowerPoint-repair prompts reachable only through the combo API.
+ * A subchart's `ChartMulti.options` is a whole `ChartOpts`, merged over the chart's options only at
+ * emit time (`gen/chart/chart-xml.ts`). So the bag vetted here is the one the emitter will read,
+ * `{ ...chartOptions, ...subOptions }`, and it goes through {@link normalizePlotOptions} keyed to the
+ * subchart's type: the chart's own `_type` is the subchart list, which matches no plot.
  *
- * The gap runs the other way too: for a combo chart `options._type` is a `ChartMulti[]`, so the
- * *type-dependent* chart-level corrections (`barGrouping`, `dataLabelPosition`) match no branch
- * and never fire at all.
- *
- * Both are fixed by validating the value the emitter actually reads — `{...chartOptions,
- * ...subOptions}` — against this subchart's own type, then writing back only the keys a
- * correction changed so the subchart bag stays a sparse override of the chart-level options.
+ * What comes back is still a sparse override: the caller's keys, plus every key whose value the pass
+ * changed, found by comparing the corrected bag with the merged one. A key the pass removed comes
+ * back as a present `undefined`, which suppresses the chart's value at emit time (see
+ * {@link ChartOptsOverrides}). This used to write back thirteen hand-listed keys, and every option
+ * off the list reached the part as the caller wrote it.
  * @param subOptions - caller-supplied `ChartMulti.options` (never written to)
- * @param chartOptions - the already-normalized chart-level options
+ * @param chartOptions - the chart's own options, through the type-agnostic pass
  * @param subType - this subchart's own plot type
  * @param callerSetBarGapWidthPct - whether the caller supplied a chart-level `barGapWidthPct`
  */
@@ -915,48 +934,13 @@ function normalizeComboSubchartOptions(
 	callerSetBarGapWidthPct: boolean
 ): ChartOptsOverrides {
 	const sub: ChartOptsOverrides = subOptions && typeof subOptions === 'object' ? subOptions : {}
-	// What the emitter reads for this subchart today, and the corrected copy to diff against it.
-	// Both are `ChartOptsOverrides` because a correction that *rejects* a value records that as a
-	// present `undefined`, which is the state the write-back below has to be able to carry.
-	const merged: ChartOptsOverrides = { ...chartOptions, ...sub }
-	const fixed: ChartOptsOverrides = { ...merged }
+	const merged: Record<string, unknown> = { ...chartOptions, ...sub }
+	const fixed: Record<string, unknown> = { ...merged }
+	normalizePlotOptions(fixed, subType, callerSetBarGapWidthPct || sub.barGapWidthPct != null)
 
-	// Enumerations emitted verbatim: `<c:barDir>` (ST_BarDir), `<c:grouping>` (ST_Grouping),
-	// `<c:shape>` (ST_Shape), `<c:symbol>` (ST_MarkerStyle).
-	if (!chartEnum(fixed.barDir, BAR_DIRECTIONS, 'barDir')) fixed.barDir = 'col'
-	normalizeChartBarGrouping(fixed, subType)
-	if (!chartEnum(fixed.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) fixed.bar3DShape = 'box'
-	if (!chartEnum(fixed.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) fixed.lineDataSymbol = 'circle'
-	// A stacked bar group takes the narrower default gap a chart-level stacked bar gets. The
-	// merged bag already carries the clustered default, so only step in when neither the
-	// chart-level nor the subchart caller asked for a specific width.
-	applyStackedGapDefault(fixed, callerSetBarGapWidthPct || sub.barGapWidthPct != null)
-	// Depends on the corrected grouping above, so it has to run after it.
-	normalizeChartDataLabelPosition(fixed, subType)
-
-	// Bounded integers. A non-numeric override falls back to the chart-level value, which
-	// `normalizeChartOptions` has already put in range.
-	fixed.barGapWidthPct = clampChartPct(fixed.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? chartOptions.barGapWidthPct
-	fixed.barGapDepthPct = clampChartPct(fixed.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? chartOptions.barGapDepthPct
-	fixed.barOverlapPct = clampChartPct(fixed.barOverlapPct, -100, 100, 'barOverlapPct')
-	fixed.holeSize = clampChartPct(fixed.holeSize, 10, 90, 'holeSize')
-	fixed.firstSliceAng = clampChartPct(fixed.firstSliceAng, 0, 360, 'firstSliceAng')
-	setOrClear(fixed, 'lineDataSymbolSize', clampSymbolSize(fixed.lineDataSymbolSize))
-	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
-	// already been converted and doing it twice would emit a hairline.
-	if (sub.lineDataSymbolLineSize != null) fixed.lineDataSymbolLineSize = lineWidthToEmu(sub.lineDataSymbolLineSize)
-	// `barSeriesLine` is the one gridline-shaped option a subchart can override that the emitter
-	// then reads off the merged bag, so the chart-level scrub does not cover it. Scrubbed on a
-	// copy because `scrubGridLine` mutates and `sub` is the caller's own object.
-	if (sub.barSeriesLine && sub.barSeriesLine !== true) {
-		const serLine = { ...sub.barSeriesLine }
-		scrubGridLine(serLine, 'chart.barSeriesLine')
-		fixed.barSeriesLine = serLine
-	}
-
-	const result: ChartOptsOverrides = { ...sub }
-	for (const key of SUBCHART_VALIDATED_KEYS) {
-		if (fixed[key] !== merged[key]) (result as Record<string, unknown>)[key] = fixed[key]
+	const result: Record<string, unknown> = { ...sub }
+	for (const key of new Set([...Object.keys(merged), ...Object.keys(fixed)])) {
+		if (fixed[key] !== merged[key]) result[key] = fixed[key]
 	}
 	return result
 }
@@ -1078,31 +1062,13 @@ export function addChartDefinition(
 		supplied: options.objectName,
 	})
 
-	// B: Options: misc
-	if (!chartEnum(options.barDir, BAR_DIRECTIONS, 'barDir')) options.barDir = 'col'
-
-	// barGrouping must be handled before data label validation as it can affect valid label positioning
-	const chartLevelType = Array.isArray(options._type) ? undefined : options._type
-	normalizeChartBarGrouping(options, chartLevelType)
-	applyStackedGapDefault(options, callerSetBarGapWidthPct)
-	// Clean up and validate data label positions
-	// REFERENCE: https://docs.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e2b1697c-7adc-463d-9081-3daef72f656f?redirectedfrom=MSDN
-	normalizeChartDataLabelPosition(options, chartLevelType)
+	// B: Options: the plot. A combo chart's own `_type` is its subchart list, which is no plot, so only
+	// the type-agnostic half runs here, and each subchart runs the whole pass in E below.
+	normalizePlotOptions(options, Array.isArray(options._type) ? undefined : options._type, callerSetBarGapWidthPct)
 	// dataLabelBkgrdColors: same dead-ternary shape as the show* block in
 	// normalizeChartPlotAreaOptions, same reason for its absence.
 	if (!chartEnum(options.legendPos, LEGEND_POSITIONS, 'legendPos')) options.legendPos = 'r'
-
-	if (!chartEnum(options.bar3DShape, BAR_3D_SHAPES, 'bar3DShape')) options.bar3DShape = 'box'
-	if (!chartEnum(options.lineDataSymbol, LINE_DATA_SYMBOLS, 'lineDataSymbol')) options.lineDataSymbol = 'circle'
 	if (!chartEnum(options.displayBlanksAs, DISPLAY_BLANKS_AS, 'displayBlanksAs')) options.displayBlanksAs = 'gap'
-	normalizeRadarStyle(options)
-	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
-	// Out-of-range or non-integer values make PowerPoint report the file as needing
-	// repair, so round and clamp into range and warn when the input is coerced.
-	options.lineDataSymbolSize = clampSymbolSize(options.lineDataSymbolSize) ?? 6
-	// `lineWidthToEmu` rather than `ptsToEmuLenient`: this is an `a:ln/@w`, so an out-of-range
-	// width is a repair prompt, and collapsing one to zero would be a silent hairline instead.
-	options.lineDataSymbolLineSize = mapStated(options.lineDataSymbolLineSize, lineWidthToEmu) ?? ptsToEmuLenient(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	normalizeManualLayout(options.layout, 'chart.layout')
 	normalizeManualLayout(options.legendLayout, 'chart.legendLayout')
@@ -1120,20 +1086,11 @@ export function addChartDefinition(
 	scrubGridLine(options.catGridLine)
 	scrubGridLine(options.valGridLine)
 	scrubGridLine(options.serGridLine)
-	// `barSeriesLine` is a fourth caller of the same emitter through the same option shape, and
-	// it was the one not scrubbed: `{ width: 0 }` or `{ cap: 'bevel' }` was coerced in silence
-	// where the gridline spelling of the identical mistake warned. `true` is the "let PowerPoint
-	// style it" spelling and carries nothing to scrub.
-	if (options.barSeriesLine && options.barSeriesLine !== true)
-		scrubGridLine(options.barSeriesLine, 'chart.barSeriesLine')
-	setOrClear(options, 'shadow', normalizeShadowOptions(options.shadow))
 
 	// C: Options: plotArea
 	normalizeChartPlotAreaOptions(options)
 
 	// D: Options: chart
-	// `<c:gapWidth>`/`<c:gapDepth>` are ST_GapAmount (integer 0..500); `<c:overlap>` is
-	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
 	normalizeChartOptions(options)
 
 	// D.1: A stated `seriesOptions` field that no plot builder reads is the third state the option

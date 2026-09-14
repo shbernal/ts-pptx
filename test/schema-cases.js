@@ -2978,6 +2978,41 @@ export default [
 		},
 	},
 	{
+		// A combo subchart's options reached the part past every check but thirteen keys, so a
+		// subchart `shadow: { type: 'weird' }` wrote `<a:weirdShdw>`, an element that does not exist.
+		name: 'combo subchart shadow and border are checked as a single chart is',
+		exclusive: true,
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					p.addSlide().addChart(
+						[
+							{
+								type: ChartType.bar,
+								data: [{ name: 'Bar', labels: ['A', 'B', 'C'], values: [1, 2, 3] }],
+								options: { shadow: { type: 'weird', angle: 9999 }, dataBorder: { width: -2, color: 'red' } },
+							},
+							{
+								type: ChartType.line,
+								data: [{ name: 'Line', labels: ['A', 'B', 'C'], values: [3, 2, 1] }],
+								options: { secondaryValAxis: true, secondaryCatAxis: true },
+							},
+						],
+						{ x: 1, y: 1, w: 6, h: 3 }
+					)
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(warnings.length > 0, 'the corrections are reported')
+			await expectNoSchemaErrors(buf, 'combo-subchart-options-checked')
+		},
+	},
+	{
 		name: 'firstSlideNum sets presentation starting slide number',
 		fn: async () => {
 			const { buf } = await build((p) => {
