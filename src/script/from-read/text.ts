@@ -29,6 +29,8 @@ import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
 import { TEXT_AUTONUM_SCHEMES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
+import type { MapContext } from './context.js'
+import { hasEquation } from './detect.js'
 import {
 	ANCHOR_TO_VALIGN,
 	colorOption,
@@ -230,7 +232,8 @@ function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined 
  * enumeration in its own right (ECMA-376 §20.1.10.81 / §20.1.10.78) and would be redundant
  * with omission otherwise.
  */
-export function runOptions(run: Run, notes: NoteScope): Record<string, IrValue> | undefined {
+export function runOptions(run: Run, ctx: MapContext): Record<string, IrValue> | undefined {
+	const { notes } = ctx
 	const underline = run.underline
 
 	return compact({
@@ -246,7 +249,7 @@ export function runOptions(run: Run, notes: NoteScope): Record<string, IrValue> 
 		// The write API spells baseline shift as a percentage, the same unit the read
 		// model reports, so superscript/subscript survive without a preset round-trip.
 		baseline: orUndefined(run.baselinePct),
-		hyperlink: hyperlinkOption(run),
+		hyperlink: hyperlinkOption(run, ctx),
 	})
 }
 
@@ -287,15 +290,96 @@ function runColor(run: Run, notes: NoteScope): string | undefined {
 	return literalColor(inherited.effectiveHex)
 }
 
+/** The `@action` of a jump to another slide of the deck. */
+const SLIDE_JUMP = 'ppaction://hlinksldjump'
+
 /**
- * A run's hyperlink. Only external links map: the read model reports an internal jump as a
- * target part name, while the write API takes a slide *number*, which the deck-level walk
- * resolves — so a slide link is handled there, not here.
+ * A run's hyperlink: a URL, or a jump to another slide of this deck by its number.
+ *
+ * The read model reports a slide jump as the target's part name, and the write API takes a slide
+ * number, which {@link MapContext.slideNumberOf} resolves. Anything else a run can link to has no
+ * run-level spelling (a show jump such as "next slide", which the write side emits at shape level
+ * only; a custom show; another file; a slide jump from a layout's shape) and is noted. A slide
+ * jump used to be dropped with a comment saying the deck-level walk handled it, which it did not,
+ * so the text kept its link formatting and went nowhere.
  */
-function hyperlinkOption(run: Run): IrValue | undefined {
+function hyperlinkOption(run: Run, ctx: MapContext): IrValue | undefined {
 	const link = run.hyperlink
-	if (!link?.url) return undefined
-	return compact({ url: link.url, tooltip: link.tooltip ?? undefined })
+	if (!link) return undefined
+	const tooltip = link.tooltip ?? undefined
+	if (link.url) return compact({ url: link.url, tooltip })
+	const slide = link.action === SLIDE_JUMP && link.targetPartName ? ctx.slideNumberOf(link.targetPartName) : null
+	if (slide !== null) return compact({ slide, tooltip })
+	ctx.notes.note(
+		'text.hyperlink',
+		'dropped',
+		'unwritable',
+		`this run's hyperlink (${link.action ?? 'an internal target'}) is neither a URL nor a jump to another slide of the deck, which is all a run's hyperlink option spells (a show jump, a custom show, another file, or a slide jump from a layout's shape), so the text keeps its formatting and links nowhere`
+	)
+	return undefined
+}
+
+/** The constructs and wording {@link noteUnreadText} records a shape's or a table cell's losses in. */
+const UNREAD_TEXT = {
+	shape: {
+		field: 'text.field',
+		equation: 'text.equation',
+		subject: 'this shape',
+		call: 'addText',
+		equationLoss:
+			'the shape is emitted without it - even though TextProps.math (and the ts-pptx/math subpath) could author one',
+	},
+	cell: {
+		field: 'table.cell.field',
+		equation: 'table.cell.equation',
+		subject: 'this table cell',
+		call: 'addTable',
+		equationLoss: 'the cell is emitted without it',
+	},
+} as const
+
+/**
+ * Note the text a frame holds that no run carries, and return the text its runs do.
+ *
+ * Authorable text is *runs*. `TextFrame.text` also counts `a:fld` field text (a slide number, date
+ * or footer placeholder), which has no run behind it, and an OMML equation contributes to neither.
+ * Both were checked for an auto shape only, so the same field in a table cell was lost with no note.
+ * @param frame - the text frame
+ * @param element - the element holding it, searched for an equation
+ * @param notes - the scope the losses are recorded on
+ * @param holder - whether the frame belongs to a shape or a table cell
+ * @returns the frame's run text
+ */
+export function noteUnreadText(
+	frame: TextFrame,
+	element: unknown,
+	notes: NoteScope,
+	holder: keyof typeof UNREAD_TEXT
+): string {
+	const wording = UNREAD_TEXT[holder]
+	const runText = frame.paragraphs.flatMap((p) => p.runs.map((run) => run.text)).join('')
+
+	// Run text is a subsequence of the frame's text, so anything longer came from a field.
+	if (frame.text.replaceAll('\n', '').length > runText.length) {
+		notes.note(
+			wording.field,
+			'dropped',
+			'unread',
+			`${wording.subject} holds an automatic field (a:fld - a slide number, date or footer), which has no accessor and no ${wording.call} expression, so its text is not reproduced`
+		)
+	}
+
+	// An OMML equation contributes nothing to `TextFrame.text`, so an equation-only shape looks like
+	// an empty box and would otherwise emit as bare geometry.
+	if (hasEquation(element)) {
+		notes.note(
+			wording.equation,
+			'dropped',
+			'unread',
+			`${wording.subject} holds an OMML equation, which no accessor exposes, so ${wording.equationLoss}`
+		)
+	}
+	return runText
 }
 
 /** Paragraph-level properties, replicated onto each of the paragraph's runs. */
@@ -355,12 +439,12 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
  * blank line survives — dropping it would silently close up vertical space the author put
  * there deliberately.
  */
-export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
+export function textRuns(frame: TextFrame, ctx: MapContext): IrValue[] {
 	const paragraphs = frame.paragraphs
 	const items: IrValue[] = []
 
 	paragraphs.forEach((paragraph, paragraphIndex) => {
-		const paraOpts = paragraphOptions(paragraph, notes)
+		const paraOpts = paragraphOptions(paragraph, ctx.notes)
 		const runs = paragraph.runs
 		// The paragraph break rides on the last run of every paragraph but the final one;
 		// a trailing break would add an empty line the frame never had.
@@ -382,7 +466,7 @@ export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
 			delete continuation['bullet']
 			const options = compact({
 				...(runIndex === 0 ? paraOpts : continuation),
-				...runOptions(run, notes),
+				...runOptions(run, ctx),
 				...(isLastRun && breaks ? { breakLine: true } : {}),
 			})
 			items.push(compact({ text: run.text, options }) ?? { text: run.text })

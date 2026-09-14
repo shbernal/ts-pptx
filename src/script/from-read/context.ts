@@ -35,6 +35,12 @@ export interface MapContext {
 	readonly notes: NoteScope
 	/** How a referenced part's bytes become an asset the emitted script can carry. */
 	readonly assets: AssetResolver
+	/**
+	 * The 1-based number of the slide at `partName` in the deck being converted, or `null` when it is
+	 * not one of the deck's slides, or when the shapes being mapped cannot link to a slide at all: a
+	 * layout's shapes are re-authored under `defineSlideMaster`, where a slide link does not resolve.
+	 */
+	readonly slideNumberOf: (partName: string) => number | null
 }
 
 /**
@@ -53,5 +59,5 @@ export interface MapContext {
  * @param shape - the shape to scope to; an unnamed one scopes to `''`
  */
 export function forShape(ctx: MapContext, shape: { name: string | null }): MapContext {
-	return { notes: ctx.notes.forShape(shape.name || ''), assets: ctx.assets }
+	return { ...ctx, notes: ctx.notes.forShape(shape.name || '') }
 }

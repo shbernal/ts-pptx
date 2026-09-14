@@ -246,7 +246,9 @@ function layoutObjects(layout: SlideLayout, ctx: MapContext): IrValue[] {
 	const out: IrValue[] = []
 	// A layout's own shapes are noted under the `layout.` prefix, so the loss reads as one in
 	// re-authoring the layout rather than as one on a slide.
-	collectObjects(layout.shapes, out, { notes: layoutShapeScope(ctx.notes), assets: ctx.assets })
+	// No slide number resolves from a layout's shapes: a slide link written into a layout's
+	// relationships would resolve under `ppt/slideLayouts/`, so such a link is noted instead.
+	collectObjects(layout.shapes, out, { ...ctx, notes: layoutShapeScope(ctx.notes), slideNumberOf: () => null })
 	return out
 }
 

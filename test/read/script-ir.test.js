@@ -939,7 +939,99 @@ describe('deck IR — picture fills', () => {
 })
 
 /** The per-shape notes a graphic frame with no write-API emitter raises, one per payload. */
-describe('deck IR — connectors', () => {
+describe('deck IR — text links, freeform text and fields', () => {
+	/** Load `buf` with `rewrite` applied to one part, as a fresh IR. */
+	async function irWithPart(buf, partName, rewrite) {
+		const zip = await JSZip.loadAsync(buf)
+		const xml = await zip.file(partName).async('string')
+		const next = rewrite(xml)
+		assert(next !== xml, `the rewrite of ${partName} applied`)
+		zip.file(partName, next)
+		return readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+	}
+
+	test('a run linked to another slide carries its number, and a link a run cannot spell is noted', async () => {
+		// A slide jump was dropped with a comment saying the deck walk handled it, which it did not.
+		const { buf, presentation } = await authorRead((pres) => {
+			pres
+				.addSlide()
+				.addText([{ text: 'go to two', options: { hyperlink: { slide: 2, tooltip: 'Two' } } }], {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 1,
+				})
+			pres.addSlide().addText('two', { x: 1, y: 1, w: 3, h: 1 })
+		})
+		const run = readModelToIr(presentation).slides[0].calls[0].args[0][0]
+		assertEqual(
+			JSON.stringify(run.options.hyperlink),
+			'{"slide":2,"tooltip":"Two"}',
+			'the jump carries its slide number'
+		)
+
+		// A show jump ("next slide") has no run-level spelling on the write side.
+		const ir = await irWithPart(buf, 'ppt/slides/slide1.xml', (xml) =>
+			xml.replace('ppaction://hlinksldjump', 'ppaction://hlinkshowjump?jump=nextslide')
+		)
+		const jumped = ir.slides[0].calls[0].args[0][0]
+		assertEqual('hyperlink' in jumped.options, false, 'the show jump is not written as a run link')
+		assertEqual(ir.fidelity.filter((note) => note.construct === 'text.hyperlink').length, 1, 'and its loss is declared')
+	})
+
+	test('a freeform holding text converts to addText with its points', async () => {
+		// The custom-geometry arm returned `addShape` before the text arm, so the text was discarded.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('Hello freeform', {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 2,
+				shape: 'custGeom',
+				points: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { close: true }],
+			})
+		})
+		const [call] = allCalls(readModelToIr(presentation))
+		assertEqual(call.method, 'addText', 'the freeform keeps its text')
+		assertEqual(call.args[0].map((item) => item.text).join(''), 'Hello freeform', 'all of it')
+		assertEqual(call.args[1].shape, 'custGeom', 'on its custom geometry')
+		assert(Array.isArray(call.args[1].points) && call.args[1].points.length > 0, 'with its points')
+	})
+
+	test('a field in a table cell is noted, as the same field in a text box is', async () => {
+		const field =
+			'<a:fld id="{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}" type="slidenum"><a:rPr lang="en-US"/><a:t>1</a:t></a:fld>'
+		const { buf } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.addTable([[{ text: 'a' }]], { x: 1, y: 1, w: 3, h: 1 })
+			slide.addText('b', { x: 1, y: 3, w: 3, h: 1 })
+		})
+		const ir = await irWithPart(buf, 'ppt/slides/slide1.xml', (xml) =>
+			xml.replace(/(<a:t>a<\/a:t><\/a:r>)/, `$1${field}`).replace(/(<a:t>b<\/a:t><\/a:r>)/, `$1${field}`)
+		)
+		const kinds = constructs(ir)
+		assert(kinds.has('table.cell.field'), `the cell's field is noted; got ${JSON.stringify([...kinds])}`)
+		assert(kinds.has('text.field'), "and the text box's still is")
+	})
+
+	test('speaker notes formatting beyond bold and italic is noted, and plain notes raise nothing', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addNotes('underlined note')
+		})
+		// The run properties immediately before the note's text, and no others.
+		const ir = await irWithPart(buf, 'ppt/notesSlides/notesSlide1.xml', (xml) =>
+			xml.replace(/<a:rPr([^>]*?)(\/?)>(?=(?:(?!<a:rPr)[^])*<a:t>underlined note)/, '<a:rPr$1 u="sng"$2>')
+		)
+		assert(constructs(ir).has('notes.formatting'), 'an underlined note is noted')
+		const { presentation: plainDeck } = await authorRead((pres) => {
+			pres.addSlide().addNotes('plain note')
+		})
+		const plain = readModelToIr(plainDeck)
+		assert(!constructs(plain).has('notes.formatting'), 'plain notes are not')
+	})
+})
+
+describe('deck IR — connector strokes and grouped connectors', () => {
 	/** `mixed.pptx` with every connector's `p:cxnSp` rewritten by `rewrite`, as a fresh IR. */
 	async function mixedWithConnectors(rewrite) {
 		const zip = await JSZip.loadAsync(await readFixture('mixed.pptx'))

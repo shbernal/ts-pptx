@@ -955,6 +955,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptxToScript` keeps a run's slide link and a freeform's text, and notes more of what text
+  loses.**
+  - A run linked to another slide of the deck lost its link in silence, though a comment said
+    the deck walk handled it, so the text kept its link formatting and went nowhere. It carries
+    as `hyperlink: { slide }` now. A link a run's `hyperlink` cannot spell (a show jump such as
+    "next slide", a custom show, another file, or a slide jump on a layout's shape) is noted as
+    `text.hyperlink`.
+  - A freeform (`custGeom`) holding text became an `addShape` with no text. It is an `addText`
+    with `shape: 'custGeom'` and its points.
+  - A field or an equation in a table cell is noted, as `table.cell.field` and
+    `table.cell.equation`, as the same in a shape already was.
+  - `notes.formatting` fired for bold and italic only. Underline, strike, colour, size, face,
+    highlight, a hyperlink, a bullet or an indent level in speaker notes raise it too.
+
 - **`pptxToScript` keeps a connector with no outline invisible, and keeps a connector inside a
   group.**
   - A connector whose outline is `a:noFill` came out as an `addConnector` with no stroke

@@ -35,7 +35,7 @@ import {
 	WRITABLE_DASHES,
 } from './values.js'
 import { surfaceFill } from './surface-fill.js'
-import { runOptions, textRuns } from './text.js'
+import { noteUnreadText, runOptions, textRuns } from './text.js'
 
 export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): CallIr | null {
 	const { notes } = ctx
@@ -156,6 +156,7 @@ function cellIr(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue {
 			'this cell carries a screen-reader header association (a:tc/@id / a:tcPr/a:headers); PowerPoint strips both on save, so there is no write option and the association is lost — hasHeader (a:tblPr/@firstRow) is the marker that survives'
 		)
 	}
+	if (frame) noteUnreadText(frame, cell.element_, notes, 'cell')
 
 	const options = compact({
 		fill: cellFill(cell, hasStyle, ctx),
@@ -187,10 +188,10 @@ function cellIr(cell: TableCell, hasStyle: boolean, ctx: MapContext): IrValue {
 			: undefined,
 		// A cell's own runs may each carry formatting; the first run's options double as the
 		// cell default, which is how the write path applies cell-level character formatting.
-		...(frame?.paragraphs[0]?.runs[0] ? (runOptions(frame.paragraphs[0].runs[0], notes) ?? {}) : {}),
+		...(frame?.paragraphs[0]?.runs[0] ? (runOptions(frame.paragraphs[0].runs[0], ctx) ?? {}) : {}),
 	})
 
-	return compact({ text: frame ? textRuns(frame, notes) : cell.text, options }) ?? { text: '' }
+	return compact({ text: frame ? textRuns(frame, ctx) : cell.text, options }) ?? { text: '' }
 }
 
 /**

@@ -15,6 +15,7 @@
  */
 import type { Presentation } from '../../read/api/presentation.js'
 import type { Slide } from '../../read/api/slide.js'
+import type { Paragraph } from '../../read/api/text.js'
 import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import { backgroundIr, SLIDE_BACKGROUND } from './background.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
@@ -110,11 +111,16 @@ export function readModelToIr(pres: Presentation): DeckIr {
 	}
 
 	const layouts = layoutGallery(pres)
+	// A run's slide link names its target by part, and the write API names it by number.
+	const slideNumbers = new Map(pres.slides.map((slide, index) => [slide.partName, index + 1]))
+	const slideNumberOf = (partName: string): number | null => slideNumbers.get(partName) ?? null
 	// Before the slides, so the chrome's deck-level notes lead the list the way the chrome
 	// leads the deck. Assets are shared: a layout background image and a slide image that are
 	// the same part resolve to one asset.
-	const chrome = chromeToIr(pres, { notes: deckScope, assets })
-	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets, layouts))
+	const chrome = chromeToIr(pres, { notes: deckScope, assets, slideNumberOf })
+	const slides = pres.slides.map((slide, index) =>
+		slideToIr(slide, index + 1, collector, { assets, slideNumberOf }, layouts)
+	)
 
 	return {
 		slideSize: size ? { widthEmu: size.widthEmu, heightEmu: size.heightEmu } : { ...ABSENT_SLIDE_SIZE_EMU },
@@ -181,11 +187,12 @@ function slideToIr(
 	slide: Slide,
 	number: number,
 	collector: NoteCollector,
-	assets: Assets,
+	deck: Omit<MapContext, 'notes'>,
 	layouts: Map<string, SlideLayoutIr>
 ): SlideIr {
 	const notes = scopeNotes(collector, number)
-	const ctx: MapContext = { notes, assets }
+	const ctx: MapContext = { ...deck, notes }
+	const { assets } = deck
 	const layoutPartName = slide.layout?.partName
 	const base = {
 		number,
@@ -263,15 +270,43 @@ function notesOf(slide: Slide, notes: NoteScope): { notesText?: string } {
 	const text = slide.notesText
 	if (!text) return {}
 	const frame = slide.notesTextFrame
-	if (frame && frame.paragraphs.some((paragraph) => paragraph.runs.some((run) => run.bold || run.italic))) {
+	if (frame && frame.paragraphs.some(hasNotesFormatting)) {
 		notes.note(
 			'notes.formatting',
 			'flattened',
 			'unsupported',
-			"speaker notes carry as plain text; per-run formatting and the notes slide's own placeholder geometry do not"
+			"speaker notes carry as plain text; per-run formatting, hyperlinks, bullets and indent levels, and the notes slide's own placeholder geometry, do not"
 		)
 	}
 	return { notesText: text }
+}
+
+/**
+ * `true` when a speaker-notes paragraph states anything plain text cannot carry.
+ *
+ * `addNotes` takes plain text. The note used to fire for bold and italic only, so underline,
+ * strike, colour, size, face, highlight, a hyperlink, a bullet or an indent level went with
+ * nothing said. An explicit off (`u="none"`, `strike="noStrike"`, a suppressed bullet) is how plain
+ * text reads anyway, so it does not count. Reads accessors only: `runOptions` would record colour
+ * notes for text that emits no call.
+ */
+function hasNotesFormatting(paragraph: Paragraph): boolean {
+	if (paragraph.level > 0) return true
+	const bullet = paragraph.bulletDetail
+	if (bullet !== null && bullet.kind !== 'none') return true
+	return paragraph.runs.some(
+		(run) =>
+			run.bold === true ||
+			run.italic === true ||
+			(run.underline !== null && run.underline !== 'none') ||
+			(run.strike !== null && run.strike !== 'noStrike') ||
+			run.color !== null ||
+			run.schemeColor !== null ||
+			run.fontSizePt !== null ||
+			run.fontName !== null ||
+			run.highlight !== null ||
+			run.hyperlink !== null
+	)
 }
 
 /**

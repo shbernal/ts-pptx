@@ -253,6 +253,10 @@ export const NOTE_CONSTRUCTS = {
 	// IR has nowhere to put them on either side, so there is nothing to exclude. The note
 	// exists so a reader of the emitted script learns the association was there and is gone.
 	'table.cell.headers': { fields: [], tiers: BOTH_TIERS },
+	// A field or an equation in a cell contributes no run, so its text is in neither IR. Not
+	// `text.field`'s `*`, which on a cell's note would excuse the whole table.
+	'table.cell.field': { fields: [], tiers: BOTH_TIERS },
+	'table.cell.equation': { fields: [], tiers: BOTH_TIERS },
 	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
 	// same reasons.
 	'table.cell.fill.picture': { fields: ['fill'], tiers: BOTH_TIERS },
@@ -317,6 +321,8 @@ export const NOTE_CONSTRUCTS = {
 	'text.color.schemeToken': { fields: ['options.color'], tiers: BOTH_TIERS },
 	'text.equation': { fields: ['*'], tiers: BOTH_TIERS },
 	'text.field': { fields: ['*'], tiers: BOTH_TIERS },
+	// A run link the run-level `hyperlink` cannot spell is left off, so the difference lands there.
+	'text.hyperlink': { fields: ['hyperlink'], tiers: BOTH_TIERS },
 	'text.bullet.glyph': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// `text.bullet.inherited` used to live here — a paragraph stating no bullet of its own was
 	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that

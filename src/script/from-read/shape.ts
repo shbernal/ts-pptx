@@ -47,8 +47,8 @@ import {
 	positionOptions,
 	type ShapeBox,
 } from './values.js'
-import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
-import { textFrameOptions, textRuns } from './text.js'
+import { hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
+import { noteUnreadText, textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
@@ -98,31 +98,7 @@ export function shapeCall(shape: AnyShape, ctx: MapContext): CallIr | null {
 function autoShapeText(shape: AutoShape, notes: NoteScope): TextFrame | null {
 	const frame = shape.hasTextFrame ? shape.textFrame : null
 	if (frame === null) return null
-
-	const runText = frame.paragraphs.flatMap((p) => p.runs.map((run) => run.text)).join('')
-
-	// Run text is a subsequence of the frame's text, so anything longer came from a field.
-	if (frame.text.replaceAll('\n', '').length > runText.length) {
-		notes.note(
-			'text.field',
-			'dropped',
-			'unread',
-			'this shape holds an automatic field (a:fld - a slide number, date or footer), which has no accessor and no addText expression, so its text is not reproduced'
-		)
-	}
-
-	// An OMML equation contributes nothing to `TextFrame.text`, so an equation-only shape
-	// looks like an empty box and would otherwise emit as bare geometry.
-	if (hasEquation(shape.element_)) {
-		notes.note(
-			'text.equation',
-			'dropped',
-			'unread',
-			'this shape holds an OMML equation, which no accessor exposes, so the shape is emitted without it - even though TextProps.math (and the ts-pptx/math subpath) could author one'
-		)
-	}
-
-	return runText.length > 0 ? frame : null
+	return noteUnreadText(frame, shape.element_, notes, 'shape').length > 0 ? frame : null
 }
 
 function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
@@ -156,7 +132,20 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 			'unread',
 			'custGeom guides, adjust handles and connection sites (a:gdLst / a:ahLst / a:cxnLst) have no accessor, so only the path outline carries'
 		)
-		const options = compact({ ...common, points: customGeometryPoints(box, custom) })
+		const points = customGeometryPoints(box, custom)
+		// A freeform holding text is an `addText` with the same points: this arm used to return
+		// `addShape` before the text arm below, so a freeform's text was discarded.
+		if (frame !== null) {
+			const options = compact({
+				...common,
+				...textFrameOptions(frame, notes),
+				...(isTextBox(shape.element_) ? { isTextBox: true } : {}),
+				shape: 'custGeom',
+				points,
+			})
+			return { method: 'addText', args: [textRuns(frame, ctx), options ?? {}], ...nameOf(shape) }
+		}
+		const options = compact({ ...common, points })
 		return { method: 'addShape', args: ['custGeom', options ?? {}], ...nameOf(shape) }
 	}
 
@@ -170,7 +159,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 			...(isTextBox(shape.element_) ? { isTextBox: true } : {}),
 			...(preset === null ? {} : { shape: preset, ...adjustOptions(shape) }),
 		})
-		return { method: 'addText', args: [textRuns(frame, notes), options ?? {}], ...nameOf(shape) }
+		return { method: 'addText', args: [textRuns(frame, ctx), options ?? {}], ...nameOf(shape) }
 	}
 
 	// No text and no geometry of its own: an empty placeholder, whose shape comes from the
