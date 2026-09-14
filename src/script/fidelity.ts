@@ -332,6 +332,8 @@ export const NOTE_CONSTRUCTS = {
 	'text.field': { fields: ['*'], tiers: BOTH_TIERS },
 	// A run link the run-level `hyperlink` cannot spell is left off, so the difference lands there.
 	'text.hyperlink': { fields: ['hyperlink'], tiers: BOTH_TIERS },
+	// A link that states no underline comes back stating `u="sng"`, the write path's default for a link.
+	'text.hyperlink.underline': { fields: ['options.underline'], tiers: BOTH_TIERS },
 	'text.bullet.glyph': { fields: ['bullet'], tiers: BOTH_TIERS },
 	// `text.bullet.inherited` used to live here — a paragraph stating no bullet of its own was
 	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that

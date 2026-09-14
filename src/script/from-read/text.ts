@@ -236,6 +236,19 @@ function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined 
 export function runOptions(run: Run, ctx: MapContext): Record<string, IrValue> | undefined {
 	const { notes } = ctx
 	const underline = run.underline
+	const hyperlink = hyperlinkOption(run, ctx)
+	// PowerPoint paints a link underlined when the run states no `u`
+	// (`test/read/fixtures/slide-jump-link.pptx` renders both its linked runs that way), and the
+	// write path states `u="sng"` on every link that sets no underline. The two look the same, but
+	// the rebuilt run no longer leaves its underline to the link, and there is no option to say so.
+	if (hyperlink !== undefined && underline === null) {
+		notes.note(
+			'text.hyperlink.underline',
+			'flattened',
+			'unwritable',
+			'this run links somewhere and states no underline, which PowerPoint paints underlined all the same; the write path writes u="sng" on a link that sets none, so the text looks the same but states an underline it used to leave to the link'
+		)
+	}
 
 	return compact({
 		bold: orUndefined(run.bold),
@@ -250,7 +263,7 @@ export function runOptions(run: Run, ctx: MapContext): Record<string, IrValue> |
 		// The write API spells baseline shift as a percentage, the same unit the read
 		// model reports, so superscript/subscript survive without a preset round-trip.
 		baseline: orUndefined(run.baselinePct),
-		hyperlink: hyperlinkOption(run, ctx),
+		hyperlink,
 	})
 }
 

@@ -49,11 +49,29 @@ describe('an import plan lists exactly the parts the import adds', () => {
 				// ownership scope decide what is copied and what is shared.
 				const indexes = source.slides.length > 0 ? [...source.slides.keys(), 0] : []
 				for (const index of indexes) {
+					const at = `${name}, ${options.theme}, page ${index}`
 					const partCount = dest.opc.parts.size
-					const plan = planSlideImport(dest, source, source.slides[index], options)
+					// A page whose jump link targets a page not yet brought across is refused
+					// (`import/unresolved-slide-link`), so a plan that refuses is half of the claim too:
+					// the import it stands for must refuse the same way and add nothing.
+					let plan = null
+					let refused = null
+					try {
+						plan = planSlideImport(dest, source, source.slides[index], options)
+					} catch (err) {
+						refused = err.code ?? String(err)
+					}
 					assertEqual(dest.opc.parts.size, partCount, `${name}: planning added no part`)
-					const added = addedBy(dest, () => dest.importSlide(source, index, options))
-					assertEqual(listed(plan), JSON.stringify(added), `${name}, ${options.theme}, page ${index}`)
+					let importRefused = null
+					const added = addedBy(dest, () => {
+						try {
+							dest.importSlide(source, index, options)
+						} catch (err) {
+							importRefused = err.code ?? String(err)
+						}
+					})
+					assertEqual(importRefused, refused, `${at}: the import refuses exactly when its plan does`)
+					assertEqual(plan ? listed(plan) : '[]', JSON.stringify(added), at)
 				}
 			}
 		}

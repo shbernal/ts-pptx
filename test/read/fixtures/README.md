@@ -51,6 +51,8 @@ are stored byte-for-byte as saved by PowerPoint.
 | `shape-line-style-override.pptx` | Microsoft Office PowerPoint | 16.0000 | 1   |
 | `table-merge-encoding.pptx` | Microsoft Office PowerPoint | 16.0000    | 5      |
 | `table-text-inheritance.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
+| `slide-jump-link.pptx` | Microsoft Office PowerPoint    | 16.0000    | 3      |
+| `slide-jump-link-target-deleted.pptx` | Microsoft Office PowerPoint | 16.0000 | 2 |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
@@ -190,6 +192,8 @@ c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-s
 500d082451a2b1bbed9db2b0646b1542cb8512660359f6412a1cedb1d11a011b  shape-line-style-override.pptx
 c2756f8f042c92c8a05236e4c426846f4d344c07d51f54665983b786e27a9132  table-merge-encoding.pptx
 b157017fd0af12dd3c03595a8fa5c60037574c8fceb912c61e24da2b2b5a8627  table-text-inheritance.pptx
+1a16c04c8a805f839d37758d40bc557594f496197d6f5b69b2b7af500d3ae6ba  slide-jump-link.pptx
+eb315cc06511f0bb37c0ba17cad7bb077f0e84f4a847271ecc4b8ec4c9873a65  slide-jump-link-target-deleted.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
@@ -576,6 +580,18 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   The text styles, the theme edits and the removed style id have no COM surface, so they were
   injected into the package PowerPoint saved, which PowerPoint then reopened and re-saved.
   Authored via PowerPoint COM on Windows (2026-09-14, `authoring/author-table-text-inheritance.ps1`).
+- `slide-jump-link.pptx` and `slide-jump-link-target-deleted.pptx` — one three-slide deck before
+  and after PowerPoint deletes its first slide, read by `remove-slide-powerpoint.test.js`. Slide 2
+  (`Referrer`) holds a run (`LinkedText`) and a rectangle (`LinkedShape`) whose click actions jump
+  to slide 1, and a run (`ControlText`) that jumps to slide 3. The deck has two sections, `First`
+  (slide 1) and `Rest` (slides 2 and 3), and a custom show `Tour` listing slides 1 and 2. Deleting
+  slide 1 (`Slide.Delete()`, then save) drops its `p14:sldId` from `First`, which stays with an
+  empty `p14:sldIdLst`, and its `p:sld` from `Tour`. Both jump links stay, `a:hlinkClick` and
+  relationship alike, and once PowerPoint renumbers the slides that relationship targets
+  `slide1.xml`, which is the referrer itself, so both links now jump to their own slide.
+  `removeSlide` matches the sections and the custom show, and deliberately not the links: it
+  removes a link to the slide it removes. Authored via PowerPoint COM on Windows (2026-09-14,
+  `authoring/author-slide-jump-link.ps1`).
 - `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
   (2018) `p188` comment schema**, read by `modern-comments.test.js`
   (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
@@ -1211,6 +1227,8 @@ fixtures opened clean with no repair prompt:
 - [x] `shape-line-style-override.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 - [x] `table-merge-encoding.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 - [x] `table-text-inheritance.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored, edits injected, reopened + re-saved clean via COM, no repair prompt)
+- [x] `slide-jump-link.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + saved via COM)
+- [x] `slide-jump-link-target-deleted.pptx` — Windows desktop PowerPoint, 2026-09-14 (saved after the deletion, reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

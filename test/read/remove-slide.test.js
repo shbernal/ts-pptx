@@ -159,9 +159,10 @@ describe('Presentation.removeSlide', () => {
 		assertEqual(reopened.slides[0].shapes[0].text, 'back', 'the text that carried the link stays')
 	})
 
-	test('keeps a relationship to the removed slide that other markup names, and says so', async () => {
-		// A custom show lists slides by `p:sld r:id`. That element cannot be dropped the way a link can,
-		// so its relationship stays rather than leaving the element naming an id the part lacks.
+	test('takes the removed slide out of a custom show, with the relationship only that entry named', async () => {
+		// PowerPoint drops a deleted slide's `p:sld` from every custom show and keeps the show
+		// (slide-jump-link-target-deleted.pptx). The entry planted here names a relationship of its
+		// own, which then has nothing left to name it and goes too, with nothing to warn about.
 		const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
 		const presXml = await zip.file('ppt/presentation.xml').async('string')
 		const presRels = await zip.file('ppt/_rels/presentation.xml.rels').async('string')
@@ -186,11 +187,13 @@ describe('Presentation.removeSlide', () => {
 		zip.file('ppt/presentation.xml', withShow)
 		const deck = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
 
-		const { codes, messages } = await captureDiagnostics(() => deck.removeSlide(0))
-		assertEqual(codes.join(), 'slide/removed-link-target', 'one warning')
-		assert(messages[0].includes('/ppt/presentation.xml'), 'naming the presentation part')
-		const kept = deck.opc.relationshipsFor('/ppt/presentation.xml').get('rIdShow1')
-		assert(kept, 'the custom show keeps its relationship')
+		const { codes } = await captureDiagnostics(() => deck.removeSlide(0))
+		assertEqual(codes.join(), '', 'no warning')
+		assert(!deck.opc.relationshipsFor('/ppt/presentation.xml').get('rIdShow1'), 'the entry’s relationship is gone')
+		const xml = new TextDecoder().decode(deck.opc.part('/ppt/presentation.xml').serialize())
+		assert(xml.includes('<p:custShow name="Show"'), 'the show stays')
+		assert(!xml.includes('rIdShow1'), 'and no longer lists the removed slide')
+		assertNoDanglingRels((await Presentation.load(await deck.save())).opc)
 	})
 
 	test('rejects an out-of-range index', async () => {

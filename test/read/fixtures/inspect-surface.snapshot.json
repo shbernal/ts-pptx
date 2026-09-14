@@ -2123,6 +2123,77 @@
 		],
 		"diagnostics": []
 	},
+	"slide-jump-link-target-deleted.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "Go to Target Go to Other",
+				"wordCount": 6,
+				"elements": [
+					{"id":2,"name":"LinkedText","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Go to Target","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Go to Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Go to Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":3,"name":"LinkedShape","kind":"shape","graphicKind":null,"zIndex":1,"box":{"x":0.8333333333333334,"y":2.2222222222222223,"w":3.3333333333333335,"h":1.1111111111111112},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":"none","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[],"paragraphs":[{"runs":[]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":4,"name":"ControlText","kind":"text","graphicKind":null,"zIndex":2,"box":{"x":0.8333333333333334,"y":4.166666666666667,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Go to Other","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Go to Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Go to Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			},
+			{
+				"index": 1,
+				"name": "Slide 2",
+				"path": "ppt/slides/slide2.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "Other",
+				"wordCount": 1,
+				"elements": [
+					{"id":2,"name":"OtherLabel","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Other","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			}
+		],
+		"diagnostics": []
+	},
+	"slide-jump-link.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "Target",
+				"wordCount": 1,
+				"elements": [
+					{"id":2,"name":"TargetLabel","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Target","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			},
+			{
+				"index": 1,
+				"name": "Slide 2",
+				"path": "ppt/slides/slide2.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "Go to Target Go to Other",
+				"wordCount": 6,
+				"elements": [
+					{"id":2,"name":"LinkedText","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Go to Target","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Go to Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Go to Target","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":3,"name":"LinkedShape","kind":"shape","graphicKind":null,"zIndex":1,"box":{"x":0.8333333333333334,"y":2.2222222222222223,"w":3.3333333333333335,"h":1.1111111111111112},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"","textWrap":null,"autofit":"none","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[],"paragraphs":[{"runs":[]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"},
+					{"id":4,"name":"ControlText","kind":"text","graphicKind":null,"zIndex":2,"box":{"x":0.8333333333333334,"y":4.166666666666667,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Go to Other","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Go to Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Go to Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			},
+			{
+				"index": 2,
+				"name": "Slide 3",
+				"path": "ppt/slides/slide3.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "Other",
+				"wordCount": 1,
+				"elements": [
+					{"id":2,"name":"OtherLabel","kind":"text","graphicKind":null,"zIndex":0,"box":{"x":0.8333333333333334,"y":0.8333333333333334,"w":8.333333333333334,"h":0.4039063867016623},"rotation":0,"flipH":false,"flipV":false,"parentZIndex":null,"childZIndices":[],"text":"Other","textWrap":null,"autofit":"spAutoFit","autofitFontScale":null,"bodyInsets":{"left":0.1,"top":0.05,"right":0.1,"bottom":0.05},"textRuns":[{"text":"Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}],"paragraphs":[{"runs":[{"text":"Other","fontSizePt":null,"color":null,"fontFace":null,"bold":false,"italic":false,"strike":null,"highlight":null,"charSpacingPt":null}]}],"fontSizes":[],"colors":[],"fill":null,"line":null,"shapeType":"rect"}
+				]
+			}
+		],
+		"diagnostics": []
+	},
 	"slide-transition-sound.pptx": {
 		"slideSize": {"widthIn":13.333,"heightIn":7.5},
 		"slides": [

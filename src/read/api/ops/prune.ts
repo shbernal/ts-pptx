@@ -9,6 +9,7 @@
  */
 
 import type { Element } from '@xmldom/xmldom'
+import type { Relationships } from '../../opc/relationships.js'
 import type { Presentation } from '../presentation.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { descendantsByTag } from '../../oxml/dom.js'
@@ -58,8 +59,13 @@ export interface InboundLink {
  * silently becomes its target. Removing only the relationship is worse: PowerPoint refuses a
  * package whose `a:hlinkClick` names an `r:id` the part does not hold. So a relationship is
  * removed when nothing but click and hover links name it, and those links go with it; the run or
- * shape carrying them stays. A relationship any other element names (a custom show's `p:sld`, say)
- * is kept, because that element cannot be dropped the same way.
+ * shape carrying them stays. A relationship any other element names is kept, because that element
+ * cannot be dropped the same way. A custom show's `p:sld` is not one of them: removing a slide
+ * drops it first ({@link dropFromShowsAndSections}).
+ *
+ * Dropping the links is a deliberate departure from PowerPoint, which keeps a jump link to a
+ * deleted slide and, once it renumbers the slides, lets it jump to whichever slide takes the
+ * deleted one's part name (`test/read/fixtures/slide-jump-link-target-deleted.pptx`).
  * @returns each part that held such a relationship, in package order
  */
 export function unlinkInbound(pres: Presentation, partName: string): InboundLink[] {
@@ -84,6 +90,50 @@ export function unlinkInbound(pres: Presentation, partName: string): InboundLink
 		found.push({ referrer: owner, unlinked })
 	}
 	return found
+}
+
+/**
+ * Take a slide that is leaving the package out of the presentation's custom shows and sections.
+ *
+ * PowerPoint does this when a slide is deleted: the slide's `p:sld` leaves every custom show and
+ * its `p14:sldId` leaves every section, and a show or section left empty stays
+ * (`test/read/fixtures/slide-jump-link-target-deleted.pptx`). Call it while the presentation's
+ * relationships still resolve to the slide. A relationship nothing names once the entries are gone
+ * is removed here, so {@link unlinkInbound} does not report it as a reference it had to keep.
+ * @param root - the presentation part's root element
+ * @param rels - the presentation part's relationships
+ * @param partName - the slide leaving the package
+ * @param slideId - its `p:sldId/@id`
+ * @returns whether anything was removed
+ */
+export function dropFromShowsAndSections(
+	root: Element,
+	rels: Relationships,
+	partName: string,
+	slideId: number | null
+): boolean {
+	const toSlide = new Set(
+		[...rels]
+			.filter((rel) => rel.targetMode !== 'External' && rels.resolveTarget(rel.id) === partName)
+			.map((rel) => rel.id)
+	)
+	let changed = false
+	for (const sld of descendantsByTag(root, OOXML_NS.p, 'sld')) {
+		if (!toSlide.has(sld.getAttributeNS(OOXML_NS.r, 'id') ?? '')) continue
+		sld.parentNode?.removeChild(sld)
+		changed = true
+	}
+	if (slideId !== null) {
+		for (const sldId of descendantsByTag(root, OOXML_NS.p14, 'sldId')) {
+			if (sldId.getAttribute('id') !== String(slideId)) continue
+			sldId.parentNode?.removeChild(sldId)
+			changed = true
+		}
+	}
+	if (changed) {
+		for (const relId of toSlide) if (elementsNamingRel(root, relId).length === 0) rels.remove(relId)
+	}
+	return changed
 }
 
 /** Link elements that can be dropped with the relationship they name, leaving their run or shape intact. */

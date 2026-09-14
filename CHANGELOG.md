@@ -1001,6 +1001,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`removeSlide` takes the slide out of custom shows and sections.**
+  - The removed slide's `p14:sldId` stayed in its section, and its `p:sld` stayed in any custom
+    show while the relationship it named was removed. It now leaves both, as PowerPoint does when
+    a slide is deleted, and a section or custom show left empty stays. A relationship only a
+    custom-show entry named goes with the entry, so the `slide/removed-link-target` warning no
+    longer reports it as kept.
+  - A jump link to the removed slide is still removed, with the warning. PowerPoint keeps such a
+    link, and once it renumbers the slides the link jumps to whichever slide takes the deleted
+    one's part name.
+  - `pptxToScript` declares `text.hyperlink.underline` for a linked run that states no underline.
+    PowerPoint paints such a link underlined, and the write path writes `u="sng"` on a link that
+    sets none, so the text looks the same but states an underline it used to leave to the link.
+  - The ground truth is the new `slide-jump-link.pptx` and `slide-jump-link-target-deleted.pptx`
+    fixtures, one deck before and after PowerPoint deletes a slide.
+
 - **The text in a table cell resolves what it inherits.**
   - `Run.resolvedSizePt`, `resolvedFontFace`, `resolvedColor`, `resolvedBold` and `resolvedItalic`
     read `null` for every run in a table cell that set nothing of its own. They now resolve the way

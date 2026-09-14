@@ -66,7 +66,7 @@ import { rebuildClonedPageRels, type ImportContext } from './ops/part-copy.js'
 import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { readEmbeddedFontEntries } from './ops/embedded-fonts.js'
-import { pruneIfOrphan, unlinkInbound } from './ops/prune.js'
+import { dropFromShowsAndSections, pruneIfOrphan, unlinkInbound } from './ops/prune.js'
 import { ImportMemo } from './ops/import-memo.js'
 import type { RescaleMode } from './ops/rescale.js'
 import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
@@ -350,7 +350,9 @@ export class Presentation {
 	 * (its notes slide, slide-only media, charts/embeddings) that no remaining part
 	 * references is pruned too — recursively. Shared deck chrome (layout, master,
 	 * theme, …) is never pruned, so the deck stays renderable; removing every slide
-	 * leaves a valid master/layout-only package (a template shell).
+	 * leaves a valid master/layout-only package (a template shell). The slide also
+	 * leaves every custom show and section it was in, which stay even when that
+	 * empties them, as PowerPoint leaves them.
 	 *
 	 * Untouched parts stay byte-identical, matching the package fidelity contract.
 	 * Throws when there is no slide at `index`.
@@ -371,6 +373,8 @@ export class Presentation {
 		const presPart = this.presentationPart
 		const presRels = presentationRels(this)
 		const root = presPart.dom.documentElement
+		// Before the slide's relationship goes, while a custom show's entry still resolves to it.
+		if (root) dropFromShowsAndSections(root, presRels, partName, slide.slideId)
 		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
 		if (sldIdLst) {
 			for (const sldId of getElements(sldIdLst, 'p:sldId')) {
