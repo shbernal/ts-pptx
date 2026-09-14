@@ -12,7 +12,6 @@ import { warn } from '../../diagnostics.js'
 import type {
 	BorderProps,
 	FillOption,
-	PresLayout,
 	ShapeFillProps,
 	TableCellProps,
 	TableProps,
@@ -90,16 +89,6 @@ function normalizeOuterBorder(outer: TableProps['outerBorder']): OuterBorderTupl
 	return resolved.some((side) => side !== undefined) ? resolved : undefined
 }
 
-/**
- * Adds a table object to a slide definition.
- * @param {PresSlideInternal} target - slide object that the table should be added to
- * @param {TableRow[]} tableRows - table data
- * @param {TableProps} options - table options
- * @param {SlideLayoutInternal} slideLayout - Slide layout
- * @param {PresLayout} presLayout - Presentation layout
- * @param {Function} addSlide - method
- * @param {Function} getSlide - method
- */
 /**
  * Apply the `headerRow` / `columns` inline-styling sugar: bake blanket header/column
  * formatting into per-cell options so it flows through the normal cell pipeline. Sets
@@ -251,29 +240,6 @@ function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): Table
 }
 
 /**
- * Register the slide media relationship behind every image fill this table uses, so the
- * cell emitter can resolve `<a:blipFill r:embed="rIdN">` instead of warning and dropping
- * the fill. Tables were the last major object kind not wired into `registerImageFillMedia`
- * (shapes do it at `define/shape.ts`, text boxes at `define/text.ts`).
- *
- * Three fill sources are walked, which between them cover every way a picture reaches a table:
- * the resolved cells (per-cell `options.fill`, plus `headerRow` and `columns[i]`, both baked
- * onto cells by the sugar step above), the table-level `fill`, which is *not* baked —
- * `gen/slide/objects/table.ts` copies it onto each cell at emit time — and `tableFill`, which
- * lands on `a:tblPr` itself and so needs its own relationship for the same reason.
- *
- * Keyed on fill **object identity**, not on the image source. The sugar spreads its options
- * shallowly, so one `headerRow` fill object is shared by every cell it styles; registering
- * per cell would mint a redundant relationship each time and let the later call overwrite
- * the `_imgRid` the first one stashed. Two cells given separately-authored fills for the
- * same file still get one relationship each — matching how two shapes sharing an image
- * behave — while the bytes are deduped into a single media part downstream.
- *
- * Must run only after auto-paging has shredded the rows across slides, for the same reason
- * `createHyperlinkRels` does: `target` has to be the slide the cell actually lands on, or
- * every relationship piles onto the first slide.
- */
-/**
  * Resolve `autoPageHeaderRows` to a usable count of header rows.
  *
  * It is a count, so it has to be a whole number, at least one, and no larger than the table
@@ -299,6 +265,29 @@ function resolveHeaderRowCount(value: number | undefined, rowCount: number): num
 	return 1
 }
 
+/**
+ * Register the slide media relationship behind every image fill this table uses, so the
+ * cell emitter can resolve `<a:blipFill r:embed="rIdN">` instead of warning and dropping
+ * the fill. Tables were the last major object kind not wired into `registerImageFillMedia`
+ * (shapes do it at `define/shape.ts`, text boxes at `define/text.ts`).
+ *
+ * Three fill sources are walked, which between them cover every way a picture reaches a table:
+ * the resolved cells (per-cell `options.fill`, plus `headerRow` and `columns[i]`, both baked
+ * onto cells by the sugar step above), the table-level `fill`, which is *not* baked —
+ * `gen/slide/objects/table.ts` copies it onto each cell at emit time — and `tableFill`, which
+ * lands on `a:tblPr` itself and so needs its own relationship for the same reason.
+ *
+ * Keyed on fill **object identity**, not on the image source. The sugar spreads its options
+ * shallowly, so one `headerRow` fill object is shared by every cell it styles; registering
+ * per cell would mint a redundant relationship each time and let the later call overwrite
+ * the `_imgRid` the first one stashed. Two cells given separately-authored fills for the
+ * same file still get one relationship each — matching how two shapes sharing an image
+ * behave — while the bytes are deduped into a single media part downstream.
+ *
+ * Must run only after auto-paging has shredded the rows across slides, for the same reason
+ * `createHyperlinkRels` does: `target` has to be the slide the cell actually lands on, or
+ * every relationship piles onto the first slide.
+ */
 function registerTableImageFills(
 	target: PresSlideInternal,
 	rows: TableCellInternal[][],
@@ -324,15 +313,33 @@ function registerTableImageFills(
 	})
 }
 
-export function addTableDefinition(
-	target: PresSlideInternal,
-	tableRows: TableRow[],
-	options: TableProps,
-	slideLayout: SlideLayoutInternal | null,
-	presLayout: PresLayout,
-	addSlide: (layout: SlideLayoutInternal | null) => PresSlideInternal,
+/**
+ * The slide a table is added to, with the two presentation callbacks auto-paging needs: `getSlide`
+ * finds the slide a continuation lands on, and `addSlide` creates it when there is none.
+ */
+type TableHostSlide = PresSlideInternal & {
+	addSlide: (layout: SlideLayoutInternal | null) => PresSlideInternal
 	getSlide: (slideNumber: number) => PresSlideInternal | undefined
+}
+
+/**
+ * Adds a table object to a slide definition.
+ *
+ * The slide layout, the presentation layout and the paging callbacks are read off `target`. They
+ * were separate parameters, which the one caller filled from the same slide, and which could
+ * therefore have described a different slide than the one the table was added to.
+ * @param target - the slide the table is added to
+ * @param tableRows - table data
+ * @param options - table options
+ * @returns the slides after `target` the table was paged onto, found or created
+ */
+export function addTableDefinition(
+	target: TableHostSlide,
+	tableRows: TableRow[],
+	options: TableProps
 ): PresSlideInternal[] {
+	const slideLayout = target._slideLayout
+	const presLayout = target._presLayout
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	// Take ownership of the options before touching them, the same way `addTextDefinition` does.
 	// Everything below normalizes in place — `objectName`, `fontSize`, `margin`, `color`, the
@@ -630,12 +637,12 @@ export function addTableDefinition(
 		// Loop over rows and create 1-N tables as needed
 		getSlidesForTableRows(arrRows, opt, presLayout, slideLayout).forEach((slide, idx) => {
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
-			let newSlide = getSlide(target._slideNum + idx)
+			let newSlide = target.getSlide(target._slideNum + idx)
 			if (!newSlide) {
 				// The layout itself, not its name: only the presentation knows whether it is a registered
 				// layout or the unregistered default a slide added with no `masterTitle` carries, whose
 				// name is the slide size and matches no master.
-				newSlide = addSlide(slideLayout)
+				newSlide = target.addSlide(slideLayout)
 				slides.push(newSlide)
 			}
 

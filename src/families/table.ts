@@ -24,15 +24,7 @@ export const tableFamily = {
 			// lands on the first table's continuations -- the same slide, spilled onto twice. The
 			// accessor names slides so a caller can address them; naming one twice is noise, not
 			// information.
-			const paged = addTableDefinition(
-				slide,
-				tableRows,
-				options || {},
-				slide._slideLayout,
-				slide._presLayout,
-				slide.addSlide,
-				slide.getSlide
-			)
+			const paged = addTableDefinition(slide, tableRows, options || {})
 			for (const made of paged) if (!slide._newAutoPagedSlides.includes(made)) slide._newAutoPagedSlides.push(made)
 		},
 	},
