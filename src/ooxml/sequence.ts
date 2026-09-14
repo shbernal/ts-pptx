@@ -21,7 +21,7 @@
  * both are bound by the same ECMA-376 sequence.
  */
 
-import { EMBEDDED_FONT_SLOTS } from '../embedded-fonts.js'
+import { EMBEDDED_FONT_SLOTS } from './st-enums.js'
 import { InternalError } from '../errors.js'
 
 /**

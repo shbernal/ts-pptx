@@ -11,8 +11,8 @@
  *
  * **The shape.** Every entry is a `readonly` tuple declared `as const`, with its union derived via
  * `(typeof X)[number]`. Widening the tuple widens the union in the same edit — they cannot drift.
- * This is the idiom already used for `EMBEDDED_FONT_SLOTS` and `EXTRA_SHAPE_PRESETS`; this module
- * brings the stragglers onto it.
+ * This is the idiom `EXTRA_SHAPE_PRESETS` already used; this module brings the stragglers onto it,
+ * and holds a few closed schema lists that are not `ST_` types, such as `EMBEDDED_FONT_SLOTS`.
  *
  * **Why this module is neither `gen/` nor `read/`.** `src/types/` needs the unions for the public
  * write API, `src/gen/` needs the tuples to vet a value before emitting it, and `src/read/` needs
@@ -321,6 +321,16 @@ export const LINE_END_TYPES = ['none', 'triangle', 'stealth', 'diamond', 'oval',
 
 /** `ST_LineCap` — how a stroke's ends are drawn (`a:ln/@cap`). */
 export const LINE_CAPS = ['rnd', 'sq', 'flat'] as const
+
+/**
+ * The four face slots of `CT_EmbeddedFontListEntry`, in schema child order (`p:font` first, then
+ * these). Not an `ST_` type, but a closed, ordered set the schema declares, like
+ * {@link THEME_COLOR_SLOTS}. The read and write sides iterate it so their emitters agree on
+ * element order, and `sequence.ts` derives `EMBEDDED_FONT_ENTRY_SEQUENCE` from it, so the order
+ * the serializer writes and the order the insertion points are computed from are one fact.
+ * `embedded-fonts.ts` re-exports it.
+ */
+export const EMBEDDED_FONT_SLOTS = ['regular', 'bold', 'italic', 'boldItalic'] as const
 export type LineEndType = (typeof LINE_END_TYPES)[number]
 
 /**

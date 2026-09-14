@@ -15,13 +15,14 @@
  * This module owns only the OOXML-shape knowledge; rId allocation and part
  * placement stay with each caller (their packaging models differ).
  *
- * It must not import from `src/gen/`, because `read/api/ops/embedded-fonts.ts` imports it. Both
- * things it needs from elsewhere -- the attribute escaper and the `font` relationship type --
- * come from root modules that import nothing themselves.
+ * It must not import from `src/gen/`, because `read/api/ops/embedded-fonts.ts` imports it. What
+ * it needs from elsewhere -- the attribute escaper, the `font` relationship type and the face slot
+ * list -- comes from modules that import nothing outside `src/ooxml/` themselves.
  */
 
 import { encodeXmlAttrValue } from './xml-escape.js'
 import { FONT_REL } from './ooxml/rel-types.js'
+import { EMBEDDED_FONT_SLOTS } from './ooxml/st-enums.js'
 
 /** Extension for the binary font parts (`/ppt/fonts/fontN.fntdata`). */
 export const FONT_DATA_EXTENSION = 'fntdata'
@@ -31,14 +32,11 @@ export const FONT_DATA_CONTENT_TYPE = 'application/x-fontdata'
 export const FONT_REL_TYPE = FONT_REL
 
 /**
- * The four face slots of `CT_EmbeddedFontListEntry`, in schema child order
- * (`font` first, then these). Iterate in this order everywhere so the read- and
- * write-side emitters agree on element order.
- *
- * `ooxml/sequence.ts` derives `EMBEDDED_FONT_ENTRY_SEQUENCE` from this, so the order the
- * serializer below writes and the order the insertion points are computed from are one fact.
+ * The four face slots of `CT_EmbeddedFontListEntry`, in schema child order. Declared in
+ * `ooxml/st-enums.ts` with the other schema lists, where `ooxml/sequence.ts` can derive from it
+ * without importing this module.
  */
-export const EMBEDDED_FONT_SLOTS = ['regular', 'bold', 'italic', 'boldItalic'] as const
+export { EMBEDDED_FONT_SLOTS }
 
 export type EmbeddedFontSlot = (typeof EMBEDDED_FONT_SLOTS)[number]
 

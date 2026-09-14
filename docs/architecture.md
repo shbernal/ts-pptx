@@ -355,11 +355,13 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   `pptx-ts/read` pulls `gen/slide/notes.ts` and its `drawingml`/`opc` graph into its
   bundle; that is the trade, and it is stated here so it stays a decision rather
   than an observation. Everything else the two halves share lives in the
-  import-free `src/ooxml/` modules (`namespaces.ts`, `rel-types.ts`, `xml-decl.ts`,
-  `sequence.ts`, `xsd-boolean.ts`, `st-enums.ts`, `text-anchor.ts`), which import
-  nothing outside `src/ooxml/`. That is where a new shared schema fact belongs: a
-  namespace, a relationship or content type a writer and a reader both name, or the
-  XML prolog.
+  `src/ooxml/` modules, and none of them imports from `src/gen/` or `src/read/`.
+  Almost all of them import nothing outside `src/ooxml/` at run time either. The two
+  exceptions fail loudly and reach out for that alone: `sequence.ts` imports
+  `errors.ts`, and `check-enum.ts`, a warn-or-throw policy, imports `errors.ts` and
+  `diagnostics.ts`. That is where a new shared schema fact belongs: a namespace, a
+  relationship or content type a writer and a reader both name, a schema sequence or
+  enumeration, or the XML prolog.
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for ts-pptx consumers.
 

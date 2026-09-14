@@ -11,10 +11,10 @@
  * module imports `@xmldom/xmldom` at module scope and pulling an XML DOM into the write-only
  * bundle is a real cost. So the write side hand-wrote the URIs instead: three separate `A_NS`
  * constants and seven copies of the same `xmlns:a`/`xmlns:r`/`xmlns:p` triple. This module has
- * **no runtime imports**, and the modules beside it (`rel-types.ts`, `st-enums.ts`, `sequence.ts`)
- * import nothing but each other, so both sides can reach it and neither pays for the other's
- * dependencies. `read/oxml/dom.ts`
- * re-exports it, so no read-side import path changed.
+ * **no runtime imports**, and no module beside it imports from `gen/` or `read/`, so both sides can
+ * reach it and neither pays for the other's dependencies. The two that fail loudly reach outside
+ * `ooxml/` for that alone: `sequence.ts` for `errors.ts`, and `check-enum.ts` for `errors.ts` and
+ * `diagnostics.ts`. `read/oxml/dom.ts` re-exports it, so no read-side import path changed.
  */
 
 /** Canonical OOXML prefix → namespace URI registry. */

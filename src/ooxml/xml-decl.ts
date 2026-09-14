@@ -5,6 +5,6 @@
  * It lived with the generator-only constants, out of the read side's reach, so the read side's
  * serializers spelled it out again four times. A prolog that differs between two parts by one
  * attribute is not something any check reports, which is why it has one home that both sides can
- * import: this module, like the rest of `ooxml/`, imports nothing.
+ * import: this module imports nothing, and no `ooxml/` module imports from `gen/` or `read/`.
  */
 export const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'

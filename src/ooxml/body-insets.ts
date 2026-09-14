@@ -18,7 +18,7 @@
  * `read/` nor `script/`.
  */
 
-import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
+import { EMU_PER_POINT, POINTS_PER_INCH } from './emu.js'
 
 /** The four default insets in points: 7.2pt (0.1in) left and right, 3.6pt (0.05in) top and bottom. */
 export const BODY_INSET_DEFAULTS_PT = { left: 7.2, right: 7.2, top: 3.6, bottom: 3.6 } as const

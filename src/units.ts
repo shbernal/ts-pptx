@@ -1,12 +1,13 @@
 import { warn } from './diagnostics.js'
 import { InvalidOptionError } from './errors.js'
+import { EMU_PER_INCH, EMU_PER_POINT, POINTS_PER_INCH } from './ooxml/emu.js'
 /**
  * Public unit conversion helpers and standard PowerPoint slide-layout constants.
  */
 
-export const EMU_PER_INCH = 914400
-export const EMU_PER_POINT = 12700
-export const POINTS_PER_INCH = 72
+// Declared in `ooxml/emu.ts`, which imports nothing, so a schema fact can use them without this
+// module's run-time imports.
+export { EMU_PER_INCH, EMU_PER_POINT, POINTS_PER_INCH }
 
 /**
  * DrawingML angle unit. `ST_Angle` (`rot`, shadow `dir`, gradient `ang`, …) is measured in
