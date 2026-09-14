@@ -4545,6 +4545,29 @@ export default [
 		},
 	},
 	{
+		// A click group animating several shapes, carried with some of them. The copy prunes the other
+		// shapes' effects out of the group, and what is left has to be a timing tree the schema still
+		// accepts: no emptied `p:childTnLst`, no wrapper `p:par` left without the effect it held.
+		name: 'a carried build animation pruned to the carried shapes stays valid',
+		fn: async () => {
+			const { Presentation } = await import('../dist/read.js')
+			const { readFile } = await import('node:fs/promises')
+			const load = async (/** @type {string} */ name) =>
+				Presentation.load(await readFile(new URL(`./read/fixtures/${name}.pptx`, import.meta.url)))
+			const source = await load('slide-animation-rich')
+			const target = await load('slide-transition')
+			const pNs = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+			const ids = source.slides[0].shapes.map((shape) =>
+				Number(/** @type {any} */ (shape).element_.getElementsByTagNameNS(pNs, 'cNvPr')[0].getAttribute('id'))
+			)
+			const slide = target.slides[0]
+			const options = /** @type {const} */ ({ carryAnimation: true, theme: 'copy' })
+			target.importShapes(slide, source.slides[0], [ids.indexOf(2)], options)
+			target.importShapes(slide, source.slides[0], [ids.indexOf(3), ids.indexOf(4)], options)
+			await expectNoSchemaErrors(Buffer.from(await target.save()), 'carried-animation-pruned')
+		},
+	},
+	{
 		// Axis units are per axis TYPE, not per axis: `CT_CatAx` and `CT_SerAx` have no slot for
 		// `majorUnit`/`minorUnit` at all, `CT_ValAx` has the numeric pair, and `CT_DateAx` has all
 		// five interleaved. Setting every unit option on a 3-D bar chart puts all three axes in

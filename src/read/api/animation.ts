@@ -27,9 +27,10 @@ import { InternalError } from '../../errors.js'
 
 const P_NS = OOXML_NS.p
 
-/** Every element carrying an animation `spid` reference, across the timing tree and build list. */
+/** Every element carrying an animation `spid` reference, across the timing tree and build list, `root` included. */
 function spidElements(root: Element): Element[] {
 	const out: Element[] = []
+	if (root.namespaceURI === OOXML_NS.p && (root.localName === 'spTgt' || root.localName === 'bldP')) out.push(root)
 	for (const el of root.getElementsByTagNameNS(OOXML_NS.p, 'spTgt')) out.push(el)
 	for (const el of root.getElementsByTagNameNS(OOXML_NS.p, 'bldP')) out.push(el)
 	return out
@@ -338,15 +339,24 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 			if (spid !== null && carriedSpids.has(spid)) bldPs.push(bldP)
 		}
 	}
-	if (groups.length === 0 && bldPs.length === 0) return false
-
 	const doc = targetRoot.ownerDocument as Document
+	// A click group can animate several shapes, and only the carried ones have a counterpart here.
+	// An effect on any other shape would keep its source id, and so animate whatever shape carries
+	// that id on this slide, or name nothing. Those effects are pruned from the copy, and a group
+	// left animating nothing that was carried is not carried at all.
+	const clones = groups
+		.map((par) => doc.importNode(par, true))
+		.filter((clone) => {
+			pruneSpids(clone, spidsNotIn(clone, spidMap))
+			return targetsOnly(clone, spidMap)
+		})
+	if (clones.length === 0 && bldPs.length === 0) return false
+
 	const destChildLst = getOrCreateMainSeqChildTnLst(targetRoot, doc)
 	const destTiming = firstChild(targetRoot, 'p:timing') as Element
 	let nextId = maxCTnId(destTiming) + 1
 
-	for (const par of groups) {
-		const clone = doc.importNode(par, true)
+	for (const clone of clones) {
 		remapSpids(clone, spidMap)
 		nextId = renumberCTnIds(clone, nextId)
 		destChildLst.appendChild(clone)
@@ -355,10 +365,25 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 		const destBldLst = getOrCreateBldLst(destTiming, doc)
 		for (const bldP of bldPs) {
 			const clone = doc.importNode(bldP, true)
-			const spid = numberValue(attr(clone, 'spid'))
-			if (spid !== null && spidMap.has(spid)) setAttr(clone, 'spid', String(spidMap.get(spid)))
+			remapSpids(clone, spidMap)
 			destBldLst.appendChild(clone)
 		}
 	}
 	return true
+}
+
+/** The `spid`s referenced under `root`, `root` included, that `spidMap` has no entry for. */
+function spidsNotIn(root: Element, spidMap: ReadonlyMap<number, number>): Set<number> {
+	const out = new Set<number>()
+	for (const element of spidElements(root)) {
+		const spid = numberValue(attr(element, 'spid'))
+		if (spid !== null && !spidMap.has(spid)) out.add(spid)
+	}
+	return out
+}
+
+/** Whether `root` still targets a shape, and every shape it targets is one `spidMap` carries. */
+function targetsOnly(root: Element, spidMap: ReadonlyMap<number, number>): boolean {
+	const targets = [...root.getElementsByTagNameNS(P_NS, 'spTgt')].map((spTgt) => numberValue(attr(spTgt, 'spid')))
+	return targets.length > 0 && targets.every((spid) => spid !== null && spidMap.has(spid))
 }

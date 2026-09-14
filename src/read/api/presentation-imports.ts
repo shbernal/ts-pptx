@@ -571,6 +571,8 @@ export function importShapes(
 	const anchor = options.at == null ? extLst : (nthShapeChild(spTree, options.at) ?? extLst)
 
 	const result: AnyShape[] = []
+	/** Source shape id → host id, across every shape this call carries. */
+	const carriedSpids = new Map<number, number>()
 	for (const shapeEl of sourceElements) {
 		const imported = targetDoc.importNode(shapeEl, true)
 
@@ -600,19 +602,12 @@ export function importShapes(
 		// bindings inside it, keeping the source id → new id map so a carried build animation can be
 		// remapped onto it.
 		const { map: spidMap } = reassignDrawingIds([imported], target.nextShapeId())
+		for (const [sourceId, hostId] of spidMap) carriedSpids.set(sourceId, hostId)
 
 		// Insert into the host tree (this reparents it out of any holder). The part is dirty from here,
 		// so the saved bytes never disagree with a model that already shows the shape.
 		spTree.insertBefore(imported, anchor)
 		target.part.markDirty()
-
-		// Carry the shape's slide-scoped build animation (opt-in): append its effect
-		// click-group(s) + <p:bldP> into the destination timing, remapped to the new id.
-		if (options.carryAnimation) {
-			const sourceRoot = source.part.dom.documentElement
-			const targetRoot = target.part.dom.documentElement
-			if (sourceRoot && targetRoot) carryShapeAnimations(sourceRoot, targetRoot, spidMap)
-		}
 
 		const shape = wrapShapeElement(imported, target)
 		if (!shape)
@@ -625,6 +620,16 @@ export function importShapes(
 		if (options.width != null) shape.width = options.width
 		if (options.height != null) shape.height = options.height
 		result.push(shape)
+	}
+
+	// Carry the shapes' slide-scoped build animation (opt-in): append their effect click groups and
+	// `p:bldP` entries into the destination timing, remapped to the new ids. Once for the whole call,
+	// so a click group animating two of the carried shapes comes across once with both remapped,
+	// rather than once per shape with the other's source id left in it.
+	if (options.carryAnimation) {
+		const sourceRoot = source.part.dom.documentElement
+		const targetRoot = target.part.dom.documentElement
+		if (sourceRoot && targetRoot) carryShapeAnimations(sourceRoot, targetRoot, carriedSpids)
 	}
 
 	return result

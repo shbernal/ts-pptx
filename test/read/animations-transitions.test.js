@@ -382,6 +382,56 @@ describe('importShape carryAnimation (Phase 2 capability A)', () => {
 		assert.deepEqual((await Presentation.load(saved)).slides[0].animationSpids(), [2, 3, 4, 5, newSpid])
 	})
 
+	/** A shape's `p:cNvPr/@id`. */
+	function shapeId(shape) {
+		const pNs = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+		return Number(shape.element_.getElementsByTagNameNS(pNs, 'cNvPr')[0].getAttribute('id'))
+	}
+
+	/** How many effect targets in a slide's XML name `spid`. */
+	function effectCount(xml, spid) {
+		return [...xml.matchAll(new RegExp(`<p:spTgt spid="${spid}"/>`, 'g'))].length
+	}
+
+	test('carries only the carried shape’s effects out of a click group that animates several', async () => {
+		// The rich fixture's first click group animates shapes 2, 3 and 4. Carrying shape 2 used to clone
+		// the whole group and remap only 2, so shape 3's effect animated the carried shape and spid 4
+		// named nothing on the destination.
+		const sourceXml = await slidePartXml(await readFile(fixturePath('slide-animation-rich')), 1)
+		const source = await openFixture('slide-animation-rich')
+		const target = await openFixture('slide-transition')
+		const slide = target.slides[0]
+		const index = source.slides[0].shapes.findIndex((shape) => shapeId(shape) === 2)
+		const [carried] = target.importShapes(slide, source.slides[0], [index], { carryAnimation: true, theme: 'copy' })
+
+		assert.deepEqual(slide.animationSpids(), [shapeId(carried)], 'only the carried shape is animated')
+		const xml = await slidePartXml(await target.save(), 1)
+		assertNoDanglingSpids(xml)
+		assert.equal(effectCount(xml, shapeId(carried)), effectCount(sourceXml, 2), 'with every effect it had')
+	})
+
+	test('importShapes carries a click group animating two carried shapes once, with both remapped', async () => {
+		// The carry used to run per shape, so the group came across once for each shape, each copy
+		// keeping the other shape's source id.
+		const sourceXml = await slidePartXml(await readFile(fixturePath('slide-animation-rich')), 1)
+		const source = await openFixture('slide-animation-rich')
+		const target = await openFixture('slide-transition')
+		const slide = target.slides[0]
+		const indices = [2, 3].map((id) => source.slides[0].shapes.findIndex((shape) => shapeId(shape) === id))
+		const carried = target.importShapes(slide, source.slides[0], indices, { carryAnimation: true, theme: 'copy' })
+		const [first, second] = carried.map(shapeId)
+
+		assert.deepEqual(
+			slide.animationSpids(),
+			[first, second].sort((a, b) => a - b),
+			'only the carried shapes'
+		)
+		const xml = await slidePartXml(await target.save(), 1)
+		assertNoDanglingSpids(xml)
+		assert.equal(effectCount(xml, first), effectCount(sourceXml, 2), 'shape 2 keeps its effects, once')
+		assert.equal(effectCount(xml, second), effectCount(sourceXml, 3), 'shape 3 keeps its effects, once')
+	})
+
 	test('creates a fresh timing scaffold when the host has no animation', async () => {
 		// Target slide carries a transition but no animation; carry must build the
 		// tmRoot/mainSeq/bldLst scaffold and leave the transition intact.

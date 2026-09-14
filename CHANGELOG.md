@@ -893,6 +893,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A shape imported with `carryAnimation` brought other shapes' effects along.**
+  - `importShape` and `importShapes` cloned every main-sequence click group that animated a
+    carried shape and remapped only the carried ids. An effect in the same group on a shape
+    that was not carried kept its source id, so it animated whichever shape carries that id on
+    the destination slide, or nothing. Those effects are now pruned from the copy, and a group
+    left animating nothing that was carried is not carried.
+  - `importShapes` carried per shape, so a group animating two of the carried shapes came
+    across twice, each copy keeping the other shape's source id. It is carried once, with both
+    ids remapped.
+
 - **A refused `importShapes`, `importSlideMasters`, `appendSlides` or `Slide.addNotes` left the
   deck half changed.** Each now leaves the deck byte-identical when it refuses.
   - `importShapes` inserted the shapes ahead of the one that failed, whether the failure was a
