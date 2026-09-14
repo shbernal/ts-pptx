@@ -21,12 +21,11 @@ import {
 	getOrAddChild,
 	numberValue,
 	removeAttr,
-	removeChildrenByQName,
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
 import { composeGroupFrame, type GroupTransform } from './group-transform.js'
-import { FILL_CHOICES, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../../oxml/fill.js'
+import { applyNoFill, applySolidFill, hasFillChoice, solidFillColor, type SolidFillEdit } from '../../oxml/fill.js'
 import {
 	resolveInheritedFrame,
 	resolveSolidFillColor,
@@ -51,7 +50,7 @@ import {
 	SHAPE_AFTER_SPPR,
 	SPPR_FILL_AFTER,
 	SPPR_LN_AFTER,
-	type ShapeProperties,
+	type PaintSurface,
 } from './oxml.js'
 import { readBox, rotationDegrees, transformFlipH, transformFlipV } from './geometry.js'
 import type {
@@ -414,18 +413,24 @@ export abstract class Shape {
 		return firstChild(this.element, 'p:spPr')
 	}
 
-	/** Get-or-add the properties element in document order, with the successor
-	 *  arrays for inserting its fill / line children. Subclasses override this
-	 *  to point at `p:grpSpPr`, or to reject kinds with no properties element. */
-	protected getOrAddProperties(): ShapeProperties {
-		const props = getOrAddChild(this.element, 'p:spPr', SHAPE_AFTER_SPPR)
-		return { props, fillAfter: SPPR_FILL_AFTER, lnAfter: SPPR_LN_AFTER }
-	}
-
-	/** Whether a solid fill can be set on this shape kind. Pictures and graphic
-	 *  frames opt out (they carry their own image / table-cell fill model). */
-	protected get supportsFill(): boolean {
-		return true
+	/**
+	 * Where this kind's paint is written, and which paints it can carry: its properties element,
+	 * and for each paint the successors that paint's element goes before, or `null` for a paint
+	 * the kind cannot carry. `null` for a kind with no properties element at all.
+	 *
+	 * The one capability a kind declares about paint, checked in one place. Setting a fill (a
+	 * colour, a theme token, {@link noFill}) on a kind that cannot carry one throws
+	 * `shape/fill-unsupported`, and setting a line colour throws `shape/line-unsupported`.
+	 * Clearing never throws: a kind that cannot be *given* a paint may still hold one a deck wrote,
+	 * so clearing removes whatever of that paint the element has, and changes nothing when it has
+	 * none.
+	 */
+	protected paintSurface(): PaintSurface | null {
+		return {
+			getOrAdd: () => getOrAddChild(this.element, 'p:spPr', SHAPE_AFTER_SPPR),
+			fill: SPPR_FILL_AFTER,
+			line: SPPR_LN_AFTER,
+		}
 	}
 
 	/** Explicit RGB fill colour as a 6-hex string (`spPr/a:solidFill/a:srgbClr/@val`), or `null`. */
@@ -434,7 +439,7 @@ export abstract class Shape {
 	}
 
 	set fillColor(value: string | null) {
-		this.#setFill(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+		this.#applyFill(value === null ? null : { hex: value })
 	}
 
 	/** Theme colour token when the fill is a scheme colour (`a:solidFill/a:schemeClr/@val`, e.g. `accent2`), or `null`. */
@@ -443,7 +448,7 @@ export abstract class Shape {
 	}
 
 	set fillSchemeColor(value: string | null) {
-		this.#setFill(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
+		this.#applyFill(value === null ? null : { scheme: value })
 	}
 
 	/**
@@ -469,11 +474,8 @@ export abstract class Shape {
 	 * Read it back with {@link fillNoFill}.
 	 */
 	noFill(): void {
-		this.#requireFillSupport()
-		const { props, fillAfter } = this.getOrAddProperties()
-		removeChildrenByQName(props, FILL_CHOICES)
-		getOrAddChild(props, 'a:noFill', fillAfter)
-		this.markDirty()
+		const { getOrAdd, after } = this.#paintTarget('fill')
+		if (applyNoFill(this.properties(), getOrAdd, after)) this.markDirty()
 	}
 
 	/** Explicit RGB line/border colour (`spPr/a:ln/a:solidFill/a:srgbClr/@val`), or `null`. */
@@ -482,7 +484,7 @@ export abstract class Shape {
 	}
 
 	set lineColor(value: string | null) {
-		this.#setLine(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+		this.#applyLine(value === null ? null : { hex: value })
 	}
 
 	/** Theme colour token when the line is a scheme colour (`a:ln/a:solidFill/a:schemeClr/@val`), or `null`. */
@@ -491,7 +493,7 @@ export abstract class Shape {
 	}
 
 	set lineSchemeColor(value: string | null) {
-		this.#setLine(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
+		this.#applyLine(value === null ? null : { scheme: value })
 	}
 
 	/** Line/border width in points (`spPr/a:ln/@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
@@ -753,7 +755,7 @@ export abstract class Shape {
 	get resolvedFill(): ResolvedColor | null {
 		const ctx = this.host.themeContext()
 		const props = this.properties()
-		if (props && FILL_CHOICES.some((q) => firstChild(props, q))) return resolveSolidFillColor(props, ctx)
+		if (hasFillChoice(props)) return resolveSolidFillColor(props, ctx)
 		return resolveStyleFillColor(this.element, ctx)
 	}
 
@@ -780,49 +782,41 @@ export abstract class Shape {
 	}
 
 	/**
-	 * Throw unless this shape kind has a fill to set. Both the explicit `<a:noFill/>` setter and
-	 * the solid-fill one need it, and a kind that cannot be filled is a caller mistake rather than
-	 * a no-op — silently accepting the call would report success for a shape that never changes.
+	 * The element a paint is written into and the successors its solid fill goes before, or a thrown
+	 * error when this kind cannot carry that paint (see {@link paintSurface}). A kind that cannot be
+	 * given a paint is a caller mistake rather than a no-op: silently accepting the call would
+	 * report success for a shape that never changes.
 	 */
-	#requireFillSupport(): void {
-		if (!this.supportsFill)
+	#paintTarget(paint: 'fill' | 'line'): { getOrAdd: () => Element; after: readonly string[] } {
+		const surface = this.paintSurface()
+		const successors = surface?.[paint]
+		if (!surface || !successors)
 			throw new UnsupportedFeatureError(
-				'shape/fill-unsupported',
-				`${this.shapeType} shapes do not support a solid fill`
+				paint === 'fill' ? 'shape/fill-unsupported' : 'shape/line-unsupported',
+				`${this.shapeType} shapes do not support a ${paint === 'fill' ? 'fill' : 'line colour'}`
 			)
+		if (paint === 'fill') return { getOrAdd: () => surface.getOrAdd(), after: successors }
+		return { getOrAdd: () => getOrAddChild(surface.getOrAdd(), 'a:ln', successors), after: LN_FILL_AFTER }
 	}
 
-	#setFill(color: { qname: string; val: string } | null): void {
-		if (color === null) {
-			const props = this.properties()
-			if (!props || !firstChild(props, 'a:solidFill')) return
-			removeChildrenByQName(props, ['a:solidFill'])
-			this.markDirty()
+	/** Set or clear the shape's solid fill. */
+	#applyFill(edit: SolidFillEdit | null): void {
+		if (edit === null) {
+			if (applySolidFill(this.properties(), null)) this.markDirty()
 			return
 		}
-		this.#requireFillSupport()
-		const { props, fillAfter } = this.getOrAddProperties()
-		setSolidFill(props, fillAfter, color)
-		this.markDirty()
+		const { getOrAdd, after } = this.#paintTarget('fill')
+		if (applySolidFill(this.properties(), edit, getOrAdd, after)) this.markDirty()
 	}
 
-	#setLine(color: { qname: string; val: string } | null): void {
-		if (color === null) {
-			const ln = this.#line()
-			if (!ln || !firstChild(ln, 'a:solidFill')) return
-			removeChildrenByQName(ln, ['a:solidFill'])
-			this.markDirty()
+	/** Set or clear the solid fill of the shape's line. */
+	#applyLine(edit: SolidFillEdit | null): void {
+		if (edit === null) {
+			if (applySolidFill(this.#line(), null)) this.markDirty()
 			return
 		}
-		const { props, lnAfter } = this.getOrAddProperties()
-		if (lnAfter === null)
-			throw new UnsupportedFeatureError(
-				'shape/line-unsupported',
-				`${this.shapeType} shapes do not support a line colour`
-			)
-		const ln = getOrAddChild(props, 'a:ln', lnAfter)
-		setSolidFill(ln, LN_FILL_AFTER, color)
-		this.markDirty()
+		const { getOrAdd, after } = this.#paintTarget('line')
+		if (applySolidFill(this.#line(), edit, getOrAdd, after)) this.markDirty()
 	}
 
 	/** Whether this shape can hold text (only `p:sp` does in this read model). */

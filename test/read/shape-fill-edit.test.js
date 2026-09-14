@@ -191,6 +191,74 @@ describe('Per-kind fill / line support', () => {
 		assertEqual(findByKind(reopened, 'picture').lineColor, '00AAFF', 'picture border colour reloads')
 	})
 
+	test('each kind refuses a paint it cannot carry with that paint’s code, and clearing never throws', async () => {
+		// A frame threw a properties code for both paints, a picture a fill code, a group a line code:
+		// three codes for one condition.
+		const mixed = await openFixture('mixed')
+		const frame = findByKind(mixed, 'graphicFrame')
+		const group = findByKind(mixed, 'group')
+		const picture = findByKind(await openFixture('image'), 'picture')
+		const codeOf = (/** @type {() => unknown} */ fn) => {
+			try {
+				fn()
+				return null
+			} catch (err) {
+				return err.code
+			}
+		}
+		assertEqual(
+			codeOf(() => (frame.fillColor = '000000')),
+			'shape/fill-unsupported',
+			'a frame fill'
+		)
+		assertEqual(
+			codeOf(() => frame.noFill()),
+			'shape/fill-unsupported',
+			'a frame no-fill'
+		)
+		assertEqual(
+			codeOf(() => (frame.lineSchemeColor = 'accent1')),
+			'shape/line-unsupported',
+			'a frame line'
+		)
+		assertEqual(
+			codeOf(() => (picture.fillSchemeColor = 'accent1')),
+			'shape/fill-unsupported',
+			'a picture fill'
+		)
+		assertEqual(
+			codeOf(() => (group.lineColor = '000000')),
+			'shape/line-unsupported',
+			'a group line'
+		)
+		for (const clear of [
+			() => (frame.fillColor = null),
+			() => (frame.lineColor = null),
+			() => (picture.fillColor = null),
+			() => (group.lineSchemeColor = null),
+		]) {
+			assertEqual(codeOf(clear), null, 'clearing never throws')
+		}
+	})
+
+	test('a fill a deck wrote on a picture still clears', async () => {
+		const presentation = await openFixture('image')
+		const picture = findByKind(presentation, 'picture')
+		const spPr = picture.element_.getElementsByTagNameNS(
+			'http://schemas.openxmlformats.org/presentationml/2006/main',
+			'spPr'
+		)[0]
+		const A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+		const fill = spPr.ownerDocument.createElementNS(A, 'a:solidFill')
+		const clr = spPr.ownerDocument.createElementNS(A, 'a:srgbClr')
+		clr.setAttribute('val', '123456')
+		fill.appendChild(clr)
+		spPr.appendChild(fill)
+		assertEqual(picture.fillColor, '123456', 'the planted fill reads back')
+		picture.fillColor = null
+		assertEqual(picture.fillColor, null, 'and clears')
+	})
+
 	test('graphic frame rejects both fill and line colours', async () => {
 		const frame = findByKind(await openFixture('mixed'), 'graphicFrame')
 		assert(

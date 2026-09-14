@@ -21,7 +21,7 @@ import {
 	removeChildrenByQName,
 	setAttr,
 } from '../../oxml/dom.js'
-import { colorValueIf, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../../oxml/fill.js'
+import { applySolidFill, colorValueIf, hasFillChoice, solidFillColor, type SolidFillEdit } from '../../oxml/fill.js'
 import { checkEnumOrThrow } from '../../../ooxml/check-enum.js'
 import { TEXT_UNDERLINE_TYPES } from '../../../ooxml/st-enums.js'
 import { resolveThemeFont, type ThemeContext } from '../../oxml/theme.js'
@@ -360,8 +360,9 @@ export class Run {
 	set fontName(value: string | null) {
 		if (value === null) {
 			const rPr = this.#rPr()
-			if (rPr) removeChildrenByQName(rPr, ['a:latin'])
-			if (rPr) this.part.markDirty()
+			if (!rPr || !firstChild(rPr, 'a:latin')) return
+			removeChildrenByQName(rPr, ['a:latin'])
+			this.part.markDirty()
 			return
 		}
 		const latin = getOrAddChild(this.#getOrAddRPr(), 'a:latin', RPR_LATIN_AFTER)
@@ -375,7 +376,7 @@ export class Run {
 	}
 
 	set color(value: string | null) {
-		this.#setSolidFill(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+		this.#applyFill(value === null ? null : { hex: value })
 	}
 
 	/** Theme colour token when the fill is a scheme colour (`a:schemeClr/@val`, e.g. `accent2`), or `null`. */
@@ -385,7 +386,7 @@ export class Run {
 
 	/** @throws {InvalidOptionError} when the token is not an `ST_SchemeColorVal` */
 	set schemeColor(value: string | null) {
-		this.#setSolidFill(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
+		this.#applyFill(value === null ? null : { scheme: value })
 	}
 
 	/**
@@ -397,14 +398,17 @@ export class Run {
 	 * `a:lstStyle` → master `p:txStyles`), then the presentation's
 	 * `p:defaultTextStyle`. `null` when the run sets no colour and inherits none, the
 	 * colour cannot be made literal, or the run was reached without a theme context.
+	 * `null` too when the run's own fill is not a solid colour (`a:noFill`, a gradient):
+	 * the run decides its own colour then, and the one it would otherwise inherit is not
+	 * what it paints in, the rule `Shape.resolvedFill` and `TableCell.resolvedFill` follow.
 	 * The returned {@link ResolvedColor} carries `effectiveHex` — the base colour with
 	 * its child transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
 		if (!this.themeContext) return null
-		return (
-			resolveSolidFillColor(this.#rPr(), this.themeContext) ?? this.fontRef?.color ?? this.inheritedColor?.() ?? null
-		)
+		const rPr = this.#rPr()
+		if (hasFillChoice(rPr)) return resolveSolidFillColor(rPr, this.themeContext)
+		return this.fontRef?.color ?? this.inheritedColor?.() ?? null
 	}
 
 	/**
@@ -505,16 +509,12 @@ export class Run {
 		this.part.markDirty()
 	}
 
-	/** Replace the run's solid fill with a single colour element, or clear it when `null`. */
-	#setSolidFill(color: { qname: string; val: string } | null): void {
-		if (color === null) {
-			const rPr = this.#rPr()
-			if (!rPr) return
-			removeChildrenByQName(rPr, ['a:solidFill'])
-			this.part.markDirty()
-			return
-		}
-		setSolidFill(this.#getOrAddRPr(), RPR_FILL_AFTER, color)
-		this.part.markDirty()
+	/** Replace the run's solid fill with a single colour, or clear it when `null`. */
+	#applyFill(edit: SolidFillEdit | null): void {
+		const changed =
+			edit === null
+				? applySolidFill(this.#rPr(), null)
+				: applySolidFill(this.#rPr(), edit, () => this.#getOrAddRPr(), RPR_FILL_AFTER)
+		if (changed) this.part.markDirty()
 	}
 }

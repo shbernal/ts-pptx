@@ -12,7 +12,8 @@
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import { Relationships, TextFrame } from '../../dist/read.js'
-import { assertEqual } from '../helpers.js'
+import { assert, assertEqual } from '../helpers.js'
+import { authorRead } from './authored.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -87,6 +88,26 @@ describe('Run character-property setters', () => {
 		assertEqual(r.schemeColor, 'accent1', 'the colour is unchanged')
 	})
 
+	test('clearing a colour or font the run does not have leaves the part clean', () => {
+		// The run's clears marked the part dirty whenever it had an `a:rPr`, where the shape and table
+		// cell clears marked it only when something was removed.
+		let marks = 0
+		const part = {
+			markDirty() {
+				marks++
+			},
+		}
+		const xml = `<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>x</a:t></a:r></a:p></p:txBody>`
+		const txBody = new DOMParser().parseFromString(xml, 'text/xml').documentElement
+		const r = new TextFrame(txBody, /** @type {any} */ (part)).paragraphs[0].runs[0]
+		r.color = null
+		r.schemeColor = null
+		r.fontName = null
+		assertEqual(marks, 0, 'nothing changed, so nothing is marked')
+		r.color = 'FF0000'
+		assertEqual(marks, 1, 'a colour that is written marks the part')
+	})
+
 	test('setting a bool attr null on a run with no rPr is a no-op', () => {
 		const r = run(`<a:r><a:t>x</a:t></a:r>`)
 		r.bold = null // #removeRPrAttr with no rPr → early return
@@ -101,6 +122,22 @@ describe('Run character-property setters', () => {
 		assertEqual(r.italic, true, 'italic true')
 		r.italic = false
 		assertEqual(r.italic, false, 'italic false is written explicitly')
+	})
+})
+
+describe('Run.resolvedColor with a fill of its own that is not solid', () => {
+	test('reports no colour rather than the inherited one', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('run', { x: 1, y: 1, w: 3, h: 1, color: '336699' })
+		})
+		const run = presentation.slides[0].shapes[0].textFrame.paragraphs[0].runs[0]
+		const rPr = run.element_.getElementsByTagNameNS(A_NS, 'rPr')[0]
+		for (const child of Array.from(rPr.childNodes)) {
+			if (child.nodeName === 'a:solidFill') rPr.removeChild(child)
+		}
+		assert(run.resolvedColor !== null, 'with no fill of its own the run inherits a colour')
+		rPr.insertBefore(rPr.ownerDocument.createElementNS(A_NS, 'a:noFill'), rPr.firstChild)
+		assertEqual(run.resolvedColor, null, 'with a:noFill it reports none')
 	})
 })
 

@@ -55,7 +55,7 @@ import {
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
-import { FILL_CHOICES } from '../../oxml/fill.js'
+import { hasFillChoice } from '../../oxml/fill.js'
 import {
 	LST_STYLE_LEVELS,
 	RUN_PROP_NAMES,
@@ -539,7 +539,7 @@ function materializeStyleRefs(root: Element, ctx: FlattenContext): void {
 
 function materializeFill(spPr: Element, fillRef: Element | null, ctx: FlattenContext): void {
 	if (!fillRef) return
-	if (!FILL_CHOICES.some((q) => firstChild(spPr, q))) {
+	if (!hasFillChoice(spPr)) {
 		const fill = styleRefFill(fillRef, ctx)
 		if (fill) insertInOrder(spPr, fill, SPPR_FILL_AFTER)
 	}

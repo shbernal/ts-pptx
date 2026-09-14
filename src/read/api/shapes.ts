@@ -14,7 +14,7 @@
  * `ts-pptx/read` and its consumers keep importing shapes from one place.
  */
 import { ELEMENT_NODE, OOXML_NS, firstChild, getElements, getOrAddChild, type Element } from '../oxml/dom.js'
-import { GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type ShapeProperties } from './shapes/oxml.js'
+import { GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type PaintSurface } from './shapes/oxml.js'
 import { readBox } from './shapes/geometry.js'
 import type { ChildFrame } from './shapes/types.js'
 import { Shape } from './shapes/base.js'
@@ -80,9 +80,9 @@ export class GroupShape extends Shape {
 		return firstChild(this.element, 'p:grpSpPr')
 	}
 
-	// A group's fill lives in p:grpSpPr, which has no a:ln (no line colour).
-	protected override getOrAddProperties(): ShapeProperties {
-		return { props: this.#getOrAddGrpSpPr(), fillAfter: GRPSPPR_FILL_AFTER, lnAfter: null }
+	// A group's fill lives in p:grpSpPr, which has no a:ln, so it carries a fill and no line.
+	protected override paintSurface(): PaintSurface | null {
+		return { getOrAdd: () => this.#getOrAddGrpSpPr(), fill: GRPSPPR_FILL_AFTER, line: null }
 	}
 
 	#getOrAddGrpSpPr(): Element {

@@ -26,7 +26,7 @@ import { relativePartName, resolvePartName } from '../../opc/partnames.js'
 import { colorValueIf } from '../../oxml/fill.js'
 import { readRect, type FillRect } from '../picture-fill.js'
 import { Shape } from './base.js'
-import { childElements } from './oxml.js'
+import { childElements, type PaintSurface } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
@@ -66,11 +66,12 @@ export class Picture extends Shape {
 	readonly shapeType = 'picture' as const
 
 	// A picture's image is its sibling `p:blipFill`, not a fill of `p:spPr`, so a
-	// solid `spPr` fill would not clobber the image. v1 still omits fill setters
-	// here — recolouring a picture surface is rarely what a caller means — and
-	// exposes only the border via `lineColor`. Reads of `fillColor` stay valid.
-	protected override get supportsFill(): boolean {
-		return false
+	// solid `spPr` fill would not clobber the image. Setting one is still refused —
+	// recolouring a picture surface is rarely what a caller means — and the border
+	// takes a line colour. A fill a deck already wrote still reads and clears.
+	protected override paintSurface(): PaintSurface | null {
+		const surface = super.paintSurface()
+		return surface && { ...surface, fill: null }
 	}
 
 	/** Relationship id of the embedded image (`p:blipFill/a:blip/@r:embed`), or `null`. */

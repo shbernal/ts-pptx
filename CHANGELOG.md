@@ -893,6 +893,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The read model's paint setters agree on what they change, and on what a kind cannot take.**
+  - `Run.color = null` and `Run.fontName = null` marked the part dirty on a run with nothing
+    to clear, where the shape and table-cell setters did not. Every solid-fill and no-fill
+    setter now goes through one implementation, and marks the part dirty only when it changed
+    something.
+  - `Run.resolvedColor` fell through to the inherited colour for a run whose own fill is
+    `a:noFill` or a gradient, reporting a colour the run does not paint in. It reports `null`
+    there now, as `Shape.resolvedFill` and `TableCell.resolvedFill` already did. The script
+    converter reads this value, so such a run no longer comes out with an inherited colour.
+  - Setting a paint a shape kind cannot carry threw one of three codes for one condition: a
+    picture fill threw `shape/fill-unsupported`, a graphic frame threw
+    `shape/shape-properties-unsupported` for both fill and line, and a group line threw
+    `shape/line-unsupported`. Every kind now throws `shape/fill-unsupported` for a fill (a colour,
+    a theme token or `noFill()`) and `shape/line-unsupported` for a line colour. Clearing with
+    `= null` never throws; it removes whatever of that paint the element holds, which on a
+    picture can be a fill a deck wrote.
+  - **Migration:** `shape/shape-properties-unsupported` is gone. Match
+    `shape/fill-unsupported` or `shape/line-unsupported` instead.
+
 - **Text and paint tokens are checked before they reach a part.**
   - The writer passed a bullet's `numberType`, a tab stop's `alignment`, and a run's `strike`,
     `caps` and `underline.style` straight into their attributes, so a token outside the schema

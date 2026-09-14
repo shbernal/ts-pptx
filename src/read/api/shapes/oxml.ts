@@ -32,14 +32,15 @@ export {
 } from '../../../ooxml/sequence.js'
 
 /**
- * A shape's properties element (`p:spPr` / `p:grpSpPr`) paired with the schema
- * successors for ordered insertion of its `a:solidFill` and `a:ln` children.
- * `lnAfter` is `null` for kinds with no `a:ln` (group shapes).
+ * Where a shape kind's paint is written: its properties element (`p:spPr` / `p:grpSpPr`), created
+ * in document order on demand, and for each paint the schema successors that paint's element is
+ * inserted before, or `null` for a paint the kind cannot carry (a group's `p:grpSpPr` has no
+ * `a:ln`).
  */
-export interface ShapeProperties {
-	props: Element
-	fillAfter: string[]
-	lnAfter: string[] | null
+export interface PaintSurface {
+	getOrAdd(): Element
+	fill: readonly string[] | null
+	line: readonly string[] | null
 }
 
 /** First `<p:cNvPr>` reached through the shape's non-visual properties wrapper (`p:nv*Pr`). */

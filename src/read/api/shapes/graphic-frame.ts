@@ -17,8 +17,7 @@ import { ChartEx } from '../chartex.js'
 import { Diagram } from '../diagram.js'
 import { Table } from '../table.js'
 import { Shape } from './base.js'
-import type { ShapeProperties } from './oxml.js'
-import { UnsupportedFeatureError } from '../../../errors.js'
+import type { PaintSurface } from './oxml.js'
 
 /** A graphic frame (`p:graphicFrame`) — host for tables, charts and SmartArt diagrams. */
 export class GraphicFrame extends Shape {
@@ -35,12 +34,9 @@ export class GraphicFrame extends Shape {
 	}
 
 	// A graphicFrame has no p:spPr; its hosted table/chart carries its own fill
-	// model. There is nothing to get-or-add, so fill and line setters reject it.
-	protected override getOrAddProperties(): ShapeProperties {
-		throw new UnsupportedFeatureError(
-			'shape/shape-properties-unsupported',
-			'graphicFrame shapes have no shape properties; fill and line colours are not supported'
-		)
+	// model, so the frame carries neither paint.
+	protected override paintSurface(): PaintSurface | null {
+		return null
 	}
 
 	/** Whether this frame hosts a table (`a:graphicData/@uri` is the table URI). */

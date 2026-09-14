@@ -14,7 +14,7 @@ import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { attr, boolAttr, type Element, firstChild, getElements, numberValue } from '../oxml/dom.js'
-import { FILL_CHOICES, solidFillColor } from '../oxml/fill.js'
+import { hasFillChoice, solidFillColor } from '../oxml/fill.js'
 import { insertColumn, insertRow, mergeCells, removeColumn, removeRow, rowsOf, unmergeCell } from './table-structure.js'
 import type { ThemeContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
@@ -144,7 +144,7 @@ export class Table {
 	get resolvedFill(): ResolvedColor | null {
 		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		if (!tblPr || !FILL_CHOICES.some((q) => firstChild(tblPr, q))) return null
+		if (!hasFillChoice(tblPr)) return null
 		return resolveSolidFillColor(tblPr, this.themeContext)
 	}
 

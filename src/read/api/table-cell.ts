@@ -23,7 +23,15 @@ import {
 	removeChildrenByQName,
 	setAttr,
 } from '../oxml/dom.js'
-import { FILL_CHOICES, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import {
+	applyNoFill,
+	applySolidFill,
+	hasFillChoice,
+	normalizeHex,
+	schemeToken,
+	solidFillColor,
+	type SolidFillEdit,
+} from '../oxml/fill.js'
 import { checkEnumOrThrow } from '../../ooxml/check-enum.js'
 import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 import {
@@ -33,7 +41,6 @@ import {
 	HORZ_OVERFLOW_VALUES,
 	insertTcPrChild,
 	TCPR_AFTER,
-	tcPrChild,
 	VERT_VALUES,
 	type TableCellEdge,
 } from './table-edit.js'
@@ -374,7 +381,7 @@ export class TableCell {
 	 * @throws {InvalidOptionError} when `color` is not a 6-digit hex string
 	 */
 	setFillColor(color: string | null): void {
-		this.#setFill(color === null ? null : { qname: 'a:srgbClr', val: normalizeHex(color) })
+		this.#applyFill(color === null ? null : { hex: color })
 	}
 
 	/**
@@ -383,7 +390,7 @@ export class TableCell {
 	 * driving the colour.
 	 */
 	setFillSchemeColor(token: string | null): void {
-		this.#setFill(token === null ? null : { qname: 'a:schemeClr', val: schemeToken(token) })
+		this.#applyFill(token === null ? null : { scheme: token })
 	}
 
 	/**
@@ -392,10 +399,7 @@ export class TableCell {
 	 * the fill and lets the table style's shading apply again.
 	 */
 	noFill(): void {
-		const tcPr = this.#getOrAddTcPr()
-		removeChildrenByQName(tcPr, FILL_CHOICES)
-		tcPrChild(tcPr, 'a:noFill')
-		this.part.markDirty()
+		if (applyNoFill(this.#tcPr(), () => this.#getOrAddTcPr(), TCPR_AFTER['a:noFill'] ?? [])) this.part.markDirty()
 	}
 
 	/** Set or clear one `a:tcPr` attribute, vetting it against its schema enum first. */
@@ -413,16 +417,12 @@ export class TableCell {
 	}
 
 	/** Replace (or remove) the cell's solid fill, keeping `EG_FillProperties` single-valued. */
-	#setFill(color: { qname: string; val: string } | null): void {
-		if (color === null) {
-			const tcPr = this.#tcPr()
-			if (!tcPr || !firstChild(tcPr, 'a:solidFill')) return
-			removeChildrenByQName(tcPr, ['a:solidFill'])
-			this.part.markDirty()
-			return
-		}
-		setSolidFill(this.#getOrAddTcPr(), TCPR_AFTER['a:solidFill'] ?? [], color)
-		this.part.markDirty()
+	#applyFill(edit: SolidFillEdit | null): void {
+		const changed =
+			edit === null
+				? applySolidFill(this.#tcPr(), null)
+				: applySolidFill(this.#tcPr(), edit, () => this.#getOrAddTcPr(), TCPR_AFTER['a:solidFill'] ?? [])
+		if (changed) this.part.markDirty()
 	}
 
 	/**
@@ -464,7 +464,7 @@ export class TableCell {
 	 */
 	get hasOwnFill(): boolean {
 		const tcPr = this.#tcPr()
-		return !!tcPr && FILL_CHOICES.some((q) => firstChild(tcPr, q))
+		return hasFillChoice(tcPr)
 	}
 
 	/**

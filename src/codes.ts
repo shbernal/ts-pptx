@@ -361,7 +361,6 @@ export type UnsupportedFeatureErrorCode =
 	// Asked of a shape kind that has nowhere to put it
 	| 'shape/fill-unsupported'
 	| 'shape/line-unsupported'
-	| 'shape/shape-properties-unsupported'
 	| 'shape/no-text-frame'
 	// Optional dependencies that were not installed or did not load
 	| 'math/missing-optional-peer'

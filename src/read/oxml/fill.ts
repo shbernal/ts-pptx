@@ -73,13 +73,91 @@ export function colorValueIf(el: Element | null | undefined, kind: 'srgbClr' | '
 	return el && el.localName === kind ? (attr(el, 'val') ?? null) : null
 }
 
+/** A solid colour a read-model setter writes: a 6-hex RGB value, or a theme colour token. */
+export type SolidFillEdit = { readonly hex: string } | { readonly scheme: string }
+
+/**
+ * Whether `container` states a fill of its own: any `EG_FillProperties` choice, solid or not.
+ *
+ * A container that does decides its own colour. When that choice is not a solid colour
+ * (`a:noFill`, a gradient), a resolver reports no colour rather than falling through to one the
+ * element would otherwise inherit and does not paint in.
+ */
+export function hasFillChoice(container: Element | null | undefined): container is Element {
+	return !!container && FILL_CHOICES.some((qname) => firstChild(container, qname))
+}
+
+/**
+ * Clear `container`'s solid fill, or replace its fill with a solid colour, and report whether the
+ * container changed.
+ *
+ * Every read-model paint setter goes through this, so they agree on when a part is dirty. A clear
+ * changes something only when there was an `a:solidFill` to remove, and leaves any other fill
+ * choice alone. A colour is checked (`normalizeHex`, `schemeToken`) before anything is touched,
+ * then replaces whatever fill choice was there.
+ * @param container - the element holding the fill, or `null` when it does not exist yet
+ * @param edit - the colour to write, or `null` to clear
+ * @param getOrAdd - the container, created in document order when absent; called only to write
+ * @param after - the successors `a:solidFill` is inserted before
+ */
+export function applySolidFill(container: Element | null, edit: null): boolean
+export function applySolidFill(
+	container: Element | null,
+	edit: SolidFillEdit,
+	getOrAdd: () => Element,
+	after: readonly string[]
+): boolean
+export function applySolidFill(
+	container: Element | null,
+	edit: SolidFillEdit | null,
+	getOrAdd?: () => Element,
+	after: readonly string[] = []
+): boolean {
+	if (edit === null) {
+		if (!container || !firstChild(container, 'a:solidFill')) return false
+		removeChildrenByQName(container, ['a:solidFill'])
+		return true
+	}
+	const color =
+		'hex' in edit
+			? { qname: 'a:srgbClr', val: normalizeHex(edit.hex) }
+			: { qname: 'a:schemeClr', val: schemeToken(edit.scheme) }
+	const target = getOrAdd?.() ?? container
+	if (!target) return false
+	setSolidFill(target, after, color)
+	return true
+}
+
+/**
+ * Replace `container`'s fill with an explicit `a:noFill`, and report whether the container
+ * changed. It does not when the container already holds `a:noFill` and no other fill choice.
+ * @param container - the element holding the fill, or `null` when it does not exist yet
+ * @param getOrAdd - the container, created in document order when absent
+ * @param after - the successors `a:noFill` is inserted before
+ */
+export function applyNoFill(container: Element | null, getOrAdd: () => Element, after: readonly string[]): boolean {
+	const alreadyNoFill =
+		!!container &&
+		!!firstChild(container, 'a:noFill') &&
+		FILL_CHOICES.every((qname) => qname === 'a:noFill' || !firstChild(container, qname))
+	if (alreadyNoFill) return false
+	const target = getOrAdd()
+	removeChildrenByQName(target, FILL_CHOICES)
+	getOrAddChild(target, 'a:noFill', after)
+	return true
+}
+
 /**
  * Replace `parent`'s solid fill with a single colour element. Any competing fill
  * choice is dropped first, then `a:solidFill` is inserted before `afterOrder`
  * (its schema successors). To *clear* a fill instead, remove `a:solidFill`
  * directly via `removeChildrenByQName`, which leaves any other choice untouched.
  */
-export function setSolidFill(parent: Element, afterOrder: string[], color: { qname: string; val: string }): void {
+export function setSolidFill(
+	parent: Element,
+	afterOrder: readonly string[],
+	color: { qname: string; val: string }
+): void {
 	removeChildrenByQName(parent, FILL_CHOICES)
 	const fill = getOrAddChild(parent, 'a:solidFill', afterOrder)
 	const clr = createElement(ownerDocumentOf(parent), color.qname)
