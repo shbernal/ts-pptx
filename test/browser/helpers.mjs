@@ -78,16 +78,18 @@ export async function openHarness(page) {
 
 /**
  * Build one deck from `harness/decks.mjs` in the page.
- * @returns the harness's flattened outcome — `{ok:true, base64}` or `{ok:false, code, …}`.
+ * @param {{ onMediaError?: 'throw' | 'placeholder' }} [options] passed to `write`
+ * @returns the harness's flattened outcome — `{ok:true, base64, diagnostics}` or
+ *   `{ok:false, code, …, diagnostics}`.
  */
-export async function buildDeckInHarness(page, deck) {
-	return await page.evaluate((name) => window['harness'].build(name), deck)
+export async function buildDeckInHarness(page, deck, options = {}) {
+	return await page.evaluate(([name, opts]) => window['harness'].build(name, opts), [deck, options])
 }
 
 /** Build the same deck in Node, against `dist/node.js`, for the comparison. */
-export async function buildDeckInNode(deck) {
+export async function buildDeckInNode(deck, options = {}) {
 	const { default: TsPptx } = await import('../../dist/node.js')
-	return await buildDeckBase64(new TsPptx(), deck, NODE_ASSETS)
+	return await buildDeckBase64(new TsPptx(), deck, NODE_ASSETS, options)
 }
 
 /** Decode a package the harness returned as base64. */

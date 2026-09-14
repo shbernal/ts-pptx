@@ -955,6 +955,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An SVG the browser cannot rasterize is reported one way, and `onMediaError` decides what
+  happens.** The browser entry rasterizes an SVG's PNG fallback on a `<canvas>`, and when that
+  failed, what the caller got depended on how the SVG arrived:
+  - Given inline (`data` or `svg`), the failure rejected the whole write, even under
+    `onMediaError: 'placeholder'`.
+  - Given by `path`, it was reported as `media/load-failed` ("Failed to load media", though the
+    load had worked) with `media/svg-preview-failed` as its `cause`, and under `'placeholder'`
+    the SVG's own bytes were replaced with a broken-image placeholder.
+
+  Both now report `media/svg-preview-failed` itself. Under the default `'throw'` the export
+  rejects with it. Under `'placeholder'` it is a diagnostic, the SVG part keeps its bytes, and
+  only the PNG fallback is the placeholder, the one Node writes for every SVG. Node and the
+  neutral entry, which cannot rasterize, write that placeholder and report nothing, as before.
+
+  **Migration:** a browser caller that caught `media/load-failed` and read
+  `cause.code === 'media/svg-preview-failed'` should match `code === 'media/svg-preview-failed'`
+  instead. A diagnostic handler that expected `media/load-failed` for an undecodable SVG under
+  `'placeholder'` now receives `media/svg-preview-failed`.
+
 - **A template-anchored script no longer reports losses on a slide it copies whole.**
   - `printScript` copies a slide holding an extended chart, a SmartArt diagram or an undecoded
     frame with `importSlide`, and still listed every note its shapes raised when transcribed:

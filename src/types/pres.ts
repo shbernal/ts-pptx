@@ -23,6 +23,13 @@ export interface WriteBaseProps {
 	 *   diagnostic (see `setDiagnosticHandler`), and
 	 *   continue. Useful for best-effort/batch jobs where one missing asset should not abort
 	 *   the whole deck.
+	 *
+	 * An SVG that loads but cannot be rasterized into the PNG fallback written beside it (in a
+	 * browser, one that does not decode or has no intrinsic size) is reported as
+	 * `media/svg-preview-failed` instead, whether it was given by `path` or inline: the export
+	 * rejects with it under `'throw'`, and under `'placeholder'` it is warned, the SVG part keeps
+	 * its bytes and only the PNG fallback is a placeholder. A runtime with no rasterizer (Node,
+	 * the neutral entry) always writes that placeholder, and reports nothing.
 	 * @default 'throw'
 	 */
 	onMediaError?: 'throw' | 'placeholder'

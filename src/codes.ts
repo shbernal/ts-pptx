@@ -158,6 +158,7 @@ export type DiagnosticCode =
 	| 'object-lock/unsupported-on-shape'
 	// Media, theme, masters, notes
 	| 'media/load-failed'
+	| 'media/svg-preview-failed'
 	| 'model3d/preview-missing'
 	| 'media/invalid-loop-count'
 	| 'theme/invalid-color-override'
@@ -429,7 +430,8 @@ export type PackageReadErrorCode =
 export type MediaErrorCode =
 	// Shared with the diagnostic surface, and the reason the vocabulary is one registry: the same
 	// load failure warns under `onMediaError: 'placeholder'` and throws under the default
-	// fail-fast policy, so it must not be two different strings.
+	// fail-fast policy, so it must not be two different strings. `media/svg-preview-failed` below
+	// is shared the same way.
 	| 'media/load-failed'
 	| 'font/fetch-failed'
 	| 'font/read-failed'
@@ -440,6 +442,8 @@ export type MediaErrorCode =
 	| 'media/fetch-failed'
 	| 'media/read-failed'
 	| 'media/decode-failed'
+	// An SVG that loaded and could not be rasterized into its PNG fallback. Not a load failure,
+	// and never wrapped in one: the SVG part keeps its bytes under either policy.
 	| 'media/svg-preview-failed'
 
 /**

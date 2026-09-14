@@ -1,5 +1,6 @@
 import type { WRITE_OUTPUT_TYPE } from '../enums.js'
 import type { SlideRelMedia } from '../types/internal.js'
+import type { MediaError } from '../errors.js'
 
 export type RuntimeAdapter = {
 	readonly writeFileOutputType: WRITE_OUTPUT_TYPE | null
@@ -15,7 +16,15 @@ export type RuntimeAdapter = {
 	 * form. Do not add a third: that helper recognizes exactly these two.
 	 */
 	loadMedia: (rel: SlideRelMedia & { path: string }) => Promise<string>
-	createSvgPngPreview: (rel: SlideRelMedia) => Promise<string>
+	/**
+	 * Write the PNG fallback an SVG rel needs into `rel.data`.
+	 *
+	 * Resolves with the failure rather than rejecting, having stamped the placeholder either way:
+	 * whether a failed preview fails the export is `onMediaError`'s decision, and `gen/media.ts`
+	 * makes it once for every adapter and every way the SVG arrived. `null` means nothing failed,
+	 * which includes a runtime with no rasterizer, whose placeholder is its only output.
+	 */
+	createSvgPngPreview: (rel: SlideRelMedia) => Promise<MediaError | null>
 	writeFile: (fileName: string, data: string | ArrayBuffer | Blob | Uint8Array) => Promise<string>
 	/**
 	 * Load a font file into raw bytes for `registerFontMetrics`.

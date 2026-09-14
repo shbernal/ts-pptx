@@ -17,6 +17,29 @@ function hasEncodingPath(rel: SlideRelMedia): rel is SlideMediaRelWithPath {
 }
 
 /**
+ * Write an SVG rel's PNG fallback, applying `onMediaError` to a preview that fails.
+ *
+ * The one place that policy is applied to a preview. The adapter has already stamped the
+ * placeholder and resolved with the failure, so only the PNG fallback is ever the placeholder:
+ * the SVG part keeps its bytes under either policy. A preview used to reject instead, and an SVG
+ * given inline then failed the whole write whatever `onMediaError` said, while one given by path
+ * was reported as `media/load-failed` and had its SVG bytes replaced with a broken image.
+ */
+async function writeSvgPreview(
+	rel: SlideRelMedia,
+	runtime: RuntimeAdapter,
+	onMediaError: 'throw' | 'placeholder'
+): Promise<string> {
+	const failure = await runtime.createSvgPngPreview(rel)
+	if (failure === null) return 'done'
+	if (onMediaError === 'placeholder') {
+		warn('media/svg-preview-failed', `${failure.message}; the SVG is kept and its PNG fallback is a placeholder.`)
+		return 'done'
+	}
+	throw failure
+}
+
+/**
  * Encode Image/Audio/Video into base64
  * @param {PresSlideInternal | SlideLayoutInternal | SlideMasterInternal} layout - slide, layout or master
  * @param {RuntimeAdapter} runtime - runtime adapter (Node/browser media loader)
@@ -70,18 +93,9 @@ export function encodeSlideMediaRels(
 					// The rels that point at this one's package part. Resolved before the load so both
 					// the success and the placeholder arm below hand them the same bytes.
 					const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
+					let data: string
 					try {
-						const data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
-						rel.data = data
-						dupes.forEach((dupe) => (dupe.data = data))
-						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)
-						// A path-deduped rel can itself be an SVG-PNG preview (the same SVG *file*
-						// placed 2+ times on one slide: each placement pushes its own fallback rel).
-						// Such dupes are skipped by STEP 5 — its `rel.data` filter runs synchronously,
-						// before this async load populates `dupe.data` — so convert them here, or the
-						// fallback keeps raw SVG bytes in a `.png` part and corrupts the deck.
-						await Promise.all(dupes.filter((dupe) => dupe.isSvgPng).map((dupe) => runtime.createSvgPngPreview(dupe)))
-						return 'done'
+						data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
 					} catch (ex) {
 						if (onMediaError === 'placeholder') {
 							warn(
@@ -99,6 +113,20 @@ export function encodeSlideMediaRels(
 							cause: ex,
 						})
 					}
+					rel.data = data
+					dupes.forEach((dupe) => (dupe.data = data))
+					// Outside the load's `try`: the load succeeded, so a preview that fails is not a load
+					// failure, and must not replace the SVG's own bytes with a broken image.
+					if (rel.isSvgPng) await writeSvgPreview(rel, runtime, onMediaError)
+					// A path-deduped rel can itself be an SVG-PNG preview (the same SVG *file*
+					// placed 2+ times on one slide: each placement pushes its own fallback rel).
+					// Such dupes are skipped by STEP 5 — its `rel.data` filter runs synchronously,
+					// before this async load populates `dupe.data` — so convert them here, or the
+					// fallback keeps raw SVG bytes in a `.png` part and corrupts the deck.
+					await Promise.all(
+						dupes.filter((dupe) => dupe.isSvgPng).map((dupe) => writeSvgPreview(dupe, runtime, onMediaError))
+					)
+					return 'done'
 				})()
 			)
 		})
@@ -109,7 +137,7 @@ export function encodeSlideMediaRels(
 	layout._relsMedia
 		.filter((rel) => rel.isSvgPng && rel.data)
 		.forEach((rel) => {
-			imageProms.push(runtime.createSvgPngPreview(rel))
+			imageProms.push(writeSvgPreview(rel, runtime, onMediaError))
 		})
 
 	return imageProms

@@ -60,9 +60,11 @@ export async function fetchMediaBase64(path: string): Promise<string> {
  *
  * An SVG placed on a slide needs a raster fallback beside it for viewers that will not render
  * the SVG. Rasterizing needs a canvas, which only the browser adapter has, so everywhere else
- * the fallback is a fixed placeholder image rather than a missing part.
+ * the fallback is a fixed placeholder image rather than a missing part. That is this runtime's
+ * output rather than a failure, so it resolves `null`: reporting one would fail every SVG under
+ * the default `onMediaError`.
  */
-export async function placeholderSvgPreview(rel: SlideRelMedia): Promise<string> {
+export async function placeholderSvgPreview(rel: SlideRelMedia): Promise<MediaError | null> {
 	rel.data = IMG_SVG_PLACEHOLDER
-	return 'done'
+	return null
 }

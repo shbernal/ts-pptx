@@ -34,12 +34,14 @@ async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string>
 	})
 }
 
-async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
-	return await new Promise((resolve, reject) => {
+async function createSvgPngPreview(rel: SlideRelMedia): Promise<MediaError | null> {
+	return await new Promise((resolve) => {
 		const image = new Image()
+		// Resolves, as the Node and neutral adapters do. It used to reject, so the same failure
+		// reached the caller three ways depending on runtime and on how the SVG arrived.
 		const fail = (reason?: unknown) => {
 			rel.data = IMG_SVG_PLACEHOLDER
-			reject(
+			resolve(
 				new MediaError(
 					'media/svg-preview-failed',
 					`Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`
@@ -70,7 +72,7 @@ async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
 				// *fallback's* type, since that is the part this writes. The SVG keeps its own
 				// rel beside it.
 				rel.data = canvas.toDataURL(rel.type)
-				resolve('done')
+				resolve(null)
 			} catch (ex) {
 				fail(ex)
 			}

@@ -38,6 +38,9 @@ const ALT_TEXT = 'harness fixture'
  * @property {string} zeroSizeSvg a `.svg` whose intrinsic width and height are both 0
  */
 
+/** Markup that is not SVG, handed to `addImage` inline rather than by path. */
+export const BROKEN_SVG_MARKUP = 'this is not SVG, and never reaches a loader'
+
 /**
  * Deck builders, keyed by the name the harness dispatches on. Each takes a fresh
  * presentation and the asset table, and leaves the deck ready to write.
@@ -109,6 +112,15 @@ export const DECKS = {
 	},
 
 	/**
+	 * The same decode failure with no load in front of it: an SVG given inline has its bytes
+	 * already, so `loadMedia` never runs and the preview is the only step that can fail.
+	 */
+	async brokenSvgData(pres) {
+		const slide = pres.addSlide()
+		slide.addImage({ svg: BROKEN_SVG_MARKUP, x: 1, y: 1, w: 1, h: 1 })
+	},
+
+	/**
 	 * `createSvgPngPreview`'s `image.width + image.height === 0` guard. A 0×0 SVG decodes
 	 * without error and then has nothing to draw; without the guard `canvas.toDataURL`
 	 * would return a valid-looking data URI for an empty image and the deck would ship a
@@ -130,11 +142,12 @@ export const DECKS = {
  * @param {any} pres a fresh presentation from the entry under test
  * @param {string} name a key of {@link DECKS}
  * @param {HarnessAssets} assets
+ * @param {{ onMediaError?: 'throw' | 'placeholder' }} [options] passed to `write`
  * @returns {Promise<string>}
  */
-export async function buildDeckBase64(pres, name, assets) {
+export async function buildDeckBase64(pres, name, assets, options = {}) {
 	const build = DECKS[name]
 	if (!build) throw new Error(`unknown harness deck: ${name}`)
 	await build(pres, assets)
-	return /** @type {string} */ (await pres.write({ outputType: 'base64' }))
+	return /** @type {string} */ (await pres.write({ outputType: 'base64', ...options }))
 }

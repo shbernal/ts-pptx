@@ -99,19 +99,44 @@ test('loadMedia: a 404 fails the export with the adapter code, not a bare fetch 
 	expect(outcome.message).toContain('no-such-image.png')
 })
 
-test('createSvgPngPreview: an undecodable SVG fails rather than shipping a blank fallback', async ({ page }) => {
-	const outcome = await buildDeckInHarness(page, 'brokenSvg')
-	expect(outcome.ok).toBe(false)
-	expect(outcome.code).toBe('media/load-failed')
-	// `image.onerror` — the fetch succeeded, so this is the decode arm, not the network one.
-	expect(outcome.causeCode).toBe('media/svg-preview-failed')
-})
+// An SVG that will not rasterize is one failure, however the SVG arrived. By path it is loaded
+// first, and the load succeeding must not be reported as `media/load-failed`; inline it is
+// never loaded at all, and used to reject the whole write whatever `onMediaError` said.
+for (const deck of ['brokenSvg', 'brokenSvgData']) {
+	test(`createSvgPngPreview: an undecodable SVG (${deck}) fails the export under the default policy`, async ({
+		page,
+	}) => {
+		const outcome = await buildDeckInHarness(page, deck)
+		expect(outcome.ok).toBe(false)
+		// `image.onerror`: the bytes are there, so this is the decode arm, not the network one.
+		expect(outcome.code).toBe('media/svg-preview-failed')
+		expect(outcome.diagnostics).toEqual([])
+	})
+
+	test(`createSvgPngPreview: an undecodable SVG (${deck}) keeps its bytes under 'placeholder' and warns`, async ({
+		page,
+	}) => {
+		const outcome = await buildDeckInHarness(page, deck, { onMediaError: 'placeholder' })
+		expect(outcome.ok, `the export must resolve: ${outcome.message}`).toBe(true)
+		expect(outcome.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['media/svg-preview-failed'])
+
+		// Only the PNG fallback is the placeholder, and Node, which cannot rasterize at all, writes
+		// the same one. So the two packages' media must agree byte for byte: the SVG's own bytes
+		// kept, not replaced with a broken-image stand-in.
+		const browserDir = await explodePackage(packageBytes(outcome.base64), path.join(OUT_ROOT, deck, 'browser'))
+		const nodeBase64 = await buildDeckInNode(deck, { onMediaError: 'placeholder' })
+		const nodeDir = await explodePackage(packageBytes(nodeBase64), path.join(OUT_ROOT, deck, 'node'))
+		expect(mediaParts(browserDir)).toEqual(mediaParts(nodeDir))
+		const mediaDiffs = diffParts(nodeDir, browserDir).filter((line) => line.includes('ppt/media/'))
+		expect(mediaDiffs, `node vs browser media differs:\n  ${mediaDiffs.join('\n  ')}`).toEqual([])
+	})
+}
 
 test('createSvgPngPreview: a zero-dimension SVG is caught by the h/w guard', async ({ page }) => {
 	const outcome = await buildDeckInHarness(page, 'zeroSizeSvg')
 	expect(outcome.ok).toBe(false)
-	expect(outcome.causeCode).toBe('media/svg-preview-failed')
+	expect(outcome.code).toBe('media/svg-preview-failed')
 	// Distinguishes this arm from the `onerror` one above: same code, different reason,
 	// and the reason is what says the guard fired instead of the decode failing.
-	expect(outcome.causeMessage).toContain('h/w=0')
+	expect(outcome.message).toContain('h/w=0')
 })

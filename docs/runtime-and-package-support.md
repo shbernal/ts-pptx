@@ -175,7 +175,7 @@ lane asserts, so here is each one exactly:
 | --- | --- |
 | `writeFile` | the object-URL `<a download>` fires and the downloaded bytes unzip to a real OPC package |
 | `loadMedia` | a fetched image lands in the package as **the same bytes** Node reads off disk, and as the same bytes as the source file. A 404 fails the export with `media/fetch-failed` as the cause of `media/load-failed` |
-| `createSvgPngPreview` | the `<canvas>` rasterizer emits a real PNG where Node can only stub a placeholder; an undecodable SVG and a zero-dimension SVG each fail rather than shipping a blank fallback |
+| `createSvgPngPreview` | the `<canvas>` rasterizer emits a real PNG where Node can only stub a placeholder. An undecodable SVG and a zero-dimension SVG each report `media/svg-preview-failed` rather than shipping a blank fallback, by `path` or inline: the export fails under the default `onMediaError`, and under `'placeholder'` it warns, keeps the SVG's bytes, and writes the same placeholder fallback Node does |
 | `loadFontData` | a font fetched over HTTP measures to the same baked `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk. A 404 rejects with `font/fetch-failed` |
 
 Two of those are cross-runtime comparisons run through the byte-identity gate's

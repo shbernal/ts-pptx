@@ -11,7 +11,7 @@
 // The relative specifier below resolves because scripts/browser-harness-server.mjs
 // serves the repo with its real layout, so the URL depth and the on-disk depth agree —
 // which is also what lets `pnpm run typecheck:test` resolve it to `dist/browser.d.ts`.
-import TsPptx from '../../../dist/browser.js'
+import TsPptx, { setDiagnosticHandler } from '../../../dist/browser.js'
 import { buildDeckBase64, DECKS } from './decks.mjs'
 
 /**
@@ -40,12 +40,19 @@ const ASSETS = {
  * are the API, and the thing worth asserting — do not survive. Failure paths are
  * therefore a return value here, and the spec asserts on `code`.
  *
+ * The diagnostics the build raised come back on both outcomes, since a policy that degrades
+ * instead of throwing is only observable through what it reports.
+ *
  * @param {string} name a key of `DECKS` in ./decks.mjs
- * @returns {Promise<{ok: true, base64: string} | {ok: false, name: string, code: string, message: string, causeCode: string, causeMessage: string}>}
+ * @param {{ onMediaError?: 'throw' | 'placeholder' }} [options] passed to `write`
+ * @returns {Promise<({ok: true, base64: string} | {ok: false, name: string, code: string, message: string, causeCode: string, causeMessage: string}) & {diagnostics: {code: string, message: string}[]}>}
  */
-async function build(name) {
+async function build(name, options = {}) {
+	/** @type {{code: string, message: string}[]} */
+	const diagnostics = []
+	setDiagnosticHandler((diagnostic) => diagnostics.push({ code: diagnostic.code, message: diagnostic.message }))
 	try {
-		return { ok: true, base64: await buildDeckBase64(new TsPptx(), name, ASSETS) }
+		return { ok: true, base64: await buildDeckBase64(new TsPptx(), name, ASSETS, options), diagnostics }
 	} catch (err) {
 		// The media pipeline wraps a loader failure in `media/load-failed` and chains the
 		// original as `cause`, so the adapter's own code is one level down. Both are
@@ -58,7 +65,10 @@ async function build(name) {
 			message: String(err?.message ?? err),
 			causeCode: String(cause?.code ?? ''),
 			causeMessage: String(cause?.message ?? ''),
+			diagnostics,
 		}
+	} finally {
+		setDiagnosticHandler(null)
 	}
 }
 
