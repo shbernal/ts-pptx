@@ -12,8 +12,7 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, preencodedPath } from '../utils.js'
 import { hasBase64Header } from '../../media/base64.js'
 import { pushMediaRel } from './image-rel.js'
-import { resolveObjectName } from './object-name.js'
-import { resolveAuthoredFrame } from './frame.js'
+import { framedObjectOptions, requirePayloadSource } from './object-options.js'
 import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /**
@@ -51,7 +50,6 @@ function assertConsecutiveMediaRids(base: number, second: number, third: number)
  * @param {MediaProps} `opt` - media options
  */
 export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): void {
-	const frame = resolveAuthoredFrame(opt, { x: 0, y: 0, w: 2, h: 2 }, 'addMedia')
 	const strData = opt.data || ''
 	const strLink = opt.link || ''
 	const strPath = opt.path || ''
@@ -63,9 +61,8 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const slideData: SlideObject = { _type: SlideObjectType.media }
 
 	// STEP 1: REALITY-CHECK, before the object name below takes its index
-	if (!strPath && !strData && strType !== 'online') {
-		throw new InvalidOptionError('media/missing-source', 'addMedia(): either `data` or `path` are required!')
-	} else if (strData && !hasBase64Header(strData)) {
+	if (strType !== 'online') requirePayloadSource(opt, 'media/missing-source', 'addMedia')
+	if (strData && !hasBase64Header(strData)) {
 		throw new InvalidOptionError(
 			'media/missing-base64-header',
 			"addMedia(): `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')"
@@ -80,19 +77,20 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	if (strType === 'online' && !strLink) {
 		throw new InvalidOptionError('media/online-missing-link', 'addMedia(): online videos require `link` value')
 	}
-	const objectName = resolveObjectName(target, SlideObjectType.media, {
+	const options = framedObjectOptions(target, SlideObjectType.media, opt, {
 		label: 'Media',
 		kind: 'media',
-		supplied: opt.objectName,
+		api: 'addMedia',
+		defaults: { x: 0, y: 0, w: 2, h: 2 },
 	})
 
 	const strExtn =
 		opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'
 
-	// STEP 2: Set type, media
+	// STEP 2: Set type, media and the object's options
 	slideData.mtype = strType
 	slideData.media = strPath || preencodedPath('mov')
-	slideData.options = {}
+	slideData.options = options
 
 	// Playback looping (embedded audio/video only; online embeds have no timing tree)
 	if (strType !== 'online') {
@@ -108,16 +106,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			)
 	}
 
-	// STEP 3: Set media properties & options
-	slideData.options.x = frame.x
-	slideData.options.y = frame.y
-	slideData.options.w = frame.w
-	slideData.options.h = frame.h
-	slideData.options.objectName = objectName
-	if (opt.altText) slideData.options.altText = opt.altText
-	if (opt.objectLock) slideData.options.objectLock = opt.objectLock
-
-	// STEP 4: Add this media to this Slide Rels (rId/rels count spans all slides! Count all media to get next rId)
+	// STEP 3: Add this media to this Slide Rels (rId/rels count spans all slides! Count all media to get next rId)
 	/**
 	 * NOTE:
 	 * - rId starts at 2 (hence the intRels+1 below) as slideLayout.xml is rId=1!
@@ -127,54 +116,44 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	 * <Relationship Id="rId2" Target="../media/media1.mov" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"/>
 	 * <Relationship Id="rId3" Target="../media/media1.mov" Type="http://schemas.microsoft.com/office/2007/relationships/media"/>
 	 */
+	// A and B are the two rels an online video registers differently from an embedded one.
+	let mediaRid: number
+	let msRid: number
 	if (strType === 'online') {
 		// A: ECMA video rel (external link) — referenced by <a:videoFile r:link>.
-		const relId1 = getNewRelId(target)
 		const online = { kind: 'media', extn: strExtn, type: 'online', path: strPath, data: 'dummy' }
-		pushMediaRel(target, { ...online, rId: relId1, target: { external: strLink } })
-		slideData.mediaRid = relId1
+		mediaRid = getNewRelId(target)
+		pushMediaRel(target, { ...online, rId: mediaRid, target: { external: strLink } })
 
 		// B: MS-2007 media rel — PowerPoint authors a second external rel sharing the
 		// same link Target; the body points at it via <p14:media r:link>. (Mirrors the
 		// embedded A/V pair, but External and with no media binary part.)
-		const relId2 = getNewRelId(target)
-		pushMediaRel(target, { ...online, rId: relId2, target: { external: strLink } })
-
-		// C: Add cover (preview/overlay) image
-		const relId3 = getNewRelId(target)
-		pushMediaRel(target, {
-			kind: 'image',
-			extn: 'png',
-			type: 'image/png',
-			data: strCover,
-			rId: relId3,
-			extra: { isDefaultCover: !strCover },
-		})
-		assertConsecutiveMediaRids(relId1, relId2, relId3)
+		msRid = getNewRelId(target)
+		pushMediaRel(target, { ...online, rId: msRid, target: { external: strLink } })
 	} else {
 		// A: "relationships/video". An identical source already on the slide — the same path, or the
 		// same inline payload — lends its part rather than embedding the bytes twice.
 		const embedded = { kind: 'media', extn: strExtn, type: strType + '/' + strExtn, path: strPath, data: strData }
-		const relId1 = getNewRelId(target)
-		const video = pushMediaRel(target, { ...embedded, rId: relId1, dedupe: true })
-		slideData.mediaRid = relId1
+		mediaRid = getNewRelId(target)
+		const video = pushMediaRel(target, { ...embedded, rId: mediaRid, dedupe: true })
 
 		// B: "relationships/media", against the one part the `video` rel above named.
-		const relId2 = getNewRelId(target)
-		pushMediaRel(target, { ...embedded, rId: relId2, target: { sameAs: video } })
-
-		// C: Add cover (preview/overlay) image
-		const relId3 = getNewRelId(target)
-		pushMediaRel(target, {
-			kind: 'image',
-			extn: 'png',
-			type: 'image/png',
-			data: strCover,
-			rId: relId3,
-			extra: { isDefaultCover: !strCover },
-		})
-		assertConsecutiveMediaRids(relId1, relId2, relId3)
+		msRid = getNewRelId(target)
+		pushMediaRel(target, { ...embedded, rId: msRid, target: { sameAs: video } })
 	}
+	slideData.mediaRid = mediaRid
+
+	// C: Add cover (preview/overlay) image
+	const coverRid = getNewRelId(target)
+	pushMediaRel(target, {
+		kind: 'image',
+		extn: 'png',
+		type: 'image/png',
+		data: strCover,
+		rId: coverRid,
+		extra: { isDefaultCover: !strCover },
+	})
+	assertConsecutiveMediaRids(mediaRid, msRid, coverRid)
 
 	// LAST
 	target._slideObjects.push(slideData)

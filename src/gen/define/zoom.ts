@@ -18,8 +18,7 @@ import type {
 } from '../../types/internal.js'
 import { getNewRelId, getUuid } from '../utils.js'
 import { clampRangedInput, getSmartParseNumber } from '../../units-internal.js'
-import { resolveObjectName } from './object-name.js'
-import { resolveAuthoredFrame } from './frame.js'
+import { framedObjectOptions } from './object-options.js'
 import { registerPreviewImage } from './preview-image.js'
 import { MIN_SLIDE_ID } from '../../ooxml/ids.js'
 
@@ -81,18 +80,15 @@ function pushZoomObject(
 	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps,
 	zoom: Omit<ZoomInternal, 'variant'>
 ): void {
-	const objectName = resolveObjectName(target, SlideObjectType.zoom, {
-		label: ZOOM_LABEL[variant],
-		kind: 'zoom',
-		supplied: opts.objectName,
-	})
 	const newObject: SlideObject = {
 		_type: SlideObjectType.zoom,
-		options: {
-			...resolveAuthoredFrame(opts, { x: 0, y: 0, w: 0, h: 0 }, ZOOM_API[variant]),
-			objectName,
-			...(opts.objectLock ? { objectLock: opts.objectLock } : {}),
-		},
+		// A zoom's options declare no `altText`, and its emitter writes none.
+		options: framedObjectOptions(target, SlideObjectType.zoom, opts, {
+			label: ZOOM_LABEL[variant],
+			kind: 'zoom',
+			api: ZOOM_API[variant],
+			defaults: { x: 0, y: 0, w: 0, h: 0 },
+		}),
 		zoom: { variant, ...zoom },
 	}
 	target._slideObjects.push(newObject)

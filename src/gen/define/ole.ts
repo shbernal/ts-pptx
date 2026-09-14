@@ -16,8 +16,7 @@ import { SlideObjectType } from '../../enums.js'
 import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
-import { resolveObjectName } from './object-name.js'
-import { resolveAuthoredFrame } from './frame.js'
+import { framedObjectOptions, requirePayloadSource } from './object-options.js'
 import { registerPreviewImage } from './preview-image.js'
 import { pushMediaRel } from './image-rel.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -142,19 +141,19 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	const strPath = opt.path || ''
 
 	// STEP 1: REALITY-CHECK. The payload is the whole point; there is no meaningful default.
-	if (!strPath && !strData) {
-		throw new InvalidOptionError('ole/missing-source', 'addOleObject(): either `data` or `path` are required!')
-	}
+	requirePayloadSource(opt, 'ole/missing-source', 'addOleObject')
 	const imgW = oleImageSize(opt.imgW, 'imgW')
 	const imgH = oleImageSize(opt.imgH, 'imgH')
 
-	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId.
+	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId — and the
+	// object's own options. The library never opens the payload, so there is no natural size to measure.
 	const extn = resolvePartExtn(opt)
 	const format = OLE_FORMATS[extn] ?? BIN_FORMAT
-	const objectName = resolveObjectName(target, SlideObjectType.oleObject, {
+	const options = framedObjectOptions(target, SlideObjectType.oleObject, opt, {
 		label: 'Object',
 		kind: 'oleObject',
-		supplied: opt.objectName,
+		api: 'addOleObject',
+		defaults: { x: 0, y: 0, w: 4, h: 3 },
 	})
 
 	// STEP 3: Register the payload part rel. Deliberately NOT deduped against an identical payload
@@ -178,13 +177,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	// LAST: Push the slide object for the `<p:graphicFrame>` emitter.
 	const slideData: SlideObject = {
 		_type: SlideObjectType.oleObject,
-		options: {
-			// The library never opens the payload, so there is no natural size to measure.
-			...resolveAuthoredFrame(opt, { x: 0, y: 0, w: 4, h: 3 }, 'addOleObject'),
-			objectName,
-			...(opt.altText ? { altText: opt.altText } : {}),
-			...(opt.objectLock ? { objectLock: opt.objectLock } : {}),
-		},
+		options,
 		ole: {
 			objectRid,
 			previewRid,

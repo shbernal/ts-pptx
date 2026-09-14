@@ -23,8 +23,7 @@ import { SlideObjectType } from '../../enums.js'
 import type { Model3dProps, Model3dPoint, Model3dCameraProps } from '../../types/model3d.js'
 import type { PresSlideInternal, SlideObject, Model3dInternal } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
-import { resolveObjectName } from './object-name.js'
-import { resolveAuthoredFrame } from './frame.js'
+import { framedObjectOptions, requirePayloadSource } from './object-options.js'
 import { registerPreviewImage } from './preview-image.js'
 import { pushMediaRel } from './image-rel.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -106,17 +105,18 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	const strPath = opt.path || ''
 
 	// STEP 1: REALITY-CHECK. The payload is the whole point; there is no meaningful default.
-	if (!strPath && !strData) {
-		throw new InvalidOptionError('model3d/missing-source', 'addModel3d(): either `data` or `path` are required!')
-	}
+	requirePayloadSource(opt, 'model3d/missing-source', 'addModel3d')
 
-	// STEP 2: Resolve the camera before touching the rel table, so an invalid option throws without
-	// leaving a half-registered part behind.
+	// STEP 2: Resolve the camera and the object's own options before touching the rel table, so an
+	// invalid option throws without leaving a half-registered part behind. A 3D model has no aspect
+	// ratio and the library never opens the payload, so — as with `addOleObject` — there is no
+	// natural size to measure.
 	const camera = resolveCamera(opt.camera, opt.meterPerModelUnit)
-	const objectName = resolveObjectName(target, SlideObjectType.model3d, {
+	const options = framedObjectOptions(target, SlideObjectType.model3d, opt, {
 		label: '3D Model',
 		kind: 'model3d',
-		supplied: opt.objectName,
+		api: 'addModel3d',
+		defaults: { x: 0, y: 0, w: 4, h: 3 },
 	})
 
 	// STEP 3: Register the `.glb` payload rel. Every model gets its own rel and its own camera; the
@@ -149,14 +149,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	// LAST: Push the slide object for the `<mc:AlternateContent>` emitter.
 	const slideData: SlideObject = {
 		_type: SlideObjectType.model3d,
-		options: {
-			// A 3D model has no aspect ratio and the library never opens the payload, so — as with
-			// `addOleObject` — there is no natural size to measure.
-			...resolveAuthoredFrame(opt, { x: 0, y: 0, w: 4, h: 3 }, 'addModel3d'),
-			objectName,
-			...(opt.altText ? { altText: opt.altText } : {}),
-			...(opt.objectLock ? { objectLock: opt.objectLock } : {}),
-		},
+		options,
 		model3d: { modelRid, previewRid, ...camera },
 	}
 	target._slideObjects.push(slideData)
