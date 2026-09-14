@@ -471,7 +471,7 @@ export class Diagram {
 	 * points and the `doc` root included. Filter on {@link DiagramPoint.type} for the user's
 	 * nodes; {@link text} is the shortcut for the common case, {@link nodes} the structured one.
 	 *
-	 * Built per access like every other read proxy (`docs/reference/pptx-read.md`, "Object
+	 * Built per access like every other read proxy (`docs/reference/read-object-model.md`, "Object
 	 * model"), so `points[0] !== points[0]` while both wrap the same `dgm:pt`. Key a `Map`
 	 * on {@link DiagramPoint.modelId}, not on the point.
 	 */

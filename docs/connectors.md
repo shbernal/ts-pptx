@@ -230,8 +230,8 @@ Throws happen inside the `addConnector()` call, as `InvalidOptionError`. The row
 ## Reading it back
 
 - Before export, [`slide.objects`](groups.md#list-what-a-slide-holds) lists a connector with `type: "connector"`.
-- After loading a deck with `pptx-ts/read`, a connector is a `Connector`. `startConnection` and `endConnection` each return a `ConnectionSite` with `shapeId`, `siteIndex` and `boundShape`, or `null` for an unattached end. See [Connector endpoint binding](reference/pptx-read.md#connector-endpoint-binding).
-- [PPTX inspection](reference/pptx-inspection.md) reports connectors with the rest of a slide's elements, each with a slide-absolute box.
+- After loading a deck with `pptx-ts/read`, a connector is a `Connector`. `startConnection` and `endConnection` each return a `ConnectionSite` with `shapeId`, `siteIndex` and `boundShape`, or `null` for an unattached end. See [Connector endpoints](reference/read-object-model.md#connector-endpoints).
+- [Inspect a package](reference/pptx-inspection.md) reports connectors with the rest of a slide's elements, each with a slide-absolute box.
 
 ## See also
 

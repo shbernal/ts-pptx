@@ -143,11 +143,11 @@ A slide opened through `pptx-ts/read` exposes:
 - `slide.hasAnimations`: whether the slide has build animations.
 - `slide.flattenAnimations()`: removes them.
 
-See [PPTX read and round-trip](reference/pptx-read.md).
+See [Read object model](reference/read-object-model.md#slide).
 
 ## See also
 
-- [PPTX read and round-trip](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - API reference: [`TransitionProps`](reference/api/index/interfaces/TransitionProps.md),
   [`TransitionSoundProps`](reference/api/index/interfaces/TransitionSoundProps.md),
   [`AnimationProps`](reference/api/index/interfaces/AnimationProps.md)

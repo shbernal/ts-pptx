@@ -178,15 +178,15 @@ for (const slide of deck.slides) {
 ```
 
 - Before export, [`slide.objects`](groups.md#list-what-a-slide-holds) lists the model with `type: "model3d"` and `canGroup: false`.
-- `pptx-ts/read` loads the model as a `graphicFrame` shape whose `name` is its `objectName`. There is no accessor for the camera, the scale or the payload. See [the preserve-only boundary](reference/pptx-read.md#preserve-only-boundary-what-the-read-model-does-not-decode).
+- `pptx-ts/read` loads the model as a `graphicFrame` shape whose `name` is its `objectName`. There is no accessor for the camera, the scale or the payload. See [Kept but not decoded](reference/round-trip.md#kept-but-not-decoded).
 - Loading and saving a deck leaves the slide, its relationships and the `.glb` part byte-identical. `importSlide` carries the model, its `.glb` and its preview into the target deck.
-- [PPTX inspection](reference/pptx-inspection.md) reports the model as a `graphicFrame` element with `graphicKind: 'other'`.
+- [Inspect a package](reference/pptx-inspection.md) reports the model as a `graphicFrame` element with `graphicKind: 'other'`.
 - [`pptx-ts/script`](reference/pptx-to-script.md) raises the `graphicFrame.unknown` fidelity note for a model, because it cannot write one back out.
 
 ## See also
 
 - [OLE embedded objects](ole-objects.md)
 - [Groups](groups.md), for `slide.objects`
-- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - [Errors and warnings](errors-and-warnings.md)
 - API reference: [`Model3dProps`](reference/api/index/type-aliases/Model3dProps.md), [`Model3dCameraProps`](reference/api/index/interfaces/Model3dCameraProps.md), [`Model3dPoint`](reference/api/index/interfaces/Model3dPoint.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md)

@@ -125,8 +125,8 @@ pptxgenjs generates decks and does not read them. ts-pptx also reads:
 
 - [Inspection](reference/pptx-inspection.md) reports what a package contains without
   parsing it into a model.
-- [Reading](reference/pptx-read.md) loads a deck into an object model, edits it in place,
-  and writes the package back out.
+- [Reading](reading/read-and-edit.md) loads a deck into an object model, edits it in
+  place, and writes the package back out.
 - [Deck to script](reference/pptx-to-script.md) turns a deck into the TypeScript that
   rebuilds it, reporting what it could not express rather than dropping it.
 

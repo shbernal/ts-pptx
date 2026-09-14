@@ -346,7 +346,7 @@ slide. Nothing bound to it, and the deck rendered identically. But it showed
 up in PowerPoint's layout picker, and it duplicated a layout *name*. That
 made `appendSlides({ layout })` ambiguous, and demoted every batch in the
 script from a name to a gallery position. `importSlide` now binds to chrome
-the destination already holds (see [the read reference](./pptx-read.md#importing-a-slide-from-another-deck-phase-4)),
+the destination already holds (see [Copy slides between decks](../reading/copy-between-decks.md#reuse-chrome-the-deck-already-has)),
 and since this tier's template is the source file itself, the whole chain is
 already there. The `slide.carriedChrome` note and the positional fallback it
 forced are both gone; a repeated layout name in a multi-master deck still
@@ -355,7 +355,7 @@ falls back to a position, which is the case the fallback was for.
 **`diagram.all` and `graphicFrame.unknown` are different losses, and used to be
 one note.** A SmartArt frame has a full reader, and its text can now be edited in
 place through it (`DiagramPoint.text`, see
-[the read reference](./pptx-read.md#diagram-smartart)). What a converted script
+[Read object model](./read-object-model.md#smartart)). What a converted script
 loses is the *authoring* leg: no write API builds a diagram from scratch, which
 makes it `unwritable` alongside `chartEx.all` rather than `unread`.
 `graphicFrame.unknown` keeps its original meaning and its original cause, and
@@ -690,6 +690,6 @@ rather than the working directory.
 
 ## See also
 
-- [PPTX Read / Round-Trip](pptx-read.md): the read model this builds on.
+- [Read object model](read-object-model.md): the read model this builds on.
 - [Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md): where `src/script/` sits and why.
 - [Testing Guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md): the verification commands.

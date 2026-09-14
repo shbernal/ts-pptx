@@ -191,11 +191,11 @@ for (const font of deck.embeddedFonts) {
 - The list is `[]` when the deck embeds no font. An entry with no `typeface`, and a face whose file reference does not resolve, are left out.
 - A face PowerPoint saved as a subset holds only some of the font's glyphs, so its bytes can be smaller than the original font file.
 
-[Reading and round-tripping existing decks](reference/pptx-read.md) lists every member.
+[Read object model](reference/read-object-model.md#presentation) lists every member.
 
 ## See also
 
 - [Text that fits](text-fit.md)
-- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - [Errors and warnings](errors-and-warnings.md)
 - API reference: [`TsPptx.embedFont`](reference/api/index/classes/TsPptx.md#embedfont), [`TsPptx.registerFontMetrics`](reference/api/index/classes/TsPptx.md#registerfontmetrics)

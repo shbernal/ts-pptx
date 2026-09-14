@@ -206,7 +206,7 @@ tableToSlides(pptx, 'report', {
 ## Reading it back
 
 The slides hold ordinary tables. Open the deck with `Presentation.load` and read a table through
-`GraphicFrame.table`, as [PPTX read and round-trip](reference/pptx-read.md) describes.
+`GraphicFrame.table`, as [Read object model](reference/read-object-model.md#tables) describes.
 
 ## See also
 

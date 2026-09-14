@@ -38,7 +38,6 @@
         "reading/read-and-edit",
         "reading/copy-between-decks",
         "reading/build-on-a-template",
-        "reference/pptx-read",
         "reference/pptx-inspection",
         "reference/pptx-to-script"
       ]
@@ -47,6 +46,8 @@
       "group": "Reference",
       "pages": [
         "reference/api/index",
+        "reference/read-object-model",
+        "reference/round-trip",
         "reference/object-names",
         "reference/layout-units",
         "errors-and-warnings",

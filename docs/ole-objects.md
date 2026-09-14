@@ -156,14 +156,14 @@ for (const slide of deck.slides) {
 ```
 
 - Before export, [`slide.objects`](groups.md#list-what-a-slide-holds) lists the object with `type: "oleObject"` and `canGroup: false`.
-- `pptx-ts/read` loads the object as a `graphicFrame` shape whose `name` is its `objectName`. There is no accessor for the payload, the `progId` or the cover. See [the preserve-only boundary](reference/pptx-read.md#preserve-only-boundary-what-the-read-model-does-not-decode).
+- `pptx-ts/read` loads the object as a `graphicFrame` shape whose `name` is its `objectName`. There is no accessor for the payload, the `progId` or the cover. See [Kept but not decoded](reference/round-trip.md#kept-but-not-decoded).
 - Saving a loaded deck keeps the payload and cover parts, and `importSlide` copies both into the target deck.
-- [PPTX inspection](reference/pptx-inspection.md) reports the object as a `graphicFrame` element with `graphicKind: 'other'`.
+- [Inspect a package](reference/pptx-inspection.md) reports the object as a `graphicFrame` element with `graphicKind: 'other'`.
 
 ## See also
 
 - [3D models](3d-models.md)
 - [Groups](groups.md), for `slide.objects`
-- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - [Errors and warnings](errors-and-warnings.md)
 - API reference: [`OleObjectProps`](reference/api/index/type-aliases/OleObjectProps.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md)

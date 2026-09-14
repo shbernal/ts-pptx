@@ -772,11 +772,8 @@ installing the validator is part of the job.
 The gate is `validatorAvailable()` in `test/validator.js`.
 
 Every contract there runs against **every** `.pptx` in the corpus, via
-`fixtureNames` from `test/read/corpus.js`. It used to run against five decks named
-in a literal, and extending that list meant a manual edit nobody made. So the corpus
-grew past forty while the OPC contract kept being proved against the same five. The
-decks that actually stress it, chartEx and model3d and math-omml and embedded fonts
-and av-media and modern comments, were never round-tripped here at all.
+`fixtureNames` from `test/read/corpus.js`, so a deck added to `test/read/fixtures/` is
+round-tripped on the next run with no list to edit.
 
 The schema case asserts that a round-trip introduces **no new** validator errors,
 rather than that the output is clean. For every deck in the corpus but one, those are
@@ -790,6 +787,48 @@ class of blind spot as "The validator does not descend into `mc:Choice`" below.
 Comparing verdicts keeps the assertion honest without excluding the fixture or
 implying the library caused it, and it stays strictly stronger than the old form
 everywhere else: an empty verdict before still demands an empty verdict after.
+
+Beside the round trip, these files pin the read model and its edits. The ones marked
+*authored* build their decks with `test/read/authored.js`: they author a feature with the
+write API, load the bytes through `pptx-ts/read`, and assert the decoded model. The write
+path and the read path are separate code, so a bug in one cannot hide a bug in the other.
+
+| File | What it pins |
+| --- | --- |
+| `test/read/model.test.js` | Slide and shape navigation, text, `Slide.hidden`, groups, connectors and graphic frames, proxy identity, `Slide.text`, `Slide.notesText` |
+| `test/read/edit.test.js` | Run text and font setters, geometry setters, `Slide.hidden` edits, schema validity of edited packages |
+| `test/read/escape-hatch-dirty.test.js` (*authored*) | An `element_` edit without `markDirty()` saves the loaded bytes; each level's `markDirty()` reserializes exactly its owning part, charts, chrome, notes and diagrams included |
+| `test/read/table.test.js` | Table navigation, merge metadata, cell text edits, cell styling |
+| `test/read/shapes-edit.test.js` | `addTextBox` and `Shape.delete`, with untouched parts byte-identical |
+| `test/read/shape-fill-edit.test.js` | Fill and line setters, schema order, per-kind support and its error codes |
+| `test/read/picture-edit.test.js` | `addPicture` (media part, content type, relationship, format sniffing) and copy-on-write `setImage` |
+| `test/read/clone-slide.test.js` | `cloneSlide` wiring |
+| `test/read/import-slide.test.js` | `importSlide`: the copied layout, master, theme and media, a deck templated from its source, `at`, `rescale`, `importNotes` |
+| `test/read/import-slide-preserve.test.js` | `importSlide({ theme: 'preserve' })`: flattened colours and style references, background, baked placeholder values, `carryMasterGraphics` |
+| `test/read/import-shape.test.js` | `importShape` and `importShapes`, placeholder lifts and `rescale` |
+| `test/read/chart.test.js` | Chart part resolution and series reads; a read-only open stays byte-identical |
+| `test/read/append-onto-existing.test.js` | `appendSlides` onto an existing layout, with chrome byte-identical |
+| `test/read/template-masters.test.js` | `fromTemplate` stripping sample slides and normalizing a `.potx` |
+| `test/read/table-borders.test.js` (*authored*) | `Table.styleId` and `TableCell.borders` |
+| `test/read/chart-format.test.js` (*authored*) | Chart axes, legend, data labels and series appearance |
+| `test/read/run-props.test.js` (*authored*) | Run formatting, run hyperlinks, paragraph line spacing |
+| `test/read/chartex-read.test.js` (*authored*) | ChartEx reads |
+| `test/read/connector-read.test.js` (*authored*) | Connector endpoint binding |
+| `test/read/notes-read.test.js` (*authored*) | Speaker-notes text frames and their hyperlinks |
+| `test/read/shape-effect-reads.test.js` (*authored*) | Shadow, glow, reflection, soft edge, pattern fill and line-end reads, plus authored inner shadow and pattern fill |
+| `test/read/slide-read-edges.test.js` (*authored*) | Picture format sniffing, `Slide.background`, `TextFrame.autofit`, `Slide.slideNumberPlaceholder` |
+
+Schema validity does not prove PowerPoint opens a deck without a repair prompt, and
+desktop PowerPoint checks reserialized XML more strictly than PowerPoint for the web.
+Two scripts write decks for a manual open. Neither asserts anything.
+
+| Script | Writes | For checking that |
+| --- | --- | --- |
+| `pnpm run test:read:emit` | Each fixture after an unmodified load and save, to `.tmp/roundtrip/` | The round-trip output opens clean |
+| `pnpm run test:read:emit:edits` | One edited deck per editing capability (added text box, added picture, deleted shape, cloned slide, edited table cells, imported slides), to `.tmp/read-edits/` | Reserialized and added parts open clean and render as intended |
+
+The two manual PowerPoint checklists, with their current status, are in
+`test/read/fixtures/README.md`.
 
 Changes under `src/read/` should run this suite; new read/edit capabilities
 should extend it (and grow the fixture set) alongside the code.

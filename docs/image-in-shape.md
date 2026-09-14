@@ -305,11 +305,11 @@ for (const shape of presentation.slides[0]?.shapes ?? []) {
 | `setImage(bytes, { contentType, fit })` | Swaps the image. `fit: 'cover'`, `'contain'` or `'stretch'` recomputes the crop for the new image. |
 
 The read model has no accessor for a picture's freeform clip path. See
-[PPTX read and round-trip](reference/pptx-read.md) for the rest of the `Picture` API.
+[Read object model](reference/read-object-model.md#pictures-and-svg) for the rest of the `Picture` API.
 
 ## See also
 
 - [Errors and warnings](errors-and-warnings.md)
 - [`ImageProps`](reference/api/index/type-aliases/ImageProps.md) and [`ImageBaseProps`](reference/api/index/interfaces/ImageBaseProps.md)
 - [`clipPath`](reference/api/index/functions/clipPath.md), [`ClipShape`](reference/api/index/type-aliases/ClipShape.md) and [`GeometryPoint`](reference/api/index/type-aliases/GeometryPoint.md)
-- [PPTX read and round-trip](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)

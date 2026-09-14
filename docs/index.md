@@ -28,7 +28,7 @@ features:
     linkText: Your first deck
   - title: Read
     details: "Open an existing package and inspect it through typed accessors. What the reader cannot yet see is measured and published rather than guessed at."
-    link: /reference/pptx-read
+    link: /reading/read-and-edit
     linkText: Reading a deck
   - title: Convert to a script
     details: "Turn a .pptx into the TypeScript that would rebuild it, with a fidelity note for everything the conversion could not carry."

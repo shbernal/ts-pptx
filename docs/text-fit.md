@@ -311,7 +311,7 @@ A deck opened through `pptx-ts/read` reports what was baked on a shape's `textFr
 | `autofitFontScale` | the baked font scale in percent, or `null` for a bare flag |
 | `autofitLineSpaceReduction` | the baked line spacing reduction in percent, or `null` |
 
-A resized box's baked height is the shape's `height`, in EMU. See [PPTX read and round-trip](reference/pptx-read.md).
+A resized box's baked height is the shape's `height`, in EMU. See [Read object model](reference/read-object-model.md#autofit).
 
 ## See also
 
@@ -319,6 +319,6 @@ A resized box's baked height is the shape's `height`, in EMU. See [PPTX read and
 - [Groups](groups.md)
 - [Embedded fonts](embedded-fonts.md)
 - [Smaller bundles](bundle-size.md)
-- [PPTX read and round-trip](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - [Errors and warnings](errors-and-warnings.md)
 - API reference: [`TsPptx`](reference/api/index/classes/TsPptx.md), [`TextFitShrinkProps`](reference/api/index/interfaces/TextFitShrinkProps.md), [`MeasureTextOptions`](reference/api/index/interfaces/MeasureTextOptions.md), [`OverflowBoxOptions`](reference/api/index/interfaces/OverflowBoxOptions.md), [`TextMeasurement`](reference/api/index/interfaces/TextMeasurement.md)

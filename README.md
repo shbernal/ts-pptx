@@ -79,7 +79,7 @@ unusual: the library it descends from generates decks and does not read them.
 
 - **[Look inside one](docs/reference/pptx-inspection.md)** and get slide count, size,
   parts, media and fonts, without loading the whole thing into a model.
-- **[Edit one](docs/reference/pptx-read.md)**. Open a deck, change the text on slide
+- **[Edit one](docs/reading/read-and-edit.md)**. Open a deck, change the text on slide
   four, save it back. Parts you did not touch come out byte for byte as they went in.
 - **[Turn one into code](docs/reference/pptx-to-script.md)**. Point it at a deck and
   get TypeScript that rebuilds it. Anything it could not express is reported to you

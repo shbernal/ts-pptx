@@ -90,7 +90,7 @@ That rule is why the write path and the read path get different hatches:
 | | Bypasses a convenience | Bypasses a guarantee |
 | --- | --- | --- |
 | **Write path**: the library authors the bytes | Accepted when narrow, typed and validated, as `ShapeGuide.formula`, `shapeAdjust` and a `"<n>emu"` coordinate are. Bad input warns and skips, warns and falls back, or throws, never emits a degenerate result (the API evolution policy in `AGENTS.md`) | Rejected. A caller-provided transform over the emitted XML would leave the library unable to claim anything about its own output |
-| **Read path**: the library did not author the bytes | Accepted, and deep: `part.dom` and `element_` give direct DOM access at every level of the read model | Nothing to bypass: there is no validity promise about bytes the library did not write. The promise it does make survives the hatch. Untouched parts round-trip byte for byte, because only parts marked with `markDirty()` are reserialized, and marking them is the caller's job. See [PPTX read and round-trip](../reference/pptx-read.md) |
+| **Read path**: the library did not author the bytes | Accepted, and deep: `part.dom` and `element_` give direct DOM access at every level of the read model | Nothing to bypass: there is no validity promise about bytes the library did not write. The promise it does make survives the hatch. Untouched parts round-trip byte for byte, because only parts marked with `markDirty()` are reserialized, and marking them is the caller's job. See [Round-trip guarantee](../reference/round-trip.md) |
 
 When a request for a wider write-side hatch has a real need behind it, the answer is a typed,
 validated feature, not a wider hatch.

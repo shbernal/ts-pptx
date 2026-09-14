@@ -366,7 +366,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
 
   It is the fixture behind `Diagram.nodes`, `DiagramPoint.drawnShape` and
   `DiagramPoint.text` in `test/read/diagram.test.js`; the mapping those rest on is
-  documented for consumers in `docs/reference/pptx-read.md`, and the findings below are the
+  documented for consumers in `docs/reference/read-object-model.md`, and the findings below are the
   measurement it came from.
 
   **Findings.** Measured over all four families here plus `mixed.pptx`'s `hList1` — 90

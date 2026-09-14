@@ -34,8 +34,8 @@ the one Node builds from the same code. They are identical.
 | `pptx-ts/node` | `import TsPptx from "pptx-ts/node"` | The Node build, whatever the resolver's conditions | Node | [API reference](../reference/api/index.md) |
 | `pptx-ts/browser` | `import TsPptx from "pptx-ts/browser"` | The browser build, whatever the resolver's conditions | Browsers | [API reference](../reference/api/index.md) |
 | `pptx-ts/families` | `import { charts } from "pptx-ts/families"` | Construct families for `createPresentation({ use })` | Every runtime | [Smaller bundles](../bundle-size.md) |
-| `pptx-ts/read` | `import { Presentation } from "pptx-ts/read"` | Opening, editing and saving an existing deck | Every runtime. Loading from a file path needs Node | [PPTX read and round-trip](../reference/pptx-read.md) |
-| `pptx-ts/inspect` | `import { inspectPptx } from "pptx-ts/inspect"` | Reporting what a package holds without building the full model | Every runtime | [PPTX inspection](../reference/pptx-inspection.md) |
+| `pptx-ts/read` | `import { Presentation } from "pptx-ts/read"` | Opening, editing and saving an existing deck | Every runtime. Loading from a file path needs Node | [Read and edit a deck](../reading/read-and-edit.md) |
+| `pptx-ts/inspect` | `import { inspectPptx } from "pptx-ts/inspect"` | Reporting what a package holds without building the full model | Every runtime | [Inspect a package](../reference/pptx-inspection.md) |
 | `pptx-ts/script` | `import { printScript, readModelToIr } from "pptx-ts/script"` | Turning a deck into the TypeScript that rebuilds it | Every runtime | [PPTX to script](../reference/pptx-to-script.md) |
 | `pptx-ts/measure` | `import { measureText } from "pptx-ts/measure"` | Measuring text against real font metrics | Every runtime | [Text that fits](../text-fit.md) |
 | `pptx-ts/html` | `import { tableToSlides } from "pptx-ts/html"` | Converting an HTML `<table>` into slides | Anywhere with a DOM: a browser, or Node with a DOM library such as happy-dom | [HTML tables to slides](../html-tables.md) |

@@ -206,7 +206,7 @@ A deck opened through `pptx-ts/read` reports fills on shapes, tables and table c
 | `lineGradient` | a shape's gradient stroke |
 
 `slide.background` is the background a slide shows, including one it takes from its layout or master.
-See [PPTX read and round-trip](reference/pptx-read.md).
+See [Read object model](reference/read-object-model.md#fill-and-line).
 
 ## See also
 

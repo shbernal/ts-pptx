@@ -709,7 +709,7 @@ function sectionReadingDecks() {
 			'[Inspection](reference/pptx-inspection.md) reports what a package contains without parsing it into ' + 'a model.'
 		),
 		...bullet(
-			'[Reading](reference/pptx-read.md) loads a deck into an object model, edits it in place, and writes ' +
+			'[Reading](reading/read-and-edit.md) loads a deck into an object model, edits it in place, and writes ' +
 				'the package back out.'
 		),
 		...bullet(

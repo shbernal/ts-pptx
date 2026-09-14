@@ -481,13 +481,13 @@ await writeFile('deck-edited.pptx', await deck.save())
 - Inserting a row or column inside a merge extends the merge. Removing a merge's origin hands the region to its next cell. `mergeCells` refuses a range that cuts through an existing merge, and `unmergeCell` refuses a covered cell.
 - An invalid edit throws `InvalidOptionError` instead of leaving the deck unchanged: `table/invalid-cell-anchor`, `table/invalid-cell-vert`, `table/invalid-cell-overflow`, `table/invalid-cell-margin`, `table/invalid-cell-border`, `table/row-index-out-of-range`, `table/column-index-out-of-range` or `table/merge-range-invalid`. A bad colour throws `color/invalid-hex` or `color/invalid-scheme-token`.
 
-[Reading and round-tripping existing decks](reference/pptx-read.md) lists every member.
+[Read object model](reference/read-object-model.md#tables) lists every member.
 
 ## See also
 
 - [Text that fits](text-fit.md)
 - [Fills and gradients](fills-and-gradients.md)
 - [HTML tables to slides](html-tables.md)
-- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Read and edit a deck](reading/read-and-edit.md)
 - [Errors and warnings](errors-and-warnings.md)
 - API reference: [`TableProps`](reference/api/index/interfaces/TableProps.md), [`TableCellProps`](reference/api/index/interfaces/TableCellProps.md), [`TableCell`](reference/api/index/interfaces/TableCell.md), [`TableRow`](reference/api/index/type-aliases/TableRow.md), [`TableCellDiagonals`](reference/api/index/interfaces/TableCellDiagonals.md), [`TableCell3DProps`](reference/api/index/interfaces/TableCell3DProps.md), [`BorderProps`](reference/api/index/type-aliases/BorderProps.md), [`FillOption`](reference/api/index/type-aliases/FillOption.md), [`TableStyle`](reference/api/index/enumerations/TableStyle.md), [`TableLayoutResult`](reference/api/index/interfaces/TableLayoutResult.md)

@@ -283,8 +283,8 @@ Composing a presentation from construct families is covered in [Smaller bundles]
 ## Reading it back
 
 - Before export, `slide.objects` reports groups and their `children`, as described above.
-- After loading a deck with `pptx-ts/read`, a group is a `GroupShape` whose `shapes` are its children. [PPTX read API](reference/pptx-read.md) covers each child's slide-absolute geometry through the groups around it.
-- [PPTX inspection](reference/pptx-inspection.md#geometry-groups-and-z-order) reports groups as `kind: 'group'` elements, and gives each child a slide-absolute box.
+- After loading a deck with `pptx-ts/read`, a group is a `GroupShape` whose `shapes` are its children. [Read object model](reference/read-object-model.md#absolute-frame-and-groups) covers each child's slide-absolute geometry through the groups around it.
+- [Inspect a package](reference/pptx-inspection.md#geometry-groups-and-z-order) reports groups as `kind: 'group'` elements, and gives each child a slide-absolute box.
 
 ## See also
 
