@@ -893,6 +893,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A structural table edit broke a merge written in the other form.**
+  - A merge reaches `Table.addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells` and
+    `unmergeCell` in two forms. The covered cells this library's writer emits repeat the
+    region's spans, while `mergeCells` writes none. Each edit read the spans off whichever cell sat
+    in its own row or column, so each form broke different edits. Removing a merge's first
+    column left an `hMerge` cell with no origin, and removing its first row left a `vMerge` cell
+    with nothing above it. Adding a row through it gave a covered cell a span of its own, and
+    unmerging a writer-authored merge left spans on the cells it uncovered. PowerPoint reports
+    each of these as a corrupt file, and schema validation sees none of them.
+  - Every edit now resolves a cell to its region's origin before reading a span, and a region
+    whose extent changes keeps the form it was written in.
+
+- **`Table.addColumn` and `TableCell.setBorder` refuse widths they used to write.**
+  - `addColumn(0, NaN)` wrote `w="NaN"`, which reads back as `null`, and a negative width went in
+    as given. `addColumn` now throws `coord/non-finite` or `coord/not-positive`.
+  - `setBorder({ widthPt })` wrote a negative width, and one over 1584pt, outside `ST_LineWidth`.
+    It now throws `table/invalid-cell-border`.
+  - **Migration:** pass a positive column width, and a border width from 0 to 1584pt.
+
 - **A shape imported with `carryAnimation` brought other shapes' effects along.**
   - `importShape` and `importShapes` cloned every main-sequence click group that animated a
     carried shape and remapped only the carried ids. An effect in the same group on a shape

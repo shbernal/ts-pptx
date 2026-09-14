@@ -127,9 +127,21 @@ function assertTcPrOrder(xml, index = 0) {
 	return children
 }
 
+/** Whether a cell sets the merge flag `name` (`hMerge` or `vMerge`). */
+function mergeFlag(cell, name) {
+	const value = cell.element_.getAttribute(name)
+	return value === '1' || value === 'true'
+}
+
 /**
- * Assert the whole grid is still rectangular and every span's continuations are present.
- * This is the check that catches a structural edit breaking something it did not touch.
+ * Assert the whole grid is still rectangular and every merge in it is whole. This is the check
+ * that catches a structural edit breaking something it did not touch.
+ *
+ * Schema validation cannot see any of it. Every covered cell has to resolve to an origin (up
+ * through `vMerge`, then left through `hMerge`) whose extent reaches it, its flags have to match
+ * where it sits in that extent, so an `hMerge` has its origin to the left and a `vMerge` above,
+ * and any span it repeats has to agree with the origin's. This library's writer repeats spans on
+ * covered cells and `mergeCells` does not, so both forms pass and neither is required.
  */
 function assertGridConsistent(table) {
 	const colCount = table.columnCount
@@ -139,20 +151,190 @@ function assertGridConsistent(table) {
 	}
 	for (const [r, cells] of grid.entries()) {
 		for (const [c, cell] of cells.entries()) {
-			if (cell.isMergeContinuation) continue
-			for (let cc = c + 1; cc < c + cell.gridSpan; cc++) {
-				const covered = grid[r][cc]
-				assert(covered, `(${r},${cc}) exists to cover the gridSpan at (${r},${c})`)
-				assert(covered.isMergeContinuation, `(${r},${cc}) is flagged as covered by (${r},${c})`)
+			if (!cell.isMergeContinuation) {
+				for (let cc = c + 1; cc < c + cell.gridSpan; cc++) {
+					const covered = grid[r][cc]
+					assert(covered, `(${r},${cc}) exists to cover the gridSpan at (${r},${c})`)
+					assert(covered.isMergeContinuation, `(${r},${cc}) is flagged as covered by (${r},${c})`)
+				}
+				for (let rr = r + 1; rr < r + cell.rowSpan; rr++) {
+					const covered = grid[rr]?.[c]
+					assert(covered, `(${rr},${c}) exists to cover the rowSpan at (${r},${c})`)
+					assert(covered.isMergeContinuation, `(${rr},${c}) is flagged as covered by (${r},${c})`)
+				}
+				continue
 			}
-			for (let rr = r + 1; rr < r + cell.rowSpan; rr++) {
-				const covered = grid[rr]?.[c]
-				assert(covered, `(${rr},${c}) exists to cover the rowSpan at (${r},${c})`)
-				assert(covered.isMergeContinuation, `(${rr},${c}) is flagged as covered by (${r},${c})`)
+
+			let originRow = r
+			while (originRow > 0 && mergeFlag(grid[originRow][c], 'vMerge')) originRow--
+			let originCol = c
+			while (originCol > 0 && mergeFlag(grid[originRow][originCol], 'hMerge')) originCol--
+			const origin = grid[originRow][originCol]
+			const at = `(${r},${c})`
+			assert(
+				!origin.isMergeContinuation,
+				`${at} resolves to an origin, not to the covered cell (${originRow},${originCol})`
+			)
+			assert(
+				originRow + origin.rowSpan > r && originCol + origin.gridSpan > c,
+				`${at} lies inside the extent of its origin (${originRow},${originCol})`
+			)
+			assertEqual(mergeFlag(cell, 'hMerge'), c > originCol, `${at} is hMerge exactly when its origin is to its left`)
+			assertEqual(mergeFlag(cell, 'vMerge'), r > originRow, `${at} is vMerge exactly when its origin is above it`)
+			for (const name of ['gridSpan', 'rowSpan']) {
+				const own = cell.element_.getAttribute(name)
+				if (own !== null && own !== '') {
+					assertEqual(Number(own), origin[name], `${at} repeats its origin's ${name}, if it carries one`)
+				}
 			}
 		}
 	}
 }
+
+/** A 3x3 table whose top-left 2x2 is merged by the writer, which repeats the spans on covered cells. */
+function writerMergedTable(p) {
+	p.addSlide().addTable(
+		[
+			[{ text: 'X', options: { rowspan: 2, colspan: 2 } }, { text: 'C1' }],
+			[{ text: 'C2' }],
+			[{ text: 'A3' }, { text: 'B3' }, { text: 'C3' }],
+		],
+		{ x: 1, y: 1, w: 9, colW: [3, 3, 3] }
+	)
+}
+
+/** The two forms a 2x2 merge at the top-left of a 3x3 table reaches an edit in. */
+const MERGE_FORMS = [
+	{ form: 'the writer', build: writerMergedTable, merge: () => {} },
+	{ form: 'mergeCells', build: plainTable, merge: (table) => table.mergeCells(0, 0, 1, 1) },
+]
+
+/** Every structural edit, at every position relative to the merge. */
+const STRUCTURAL_EDITS = [
+	{ edit: 'addRow(0)', apply: (table) => table.addRow(0) },
+	{ edit: 'addRow(1)', apply: (table) => table.addRow(1) },
+	{ edit: 'addRow(2)', apply: (table) => table.addRow(2) },
+	{ edit: 'addRow()', apply: (table) => table.addRow() },
+	{ edit: 'removeRow(0)', apply: (table) => table.removeRow(0) },
+	{ edit: 'removeRow(1)', apply: (table) => table.removeRow(1) },
+	{ edit: 'removeRow(2)', apply: (table) => table.removeRow(2) },
+	{ edit: 'addColumn(0)', apply: (table) => table.addColumn(0) },
+	{ edit: 'addColumn(1)', apply: (table) => table.addColumn(1) },
+	{ edit: 'addColumn(2)', apply: (table) => table.addColumn(2) },
+	{ edit: 'addColumn()', apply: (table) => table.addColumn() },
+	{ edit: 'removeColumn(0)', apply: (table) => table.removeColumn(0) },
+	{ edit: 'removeColumn(1)', apply: (table) => table.removeColumn(1) },
+	{ edit: 'removeColumn(2)', apply: (table) => table.removeColumn(2) },
+	{ edit: 'unmergeCell(0, 0)', apply: (table) => table.unmergeCell(0, 0) },
+	{ edit: 'mergeCells(0, 0, 2, 1) around it', apply: (table) => table.mergeCells(0, 0, 2, 1) },
+	{ edit: 'mergeCells(0, 0, 1, 2) beside it', apply: (table) => table.mergeCells(0, 0, 1, 2) },
+]
+
+describe('structural edits on a merged region, in both forms a merge is written in', () => {
+	test.for(MERGE_FORMS.flatMap((form) => STRUCTURAL_EDITS.map((edit) => ({ ...form, ...edit }))))(
+		'$edit on a merge written by $form',
+		async ({ build, merge, apply }) => {
+			const { presentation, table } = await editable(build)
+			merge(table)
+			assertGridConsistent(table)
+			apply(table)
+			assertGridConsistent(table)
+			assertGridConsistent((await reload(presentation)).table)
+		}
+	)
+
+	test.for(MERGE_FORMS)('a row added through a merge by $form grows the region once', async ({ build, merge }) => {
+		const { table } = await editable(build)
+		merge(table)
+		table.addRow(1)
+		assertEqual(table.cell(0, 0).rowSpan, 3, 'the origin spans the new row')
+		assertEqual(table.cell(0, 1).element_.getAttribute('rowSpan') ?? '3', '3', 'a covered cell claims no other span')
+	})
+
+	test.for(MERGE_FORMS)('removing a merge’s first column by $form keeps its origin', async ({ build, merge }) => {
+		const { table } = await editable(build)
+		merge(table)
+		const text = table.cell(0, 0).text
+		table.removeColumn(0)
+		const origin = table.cell(0, 0)
+		assertEqual(origin.text, text, 'the origin and its text stay')
+		assertEqual(origin.gridSpan, 1, 'one column narrower')
+		assertEqual(origin.rowSpan, 2, 'and still two rows tall')
+		assertEqual(table.cell(1, 0).isMergeContinuation, true, 'the cell under it is still covered')
+		assertEqual(mergeFlag(table.cell(1, 0), 'hMerge'), false, 'but not from the left')
+	})
+
+	test.for(MERGE_FORMS)(
+		'removing a merge’s first row by $form hands the region to the row below',
+		async ({ build, merge }) => {
+			const { table } = await editable(build)
+			merge(table)
+			table.removeRow(0)
+			assertEqual(table.cell(0, 0).isMergeContinuation, false, 'the promoted cell is an origin')
+			assertEqual(table.cell(0, 0).gridSpan, 2, 'spanning both columns')
+			assertEqual(mergeFlag(table.cell(0, 1), 'vMerge'), false, 'nothing in the new first row is covered from above')
+		}
+	)
+
+	test.for(MERGE_FORMS)('unmerging a merge written by $form leaves no span behind', async ({ build, merge }) => {
+		const { table } = await editable(build)
+		merge(table)
+		table.unmergeCell(0, 0)
+		for (const [r, c] of [
+			[0, 0],
+			[0, 1],
+			[1, 0],
+			[1, 1],
+		]) {
+			const tc = table.cell(r, c).element_
+			for (const name of ['gridSpan', 'rowSpan', 'hMerge', 'vMerge']) {
+				assertEqual(tc.getAttribute(name) || null, null, `(${r},${c}) has no ${name}`)
+			}
+		}
+	})
+})
+
+describe('structural and border edits refuse numbers the schema cannot hold', () => {
+	test('addColumn refuses a width that is not a positive number of EMU', async () => {
+		const { table } = await editable(plainTable)
+		assertEqual(
+			codeOfThrow(() => table.addColumn(0, NaN)),
+			'coord/non-finite',
+			'NaN'
+		)
+		assertEqual(
+			codeOfThrow(() => table.addColumn(0, -5)),
+			'coord/not-positive',
+			'a negative width'
+		)
+		assertEqual(
+			codeOfThrow(() => table.addColumn(0, 0)),
+			'coord/not-positive',
+			'zero'
+		)
+		assertEqual(table.columnCount, 3, 'no column was added')
+	})
+
+	test('setBorder refuses a width outside ST_LineWidth', async () => {
+		const { table } = await editable(plainTable)
+		const cell = table.cell(0, 0)
+		assertEqual(
+			codeOfThrow(() => cell.setBorder('top', { widthPt: -2 })),
+			'table/invalid-cell-border',
+			'negative'
+		)
+		assertEqual(
+			codeOfThrow(() => cell.setBorder('top', { widthPt: 1585 })),
+			'table/invalid-cell-border',
+			'over 1584pt'
+		)
+		assertEqual(
+			codeOfThrow(() => cell.setBorder('top', { widthPt: 1584 })),
+			null,
+			'1584pt is the largest width'
+		)
+	})
+})
 
 describe('TableCell setters — a:tcPr attributes', () => {
 	test('anchor, vert, horzOverflow and anchorCtr all set, and null clears', async () => {

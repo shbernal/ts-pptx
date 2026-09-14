@@ -35,7 +35,7 @@ import {
 	VERT_VALUES,
 	type TableCellEdge,
 } from './table-edit.js'
-import { checkFiniteEmu, ptFromEmu } from './coords.js'
+import { checkFiniteEmu, checkLineWidthEmu, ptFromEmu } from './coords.js'
 import { isHMerge, isVMerge } from './table-structure.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
 import type { ThemeContext } from '../oxml/theme.js'
@@ -332,7 +332,11 @@ export class TableCell {
 		const doc = ownerDocumentOf(tcPr)
 		const ln = createElement(doc, qname)
 		if (border.widthPt !== undefined && border.widthPt !== null) {
-			setAttr(ln, 'w', String(checkFiniteEmu(border.widthPt * EMU_PER_POINT, 'widthPt', 'table/invalid-cell-border')))
+			setAttr(
+				ln,
+				'w',
+				String(checkLineWidthEmu(border.widthPt * EMU_PER_POINT, 'widthPt', 'table/invalid-cell-border'))
+			)
 		}
 		if (border.noFill) {
 			ln.appendChild(createElement(doc, 'a:noFill'))

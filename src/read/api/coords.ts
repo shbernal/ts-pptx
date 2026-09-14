@@ -43,6 +43,27 @@ export function checkPositiveEmu(value: number, field: string): number {
 	return rounded
 }
 
+/** `ST_LineWidth`'s upper bound, 1584pt in EMU. */
+const MAX_LINE_WIDTH_EMU = 20116800
+
+/**
+ * Round a line width to whole EMU, rejecting one `ST_LineWidth` cannot hold: it has to be
+ * finite and from 0 to {@link MAX_LINE_WIDTH_EMU}. A value outside that range is not a thin or a
+ * thick line, it is a part PowerPoint reports as needing repair.
+ * @param value - the caller's width, in EMU
+ * @param field - the option name, opening the message
+ * @param code - the error code to raise
+ */
+export function checkLineWidthEmu(value: number, field: string, code: InvalidOptionErrorCode): number {
+	const rounded = checkFiniteEmu(value, field, code)
+	if (rounded < 0 || rounded > MAX_LINE_WIDTH_EMU)
+		throw new InvalidOptionError(
+			code,
+			`${field} must be from 0 to ${MAX_LINE_WIDTH_EMU} EMU (1584pt), got: ${String(value)} EMU`
+		)
+	return rounded
+}
+
 /**
  * EMU → points, propagating "absent". The read model reports line widths, effect radii and text
  * insets in points while the DOM stores EMU, so `x === null ? null : x / EMU_PER_POINT` stood at
