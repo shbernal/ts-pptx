@@ -439,6 +439,68 @@ apply to every file that is not ignored. So both trees are named in
 Starting to lint them is a decision worth taking on its own merits, not a side
 effect of changing linters.
 
+## When a check fails
+
+Start from the check that failed and the layer it tests. These three are the ones whose
+failures do not explain themselves. User-facing symptoms, such as a deck PowerPoint offers
+to repair, are on [Troubleshooting](../troubleshooting.md).
+
+### `test:package` fails
+
+`test:package` packs the tarball, installs it with npm and pnpm, and resolves every export
+subpath through the installed `exports` map, the way a consumer does. No suite under `test/`
+does that, because those import from `dist/` by path. [Package boundary
+checks](testing.md#package-boundary-checks) lists what it asserts. The usual causes:
+
+- A public export was renamed or removed. The TypeScript consumer that
+  `scripts/package-smoke.mjs` generates still uses it, and no unit test notices.
+- A new subpath is missing from `files`, from the `exports` map, or from `EXPORT_MATRIX` in
+  `scripts/package-smoke.mjs`.
+- A retired upstream artifact is back in the tarball. The `assertNoFile` calls in
+  `scripts/package-smoke.mjs` name each one.
+- A top-level `await` reached an entry's chunk graph, so `require()` of that entry throws.
+
+A declaration that does not resolve fails `package:lint` first: it runs publint and
+`@arethetypeswrong/cli` over the packed tarball.
+
+### `test:schema` fails, or PowerPoint rejects a deck
+
+The usual causes:
+
+- The emitted XML is structurally invalid.
+- PowerPoint treats a structure differently from the schema.
+- A change moved package parts or relationships without a matching fixture.
+
+To work it:
+
+1. Read [OOXML agent context](ooxml.md) before changing the emitter.
+2. Take the diagnostic's `id`, `description`, `partUri` and `xpath` (see [What a validation
+   error carries](testing.md#what-a-validation-error-carries)) to the `ooxml` MCP server's
+   `ooxml_explain`, which answers what was legal at that position.
+3. Add or update a focused fixture in `test/schema-cases.js`, and iterate with
+   `pnpm run test:schema`.
+
+A deck can pass the schema and still fail in PowerPoint, with `0x80070570` or a dropped
+shape. `pnpm run test:com` opens decks in PowerPoint over COM to catch that. It runs only on
+Windows with PowerPoint installed, and CI does not run it. See [The object model is not a
+render oracle](testing.md#the-object-model-is-not-a-render-oracle).
+
+### `docs:check` fails
+
+`docs:check` runs `docs:api` first, which regenerates `docs/reference/api/` with TypeDoc, then
+`scripts/docs-check.mjs`. The second step reports:
+
+- a missing or empty frontmatter field, or a `doc_type` outside the allowed list;
+- an unbalanced code fence;
+- a `docs.json` navigation entry with no page, or a page in no navigation group;
+- a broken relative link or site route, or a relative link that leaves `docs/`;
+- a relative link from a served page into `docs/contributing/`, which the site does not
+  build. The message prints the GitHub URL to use instead.
+
+`docs/reference/api/` is gitignored and rebuilt on every run, so an edit there is lost. A
+wrong API page comes from the TSDoc in `src/`: fix it there. The check resolves a link's
+path and ignores its `#anchor`, so a heading rename that breaks an anchor passes it.
+
 ## Errors and diagnostics
 
 [Errors and warnings](../errors-and-warnings.md) is the contract a consumer sees. This
