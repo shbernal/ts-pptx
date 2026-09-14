@@ -3,8 +3,8 @@ doc-schema-version: 1
 title: "Demos"
 summary: "The quarterly-review showcase deck, built in your browser and previewed in the page."
 read_when:
-  - Seeing what a deck built with this library looks like
-  - Deciding whether to clone the repo and run the showcases yourself
+  - Seeing what a deck built with ts-pptx looks like before installing it
+  - Running the showcase decks from a clone of the repository
 doc_type: "guide"
 # The slides are the page. Dropping the right-hand table of contents gives them the width
 # back, and there are only two headings on it to lose.

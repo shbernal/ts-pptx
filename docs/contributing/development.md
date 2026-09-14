@@ -80,7 +80,7 @@ Do not "tidy" such a member to the bare name; doing so silently converts a flagg
 hatch into ordinary-looking API. Every `element_` is paired with a public
 `markDirty()` on the same object, because handing out a live DOM node without the
 obligation that comes with it is how an edit vanishes on save. See the
-"Escape hatches" section of [project target](../project-target.md) for when a new
+"Escape hatches" section of [project target](scope-and-policy.md) for when a new
 hatch is acceptable at all.
 
 ## Common commands

@@ -80,7 +80,7 @@ chart and table and media serialization, current TypeScript or ESM behavior: all
 candidates. Anything resting on CommonJS, IIFE globals, a direct CDN script tag, or
 a legacy artifact name is not, and stays that way until the documented target
 changes.
-[Project target → What stays in the consumer](../project-target.md#what-stays-in-the-consumer)
+[Scope and design policy → What stays in the consumer](scope-and-policy.md#what-stays-in-the-consumer)
 lists what this package turns down no matter how good the case is.
 
 ## Communication expectations

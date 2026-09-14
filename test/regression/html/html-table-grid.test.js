@@ -6,7 +6,7 @@ import { createRowSpanOccupancy } from '../../../src/gen/table/grid.ts'
 // Acceptance: an HTML table's rows do not state their own width — a `colspan` fills several grid
 // columns and a `rowspan` from above fills one the row never mentions — but `<a:tblGrid>` declares
 // a column count that every `<a:tr>` must match. These are the two DOM-independent decisions that
-// translate between the two models, unit-tested directly (the pattern docs/project-target.md
+// translate between the two models, unit-tested directly (the pattern docs/contributing/scope-and-policy.md
 // prescribes for this file's DOM-bound neighbours).
 
 /** Shorthand: a row of plain single-track cells. */

@@ -32,7 +32,7 @@ import { buildTableInHarness, buildTableInNode, openTableHarness, packageBytes }
  *
  * NOT claimed: that the rows are the height PowerPoint will draw them, or that the table ends up
  * where the slide's bottom edge is in a renderer. That is layout fidelity, it has no oracle here,
- * and it stays out of scope (docs/project-target.md "Out Of Active Scope"). The fixture is built
+ * and it stays out of scope (docs/contributing/scope-and-policy.md "Out Of Active Scope"). The fixture is built
  * so the weaker claim is enough — see harness/table-fixture.mjs.
  */
 

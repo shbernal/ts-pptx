@@ -12,7 +12,7 @@ import {
 // with no layout engine. `offsetWidth` is 0 for every cell there, which made the proportional
 // calc a 0/0 divide and emitted a zero-width table; `innerText` is absent on some DOMs, which
 // emptied every cell. These are the three DOM-independent decisions behind that, unit-tested
-// directly (the pattern docs/project-target.md prescribes for this file).
+// directly (the pattern docs/contributing/scope-and-policy.md prescribes for this file).
 
 describe('parseCssPx', () => {
 	test('parses a px length', () => {

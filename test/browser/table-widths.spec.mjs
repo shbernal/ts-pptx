@@ -26,7 +26,7 @@ import { buildTableInHarness, buildTableInNode, openTableHarness, packageBytes, 
  *
  * NOT claimed: that Chromium's measurement is the *right* measurement, or that another
  * engine would produce the same one. That is live-DOM layout fidelity, it has no oracle,
- * and it stays out of scope — see docs/project-target.md "Out Of Active Scope". A layout
+ * and it stays out of scope — see docs/contributing/scope-and-policy.md "Out Of Active Scope". A layout
  * difference between two browsers is not a defect in this package; a `.pptx` a browser
  * builds differently from Node *is*, which is what the last test here pins.
  */

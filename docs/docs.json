@@ -1,11 +1,17 @@
 {
   "name": "ts-pptx",
-  "description": "Documentation for the modern ESM-first ts-pptx.",
+  "description": "Build, read and edit PowerPoint .pptx files from TypeScript, with no PowerPoint installed.",
   "repoOnly": ["contributing"],
   "navigation": [
     {
       "group": "Getting started",
-      "pages": ["demos", "project-target", "runtime-and-package-support", "bundle-size"]
+      "pages": [
+        "getting-started/introduction",
+        "demos",
+        "getting-started/installation",
+        "runtime-and-package-support",
+        "bundle-size"
+      ]
     },
     {
       "group": "Write a deck",

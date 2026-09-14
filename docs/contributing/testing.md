@@ -1090,7 +1090,7 @@ fix is in `src/gen/table/autopage.ts`, and the regression guarding it is DOM-fre
 (`test/regression/table/table-autopage-continuation-budget.test.js`). One triage rule
 came out of it: ask what the browser actually supplies to a code path before accepting a
 report as a layout report. It is stated with the scope line in
-[project target](../project-target.md).
+[project target](scope-and-policy.md).
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
 and are built **twice** (once in Chromium, once in Node) from that one
@@ -1149,7 +1149,7 @@ What this lane does **not** cover, and must not be read as covering:
   (arithmetic the pager owes itself), never that an estimated row height is the
   height PowerPoint will draw. That second claim is layout
   fidelity, it has no oracle, and it remains out of active scope
-  ([project target](../project-target.md)). *Runtime support* and *layout fidelity*
+  ([project target](scope-and-policy.md)). *Runtime support* and *layout fidelity*
   are separate claims and must stay separate: a layout difference between two
   browsers is not a defect in this package; a `.pptx` a browser builds differently
   from Node is.

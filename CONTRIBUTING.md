@@ -14,7 +14,7 @@ tested and contributed to.
 - **[docs/contributing/testing.md](docs/contributing/testing.md)**: regression, schema, package, demo and
   coverage commands, plus the fast edit-then-test inner loop (a `tsdown` watcher and a
   Vitest watcher in two terminals) and single-test invocation.
-- **[docs/project-target.md](docs/project-target.md)**: what this project aims to
+- **[docs/contributing/scope-and-policy.md](docs/contributing/scope-and-policy.md)**: what this project aims to
   support, and what it leaves to a consumer.
 
 ## Setting up
@@ -74,7 +74,7 @@ up bugs or feature requests there:
 
 **Contributions in both areas are welcome.** Issues and pull requests are encouraged
 even though the maintainer is not actively developing them.
-[`docs/project-target.md`](docs/project-target.md) carries the full scope statement and
+[`docs/contributing/scope-and-policy.md`](docs/contributing/scope-and-policy.md) carries the full scope statement and
 suggested testing approaches.
 
 ## Reporting bugs and proposing changes

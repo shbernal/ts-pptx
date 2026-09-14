@@ -11,7 +11,7 @@
 //
 // What this is NOT is a layout-fidelity fixture. Nothing here asserts that Chromium's
 // numbers are the right numbers, or that another engine would agree — see
-// ./table-fixture.mjs and docs/project-target.md "Out Of Active Scope".
+// ./table-fixture.mjs and docs/contributing/scope-and-policy.md "Out Of Active Scope".
 
 import TsPptx from '../../../dist/browser.js'
 import { TABLE_HTML, TABLE_ID } from './table-fixture.mjs'

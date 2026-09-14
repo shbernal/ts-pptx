@@ -57,7 +57,7 @@ export default defineConfig({
 	title: docsConfig.name,
 	themeConfig: {
 		nav: [
-			{ text: 'Guide', link: '/project-target' },
+			{ text: 'Guide', link: '/getting-started/introduction' },
 			{ text: 'Demos', link: '/demos' },
 			{ text: 'API', link: '/reference/api/' },
 			{ text: 'GitHub', link: 'https://github.com/shbernal/ts-pptx' },

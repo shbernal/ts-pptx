@@ -13,11 +13,11 @@ hero:
   tagline: "Write .pptx packages that open cleanly in PowerPoint, read them back, and turn one into the script that would rebuild it."
   actions:
     - theme: brand
+      text: Get started
+      link: /getting-started/introduction
+    - theme: alt
       text: See a deck built in your browser
       link: /demos
-    - theme: alt
-      text: Start here
-      link: /project-target
     - theme: alt
       text: API reference
       link: /reference/api/
@@ -46,33 +46,13 @@ features:
 pnpm add pptx-ts
 ```
 
-`@shbernal/ts-pptx` is an alias for the same package, published from the same commit
-at the same version. It is the name this project published under first, and installs
-that already use it keep resolving. Install one or the other rather than both. These
-docs use `pptx-ts` throughout.
+[Installation](getting-started/installation.md) covers npm, CommonJS, the optional math
+dependencies and the package's other name.
 
-## Start here
+## Where to go next
 
-- [Project target](project-target.md): what this project is optimized for.
-- [Runtime and package support](runtime-and-package-support.md): supported package
-  imports, and how each runtime loads the one build.
-- [API reference](reference/api/index.md): the generated reference for `pptx-ts`,
-  `pptx-ts/node` and `pptx-ts/browser`.
-- [Contributing](contribute.md): reporting a problem, and the documentation for working on
-  the repository.
-
-## Maintenance focus
-
-- Keep ts-pptx focused on reusable PPTX generation behavior.
-- Treat `package.json` exports and generated declarations as the package API
-  boundary.
-- Keep OOXML behavior grounded in fixtures, schema validation, and small local
-  notes.
-- Keep consumer-specific deck production behavior in the downstream consumer, not
-  this package.
-
-## Standard verification
-
-```bash
-pnpm run verify
-```
+- [Introduction](getting-started/introduction.md): what the library does, what you can build with
+  it, and its limits.
+- [Demos](demos.md): a deck built in your browser and previewed in the page.
+- [Comparison with PptxGenJS](comparison.md): what each library emits, measured by building the
+  same decks with both.

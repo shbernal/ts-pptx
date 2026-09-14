@@ -11,7 +11,7 @@
 // These fixtures run it end to end in a real layout engine. They assert that the measured
 // arm executes and that the emitted grid is proportional to what was measured. They do NOT
 // assert that the measurement matches what a browser painted, or that two engines agree —
-// that is live-DOM layout fidelity, and it stays out of scope (docs/project-target.md).
+// that is live-DOM layout fidelity, and it stays out of scope (docs/contributing/scope-and-policy.md).
 //
 // ── The discriminator ──────────────────────────────────────────────────────────────────
 //

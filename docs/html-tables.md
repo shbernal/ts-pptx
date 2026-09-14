@@ -81,4 +81,4 @@ real Chromium in `test/browser/table-widths.spec.mjs`. What a browser adds is
 
 Matching how a browser laid a page out is a separate question, and it stays outside
 what this project actively develops: see
-[Project target](project-target.md#out-of-active-scope-contributions-welcome).
+[the scope page](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/scope-and-policy.md#out-of-active-scope-contributions-welcome).

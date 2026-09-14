@@ -17,9 +17,9 @@ doc_type: "reference"
 
 ts-pptx is an independent derivative of
 [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1 (see
-[project target](project-target.md)). Descending from a project is a poor reason to be
-trusted over it, so every difference below was produced by running both libraries and
-reading what came out.
+[Introduction](getting-started/introduction.md#lineage)). Descending from a project is a
+poor reason to be trusted over it, so every difference below was produced by running both
+libraries and reading what came out.
 
 Measured on 2026-09-06: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm (published 2025-06-26).

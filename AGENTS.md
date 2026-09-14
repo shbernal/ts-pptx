@@ -26,7 +26,7 @@
   work on them. When a task lands in one, say so and treat it as out of scope,
   unless the user explicitly opts in. Neither is rejected on merit, and outside
   contributors are welcome to submit PRs. The maintainer is simply not driving them.
-  See `docs/project-target.md` ("Out of active scope") for the full statement.
+  See `docs/contributing/scope-and-policy.md` ("Out of active scope") for the full statement.
   - **Live-DOM / browser-layout features.** Anything whose answer comes from a
     *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts
     as the browser chose them. `tableToSlides()` is NOT in this category any more:
@@ -74,7 +74,7 @@
   arms of the branch you changed and ask what is now unreachable.
 - Before adding, widening, or removing an escape hatch (raw XML, a passthrough
   string, direct DOM access), read the "Escape hatches" section of
-  `docs/project-target.md`. It states the convenience-vs-guarantee rule and why
+  `docs/contributing/scope-and-policy.md`. It states the convenience-vs-guarantee rule and why
   the read path gets a deep raw hatch while the write path does not. That
   document is the whole reasoning. Do not re-derive it from anywhere else.
 

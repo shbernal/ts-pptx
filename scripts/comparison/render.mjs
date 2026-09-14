@@ -341,7 +341,7 @@ function sectionPremise(snapshot) {
 		...para(
 			'ts-pptx is an independent derivative of ' +
 				'[gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1 ' +
-				'(see [project target](project-target.md)). Descending from a project is a poor reason ' +
+				'(see [Introduction](getting-started/introduction.md#lineage)). Descending from a project is a poor reason ' +
 				'to be trusted over it, so every difference below was produced by running both ' +
 				'libraries and reading what came out.'
 		),

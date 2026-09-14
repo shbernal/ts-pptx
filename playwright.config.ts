@@ -29,7 +29,7 @@ import { defineConfig, devices } from '@playwright/test'
  * browser's numbers are the right numbers, or whether two engines agree on them. The
  * distinction is fine but load-bearing: `html-table` asserts that a measurement is taken
  * and honoured proportionally, never that it matches what the page painted. Runtime
- * support and layout fidelity are separate claims (see docs/project-target.md "Out Of
+ * support and layout fidelity are separate claims (see docs/contributing/scope-and-policy.md "Out Of
  * Active Scope"); this lane moves only the first one.
  *
  * Run it with `pnpm run test:browser`, which builds `dist/` and the site first.

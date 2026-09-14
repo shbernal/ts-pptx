@@ -146,7 +146,7 @@ Two claims, kept separate on purpose:
   inspection.
 - **Browser *layout* is not an oracle this library answers to.** The resolved CSS
   cascade, and fonts as the browser chose them, stay out of active scope (see
-  [Project target](project-target.md)). `tableToSlides()` runs anywhere there is a
+  [the scope page](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/scope-and-policy.md#out-of-active-scope-contributions-welcome)). `tableToSlides()` runs anywhere there is a
   DOM. Only *measurement* is lost without a layout engine. `offsetWidth` reads `0`,
   column widths fall back to computed CSS widths and then to an equal split, and
   `data-pptx-width` / `data-pptx-min-width` pin them.
@@ -213,7 +213,7 @@ cross-engine history. Not pre-emptively.
 Two gaps, stated rather than implied:
 
 - **Live-DOM layout**, as above: deliberate, and the subject of
-  [Project target](project-target.md).
+  [the scope page](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/scope-and-policy.md#out-of-active-scope-contributions-welcome).
 - **Two arms of `createSvgPngPreview`**: a missing 2d context and a
   `toDataURL` that throws. Neither is reachable in a browser that has a working
   canvas and is drawing a same-origin data URI; reaching them means stubbing DOM
