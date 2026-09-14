@@ -11,7 +11,7 @@ import { prstGeomRect } from '../../drawingml/geometry.js'
 import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
-import { cNvPrOpen, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrOpen, graphicFrameEl, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -53,29 +53,28 @@ export function renderChartObject(ctx: RenderContext): string {
 		? voidEl('cx:chart', { 'xmlns:cx': OOXML_NS.cx, 'r:id': `rId${slideItemObj.chartRid}` }, { openPrefix: '   ' })
 		: voidEl('c:chart', { 'r:id': `rId${slideItemObj.chartRid}`, 'xmlns:c': OOXML_NS.c }, { openPrefix: '   ' })
 
-	const graphicFrame = el('p:graphicFrame', null, [
-		raw(
-			el(
-				'p:nvGraphicFramePr',
-				null,
-				[
-					raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
-					raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
-					raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
-				],
-				{ openPrefix: ' ', closePrefix: ' ' }
-			)
+	const graphicFrame = graphicFrameEl({
+		nvGraphicFramePr: el(
+			'p:nvGraphicFramePr',
+			null,
+			[
+				raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
+				raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
+				raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
+			],
+			{ openPrefix: ' ', closePrefix: ' ' }
 		),
-		raw(xfrmEl('p:xfrm', { x, y, cx, cy }, null, { openPrefix: ' ' })),
-		raw(
-			el(
-				'a:graphic',
-				{ 'xmlns:a': OOXML_NS.a },
-				raw(el('a:graphicData', { uri: graphicDataUri }, raw(chartChild), { openPrefix: '  ', closePrefix: '  ' })),
-				{ openPrefix: ' ', closePrefix: ' ' }
-			)
-		),
-	])
+		frame: { x, y, cx, cy },
+		uri: graphicDataUri,
+		payload: chartChild,
+		fmt: {
+			xfrm: { openPrefix: ' ' },
+			graphic: { openPrefix: ' ', closePrefix: ' ' },
+			graphicData: { openPrefix: '  ', closePrefix: '  ' },
+			// PowerPoint redeclares `xmlns:a` on a chart frame's `a:graphic`.
+			graphicAttrs: { 'xmlns:a': OOXML_NS.a },
+		},
+	})
 
 	if (!isChartEx) return graphicFrame
 
