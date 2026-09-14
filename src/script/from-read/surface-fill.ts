@@ -25,8 +25,21 @@ import {
 	literalColor,
 } from './values.js'
 
+/**
+ * The two background tiers, which read the same `a:gradFill` and `a:pattFill` out of `p:bgPr` and
+ * record their notes under their own construct: a slide's and a layout's are separate losses.
+ */
+export type BackgroundSurface = 'slide.background' | 'master.background'
+
 /** How a note names the surface a gradient sits on: `fill.gradient`, `table.fill.gradient`, … */
-type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
+type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill' | BackgroundSurface
+
+/** How a note's prose names a gradient stop's surface. */
+function stopLabel(where: FillNoteScope): string {
+	if (where === 'line') return 'line gradient stop'
+	if (where === 'slide.background' || where === 'master.background') return 'background gradient stop'
+	return 'fill gradient stop'
+}
 
 /**
  * A read gradient as `GradientFillProps`. Stop positions convert from the read model's
@@ -46,7 +59,7 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
 				{ scheme: stop.schemeColor, resolvedHex: stop.effectiveHex },
 				notes,
 				`${where}.gradient.schemeToken`,
-				`${where === 'line' ? 'line' : 'fill'} gradient stop`
+				stopLabel(where)
 			)
 			if (color === undefined) return null
 			return compact({
@@ -93,7 +106,11 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
  * token. Both used to be baked to hex, and a theme-coloured hatch could not be told from a literal
  * one, so the copy stopped tracking its theme with nothing to say so.
  */
-function patternOption(pattern: PatternFill | null, notes: NoteScope, where: FillSurface): IrValue | undefined {
+export function patternOption(
+	pattern: PatternFill | null,
+	notes: NoteScope,
+	where: FillSurface | BackgroundSurface
+): IrValue | undefined {
 	if (!pattern?.preset) return undefined
 	const color = (scheme: string | null, resolved: ResolvedColor | null, label: string): string | undefined =>
 		colorOption({ scheme, resolvedHex: resolved?.effectiveHex ?? null }, notes, `${where}.pattern.schemeToken`, label)

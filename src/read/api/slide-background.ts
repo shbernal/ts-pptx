@@ -3,9 +3,9 @@
  *
  * A background lives on the slide itself, or is inherited from its slideLayout,
  * else its slideMaster — the {@link SlideBackground.source} field records which.
- * The writer authors solid-colour, gradient, and image backgrounds (all FAITHFUL);
- * pattern and theme-indexed (`p:bgRef`) backgrounds are read-only for imported
- * decks — surface them so a codegen pass can carry the part rather than fake it. A
+ * The writer authors solid-colour, gradient, pattern and image backgrounds (all FAITHFUL);
+ * theme-indexed (`p:bgRef`) backgrounds are read-only for imported decks — surface
+ * them so a codegen pass can carry the part rather than fake it. A
  * `themeRef` additionally resolves its `idx` through the slide theme's `fmtScheme`
  * to a concrete {@link BackgroundFill} in `resolvedFill`, so a consumer can ask what
  * colour/gradient a theme-indexed background actually renders as.

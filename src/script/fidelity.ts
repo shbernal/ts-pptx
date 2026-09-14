@@ -183,6 +183,11 @@ export const NOTE_CONSTRUCTS = {
 	// Deck-scoped, so anchored at the root: a layout's background and title sit under
 	// `chrome.masters`, and a renamed layout also reaches every slide bound to it as `layoutName`.
 	'master.background': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
+	// A background's gradient and pattern take the shape fill's notes, under the tier's construct.
+	'master.background.gradient': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
+	'master.background.gradient.path': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
+	'master.background.gradient.schemeToken': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
+	'master.background.pattern.schemeToken': { fields: ['chrome.masters.background.*'], tiers: STANDALONE_ONLY },
 	'master.colorMap': { fields: [], tiers: STANDALONE_ONLY },
 	'master.decoration': { fields: [], tiers: STANDALONE_ONLY },
 	// Scoped to the `DEFAULT` layout's title, so a suffix: the whole added layout.
@@ -231,6 +236,10 @@ export const NOTE_CONSTRUCTS = {
 	// Slide-scoped, so anchored at the root. The diff compares the slide's `background` as one
 	// value, so the colour, transparency and picture bytes all land on that one path.
 	'slide.background': { fields: ['background'], tiers: BOTH_TIERS },
+	'slide.background.gradient': { fields: ['background'], tiers: BOTH_TIERS },
+	'slide.background.gradient.path': { fields: ['background'], tiers: BOTH_TIERS },
+	'slide.background.gradient.schemeToken': { fields: ['background'], tiers: BOTH_TIERS },
+	'slide.background.pattern.schemeToken': { fields: ['background'], tiers: BOTH_TIERS },
 	'slide.carried': { fields: ['*'], tiers: TEMPLATE_ONLY },
 	'slide.layout': { fields: ['layoutName'], tiers: BOTH_TIERS },
 	'slide.name': { fields: [], tiers: BOTH_TIERS },

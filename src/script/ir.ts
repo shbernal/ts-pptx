@@ -121,10 +121,16 @@ export type SlideSource = 'authored' | 'carried'
  * `data` rather than `image`, because `BackgroundProps` is `DataOrPathProps & ShapeFillProps`
  * and `data` is the key it actually reads — an `image` key would print, typecheck against
  * `IrValue`, and be ignored at run time.
+ *
+ * `type`, `gradient` and `pattern` are the `ShapeFillProps` keys a non-solid background is
+ * spelled with, the same values a shape's `fill` carries for the same elements.
  */
 export interface BackgroundIr {
+	type?: 'gradient' | 'pattern'
 	color?: string
 	transparency?: number
+	gradient?: IrValue
+	pattern?: IrValue
 	data?: AssetRef
 }
 

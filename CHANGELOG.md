@@ -955,6 +955,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptxToScript` keeps a gradient or a pattern background, on a slide and on a layout.**
+  - Both were dropped under `slide.background` or `master.background`, with a note saying the
+    write API's `background` option could not express them. It can: `BackgroundProps` extends
+    `ShapeFillProps`. Both carry now as `background: { type: 'gradient', gradient }` or
+    `{ type: 'pattern', pattern }`, spelled the way a shape's `fill` is.
+  - A theme reference (`p:bgRef`) that resolves to a gradient, a pattern or a picture carries
+    that fill too, and keeps its `flattened` note. It used to be dropped unless it resolved to a
+    solid colour.
+  - A background's gradient and pattern record the shape fill's notes under the tier's own
+    construct: `slide.background.gradient`, `.gradient.path`, `.gradient.schemeToken` and
+    `.pattern.schemeToken`, and the same four under `master.background`.
+  - `BackgroundIr` gains `type`, `gradient` and `pattern`. Code that builds a `BackgroundIr` by
+    hand needs no change; code that reads one should expect the new keys.
+
 - **`pptxToScript` keeps a run's slide link and a freeform's text, and notes more of what text
   loses.**
   - A run linked to another slide of the deck lost its link in silence, though a comment said

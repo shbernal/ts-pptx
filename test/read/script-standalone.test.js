@@ -281,6 +281,32 @@ describe('standalone printer — cases the fixture corpus does not contain', () 
 		)
 	})
 
+	test('a gradient and a pattern background survive the script, on a slide and on a layout', async () => {
+		const gradient = {
+			type: 'gradient',
+			gradient: {
+				kind: 'linear',
+				angle: 45,
+				stops: [
+					{ color: 'accent2', position: 0 },
+					{ color: '203864', position: 100 },
+				],
+			},
+		}
+		const bytes = await authored((pptx) => {
+			pptx.defineSlideMaster({ title: 'BANDED', background: { type: 'pattern', pattern: { preset: 'ltVert' } } })
+			pptx.addSlide().background = gradient
+			pptx.addSlide({ masterTitle: 'BANDED' })
+		})
+		const { ir, printed, outputIr, report } = await runStandalone(bytes)
+		assert(printed.code.includes("type: 'gradient'"), 'the script spells the gradient out')
+		expect(outputIr.slides[0].background).toEqual(ir.slides[0].background)
+		const banded = (deck) => deck.chrome.masters.find((master) => master.props.title === 'BANDED')?.props.background
+		assertEqual(banded(ir)?.type, 'pattern', 'the layout’s pattern reaches the IR')
+		expect(banded(outputIr)).toEqual(banded(ir))
+		assertEqual(report.undeclared.length, 0, `no undeclared difference (got ${JSON.stringify(report.undeclared)})`)
+	})
+
 	test('an extended chart is transcribed around rather than carried, since there is nothing to carry from', async () => {
 		const bytes = await authored((pptx) => {
 			const slide = pptx.addSlide()

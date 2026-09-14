@@ -13,11 +13,31 @@
 // cases assert what the read model and the IR say, against a deck whose three slide-scoped
 // backgrounds are the corpus' only instances of each.
 
-import { describe, test } from 'vitest'
+import JSZip from 'jszip'
+import { describe, expect, test } from 'vitest'
+import { Presentation } from '../../dist/read.js'
+import { readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { authorRead } from './authored.js'
 import { irFor, openFixture } from './corpus.js'
 
 const FIXTURE = 'slide-background.pptx'
+
+const GRADIENT = {
+	type: /** @type {const} */ ('gradient'),
+	gradient: {
+		kind: /** @type {const} */ ('linear'),
+		angle: 90,
+		stops: [
+			{ color: 'FF0000', position: 0 },
+			{ color: '0000FF', position: 100 },
+		],
+	},
+}
+const PATTERN = {
+	type: /** @type {const} */ ('pattern'),
+	pattern: { preset: /** @type {const} */ ('dkHorz'), fgColor: 'accent1', bgColor: 'FFFFFF' },
+}
 
 describe('the read model resolves a slide-scoped background of every kind', () => {
 	test('a slide’s own picture, theme reference and transparent solid are all read', async () => {
@@ -81,6 +101,44 @@ describe('the converter carries a slide-scoped background instead of dropping it
 		// transparency as a 0-100 percent. `BackgroundIr.transparency` was declared,
 		// documented and compared by the round-trip verifier with no producer on either arm.
 		assertEqual(background.transparency, 40, '0.6 opacity is 40% transparency')
+	})
+
+	// Both were noted "not expressible through the write API's background option", which was false:
+	// `BackgroundProps` extends `ShapeFillProps` and the background emitter writes either.
+	test('a gradient and a pattern background carry, on a slide and on a layout', async () => {
+		const { presentation } = await authorRead((pptx) => {
+			pptx.defineSlideMaster({ title: 'GRADIENT', background: GRADIENT })
+			pptx.addSlide().background = GRADIENT
+			pptx.addSlide().background = PATTERN
+			pptx.addSlide({ masterTitle: 'GRADIENT' })
+		})
+		const ir = readModelToIr(presentation)
+		expect(ir.slides[0].background).toEqual(GRADIENT)
+		expect(ir.slides[1].background).toEqual(PATTERN)
+		assertEqual(ir.slides[2].background, undefined, 'the third slide inherits its layout’s')
+		const layout = ir.chrome.masters.find((master) => master.props.title === 'GRADIENT')
+		expect(layout?.props.background).toEqual(GRADIENT)
+		const losses = ir.fidelity.filter((note) => note.construct.includes('background') && note.disposition === 'dropped')
+		assertEqual(losses.length, 0, `no background is dropped (got ${JSON.stringify(losses)})`)
+	})
+
+	test('a theme reference resolving to a gradient carries the gradient and says it is baked in', async () => {
+		const { buf } = await authorRead((pptx) => {
+			pptx.addSlide()
+		})
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		// The write path's theme holds a gradient in the third `bgFillStyleLst` slot.
+		const bg = '<p:bg><p:bgRef idx="1003"><a:schemeClr val="accent1"/></p:bgRef></p:bg>'
+		zip.file('ppt/slides/slide1.xml', slideXml.replace(/(<p:cSld[^>]*>)/, `$1${bg}`))
+		const pres = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+		assertEqual(pres.slides[0].background?.type, 'themeRef', 'the patched slide reads a theme reference')
+
+		const ir = readModelToIr(pres)
+		assertEqual(ir.slides[0].background?.type, 'gradient', 'the gradient it resolves to is carried')
+		const note = ir.fidelity.find((n) => n.construct === 'slide.background')
+		assertEqual(note?.disposition, 'flattened', 'and the reference itself is noted as flattened')
+		assert(note.detail.includes('gradient it currently resolves to'), `the note names the fill (got ${note.detail})`)
 	})
 
 	test('an inherited background is still not re-authored onto the slide', async () => {
