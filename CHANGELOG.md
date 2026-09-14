@@ -1001,6 +1001,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A scatter or bubble chart's X axis shows the number format it was given.**
+  - `catAxisLabelFormatCode`, or `valAxisLabelFormatCode` in its place, was written onto the X axis
+    with `sourceLinked="1"`. A source-linked axis paints its labels in the format of the cached X
+    values, which carry the value format (`valLabelFormatCode`, or the data-label default `#,##0`),
+    so the stated format never showed: `'0.00'` beside a `'0%'` value format drew `0% 20% 40%`. A
+    stated X format is now written with `sourceLinked="0"`, and an X axis given none keeps the
+    source-linked `General` it had.
+  - Measured in desktop PowerPoint with `test/read/fixtures/authoring/probe-scatter-x-cache-format.mjs`.
+
 - **A `preserve` import keeps what a text box took from the source deck's default text style.**
   - A run in a shape that is not a placeholder, stating no size, weight or colour of its own, takes
     them from the presentation's `p:defaultTextStyle`. `importSlide` and `importShape` with

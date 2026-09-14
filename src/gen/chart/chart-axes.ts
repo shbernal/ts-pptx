@@ -175,12 +175,16 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		opts.catAxisMinVal != null ? raw(voidEl('c:min', { val: opts.catAxisMinVal })) : null,
 	])
 
-	// Scatter/bubble read the X format off the category option, falling back to the value one.
+	// Scatter/bubble read the X format off the category option, falling back to the value one, and a
+	// stated format is written unlinked. A source-linked axis paints its labels in the X cache's format,
+	// which is the value format: `catAxisLabelFormatCode: '0.00'` over a `0%` cache drew 0% 20% 40% in
+	// PowerPoint, and the same bytes with `sourceLinked="0"` drew 0.00 0.20 0.40
+	// (`test/read/fixtures/authoring/probe-scatter-x-cache-format.mjs`).
+	const xFormat = usesValueAxisForCategories
+		? (opts.catAxisLabelFormatCode ?? opts.valAxisLabelFormatCode) || null
+		: null
 	const numFmt = usesValueAxisForCategories
-		? voidEl('c:numFmt', {
-				formatCode: (opts.catAxisLabelFormatCode ?? opts.valAxisLabelFormatCode) || 'General',
-				sourceLinked: 1,
-			})
+		? voidEl('c:numFmt', { formatCode: xFormat ?? 'General', sourceLinked: xFormat ? 0 : 1 })
 		: voidEl('c:numFmt', { formatCode: (opts.catLabelFormatCode ?? '') || 'General', sourceLinked: 1 })
 
 	const ticks = isScatterChart(opts._type)

@@ -25,6 +25,46 @@ function valCacheFormatCode(xml, valTag) {
 
 defineRegressionSuite('Chart value format code', [
 	{
+		// A source-linked axis paints its labels in its cache's format, so an X axis format written
+		// linked lost to the value format the X cache carries (probe-scatter-x-cache-format.mjs).
+		name: 'scatter chart: a stated X axis format is written unlinked, over the value format the X cache keeps',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ name: 'X', values: [0.25, 0.5, 0.75] },
+						{ name: 'Y', values: [1, 2, 3] },
+					],
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3, valLabelFormatCode: '0%', catAxisLabelFormatCode: '0.00' }
+				)
+			})
+			const xml = await chartXml(zip)
+			// A scatter's first c:valAx is its X axis.
+			assertIncludes(firstXmlBlock(xml, 'c:valAx'), '<c:numFmt formatCode="0.00" sourceLinked="0"/>', 'X axis numFmt')
+			assert(valCacheFormatCode(xml, 'c:xVal') === '0%', 'the X cache keeps the value format')
+		},
+	},
+	{
+		name: 'scatter chart with no X axis format keeps the axis source-linked',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ name: 'X', values: [1, 2, 3] },
+						{ name: 'Y', values: [1, 2, 3] },
+					],
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			const xml = await chartXml(zip)
+			assertIncludes(
+				firstXmlBlock(xml, 'c:valAx'),
+				'<c:numFmt formatCode="General" sourceLinked="1"/>',
+				'X axis numFmt'
+			)
+		},
+	},
+	{
 		name: 'bar chart: dataLabelFormatCode flows into the c:val numCache formatCode',
 		fn: async () => {
 			const { zip } = await build((p) => {
