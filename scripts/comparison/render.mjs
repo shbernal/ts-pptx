@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Turn the committed snapshot into the comparison page and the README summary.
+ * Turn the committed snapshot into the comparison pages and the README summary.
  *
  * This is the cheap half of a deliberate split. `./measure.mjs` is expensive and needs the
  * network: it builds the corpus with both libraries, installs upstream, packs ours, clones
@@ -10,19 +10,22 @@
  *
  * The consequence is the point: a push can never silently move a published number, because
  * numbers only move when someone re-measures, and a push never pays for measuring one
- * either. The page prints the date it was measured on, which is the honest way to present a
- * figure refreshed on a slower cadence than the file around it.
+ * either. The pages print the date they were measured on, which is the honest way to present
+ * a figure refreshed on a slower cadence than the file around it.
  *
- * ## Two outputs, one source
+ * ## Four outputs, one source
  *
- * `docs/comparison.md` is written whole. `README.md` is not: it is hand-written prose with
- * one generated region between {@link REGION_START} and {@link REGION_END}, spliced in
- * place so the rest of the file survives. Both come from the same snapshot, so the short
- * version in the README cannot date while the long version moves. That failure mode is the
- * entire reason the README block is generated rather than typed once and forgotten.
+ * `docs/comparison.md` is the short page a reader choosing a library reads,
+ * `docs/comparison-method.md` carries the method and every full table, and
+ * `docs/comparison-syntax.md` prints the calls behind each row. All three are written whole.
+ * `README.md` is not: it is hand-written prose with one generated region between
+ * {@link REGION_START} and {@link REGION_END}, spliced in place so the rest of the file
+ * survives. Every output comes from the same snapshot, so the short versions cannot date while
+ * the long version moves. That failure mode is the entire reason the README block is generated
+ * rather than typed once and forgotten.
  *
- * The page is **committed**, unlike `docs/doc-index.md`, which is generated and gitignored.
- * It has to be: a fresh checkout must build the docs site without network access and
+ * The pages are **committed**, unlike `docs/doc-index.md`, which is generated and gitignored.
+ * They have to be: a fresh checkout must build the docs site without network access and
  * without installing another library.
  *
  * ## What the prose may say
@@ -34,7 +37,7 @@
  * trustworthy, not more, when a generator writes it.
  *
  * A row whose measurement is missing is dropped rather than blanked. An empty cell in a
- * comparison table reads as a measured zero, and on this page a zero is never neutral. The
+ * comparison table reads as a measured zero, and on these pages a zero is never neutral. The
  * page says how many rows it dropped, so an omission is visible as an omission.
  *
  * Prose is reflowed by {@link wrap} rather than hard-wrapped in the source. Half of these
@@ -48,6 +51,7 @@ import { isUnavailable } from './unavailable.mjs'
 
 const SNAPSHOT = path.join(ROOT, 'scripts', 'comparison', 'snapshot.json')
 const PAGE = path.join(ROOT, 'docs', 'comparison.md')
+const METHOD_PAGE = path.join(ROOT, 'docs', 'comparison-method.md')
 const SYNTAX_PAGE = path.join(ROOT, 'docs', 'comparison-syntax.md')
 const README = path.join(ROOT, 'README.md')
 
@@ -74,7 +78,8 @@ const COLUMNS = [OURS, UPSTREAM]
 const USAGE = `Usage: node scripts/comparison/render.mjs [--check]
 
 Renders scripts/comparison/snapshot.json into docs/comparison.md,
-docs/comparison-syntax.md and the generated region of README.md.
+docs/comparison-method.md, docs/comparison-syntax.md and the generated region
+of README.md.
 
 Options:
   --check   report drift and exit 1; write nothing
@@ -104,28 +109,19 @@ Options:
  */
 
 /**
- * How each construct family is titled in the table.
+ * How each construct family is titled.
  *
- * A group the corpus grows without a label here still renders, capitalised, rather than
- * failing the build: a missing heading is a cosmetic problem, and stopping the docs build
- * over one would be out of proportion.
+ * Kept in `groups.json` beside the snapshot rather than in this file, because the site's
+ * coverage chart titles the same groups, and two copies of a label list are how a table and a
+ * chart come to disagree. A group the corpus grows without a label still renders, capitalised,
+ * rather than failing the build: a missing heading is a cosmetic problem, and stopping the docs
+ * build over one would be out of proportion.
  * @type {Record<string, string>}
  */
-const GROUP_LABELS = {
-	shared: 'Shared baseline',
-	motion: 'Motion',
-	embedding: 'Embedding',
-	shapes: 'Shapes',
-	text: 'Text',
-	fills: 'Fills',
-	tables: 'Tables',
-	charts: 'Charts',
-	navigation: 'Navigation',
-	diagrams: 'Diagrams',
-}
+const GROUP_LABELS = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'comparison', 'groups.json'), 'utf8'))
 
 /**
- * The four outcomes, as the table prints them.
+ * The four outcomes, as the tables print them.
  * @type {Record<string, string>}
  */
 const OUTCOME_LABELS = {
@@ -221,6 +217,9 @@ const hygieneOf = (snapshot, subject) => snapshot.hygiene?.[subject]
 /** @param {Snapshot} snapshot @param {string} subject @returns {any} */
 const healthOf = (snapshot, subject) => snapshot.health?.[subject]
 
+/** @param {CoverageRow} row @param {string} subject @returns {boolean} */
+const emitted = (row, subject) => row.results[subject] === 'emitted'
+
 /**
  * One comparison row, or `null` when either side is missing.
  *
@@ -308,6 +307,45 @@ function banner(kind) {
 }
 
 /**
+ * A page's lines as the file is written: runs of blank lines collapsed, one trailing newline.
+ * @param {string[]} lines
+ * @returns {string}
+ */
+function finish(lines) {
+	return (
+		lines
+			.join('\n')
+			.replace(/\n{3,}/g, '\n\n')
+			.trimEnd() + '\n'
+	)
+}
+
+/**
+ * A list as English writes one, with the last item joined by "and".
+ * @param {string[]} items
+ * @returns {string}
+ */
+function listOf(items) {
+	if (items.length <= 1) return items.join('')
+	return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]
+}
+
+/** @param {Snapshot} snapshot @returns {string} */
+function measuredOn(snapshot) {
+	const ours = snapshot.subjects[OURS]
+	const upstream = snapshot.subjects[UPSTREAM]
+	return (
+		`Measured on ${snapshot.generatedAt}: ts-pptx ${ours?.version ?? 'unknown'} built from this ` +
+		`repository, against pptxgenjs ${upstream?.version ?? 'unknown'} installed from npm` +
+		(upstream?.published ? ` (published ${upstream.published}).` : '.')
+	)
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The short page
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
  * @param {Snapshot} snapshot
  * @returns {string[]}
  */
@@ -317,12 +355,517 @@ function frontmatter(snapshot) {
 	return [
 		'---',
 		'doc-schema-version: 1',
-		'title: "Comparison with PptxGenJS"',
-		`summary: "What ts-pptx ${ours} and pptxgenjs ${upstream} each emit, what validates, what each costs to install, and how the two projects are run."`,
+		'title: "ts-pptx vs PptxGenJS"',
+		`summary: "What ts-pptx ${ours} and pptxgenjs ${upstream} each emit, how many of their decks validate, what each costs to bundle and install, and how the two projects are run."`,
 		'read_when:',
 		'  - Choosing between ts-pptx and pptxgenjs',
 		'  - Checking whether a construct is emitted by one library or by both',
 		'  - Weighing what ts-pptx gives up against what it adds',
+		'doc_type: "overview"',
+		'---',
+	]
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionIntro(snapshot) {
+	const ours = snapshot.subjects[OURS]
+	const upstream = snapshot.subjects[UPSTREAM]
+	return [
+		'# ts-pptx vs PptxGenJS',
+		'',
+		...para(
+			`ts-pptx ${ours?.version ?? ''} and pptxgenjs ${upstream?.version ?? ''} were measured on ` +
+				`${snapshot.generatedAt} by building the same ${snapshot.coverage.length} deck intents with each ` +
+				'library and reading the bytes that came out. ts-pptx descends from pptxgenjs, detached at its ' +
+				'v4.0.1 ([lineage](getting-started/introduction.md#lineage)), so every difference below comes ' +
+				'from running both rather than from either one describing itself.'
+		),
+	]
+}
+
+/**
+ * The concessions, hand-written and placed before any number.
+ *
+ * Only the adoption figures are interpolated. The rest is a standing statement of what this
+ * package does not do, and it belongs where a reader meets it before the tables rather than
+ * in a footnote under them: a page that puts its own weaknesses first is the only kind whose
+ * strengths are worth reading.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionBeforeYouChoose(snapshot) {
+	const ourNpm = healthOf(snapshot, OURS)?.npm
+	const upstreamNpm = healthOf(snapshot, UPSTREAM)?.npm
+	const lines = [
+		'## Before you choose',
+		'',
+		...bullet('**Node.js 24 or later.** pptxgenjs declares no engine floor and runs on much older releases.'),
+		...bullet(
+			'**One ESM build.** `require("pptx-ts")` works through the ESM interop Node has had since 22.12, ' +
+				'and a browser loads the package as a module. pptxgenjs also ships CommonJS and a ' +
+				'classic-script bundle that defines a global. See [where it runs](getting-started/runtime.md).'
+		),
+		...bullet(
+			'**Not a drop-in continuation of the upstream release line.** The API is close by descent, not ' +
+				'by contract, and it has moved since. Moving code across is a port, not an upgrade.'
+		),
+		...bullet(
+			'**No SmartArt on the write side, in either library.** It is not a difference between them, ' +
+				'but it is a real gap in both.'
+		),
+	]
+	if (
+		typeof upstreamNpm?.downloadsLastMonth === 'number' &&
+		typeof ourNpm?.downloadsLastMonth === 'number' &&
+		upstreamNpm.downloadsLastMonth > ourNpm.downloadsLastMonth
+	)
+		lines.push(
+			...bullet(
+				`**Adoption is not close.** pptxgenjs was downloaded ${num(upstreamNpm.downloadsLastMonth)} times in ` +
+					`the last month, against ${num(ourNpm.downloadsLastMonth)} for ts-pptx. That gap buys answers ` +
+					'that already exist, examples written by people other than the maintainer, and good odds that ' +
+					'a bug on a common path was hit by someone else first. If that outweighs the differences ' +
+					'below, use pptxgenjs.'
+			)
+		)
+	lines.push('')
+	return lines
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionScorecard(snapshot) {
+	const total = snapshot.coverage.length
+	/** @type {any[]} */
+	const programs = snapshot.hygiene?.programs ?? []
+	const first = programs[0]
+	return [
+		'## Scorecard',
+		'',
+		...table(
+			['', 'ts-pptx', 'pptxgenjs'],
+			[
+				comparedRow(
+					'Intents emitted',
+					COLUMNS.map((subject) => snapshot.coverage.filter((row) => emitted(row, subject)).length),
+					(count) => `${num(count)} of ${num(total)}`
+				),
+				comparedRow(
+					'Decks with no schema error',
+					COLUMNS.map((subject) => validityOf(snapshot, subject)),
+					(validity) => `${num(validity.cleanDecks)} of ${num(validity.decks)}`
+				),
+				first
+					? comparedRow(
+							`${first.label}, bundled and gzipped`,
+							COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.bundles?.[first.id]?.initialBytes),
+							kb
+						)
+					: null,
+				comparedRow(
+					'Runtime dependencies, transitive',
+					COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.dependencies?.transitive),
+					num
+				),
+				comparedRow(
+					'Installed size, with dependencies',
+					COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.install?.bytes),
+					mb
+				),
+			]
+		),
+		...para(
+			'The bundled size is what a browser program fetches before its first line runs. ' +
+				'[How the comparison was measured](comparison-method.md#package-hygiene) has every install ' +
+				'and bundle figure, and the programs behind them.'
+		),
+	]
+}
+
+/**
+ * Coverage as sentences: the text a reader without the chart, and `llms.txt`, still gets.
+ *
+ * Every intent lands in exactly one of the four sets, so the four sentences carry the whole
+ * matrix. The one about pptxgenjs is stated even when it is empty, because an empty set there
+ * is the result most worth a reader's checking.
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionCoverageSummary(snapshot) {
+	const rows = snapshot.coverage
+	const total = rows.length
+	const counts = COLUMNS.map((subject) => rows.filter((row) => emitted(row, subject)).length)
+	const labels = (/** @type {CoverageRow[]} */ set) => listOf(set.map((row) => row.label))
+	const both = rows.filter((row) => COLUMNS.every((subject) => emitted(row, subject)))
+	const oursOnly = rows.filter((row) => emitted(row, OURS) && !emitted(row, UPSTREAM))
+	const upstreamOnly = rows.filter((row) => !emitted(row, OURS) && emitted(row, UPSTREAM))
+	const neither = rows.filter((row) => COLUMNS.every((subject) => !emitted(row, subject)))
+
+	const lines = [
+		'## Construct coverage',
+		'',
+		...para(`Of ${total} intents, ts-pptx emits ${counts[0]} and pptxgenjs emits ${counts[1]}.`),
+		...para(both.length > 0 ? `Emitted by both: ${labels(both)}.` : 'No intent is emitted by both libraries.'),
+		...para(
+			oursOnly.length > 0
+				? `Emitted by ts-pptx only: ${labels(oursOnly)}.`
+				: 'No intent is emitted by ts-pptx and not by pptxgenjs.'
+		),
+		...para(
+			upstreamOnly.length > 0
+				? `Emitted by pptxgenjs only: ${labels(upstreamOnly)}.`
+				: 'No intent is emitted by pptxgenjs and not by ts-pptx.'
+		),
+		...para(
+			neither.length > 0
+				? `Emitted by neither: ${labels(neither)}.`
+				: 'Every intent is emitted by at least one of the two libraries.'
+		),
+	]
+	const missed = rows.flatMap((row) =>
+		COLUMNS.filter((subject) => !emitted(row, subject)).map((subject) => row.results[subject])
+	)
+	if (missed.length > 0 && missed.every((outcome) => outcome === 'no-api'))
+		lines.push(
+			...para(
+				'Every intent a library does not emit is one it has no API for, rather than one it tried and ' + 'got wrong.'
+			)
+		)
+	lines.push(
+		...para(
+			'[How the comparison was measured](comparison-method.md#construct-coverage) has the token each ' +
+				'intent is read for, the part it is read from, and the notes on individual rows.'
+		)
+	)
+	return lines
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionValiditySummary(snapshot) {
+	const oracle = snapshot.validity?.oracle
+	const lines = ['## Schema validity', '']
+	if (!oracle || isUnavailable(oracle)) return [...lines, ...para('Not measured when this snapshot was written.')]
+	const total = snapshot.coverage.length
+
+	for (const subject of COLUMNS) {
+		const validity = validityOf(snapshot, subject)
+		if (!validity) continue
+		const notBuilt = Object.values(validity.notBuilt ?? {}).reduce((sum, count) => sum + count, 0)
+		const clean =
+			validity.cleanDecks === validity.decks
+				? `all ${num(validity.decks)}`
+				: validity.cleanDecks === 0
+					? 'none'
+					: `${num(validity.cleanDecks)}`
+		lines.push(
+			...para(
+				`${subject} built ${num(validity.decks)} of the ${total} decks, and ${clean} validated cleanly` +
+					(validity.errors > 0 ? ` (${num(validity.errors)} errors in all)` : '') +
+					'.' +
+					(notBuilt > 0
+						? ` It had no API, and so no deck, for the remaining ${notBuilt === 1 ? 'one' : num(notBuilt)}.`
+						: '')
+			)
+		)
+	}
+	lines.push(
+		...para(
+			`Every deck went through the Open XML SDK validator (${oracle.sdkVersion}) at the ` +
+				`${code(oracle.format)} conformance target. The decks a library could not build are counted ` +
+				'because a library with fewer decks has fewer decks to be wrong in. ' +
+				'[How the comparison was measured](comparison-method.md#schema-validity) lists each distinct error.'
+		)
+	)
+	return lines
+}
+
+/**
+ * The signed mean difference per mode, as a percentage of pptxgenjs, but only while every deck
+ * points the same way in both modes: faster compressed and slower stored. `null` otherwise.
+ *
+ * Both pages state that reading, and both have to stop stating it the release it stops being
+ * true, which is why it is computed once, here, rather than written into either.
+ * @param {any} timing
+ * @returns {{compressed: number, stored: number} | null}
+ */
+function modeDeltas(timing) {
+	/** @type {any[]} */
+	const cases = timing.cases ?? []
+	/** @param {string} mode @returns {number[]} */
+	const deltas = (mode) =>
+		cases
+			.map((row) => {
+				const measured = row.modes?.[mode]
+				if (!measured || isUnavailable(measured)) return null
+				const ours = measured[OURS]?.median
+				const theirs = measured[UPSTREAM]?.median
+				return typeof ours === 'number' && typeof theirs === 'number' && theirs > 0
+					? ((ours - theirs) / theirs) * 100
+					: null
+			})
+			.filter((value) => value !== null)
+
+	const compressed = deltas('deflate')
+	const stored = deltas('store')
+	if (cases.length === 0 || compressed.length !== cases.length || stored.length !== cases.length) return null
+	if (!(compressed.every((value) => value < 0) && stored.every((value) => value > 0))) return null
+
+	// Both are ratios of a ratio, so the mean of the row-wise percentages is the honest
+	// summary: no row is weighted by how big its deck happened to be.
+	const mean = (/** @type {number[]} */ values) => values.reduce((sum, value) => sum + value, 0) / values.length
+	return { compressed: mean(compressed), stored: mean(stored) }
+}
+
+/**
+ * A ratio of two medians, to two decimals below ten.
+ * @param {number} value
+ * @returns {string}
+ */
+const times = (value) => (value < 10 ? value.toFixed(2) : value.toFixed(1)) + '×'
+
+/**
+ * Every timing case as ts-pptx's median over pptxgenjs's, one column per mode.
+ * @param {any} timing
+ * @returns {string[]}
+ */
+function ratioTable(timing) {
+	/** @type {any[]} */
+	const cases = timing.cases ?? []
+	return table(
+		['Deck', 'Compressed', 'Stored'],
+		cases.map((row) => {
+			const ratios = ['deflate', 'store'].map((mode) => {
+				const measured = row.modes?.[mode]
+				if (!measured || isUnavailable(measured)) return undefined
+				const ours = measured[OURS]?.median
+				const theirs = measured[UPSTREAM]?.median
+				return typeof ours === 'number' && typeof theirs === 'number' && theirs > 0 ? ours / theirs : undefined
+			})
+			if (ratios.some((ratio) => ratio === undefined)) return null
+			return `| ${row.label} | ${ratios.map((ratio) => times(/** @type {number} */ (ratio))).join(' | ')} |`
+		})
+	)
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionTimingSummary(snapshot) {
+	/** @type {any} */
+	const timing = snapshot.timing
+	if (!timing?.cases?.length) return []
+	const flip = modeDeltas(timing)
+	const lines = ['## Generation time', '']
+	if (flip)
+		lines.push(
+			...para(
+				'Compressed, which is what a file you intend to keep gets, ts-pptx is faster on every deck, by ' +
+					`${Math.abs(flip.compressed).toFixed(0)}% on average. Stored, with compression turned off, it is ` +
+					`slower on every deck, by ${flip.stored.toFixed(0)}% on average: its XML generation and package ` +
+					'assembly cost more than pptxgenjs, and its compressor more than makes that back.'
+			)
+		)
+	lines.push(
+		...para(
+			'Each cell is the ts-pptx median divided by the pptxgenjs median for the same deck, so a figure ' +
+				'below 1× means ts-pptx took less time.'
+		),
+		...ratioTable(timing),
+		...para(
+			'The milliseconds, the machine they were taken on, and why the two settings point in opposite ' +
+				'directions are in [how the comparison was measured](comparison-method.md#generation-time).'
+		)
+	)
+	return lines
+}
+
+/**
+ * The read side, deliberately not a table.
+ *
+ * There is nothing to compare: one library has the capability and the other does not. A
+ * table would invite a score, and "wins the read side 3 to 0" is a sentence about a contest
+ * nobody entered.
+ * @returns {string[]}
+ */
+function sectionReadingDecks() {
+	return [
+		'## Reading decks',
+		'',
+		...para('pptxgenjs generates decks and does not read them. ts-pptx also reads:'),
+		...bullet(
+			'[Inspection](reference/pptx-inspection.md) reports what a package contains without parsing it into ' + 'a model.'
+		),
+		...bullet(
+			'[Reading](reference/pptx-read.md) loads a deck into an object model, edits it in place, and writes ' +
+				'the package back out.'
+		),
+		...bullet(
+			'[Deck to script](reference/pptx-to-script.md) turns a deck into the TypeScript that rebuilds it, ' +
+				'reporting what it could not express rather than dropping it.'
+		),
+		'',
+	]
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function healthTable(snapshot) {
+	const rows = COLUMNS.map((subject) => healthOf(snapshot, subject))
+	return table(
+		['', 'ts-pptx', 'pptxgenjs'],
+		[
+			comparedRow(
+				'Repository',
+				rows.map((row) => row?.repo),
+				(value) => `[${value}](https://github.com/${value})`
+			),
+			comparedRow(
+				'Default branch',
+				rows.map((row) => row?.defaultBranch),
+				code
+			),
+			comparedRow(
+				'Last commit on the default branch',
+				rows.map((row) => row?.lastDefaultBranchCommit),
+				String
+			),
+			comparedRow(
+				'Last npm publish',
+				rows.map((row) => row?.npm?.lastPublish),
+				String
+			),
+			comparedRow(
+				'Downloads, last month',
+				rows.map((row) => row?.npm?.downloadsLastMonth),
+				num
+			),
+			comparedRow(
+				'Stars',
+				rows.map((row) => row?.stars),
+				num
+			),
+			comparedRow(
+				'Open issues',
+				rows.map((row) => row?.openIssues),
+				num
+			),
+			comparedRow(
+				'Open pull requests',
+				rows.map((row) => row?.openPullRequests),
+				num
+			),
+			comparedRow(
+				'Source lines',
+				rows.map((row) => row?.source?.lines),
+				num
+			),
+			comparedRow(
+				'Test lines',
+				rows.map((row) => row?.source?.testLines),
+				num
+			),
+			comparedRow(
+				'Test suite',
+				rows.map((row) => row?.source?.testEvidence),
+				formatTestEvidence
+			),
+			comparedRow(
+				'Statement coverage',
+				rows.map((row) => row?.source?.statementCoverage),
+				formatCoverage
+			),
+		]
+	)
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionHealthSummary(snapshot) {
+	return [
+		'## Adoption and project health',
+		'',
+		...para(
+			'How the two projects are run, kept apart from everything above because stars and downloads ' +
+				'measure history as much as merit.'
+		),
+		...healthTable(snapshot),
+		...para(
+			'[How the comparison was measured](comparison-method.md#project-health) says how each of these ' +
+				'figures is taken.'
+		),
+	]
+}
+
+/** @returns {string[]} */
+function sectionMore() {
+	return [
+		'## More',
+		'',
+		...bullet(
+			'[How the comparison was measured](comparison-method.md): the corpus, every full table, and how each ' +
+				'figure was taken.'
+		),
+		...bullet('[Side-by-side syntax](comparison-syntax.md): the calls behind every row, for moving code across.'),
+		'',
+	]
+}
+
+/**
+ * The short page: what a reader choosing a library needs, with a link to the rest.
+ * @param {Snapshot} snapshot
+ * @returns {string}
+ */
+export function renderPage(snapshot) {
+	return finish([
+		...frontmatter(snapshot),
+		'',
+		...banner('FILE'),
+		'',
+		...sectionIntro(snapshot),
+		...sectionBeforeYouChoose(snapshot),
+		...sectionScorecard(snapshot),
+		...sectionCoverageSummary(snapshot),
+		...sectionValiditySummary(snapshot),
+		...sectionTimingSummary(snapshot),
+		...sectionReadingDecks(),
+		...sectionHealthSummary(snapshot),
+		...sectionMore(),
+	])
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The method page
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function methodFrontmatter(snapshot) {
+	const ours = snapshot.subjects[OURS]?.version ?? ''
+	const upstream = snapshot.subjects[UPSTREAM]?.version ?? ''
+	return [
+		'---',
+		'doc-schema-version: 1',
+		'title: "How the comparison was measured"',
+		`summary: "The corpus, the four outcomes and every full table behind the comparison of ts-pptx ${ours} with pptxgenjs ${upstream}: validation, installs, bundles, generation time and project health, and how each was taken."`,
+		'read_when:',
+		'  - Checking a number on the comparison page',
+		'  - Adding a probe or a program to the comparison corpus',
+		'  - Re-measuring the comparison for a release',
 		'doc_type: "reference"',
 		'---',
 	]
@@ -332,25 +875,17 @@ function frontmatter(snapshot) {
  * @param {Snapshot} snapshot
  * @returns {string[]}
  */
-function sectionPremise(snapshot) {
-	const ours = snapshot.subjects[OURS]
-	const upstream = snapshot.subjects[UPSTREAM]
+function sectionCorpus(snapshot) {
 	return [
-		'# Comparison with PptxGenJS',
+		'# How the comparison was measured',
 		'',
 		...para(
-			'ts-pptx is an independent derivative of ' +
-				'[gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1 ' +
-				'(see [Introduction](getting-started/introduction.md#lineage)). Descending from a project is a poor reason ' +
-				'to be trusted over it, so every difference below was produced by running both ' +
-				'libraries and reading what came out.'
+			'Every figure on [ts-pptx vs PptxGenJS](comparison.md) comes from `scripts/comparison/snapshot.json`, ' +
+				'which is refreshed on release cadence, and nothing on either page is edited by hand. This page ' +
+				'is the method behind those figures and the full tables they summarise.'
 		),
-		...para(
-			`Measured on ${snapshot.generatedAt}: ts-pptx ${ours?.version ?? 'unknown'} built from this ` +
-				`repository, against pptxgenjs ${upstream?.version ?? 'unknown'} installed from npm` +
-				(upstream?.published ? ` (published ${upstream.published}).` : '.')
-		),
-		'## What this measures, and how',
+		...para(measuredOn(snapshot)),
+		'## The corpus',
 		'',
 		...para(
 			`The corpus is ${snapshot.coverage.length} deck intents. Each one states an intent ("a slide that ` +
@@ -381,67 +916,7 @@ function sectionPremise(snapshot) {
 				'something a reader has to infer from a gap. A pull request that adds a probe is ' +
 				'welcome, including one ts-pptx fails.'
 		),
-		...para(
-			'Every number on this page comes from `scripts/comparison/snapshot.json`, which is ' +
-				'refreshed on release cadence and carries the date above. Nothing here is edited by hand.'
-		),
 	]
-}
-
-/**
- * The concessions, hand-written and placed above the tables.
- *
- * Only the adoption figures are interpolated. The rest is a standing statement of what this
- * package does not do, and it belongs where a reader meets it before the tables rather than
- * in a footnote under them: a page that puts its own weaknesses first is the only kind whose
- * strengths are worth reading.
- * @param {Snapshot} snapshot
- * @returns {string[]}
- */
-function sectionConcessions(snapshot) {
-	const ourNpm = healthOf(snapshot, OURS)?.npm
-	const upstreamNpm = healthOf(snapshot, UPSTREAM)?.npm
-	const lines = [
-		'## What ts-pptx gives up',
-		'',
-		...bullet(
-			'**One ESM build, where pptxgenjs also ships CommonJS.** ' +
-				"`require('pptx-ts')` works, through the ESM interop Node has had since 22.12, which " +
-				'every Node ts-pptx supports has. What upstream reaches that ts-pptx does not is the ' +
-				'Node versions and toolchains below that line. See ' +
-				'[where it runs](getting-started/runtime.md).'
-		),
-		...bullet(
-			'**A browser loads it as a module.** A bundler, or `<script type="module">` against an ' +
-				'ESM CDN such as esm.sh. pptxgenjs also ships a classic-script bundle that ' +
-				'defines a global, which is the older shape and the one ts-pptx replaced.'
-		),
-		...bullet('**Node.js `>=24`.** pptxgenjs declares no engine floor and runs on much older releases.'),
-		...bullet(
-			'**Not a drop-in continuation of the upstream release line.** The API is close by descent, ' +
-				'not by contract, and it has moved since. Migrating is a port, not an upgrade.'
-		),
-		...bullet(
-			'**No SmartArt on the write side.** Neither library generates it, so this is not a ' +
-				'difference between them, but it is a real gap in both.'
-		),
-	]
-	if (
-		typeof upstreamNpm?.downloadsLastMonth === 'number' &&
-		typeof ourNpm?.downloadsLastMonth === 'number' &&
-		upstreamNpm.downloadsLastMonth > ourNpm.downloadsLastMonth
-	)
-		lines.push(
-			...bullet(
-				`**Adoption is not close.** pptxgenjs was downloaded ${num(upstreamNpm.downloadsLastMonth)} times in ` +
-					`the last month, against ${num(ourNpm.downloadsLastMonth)} for ts-pptx. That gap buys real ` +
-					'things: answers that already exist, examples written by people who are not the ' +
-					'maintainer, and reasonable odds that a bug on a common path was hit by someone else ' +
-					'first. Anyone who weighs those above the differences measured below should use pptxgenjs.'
-			)
-		)
-	lines.push('')
-	return lines
 }
 
 /**
@@ -449,26 +924,19 @@ function sectionConcessions(snapshot) {
  * @returns {string[]}
  */
 function sectionCoverage(snapshot) {
-	const counts = COLUMNS.map((subject) => snapshot.coverage.filter((row) => row.results[subject] === 'emitted').length)
+	const counts = COLUMNS.map((subject) => snapshot.coverage.filter((row) => emitted(row, subject)).length)
 	const total = snapshot.coverage.length
 	const labelOf = (/** @type {string} */ id) => snapshot.coverage.find((row) => row.id === id)?.label ?? id
 	const baseline = snapshot.coverage.filter((row) => row.group === 'shared').length
-	const { both, identical } = armAgreement(snapshot)
 
 	const lines = [
 		'## Construct coverage',
 		'',
 		...para(`Of ${total} probes, ts-pptx emitted ${counts[0]} and pptxgenjs emitted ${counts[1]}.`),
 		...para(
-			'The middle column is the token the harness looks for. It is the OOXML element in every ' +
-				'case but one, where the intent is speaker notes and the token is the note text itself; ' +
-				'the part each token has to appear in is recorded in the snapshot.'
-		),
-		...para(
-			'[Side-by-side syntax](comparison-syntax.md) prints the calls behind every row, each one the ' +
-				`code that produced the outcome beside it. Of the ${both.length} intents both libraries ` +
-				`build, ${identical.length} are called with identical code. The rest are where a port stops ` +
-				'being a rename.'
+			'"Looked for" is the token the harness reads for, in the part named beside it. It is the OOXML ' +
+				'element in every case but one, where the intent is speaker notes and the token is the note ' +
+				'text itself. [Side-by-side syntax](comparison-syntax.md) prints the calls behind every row.'
 		),
 	]
 
@@ -478,10 +946,15 @@ function sectionCoverage(snapshot) {
 
 	for (const group of groups) {
 		const rows = snapshot.coverage.filter((row) => row.group === group)
-		lines.push(`### ${groupLabel(group)}`, '', '| Intent | Looked for | ts-pptx | pptxgenjs |', '|---|---|---|---|')
+		lines.push(
+			`### ${groupLabel(group)}`,
+			'',
+			'| Intent | Looked for | Part | ts-pptx | pptxgenjs |',
+			'|---|---|---|---|---|'
+		)
 		for (const row of rows) {
 			const outcomes = COLUMNS.map((subject) => OUTCOME_LABELS[row.results[subject] ?? ''] ?? row.results[subject])
-			lines.push(`| ${row.label} | ${code(row.construct)} | ${outcomes[0]} | ${outcomes[1]} |`)
+			lines.push(`| ${row.label} | ${code(row.construct)} | ${code(row.part)} | ${outcomes[0]} | ${outcomes[1]} |`)
 		}
 		lines.push('')
 		const notes = rows.flatMap((row) =>
@@ -729,7 +1202,7 @@ function sectionBundles(snapshot) {
 				)
 			: []
 
-	const lines = [
+	return [
 		'### What a bundled program costs',
 		'',
 		...para(
@@ -780,7 +1253,6 @@ function sectionBundles(snapshot) {
 				'what stops a typo being published here as a saving.'
 		),
 	]
-	return lines
 }
 
 /**
@@ -793,16 +1265,6 @@ function sectionBundles(snapshot) {
  * @returns {string}
  */
 const millis = (ms) => (ms < 10 ? ms.toFixed(1) : ms.toFixed(0)) + ' ms'
-
-/**
- * A list as English writes one, with the last item joined by "and".
- * @param {string[]} items
- * @returns {string}
- */
-function listOf(items) {
-	if (items.length <= 1) return items.join('')
-	return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1]
-}
 
 /**
  * One mode's table: every deck, both libraries, and the difference between them.
@@ -882,8 +1344,19 @@ function sectionTiming(snapshot) {
 		)
 	}
 
-	const flip = readingOfModes(timing)
-	if (flip.length > 0) lines.push(...flip)
+	const flip = modeDeltas(timing)
+	if (flip)
+		lines.push(
+			...para(
+				'The two tables point in opposite directions, and that is the finding. Stored, ts-pptx is ' +
+					`slower on every deck, by ${flip.stored.toFixed(0)}% on average, so our XML generation and ` +
+					"package assembly cost more than upstream's. Compressed, ts-pptx is faster on every deck, by " +
+					`${Math.abs(flip.compressed).toFixed(0)}% on average, because fflate deflates faster than ` +
+					'JSZip does and the compressor dominates the total. A consumer writing a file they intend ' +
+					'to keep gets the first table. A consumer who has turned compression off gets the second, ' +
+					'and should know that is where we are behind.'
+			)
+		)
 
 	lines.push(
 		...para(
@@ -908,84 +1381,139 @@ function sectionTiming(snapshot) {
 }
 
 /**
- * What the two modes say when they are read against each other.
- *
- * Written from the snapshot rather than asserted in prose, because the sentence only holds
- * while the numbers do: the interesting thing about these two tables is that they point in
- * opposite directions, and a page that said so from memory would keep saying it after a
- * release where it stopped being true.
- * @param {any} timing
- * @returns {string[]}
+ * @param {any} coverage
+ * @returns {string}
  */
-function readingOfModes(timing) {
-	/** @type {any[]} */
-	const cases = timing.cases ?? []
-	/** @param {string} mode @returns {number[]} */
-	const deltas = (mode) =>
-		cases
-			.map((row) => {
-				const measured = row.modes?.[mode]
-				if (!measured || isUnavailable(measured)) return null
-				const ours = measured[OURS]?.median
-				const theirs = measured[UPSTREAM]?.median
-				return typeof ours === 'number' && typeof theirs === 'number' && theirs > 0
-					? ((ours - theirs) / theirs) * 100
-					: null
-			})
-			.filter((value) => value !== null)
-
-	const compressed = deltas('deflate')
-	const stored = deltas('store')
-	if (compressed.length !== cases.length || stored.length !== cases.length) return []
-	if (!(compressed.every((value) => value < 0) && stored.every((value) => value > 0))) return []
-
-	// Both are ratios of a ratio, so the mean of the row-wise percentages is the honest
-	// summary: no row is weighted by how big its deck happened to be.
-	const mean = (/** @type {number[]} */ values) => values.reduce((sum, value) => sum + value, 0) / values.length
-	return para(
-		'The two tables point in opposite directions, and that is the finding. Stored, ts-pptx is ' +
-			`slower on every deck, by ${mean(stored).toFixed(0)}% on average, so our XML generation and ` +
-			"package assembly cost more than upstream's. Compressed, ts-pptx is faster on every deck, by " +
-			`${Math.abs(mean(compressed)).toFixed(0)}% on average, because fflate deflates faster than ` +
-			'JSZip does and the compressor dominates the total. A consumer writing a file they intend ' +
-			'to keep gets the first table. A consumer who has turned compression off gets the second, ' +
-			'and should know that is where we are behind.'
-	)
+function formatCoverage(coverage) {
+	if (typeof coverage === 'string') return coverage
+	if (typeof coverage?.pct !== 'number') return 'not measured'
+	const lane = coverage.lane === 'merged' ? 'Node and browser lanes merged' : `${coverage.lane} lane only`
+	return `${coverage.pct}% (${lane})`
 }
 
 /**
- * The read side, deliberately not a table.
- *
- * There is nothing to compare: one library has the capability and the other does not. A
- * table would invite a score, and "wins the read side 3 to 0" is a sentence about a contest
- * nobody entered.
+ * @param {any} evidence
+ * @returns {string}
+ */
+function formatTestEvidence(evidence) {
+	if (!evidence) return 'not measured'
+	const scripts = evidence.testScripts?.length ?? 0
+	const specs = evidence.specFiles ?? 0
+	/** @type {string[]} */
+	const dirs = evidence.testDirs ?? []
+	if (scripts === 0 && specs === 0 && dirs.length === 0) return 'no test script, no spec file, no test directory'
+	const files =
+		dirs.length > 0
+			? `${num(specs)} spec files under ${dirs.map((dir) => code(dir + '/')).join(', ')}`
+			: `${num(specs)} spec files`
+	return `${num(scripts)} test scripts, ${files}`
+}
+
+/**
+ * How the project health figures are chosen, kept in their own section for the reason they
+ * have their own snapshot key: they measure the projects rather than what they emit, and
+ * mixing them into the tables above would let a star count read as a property of the output.
+ * The table itself is on the short page.
+ * @param {Snapshot} snapshot
  * @returns {string[]}
  */
-function sectionReadSide() {
-	return [
-		'## The read side',
+function sectionHealth(snapshot) {
+	const lines = [
+		'## Project health',
 		'',
 		...para(
-			'pptxgenjs generates decks. It does not read them, and it does not claim to. So there is ' +
-				'nothing to compare here and no table: this is a capability one library has, which is a ' +
-				'different statement from one library being better at something both do.'
+			'The [health table](comparison.md#adoption-and-project-health) describes how the two projects ' +
+				'are run, not what either one emits. Stars and downloads measure adoption, adoption measures ' +
+				'history as much as merit, and none of it belongs in the same table as a construct a library ' +
+				'does or does not write. This is how each figure in it is taken.'
 		),
-		...para('ts-pptx also reads:'),
-		...bullet(
-			'[Inspection](reference/pptx-inspection.md) reports what a package contains without ' + 'parsing it into a model.'
+		...para(
+			"The last commit on the default branch is reported rather than the repository's last " +
+				'push, which the same API offers and which counts activity on any branch. The two ' +
+				'disagree for pptxgenjs by several months, and reporting the later one would say ' +
+				'something the default branch does not support.'
 		),
-		...bullet(
-			'[Reading](reference/pptx-read.md) loads a deck into an addressable object model, edits ' +
-				'it in place, and writes the package back out.'
+		...para(
+			'Line counts come from the same walk on both sides: every code file under `src/`, raw ' +
+				'lines with comments and blanks included, and test lines are spec files plus anything ' +
+				'under a test directory, counted once each. No normalisation makes two libraries ' +
+				'formatted to different rules comparable, and a large part of the ts-pptx figure is the ' +
+				'documentation comments the bundled sizes above shed. Read it as an order of magnitude ' +
+				'for how much there is to maintain, and as nothing at all about whether it is good.'
 		),
-		...bullet(
-			'[Deck to script](reference/pptx-to-script.md) turns an existing deck into runnable ' +
-				'TypeScript, reporting what it could not express rather than dropping it silently.'
-		),
-		'',
-		...para('If you only generate decks, none of this is a reason to choose either library.'),
 	]
+
+	const upstreamEvidence = healthOf(snapshot, UPSTREAM)?.source?.testEvidence
+	if (
+		upstreamEvidence &&
+		upstreamEvidence.testScripts?.length === 0 &&
+		upstreamEvidence.specFiles === 0 &&
+		upstreamEvidence.testDirs?.length === 0
+	)
+		lines.push(
+			...para(
+				'The empty pptxgenjs test row is what this walk can see, and it is not the same claim ' +
+					'as untested. That repository documents a manual, demo-driven process instead, which ' +
+					'nothing measured here can weigh. The row is about an automated suite, and the ' +
+					'coverage figure beside it exists for ts-pptx only because there is a suite to ' +
+					'instrument.'
+			)
+		)
+
+	const ourNpm = healthOf(snapshot, OURS)?.npm
+	if (ourNpm?.names?.length > 1 && ourNpm.downloadsByName)
+		lines.push(
+			...para(
+				'ts-pptx is published under two names carrying the same bytes, ' +
+					ourNpm.names.map(code).join(' and ') +
+					'. The download figure is their sum (' +
+					Object.entries(ourNpm.downloadsByName)
+						.map(([name, count]) => code(name) + ' ' + num(Number(count)))
+						.join(', ') +
+					'), because either name alone understates the total, and the canonical name alone ' +
+					'happens to understate it by most.'
+			)
+		)
+
+	const upstream = healthOf(snapshot, UPSTREAM)
+	if (upstream?.lastDefaultBranchCommit && upstream?.npm?.lastPublish)
+		lines.push(
+			...para(
+				`The pptxgenjs column shows no npm release since ${upstream.npm.lastPublish} and no commit on ` +
+					`${code(upstream.defaultBranch)} since ${upstream.lastDefaultBranchCommit}. That is what the two ` +
+					'APIs report, and it is all these pages say about it: from outside, a stable library ' +
+					'that has stopped needing changes looks exactly like one between maintainers, and ' +
+					'this measurement cannot tell them apart. It is worth weighing either way, next to ' +
+					`${num(upstream.openIssues ?? 0)} open issues and ${num(upstream.openPullRequests ?? 0)} open pull ` +
+					'requests.'
+			)
+		)
+	return lines
 }
+
+/**
+ * The method page: the corpus, every full table, and how each figure was taken.
+ * @param {Snapshot} snapshot
+ * @returns {string}
+ */
+export function renderMethodPage(snapshot) {
+	return finish([
+		...methodFrontmatter(snapshot),
+		'',
+		...banner('FILE'),
+		'',
+		...sectionCorpus(snapshot),
+		...sectionCoverage(snapshot),
+		...sectionValidity(snapshot),
+		...sectionHygiene(snapshot),
+		...sectionTiming(snapshot),
+		...sectionHealth(snapshot),
+	])
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The syntax page
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
  * The probes both libraries have an arm for, and how many of those arms are the same code.
@@ -1059,10 +1587,10 @@ function probeSection(row) {
 /**
  * The bundle corpus as code, under the same rule as the probes above it.
  *
- * These are whole decks rather than single constructs, and the comparison page reports what
- * a consumer's build weighs for each of them. The programs belong on this page for the
- * reason the probes do: a size that nobody can see the program behind is a number a reader
- * has to take on trust.
+ * These are whole decks rather than single constructs, and the method page reports what a
+ * consumer's build weighs for each of them. The programs belong on this page for the reason
+ * the probes do: a size that nobody can see the program behind is a number a reader has to
+ * take on trust.
  * @param {Snapshot} snapshot
  * @returns {string[]}
  */
@@ -1112,7 +1640,7 @@ function bundleCorpusSection(snapshot) {
  * printed above, and a second copy of each would be a second thing to keep true.
  *
  * One block rather than two wherever the arms agree, on the rule the rest of this page
- * follows — which here means each deck is printed once, since the two libraries differ in a
+ * follows, which here means each deck is printed once, since the two libraries differ in a
  * single `addChart` call.
  * @param {Snapshot} snapshot
  * @returns {string[]}
@@ -1254,225 +1782,21 @@ export function renderSyntaxPage(snapshot) {
 		)
 	)
 
-	return (
-		lines
-			.join('\n')
-			.replace(/\n{3,}/g, '\n\n')
-			.trimEnd() + '\n'
-	)
+	return finish(lines)
 }
 
-/**
- * @param {any} coverage
- * @returns {string}
- */
-function formatCoverage(coverage) {
-	if (typeof coverage === 'string') return coverage
-	if (typeof coverage?.pct !== 'number') return 'not measured'
-	const lane = coverage.lane === 'merged' ? 'Node and browser lanes merged' : `${coverage.lane} lane only`
-	return `${coverage.pct}% (${lane})`
-}
+/* ────────────────────────────────────────────────────────────────────────────
+ * The README region, and the command
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * @param {any} evidence
- * @returns {string}
- */
-function formatTestEvidence(evidence) {
-	if (!evidence) return 'not measured'
-	const scripts = evidence.testScripts?.length ?? 0
-	const specs = evidence.specFiles ?? 0
-	/** @type {string[]} */
-	const dirs = evidence.testDirs ?? []
-	if (scripts === 0 && specs === 0 && dirs.length === 0) return 'no test script, no spec file, no test directory'
-	const files =
-		dirs.length > 0
-			? `${num(specs)} spec files under ${dirs.map((dir) => code(dir + '/')).join(', ')}`
-			: `${num(specs)} spec files`
-	return `${num(scripts)} test scripts, ${files}`
-}
-
-/**
- * Project health, kept in its own section for the reason it has its own snapshot key: it
- * measures the projects rather than what they emit, and mixing it into the tables above
- * would let a star count read as a property of the output.
- * @param {Snapshot} snapshot
- * @returns {string[]}
- */
-function sectionHealth(snapshot) {
-	const rows = COLUMNS.map((subject) => healthOf(snapshot, subject))
-	const lines = [
-		'## Project health',
-		'',
-		...para(
-			'Separate from everything above, and on purpose. These figures describe how the two ' +
-				'projects are run, not what either one emits. Stars and downloads measure adoption, ' +
-				'adoption measures history as much as merit, and none of it belongs in the same table as ' +
-				'a construct a library does or does not write.'
-		),
-		...table(
-			['', 'ts-pptx', 'pptxgenjs'],
-			[
-				comparedRow(
-					'Repository',
-					rows.map((row) => row?.repo),
-					(value) => `[${value}](https://github.com/${value})`
-				),
-				comparedRow(
-					'Default branch',
-					rows.map((row) => row?.defaultBranch),
-					code
-				),
-				comparedRow(
-					'Last commit on the default branch',
-					rows.map((row) => row?.lastDefaultBranchCommit),
-					String
-				),
-				comparedRow(
-					'Last npm publish',
-					rows.map((row) => row?.npm?.lastPublish),
-					String
-				),
-				comparedRow(
-					'Downloads, last month',
-					rows.map((row) => row?.npm?.downloadsLastMonth),
-					num
-				),
-				comparedRow(
-					'Stars',
-					rows.map((row) => row?.stars),
-					num
-				),
-				comparedRow(
-					'Open issues',
-					rows.map((row) => row?.openIssues),
-					num
-				),
-				comparedRow(
-					'Open pull requests',
-					rows.map((row) => row?.openPullRequests),
-					num
-				),
-				comparedRow(
-					'Source lines',
-					rows.map((row) => row?.source?.lines),
-					num
-				),
-				comparedRow(
-					'Test lines',
-					rows.map((row) => row?.source?.testLines),
-					num
-				),
-				comparedRow(
-					'Test suite',
-					rows.map((row) => row?.source?.testEvidence),
-					formatTestEvidence
-				),
-				comparedRow(
-					'Statement coverage',
-					rows.map((row) => row?.source?.statementCoverage),
-					formatCoverage
-				),
-			]
-		),
-		...para(
-			"The last commit on the default branch is reported rather than the repository's last " +
-				'push, which the same API offers and which counts activity on any branch. The two ' +
-				'disagree for pptxgenjs by several months, and reporting the later one would say ' +
-				'something the default branch does not support.'
-		),
-		...para(
-			'Line counts come from the same walk on both sides: every code file under `src/`, raw ' +
-				'lines with comments and blanks included, and test lines are spec files plus anything ' +
-				'under a test directory, counted once each. No normalisation makes two libraries ' +
-				'formatted to different rules comparable, and a large part of the ts-pptx figure is the ' +
-				'documentation comments the bundled sizes above shed. Read it as an order of magnitude ' +
-				'for how much there is to maintain, and as nothing at all about whether it is good.'
-		),
-	]
-
-	const upstreamEvidence = healthOf(snapshot, UPSTREAM)?.source?.testEvidence
-	if (
-		upstreamEvidence &&
-		upstreamEvidence.testScripts?.length === 0 &&
-		upstreamEvidence.specFiles === 0 &&
-		upstreamEvidence.testDirs?.length === 0
-	)
-		lines.push(
-			...para(
-				'The empty pptxgenjs test row is what this walk can see, and it is not the same claim ' +
-					'as untested. That repository documents a manual, demo-driven process instead, which ' +
-					'nothing measured here can weigh. The row is about an automated suite, and the ' +
-					'coverage figure beside it exists for ts-pptx only because there is a suite to ' +
-					'instrument.'
-			)
-		)
-
-	const ourNpm = healthOf(snapshot, OURS)?.npm
-	if (ourNpm?.names?.length > 1 && ourNpm.downloadsByName)
-		lines.push(
-			...para(
-				'ts-pptx is published under two names carrying the same bytes, ' +
-					ourNpm.names.map(code).join(' and ') +
-					'. The download figure above is their sum (' +
-					Object.entries(ourNpm.downloadsByName)
-						.map(([name, count]) => code(name) + ' ' + num(Number(count)))
-						.join(', ') +
-					'), because either name alone understates the total, and the canonical name alone ' +
-					'happens to understate it by most.'
-			)
-		)
-
-	const upstream = healthOf(snapshot, UPSTREAM)
-	if (upstream?.lastDefaultBranchCommit && upstream?.npm?.lastPublish)
-		lines.push(
-			...para(
-				`The pptxgenjs row shows no npm release since ${upstream.npm.lastPublish} and no commit on ` +
-					`${code(upstream.defaultBranch)} since ${upstream.lastDefaultBranchCommit}. That is what the two ` +
-					'APIs report, and it is all this page says about it: from outside, a stable library ' +
-					'that has stopped needing changes looks exactly like one between maintainers, and ' +
-					'this measurement cannot tell them apart. It is worth weighing either way, next to ' +
-					`${num(upstream.openIssues ?? 0)} open issues and ${num(upstream.openPullRequests ?? 0)} open pull ` +
-					'requests.'
-			)
-		)
-	return lines
-}
-
-/**
- * @param {Snapshot} snapshot
- * @returns {string}
- */
-export function renderPage(snapshot) {
-	const lines = [
-		...frontmatter(snapshot),
-		'',
-		...banner('FILE'),
-		'',
-		...sectionPremise(snapshot),
-		...sectionConcessions(snapshot),
-		...sectionCoverage(snapshot),
-		...sectionValidity(snapshot),
-		...sectionHygiene(snapshot),
-		...sectionTiming(snapshot),
-		...sectionReadSide(),
-		...sectionHealth(snapshot),
-	]
-	return (
-		lines
-			.join('\n')
-			.replace(/\n{3,}/g, '\n\n')
-			.trimEnd() + '\n'
-	)
-}
-
-/**
- * The README summary: the same snapshot, shorter, pointing at the page for the rest.
+ * The README summary: the same snapshot, shorter, pointing at the pages for the rest.
  * @param {Snapshot} snapshot
  * @returns {string}
  */
 export function renderReadmeRegion(snapshot) {
 	const total = snapshot.coverage.length
-	const counts = COLUMNS.map((subject) => snapshot.coverage.filter((row) => row.results[subject] === 'emitted').length)
+	const counts = COLUMNS.map((subject) => snapshot.coverage.filter((row) => emitted(row, subject)).length)
 	const ourHealth = healthOf(snapshot, OURS)
 	const upstreamHealth = healthOf(snapshot, UPSTREAM)
 	const ourValidity = validityOf(snapshot, OURS)
@@ -1522,9 +1846,9 @@ export function renderReadmeRegion(snapshot) {
 	lines.push(
 		'',
 		...para(
-			'The full tables, the method behind them, and where the two libraries part company are ' +
-				'on the [comparison page](docs/comparison.md). Every intent as each library expresses ' +
-				'it, including the calls that differ, is on ' +
+			'Where the two libraries part company is on the [comparison page](docs/comparison.md), and ' +
+				'[how it was measured](docs/comparison-method.md) has every full table. Every intent as each ' +
+				'library expresses it, including the calls that differ, is on ' +
 				'[side-by-side syntax](docs/comparison-syntax.md).'
 		),
 		REGION_END
@@ -1561,6 +1885,7 @@ function main() {
 	/** @type {Array<[string, string]>} */
 	const outputs = [
 		[PAGE, renderPage(snapshot)],
+		[METHOD_PAGE, renderMethodPage(snapshot)],
 		[SYNTAX_PAGE, renderSyntaxPage(snapshot)],
 		[README, spliceRegion(fs.readFileSync(README, 'utf8'), renderReadmeRegion(snapshot))],
 	]
@@ -1568,7 +1893,9 @@ function main() {
 
 	if (values.check) {
 		if (stale.length === 0) {
-			console.log('comparison: docs/comparison.md, docs/comparison-syntax.md and README.md match the snapshot.')
+			console.log(
+				'comparison: docs/comparison.md, docs/comparison-method.md, docs/comparison-syntax.md and README.md match the snapshot.'
+			)
 			return 0
 		}
 		for (const [file] of stale) console.error(path.relative(ROOT, file) + ' does not match the snapshot.')

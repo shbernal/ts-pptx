@@ -56,5 +56,5 @@ dependencies and the package's other name.
 - [Your first deck](getting-started/first-deck.md): a small deck built from data, start to
   finish.
 - [Demos](demos.md): a deck built in your browser and previewed in the page.
-- [Comparison with PptxGenJS](comparison.md): what each library emits, measured by building the
-  same decks with both.
+- [ts-pptx vs PptxGenJS](comparison.md): what each library emits, measured by building the same
+  decks with both.

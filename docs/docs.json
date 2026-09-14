@@ -49,7 +49,7 @@
     },
     {
       "group": "ts-pptx vs PptxGenJS",
-      "pages": ["comparison", "comparison-syntax"]
+      "pages": ["comparison", "comparison-syntax", "comparison-method"]
     },
     {
       "group": "Project",

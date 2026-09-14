@@ -62,7 +62,7 @@ commit beside the changelog entry rather than a commit behind it:
 ```bash
 pnpm run comparison:measure      # network: npm install + GitHub/npm APIs
 pnpm run comparison:render
-git add scripts/comparison/snapshot.json docs/comparison.md docs/comparison-syntax.md README.md
+git add scripts/comparison/snapshot.json docs/comparison.md docs/comparison-method.md docs/comparison-syntax.md README.md
 ```
 
 `comparison:measure` installs upstream pptxgenjs into a scratch directory,

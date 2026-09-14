@@ -120,9 +120,10 @@ the bytes that came out.
 - **Activity:** last commit on the default branch, 2026-09-05 for ts-pptx and 2025-06-26
   for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
 
-The full tables, the method behind them, and where the two libraries part company are on
-the [comparison page](docs/comparison.md). Every intent as each library expresses it,
-including the calls that differ, is on [side-by-side syntax](docs/comparison-syntax.md).
+Where the two libraries part company is on the [comparison page](docs/comparison.md), and
+[how it was measured](docs/comparison-method.md) has every full table. Every intent as
+each library expresses it, including the calls that differ, is on [side-by-side
+syntax](docs/comparison-syntax.md).
 
 <!-- comparison:end -->
 

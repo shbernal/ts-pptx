@@ -1,0 +1,12 @@
+{
+	"shared": "Shared baseline",
+	"motion": "Motion",
+	"embedding": "Embedding",
+	"shapes": "Shapes",
+	"text": "Text",
+	"fills": "Fills",
+	"tables": "Tables",
+	"charts": "Charts",
+	"navigation": "Navigation",
+	"diagrams": "Diagrams"
+}
