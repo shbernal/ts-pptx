@@ -7,11 +7,13 @@
 import { SlideObjectType } from '../../enums.js'
 import type { NotesProps, TextProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
+import { validateHyperlink } from './hyperlinks.js'
 
 /**
  * Adds Notes to a slide.
  * @param {PresSlideInternal} `target` slide object
  * @param {string | NotesProps | NotesProps[]} `notes` plain text, or rich runs (inline formatting / hyperlinks)
+ * @throws {InvalidOptionError} when a run's `hyperlink` is not one `addText` would accept
  */
 export function addNotesDefinition(target: PresSlideInternal, notes: string | NotesProps | NotesProps[]): void {
 	// Normalize all input forms to a TextProps[] run list so the notes-slide serializer
@@ -24,6 +26,13 @@ export function addNotesDefinition(target: PresSlideInternal, notes: string | No
 			: (Array.isArray(notes) ? notes : [notes]).map((run) =>
 					run.options === undefined ? { text: run.text } : { text: run.text, options: run.options }
 				)
+
+	// Refused here, by the rules `addText` applies, rather than when the deck is written: a link
+	// naming both `url` and `slide` used to be accepted and then fail the write, and an empty or
+	// non-object one was dropped without a word.
+	for (const run of runs) {
+		if (run.options?.hyperlink !== undefined) validateHyperlink(run.options.hyperlink, 'addNotes')
+	}
 
 	target._slideObjects.push({
 		_type: SlideObjectType.notes,

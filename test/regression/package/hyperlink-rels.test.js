@@ -12,26 +12,19 @@ import {
 // hyperlink, stamping the resolved `_rId` back onto the hyperlink so the emitter can write
 // `r:id`. Its shape-level behaviour is pinned by slide-hyperlinks.test.js (theme colors) and
 // the notes/zoom suites; what those never reach is the *table* half — hyperlinks that arrive
-// through `addTable`, where the cell's own `options` are re-applied after the recursion loses
-// them, and where auto-paging re-runs the whole walk once per emitted slide.
+// through `addTable`, where a cell's link is registered on the cell and reaches its runs through
+// the run emitter, and where auto-paging re-runs the whole walk once per emitted slide.
 //
 // That re-run is the interesting part: a hyperlink already carrying an `_rId` is skipped on
 // its second visit, which is right when the second visit is the same slide (a reused cell
 // object) and wrong when it is a new slide (a repeated header row), because a relationship
 // id only means anything inside the part that declares it. Both directions are pinned below.
 //
-// Four arms of the walk stay uncovered on purpose, because no caller reaches them:
-//   - the bail-out for a plain string/number `text`, and the fall-through for a `text` that
-//     is neither array nor object. Every entry point (`addShape`, `addText`, `addTable`)
-//     hands the walker an object or an array of them, and both recursive calls are guarded
-//     by `Array.isArray`.
-//   - the `if (tablecell.options)` skip, because `addTable` gives every cell an `options`
-//     before the walk runs (gen/define/table.ts, "ARG1: ensure options exists").
-//   - the no-options arm of the recursion into a nested run array. Reaching it needs a text
-//     object whose own `.text` is an array of runs, which `TextProps.text` types as
-//     `string | number` and the run emitter renders as `[object Object]`. Covering it would
-//     pin a defect rather than a behaviour.
-// Unreachable by construction per docs/testing.md, so left red rather than fenced.
+// Two arms of the walk stay uncovered on purpose, because no caller reaches them: the bail-out
+// for a plain string/number `text`, and the fall-through for a `text` that is neither array nor
+// object. Every entry point (`addShape`, `addText`, `addTable`) hands the walker an object or an
+// array of them, and both recursive calls are guarded by `Array.isArray`. Unreachable by
+// construction per docs/testing.md, so left red rather than fenced.
 
 const relsPath = (n) => `ppt/slides/_rels/slide${n}.xml.rels`
 
@@ -94,9 +87,8 @@ defineRegressionSuite('Hyperlink relationship registration', [
 	{
 		name: 'a hyperlink on a table cell registers a rel the cell then references',
 		fn: async () => {
-			// The row recursion drops each cell's `options` on the way in and re-applies them from
-			// the collected `cellOpts` by index, so a cell hyperlink only survives if that index
-			// still lines up. Nothing else in the suite puts a hyperlink on a table cell.
+			// The walk registers a cell's link on the cell itself, and the run emitter carries it to the
+			// cell's run. Nothing else in the suite puts a hyperlink on a table cell.
 			const { zip } = await build((p) => {
 				p.addSlide().addTable(
 					[[{ text: 'Docs', options: { hyperlink: { url: 'https://cell.example.com' } } }, { text: 'plain' }]],

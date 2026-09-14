@@ -176,17 +176,17 @@ function slideLinksOf(slide: PresSlideInternal): ExtractedSlide['slideLinks'] {
 }
 
 /**
- * Speaker notes, or `undefined` when the slide has none. makeXmlNotesSlide calls
- * buildNotesSlideRels itself (and caches on the slide), so the rels are read back afterwards
- * rather than rebuilt — the body and the rels file must agree on every hyperlink rId. Notes
- * rels reserve rId1=notesMaster and rId2=slide, both of which appendSlides wires itself.
+ * Speaker notes, or `undefined` when the slide has none. The body and the hyperlinks come from one
+ * resolution of the notes, because the two must agree on every hyperlink rId. Notes rels reserve
+ * rId1=notesMaster and rId2=slide, both of which appendSlides wires itself.
  */
 function notesOf(slide: PresSlideInternal): ExtractedSlide['notes'] {
 	const hasNotes = slide._slideObjects.some((obj) => obj._type === SlideObjectType.notes)
 	if (!hasNotes) return undefined
+	const notes = buildNotesSlideRels(slide)
 	return {
-		xml: makeXmlNotesSlide(slide),
-		hyperlinks: buildNotesSlideRels(slide)
+		xml: makeXmlNotesSlide(slide, notes),
+		hyperlinks: notes.rels
 			.filter((rel) => typeof rel.Target === 'string' && rel.Target)
 			.map((rel) => ({ rId: rel.rId, target: rel.Target })),
 	}

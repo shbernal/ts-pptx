@@ -1,7 +1,10 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import JSZip from 'jszip'
 import { fixturePath, readOracle } from '../../read/corpus.js'
 import {
+	TsPptx,
+	PNG_1X1_DATA_URI,
 	assert,
 	assertEqual,
 	build,
@@ -426,6 +429,37 @@ defineRegressionSuite('Transition sounds (write)', [
 			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
 			assert(!/relationships\/audio/.test(rels), 'no audio rel without sound bytes')
 			assert(!Object.keys(zip.files).some((key) => key.startsWith('ppt/media/')), 'no media part without sound bytes')
+		},
+	},
+	{
+		// A relationship id means something only inside the slide part that declares it. It was
+		// stamped on the transition object, so a second slide given the same object skipped
+		// registration and wrote its sound against the first slide's id: here, its picture.
+		name: 'one transition object on two slides wires each slide’s sound to an audio relationship of its own, on every write',
+		fn: async () => {
+			const transition = /** @type {const} */ ({ type: 'fade', sound: { data: SOUND_WAV, name: 'ding.wav' } })
+			const before = JSON.stringify(transition)
+			const pres = new TsPptx()
+			pres.addSlide().transition = transition
+			const second = pres.addSlide()
+			second.addImage({ data: PNG_1X1_DATA_URI, x: 1, y: 1, w: 1, h: 1 })
+			second.transition = transition
+
+			for (const write of [1, 2]) {
+				const zip = await JSZip.loadAsync(await pres.toBytes())
+				for (const n of [1, 2]) {
+					const at = `write ${write}, slide ${n}`
+					const embed = /<p:snd r:embed="(rId\d+)"/.exec(await readEntry(zip, `ppt/slides/slide${n}.xml`))?.[1]
+					assert(embed, `${at}: the sound is embedded`)
+					const rels = await readEntry(zip, `ppt/slides/_rels/slide${n}.xml.rels`)
+					assert(
+						new RegExp(`<Relationship Id="${embed}"[^>]*relationships/audio"`).test(rels),
+						`${at}: ${embed} is audio`
+					)
+					assertEqual((rels.match(/relationships\/audio"/g) ?? []).length, 1, `${at}: registered once`)
+				}
+			}
+			assertEqual(JSON.stringify(transition), before, 'the caller’s transition object is unchanged')
 		},
 	},
 ])

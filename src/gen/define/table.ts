@@ -181,6 +181,13 @@ function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): Table
 				else if (cell.text) {
 					// Cell can contain complex text type, or string, or number
 					if (typeof cell.text === 'string' || typeof cell.text === 'number') newCell.text = cell.text.toString()
+					// Runs COPIED as well, each with an options bag of its own, for the reason A gives: the run
+					// emitter writes into a run's options (`_lineIdx`, the run options it inherits from the
+					// cell), and those were the caller's run objects. A nested object the caller supplied, a
+					// hyperlink included, stays shared, because the id registered for it is read back through
+					// that reference.
+					else if (Array.isArray(cell.text))
+						newCell.text = cell.text.map((run) => (run.options ? { ...run, options: { ...run.options } } : { ...run }))
 					else if (cell.text) newCell.text = cell.text
 					// Capture options (the copy made above; `newCell.options` already is it)
 				}
@@ -585,7 +592,7 @@ export function addTableDefinition(
 	// (used internally by `tableToSlides()` to not engage recursion - we've already paged the table data, just add this one)
 	if (opt && !opt.autoPage) {
 		// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
-		createHyperlinkRels(target, arrRows, undefined, 'addTable')
+		createHyperlinkRels(target, arrRows, 'addTable')
 
 		// Same timing rule as the hyperlink rels above: resolve cell image fills to media rels
 		// on the slide this table actually landed on.
@@ -645,7 +652,7 @@ export function addTableDefinition(
 				}
 
 				// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
-				createHyperlinkRels(newSlide, slide.rows, undefined, 'addTable')
+				createHyperlinkRels(newSlide, slide.rows, 'addTable')
 
 				// Add rows to new slide. When `rowH` is an array it is keyed by *original* row index,
 				// which no longer matches the per-slide physical row order after pagination; use the

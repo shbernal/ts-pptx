@@ -23,6 +23,7 @@ import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
 import { validateHyperlink } from '../define/hyperlinks.js'
+import { InternalError } from '../../errors.js'
 import { inch2Emu, lineWidthToEmu, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -490,9 +491,16 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 
 	// Hyperlink support
 	if (opts.hyperlink) {
-		// The same rules the definers apply. A run reaches here through paths that never registered
-		// its link (notes, for one), so the check stays at the emitter too.
-		validateHyperlink(opts.hyperlink, 'text')
+		// Every definer refuses a hyperlink it cannot express when the link is authored, so a malformed
+		// one reaching the emitter is this library's defect rather than the caller's input.
+		try {
+			validateHyperlink(opts.hyperlink, 'text')
+		} catch (err) {
+			throw new InternalError(
+				'hyperlink/not-validated',
+				`A run reached the emitter with a hyperlink its definer should have refused: ${(err as Error).message}`
+			)
+		}
 		// An action-only hyperlink (an action-button navigation) lives on the shape's `<p:cNvPr>`
 		// (see `cNvPrHyperlink`), NOT on the text run — a labeled action button emits no run-level
 		// `<a:hlinkClick>`.

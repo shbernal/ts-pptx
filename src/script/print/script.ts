@@ -259,7 +259,7 @@ function printAuthoredSlide(
 	// and rides across fine, while an embedded start sound needs an audio part wired to the
 	// appended slide. `extractSlides` never runs the registration pass that assigns it a
 	// relationship id (`registerTransitionSounds` belongs to the package-assembly path), so the
-	// emitter finds no `_sndRId` and writes no `p:sndAc` at all. That is a silent drop rather
+	// emitter is handed no sound id and writes no `p:sndAc` at all. That is a silent drop rather
 	// than a dangling reference — which is the safe failure of the two, and still a loss the
 	// reader has to be told about. The standalone tier writes a real package and keeps it.
 	if (slide.transition?.sound?.data !== undefined) {

@@ -13,6 +13,7 @@ import type { ZipWriter } from '../../zip.js'
 import type { ContentTypeOverride } from '../../gen/opc/content-types.js'
 import type { PresentationPropsInternal, PresSlideInternal } from '../../types/internal.js'
 import {
+	buildNotesSlideRels,
 	makeXmlNotesMaster,
 	makeXmlNotesMasterRel,
 	makeXmlNotesSlide,
@@ -27,9 +28,11 @@ export const notesContributor: PartContributor = {
 	parts: {
 		withEachSlide(slide: PresSlideInternal, slideNumber: number, zip: ZipWriter): void {
 			// Notes of empty strings are created for slides which do not have notes specified, to
-			// keep track of _rels.
-			zip.add(notesSlidePath(slideNumber), makeXmlNotesSlide(slide))
-			zip.add(relsPath(notesSlidePath(slideNumber)), makeXmlNotesSlideRel(slide, slideNumber))
+			// keep track of _rels. The body and its rels are written from one resolution of the notes,
+			// so their hyperlink ids cannot disagree.
+			const notes = buildNotesSlideRels(slide)
+			zip.add(notesSlidePath(slideNumber), makeXmlNotesSlide(slide, notes))
+			zip.add(relsPath(notesSlidePath(slideNumber)), makeXmlNotesSlideRel(notes, slideNumber))
 		},
 		afterMaster(_pres: PresentationPropsInternal, zip: ZipWriter): void {
 			zip.add(NOTES_MASTER_PATH, makeXmlNotesMaster())

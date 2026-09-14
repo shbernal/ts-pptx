@@ -893,6 +893,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Writing a deck wrote into the caller's notes runs, transitions and table runs, and a second
+  write or a shared object then broke their links.**
+  - A notes hyperlink's relationship id was stamped on the caller's hyperlink object, and the
+    notes relationships were cached on the slide after the first write. A hyperlink object also
+    used on a slide run moved that run's `r:id` onto the notes relationship on the next write.
+    Notes added after a write emitted `r:id="rIdundefined"` with no relationship. The caller's
+    `{ hyperlink: { url } }` gained an `_rId`, and a `{ hyperlink: { slide } }` came back emptied.
+    The notes part now resolves its links on copies, on every write.
+  - A transition's embedded sound kept its relationship id on the transition object. Assigning one
+    transition object to two slides wrote the second slide's sound against the first slide's id,
+    which on the second slide could name a picture. The id is kept per slide now, and a deck
+    written twice still registers each sound once.
+  - A table cell's hyperlink merged the cell's options over its first run's, so that run lost its
+    own colour and formatting to the cell's. The caller's run came back holding the cell's
+    options too. Each run keeps its own options and still carries the cell's link.
+  - **`addNotes` refuses the hyperlinks `addText` refuses.** A link stating both `url` and
+    `slide` was accepted and then failed the write with `hyperlink/conflicting-targets`, while
+    `hyperlink: {}` and a string were dropped without a warning. `addNotes` now throws
+    `hyperlink/conflicting-targets`, `hyperlink/missing-target` or `hyperlink/not-an-object`
+    when the notes are added. **Migration:** give a notes hyperlink an object with a `url`.
+
 - **A structural table edit broke a merge written in the other form.**
   - A merge reaches `Table.addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells` and
     `unmergeCell` in two forms. The covered cells this library's writer emits repeat the

@@ -97,13 +97,11 @@ type HyperlinkTextObject = (TextProps | SlideObject | TableCellInternal) & {
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
  * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
  * @param {number | string | TextProps | TextProps[] | TableCellInternal[][]} text - text to parse
- * @param options - options re-applied to each object by index (table cells lose theirs to recursion)
  * @param call - the method the objects were authored through, for a refused hyperlink's message
  */
 export function createHyperlinkRels(
 	target: PresSlideInternal,
 	text: number | string | SlideObject | TextProps | TextProps[] | TableCellInternal[] | TableCellInternal[][],
-	options?: TextPropsOptions[],
 	call = 'addText'
 ): void {
 	let textObjs: Array<HyperlinkTextObject | TableCellInternal[]> = []
@@ -114,21 +112,13 @@ export function createHyperlinkRels(
 	else if (Array.isArray(text)) textObjs = text
 	else if (typeof text === 'object') textObjs = [text]
 
-	textObjs.forEach((text: HyperlinkTextObject | TableCellInternal[], idx: number) => {
-		// NOTE: `text` can be an array of other `text` objects (table cell word-level formatting), continue parsing using recursion
+	textObjs.forEach((text: HyperlinkTextObject | TableCellInternal[]) => {
+		// A table row: walk its cells.
 		if (Array.isArray(text)) {
-			const cellOpts: TextPropsOptions[] = []
-			text.forEach((tablecell) => {
-				if (tablecell.options) {
-					cellOpts.push(tablecell.options)
-				}
-			})
-			createHyperlinkRels(target, text, cellOpts, call)
+			createHyperlinkRels(target, text, call)
 			return
 		}
 
-		// IMPORTANT: `options` are lost due to recursion/copy!
-		if (options && options[idx] && options[idx].hyperlink) text.options = { ...text.options, ...options[idx] }
 		// Refused when it is authored rather than when it is written, and by the same rules as an
 		// image's and a run's.
 		if (text.options?.hyperlink) validateHyperlink(text.options.hyperlink, call)
@@ -139,55 +129,48 @@ export function createHyperlinkRels(
 			// relationship nothing had minted -- invisible while `addText`'s bare-string form handed
 			// one options object to both the shape and its run, because the run then minted the id the
 			// shape went on to read off the same object.
-			createHyperlinkRels(target, text.text, options && options[idx] ? [options[idx]] : undefined, call)
+			//
+			// A table cell's own link is registered on the cell below and not copied onto its runs:
+			// the run emitter already carries it to every run. Merging the cell's options over the
+			// first run's, which this walk once did, replaced that run's own colour and formatting.
+			createHyperlinkRels(target, text.text, call)
 		}
-		if (
-			text &&
-			typeof text === 'object' &&
-			text.options &&
-			text.options.hyperlink &&
-			!(text.options.hyperlink as HyperlinkPropsInternal)._rId
-		) {
-			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
+
+		const options = text.options
+		const hyperlink: HyperlinkPropsInternal | undefined = options?.hyperlink
+		if (!options || !hyperlink) return
+
+		if (!hyperlink._rId) {
 			// Only a `url` or a `slide` needs a relationship. A navigation action button (`action`
 			// alone) is legitimately rel-free: the `ppaction://hlinkshowjump` action is self-contained,
 			// so the emitter writes `r:id=""`. A malformed hyperlink never gets here; it was refused above.
-			if (hyperlink.url || hyperlink.slide) {
-				registerHyperlinkRel(target, hyperlink)
-			}
-		} else if (
-			text &&
-			typeof text === 'object' &&
-			text.options &&
-			text.options.hyperlink &&
-			(text.options.hyperlink as HyperlinkPropsInternal)._rId
-		) {
-			const hyperlink: HyperlinkPropsInternal = text.options.hyperlink
-			const hyperlinkRelId = hyperlink._rId
-			// A hyperlink already carrying an id was registered on some slide. Auto-paging re-registers
-			// a repeated header row's hyperlink on each overflow slide under that id, and a caller can
-			// hand one hyperlink object to two slides. Reusing the id is only sound when this slide has
-			// it free: when it holds the id for a picture, a chart or another link, the rel would be
-			// declared twice or the run would follow someone else's target. Then this slide gets its
-			// own copy of the hyperlink and a fresh id, and the other slide keeps the original.
-			const wanted = hyperlinkRel(hyperlinkRelId ?? 0, hyperlink)
-			const registeredHere = target._rels.some(
-				(rel) =>
-					rel.rId === hyperlinkRelId &&
-					rel.type === wanted.type &&
-					rel.data === wanted.data &&
-					rel.Target === wanted.Target
-			)
-			if (hyperlinkRelId && !registeredHere) {
-				if (!heldRelIds(target).has(hyperlinkRelId)) {
-					target._rels.push(wanted)
-				} else {
-					const own: HyperlinkPropsInternal = { ...hyperlink }
-					delete own._rId
-					text.options.hyperlink = own
-					registerHyperlinkRel(target, own)
-				}
-			}
+			if (hyperlink.url || hyperlink.slide) registerHyperlinkRel(target, hyperlink)
+			return
+		}
+
+		// A hyperlink already carrying an id was registered on some slide. Auto-paging re-registers
+		// a repeated header row's hyperlink on each overflow slide under that id, and a caller can
+		// hand one hyperlink object to two slides. Reusing the id is only sound when this slide has
+		// it free: when it holds the id for a picture, a chart or another link, the rel would be
+		// declared twice or the run would follow someone else's target. Then this slide gets its
+		// own copy of the hyperlink and a fresh id, and the other slide keeps the original.
+		const hyperlinkRelId = hyperlink._rId
+		const wanted = hyperlinkRel(hyperlinkRelId, hyperlink)
+		const registeredHere = target._rels.some(
+			(rel) =>
+				rel.rId === hyperlinkRelId &&
+				rel.type === wanted.type &&
+				rel.data === wanted.data &&
+				rel.Target === wanted.Target
+		)
+		if (registeredHere) return
+		if (!heldRelIds(target).has(hyperlinkRelId)) {
+			target._rels.push(wanted)
+		} else {
+			const own: HyperlinkPropsInternal = { ...hyperlink }
+			delete own._rId
+			options.hyperlink = own
+			registerHyperlinkRel(target, own)
 		}
 	})
 }

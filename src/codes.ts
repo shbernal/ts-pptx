@@ -455,6 +455,10 @@ export type InternalErrorCode =
 	// read is a defect on this side; catching it at the extraction boundary keeps it legible,
 	// rather than handing `NaN` to the append path's rel-graph rebuild.
 	| 'slide/link-target-not-a-number'
+	// A text run reached the emitter with a hyperlink `validateHyperlink` would refuse. Every definer
+	// that accepts a hyperlink (`addText`, `addShape`, `addTable`, `addImage`, `addNotes`) runs that
+	// check when the link is authored, so the emitter meeting one means a path skipped it.
+	| 'hyperlink/not-validated'
 	| 'animation/timing-scaffold-failed'
 	// A media item's three slide rels did not come out consecutive. `addMedia` allocates them
 	// with three separate `getNewRelId` calls and every reader of the triple (the body's

@@ -1,12 +1,31 @@
+import JSZip from 'jszip'
 import {
+	TsPptx,
 	setDiagnosticHandler,
+	captureDiagnostics,
 	defineRegressionSuite,
 	build,
 	readEntry,
 	assert,
+	assertEqual,
 	assertIncludes,
 	assertNotIncludes,
 } from '../../helpers.js'
+
+/** A package's entry by name, from a written deck. */
+async function entryOf(pres, name) {
+	return readEntry(await JSZip.loadAsync(await pres.toBytes()), name)
+}
+
+/** The `code` `fn` throws, or `null`. */
+function codeOf(fn) {
+	try {
+		fn()
+		return null
+	} catch (err) {
+		return err.code ?? null
+	}
+}
 
 const NOTES_XML = (n) => `ppt/notesSlides/notesSlide${n}.xml`
 const NOTES_RELS = (n) => `ppt/notesSlides/_rels/notesSlide${n}.xml.rels`
@@ -112,6 +131,84 @@ defineRegressionSuite('Speaker notes hyperlinks & rich runs', [
 				)
 			} finally {
 				setDiagnosticHandler(null)
+			}
+		},
+	},
+	{
+		// The notes part numbers its links in a namespace of its own. The id was stamped on the
+		// hyperlink object, which a slide run can share, so the next write moved the slide run's
+		// `r:id` onto whatever the slide declared under the notes id.
+		name: 'one hyperlink object on a slide run and a notes run resolves in both parts, on every write',
+		fn: async () => {
+			const link = { url: 'https://shared.example/' }
+			const pres = new TsPptx()
+			const slide = pres.addSlide()
+			slide.addText([{ text: 'slide run', options: { hyperlink: link } }], { x: 1, y: 1, w: 4, h: 1 })
+			slide.addNotes([{ text: 'notes run', options: { hyperlink: link } }])
+			for (const write of [1, 2]) {
+				const zip = await JSZip.loadAsync(await pres.toBytes())
+				const slideId = /<a:hlinkClick r:id="(rId\d+)"/.exec(await readEntry(zip, 'ppt/slides/slide1.xml'))?.[1]
+				const slideRels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+				assert(
+					new RegExp(
+						`<Relationship Id="${slideId}"[^>]*relationships/hyperlink"[^>]*Target="https://shared.example/"`
+					).test(slideRels),
+					`write ${write}: the slide run's ${slideId} names its hyperlink relationship`
+				)
+				assertIncludes(await readEntry(zip, NOTES_XML(1)), '<a:hlinkClick r:id="rId3"', `write ${write}: the notes run`)
+				assertIncludes(await readEntry(zip, NOTES_RELS(1)), 'Id="rId3"', `write ${write}: the notes relationship`)
+			}
+		},
+	},
+	{
+		// The first write cached the notes relationships on the slide, so a link added afterwards was
+		// never given an id and wrote `r:id="rIdundefined"`.
+		name: 'notes added after a write are linked on the next write',
+		fn: async () => {
+			const pres = new TsPptx()
+			const slide = pres.addSlide()
+			slide.addNotes([{ text: 'early', options: { hyperlink: { url: 'https://early.example/' } } }])
+			await pres.toBytes()
+			slide.addNotes([{ text: 'late', options: { hyperlink: { url: 'https://late.example/' } } }])
+
+			const xml = await entryOf(pres, NOTES_XML(1))
+			assertNotIncludes(xml, 'rIdundefined', 'every notes link has an id')
+			assertIncludes(xml, '<a:hlinkClick r:id="rId4"', 'the late link takes the next id')
+			assertIncludes(await entryOf(pres, NOTES_RELS(1)), 'Target="https://late.example/"', 'and a relationship')
+		},
+	},
+	{
+		name: 'writing leaves the caller’s notes run options as they were',
+		fn: async () => {
+			const toSlide = { hyperlink: { slide: 1 } }
+			const toUrl = { hyperlink: { url: 'https://u.example/' } }
+			const before = JSON.stringify([toSlide, toUrl])
+			const pres = new TsPptx()
+			pres.addSlide().addNotes([
+				{ text: 'to a slide', options: toSlide },
+				{ text: 'to a url', options: toUrl },
+			])
+			await captureDiagnostics(() => pres.toBytes())
+			assertEqual(JSON.stringify([toSlide, toUrl]), before, 'neither options object was written into')
+		},
+	},
+	{
+		// `addText` refuses all three when the text is added. `addNotes` accepted them: the first
+		// then failed the write, and the other two were dropped without a word.
+		name: 'addNotes refuses the hyperlinks addText refuses, when the notes are added',
+		fn: async () => {
+			for (const [hyperlink, code] of [
+				[{ url: 'https://a.example/', slide: 1 }, 'hyperlink/conflicting-targets'],
+				[{}, 'hyperlink/missing-target'],
+				['https://a.example/', 'hyperlink/not-an-object'],
+			]) {
+				const slide = new TsPptx().addSlide()
+				const options = { hyperlink: /** @type {any} */ (hyperlink) }
+				assertEqual(
+					codeOf(() => slide.addNotes([{ text: 'x', options }])),
+					code,
+					JSON.stringify(hyperlink)
+				)
 			}
 		},
 	},

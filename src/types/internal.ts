@@ -16,7 +16,7 @@ import type {
 	TextAnchor,
 } from '../enums.js'
 import type { EmbeddedFont } from '../embedded-fonts.js'
-import type { AnimationProps, TransitionProps } from './animation.js'
+import type { AnimationProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundOption, Margin, TextVertType } from './core.js'
 import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
@@ -58,17 +58,6 @@ export type MaybeUndefined<T> = Omit<T, OptionalKeysOf<T>> & { [K in OptionalKey
  * The `_` prefix keeps it clear of the removed public `opacity` input: a stray `opacity` from an
  * untyped caller lands on a field nothing reads, so it is inert rather than silently honored.
  */
-/**
- * A transition carrying the relationship id its embedded sound part was registered under.
- *
- * Stamped by `registerTransitionSounds` at export time and read by the `p:sndAc` emitter. It
- * was declared on the public {@link TransitionProps}, where it was a documented option key
- * nobody intended: a caller setting it by hand would collide with the registration pass.
- */
-export interface TransitionPropsInternal extends TransitionProps {
-	_sndRId?: number
-}
-
 /**
  * A hyperlink carrying the relationship id `registerHyperlinkRel` minted for it.
  *
@@ -438,7 +427,6 @@ interface SlideBaseProps {
 	_rels: SlideRel[]
 	_relsChart: SlideRelChart[] // needed as we use args:"Slide|SlideLayout" often
 	_relsMedia: SlideRelMedia[] // needed as we use args:"Slide|SlideLayout" often
-	_relsNotes?: SlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
 	_comments?: SlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
 	_txStyles?: MasterTextStyleProps // per-level master text styles emitted in slideMaster1.xml <p:txStyles> (deck-wide; set via defineSlideMaster textStyles)
 	_slideNum: number
@@ -469,8 +457,6 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	} | null
 }
 export interface PresSlideInternal extends SlideBaseProps, Slide {
-	/** Narrowed so the export-time `_sndRId` stamp has somewhere to live off the public type. */
-	transition?: TransitionPropsInternal | undefined
 	_rId: number
 	_slideLayout: SlideLayoutInternal | null
 	_slideId: number

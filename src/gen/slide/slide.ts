@@ -21,9 +21,11 @@ import { commentPath, notesSlidePath, slideLayoutPath, targetFromPptSubpart } fr
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
  * @param slide - the slide object to transform into XML
  * @param renderers - which renderer emits each shape family, passed through to the shape walk
+ * @param transitionSoundRId - the relationship id package assembly registered this slide's transition
+ *   start sound under, if it registered one
  * @return XML
  */
-export function makeXmlSlide(slide: PresSlideInternal, renderers: RendererTable): string {
+export function makeXmlSlide(slide: PresSlideInternal, renderers: RendererTable, transitionSoundRId?: number): string {
 	return (
 		XML_DECL +
 		CRLF +
@@ -36,7 +38,7 @@ export function makeXmlSlide(slide: PresSlideInternal, renderers: RendererTable)
 			[
 				raw(slideObjectToXml(slide, renderers)),
 				raw(el('p:clrMapOvr', null, raw(voidEl('a:masterClrMapping')))),
-				raw(slideTransitionToXml(slide)),
+				raw(slideTransitionToXml(slide, transitionSoundRId)),
 				raw(slideTimingToXml(slide)),
 			]
 		)

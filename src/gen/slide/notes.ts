@@ -36,58 +36,68 @@ function getNotesRuns(slide: PresSlideInternal): TextProps[] {
 	return runs
 }
 
+/** A slide's notes as its notes part is written: the relationships the part declares, and the runs that reference them. */
+export interface NotesSlideContent {
+	/** The notes hyperlink relationships, numbered from rId3. */
+	readonly rels: SlideRel[]
+	/** The notes runs, with each `url` link carrying the id it was given here. */
+	readonly runs: TextProps[]
+}
+
 /**
- * Build (and cache) the hyperlink relationships for a slide's notes part (`notesSlideN.xml.rels`).
+ * Resolve a slide's notes runs against the notes part's own relationship ids.
  *
  * Notes rels use their own namespace, independent of `slide._rels` (which serialize to
  * `slideN.xml.rels`). The notes part always reserves rId1=notesMaster and rId2=slide, so
- * dynamic hyperlink rels are allocated starting at rId3. Each notes hyperlink run is tagged
- * with its `_rId` so the body serializer and the rels file agree.
+ * hyperlink rels are allocated starting at rId3.
  *
- * Idempotent: the result is cached on `slide._relsNotes` and reused by both callers.
- * Only external `url` hyperlinks are supported; `slide` targets are ignored with a warning.
+ * Pure. The ids go on copies of the runs, never on the caller's run or hyperlink objects: the same
+ * hyperlink object can also sit on a slide run, whose id lives in the slide's namespace, and a deck
+ * can be written twice or gain notes between writes. Each notes-part writer computes this once and
+ * hands the result to both the body and the rels file, which is what keeps the two in agreement.
+ *
+ * Only external `url` hyperlinks are supported; any other target is left off the copy, and a
+ * `slide` target says so.
  * @param {PresSlideInternal} slide - the slide object
- * @return {SlideRel[]} notes hyperlink relationships
+ * @return {NotesSlideContent} the notes hyperlink relationships and the runs referencing them
  */
-export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
-	if (slide._relsNotes) return slide._relsNotes
-
+export function buildNotesSlideRels(slide: PresSlideInternal): NotesSlideContent {
 	const NOTES_REL_RESERVED = 2 // rId1=notesMaster, rId2=slide
 	const rels: SlideRel[] = []
 	let lastRid = NOTES_REL_RESERVED
 
-	getNotesRuns(slide).forEach((run) => {
+	const runs = getNotesRuns(slide).map((run): TextProps => {
 		const hyperlink: HyperlinkPropsInternal | undefined = run.options?.hyperlink
-		if (!hyperlink) return
+		if (!hyperlink || !run.options) return run
 		if (!hyperlink.url) {
-			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the
-			// run serializer doesn't emit a dangling <a:hlinkClick> with no matching relationship.
+			// Dropped from the copy so the run serializer doesn't emit a dangling <a:hlinkClick> with no
+			// matching relationship.
 			if (hyperlink.slide)
 				warn('notes/hyperlink-slide-unsupported', 'notes hyperlinks support `url` only (ignoring `slide` target)')
-			if (run.options) delete run.options.hyperlink
-			return
+			const { hyperlink: _unsupported, ...options } = run.options
+			return { ...run, options }
 		}
 
 		lastRid++
-		hyperlink._rId = lastRid
 		rels.push(hyperlinkRel(lastRid, hyperlink))
+		const linked: HyperlinkPropsInternal = { ...hyperlink, _rId: lastRid }
+		return { ...run, options: { ...run.options, hyperlink: linked } }
 	})
 
-	slide._relsNotes = rels
-	return rels
+	return { rels, runs }
 }
 
 /**
  * Build the `<p:txBody>` paragraphs for the notes placeholder.
  * Runs are split into `<a:p>` paragraphs on newlines; each run is serialized with the standard
  * text-run generator so inline formatting and `<a:hlinkClick>` markup are emitted consistently.
- * @param {PresSlideInternal} slide - the slide object
+ * @param {TextProps[]} runs - the notes runs, as {@link buildNotesSlideRels} resolved them
  * @return {string} XML string of `<a:p>` paragraphs
  */
-function genXmlNotesParagraphs(slide: PresSlideInternal): string {
+function genXmlNotesParagraphs(runs: TextProps[]): string {
 	const paragraphs: TextProps[][] = [[]]
 
-	getNotesRuns(slide).forEach((run) => {
+	runs.forEach((run) => {
 		const segments = String(run.text ?? '').split('\n')
 		segments.forEach((segment, idx) => {
 			if (idx > 0) paragraphs.push([]) // a newline starts a new paragraph
@@ -361,12 +371,12 @@ export function makeXmlNotesMaster(): string {
 /**
  * Creates Notes Slide (`ppt/notesSlides/notesSlide1.xml`)
  * @param {PresSlideInternal} slide - the slide object to transform into XML
+ * @param {NotesSlideContent} notes - the slide's notes, from {@link buildNotesSlideRels}; the same
+ *   value has to reach {@link makeXmlNotesSlideRel}
  * @return {string} XML
  */
-export function makeXmlNotesSlide(slide: PresSlideInternal): string {
-	// Allocate notes hyperlink rels first so run serialization can reference the correct rId
-	buildNotesSlideRels(slide)
-	return makeXmlNotesSlideSkeleton(genXmlNotesParagraphs(slide), slide._slideNum)
+export function makeXmlNotesSlide(slide: PresSlideInternal, notes: NotesSlideContent): string {
+	return makeXmlNotesSlideSkeleton(genXmlNotesParagraphs(notes.runs), slide._slideNum)
 }
 
 /**
@@ -457,15 +467,13 @@ export function makeXmlNotesSlideSkeleton(bodyParagraphsXml: string, slideNum: n
 /**
  * Generates XML string for a notes-slide relation file (`ppt/notesSlides/_rels/notesSlideN.xml.rels`).
  * rId1=notesMaster and rId2=slide are always reserved; any notes hyperlink rels follow (rId3+).
- * @param {PresSlideInternal} slide - the slide whose notes part is being related
+ * @param {NotesSlideContent} notes - the slide's notes, the value {@link makeXmlNotesSlide} was given
  * @param {number} slideNumber - 1-indexed slide number the notes part belongs to
  * @return {string} XML
  */
-export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: number): string {
+export function makeXmlNotesSlideRel(notes: NotesSlideContent, slideNumber: number): string {
 	// Flat: the hyperlink rels run together on one line, after the indented rId1/rId2 pair.
-	const hlinkRels = buildNotesSlideRels(slide)
-		.map((rel) => externalHyperlinkRel(rel.rId, rel.Target))
-		.join('')
+	const hlinkRels = notes.rels.map((rel) => externalHyperlinkRel(rel.rId, rel.Target)).join('')
 
 	return (
 		XML_DECL +
