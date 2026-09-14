@@ -1,3 +1,9 @@
+/**
+ * The browser authoring entry, which the bare `pptx-ts` specifier resolves to under the
+ * `browser` export condition.
+ *
+ * @module
+ */
 import PresentationCore from './presentation.js'
 import { composePresentation, type ComposeOptions, type Composed } from './entry-compose.js'
 import type { ConstructFamily } from './families/shared.js'

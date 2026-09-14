@@ -254,7 +254,7 @@ export class Slide implements ShapeHost {
 	/**
 	 * Whether the slide carries build animations (`p:timing` with a `<p:bldP>` or a
 	 * `presetID`-bearing time node). The animation tree itself is preserved opaquely;
-	 * see {@link animationSpids}.
+	 * see `animationSpids`.
 	 */
 	get hasAnimations(): boolean {
 		const root = this.part.dom.documentElement
@@ -545,7 +545,7 @@ export class Slide implements ShapeHost {
 	 *
 	 * Drawing ids are unique within a slide, so the first match is the only match; the
 	 * pre-order walk just fixes a deterministic order. This backs the connector-binding
-	 * resolution ({@link import('./shapes.js').Connector.startConnection}), which must
+	 * resolution ({@link Connector.startConnection}), which must
 	 * resolve a binding into a group that top-level {@link shapeById} cannot see.
 	 */
 	shapeByIdDeep(id: number): AnyShape | undefined {

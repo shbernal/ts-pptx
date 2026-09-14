@@ -1,5 +1,5 @@
 /**
- * ts-pptx: the construct families, as the `pptx-ts/families` subpath publishes them
+ * The construct families, as the `pptx-ts/families` subpath publishes them.
  *
  * What a caller hands to `createPresentation({ use: [...] })`. Each value is one family: the
  * methods it adds to a slide, the child descriptors it recognises in a slide master or a group,
@@ -10,6 +10,8 @@
  *
  * The core tier -- text, shapes, images, groups and speaker notes -- is composed for you. Those
  * five are exported anyway, so a caller can be explicit; listing one changes nothing.
+ *
+ * @module
  */
 
 import { animationsFamily } from './families/animations.js'

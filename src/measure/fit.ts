@@ -87,11 +87,11 @@ function formatCodepoints(cps: Set<number>): string {
  * Layout-time text measurement against registered metrics — the public engine
  * behind `pptx.measureText()`. Uses the **same** calibrated wrap model, resolver
  * semantics, and conservative safety factors as the export-time bake
- * ({@link applyMeasuredFit} / {@link solveResize} / {@link solveShrink}), so a
+ * (`applyMeasuredFit` / {@link solveResize} / {@link solveShrink}), so a
  * layout-time prediction matches the value the export would bake **for any deck
  * that opted into measured fit (i.e. registered at least one face)**.
  *
- * With an **empty** registry the two intentionally diverge: {@link applyMeasuredFit}
+ * With an **empty** registry the two intentionally diverge: `applyMeasuredFit`
  * treats "no metrics" as "not opted in" and bakes nothing, while this returns
  * heuristic numbers so the API is useful with zero setup. Check
  * `approximatedFaces` if that distinction matters.

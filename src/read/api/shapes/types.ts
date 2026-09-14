@@ -63,7 +63,7 @@ export interface ConnectionSite {
  * A shape's outer drop shadow (`spPr/a:effectLst/a:outerShdw`), as read from a
  * shape and resolved against the slide theme. Distances are in points (the EMU
  * source ÷ 12700) and the direction in degrees (the `60000`ths source ÷ 60000),
- * matching the write-side {@link ShadowProps} convention so it round-trips.
+ * matching the write-side `ShadowProps` convention so it round-trips.
  */
 export interface OuterShadow {
 	/**

@@ -46,7 +46,7 @@ const DIRECT_SLOT_TOKENS = new Set(['dk1', 'lt1', 'dk2', 'lt2'])
  * The colour-resolution context: the two maps that turn a DrawingML colour
  * reference into a literal hex — the effective colour map (token → `clrScheme`
  * slot, honouring any slide `clrMapOvr`) and the resolved colour scheme (slot →
- * 6-hex RGB). Shared by the read-model colour getters and {@link ThemeContext}.
+ * 6-hex RGB). Shared by the read-model colour getters and `ThemeContext`.
  */
 export interface ColorContext {
 	clrMap: Map<string, string>

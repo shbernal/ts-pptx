@@ -133,7 +133,22 @@ function docsNavigationOrder(records) {
 	return ordered
 }
 
-const records = docsNavigationOrder(walkDocs(docsDir).filter(isServedPage).map(pageRecord))
+/** The TypeDoc output tree, written by `docs:api`. */
+const GENERATED_API_TREE = 'reference/api/'
+
+/**
+ * Whether a served page belongs in the llms files. The TypeDoc tree contributes only its landing
+ * page, the one page of it the navigation links. Its member pages, several hundred of them, used
+ * to be appended one by one after the navigated pages, because `docsNavigationOrder` keeps every
+ * page it cannot place, and they made up most of `llms-full.txt`.
+ * @param {string} rel - docs-relative POSIX path of the page
+ * @returns {boolean}
+ */
+function isListedPage(rel) {
+	return !rel.startsWith(GENERATED_API_TREE) || rel === `${GENERATED_API_TREE}index.md`
+}
+
+const records = docsNavigationOrder(walkDocs(docsDir).filter(isServedPage).filter(isListedPage).map(pageRecord))
 
 const llms = [
 	`# ${docsConfig.name}`,

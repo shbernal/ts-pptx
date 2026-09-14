@@ -1,5 +1,5 @@
 /**
- * `ts-pptx/html` — reproduce an existing HTML `<table>` as a PowerPoint table, as a free
+ * Reproduce an existing HTML `<table>` as a PowerPoint table, as a free
  * function that works anywhere there is a DOM.
  *
  * The same conversion is available as `TsPptx.prototype.tableToSlides(id, options)` on the
@@ -44,6 +44,7 @@
  * tableToSlides(pptx, win.document.getElementById('report'), { autoPage: true })
  * await pptx.writeFile({ fileName: 'report.pptx' })
  * ```
+ * @module
  */
 
 import { genTableToSlides, type TableToSlidesHost } from './gen/table/html-dom.js'

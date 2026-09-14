@@ -23,7 +23,7 @@ import type { Relationships } from '../../opc/relationships.js'
 import type { ThemeContext } from '../../oxml/theme.js'
 import type { AnyShape } from '../shapes.js'
 
-/** The part-level surface a {@link import('./base.js').Shape} resolves against. */
+/** The part-level surface a {@link Shape} resolves against. */
 export interface ShapeHost {
 	/** The OPC part holding the shape tree (`p:sld` / `p:sldLayout` / `p:sldMaster`). */
 	readonly part: Part

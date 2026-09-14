@@ -1,6 +1,6 @@
 /**
- * `pptx-ts/math` — author display equations in LaTeX or MathML and get
- * OMML for the `math:` option on `addText` (see {@link TextProps.math}).
+ * Author display equations in LaTeX or MathML and get
+ * OMML for the `math:` option on `addText` (see `TextProps.math`).
  *
  * Pipeline: LaTeX --temml--> MathML --mathml2omml--> OMML.
  *
@@ -17,7 +17,7 @@
  * default `latexToOmml()` returns a centered display `<m:oMathPara>`, while
  * `latexToOmml(tex, { display: false })` (and `mathmlToOmml()`) return the bare
  * `<m:oMath>` form you pass to a text item with `inline: true` to flow it
- * mid-paragraph (see {@link TextProps.inline}).
+ * mid-paragraph (see `TextProps.inline`).
  *
  * @module
  */

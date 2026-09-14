@@ -423,7 +423,7 @@ export interface FidelityNote {
 	 * field path rather than describe one. Reuse an existing key for the same construct
 	 * instead of coining a synonym.
 	 *
-	 * A `string` rather than {@link NoteConstruct} because a note carries the `layout.`-prefixed
+	 * A `string` rather than `NoteConstruct` because a note carries the `layout.`-prefixed
 	 * spelling too; the recording end is the typed one.
 	 */
 	construct: string
@@ -464,7 +464,7 @@ export class NoteCollector {
 
 /**
  * Namespace for a loss recorded against a shape on a **slide layout** rather than on a slide,
- * prepended to the construct by {@link layoutShapeScope}.
+ * prepended to the construct by `layoutShapeScope`.
  *
  * The chrome mapper reuses the slide shape mapper wholesale — a rectangle on a layout is
  * transcribed by the same code that transcribes one on a slide, which is what keeps the two

@@ -451,7 +451,7 @@ export class TableCell {
 	/**
 	 * The cell's solid fill resolved against the table's theme colour context to a
 	 * literal hex — the table-cell counterpart of
-	 * {@link import('./shapes.js').AutoShape.resolvedFill}. The cell's own
+	 * {@link AutoShape.resolvedFill}. The cell's own
 	 * `a:tcPr/a:solidFill` wins; when the cell defines none, this falls back to the
 	 * table **style** graph (the `firstRow`/banded/`wholeTbl` shading the
 	 * `a:tableStyleId` supplies — see {@link Table.resolvedStyle}), so a styled cell
@@ -461,7 +461,7 @@ export class TableCell {
 	 * A cell that carries *some other* fill choice (`a:blipFill`/`a:gradFill`/
 	 * `a:pattFill`/`a:noFill`) overrides the style graph in PowerPoint, so this
 	 * reports `null` for one rather than falling through to the inherited shading —
-	 * the same guard {@link import('./shapes.js').AutoShape.resolvedFill} applies to
+	 * the same guard {@link AutoShape.resolvedFill} applies to
 	 * the style matrix. Read {@link pictureFill} for an image-filled cell. Also
 	 * `null` when neither source yields a solid colour (an
 	 * unmapped token, an explicit style `a:noFill`). The returned
@@ -492,12 +492,12 @@ export class TableCell {
 	/**
 	 * `true` when the cell sets an explicit no-fill (`a:tcPr/a:noFill`) — a deliberately
 	 * transparent cell showing the table background (or the slide) through. The cell-side
-	 * counterpart of {@link import('./shapes.js').AutoShape.fillNoFill}, and what
+	 * counterpart of {@link AutoShape.fillNoFill}, and what
 	 * {@link noFill} writes.
 	 *
 	 * {@link hasOwnFill} is not this question: it is `true` for *any* `EG_FillProperties`
 	 * child, so on its own it cannot separate a suppressed fill from a gradient or an image
-	 * one — and every colour accessor ({@link resolvedFill}, {@link fillColor},
+	 * one — and every colour accessor ({@link resolvedFill}, `fillColor`,
 	 * {@link fillSchemeColor}) reports `null` for a no-fill cell exactly as it does for a
 	 * cell that inherits its shading from the table style. Deriving it as "has a fill of its
 	 * own, and no accessor recognises it" instead of reading it has two failure modes: it
@@ -514,7 +514,7 @@ export class TableCell {
 	/**
 	 * The cell's picture (image) fill (`a:tcPr/a:blipFill`), or `null` when the cell
 	 * is not image-filled. The cell counterpart of
-	 * {@link import('./shapes.js').AutoShape.pictureFill}: {@link resolvedFill}
+	 * {@link AutoShape.pictureFill}: {@link resolvedFill}
 	 * decodes only solid colours, so without this an image-filled cell is
 	 * indistinguishable from an empty one. Carries the embedded image
 	 * ({@link PictureFill.relId}/{@link PictureFill.partName}) plus the stretch/tile

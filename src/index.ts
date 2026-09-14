@@ -1,3 +1,9 @@
+/**
+ * The runtime-agnostic authoring entry, which the bare `pptx-ts` specifier resolves to when
+ * neither the `node` nor the `browser` export condition applies.
+ *
+ * @module
+ */
 import PresentationCore from './presentation.js'
 import { composePresentation, type ComposeOptions, type Composed } from './entry-compose.js'
 import type { ConstructFamily } from './families/shared.js'

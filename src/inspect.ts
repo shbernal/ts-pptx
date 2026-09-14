@@ -21,6 +21,8 @@
  *   graphic is reported as one element with its box, its kind, and the text a
  *   reader sees on the slide, but its structure is not flattened: no per-run
  *   formatting, no cells, no series. Walk `ts-pptx/read` for what is inside one.
+ *
+ * @module
  */
 import { warn } from './diagnostics.js'
 import { OpcPackage } from './read/opc/package.js'
@@ -36,9 +38,9 @@ import { ABSENT_SLIDE_SIZE_EMU } from './ooxml/slide-size.js'
  * Input to the inspect surface. A `string` is a **filesystem path** (Node) read
  * from disk; pass `Uint8Array`/`ArrayBuffer`/`Blob`/`number[]` for an in-memory
  * archive. (A string is a path, not JSZip's latin1 binary content — see
- * {@link ZipInput}.)
+ * `ZipInput`.)
  */
-type PptxInspectInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
+export type PptxInspectInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 export type PptxInspectInput = PptxInspectInputValue | Promise<PptxInspectInputValue>
 

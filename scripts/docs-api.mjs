@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { ROOT, parseCliOrExit, runNodeBin } from './script-utils.mjs'
+import { ROOT, parseCliOrExit, repoRel, runNodeBin } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
@@ -135,11 +135,122 @@ try {
 	process.exit(1)
 }
 
-const readmePath = path.join(outDir, 'README.md')
-const indexPath = path.join(outDir, 'index.md')
-if (!existsSync(indexPath) && existsSync(readmePath)) {
-	copyFileSync(readmePath, indexPath)
+/**
+ * Subpaths `package.json#exports` publishes that the generated reference deliberately leaves out.
+ * Any other subpath without a module directory fails the run, and so does an entry here that has
+ * one, so the list cannot quietly grant slack.
+ *
+ * `./families` is out because its family objects are typed by the write path's internal plumbing
+ * (`PresSlideInternal`, `RenderContext`, `PresentationAuthorContext`, the slide class): documenting
+ * it would mean exporting those or silencing each of them.
+ */
+const UNDOCUMENTED_SUBPATHS = new Set(['./families'])
+
+/**
+ * The file one `package.json#exports` entry resolves to under the `default` condition, following
+ * nested condition objects (the bare `.` nests `browser`/`node`/`default`, each with its own
+ * `types`/`default`).
+ * @param {unknown} target
+ * @returns {string | undefined}
+ */
+function defaultTarget(target) {
+	if (typeof target === 'string') return target
+	if (target && typeof target === 'object' && 'default' in target) return defaultTarget(target.default)
+	return undefined
 }
+
+/**
+ * The one-line description of an entry point on the landing page: the first sentence of the
+ * entry file's module comment, which is the leading doc comment tagged `@module` and the same
+ * comment TypeDoc renders at the top of that module's page. So the description is edited in
+ * `src/`, never here. A `{@link X}` becomes a code span, because the link target is resolved
+ * relative to the module and would not resolve from the landing page.
+ * @param {string} sourcePath - absolute path of the entry file
+ * @returns {string}
+ */
+function moduleSummary(sourcePath) {
+	const comment = readFileSync(sourcePath, 'utf8').match(/^\/\*\*([\s\S]*?)\*\//)?.[1]
+	if (comment === undefined || !/^\s*\*\s*@module\s*$/m.test(comment)) {
+		throw new Error(`${repoRel(sourcePath)} does not open with a doc comment tagged @module`)
+	}
+	/** @type {string[]} */
+	const paragraph = []
+	for (const line of comment.split('\n').map((raw) => raw.replace(/^\s*\*?/, '').trim())) {
+		if (line.startsWith('@')) break
+		if (line === '') {
+			if (paragraph.length > 0) break
+			continue
+		}
+		paragraph.push(line)
+	}
+	const text = paragraph.join(' ').replaceAll(/\{@link\s+([^\s|}]+)[^}]*\}/g, '`$1`')
+	let inCode = false
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === '`') inCode = !inCode
+		else if (!inCode && '.!?'.includes(text[i] ?? '') && (i + 1 === text.length || text[i + 1] === ' ')) {
+			return text.slice(0, i + 1)
+		}
+	}
+	throw new Error(`the module comment of ${repoRel(sourcePath)} has no first sentence ending in a full stop`)
+}
+
+// The landing page lists every entry point `package.json#exports` publishes, rather than TypeDoc's
+// flat list of module names, so a reader starts from the specifier they import.
+const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
+/** @type {string[]} */
+const landingEntries = []
+/** @type {string[]} */
+const problems = []
+for (const [subpath, target] of Object.entries(pkg.exports)) {
+	const file = defaultTarget(target)
+	// `./package.json` is exported as a file, not a module.
+	if (!file?.endsWith('.js')) continue
+	const name = file.match(/^\.\/dist\/([\w-]+)\.js$/)?.[1]
+	if (!name) {
+		problems.push(`exports["${subpath}"] resolves to ${file}, not to a dist/<name>.js the entry file can be found from`)
+		continue
+	}
+	const specifier = subpath === '.' ? pkg.name : `${pkg.name}${subpath.slice(1)}`
+	const generated = existsSync(path.join(outDir, name, 'README.md'))
+	if (UNDOCUMENTED_SUBPATHS.has(subpath)) {
+		if (generated) problems.push(`exports["${subpath}"] now has a generated module; drop it from UNDOCUMENTED_SUBPATHS`)
+		continue
+	}
+	if (!generated) {
+		problems.push(
+			`exports["${subpath}"] (${specifier}) has no generated module directory "${name}": add src/${name}.ts to the entryPoints in typedoc.docs.json`
+		)
+		continue
+	}
+	try {
+		landingEntries.push(
+			`- [\`${specifier}\`](${name}/README.md): ${moduleSummary(path.join(root, 'src', `${name}.ts`))}`
+		)
+	} catch (error) {
+		problems.push(error instanceof Error ? error.message : String(error))
+	}
+}
+for (const subpath of UNDOCUMENTED_SUBPATHS) {
+	if (!(subpath in pkg.exports))
+		problems.push(`UNDOCUMENTED_SUBPATHS names ${subpath}, which package.json does not export`)
+}
+if (problems.length > 0) {
+	for (const problem of problems) console.error(`docs:api: ${problem}`)
+	process.exit(1)
+}
+
+writeFileSync(
+	path.join(outDir, 'index.md'),
+	[
+		'# Public API Reference',
+		'',
+		'Each entry point, by the specifier you import it from.',
+		'',
+		...landingEntries,
+		'',
+	].join('\n'),
+	'utf8'
+)
 
 for (const filePath of walkMarkdown(outDir)) {
 	const markdown = readFileSync(filePath, 'utf8')

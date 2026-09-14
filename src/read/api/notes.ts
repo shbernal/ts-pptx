@@ -75,7 +75,7 @@ export class NotesPlaceholder extends Placeholder {
 
 /**
  * A slide's speaker-notes slide (`notesSlideN.xml`) as a modeled object — the deep
- * companion to {@link import('./slide.js').Slide.notesText}. Exposes the notes
+ * companion to {@link Slide.notesText}. Exposes the notes
  * shape tree as {@link NotesPlaceholder}s ({@link body}/{@link slideImage}/
  * {@link slideNumber}) plus the body {@link textFrame} the older getters flatten.
  *

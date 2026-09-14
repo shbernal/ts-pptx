@@ -1,3 +1,9 @@
+/**
+ * The Node authoring entry, which the bare `pptx-ts` specifier resolves to under the `node`
+ * export condition.
+ *
+ * @module
+ */
 import PresentationCore from './presentation.js'
 import { composePresentation, type ComposeOptions, type Composed } from './entry-compose.js'
 import type { ConstructFamily } from './families/shared.js'

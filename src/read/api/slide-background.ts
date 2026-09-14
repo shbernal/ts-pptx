@@ -34,7 +34,7 @@ export type BackgroundSource = 'slide' | 'layout' | 'master'
  * An explicit background fill, decoded from a `p:bgPr` (or from a `p:bgRef`'s
  * resolved `fmtScheme` entry). The source-less core of {@link SlideBackground}: the
  * top-level variants add {@link BackgroundSource}, and it is what a `themeRef`'s
- * {@link SlideBackground.resolvedFill} carries.
+ * `SlideBackground.resolvedFill` carries.
  *
  * The `image` variant keeps `relId`/`partName` at the top level — the fields
  * callers already read — and adds the full {@link PictureFill} (stretch/tile

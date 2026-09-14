@@ -1,6 +1,17 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["src/index.ts", "src/node.ts", "src/browser.ts"],
+	"entryPoints": [
+		"src/index.ts",
+		"src/node.ts",
+		"src/browser.ts",
+		"src/read.ts",
+		"src/inspect.ts",
+		"src/script.ts",
+		"src/html.ts",
+		"src/measure.ts",
+		"src/math.ts",
+		"src/zip.ts"
+	],
 	"entryPointStrategy": "resolve",
 	"excludeInternal": true,
 	"excludePrivate": true,
@@ -18,7 +29,15 @@
 		"RADAR_STYLE_ALIASES",
 		"EXTRA_SHAPE_PRESETS",
 		"TextVerticalType",
-		"ExtractedSlides"
+		"THEME_COLOR_SLOTS",
+		"COLOR_MAP_TOKENS",
+		"EDGE_QNAMES",
+		"ThemeContext",
+		"TableCellStyleContext",
+		"DrawingIndex",
+		"EMBEDDED_FONT_SLOTS",
+		"DECK_PROPS",
+		"RunOpts"
 	],
 	"out": "docs/reference/api",
 	"plugin": ["typedoc-plugin-markdown"],

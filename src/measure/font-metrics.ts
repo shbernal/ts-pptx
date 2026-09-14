@@ -125,7 +125,7 @@ let heuristicSingleton: FontMetrics | undefined
 /**
  * Shared, font-independent `FontMetrics` used when a named face has no registered
  * metrics but the deck has opted into measured fit (some other face is registered).
- * Approximate but conservative — see {@link heuristicCharRatio}. A deck with no
+ * Approximate but conservative — see `heuristicCharRatio`. A deck with no
  * registered metrics at all does not engage measured fit, so this never fires there.
  */
 export function getHeuristicFontMetrics(): FontMetrics {

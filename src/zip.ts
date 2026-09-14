@@ -1,3 +1,9 @@
+/**
+ * Read and write zip archives on the backend the package itself uses: {@link readZip} unpacks
+ * a `.pptx` (or any zip) to a map of paths to bytes, and {@link ZipWriter} builds one.
+ *
+ * @module
+ */
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
 import type { ZIP_OUTPUT_TYPE } from './enums.js'
 import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
@@ -97,7 +103,7 @@ export class ZipWriter {
  * archive". To read a `binarystring`/`base64` write-path output back in, convert
  * it to bytes first (e.g. `Uint8Array.from(atob(b64), c => c.charCodeAt(0))`).
  */
-type ZipInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
+export type ZipInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
 export type ZipInput = ZipInputValue | Promise<ZipInputValue>
 
 /**
@@ -105,7 +111,7 @@ export type ZipInput = ZipInputValue | Promise<ZipInputValue>
  *
  * Read-path counterpart to {@link ZipWriter}: fflate's `unzipSync` needs a
  * `Uint8Array`, so the JSZip-style input auto-detection that `loadAsync` did is
- * reproduced by {@link toUint8Array} first. Directory markers (keys ending in
+ * reproduced by `toUint8Array` first. Directory markers (keys ending in
  * `/`) are dropped — fflate surfaces them but no consumer wants empty-dir
  * entries, and the write path emits none.
  */

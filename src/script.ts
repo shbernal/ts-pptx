@@ -1,5 +1,5 @@
 /**
- * `ts-pptx/script` — turn an existing `.pptx` into a description of the write-API calls
+ * Turn an existing `.pptx` into a description of the write-API calls
  * that would rebuild it.
  *
  * **Why this is its own subsystem.** It depends on both halves of the library: it reads a
@@ -15,6 +15,8 @@
  * {@link FidelityNote} attached to the IR, which makes the losses testable: a round-trip
  * check excludes exactly the noted fields and treats any other difference as a defect.
  * Read {@link DeckIr.fidelity} before trusting the output of a conversion.
+ *
+ * @module
  */
 export { readModelToIr } from './script/from-read/deck.js'
 export { printScript } from './script/print/script.js'
@@ -34,6 +36,7 @@ export type {
 	CallIr,
 	ChromeIr,
 	DeckIr,
+	DeckPropKey,
 	DeckPropsIr,
 	IrValue,
 	MasterIr,

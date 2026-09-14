@@ -138,7 +138,7 @@ export interface BulletStyle {
 
 /**
  * A paragraph's bullet, as the structured counterpart of the `a:pPr` bullet
- * children. Discriminated on {@link kind}, which is one of the four mutually
+ * children. Discriminated on `kind`, which is one of the four mutually
  * exclusive choices the schema allows:
  *
  * - `'none'`    — `a:buNone`, the bullet explicitly suppressed. Carries no style,

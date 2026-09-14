@@ -158,7 +158,7 @@ export interface TransitionSoundIr {
  * A slide's show transition (`p:transition`), as a literal `TransitionProps`.
  *
  * Only the base ECMA-376 transitions reach this type. The read model reports
- * {@link TransitionInfo.type} as an *open string*, because PowerPoint's modern effects
+ * `TransitionInfo.type` as an *open string*, because PowerPoint's modern effects
  * (Morph, Vortex, …) live in the `p14`/`p15`/`p159` namespaces and it decodes those too —
  * but the write path names 21 base ones and nothing else, so `from-read/transition.ts`
  * filters against that vocabulary and notes what it drops. Anything that survives is a name
@@ -323,7 +323,7 @@ export type DeckPropKey = keyof typeof DECK_PROPS
 /** {@link DECK_PROPS}' keys, in its order. */
 export const DECK_PROP_KEYS = Object.keys(DECK_PROPS) as DeckPropKey[]
 
-/** Deck-level properties, reduced to the {@link DECK_PROPS} fields that round-trip. */
+/** Deck-level properties, reduced to the `DECK_PROPS` fields that round-trip. */
 export type DeckPropsIr = { [K in DeckPropKey]?: string }
 
 /**

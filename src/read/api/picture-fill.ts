@@ -48,7 +48,7 @@ export interface PictureFillTile {
  * {@link srcRect}, the destination inset {@link fillRect}, and {@link tile}.
  *
  * Rect fields follow the read API's fraction convention (see
- * {@link import('./shapes.js').Picture.crop}): the raw attributes are
+ * {@link Picture.crop}): the raw attributes are
  * thousandths of a percent and are divided by 100000, so `0.1` is 10 % and a
  * negative value (a `fillRect` that bleeds past the edge) stays negative.
  */

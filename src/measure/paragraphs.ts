@@ -68,7 +68,7 @@ export function extractParagraphs(obj: RunSource): FitParagraph[] | null {
 /**
  * Convert a run list (+ box-level default options) into a measurable
  * `FitParagraph[]`, or null if empty. The single converter shared by the
- * export-time pass ({@link extractParagraphs}) and the public layout-time
+ * export-time pass (`extractParagraphs`) and the public layout-time
  * `measureText` API, so a layout-time prediction and the baked export never drift.
  */
 export function buildFitParagraphs(runs: TextProps[], opts: RunOpts): FitParagraph[] | null {

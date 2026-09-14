@@ -1,5 +1,5 @@
 /**
- * `ts-pptx/measure` — the calibrated text-measurement engine as a standalone,
+ * The calibrated text-measurement engine as a standalone,
  * public surface, so a consumer can lay out its own geometry (grow a card, reflow
  * a grid, detect overflow) **before export** without a `TsPptx` instance.
  *
@@ -12,6 +12,8 @@
  *
  * `opentype.js` (used by `parseFontMetrics`) is imported lazily, so importing this
  * module does not pull it into the bundle until a font is actually parsed.
+ *
+ * @module
  */
 
 // Pure wrap model + solvers (points in, points out) and their types/constants.

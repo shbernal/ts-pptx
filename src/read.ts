@@ -1,9 +1,11 @@
 /**
- * `ts-pptx/read` — open an existing `.pptx`, inspect its OPC structure, and
+ * Open an existing `.pptx`, inspect its OPC structure, and
  * save it back with untouched parts byte-identical (lossless round-trip).
  *
  * This subsystem is isomorphic: bytes in, bytes out, no `node:fs`. File I/O
  * is the caller's job.
+ *
+ * @module
  */
 
 // OPC layer — low-level package, parts, content types, relationships.
@@ -30,7 +32,12 @@ export type {
 	SlideSource,
 	ExtractedSlide,
 	ExtractedSlides,
+	ExtractedChart,
+	ExtractedNotes,
+	AvMediaItem,
+	OnlineMediaItem,
 } from './read/api/presentation-types.js'
+export type { EmbeddedFont, EmbeddedFontFace, EmbeddedFontSlot } from './embedded-fonts.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
 export { NotesSlide, NotesPlaceholder } from './read/api/notes.js'
 export {
@@ -61,7 +68,12 @@ export {
 } from './read/api/document-properties.js'
 export type { CustomPropertyValue } from './types/index.js'
 export { readTagsForPart, type Tag } from './read/api/tags.js'
-export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
+export {
+	type TransitionInfo,
+	type TransitionInput,
+	type TransitionSoundInfo,
+	type TransitionSpeed,
+} from './read/api/transition.js'
 export {
 	Shape,
 	AutoShape,
@@ -150,7 +162,16 @@ export {
 } from './read/api/diagram.js'
 
 // Theme colour resolution (schemeClr → literal hex) shared by the colour getters.
-export { type ColorRef, type ResolvedColor, readColorRef, resolveColorElement } from './read/api/theme-context.js'
+export {
+	type ColorRef,
+	type ResolvedColor,
+	type PlaceholderRef,
+	type ResolvedFrame,
+	type GeometrySource,
+	type StyleFontRef,
+	readColorRef,
+	resolveColorElement,
+} from './read/api/theme-context.js'
 export type { ColorContext } from './read/oxml/theme.js'
 // DrawingML colour-transform application (base hex + transforms → effective hex).
 export { applyColorTransforms, type ColorTransform, type EffectiveColor } from './read/oxml/color-transform.js'
