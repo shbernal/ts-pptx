@@ -122,8 +122,8 @@ the bytes that came out.
 
 Where the two libraries part company is on the [comparison page](docs/comparison.md), and
 [how it was measured](docs/comparison-method.md) has every full table. Every intent as
-each library expresses it, including the calls that differ, is on [side-by-side
-syntax](docs/comparison-syntax.md).
+each library expresses it, including the calls that differ, is on [porting from
+PptxGenJS](docs/comparison-syntax.md).
 
 <!-- comparison:end -->
 

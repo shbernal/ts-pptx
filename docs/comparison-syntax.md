@@ -1,37 +1,75 @@
 ---
 doc-schema-version: 1
-title: "Side-by-side syntax"
-summary: "Every intent in the comparison corpus as code: the calls ts-pptx 3.7.0 and pptxgenjs 4.0.1 were each given to produce the rows on the comparison page."
+title: "Porting from PptxGenJS"
+summary: "Moving a deck script from pptxgenjs 4.0.1 to ts-pptx 3.7.0: the calls that change, what changes around them, and every intent in the comparison corpus as code in both libraries."
 read_when:
-  - Reading a comparison row and wanting the calls behind it
   - Porting a deck script from pptxgenjs to ts-pptx
+  - Reading a comparison row and wanting the calls behind it
   - Looking for the ts-pptx call that emits a particular construct
   - Reading a bundle size and wanting the program that was measured
-doc_type: "reference"
+doc_type: "guide"
 ---
 
 <!-- GENERATED FILE. Do not edit by hand.
      Regenerate with `pnpm run comparison:render`.
      Source: `scripts/comparison/snapshot.json`, written by `scripts/comparison/measure.mjs`. -->
 
-# Side-by-side syntax
+# Porting from PptxGenJS
 
-Every row of the [comparison](comparison.md) comes from running both libraries over a
-corpus of deck intents. This page is that corpus as code: for each intent, the calls each
-library was given. The harness lifts them out of the build functions as it measures and
-records them in the snapshot beside the outcome they produced, so no snippet here can
-illustrate a row that some earlier version of it produced.
+ts-pptx descends from pptxgenjs, so much of a pptxgenjs script carries across as it is: of
+the 10 intents both libraries build in the comparison corpus, 8 are called with identical
+code. This page is the rest: the calls that change, what changes around them, and then
+every intent and program in the corpus as code in both libraries.
 
 Measured on 2026-09-06: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm.
 
-Each intent is written in the library's own idiom rather than transcribed from one into
-the other. Transcribing is how a comparison of two APIs becomes a comparison of one API
-and its translation. Where the two arms come out the same anyway the page prints one block
-and says so, which is 8 of the 10 intents both libraries build. The rest are where a port
-stops being a rename.
+## The calls that change
+
+Each row is a run of lines that differs between the two arms of an intent or a program
+printed further down, with every place it appears. Everything else in those arms is the
+same code.
+
+| ts-pptx | pptxgenjs | Where |
+|---|---|---|
+| `const PNG_1PX_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA…'` | `const PNG_1PX_BARE = 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcS…'` | Raster image, Full deck |
+| `pres.addSlide().addImage({ data: PNG_1PX_URL, x: 1, y: 1, w: 2, h: 2 })` | `pres.addSlide().addImage({ data: PNG_1PX_BARE, x: 1, y: 1, w: 2, h: 2 })` | Raster image |
+| `pres.addSlide().addChart(BAR_DATA, { type: 'bar', x: 1, y: 1, w: 6, h: 4 })` | `pres.addSlide().addChart('bar', BAR_DATA, { x: 1, y: 1, w: 6, h: 4 })` | Bar chart |
+| `const findings = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Findings' })` | `const findings = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Findings' })` | Text deck |
+| `const next = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Next steps' })` | `const next = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Next steps' })` | Text deck |
+| `border: { type: 'solid', width: 1, color: 'D9D9D9' },` | `border: { type: 'solid', pt: 1, color: 'D9D9D9' },` | Table deck |
+| `pres.addSlide().addChart(BAR_DATA, { type: 'bar',` | `pres.addSlide().addChart('bar', BAR_DATA, {` | Chart deck |
+| `pres.addSlide().addChart(LINE_DATA, { type: 'line',` | `pres.addSlide().addChart('line', LINE_DATA, {` | Chart deck |
+| `pres.addSlide().addChart(PIE_DATA, { type: 'pie',` | `pres.addSlide().addChart('pie', PIE_DATA, {` | Chart deck |
+| `const cover = pres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' })` | `const cover = pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' })` | Full deck |
+| `cover.addImage({ data: PNG_1PX_URL, x: 6.4, y: 1.8, w: 2, h: 2 })` | `cover.addImage({ data: PNG_1PX_BARE, x: 6.4, y: 1.8, w: 2, h: 2 })` | Full deck |
+| `const numbers = pres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' })` | `const numbers = pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' })` | Full deck |
+| `pres.addSlide({ masterTitle: 'REVIEW', sectionTitle: 'Quarter' }).addChart(BAR_DATA, { type: 'bar',` | `pres.addSlide({ masterName: 'REVIEW', sectionTitle: 'Quarter' }).addChart('bar', BAR_DATA, {` | Full deck |
+| `else slide.addChart(bars, { type: 'bar', barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })` | `else slide.addChart('bar', bars, { barDir: 'col', x: 5, y: 1.4, w: 4.4, h: 3, showValue: true })` | The timing decks |
+
+## What changes around the calls
+
+- **The import.** `import TsPptx from "pptx-ts"` in place of `import pptxgen from
+  "pptxgenjs"`. From CommonJS, `const { default: TsPptx } = require("pptx-ts")`: the
+  package is an ES module, so `require()` returns its namespace and the class is on
+  `.default`.
+- **Node.js 24 or later.** ts-pptx declares `>=24`; pptxgenjs runs on older releases.
+- **One build.** Node, bundlers and browsers all load the same ES module through the
+  package exports, so there is no separate CommonJS or browser file to choose. See [where
+  it runs](getting-started/runtime.md).
+- **No upstream file paths.** Code that loads `dist/pptxgen.cjs.js`, `dist/pptxgen.js`,
+  `dist/pptxgen.es.js`, `dist/pptxgen.bundle.js` or `dist/pptxgen.min.js` by path imports
+  the package instead, and the global the classic-script bundle defined has no equivalent.
+  A page with no build step uses `import TsPptx from "https://esm.sh/pptx-ts/browser"` in
+  a module script.
 
 ## How to read a snippet
+
+Every snippet is the code the comparison ran. The harness lifts it out of the build
+function as it measures and records it in the snapshot beside the outcome it produced, so
+no snippet here can illustrate a row that some earlier version of it produced. Each intent
+is written in the library's own idiom rather than transcribed from one into the other, and
+where the two arms come out the same anyway the page prints one block and says so.
 
 Each block is the body of a build function. The harness puts the same frame around every
 one of them, so this page states the frame once rather than repeating it on every intent:

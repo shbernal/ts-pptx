@@ -31,7 +31,7 @@ itself.
   runs](getting-started/runtime.md).
 - **Not a drop-in continuation of the upstream release line.** The API is close by
   descent, not by contract, and it has moved since. Moving code across is a port, not an
-  upgrade.
+  upgrade: [porting from PptxGenJS](comparison-syntax.md) lists the calls that change.
 - **No SmartArt on the write side, in either library.** It is not a difference between
   them, but it is a real gap in both.
 - **Adoption is not close.** pptxgenjs was downloaded 11,116,327 times in the last month,
@@ -45,9 +45,9 @@ itself.
 |---|---|---|
 | Intents emitted | 21 of 22 | 10 of 22 |
 | Decks with no schema error | 21 of 21 | 0 of 10 |
-| Hello world, bundled and gzipped | 98.6 kB | 123.2 kB |
+| Hello world, bundled and gzipped | 98.6 KiB | 123.2 KiB |
 | Runtime dependencies, transitive | 3 | 18 |
-| Installed size, with dependencies | 10.2 MB | 6.7 MB |
+| Installed size, with dependencies | 10.2 MiB | 6.7 MiB |
 
 The bundled size is what a browser program fetches before its first line runs. [How the
 comparison was measured](comparison-method.md#package-hygiene) has every install and
@@ -157,5 +157,5 @@ these figures is taken.
 
 - [How the comparison was measured](comparison-method.md): the corpus, every full table,
   and how each figure was taken.
-- [Side-by-side syntax](comparison-syntax.md): the calls behind every row, for moving code
-  across.
+- [Porting from PptxGenJS](comparison-syntax.md): the calls that change between the
+  libraries, and the code behind every row.

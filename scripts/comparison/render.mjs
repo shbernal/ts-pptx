@@ -180,27 +180,27 @@ const bullet = (text) => wrap('- ' + text, '  ')
 const num = (value) => value.toLocaleString('en-US')
 
 /**
- * Kibibytes under the label the rest of the repo uses, to one decimal.
+ * Kibibytes, to one decimal, labelled as what they are.
  *
- * `scripts/bundle-size-ratchet.mjs` divides by 1024 and writes "kB", and every size this
- * project has published sits on that footing. Switching units here alone would make two of
- * our own numbers disagree for no reader's benefit.
+ * The divisor is 1024 because `scripts/bundle-size-ratchet.mjs` divides by 1024 too, and every
+ * size this project has published sits on that footing, so a figure here stays comparable with
+ * the gates' own. The label is `KiB` because that is what dividing by 1024 gives.
  *
- * The decimal is for the bundle table, which is the only place this is used. At whole
- * kilobytes that column prints one figure five times over, and five identical rows read as
- * a broken table rather than as the finding they are: neither library splits along feature
- * lines, so what a program calls barely moves what it bundles. The digit is what shows the
- * rows were measured separately.
+ * The decimal is for the bundle table. At whole kibibytes that column prints one figure five
+ * times over, and five identical rows read as a broken table rather than as the finding they
+ * are: neither library splits along feature lines, so what a program calls barely moves what it
+ * bundles. The digit is what shows the rows were measured separately.
  * @param {number} bytes
  * @returns {string}
  */
-const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
+const kib = (bytes) => (bytes / 1024).toFixed(1) + ' KiB'
 
 /**
+ * Mebibytes, to one decimal, labelled for the reason {@link kib} is.
  * @param {number} bytes
  * @returns {string}
  */
-const mb = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MB'
+const mib = (bytes) => (bytes / 1024 / 1024).toFixed(1) + ' MiB'
 
 /** @param {string} value @returns {string} */
 const code = (value) => '`' + value + '`'
@@ -410,7 +410,8 @@ function sectionBeforeYouChoose(snapshot) {
 		),
 		...bullet(
 			'**Not a drop-in continuation of the upstream release line.** The API is close by descent, not ' +
-				'by contract, and it has moved since. Moving code across is a port, not an upgrade.'
+				'by contract, and it has moved since. Moving code across is a port, not an upgrade: ' +
+				'[porting from PptxGenJS](comparison-syntax.md) lists the calls that change.'
 		),
 		...bullet(
 			'**No SmartArt on the write side, in either library.** It is not a difference between them, ' +
@@ -464,7 +465,7 @@ function sectionScorecard(snapshot) {
 					? comparedRow(
 							`${first.label}, bundled and gzipped`,
 							COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.bundles?.[first.id]?.initialBytes),
-							kb
+							kib
 						)
 					: null,
 				comparedRow(
@@ -475,7 +476,7 @@ function sectionScorecard(snapshot) {
 				comparedRow(
 					'Installed size, with dependencies',
 					COLUMNS.map((subject) => hygieneOf(snapshot, subject)?.install?.bytes),
-					mb
+					mib
 				),
 			]
 		),
@@ -821,7 +822,9 @@ function sectionMore() {
 			'[How the comparison was measured](comparison-method.md): the corpus, every full table, and how each ' +
 				'figure was taken.'
 		),
-		...bullet('[Side-by-side syntax](comparison-syntax.md): the calls behind every row, for moving code across.'),
+		...bullet(
+			'[Porting from PptxGenJS](comparison-syntax.md): the calls that change between the libraries, and the code behind every row.'
+		),
 		'',
 	]
 }
@@ -939,7 +942,7 @@ function sectionCoverage(snapshot) {
 		...para(
 			'"Looked for" is the token the harness reads for, in the part named beside it. It is the OOXML ' +
 				'element in every case but one, where the intent is speaker notes and the token is the note ' +
-				'text itself. [Side-by-side syntax](comparison-syntax.md) prints the calls behind every row.'
+				'text itself. [Porting from PptxGenJS](comparison-syntax.md) prints the calls behind every row.'
 		),
 	]
 
@@ -1100,12 +1103,12 @@ function sectionHygiene(snapshot) {
 				deltaRow(
 					'Installed size, with dependencies',
 					rows.map((row) => row?.install?.bytes),
-					mb
+					mib
 				),
 				deltaRow(
 					'Installed size, the package alone',
 					rows.map((row) => row?.install?.packageBytes),
-					mb
+					mib
 				),
 				deltaRow(
 					'Runtime dependencies, transitive',
@@ -1117,8 +1120,8 @@ function sectionHygiene(snapshot) {
 		...para(
 			'The last column is ts-pptx measured against pptxgenjs, so a positive number is ours ' +
 				'costing more and a negative one is ours costing less. It is a percentage of the ' +
-				'pptxgenjs figure rather than a difference in bytes, because the two rows above it are ' +
-				'megabytes and the ones below are kilobytes, and a reader comparing them needs a ' +
+				'pptxgenjs figure rather than a difference in bytes, because two of its rows are in ' +
+				'mebibytes and the third is a count, and a reader comparing them needs a ' +
 				'number that does not change meaning between rows.'
 		),
 	]
@@ -1196,8 +1199,8 @@ function sectionBundles(snapshot) {
 		programs.length > 1 && growth.every((value) => typeof value === 'number')
 			? para(
 					`The column is nearly flat, and that is the result. From ${first.label.toLowerCase()} to ` +
-						`${last.label.toLowerCase()}, ts-pptx grows by ${kb(growth[0] ?? 0)} and pptxgenjs by ` +
-						`${kb(growth[1] ?? 0)}, which is about what the programs' own literals weigh. Neither ` +
+						`${last.label.toLowerCase()}, ts-pptx grows by ${kib(growth[0] ?? 0)} and pptxgenjs by ` +
+						`${kib(growth[1] ?? 0)}, which is about what the programs' own literals weigh. Neither ` +
 						'library splits along feature lines: importing either one costs almost everything it ' +
 						'will ever cost, and the deck written afterwards is close to free. So a hello world was ' +
 						'never a flattering measurement of either library, and a consumer weighing bundle size ' +
@@ -1212,7 +1215,7 @@ function sectionBundles(snapshot) {
 			`Each row is a whole deck both libraries build: ${programs.length} consumer programs, from the ` +
 				'smallest one anyone writes up to one using every construct the shared baseline above ' +
 				'shows both of them emitting. Each is written in its own idiom on both sides, and the ' +
-				'calls behind every row are on [side-by-side syntax](comparison-syntax.md).'
+				'calls behind every row are on [porting from PptxGenJS](comparison-syntax.md).'
 		),
 		...programs.flatMap((program) => bullet(`**${program.label}.** ${program.what}`)),
 		'',
@@ -1222,7 +1225,7 @@ function sectionBundles(snapshot) {
 				deltaRow(
 					program.label,
 					bundles.map((byId) => byId?.[program.id]?.initialBytes),
-					kb
+					kib
 				)
 			)
 		),
@@ -1317,7 +1320,7 @@ function sectionTiming(snapshot) {
 			'How long each library takes to turn a deck into bytes: the same decks the bundle table ' +
 				'above weighs, plus three larger ones built for this measurement alone, because the ' +
 				'largest program up there is three slides and a clock has almost nothing to see in it. ' +
-				'The calls behind every row are on [side-by-side syntax](comparison-syntax.md).'
+				'The calls behind every row are on [porting from PptxGenJS](comparison-syntax.md).'
 		),
 		...para(
 			'**A `.pptx` is a zip, so the compression setting is not a detail of this measurement, it ' +
@@ -1542,6 +1545,139 @@ function fence(source) {
 }
 
 /**
+ * Where two arms differ, as runs of changed lines.
+ *
+ * A longest-common-subsequence alignment rather than a comparison by position: one arm often
+ * carries a line the other does not (`type: 'bar'` inside the options, where pptxgenjs passes the
+ * chart type as an argument), and comparing by position would then mark every later line as
+ * changed. Lines are compared and returned trimmed, so indentation alone is never a difference.
+ * @param {string} ours
+ * @param {string} upstream
+ * @returns {Array<{ours: string[], upstream: string[]}>}
+ */
+export function lineHunks(ours, upstream) {
+	const a = ours.split('\n').map((line) => line.trim())
+	const b = upstream.split('\n').map((line) => line.trim())
+	const width = b.length + 1
+	// The longest common subsequence of a[i..] and b[j..], at i * width + j.
+	const lengths = new Int32Array((a.length + 1) * width)
+	const at = (/** @type {number} */ i, /** @type {number} */ j) => lengths[i * width + j] ?? 0
+	for (let i = a.length - 1; i >= 0; i--)
+		for (let j = b.length - 1; j >= 0; j--)
+			lengths[i * width + j] = a[i] === b[j] ? at(i + 1, j + 1) + 1 : Math.max(at(i + 1, j), at(i, j + 1))
+
+	/** @type {Array<{ours: string[], upstream: string[]}>} */
+	const hunks = []
+	/** @type {{ours: string[], upstream: string[]}} */
+	let open = { ours: [], upstream: [] }
+	const close = () => {
+		if (open.ours.length > 0 || open.upstream.length > 0) hunks.push(open)
+		open = { ours: [], upstream: [] }
+	}
+	let i = 0
+	let j = 0
+	while (i < a.length || j < b.length) {
+		if (i < a.length && j < b.length && a[i] === b[j]) {
+			close()
+			i++
+			j++
+		} else if (j >= b.length || (i < a.length && at(i + 1, j) >= at(i, j + 1))) {
+			open.ours.push(a[i++] ?? '')
+		} else {
+			open.upstream.push(b[j++] ?? '')
+		}
+	}
+	close()
+	return hunks
+}
+
+/**
+ * The calls where a port stops being a rename.
+ *
+ * Every run of lines that differs between the two arms of a probe, a bundle program or the timing
+ * deck, with identical runs merged into one row that names every place it appears. Read off the
+ * recorded sources like everything else on the page, so a difference cannot be listed here that
+ * the corpus no longer has.
+ * @param {Snapshot} snapshot
+ * @returns {Array<{ours: string, upstream: string, where: string[]}>}
+ */
+function callDifferences(snapshot) {
+	/** @type {Array<{label: string, source?: Record<string, string>}>} */
+	const sources = [
+		...snapshot.coverage,
+		...(snapshot.hygiene?.programs ?? []),
+		...(snapshot.timing?.shape?.source ? [{ label: 'The timing decks', source: snapshot.timing.shape.source }] : []),
+	]
+	/** @type {Map<string, {ours: string, upstream: string, where: string[]}>} */
+	const found = new Map()
+	for (const { label, source } of sources) {
+		const ours = source?.[OURS]
+		const upstream = source?.[UPSTREAM]
+		if (!ours || !upstream || ours === upstream) continue
+		for (const hunk of lineHunks(ours, upstream)) {
+			const row = { ours: hunk.ours.join(' '), upstream: hunk.upstream.join(' ') }
+			const key = row.ours + '\0' + row.upstream
+			const existing = found.get(key)
+			if (!existing) found.set(key, { ...row, where: [label] })
+			else if (!existing.where.includes(label)) existing.where.push(label)
+		}
+	}
+	return [...found.values()]
+}
+
+/**
+ * @param {Snapshot} snapshot
+ * @returns {string[]}
+ */
+function sectionCallDifferences(snapshot) {
+	const differences = callDifferences(snapshot)
+	const cell = (/** @type {string} */ value) => (value === '' ? 'nothing' : code(value.replaceAll('|', '\\|')))
+	const lines = ['## The calls that change', '']
+	if (differences.length === 0)
+		return [...lines, ...para('Every intent and program in the corpus is called identically in both libraries.')]
+	lines.push(
+		...para(
+			'Each row is a run of lines that differs between the two arms of an intent or a program printed ' +
+				'further down, with every place it appears. Everything else in those arms is the same code.'
+		),
+		'| ts-pptx | pptxgenjs | Where |',
+		'|---|---|---|',
+		...differences.map((row) => `| ${cell(row.ours)} | ${cell(row.upstream)} | ${row.where.join(', ')} |`),
+		''
+	)
+	return lines
+}
+
+/**
+ * What a port changes besides the calls, written by hand because none of it is a measurement.
+ * @returns {string[]}
+ */
+function sectionAroundTheCalls() {
+	return [
+		'## What changes around the calls',
+		'',
+		...bullet(
+			'**The import.** `import TsPptx from "pptx-ts"` in place of `import pptxgen from "pptxgenjs"`. From ' +
+				'CommonJS, `const { default: TsPptx } = require("pptx-ts")`: the package is an ES module, so ' +
+				'`require()` returns its namespace and the class is on `.default`.'
+		),
+		...bullet('**Node.js 24 or later.** ts-pptx declares `>=24`; pptxgenjs runs on older releases.'),
+		...bullet(
+			'**One build.** Node, bundlers and browsers all load the same ES module through the package ' +
+				'exports, so there is no separate CommonJS or browser file to choose. See ' +
+				'[where it runs](getting-started/runtime.md).'
+		),
+		...bullet(
+			'**No upstream file paths.** Code that loads `dist/pptxgen.cjs.js`, `dist/pptxgen.js`, ' +
+				'`dist/pptxgen.es.js`, `dist/pptxgen.bundle.js` or `dist/pptxgen.min.js` by path imports the ' +
+				'package instead, and the global the classic-script bundle defined has no equivalent. A page ' +
+				'with no build step uses `import TsPptx from "https://esm.sh/pptx-ts/browser"` in a module script.'
+		),
+		'',
+	]
+}
+
+/**
  * One probe, as the two libraries express it.
  *
  * Three shapes, and which one a probe gets is decided by the snapshot rather than by an
@@ -1689,41 +1825,41 @@ export function renderSyntaxPage(snapshot) {
 	const lines = [
 		'---',
 		'doc-schema-version: 1',
-		'title: "Side-by-side syntax"',
-		`summary: "Every intent in the comparison corpus as code: the calls ts-pptx ${ours?.version ?? ''} and ` +
-			`pptxgenjs ${upstream?.version ?? ''} were each given to produce the rows on the comparison page."`,
+		'title: "Porting from PptxGenJS"',
+		`summary: "Moving a deck script from pptxgenjs ${upstream?.version ?? ''} to ts-pptx ${ours?.version ?? ''}: the calls that change, what changes around them, and every intent in the comparison corpus as code in both libraries."`,
 		'read_when:',
-		'  - Reading a comparison row and wanting the calls behind it',
 		'  - Porting a deck script from pptxgenjs to ts-pptx',
+		'  - Reading a comparison row and wanting the calls behind it',
 		'  - Looking for the ts-pptx call that emits a particular construct',
 		'  - Reading a bundle size and wanting the program that was measured',
-		'doc_type: "reference"',
+		'doc_type: "guide"',
 		'---',
 		'',
 		...banner('FILE'),
 		'',
-		'# Side-by-side syntax',
+		'# Porting from PptxGenJS',
 		'',
 		...para(
-			'Every row of the [comparison](comparison.md) comes from running both libraries over a ' +
-				'corpus of deck intents. This page is that corpus as code: for each intent, the calls each ' +
-				'library was given. The harness lifts them out of the build functions as it measures and ' +
-				'records them in the snapshot beside the outcome they produced, so no snippet here can ' +
-				'illustrate a row that some earlier version of it produced.'
+			'ts-pptx descends from pptxgenjs, so much of a pptxgenjs script carries across as it is: of the ' +
+				`${both.length} intents both libraries build in the comparison corpus, ${identical.length} are ` +
+				'called with identical code. This page is the rest: the calls that change, what changes around ' +
+				'them, and then every intent and program in the corpus as code in both libraries.'
 		),
 		...para(
 			`Measured on ${snapshot.generatedAt}: ts-pptx ${ours?.version ?? ''} built from this ` +
 				`repository, against pptxgenjs ${upstream?.version ?? ''} installed from npm.`
 		),
-		...para(
-			"Each intent is written in the library's own idiom rather than transcribed from one into the " +
-				'other. Transcribing is how a comparison of two APIs becomes a comparison of one API and ' +
-				'its translation. Where the two arms come out the same anyway the page prints one block ' +
-				`and says so, which is ${identical.length} of the ${both.length} intents both libraries build. ` +
-				'The rest are where a port stops being a rename.'
-		),
+		...sectionCallDifferences(snapshot),
+		...sectionAroundTheCalls(),
 		'## How to read a snippet',
 		'',
+		...para(
+			'Every snippet is the code the comparison ran. The harness lifts it out of the build function as ' +
+				'it measures and records it in the snapshot beside the outcome it produced, so no snippet here ' +
+				"can illustrate a row that some earlier version of it produced. Each intent is written in the library's " +
+				'own idiom rather than transcribed from one into the other, and where the two arms come out the ' +
+				'same anyway the page prints one block and says so.'
+		),
 		...para(
 			'Each block is the body of a build function. The harness puts the same frame around every ' +
 				'one of them, so this page states the frame once rather than repeating it on every intent:'
@@ -1852,7 +1988,7 @@ export function renderReadmeRegion(snapshot) {
 			'Where the two libraries part company is on the [comparison page](docs/comparison.md), and ' +
 				'[how it was measured](docs/comparison-method.md) has every full table. Every intent as each ' +
 				'library expresses it, including the calls that differ, is on ' +
-				'[side-by-side syntax](docs/comparison-syntax.md).'
+				'[porting from PptxGenJS](docs/comparison-syntax.md).'
 		),
 		REGION_END
 	)

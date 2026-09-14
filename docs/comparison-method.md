@@ -58,8 +58,8 @@ Of 22 probes, ts-pptx emitted 21 and pptxgenjs emitted 10.
 
 "Looked for" is the token the harness reads for, in the part named beside it. It is the
 OOXML element in every case but one, where the intent is speaker notes and the token is
-the note text itself. [Side-by-side syntax](comparison-syntax.md) prints the calls behind
-every row.
+the note text itself. [Porting from PptxGenJS](comparison-syntax.md) prints the calls
+behind every row.
 
 ### Shared baseline
 
@@ -199,15 +199,15 @@ is measured against a development checkout with its dependencies hoisted flat.
 
 |  | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Installed size, with dependencies | 10.2 MB | 6.7 MB | +53% |
-| Installed size, the package alone | 5.6 MB | 2.5 MB | +125% |
+| Installed size, with dependencies | 10.2 MiB | 6.7 MiB | +53% |
+| Installed size, the package alone | 5.6 MiB | 2.5 MiB | +125% |
 | Runtime dependencies, transitive | 3 | 18 | -83% |
 
 The last column is ts-pptx measured against pptxgenjs, so a positive number is ours
 costing more and a negative one is ours costing less. It is a percentage of the pptxgenjs
-figure rather than a difference in bytes, because the two rows above it are megabytes and
-the ones below are kilobytes, and a reader comparing them needs a number that does not
-change meaning between rows.
+figure rather than a difference in bytes, because two of its rows are in mebibytes and the
+third is a count, and a reader comparing them needs a number that does not change meaning
+between rows.
 
 ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its `dist/`
 ships unminified, and a large share of that weight is documentation comments that no
@@ -226,7 +226,7 @@ the installed ones.
 Each row is a whole deck both libraries build: 5 consumer programs, from the smallest one
 anyone writes up to one using every construct the shared baseline above shows both of them
 emitting. Each is written in its own idiom on both sides, and the calls behind every row
-are on [side-by-side syntax](comparison-syntax.md).
+are on [porting from PptxGenJS](comparison-syntax.md).
 
 - **Hello world.** One slide with one text box.
 - **Text deck.** A defined master, two sections, formatted and bulleted text, a hyperlink,
@@ -241,14 +241,14 @@ are on [side-by-side syntax](comparison-syntax.md).
 
 | Program | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Hello world | 98.6 kB | 123.2 kB | -20% |
-| Text deck | 98.9 kB | 123.6 kB | -20% |
-| Table deck | 98.8 kB | 123.4 kB | -20% |
-| Chart deck | 98.8 kB | 123.5 kB | -20% |
-| Full deck | 99.1 kB | 123.8 kB | -20% |
+| Hello world | 98.6 KiB | 123.2 KiB | -20% |
+| Text deck | 98.9 KiB | 123.6 KiB | -20% |
+| Table deck | 98.8 KiB | 123.4 KiB | -20% |
+| Chart deck | 98.8 KiB | 123.5 KiB | -20% |
+| Full deck | 99.1 KiB | 123.8 KiB | -20% |
 
 The column is nearly flat, and that is the result. From hello world to full deck, ts-pptx
-grows by 0.6 kB and pptxgenjs by 0.5 kB, which is about what the programs' own literals
+grows by 0.6 KiB and pptxgenjs by 0.5 KiB, which is about what the programs' own literals
 weigh. Neither library splits along feature lines: importing either one costs almost
 everything it will ever cost, and the deck written afterwards is close to free. So a hello
 world was never a flattering measurement of either library, and a consumer weighing bundle
@@ -283,7 +283,7 @@ typo being published here as a saving.
 How long each library takes to turn a deck into bytes: the same decks the bundle table
 above weighs, plus three larger ones built for this measurement alone, because the largest
 program up there is three slides and a clock has almost nothing to see in it. The calls
-behind every row are on [side-by-side syntax](comparison-syntax.md).
+behind every row are on [porting from PptxGenJS](comparison-syntax.md).
 
 **A `.pptx` is a zip, so the compression setting is not a detail of this measurement, it
 is the measurement.** The two libraries do not default to the same one. ts-pptx deflates
