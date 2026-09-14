@@ -34,7 +34,14 @@
     },
     {
       "group": "Read and convert",
-      "pages": ["reference/pptx-read", "reference/pptx-inspection", "reference/pptx-to-script"]
+      "pages": [
+        "reading/read-and-edit",
+        "reading/copy-between-decks",
+        "reading/build-on-a-template",
+        "reference/pptx-read",
+        "reference/pptx-inspection",
+        "reference/pptx-to-script"
+      ]
     },
     {
       "group": "Reference",
