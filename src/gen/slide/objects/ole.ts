@@ -5,7 +5,7 @@
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
 import { alternateContentEl } from '../../oxml/alternate-content.js'
-import { type RenderContext, cNvPrOpen, graphicFrameEl, previewPicBody } from './shared.js'
+import { type RenderContext, cNvPrEl, graphicFrameEl, previewPicBody } from './shared.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
 /** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
@@ -66,7 +66,7 @@ export function renderOleObject(ctx: RenderContext): string {
 	})
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(shapeId, opts.objectName, opts.altText || '') + '/>'),
+		raw(cNvPrEl(shapeId, opts.objectName, opts.altText || '')),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',

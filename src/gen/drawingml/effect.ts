@@ -15,7 +15,7 @@ import { PERCENT_SCALE } from '../../units.js'
 import { clampRangedInput, convertAngleUnits, opacityToAlpha, positiveCoordinateEmu } from '../../units-internal.js'
 import { splitRgbaHex, stripHash } from '../../hex-color.js'
 import { alphaEl, createColorElement, namedColorOr } from './color.js'
-import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { el, elOrVoid, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 
 /**
@@ -89,7 +89,7 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 export function createShadowEffectLst(options: ShadowPropsInternal | undefined, defaults: ShadowPropsInternal): string {
 	if (!options || typeof options !== 'object') return voidEl('a:effectLst')
 	const inner = createShadowElement(options, defaults)
-	return inner ? el('a:effectLst', null, raw(inner)) : voidEl('a:effectLst')
+	return elOrVoid('a:effectLst', null, inner)
 }
 
 /**

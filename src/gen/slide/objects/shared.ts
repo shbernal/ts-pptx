@@ -16,7 +16,6 @@ import type {
 	SlideMasterInternal,
 	SlideObject,
 } from '../../../types/internal.js'
-import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill, lineEndEl, resolveDash } from '../../drawingml/line.js'
 import { lineWidthToEmu, mapStated } from '../../../units-internal.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlFmt } from '../../oxml/el.js'
@@ -120,21 +119,22 @@ export type ObjectRenderer = (ctx: RenderContext) => string
 export type RendererTable = Partial<Record<RenderedObjectType, ObjectRenderer>>
 
 /**
- * The `<p:cNvPr>` OPEN tag shared by every shape renderer. Callers append `/>` or
- * `>`+children+`</p:cNvPr>` — the element is self-closing for some shape kinds and paired
- * (hyperlink / media-action children) for others.
+ * The `<p:cNvPr>` every shape renderer writes: self-closing for most shape kinds, paired around a
+ * hyperlink or media-action child for the others.
  *
- * Not built with the element builder, because callers append the closing delimiter. Both `name` and
- * `descr` are escaped here and nowhere else: a slide object stores its `objectName` as the caller
- * wrote it, so lookups by name and `slide.objects` compare and report the caller's own spelling.
+ * Both `name` and `descr` are escaped by the element builder and nowhere before it: a slide object
+ * stores its `objectName` as the caller wrote it, so lookups by name and `slide.objects` compare and
+ * report the caller's own spelling. Each caller used to append its own `/>` or `>`, child and close
+ * tag to an open tag this module returned.
  * @param id - the shape's `<p:cNvPr>` id, unique slide-wide
- * @param name - the object's `objectName`, raw (escaped here)
- * @param descr - alt text, raw (escaped here)
- * @param openPrefix - byte-significant indentation before `<p:cNvPr`
- * @returns the open tag, without its closing delimiter
+ * @param name - the object's `objectName`, raw
+ * @param descr - alt text, raw
+ * @param children - already-serialized children; absent means self-closing, `''` means paired and empty
+ * @param fmt - byte-significant whitespace around the element
  */
-export function cNvPrOpen(id: number, name: string | undefined, descr: string, openPrefix = ''): string {
-	return `${openPrefix}<p:cNvPr id="${id}" name="${encodeXmlAttrValue(name ?? '')}" descr="${encodeXmlAttrValue(descr)}"`
+export function cNvPrEl(id: number, name: string | undefined, descr: string, children?: string, fmt?: XmlFmt): string {
+	const attrs = { id, name: name ?? '', descr }
+	return children === undefined ? voidEl('p:cNvPr', attrs, fmt) : el('p:cNvPr', attrs, raw(children), fmt)
 }
 
 /**

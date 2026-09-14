@@ -18,7 +18,7 @@ import { genTableCellBorderXml } from '../../drawingml/table-border.js'
 import { resolveSpan, withCheckedSpans } from '../../table/spans.js'
 import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
 import { genXmlPlaceholder, genXmlTextBody, resolveTextAnchor } from '../../drawingml/text-body.js'
-import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { el, elOrVoid, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import {
 	marginToEmu,
 	resolveCellMarginsInches,
@@ -26,7 +26,7 @@ import {
 	resolveTableRowHeightEmu,
 } from '../../../units-internal.js'
 import { EMU_PER_INCH } from '../../../units.js'
-import { type RenderContext, cNvPrOpen, graphicFrameEl } from './shared.js'
+import { type RenderContext, cNvPrEl, graphicFrameEl } from './shared.js'
 import { OOXML_NS, TABLE_GRAPHIC_DATA_URI } from '../../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 import { type GridPlacement, tableColCount, walkTableGrid } from '../../table/grid.js'
@@ -236,7 +236,7 @@ export function renderTableObject(ctx: RenderContext): string {
 	// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
 	// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+		raw(cNvPrEl(shapeId, itemOpts.objectName, itemOpts.altText || '')),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',
@@ -307,7 +307,7 @@ export function renderTableObject(ctx: RenderContext): string {
 		const tblPrChildren =
 			tableFillXml + (objTabOpts.tableStyle ? el('a:tableStyleId', null, objTabOpts.tableStyle) : '')
 		// Paired when it carries a fill or a style id, else self-closing — an arity difference.
-		const tblPr = tblPrChildren ? el('a:tblPr', tblPrAttrs, raw(tblPrChildren)) : voidEl('a:tblPr', tblPrAttrs)
+		const tblPr = elOrVoid('a:tblPr', tblPrAttrs, tblPrChildren)
 		// The `<a:tbl>` children accumulate here and are wrapped once at STEP 5, so the byte-significant
 		// (and non-depth-regular) indentation on the closing tags is described in one place.
 		tblInner = tblPr

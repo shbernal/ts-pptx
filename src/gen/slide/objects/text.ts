@@ -13,10 +13,10 @@ import { rejectEmptyFill, genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
 import { genXmlObjectLock, SHAPE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../../drawingml/text-body.js'
-import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
+import { el, elOrVoid, raw, type XmlAttrs } from '../../oxml/el.js'
 import { alternateContentEl } from '../../oxml/alternate-content.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
-import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrEl, cNvPrHyperlink, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 import { xsdBoolIfTrue } from '../../../ooxml/xsd-boolean.js'
 
 /**
@@ -48,17 +48,12 @@ export function renderTextObject(ctx: RenderContext): string {
 	// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
 	const txtOpts = itemOpts
 	strSlideXml +=
-		'<p:nvSpPr>' +
-		cNvPrOpen(shapeId, txtOpts.objectName, txtOpts.altText || '') +
-		'>' +
-		cNvPrHyperlink(txtOpts.hyperlink) +
-		'</p:cNvPr>'
+		'<p:nvSpPr>' + cNvPrEl(shapeId, txtOpts.objectName, txtOpts.altText || '', cNvPrHyperlink(txtOpts.hyperlink))
 	{
 		const spLockXml = genXmlObjectLock('a:spLocks', SHAPE_LOCK_ATTRS, txtOpts.objectLock, txtOpts.objectName)
-		// NOTE: paired only when there are locks to carry; otherwise self-closing. That is an arity
-		// difference, so it cannot be expressed as one `el()` call.
+		// Paired only when there are locks to carry; otherwise self-closing.
 		const cNvSpPrAttrs: XmlAttrs = { txBox: xsdBoolIfTrue(txtOpts?.isTextBox) }
-		strSlideXml += spLockXml ? el('p:cNvSpPr', cNvSpPrAttrs, raw(spLockXml)) : voidEl('p:cNvSpPr', cNvSpPrAttrs)
+		strSlideXml += elOrVoid('p:cNvSpPr', cNvSpPrAttrs, spLockXml)
 	}
 	// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
 	// placeholder type so a standalone title/body text box still emits a real <p:ph>.

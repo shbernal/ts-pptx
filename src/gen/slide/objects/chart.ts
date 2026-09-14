@@ -12,7 +12,7 @@ import type { ObjectOptions } from '../../../types/index.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { alternateContentEl } from '../../oxml/alternate-content.js'
-import { cNvPrOpen, graphicFrameEl, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrEl, graphicFrameEl, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /** The chart types `isChartExType` accepts: the ones emitted as a chartEx part. */
@@ -79,7 +79,7 @@ export function renderChartObject(ctx: RenderContext): string {
 			'p:nvGraphicFramePr',
 			null,
 			[
-				raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '', '   ') + '/>'),
+				raw(cNvPrEl(shapeId, itemOpts.objectName, itemOpts.altText || '', undefined, { openPrefix: '   ' })),
 				raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
 				raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
 			],
@@ -125,7 +125,7 @@ function renderChartExFallback(
 	return el('p:sp', null, [
 		raw(
 			el('p:nvSpPr', null, [
-				raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+				raw(cNvPrEl(shapeId, itemOpts.objectName, itemOpts.altText || '')),
 				raw(voidEl('p:cNvSpPr')),
 				raw(voidEl('p:nvPr')),
 			])

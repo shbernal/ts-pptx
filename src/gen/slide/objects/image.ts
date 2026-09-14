@@ -18,7 +18,7 @@ import { el, raw, voidEl, type XmlChild } from '../../oxml/el.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { fractionToFixedPercent, getSmartParseNumber, mapStated, transparencyToAlpha } from '../../../units-internal.js'
 import { warn } from '../../../diagnostics.js'
-import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrEl, cNvPrHyperlink, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 import { imageNaturalSize, resolveImageExtent } from './image-extent.js'
 
 /**
@@ -52,9 +52,13 @@ export function renderImageObject(ctx: RenderContext): string {
 	const imgLink = slideItemObj.hyperlink
 	strSlideXml += '<p:pic>'
 	strSlideXml += '  <p:nvPicPr>'
-	strSlideXml +=
-		cNvPrOpen(shapeId, imgOpts.objectName, imgOpts.altText || slideItemObj.image || '') + '>' + cNvPrHyperlink(imgLink)
-	strSlideXml += '    </p:cNvPr>'
+	strSlideXml += cNvPrEl(
+		shapeId,
+		imgOpts.objectName,
+		imgOpts.altText || slideItemObj.image || '',
+		cNvPrHyperlink(imgLink),
+		{ closePrefix: '    ' }
+	)
 	// Default to locking aspect ratio (PowerPoint's own behavior); user `objectLock` overrides any flag, incl. noChangeAspect.
 	strSlideXml += el(
 		'p:cNvPicPr',

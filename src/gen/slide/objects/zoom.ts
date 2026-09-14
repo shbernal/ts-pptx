@@ -11,7 +11,7 @@ import type { ZoomInternal, ZoomTileInternal } from '../../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { alternateContentEl } from '../../oxml/alternate-content.js'
 import {
-	cNvPrOpen,
+	cNvPrEl,
 	FALLBACK_PICTURE_LOCKS,
 	graphicFrameEl,
 	grpXfrmEl,
@@ -88,10 +88,12 @@ function zoomFallbackPic(
 		raw(
 			el('p:nvPicPr', null, [
 				raw(
-					cNvPrOpen(picId, objectName, '') +
-						'>' +
-						voidEl('a:hlinkClick', { 'r:id': `rId${tile.fallbackSlideRid}`, action: 'ppaction://hlinksldjump' }) +
-						'</p:cNvPr>'
+					cNvPrEl(
+						picId,
+						objectName,
+						'',
+						voidEl('a:hlinkClick', { 'r:id': `rId${tile.fallbackSlideRid}`, action: 'ppaction://hlinksldjump' })
+					)
 				),
 				raw(
 					el(
@@ -147,7 +149,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 			: [raw(zoomObjEl(zoom.variant, firstTile, zoom.returnToParent, zoom.transitionDur, { x: 0, y: 0, cx, cy }))]
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(shapeId, objectName, '') + '/>'),
+		raw(cNvPrEl(shapeId, objectName, '')),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',
@@ -186,7 +188,7 @@ export function renderZoomObject(ctx: RenderContext): string {
 		fallbackInner = el('p:grpSp', null, [
 			raw(
 				el('p:nvGrpSpPr', null, [
-					raw(cNvPrOpen(shapeId, objectName, '') + '/>'),
+					raw(cNvPrEl(shapeId, objectName, '')),
 					raw(voidEl('p:cNvGrpSpPr')),
 					raw(voidEl('p:nvPr')),
 				])

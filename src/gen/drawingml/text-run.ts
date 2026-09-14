@@ -28,7 +28,7 @@ import { InternalError } from '../../errors.js'
 import { inch2Emu, lineWidthToEmu, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
-import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { el, elOrVoid, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { TEXT_CAPS_TYPES, TEXT_STRIKE_TYPES, TEXT_TAB_ALIGN_TYPES, TEXT_UNDERLINE_TYPES } from '../../ooxml/st-enums.js'
@@ -280,9 +280,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 								)
 							)
 						: ''
-					const blip = svgExt
-						? el('a:blip', { 'r:embed': `rId${bullet._rId}` }, raw(svgExt))
-						: voidEl('a:blip', { 'r:embed': `rId${bullet._rId}` })
+					const blip = elOrVoid('a:blip', { 'r:embed': `rId${bullet._rId}` }, svgExt)
 					strXmlBullet = strXmlBulletSize + el('a:buBlip', null, raw(blip))
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
@@ -512,9 +510,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 					}
 			// An explicit text color means the link must carry the "follow text color" extension, so
 			// the element becomes paired; otherwise it self-closes.
-			runProps += opts.color
-				? el('a:hlinkClick', linkAttrs, raw(HLINK_TEXT_COLOR_EXT))
-				: voidEl('a:hlinkClick', linkAttrs)
+			runProps += elOrVoid('a:hlinkClick', linkAttrs, opts.color ? HLINK_TEXT_COLOR_EXT : '')
 		}
 	}
 

@@ -95,3 +95,21 @@ export function el(name: string, attrs?: XmlAttrs | null, children?: XmlChild | 
 export function voidEl(name: string, attrs?: XmlAttrs | null, fmt?: XmlFmt): string {
 	return openTag(name, attrs, fmt) + (fmt?.closePrefix ?? '') + '/>'
 }
+
+/**
+ * Paired around `childXml` when it holds anything, self-closing when it does not.
+ *
+ * The one place arity follows content, and on purpose: a lock set, a binding list or an effect
+ * that may be empty makes its element paired or self-closing, and PowerPoint writes it that way.
+ * Rule 1 above still holds everywhere else. Each caller used to spell the choice as its own
+ * `x ? el(n, a, raw(x)) : voidEl(n, a)`.
+ * @param childXml - already-serialized children; empty or absent means self-closing
+ */
+export function elOrVoid(
+	name: string,
+	attrs: XmlAttrs | null | undefined,
+	childXml: string | null | undefined,
+	fmt?: XmlFmt
+): string {
+	return childXml ? el(name, attrs, raw(childXml), fmt) : voidEl(name, attrs, fmt)
+}

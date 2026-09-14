@@ -10,11 +10,8 @@
 	"src/gen/pres/presentation.ts": 2,
 	"src/gen/slide/object.ts": 13,
 	"src/gen/slide/objects/connector.ts": 7,
-	"src/gen/slide/objects/image.ts": 9,
-	"src/gen/slide/objects/media.ts": 1,
-	"src/gen/slide/objects/shared.ts": 1,
-	"src/gen/slide/objects/text.ts": 8,
-	"src/gen/slide/objects/zoom.ts": 1,
+	"src/gen/slide/objects/image.ts": 8,
+	"src/gen/slide/objects/text.ts": 7,
 	"src/math.ts": 5,
 	"src/read/api/animation.ts": 28,
 	"src/read/api/ops/table-styles.ts": 1

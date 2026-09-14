@@ -11,7 +11,7 @@ import { STRETCH_FILL_RECT } from '../../drawingml/src-rect.js'
 import { prstGeomRect } from '../../drawingml/geometry.js'
 import { el, raw, voidEl } from '../../oxml/el.js'
 import { msMediaRid, previewRid } from '../../define/media.js'
-import { cNvPrOpen, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrEl, type RenderContext, xfrmEl } from './shared.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 
 /**
@@ -50,10 +50,12 @@ export function renderMediaObject(ctx: RenderContext): string {
 					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
 					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
 					raw(
-						cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') +
-							'>' +
-							voidEl('a:hlinkClick', { 'r:id': '', action: 'ppaction://media' }) +
-							'</p:cNvPr>'
+						cNvPrEl(
+							shapeId,
+							itemOpts.objectName,
+							itemOpts.altText || '',
+							voidEl('a:hlinkClick', { 'r:id': '', action: 'ppaction://media' })
+						)
 					),
 					raw(
 						el(

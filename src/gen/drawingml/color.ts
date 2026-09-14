@@ -17,7 +17,7 @@ import { DEF_FONT_COLOR } from '../../constants-internal.js'
 import { isHexColor, splitRgbaHex, stripHash } from '../../hex-color.js'
 import { warn, warnOnce } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
-import { el, raw, voidEl } from '../oxml/el.js'
+import { elOrVoid, voidEl } from '../oxml/el.js'
 
 /**
  * Opening delimiter of an `<a:alpha>` child, for detecting one a caller already
@@ -87,9 +87,8 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	const name = isHex ? 'a:srgbClr' : 'a:schemeClr'
 	const attrs = { val: isHex ? colorVal.toUpperCase() : colorVal }
 
-	// Paired vs self-closing is decided by whether there is anything to nest, so this
-	// is one of the few places `el`/`voidEl` are chosen at runtime rather than by tag.
-	return innerElements ? el(name, attrs, raw(innerElements)) : voidEl(name, attrs)
+	// Paired vs self-closing is decided by whether there is anything to nest.
+	return elOrVoid(name, attrs, innerElements)
 }
 
 /**

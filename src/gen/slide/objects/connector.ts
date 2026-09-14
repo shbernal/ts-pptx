@@ -7,9 +7,9 @@
  */
 
 import { warn } from '../../../diagnostics.js'
-import { el, raw, voidEl } from '../../oxml/el.js'
+import { el, elOrVoid, raw, voidEl } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
-import { cNvPrOpen, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
+import { cNvPrEl, genXmlShapeLine, type RenderContext, xfrmEl } from './shared.js'
 
 /**
  * Render a `connector` slide object to its `<p:cxnSp>` XML (start/end shape bindings via shapeIds).
@@ -31,7 +31,7 @@ export function renderConnectorObject(ctx: RenderContext): string {
 	// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
 	// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
 	strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
-	strSlideXml += cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'
+	strSlideXml += cNvPrEl(shapeId, itemOpts.objectName, itemOpts.altText || '')
 	{
 		// Shape binding: resolve each bound target's objectName to its cNvPr id and emit
 		// <a:stCxn>/<a:endCxn> in schema order. Resolution goes through `shapeIds`, so a shape
@@ -53,7 +53,7 @@ export function renderConnectorObject(ctx: RenderContext): string {
 		}
 		const cxnSpPr = cxnTag(itemOpts._startCxn, 'a:stCxn') + cxnTag(itemOpts._endCxn, 'a:endCxn')
 		// Arity, not value: paired only when a binding resolved, self-closing otherwise.
-		strSlideXml += cxnSpPr ? el('p:cNvCxnSpPr', null, raw(cxnSpPr)) : voidEl('p:cNvCxnSpPr')
+		strSlideXml += elOrVoid('p:cNvCxnSpPr', null, cxnSpPr)
 	}
 	strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
 	strSlideXml += xfrmEl('a:xfrm', { x, y, cx, cy }, locationAttrs)

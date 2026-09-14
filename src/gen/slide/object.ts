@@ -32,8 +32,8 @@ import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
-import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { cNvPrOpen, grpXfrmEl, spTreeEl, type RenderContext, type RendererTable } from './objects/shared.js'
+import { el, elOrVoid, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
+import { cNvPrEl, grpXfrmEl, spTreeEl, type RenderContext, type RendererTable } from './objects/shared.js'
 // Not a renderer: it measures the box an image is drawn in, which a group's bounds need, and emits no XML.
 import { resolveImageExtent } from './objects/image-extent.js'
 import { findLayoutPlaceholder } from '../define/layout-placeholder.js'
@@ -563,9 +563,9 @@ export function slideObjectToXml(
 				)
 				strSlideXml += '<p:grpSp>'
 				strSlideXml += el('p:nvGrpSpPr', null, [
-					raw(cNvPrOpen(shapeId, itemOpts.objectName, itemOpts.altText || '') + '/>'),
+					raw(cNvPrEl(shapeId, itemOpts.objectName, itemOpts.altText || '')),
 					// Paired only when there are locks to carry; otherwise self-closing.
-					raw(grpLockXml ? el('p:cNvGrpSpPr', null, raw(grpLockXml)) : voidEl('p:cNvGrpSpPr')),
+					raw(elOrVoid('p:cNvGrpSpPr', null, grpLockXml)),
 					raw(voidEl('p:nvPr')),
 				])
 				strSlideXml += el('p:grpSpPr', null, raw(grpXfrmEl({ x: gx, y: gy, cx: gcx, cy: gcy }, locationAttrs)))

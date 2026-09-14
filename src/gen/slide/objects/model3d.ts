@@ -19,7 +19,7 @@ import { alternateContentEl } from '../../oxml/alternate-content.js'
 import {
 	FALLBACK_PICTURE_LOCKS,
 	type RenderContext,
-	cNvPrOpen,
+	cNvPrEl,
 	graphicFrameEl,
 	previewPicBody,
 	xfrmEl,
@@ -118,7 +118,7 @@ function fallbackPic(
 	return el('p:pic', null, [
 		raw(
 			el('p:nvPicPr', null, [
-				raw(cNvPrOpen(picId, objectName, altText) + '/>'),
+				raw(cNvPrEl(picId, objectName, altText)),
 				raw(
 					el(
 						'p:cNvPicPr',
@@ -171,7 +171,7 @@ export function renderModel3dObject(ctx: RenderContext): string {
 	])
 
 	const nvGraphicFramePr = el('p:nvGraphicFramePr', null, [
-		raw(cNvPrOpen(shapeId, opts.objectName, altText) + '/>'),
+		raw(cNvPrEl(shapeId, opts.objectName, altText)),
 		raw(
 			el(
 				'p:cNvGraphicFramePr',
