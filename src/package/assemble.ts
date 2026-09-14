@@ -199,12 +199,21 @@ function registerTransitionSounds(slides: PresSlideInternal[]): Map<PresSlideInt
  * Write the media parts one target's rels point at. Images are how every deck carries a picture,
  * so this stays on the core path; the chart half of what used to be one function is a part
  * contributor (`parts/chart.ts`) and runs just before it, per target, so part order is unchanged.
+ *
+ * After media de-duplication many relationships share one `Target`, across targets as well as
+ * within one: a logo on every slide is one part. Each used to be decoded and added once per
+ * relationship. A path is now written the first time it decodes, and skipped after that. The zip
+ * keys entries by path and a re-added key keeps its first position, and relationships sharing a
+ * `Target` share its data and extension, so skipping cannot change a byte.
  * @param {PartTarget} slide - slide, layout or master carrying the rels
  * @param {ZipWriter} zip - zip writer
+ * @param {Set<string>} written - the media paths already added, shared across every target of one package
  */
-function createMediaParts(slide: PartTarget, zip: ZipWriter): void {
+function createMediaParts(slide: PartTarget, zip: ZipWriter, written: Set<string>): void {
 	slide._relsMedia.forEach((rel) => {
 		if (rel.type !== 'online' && rel.type !== 'hyperlink') {
+			const path = rel.Target.replace('..', 'ppt')
+			if (written.has(path)) return
 			// A: fflate needs decoded bytes (no base64 convenience), so decode the payload
 			// here. `decodeBase64ToBytes` takes raw base64 and a `data:` URI alike, which is
 			// every shape `rel.data` comes in: a loaded rel has been through `toMediaDataUri`,
@@ -219,9 +228,10 @@ function createMediaParts(slide: PartTarget, zip: ZipWriter): void {
 			const bytes = decodeBase64ToBytes(data)
 			if (!bytes) return
 			const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()
-			zip.add(rel.Target.replace('..', 'ppt'), bytes, {
+			zip.add(path, bytes, {
 				store: ALREADY_COMPRESSED_MEDIA_EXTN.has(extn) || ZIP_CONTAINER_EXTN.has(extn),
 			})
+			written.add(path)
 		}
 	})
 }
@@ -353,9 +363,10 @@ export async function buildPackageParts(
 		for (const face of flattenEmbeddedFaces(pres.embeddedFonts, 1)) {
 			zip.add(fontPath(face.partIndex), face.bytes, { store: true })
 		}
-		zip.add('ppt/theme/theme1.xml', makeXmlTheme(pres))
-		// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
-		zip.add('ppt/theme/theme2.xml', makeXmlTheme(pres))
+		// One theme, written twice: theme2.xml is a separate part so notesMaster1.xml.rels resolves.
+		const themeXml = makeXmlTheme(pres)
+		zip.add('ppt/theme/theme1.xml', themeXml)
+		zip.add('ppt/theme/theme2.xml', themeXml)
 		zip.add(PRESENTATION_PATH, makeXmlPresentation(pres))
 		zip.add('ppt/presProps.xml', makeXmlPresProps())
 		zip.add('ppt/tableStyles.xml', makeXmlTableStyles())
@@ -377,12 +388,13 @@ export async function buildPackageParts(
 
 		// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
 		// the media pass, which is the interleaving the zip has always had.
+		const writtenMediaPaths = new Set<string>()
 		const addTargetRelParts = (target: PartTarget): void => {
 			contributors.forEach((contributor) => {
 				const pending = contributor.parts?.fromTargetRels?.(target, zip)
 				if (pending) partPromises.push(...pending)
 			})
-			createMediaParts(target, zip)
+			createMediaParts(target, zip, writtenMediaPaths)
 		}
 		pres.slideLayouts.forEach(addTargetRelParts)
 		pres.slides.forEach(addTargetRelParts)
