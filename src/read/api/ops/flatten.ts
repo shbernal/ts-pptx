@@ -25,6 +25,9 @@
  *    takes them from the source placeholder → layout → master text-style chain. Rebinding
  *    replaces that chain, so each is resolved from the source styles and written onto the run.
  *    Typeface (`a:latin`) is deliberately *not* baked — it re-binds along with `fontRef`.
+ *    A shape that is not a placeholder takes the same properties from the presentation's
+ *    `p:defaultTextStyle` instead, which the rebind swaps for the destination's, so those
+ *    are baked from the source one.
  * 4. **Placeholder-inherited geometry** — a placeholder with no own `a:xfrm` takes position and
  *    size from the matching source layout/master placeholder; without baking it, a title snaps
  *    to the destination default and often clips off-canvas.
@@ -59,6 +62,7 @@ import { hasFillChoice } from '../../oxml/fill.js'
 import {
 	LST_STYLE_LEVELS,
 	RUN_PROP_NAMES,
+	lstStyleLevelDefRPr,
 	placeholderInheritedAnchor,
 	placeholderInheritedColor,
 	placeholderInheritedListStyles,
@@ -125,7 +129,8 @@ export interface FlattenContext extends ThemeContext {
  * 3. bake each placeholder's effective geometry (inherited `a:xfrm`) onto the
  *    shape so a rebind cannot move or resize it;
  * 4. bake each placeholder run's effective colour and size/weight (inherited from
- *    the source layout/master text styles) explicitly onto the run;
+ *    the source layout/master text styles) explicitly onto the run, and each other
+ *    shape's run the ones it takes from the source `p:defaultTextStyle`;
  * 5. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
  *
  * Steps run in this order so the inherited/materialized backgrounds are present
@@ -140,6 +145,7 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderGeometry(slideRoot, ctx)
 	resolvePlaceholderRunColors(slideRoot, ctx)
 	resolvePlaceholderRunSizes(slideRoot, ctx)
+	resolveDefaultTextStyleRuns(slideRoot, ctx)
 	resolveSchemeColors(slideRoot, ctx)
 }
 
@@ -173,6 +179,7 @@ export function flattenShape(shapeRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderGeometry(shapeRoot, ctx)
 	resolvePlaceholderRunColors(shapeRoot, ctx)
 	resolvePlaceholderRunSizes(shapeRoot, ctx)
+	resolveDefaultTextStyleRuns(shapeRoot, ctx)
 	resolvePlaceholderBodyPr(shapeRoot, ctx)
 	resolvePlaceholderListStyle(shapeRoot, ctx) // before resolveSchemeColors: cloned levels carry schemeClr
 	resolveSchemeColors(shapeRoot, ctx)
@@ -504,6 +511,52 @@ function demotePlaceholders(shapeRoot: Element): void {
  */
 function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): void {
 	bakePlaceholderRunProperty(slideRoot, ctx, placeholderInheritedRunProps, writeRunProps)
+}
+
+/**
+ * Bake what the runs of a shape that is not a placeholder take from the source `p:defaultTextStyle`:
+ * size, bold, italic and colour, per paragraph level, wherever the run, its paragraph and its text
+ * body state none of them.
+ *
+ * Rebinding swaps the presentation's default text style for the destination's along with everything
+ * else, so without this a plain text box from a deck with an 18pt default turns 28pt in a deck with
+ * a 28pt one. PowerPoint's Keep Source Formatting paste writes the same values onto the runs
+ * (`test/read/fixtures/authoring/probe-default-text-style-paste.ps1`).
+ *
+ * A colour is left alone where the shape's `p:style/a:fontRef` names one, since that tier sits above
+ * this one and travels with the shape. Placeholders are left to the placeholder passes: they resolve
+ * through their layout and master, and the measurement covered plain shapes only. Typeface
+ * re-binds here as it does for every other tier. A table cell's text is not a `p:sp` run and
+ * resolves through the master's `p:otherStyle`, so it is not visited.
+ */
+function resolveDefaultTextStyleRuns(root: Element, ctx: FlattenContext): void {
+	const defaults = ctx.defaultTextStyle
+	if (!defaults) return
+	for (const sp of descendantsByTag(root, OOXML_NS.p, 'sp')) {
+		if (placeholderOf(sp)) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		const style = firstChild(sp, 'p:style')
+		const fontRef = style && firstChild(style, 'a:fontRef')
+		const colorFromFontRef = !!(fontRef && firstChildElement(fontRef))
+		const slideLst = firstChild(txBody, 'a:lstStyle')
+		for (const p of getElements(txBody, 'a:p')) {
+			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
+			if (runs.length === 0) continue
+			const pPr = firstChild(p, 'a:pPr')
+			const level = (pPr && numberValue(attr(pPr, 'lvl'))) ?? 0
+			const defRPr = lstStyleLevelDefRPr(defaults, level)
+			if (!defRPr) continue
+			const props = {} as RunProps
+			for (const name of RUN_PROP_NAMES) props[name] = attr(defRPr, name)
+			const fill = colorFromFontRef ? null : firstChild(defRPr, 'a:solidFill')
+			const color = fill ? resolveColor(firstChildElement(fill), ctx) : null
+			for (const run of runs) {
+				writeRunProps(run, props, pPr, slideLst, level)
+				if (color && !slideDefinesColor(run, pPr, slideLst, level)) writeRunColor(run, color)
+			}
+		}
+	}
 }
 
 /** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */

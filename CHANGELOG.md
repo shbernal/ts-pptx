@@ -1001,6 +1001,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `preserve` import keeps what a text box took from the source deck's default text style.**
+  - A run in a shape that is not a placeholder, stating no size, weight or colour of its own, takes
+    them from the presentation's `p:defaultTextStyle`. `importSlide` and `importShape` with
+    `theme: 'preserve'` left that tier to re-resolve, so the run took the destination's default text
+    style instead: a text box from a deck with an 18pt default turned 28pt in a deck with a 28pt
+    one. The inherited size, bold, italic and colour are now written onto the run, which is what
+    PowerPoint's Keep Source Formatting paste does. A colour the shape's `p:style` font reference
+    names still wins, and a placeholder keeps resolving through its own layout and master.
+  - Typeface still re-binds to the destination, as it does for every other tier, where PowerPoint's
+    paste writes the source face literally.
+  - Measured with `test/read/fixtures/authoring/probe-default-text-style-paste.ps1`.
+
 - **`removeSlide` takes the slide out of custom shows and sections.**
   - The removed slide's `p14:sldId` stayed in its section, and its `p:sld` stayed in any custom
     show while the relationship it named was removed. It now leaves both, as PowerPoint does when

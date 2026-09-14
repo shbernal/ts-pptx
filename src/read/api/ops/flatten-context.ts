@@ -39,16 +39,16 @@ function effectiveBackground(
  * getters resolve against, built from one slide → layout → master → theme walk, plus the
  * background the slide inherits.
  *
- * The presentation's default text style is left out of it. A `preserve` import does not bake that
- * tier, so a run that inherits from it re-resolves against the destination deck, and leaving it
- * out keeps it from reaching the bake.
+ * The presentation's default text style rides along, because a run in a shape that is not a
+ * placeholder inherits its size, weight and colour from it, and the rebind would hand that run the
+ * destination's instead. The flatten pass bakes those values onto the run.
  * @param {OpcPackage} sourceOpc - the source package to read
  * @param {string} slidePartName - partname of the source slide
  * @return {FlattenContext} the context {@link flattenSlide} / {@link flattenShape} resolve against
  */
 export function sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: string): FlattenContext {
 	const parts = resolveSlideThemeParts(sourceOpc, slidePartName)
-	const { defaultTextStyle: _notBaked, ...ctx } = resolveSlideColorContext(sourceOpc, parts)
+	const ctx = resolveSlideColorContext(sourceOpc, parts)
 	return {
 		...ctx,
 		inheritedBackground: effectiveBackground(sourceOpc, parts.slideRoot, parts.layoutPartName, parts.masterPartName),
