@@ -24,8 +24,8 @@ hero:
 features:
   - title: Write
     details: "Slides, masters and themes, charts with real embedded workbooks, tables, groups, connectors, gradients, images in shapes, OLE objects, 3D models and LaTeX maths. Emitted as OOXML, validated against the ECMA-376 schemas."
-    link: /reference/api/
-    linkText: API reference
+    link: /getting-started/first-deck
+    linkText: Your first deck
   - title: Read
     details: "Open an existing package and inspect it through typed accessors. What the reader cannot yet see is measured and published rather than guessed at."
     link: /reference/pptx-read
@@ -53,6 +53,8 @@ dependencies and the package's other name.
 
 - [Introduction](getting-started/introduction.md): what the library does, what you can build with
   it, and its limits.
+- [Your first deck](getting-started/first-deck.md): a small deck built from data, start to
+  finish.
 - [Demos](demos.md): a deck built in your browser and previewed in the page.
 - [Comparison with PptxGenJS](comparison.md): what each library emits, measured by building the
   same decks with both.

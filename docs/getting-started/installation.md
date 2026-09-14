@@ -75,3 +75,7 @@ on every supported Node version.
 
 A `<script type="module">` can import `https://esm.sh/pptx-ts/browser` directly. The full snippet
 is in [a browser with a script tag](../runtime-and-package-support.md#a-browser-with-a-script-tag).
+
+## Next
+
+[Your first deck](first-deck.md) builds a small deck from data, start to finish.

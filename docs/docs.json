@@ -9,6 +9,8 @@
         "getting-started/introduction",
         "demos",
         "getting-started/installation",
+        "getting-started/first-deck",
+        "getting-started/concepts",
         "runtime-and-package-support",
         "bundle-size"
       ]

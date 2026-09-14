@@ -52,3 +52,5 @@ pnpm demos:build quarterly-review   # just this one
 Decks land in `demos/showcases/output/`. See
 [the demos README](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md) for
 what else is in there.
+
+To build a deck of your own, start with [Your first deck](getting-started/first-deck.md).
