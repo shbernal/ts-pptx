@@ -2,6 +2,7 @@ import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOpti
 import type { ZIP_OUTPUT_TYPE } from './enums.js'
 import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
 import { PPTX_CONTENT_TYPE } from './ooxml/pptx-content-type.js'
+import { bytesToBinaryString } from './media/binary-string.js'
 
 /**
  * ZIP backend seam for the write path.
@@ -192,28 +193,14 @@ function convertZipOutput(bytes: Uint8Array, type: ZIP_OUTPUT_TYPE): string | Ar
 			// Copy into an ArrayBuffer-backed view so it is a valid BlobPart.
 			return new Blob([new Uint8Array(bytes)], { type: PPTX_CONTENT_TYPE })
 		case 'base64':
-			return bytesToBinaryString(bytes, true)
+			return btoa(bytesToBinaryString(bytes))
 		case 'binarystring':
-			return bytesToBinaryString(bytes, false)
+			return bytesToBinaryString(bytes)
 		default: {
 			const exhaustive: never = type
 			throw new InvalidOptionError('zip/unsupported-output', `Unsupported zip output type: ${String(exhaustive)}`)
 		}
 	}
-}
-
-/**
- * Build a latin1 binary string from bytes (chunked to dodge the argument-count
- * limit of `String.fromCharCode(...spread)` on large archives), optionally
- * base64-encoding it. `btoa` is isomorphic (Node and browsers).
- */
-function bytesToBinaryString(bytes: Uint8Array, base64: boolean): string {
-	let binary = ''
-	const CHUNK = 0x8000
-	for (let i = 0; i < bytes.length; i += CHUNK) {
-		binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
-	}
-	return base64 ? btoa(binary) : binary
 }
 
 // Error taxonomy — see `entry-errors.ts`. Re-exported from every entry so `instanceof`

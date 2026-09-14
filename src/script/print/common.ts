@@ -13,6 +13,7 @@ import { inches } from '../units.js'
 import { scopeNotes, type FidelityNote, type NoteCollector } from '../fidelity.js'
 import { commentText, printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import { InvalidOptionError } from '../../errors.js'
+import { bytesToBase64 } from '../../media/base64.js'
 
 /** How image bytes reach the emitted script. */
 export type AssetMode =
@@ -190,22 +191,12 @@ export function printAssetBindings(
 			const prefix = printString(`data:${asset.contentType};base64,`)
 			lines.push(`const ${identifier} = ${prefix} + (await readFile(here(${path}))).toString('base64')`)
 		} else {
-			lines.push(`const ${identifier} = ${printString(`data:${asset.contentType};base64,${toBase64(asset.bytes)}`)}`)
+			lines.push(
+				`const ${identifier} = ${printString(`data:${asset.contentType};base64,${bytesToBase64(asset.bytes)}`)}`
+			)
 		}
 	}
 	return lines
-}
-
-/** Base64 without `Buffer`, matching the rest of the library's isomorphic media handling. */
-function toBase64(bytes: Uint8Array): string {
-	let binary = ''
-	// Chunked because String.fromCharCode is applied to the whole slice at once, and a
-	// megabyte-sized spread overflows the argument limit.
-	const CHUNK = 0x8000
-	for (let i = 0; i < bytes.length; i += CHUNK) {
-		binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
-	}
-	return btoa(binary)
 }
 
 /**
