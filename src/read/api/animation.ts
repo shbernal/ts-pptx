@@ -24,6 +24,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { InternalError } from '../../errors.js'
+import { SLIDE_AFTER_TIMING, TIMING_AFTER_TNLST } from '../../ooxml/sequence.js'
 
 const P_NS = OOXML_NS.p
 
@@ -258,7 +259,7 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 	let timing = firstChild(root, 'p:timing')
 	if (!timing) {
 		timing = importScaffold(doc, TIMING_SCAFFOLD)
-		insertInOrder(root, timing, ['p:extLst'])
+		insertInOrder(root, timing, SLIDE_AFTER_TIMING)
 	}
 	// Reuse an existing mainSeq if present.
 	const existingSeq = mainSeqOf(timing)
@@ -279,7 +280,7 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		// Degenerate timing with no tmRoot child list — graft the full scaffold's tnLst.
 		const fresh = importScaffold(doc, TIMING_SCAFFOLD)
 		const freshTnLst = firstChild(fresh, 'p:tnLst')
-		if (freshTnLst) insertInOrder(timing, freshTnLst, ['p:bldLst', 'p:extLst'])
+		if (freshTnLst) insertInOrder(timing, freshTnLst, TIMING_AFTER_TNLST)
 		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0]
 	}
 	if (!tmRootChildLst)

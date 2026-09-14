@@ -35,6 +35,7 @@ import {
 } from './transition.js'
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-types.js'
+import { SLIDE_AFTER_TRANSITION } from '../../ooxml/sequence.js'
 import { imageFormatForBytes } from '../../media/image-formats.js'
 import { checkFiniteEmu, checkPositiveEmu } from './coords.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
@@ -246,7 +247,7 @@ export class Slide implements ShapeHost {
 			throw new PackageReadError('package/part-has-no-root', `Slide ${this.partName} has no root <p:sld> element`)
 		const built = value ? buildTransition(this.part.dom, value, root) : null
 		removeTransition(root)
-		if (built) insertInOrder(root, built, ['p:timing', 'p:extLst'])
+		if (built) insertInOrder(root, built, SLIDE_AFTER_TRANSITION)
 		this.part.markDirty()
 	}
 

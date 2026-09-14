@@ -24,7 +24,7 @@ import {
 } from '../../oxml/dom.js'
 import { presentationRels, type DeckTarget } from './deck-target.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
-import { PRESENTATION_AFTER_SLD_MASTER_ID_LST } from '../../../ooxml/sequence.js'
+import { PRESENTATION_AFTER_SLD_MASTER_ID_LST, SLIDE_MASTER_AFTER_SLD_LAYOUT_ID_LST } from '../../../ooxml/sequence.js'
 import { PackageReadError } from '../../../errors.js'
 import { MIN_SLIDE_MASTER_ID } from '../../../ooxml/ids.js'
 
@@ -154,7 +154,7 @@ export function addLayoutToMaster(dest: DeckTarget, masterPartName: string, layo
 
 	const masterRels = dest.opc.relationshipsFor(masterPartName)
 	const relId = masterRels.add(SLIDE_LAYOUT_REL, relativePartName(masterPartName, layoutPartName)).id
-	const lst = getOrAddChild(root, 'p:sldLayoutIdLst', ['p:transition', 'p:timing', 'p:hf', 'p:txStyles', 'p:extLst'])
+	const lst = getOrAddChild(root, 'p:sldLayoutIdLst', SLIDE_MASTER_AFTER_SLD_LAYOUT_ID_LST)
 	const entry = createElement(masterPart.dom, 'p:sldLayoutId')
 	setAttr(entry, 'id', String(nextMasterLayoutId(dest)))
 	setAttr(entry, 'r:id', relId)

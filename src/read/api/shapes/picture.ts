@@ -30,7 +30,7 @@ import { childElements, type PaintSurface } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
-import { BLIPFILL_BLIP_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
+import { BLIPFILL_BLIP_AFTER, BLIPFILL_SRCRECT_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
 
 /**
  * Default a media-part file extension from a content type. A format the registry in
@@ -328,7 +328,7 @@ export class Picture extends Shape {
 			return
 		}
 		const { l, r, t, b } = rect
-		const srcRect = getOrAddChild(blipFill, 'a:srcRect', ['a:tile', 'a:stretch'])
+		const srcRect = getOrAddChild(blipFill, 'a:srcRect', BLIPFILL_SRCRECT_AFTER)
 		setAttr(srcRect, 'l', String(l))
 		setAttr(srcRect, 'r', String(r))
 		setAttr(srcRect, 't', String(t))

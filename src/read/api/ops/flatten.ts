@@ -83,6 +83,7 @@ import {
 	type ThemeContext,
 } from '../../oxml/theme.js'
 import {
+	CSLD_AFTER_BG,
 	RPR_FILL_AFTER,
 	SHAPE_AFTER_SPPR,
 	SPPR_AFTER_XFRM,
@@ -91,6 +92,8 @@ import {
 	SPPR_LN_AFTER,
 	SPPR_SCENE3D_AFTER,
 	SPPR_SP3D_AFTER,
+	TXBODY_AFTER_BODYPR,
+	TXBODY_AFTER_LSTSTYLE,
 } from '../../../ooxml/sequence.js'
 import { THEME_COLOR_SLOTS } from '../../../ooxml/st-enums.js'
 import { cSldOf, nvPrOf } from '../../oxml/slide-dom.js'
@@ -252,7 +255,7 @@ function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void
 	if (!cSld || firstChild(cSld, 'p:bg')) return // no cSld, or the slide already owns a background
 	const doc = ownerDocumentOf(slideRoot)
 	const bg = doc.importNode(inherited, true)
-	insertInOrder(cSld, bg, ['p:spTree', 'p:custDataLst', 'p:controls', 'p:extLst'])
+	insertInOrder(cSld, bg, CSLD_AFTER_BG)
 }
 
 /**
@@ -425,7 +428,7 @@ function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void
 		if (bodyPr && attr(bodyPr, 'anchor') != null) return // slide fixes it — not inherited
 		const anchor = placeholderInheritedAnchor(type, idx, ctx)
 		if (!anchor) return
-		setAttr(bodyPr ?? getOrAddChild(txBody, 'a:bodyPr', ['a:lstStyle', 'a:p']), 'anchor', anchor)
+		setAttr(bodyPr ?? getOrAddChild(txBody, 'a:bodyPr', TXBODY_AFTER_BODYPR), 'anchor', anchor)
 	})
 }
 
@@ -467,7 +470,7 @@ function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): v
 		}
 		if (!any) return
 		if (slideLst) txBody.replaceChild(merged, slideLst)
-		else insertInOrder(txBody, merged, ['a:p'])
+		else insertInOrder(txBody, merged, TXBODY_AFTER_LSTSTYLE)
 	})
 }
 

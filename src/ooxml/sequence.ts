@@ -259,6 +259,61 @@ const BLIPFILL_SEQUENCE: readonly SequenceStep[] = ['a:blip', 'a:srcRect', ['a:t
 export const PIC_BLIPFILL_AFTER = successorsOf(PIC_SEQUENCE, 'p:blipFill')
 /** Successors of `a:blip` inside `a:blipFill`. */
 export const BLIPFILL_BLIP_AFTER = successorsOf(BLIPFILL_SEQUENCE, 'a:blip')
+/** Successors of `a:srcRect` inside `a:blipFill`. */
+export const BLIPFILL_SRCRECT_AFTER = successorsOf(BLIPFILL_SEQUENCE, 'a:srcRect')
+
+// --- p:sldMaster / p:sld / p:cSld / p:timing ---------------------------------
+
+/**
+ * `CT_SlideMaster` (`p:sldMaster`), in declaration order. `p:clrMap` is the whole of the
+ * `EG_TopLevelSlide` group.
+ */
+const SLIDE_MASTER_SEQUENCE: readonly SequenceStep[] = [
+	'p:cSld',
+	'p:clrMap',
+	'p:sldLayoutIdLst',
+	'p:transition',
+	'p:timing',
+	'p:hf',
+	'p:txStyles',
+	'p:extLst',
+]
+
+/** `CT_Slide` (`p:sld`), in declaration order. `p:clrMapOvr` is the whole of `EG_ChildSlide`. */
+const SLIDE_SEQUENCE: readonly SequenceStep[] = ['p:cSld', 'p:clrMapOvr', 'p:transition', 'p:timing', 'p:extLst']
+
+/** `CT_CommonSlideData` (`p:cSld`), in declaration order. */
+const COMMON_SLIDE_DATA_SEQUENCE: readonly SequenceStep[] = [
+	'p:bg',
+	'p:spTree',
+	'p:custDataLst',
+	'p:controls',
+	'p:extLst',
+]
+
+/** `CT_SlideTiming` (`p:timing`), in declaration order. */
+const SLIDE_TIMING_SEQUENCE: readonly SequenceStep[] = ['p:tnLst', 'p:bldLst', 'p:extLst']
+
+/** Successors of `p:sldLayoutIdLst` inside `p:sldMaster`. */
+export const SLIDE_MASTER_AFTER_SLD_LAYOUT_ID_LST = successorsOf(SLIDE_MASTER_SEQUENCE, 'p:sldLayoutIdLst')
+/** Successors of `p:transition` inside `p:sld`. */
+export const SLIDE_AFTER_TRANSITION = successorsOf(SLIDE_SEQUENCE, 'p:transition')
+/** Successors of `p:timing` inside `p:sld`. */
+export const SLIDE_AFTER_TIMING = successorsOf(SLIDE_SEQUENCE, 'p:timing')
+/** Successors of `p:bg` inside `p:cSld`. */
+export const CSLD_AFTER_BG = successorsOf(COMMON_SLIDE_DATA_SEQUENCE, 'p:bg')
+/** Successors of `p:tnLst` inside `p:timing`. */
+export const TIMING_AFTER_TNLST = successorsOf(SLIDE_TIMING_SEQUENCE, 'p:tnLst')
+
+// --- p:txBody ----------------------------------------------------------------
+
+/** `CT_TextBody` (`p:txBody`, and `a:txBody` in a table cell), in declaration order. */
+const TEXT_BODY_SEQUENCE: readonly SequenceStep[] = ['a:bodyPr', 'a:lstStyle', 'a:p']
+
+/** Successors of `a:bodyPr` inside a text body. */
+export const TXBODY_AFTER_BODYPR = successorsOf(TEXT_BODY_SEQUENCE, 'a:bodyPr')
+/** Successors of `a:lstStyle` inside a text body. */
+export const TXBODY_AFTER_LSTSTYLE = successorsOf(TEXT_BODY_SEQUENCE, 'a:lstStyle')
 
 /**
  * Every sequence declared here, keyed by the element names that carry it.
@@ -291,4 +346,10 @@ export const CHILD_SEQUENCES: Readonly<Record<string, readonly SequenceStep[]>> 
 	'p:pic': PIC_SEQUENCE,
 	'p:blipFill': BLIPFILL_SEQUENCE,
 	'a:blipFill': BLIPFILL_SEQUENCE,
+	'p:sldMaster': SLIDE_MASTER_SEQUENCE,
+	'p:sld': SLIDE_SEQUENCE,
+	'p:cSld': COMMON_SLIDE_DATA_SEQUENCE,
+	'p:timing': SLIDE_TIMING_SEQUENCE,
+	'p:txBody': TEXT_BODY_SEQUENCE,
+	'a:txBody': TEXT_BODY_SEQUENCE,
 }
