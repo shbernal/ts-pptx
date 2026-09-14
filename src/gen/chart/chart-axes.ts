@@ -169,8 +169,9 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 
 	const scaling = el('c:scaling', null, [
 		raw(voidEl('c:orientation', { val: opts.catAxisOrientation || 'minMax' })),
-		opts.catAxisMaxVal || opts.catAxisMaxVal === 0 ? raw(voidEl('c:max', { val: opts.catAxisMaxVal })) : null,
-		opts.catAxisMinVal || opts.catAxisMinVal === 0 ? raw(voidEl('c:min', { val: opts.catAxisMinVal })) : null,
+		// The define layer refuses a bound that is not a finite number, so a present one is meant.
+		opts.catAxisMaxVal != null ? raw(voidEl('c:max', { val: opts.catAxisMaxVal })) : null,
+		opts.catAxisMinVal != null ? raw(voidEl('c:min', { val: opts.catAxisMinVal })) : null,
 	])
 
 	// Scatter/bubble read the X format off the category option, falling back to the value one.
@@ -279,8 +280,8 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	const scaling = el('c:scaling', null, [
 		opts.valAxisLogScaleBase ? raw(voidEl('c:logBase', { val: opts.valAxisLogScaleBase })) : null,
 		raw(voidEl('c:orientation', { val: opts.valAxisOrientation || 'minMax' })),
-		opts.valAxisMaxVal || opts.valAxisMaxVal === 0 ? raw(voidEl('c:max', { val: opts.valAxisMaxVal })) : null,
-		opts.valAxisMinVal || opts.valAxisMinVal === 0 ? raw(voidEl('c:min', { val: opts.valAxisMinVal })) : null,
+		opts.valAxisMaxVal != null ? raw(voidEl('c:max', { val: opts.valAxisMaxVal })) : null,
+		opts.valAxisMinVal != null ? raw(voidEl('c:min', { val: opts.valAxisMinVal })) : null,
 	])
 
 	const ticks = isScatterChart(opts._type)

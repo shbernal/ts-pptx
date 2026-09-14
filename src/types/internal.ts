@@ -17,7 +17,7 @@ import type {
 } from '../enums.js'
 import type { EmbeddedFont } from '../embedded-fonts.js'
 import type { AnimationProps } from './animation.js'
-import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
+import type { ChartErrorBarOptions, ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundOption, Margin, TextVertType } from './core.js'
 import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
 import type { MediaProps, MediaType } from './media.js'
@@ -220,8 +220,18 @@ export interface ShadowPropsInternal extends ShadowProps {
 	_alpha?: number
 }
 // Used internally, probably shouldn't be used by end users
+/**
+ * One error bar as `addChartDefinition` vetted it: the three enumerations checked, `value` finite,
+ * and the width, stated as `width` or the deprecated `size`, converted to EMU and clamped into
+ * `ST_LineWidth`. The emitter writes what it reads.
+ */
+export interface ChartErrorBarInternal extends Omit<ChartErrorBarOptions, 'width' | 'size'> {
+	widthEmu?: number
+}
 export interface OptsChartDataInternal extends OptsChartData {
 	labels?: string[][]
+	/** Always an array here, whichever of the two shapes the caller passed. */
+	errorBars?: ChartErrorBarInternal[]
 	/** Series index; always assigned by addChartDefinition() before this internal shape is built. */
 	_dataIndex: number
 }

@@ -10,10 +10,16 @@ import { asChartType, type CHART_NAME, ChartType, isChartExType, isChartType, Sl
 import { DEF_CHART_BORDER } from '../../constants-internal.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import {
+	AXIS_ORIENTATIONS,
 	BAR_3D_SHAPES,
 	BAR_DIRECTIONS,
 	BAR_GROUPINGS,
+	BUILT_IN_UNITS,
+	CROSS_BETWEEN,
 	DISPLAY_BLANKS_AS,
+	ERROR_BAR_DIRECTIONS,
+	ERROR_BAR_TYPES,
+	ERROR_BAR_VALUE_TYPES,
 	GROUPINGS,
 	LEGEND_POSITIONS,
 	LINE_DATA_SYMBOLS,
@@ -21,6 +27,8 @@ import {
 	RADAR_STYLE_ALIASES,
 	RADAR_STYLES,
 	type RadarStyleAlias,
+	TICK_LABEL_POSITIONS,
+	TICK_MARKS,
 } from '../../ooxml/st-enums.js'
 import { defaultChartPalette } from '../chart/chart-parts.js'
 import { warn } from '../../diagnostics.js'
@@ -28,14 +36,21 @@ import type { DiagnosticCode } from '../../codes.js'
 import { InvalidOptionError } from '../../errors.js'
 import type {
 	BorderProps,
+	ChartErrorBarOptions,
 	ChartMulti,
 	ChartOpts,
+	ChartPropsAxisCat,
+	ChartPropsAxisSer,
+	ChartPropsAxisVal,
+	ChartPropsDataLabel,
 	ChartSeriesOpts,
 	OptsChartData,
 	OptsChartGridLine,
+	PositionProps,
 } from '../../types/index.js'
 import { scrubGridLine } from '../chart/chart-stroke.js'
 import type {
+	ChartErrorBarInternal,
 	ChartMultiInternal,
 	ChartOptsInternal,
 	ChartOptsOverrides,
@@ -62,19 +77,64 @@ import { dataSizes, dataValues, worksheetLayout } from '../chart/data-refs.js'
  * instead of three strings.
  *
  * The copy is one level deep on purpose: everything under `src/gen/chart/` is a pure string builder
- * that only reads `values`/`sizes`/`customLabels`/`pointStyles`/`errorBars`, so sharing those arrays
- * with the caller is safe.
+ * that only reads `values`/`sizes`/`customLabels`/`pointStyles`, so sharing those arrays with the
+ * caller is safe. `errorBars` is the exception, rebuilt by {@link normalizeErrorBars}, because it is
+ * vetted here and the emitter writes it as it finds it.
  * @param item - caller-supplied series
  * @param index - series position, across all subcharts for a combo chart
  */
 function normalizeChartSeries(item: OptsChartData, index: number): OptsChartDataInternal {
-	// `labels` is destructured out rather than overwritten so a series with none carries no
-	// `labels` key at all: absent is this model's one spelling of "no categories", and the
+	// `labels` and `errorBars` are destructured out rather than overwritten so a series with none
+	// carries no key at all: absent is this model's one spelling of "no categories", and the
 	// emitters read it with `series.labels?.length`, which cannot tell the two apart anyway.
-	const { labels, ...rest } = item
+	const { labels, errorBars, ...rest } = item
 	const series: OptsChartDataInternal = { ...rest, _dataIndex: index }
 	if (labels !== undefined) series.labels = Array.isArray(labels[0]) ? (labels as string[][]) : [labels as string[]]
+	if (errorBars) series.errorBars = normalizeErrorBars(errorBars, item.name ?? `series ${index + 1}`)
 	return series
+}
+
+/**
+ * A series' error bars, each with its enumerations checked, its amount vetted and its width
+ * resolved, so the emitter writes what it reads.
+ *
+ * All three enumerations were emitted verbatim, so `direction: 'z'` reached `<c:errDir>`, and
+ * `value: NaN` wrote `<c:val val="NaN"/>`. The width went through a lenient conversion, so `NaN`
+ * became `w="0"` in silence while the series' own stroke threw for the same value; it now takes
+ * that stroke's converter.
+ *
+ * An entry that is not an object is dropped. The emitter skipped one anyway, but it still counted
+ * against the one bar a bar or line series keeps.
+ * @param errorBars - the caller's bar, or X and Y bars
+ * @param series - the series' name, for the diagnostics
+ */
+function normalizeErrorBars(
+	errorBars: ChartErrorBarOptions | ChartErrorBarOptions[],
+	series: string
+): ChartErrorBarInternal[] {
+	const option = `series "${series}" errorBars`
+	return (Array.isArray(errorBars) ? errorBars : [errorBars])
+		.filter((bar) => bar && typeof bar === 'object')
+		.map((bar) => {
+			// oxlint-disable-next-line typescript/no-deprecated -- `size` is the pre-4.0 spelling of `width` and is still honoured.
+			const { width, size, ...rest } = bar
+			const vetted: ChartErrorBarInternal = rest
+			if (bar.direction !== undefined && !chartEnum(bar.direction, ERROR_BAR_DIRECTIONS, `${option}.direction`))
+				delete vetted.direction
+			if (bar.barType !== undefined && !chartEnum(bar.barType, ERROR_BAR_TYPES, `${option}.barType`))
+				delete vetted.barType
+			if (bar.valueType !== undefined && !chartEnum(bar.valueType, ERROR_BAR_VALUE_TYPES, `${option}.valueType`))
+				delete vetted.valueType
+			if (bar.value !== undefined && !(typeof bar.value === 'number' && Number.isFinite(bar.value))) {
+				throw new InvalidOptionError(
+					'chart/option-non-finite',
+					`${option}.value must be a finite number; received ${String(bar.value)}.`
+				)
+			}
+			const stated = width ?? size
+			if (stated != null) vetted.widthEmu = lineWidthToEmu(stated)
+			return vetted
+		})
 }
 
 /**
@@ -150,6 +210,9 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
 	if (copy.chartArea) copy.chartArea = { ...copy.chartArea }
 	if (copy.dataBorder) copy.dataBorder = { ...copy.dataBorder }
 	if (copy.layout) copy.layout = { ...copy.layout }
+	if (copy.legendLayout) copy.legendLayout = { ...copy.legendLayout }
+	if (Array.isArray(copy.catAxes)) copy.catAxes = copy.catAxes.map((axis) => ({ ...axis }))
+	if (Array.isArray(copy.valAxes)) copy.valAxes = copy.valAxes.map((axis) => ({ ...axis }))
 	if (copy.catGridLine) copy.catGridLine = { ...copy.catGridLine }
 	if (copy.valGridLine) copy.valGridLine = { ...copy.valGridLine }
 	if (copy.serGridLine) copy.serGridLine = { ...copy.serGridLine }
@@ -325,6 +388,128 @@ const DATA_LABEL_POSITIONS_BAR_CLUSTERED = ['ctr', 'inBase', 'inEnd', 'outEnd'] 
 function chartEnum<T extends string>(value: string | undefined, valid: readonly T[], option: string): T | null {
 	return checkEnumOrWarn(value, valid, 'chart/invalid-option-value', `chart: ${option}`)
 }
+
+/** The axis options one bag can carry: the chart's own, or one `catAxes[]` / `valAxes[]` entry. */
+type AxisOptions = ChartPropsAxisCat & ChartPropsAxisVal & ChartPropsAxisSer
+
+/** The enumerated axis options, each emitted verbatim into its attribute. */
+const AXIS_ENUM_OPTIONS = [
+	['catAxisOrientation', AXIS_ORIENTATIONS],
+	['valAxisOrientation', AXIS_ORIENTATIONS],
+	['serAxisOrientation', AXIS_ORIENTATIONS],
+	['catAxisLabelPos', TICK_LABEL_POSITIONS],
+	['valAxisLabelPos', TICK_LABEL_POSITIONS],
+	['serAxisLabelPos', TICK_LABEL_POSITIONS],
+	['catAxisMajorTickMark', TICK_MARKS],
+	['catAxisMinorTickMark', TICK_MARKS],
+	['valAxisMajorTickMark', TICK_MARKS],
+	['valAxisMinorTickMark', TICK_MARKS],
+	['valAxisCrossBetween', CROSS_BETWEEN],
+	['valAxisDisplayUnit', BUILT_IN_UNITS],
+] as const satisfies ReadonlyArray<readonly [keyof AxisOptions, readonly string[]]>
+
+/** `c:majorUnit` / `c:minorUnit`, both `ST_AxisUnit`: a double above 0. */
+const AXIS_UNIT_OPTIONS = ['catAxisMajorUnit', 'catAxisMinorUnit', 'valAxisMajorUnit', 'valAxisMinorUnit'] as const
+/** `c:max` / `c:min`, both `ST_Double`. */
+const AXIS_BOUND_OPTIONS = ['catAxisMaxVal', 'catAxisMinVal', 'valAxisMaxVal', 'valAxisMinVal'] as const
+
+/**
+ * Vet the axis options the axis builders write as they find them.
+ *
+ * One bar chart could carry `<c:majorUnit val="-5"/>`, `<c:logBase val="1"/>`,
+ * `<c:orientation val="up"/>` and `<c:tickLblPos val="bogus"/>` without a word, and a `NaN` bound
+ * vanished because the emitter tested `x || x === 0`. The `catAxes[]` and `valAxes[]` overrides are
+ * spread over the chart's options at emit time, after every other check, so each entry is vetted
+ * here too, under the name the caller reaches it by.
+ *
+ * - An enumeration outside its `ST_` type warns and is dropped, so the builder's default stands.
+ *   The time units are not here: whether one has a slot depends on the axis tag, which only the
+ *   builder knows (`validTimeUnit`).
+ * - A unit that is not a number above 0 warns and is dropped, as `ST_AxisUnit` excludes 0.
+ * - `valAxisLogScaleBase` clamps into `ST_LogBase` (2-1000) with a warning, and `NaN` throws.
+ * - A bound that is not a finite number throws. It has no nearest legal neighbour, and dropping it
+ *   rescales the axis the caller pinned.
+ *
+ * `null` counts as unset, as it does for the chart clamps.
+ * @param axis - the bag to correct in place
+ * @param prefix - how the caller reaches this bag: `''` for the chart's own, `'valAxes[1].'` for an entry
+ */
+function normalizeAxisOptions(axis: AxisOptions, prefix: string): void {
+	for (const [key, valid] of AXIS_ENUM_OPTIONS) {
+		if (axis[key] != null && !chartEnum(axis[key], valid, prefix + key)) delete axis[key]
+	}
+	for (const key of AXIS_UNIT_OPTIONS) {
+		const unit = axis[key]
+		if (unit == null) continue
+		if (typeof unit !== 'number' || !Number.isFinite(unit) || unit <= 0) {
+			warn('chart/option-out-of-range', `"${prefix}${key}" must be a number above 0; ignoring ${String(unit)}.`)
+			delete axis[key]
+		}
+	}
+	for (const key of AXIS_BOUND_OPTIONS) {
+		const bound = axis[key]
+		if (bound != null && (typeof bound !== 'number' || !Number.isFinite(bound))) {
+			throw new InvalidOptionError(
+				'chart/option-non-finite',
+				`${prefix}${key} must be a finite number; received ${String(bound)}.`
+			)
+		}
+	}
+	if (axis.valAxisLogScaleBase != null) {
+		axis.valAxisLogScaleBase = clampRangedInput(
+			axis.valAxisLogScaleBase,
+			2,
+			1000,
+			'chart/option-out-of-range',
+			`${prefix}valAxisLogScaleBase`,
+			'chart/option-non-finite'
+		)
+	}
+}
+
+/**
+ * Drop each `x`/`y`/`w`/`h` of a manual layout that is not a fraction of the chart, warning, so that
+ * axis stays automatic. Shared by the plot area's `layout` and `legendLayout`; the legend's used to
+ * reach `<c:x val="NaN"/>` and `<c:w val="-1"/>` while the same values on `layout` warned.
+ *
+ * `w`/`h` take the open range: a plot area of zero width or height is inside 0-1 and paints nothing,
+ * and the emitter used to turn it into a full-bleed plot with `|| 1`, the caller's zero silently
+ * becoming the largest value the option has. Rejecting it here is what lets the emitter default
+ * with `??`.
+ *
+ * A key the caller left out is not checked, since each axis of `CT_ManualLayout` is independent. The
+ * check used to report every absent key of `layout` as out of range. A numeric string that passes is
+ * stored as the number, which the legend emitter needs to write it at all.
+ * @param layout - the layout to correct in place
+ * @param option - option name as the caller spells it
+ */
+function normalizeManualLayout(layout: PositionProps | undefined, option: string): void {
+	if (!layout || typeof layout !== 'object') return
+	for (const key of ['x', 'y', 'w', 'h'] as const) {
+		const val = layout[key]
+		if (val === undefined) continue
+		const numVal = Number(val)
+		const zeroAllowed = key === 'x' || key === 'y'
+		if (!Number.isFinite(numVal) || numVal > 1 || numVal < 0 || (!zeroAllowed && numVal === 0)) {
+			warn(
+				'chart/layout-out-of-range',
+				`${option}.${key} can only be ${zeroAllowed ? '0-1' : 'greater than 0 and at most 1'}`
+			)
+			delete layout[key]
+		} else {
+			layout[key] = numVal
+		}
+	}
+}
+
+/** `dataLabelFormatScatter`'s values, keyed off its type so a member added there is a compile error here. */
+const SCATTER_LABEL_FORMATS = Object.keys({ custom: true, customXY: true, XY: true } satisfies Record<
+	NonNullable<ChartPropsDataLabel['dataLabelFormatScatter']>,
+	true
+>) as ReadonlyArray<NonNullable<ChartPropsDataLabel['dataLabelFormatScatter']>>
+
+/** The stock styles, read off the table the plot builder lays a stock chart out from. */
+const STOCK_STYLES = Object.keys(STOCK_STYLE_SPEC) as readonly StockStyle[]
 
 /**
  * Drop `dataLabelPosition` values that are invalid for the chart type / bar grouping,/**
@@ -584,9 +769,19 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	// and meet the plot builders' fallback instead, which was the *bar* palette on every type —
 	// so `{ chartColors: [] }` on a pie was neither the caller's colours nor the pie default.
 	options.chartColors = options.chartColors?.length ? options.chartColors : defaultChartPalette(options._type)
-	// NaN is falsy, so this only ever has to answer for a value the caller actually set.
-	// An out-of-range one reaches `percentToFixedPercent` at the emitter, which clamps and says so.
-	if (!options.chartColorsOpacity) delete options.chartColorsOpacity
+	// Tested against `undefined`, not truthiness. `0` is a stated opacity, a fully transparent fill
+	// that makes the series invisible, and it used to be deleted so the series painted opaque. `NaN`
+	// went the same way in silence; it has no nearest legal value, so it throws.
+	if (options.chartColorsOpacity !== undefined) {
+		options.chartColorsOpacity = clampRangedInput(
+			options.chartColorsOpacity,
+			0,
+			100,
+			'chart/option-out-of-range',
+			'chartColorsOpacity',
+			'chart/option-non-finite'
+		)
+	}
 	options.plotArea = options.plotArea || {}
 	setOrClear(
 		options.plotArea,
@@ -630,15 +825,17 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 			? options.dataLabelFormatCode
 			: '#,##0'
 	//
-	// Set default format for Scatter chart labels to custom string if not defined
-	if (!options.dataLabelFormatScatter && options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
+	// A scatter's label format defaults to `custom`. A value it does not recognise used to pass, and
+	// matched none of the plot builder's three arms, so `showLabel` drew no labels and said nothing.
+	if (!chartEnum(options.dataLabelFormatScatter, SCATTER_LABEL_FORMATS, 'dataLabelFormatScatter')) {
+		if (options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
+		else delete options.dataLabelFormatScatter
+	}
 	//
 	// A stated width, `NaN` included, reaches `seriesStroke`, whose converter clamps a negative one
 	// and refuses a value that is not a number. This used to keep any `typeof` number and hand it to
 	// a lenient conversion, so `lineSize: -1` wrote `w="-12700"` and `NaN` wrote `w="0"`.
 	options.lineSize = options.lineSize ?? 2
-	if (typeof options.valAxisMajorUnit !== 'number') delete options.valAxisMajorUnit
-	if (typeof options.valAxisMinorUnit !== 'number') delete options.valAxisMinorUnit
 
 	if (
 		options._type === ChartType.area ||
@@ -907,25 +1104,11 @@ export function addChartDefinition(
 	// width is a repair prompt, and collapsing one to zero would be a silent hairline instead.
 	options.lineDataSymbolLineSize = mapStated(options.lineDataSymbolLineSize, lineWidthToEmu) ?? ptsToEmuLenient(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
-	const chartLayout = options.layout
-	if (chartLayout) {
-		;(['x', 'y', 'w', 'h'] as const).forEach((key) => {
-			const val = chartLayout[key]
-			const numVal = Number(val)
-			// `w`/`h` take the open range: a plot area of zero width or height is inside 0-1 and
-			// paints nothing, and the emitter used to turn it into a full-bleed plot with `|| 1`
-			// -- the caller's zero silently becoming the largest value the option has. Rejecting it
-			// here is what lets the emitter default with `??`.
-			const zeroAllowed = key === 'x' || key === 'y'
-			if (!Number.isFinite(numVal) || numVal > 1 || numVal < 0 || (!zeroAllowed && numVal === 0)) {
-				warn(
-					'chart/layout-out-of-range',
-					`chart.layout.${key} can only be ${zeroAllowed ? '0-1' : 'greater than 0 and at most 1'}`
-				)
-				delete chartLayout[key] // remove invalid value so that default will be used
-			}
-		})
-	}
+	normalizeManualLayout(options.layout, 'chart.layout')
+	normalizeManualLayout(options.legendLayout, 'chart.legendLayout')
+	normalizeAxisOptions(options, '')
+	options.catAxes?.forEach((axis, idx) => normalizeAxisOptions(axis, `catAxes[${idx}].`))
+	options.valAxes?.forEach((axis, idx) => normalizeAxisOptions(axis, `valAxes[${idx}].`))
 
 	// Set gridline defaults
 	const scatterGrid: OptsChartGridLine = { color: 'D9D9D9', width: 1 }
@@ -995,8 +1178,10 @@ export function addChartDefinition(
 	if (options._type === ChartType.stock) {
 		// The same table the plot builder lays the series out from — a second copy here is how the
 		// warning and the emitted chart came to disagree about what a style expects.
-		if (!Object.keys(STOCK_STYLE_SPEC).includes(options.stockStyle || '')) options.stockStyle = 'hlc'
-		const expected = STOCK_STYLE_SPEC[options.stockStyle as StockStyle].seriesCount
+		// A style it does not recognise used to become `hlc` in silence.
+		const stockStyle = chartEnum(options.stockStyle, STOCK_STYLES, 'stockStyle') ?? 'hlc'
+		options.stockStyle = stockStyle
+		const expected = STOCK_STYLE_SPEC[stockStyle].seriesCount
 		if (tmpData.length !== expected) {
 			warn(
 				'chart/stock-series-count',

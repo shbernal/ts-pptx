@@ -253,6 +253,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: chart axis, error-bar and legend-layout options are checked before they reach the
+  chart part, and three option types narrow to the schema's values.**
+  - `ChartAxisTickMark` is `'cross' | 'in' | 'none' | 'out'`, the values of `ST_TickMark`. It
+    offered `'inside'` and `'outside'`, which were written into `c:majorTickMark` as given and made
+    the part invalid. `serAxisOrientation` is `'minMax' | 'maxMin'` rather than `string`, and the
+    error bar's `direction`, `barType` and `valueType` are typed from their schema types.
+  - An axis orientation, tick-label position, tick mark, `valAxisCrossBetween` or
+    `valAxisDisplayUnit` outside its schema type warns `chart/invalid-option-value` and takes the
+    default, on the chart's own options and on every `catAxes[]` and `valAxes[]` entry, which
+    the warning names by index. So does an error bar's `direction`, `barType` or `valueType`, a
+    `stockStyle` the chart does not know (which became `hlc` in silence) and a
+    `dataLabelFormatScatter` it does not know (which drew no labels in silence).
+  - An axis `MajorUnit` or `MinorUnit` that is not a number above 0 warns
+    `chart/option-out-of-range` and is left off. A negative one was written, and a string on the
+    category axis too.
+  - `valAxisLogScaleBase` clamps into 2-1000, the range of `ST_LogBase`, with a warning, and `NaN`
+    throws. A base of 1 was written as given. The type doc said 2-99.
+  - An axis `MinVal` or `MaxVal`, or an error bar's `value`, that is not a finite number throws
+    `InvalidOptionError` (`chart/option-non-finite`). A `NaN` bound was dropped, and a `NaN` value
+    written as `val="NaN"`.
+  - An error bar's `width` (or `size`) goes through the series stroke's converter: `NaN` throws
+    `coord/non-finite` and a negative width clamps to 0 with a warning. Both wrote `w="0"` without
+    a word.
+  - A `legendLayout` value outside the `layout` range warns `chart/layout-out-of-range` and is
+    dropped, as it already was on `layout`. It was written as given, `NaN` and negative sizes
+    included.
+  - **Migration:** write `'in'` and `'out'` for `'inside'` and `'outside'`. Pass a finite number
+    for an axis bound or an error-bar value, or leave it out.
+
+- **Breaking: `chartColorsOpacity: 0` paints a fully transparent series, and `NaN` throws.** The
+  option is a percentage of opacity, and `0` was deleted, so the series painted fully opaque. `NaN`
+  went the same way without a word. `0` now writes `<a:alpha val="0"/>`, an invisible series, and
+  `NaN` throws `InvalidOptionError` (`chart/option-non-finite`). A value outside 0-100 still clamps
+  with a warning, now when the chart is added rather than when the deck is written.
+
+  Migration: leave `chartColorsOpacity` out for an opaque series.
+
 - **`importSlide` and `importSlides` check a source against the copy they will make.**
   - Both refuse a damaged source before anything in the deck moves. That check used to be a
     separate walk of the source, written out beside the copy, and it had come to refuse two kinds
@@ -899,6 +936,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **A chart `layout` that states only some of `x`, `y`, `w` and `h` no longer warns about the
+  rest.** Each key left out was reported as `chart/layout-out-of-range`, though an absent key only
+  keeps that axis automatic. A numeric string such as `'0.5'` on `legendLayout` is placed now; it
+  passed no check and was skipped by the legend emitter.
 
 - **The read model decodes a percent bullet size and a fractional point index, and the
   transition setter keeps what it is not told to change.**

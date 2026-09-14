@@ -18,15 +18,14 @@ import {
 	DEF_SHAPE_SHADOW,
 	PIECHART_COLORS,
 } from '../../constants-internal.js'
+import type { BorderProps, Coord, ChartPropsTitle, ChartSeriesOpts, OptsChartGridLine } from '../../types/index.js'
 import type {
-	BorderProps,
-	Coord,
-	ChartErrorBarOptions,
-	ChartPropsTitle,
-	ChartSeriesOpts,
-	OptsChartGridLine,
-} from '../../types/index.js'
-import type { ChartOptsInternal, MaybeUndefined, OptsChartDataInternal } from '../../types/internal.js'
+	ChartErrorBarInternal,
+	ChartOptsInternal,
+	MaybeUndefined,
+	OptsChartDataInternal,
+} from '../../types/internal.js'
+import { TIME_UNITS } from '../../ooxml/st-enums.js'
 import { warn } from '../../diagnostics.js'
 import { alphaEl, createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
@@ -220,10 +219,9 @@ export type PlotBuilder = (
 	sheet: WorksheetLayout
 ) => string
 
-const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
-
 /**
- * A validated, lowercased axis time unit, or `undefined` when the value is not one.
+ * A validated, lowercased axis time unit (`ST_TimeUnit`), or `undefined` when the value is not one.
+ * The case is forgiven, so `'Days'` reads as `days`.
  *
  * A garbage time unit does not degrade the chart -- it corrupts it, and PowerPoint renders
  * nothing at all -- so an unrecognized value warns and is dropped rather than emitted.
@@ -240,8 +238,8 @@ const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
  */
 export function validTimeUnit(value: string | undefined, optionName: string): string | undefined {
 	if (!value) return undefined
-	if (typeof value !== 'string' || !VALID_CHART_TIME_UNITS.includes(value.toLowerCase())) {
-		warn('chart/invalid-axis-time-unit', `"${optionName}" must be one of: 'days','months','years' !`)
+	if (typeof value !== 'string' || !(TIME_UNITS as readonly string[]).includes(value.toLowerCase())) {
+		warn('chart/invalid-axis-time-unit', `"${optionName}" must be one of: ${TIME_UNITS.join(', ')}.`)
 		return undefined
 	}
 	return value.toLowerCase()
@@ -377,7 +375,8 @@ export function chartColorLineFill(color: string): string {
  */
 function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 	if (serColor === 'transparent') return voidEl('a:noFill')
-	if (!opts.chartColorsOpacity) return genXmlColorSelection(serColor)
+	// `== null`, not truthiness: `chartColorsOpacity: 0` is a stated, fully transparent fill.
+	if (opts.chartColorsOpacity == null) return genXmlColorSelection(serColor)
 	const alpha = alphaEl(
 		percentToFixedPercent(opts.chartColorsOpacity, 'chart/option-out-of-range', 'chartColorsOpacity')
 	)
@@ -786,26 +785,27 @@ export function numCachePt(idx: number, value: number | null | undefined): strin
  * or `xVal`/`yVal` (scatter). CT_ErrBars child order is errDir → errBarType → errValType →
  * noEndCap → plus → minus → val → spPr.
  *
+ * The bars arrive vetted (`normalizeErrorBars` in `gen/define/chart.ts`): an enumeration the schema
+ * does not have is already gone, so the defaults below fill only what the caller left out.
+ *
  * @param chartType - chart this series belongs to (used to bound how many bars are legal)
- * @param errorBars - one config, or an array (X+Y) for scatter/area; bar/line keep only the first
+ * @param errorBars - the series' bars, X+Y for scatter/area; bar/line keep only the first
  * @param obj - the series data object (only `name`, for warnings)
  */
 export function makeChartErrorBarsXml(
 	chartType: ChartType,
-	errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined,
+	errorBars: ChartErrorBarInternal[] | undefined,
 	obj: OptsChartDataInternal
 ): string {
 	if (!errorBars) return ''
-	const bars = Array.isArray(errorBars) ? errorBars : [errorBars]
 	// CT_BarSer/CT_LineSer allow a single <c:errBars>; only scatter/area permit two (x + y).
 	const maxBars = chartType === ChartType.scatter || chartType === ChartType.area ? 2 : 1
 	let strXml = ''
 
-	bars.slice(0, maxBars).forEach((eb) => {
-		if (!eb) return
-		const valueType = eb.valueType || 'fixedVal'
-		const barType = eb.barType || 'both'
-		const direction = eb.direction || 'y'
+	errorBars.slice(0, maxBars).forEach((eb) => {
+		const valueType = eb.valueType ?? 'fixedVal'
+		const barType = eb.barType ?? 'both'
+		const direction = eb.direction ?? 'y'
 
 		let children =
 			voidEl('c:errDir', { val: direction }) +
@@ -841,8 +841,6 @@ export function makeChartErrorBarsXml(
 		// `size` still accepted), plus the `dashType`, `cap` and `transparency` the old
 		// two-key shape could not say. A bar that states none of them keeps emitting no
 		// `<c:spPr>` at all, which is what leaves PowerPoint's own error-bar style in charge.
-		// oxlint-disable-next-line typescript/no-deprecated -- `size` is the pre-4.0 spelling of `width` and is still honoured.
-		const width = eb.width ?? eb.size
 		// A bar that names a colour or a transparency paints one; `type: 'none'` paints an
 		// explicit `<a:noFill/>`; a bar that names only a width or a dash leaves the paint to
 		// PowerPoint's own error-bar style, which is what "no `<a:solidFill>`" has always meant
@@ -857,7 +855,7 @@ export function makeChartErrorBarsXml(
 			eb.dashType !== undefined || eb.type === 'dash'
 				? voidEl('a:prstDash', { val: strokeDash(eb, 'errorBars dashType') })
 				: ''
-		if (paint || dash || width != null || eb.cap !== undefined) {
+		if (paint || dash || eb.widthEmu !== undefined || eb.cap !== undefined) {
 			children += el(
 				'c:spPr',
 				null,
@@ -865,7 +863,7 @@ export function makeChartErrorBarsXml(
 					el(
 						'a:ln',
 						{
-							w: width != null ? ptsToEmuLenient(width) : undefined,
+							w: eb.widthEmu,
 							cap: eb.cap !== undefined ? createLineCap(eb.cap) : undefined,
 						},
 						raw(paint + dash)

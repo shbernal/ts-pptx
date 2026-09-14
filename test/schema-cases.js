@@ -2928,6 +2928,56 @@ export default [
 		},
 	},
 	{
+		// Axis, error-bar and legend-layout options outside their `ST_` types used to reach the part
+		// as written, `'inside'` from the old `ChartAxisTickMark` type among them. Each is corrected
+		// or dropped with a warning when the chart is added, and the validator is the assertion.
+		name: 'chart axis, error-bar and legend-layout options outside their schema types are corrected',
+		exclusive: true,
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					p.addSlide().addChart(
+						[
+							{
+								name: 'S1',
+								labels: ['A', 'B', 'C'],
+								values: [1, 2, 3],
+								errorBars: { valueType: 'bogus', direction: 'z', barType: 'up', value: 1, width: -1 },
+							},
+						],
+						{
+							type: ChartType.bar,
+							x: 1,
+							y: 1,
+							w: 6,
+							h: 3,
+							showLegend: true,
+							legendLayout: { x: 0.7, y: 5, w: -1 },
+							valAxisMajorUnit: -5,
+							valAxisLogScaleBase: 1,
+							valAxisOrientation: 'up',
+							valAxisCrossBetween: 'x',
+							valAxisLabelPos: 'bogus',
+							valAxisDisplayUnit: 'zillions',
+							valAxisMajorTickMark: 'inside',
+							catAxisMinorTickMark: 'outside',
+							catAxes: [{ catAxisOrientation: 'up' }],
+							valAxes: [{ valAxisMinorUnit: 0 }],
+						}
+					)
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(warnings.length > 0, 'the corrections are reported')
+			await expectNoSchemaErrors(buf, 'chart-options-outside-schema-types')
+		},
+	},
+	{
 		name: 'firstSlideNum sets presentation starting slide number',
 		fn: async () => {
 			const { buf } = await build((p) => {

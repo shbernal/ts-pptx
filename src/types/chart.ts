@@ -6,15 +6,23 @@
  */
 import type { CHART_NAME } from '../enums.js'
 import type {
+	AxisOrientation,
 	Bar3DShape,
 	BarDirection,
 	BarGrouping,
+	BuiltInUnit,
+	CrossBetween,
 	DataLabelPosition,
 	DisplayBlanksAs,
+	ErrorBarDirection,
+	ErrorBarType,
+	ErrorBarValueType,
 	LegendPosition,
 	LineDataSymbol,
 	RadarStyle,
 	RadarStyleAlias,
+	TickLabelPosition,
+	TickMark,
 } from '../ooxml/st-enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
@@ -37,7 +45,13 @@ export type {
 	LineDataSymbol,
 } from '../ooxml/st-enums.js'
 
-export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
+/**
+ * An axis' tick marks (`ST_TickMark`): `in` and `out` of the axis line, `cross` through it, or `none`.
+ *
+ * This used to offer `'inside'` and `'outside'`, which are not the schema's words; they reached
+ * the part as written and PowerPoint refused it. Any other value warns and takes the default.
+ */
+export type ChartAxisTickMark = TickMark
 /**
  * Line end cap style. Maps to the OOXML `cap` attribute on `<a:ln>` (`flat`/`sq`/`rnd`).
  */
@@ -145,12 +159,12 @@ export interface ChartErrorBarOptions extends StrokeProps {
 	 * - `'y'` (the value axis) for BAR/BAR3D/LINE/AREA; SCATTER may also use `'x'`.
 	 * @default 'y'
 	 */
-	direction?: 'x' | 'y'
+	direction?: ErrorBarDirection
 	/**
 	 * Which sides of each marker draw a bar.
 	 * @default 'both'
 	 */
-	barType?: 'both' | 'minus' | 'plus'
+	barType?: ErrorBarType
 	/**
 	 * How `value` (or `plusValues`/`minusValues`) is interpreted.
 	 * - `'fixedVal'` — fixed amount in axis units
@@ -160,9 +174,10 @@ export interface ChartErrorBarOptions extends StrokeProps {
 	 * - `'cust'` — explicit per-point amounts via `plusValues`/`minusValues`
 	 * @default 'fixedVal'
 	 */
-	valueType?: 'cust' | 'fixedVal' | 'percentage' | 'stdDev' | 'stdErr'
+	valueType?: ErrorBarValueType
 	/**
 	 * Magnitude for `'fixedVal'`, `'percentage'`, or `'stdDev'`. Ignored for `'stdErr'` and `'cust'`.
+	 * - a finite number; `NaN` or `Infinity` throws
 	 * @default 1
 	 */
 	value?: number
@@ -256,7 +271,11 @@ export interface ChartPropsBase {
 	 */
 	chartColors?: HexColor[]
 	/**
-	 * opacity (0 - 100)
+	 * Series fill opacity, as a percentage from 0 to 100.
+	 *
+	 * `0` means what it says: a fully transparent fill, so the series is invisible. That is a
+	 * deliberate meaning, not a shorthand for "unset"; leave the option out for an opaque fill.
+	 * A value outside 0-100 clamps with a warning, and `NaN` throws.
 	 * @example 50 // 50% opaque
 	 */
 	chartColorsOpacity?: number
@@ -414,7 +433,7 @@ export interface ChartPropsAxisCat {
 	 * `'every other'` reach the attribute — and is read with `Number()` like any other.
 	 */
 	catAxisLabelFrequency?: number | string
-	catAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
+	catAxisLabelPos?: TickLabelPosition
 	catAxisLabelRotate?: number
 	/**
 	 * The category axis line, as a stroke: `width`, `dashType`, `type`, `color`, `cap` and
@@ -454,14 +473,22 @@ export interface ChartPropsAxisCat {
 	catAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	catAxisMajorTickMark?: ChartAxisTickMark
 	catAxisMajorTimeUnit?: string
+	/**
+	 * Spacing between major tick marks on a date axis or a scatter's X axis (`c:majorUnit`,
+	 * `ST_AxisUnit`).
+	 * - above 0; anything else warns and leaves the element off
+	 */
 	catAxisMajorUnit?: number
+	/** Axis maximum (`c:max`). A value that is not a finite number throws. */
 	catAxisMaxVal?: number
 	catAxisMinorTickMark?: ChartAxisTickMark
 	catAxisMinorTimeUnit?: string
+	/** Spacing between minor tick marks; the same rule as {@link ChartPropsAxisCat.catAxisMajorUnit}. */
 	catAxisMinorUnit?: number
+	/** Axis minimum (`c:min`). A value that is not a finite number throws. */
 	catAxisMinVal?: number
 	catAxisMultiLevelLabels?: boolean
-	catAxisOrientation?: 'minMax' | 'maxMin'
+	catAxisOrientation?: AxisOrientation
 	catAxisTitle?: string
 	catAxisTitleColor?: string
 	catAxisTitleFontFace?: string
@@ -494,7 +521,7 @@ export interface ChartPropsAxisSer {
 	 * Pass a number; see {@link ChartPropsAxisCat.catAxisLabelFrequency} for the `string` half.
 	 */
 	serAxisLabelFrequency?: number | string
-	serAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
+	serAxisLabelPos?: TickLabelPosition
 	/**
 	 * The series axis line, as a stroke — the same {@link StrokeProps} the other two axes and
 	 * every gridline take. See {@link ChartPropsAxisCat.catAxisLine}.
@@ -526,7 +553,7 @@ export interface ChartPropsAxisSer {
 	 * @deprecated Use `serAxisLine.dashType`, which takes the full `ST_PresetLineDashVal` set.
 	 */
 	serAxisLineStyle?: 'solid' | 'dash' | 'dot'
-	serAxisOrientation?: string
+	serAxisOrientation?: AxisOrientation
 	serAxisTitle?: string
 	serAxisTitleColor?: string
 	serAxisTitleFontFace?: string
@@ -559,17 +586,8 @@ export interface ChartPropsAxisVal {
 	 * - `'midCat'` = values plotted on tick marks (default for scatter/area)
 	 * - PowerPoint: Format Axis > Axis Options > Axis crosses > On tick marks / Between tick marks
 	 */
-	valAxisCrossBetween?: 'between' | 'midCat'
-	valAxisDisplayUnit?:
-		| 'billions'
-		| 'hundredMillions'
-		| 'hundreds'
-		| 'hundredThousands'
-		| 'millions'
-		| 'tenMillions'
-		| 'tenThousands'
-		| 'thousands'
-		| 'trillions'
+	valAxisCrossBetween?: CrossBetween
+	valAxisDisplayUnit?: BuiltInUnit
 	valAxisDisplayUnitLabel?: boolean
 	valAxisHidden?: boolean
 	valAxisLabelColor?: string
@@ -578,7 +596,7 @@ export interface ChartPropsAxisVal {
 	valAxisLabelFontItalic?: boolean
 	valAxisLabelFontSize?: number
 	valAxisLabelFormatCode?: string
-	valAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
+	valAxisLabelPos?: TickLabelPosition
 	valAxisLabelRotate?: number
 	/**
 	 * The value axis line, as a stroke — the same {@link StrokeProps} the other two axes and
@@ -608,15 +626,17 @@ export interface ChartPropsAxisVal {
 	valAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	/**
 	 * PowerPoint: Format Axis > Axis Options > Logarithmic scale - Base
-	 * - range: 2-99
+	 * - range: 2-1000 (`ST_LogBase`); a value outside it clamps with a warning, and `NaN` throws
 	 */
 	valAxisLogScaleBase?: number
 	valAxisMajorTickMark?: ChartAxisTickMark
 	/**
-	 * Spacing between major tick marks on the value axis (`c:majorUnit`).
+	 * Spacing between major tick marks on the value axis (`c:majorUnit`, `ST_AxisUnit`).
+	 * - above 0; anything else warns and leaves the element off
 	 * - PowerPoint: Format Axis > Axis Options > Units > Major
 	 */
 	valAxisMajorUnit?: number
+	/** Axis maximum (`c:max`). A value that is not a finite number throws. */
 	valAxisMaxVal?: number
 	valAxisMinorTickMark?: ChartAxisTickMark
 	/**
@@ -625,8 +645,9 @@ export interface ChartPropsAxisVal {
 	 * - PowerPoint: Format Axis > Axis Options > Units > Minor
 	 */
 	valAxisMinorUnit?: number
+	/** Axis minimum (`c:min`). A value that is not a finite number throws. */
 	valAxisMinVal?: number
-	valAxisOrientation?: 'minMax' | 'maxMin'
+	valAxisOrientation?: AxisOrientation
 	valAxisTitle?: string
 	valAxisTitleColor?: string
 	valAxisTitleFontFace?: string
@@ -991,6 +1012,11 @@ export interface ChartPropsLegend {
 	 * `w`/`h` set its size. Each axis is independent: provide only `x` to move the
 	 * legend horizontally while leaving vertical placement and size automatic.
 	 * Setting this overrides the automatic placement implied by `legendPos`.
+	 *
+	 * Held to the plot area's {@link ChartPropsBase.layout} rule: `x` and `y` from 0 to 1, `w` and
+	 * `h` above 0 and at most 1. A value outside that, or one that is not a number, warns and is
+	 * dropped, so that axis stays automatic. `ST_Double` itself is unbounded; whether PowerPoint
+	 * places a legend reaching past the chart edge has not been checked, so the narrower rule stands.
 	 *
 	 * Has no effect unless `showLegend` is `true`.
 	 *

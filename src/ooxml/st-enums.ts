@@ -22,9 +22,10 @@
  * Values are listed in **schema declaration order**, which is the order the diagnostics print
  * when they tell a caller what is legal.
  *
- * **The chart option bag reads seven of these directly**: `BarDirection`, `BarGrouping`,
- * `Bar3DShape`, `LegendPosition`, `DisplayBlanksAs`, `DataLabelPosition` and `LineDataSymbol`.
- * They were the half of this consolidation that went unfinished for a while. `src/types/chart.ts`
+ * **The chart option bag reads its enumerations from here**: `BarDirection`, `BarGrouping`,
+ * `Bar3DShape`, `LegendPosition`, `DisplayBlanksAs`, `DataLabelPosition` and `LineDataSymbol`
+ * first, then the axis and error-bar ones. They were the half of this consolidation that went
+ * unfinished for a while. `src/types/chart.ts`
  * hand-wrote four of those unions beside the option that takes them and typed the other three as
  * bare `string`, so `barDir` carried no compile-time check at all, and `dataLabelPosition`'s
  * hand-written union was missing `inBase` — a value the validator accepts on a stacked bar, so
@@ -483,6 +484,52 @@ export type DataLabelPosition = (typeof DATA_LABEL_POSITIONS)[number]
  */
 export const LINE_DATA_SYMBOLS = ['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'] as const
 export type LineDataSymbol = (typeof LINE_DATA_SYMBOLS)[number]
+
+/** `ST_TickLblPos` — where an axis draws its tick labels (`c:tickLblPos/@val`). */
+export const TICK_LABEL_POSITIONS = ['high', 'low', 'nextTo', 'none'] as const
+export type TickLabelPosition = (typeof TICK_LABEL_POSITIONS)[number]
+
+/** `ST_Orientation` — which way an axis runs (`c:orientation/@val`). */
+export const AXIS_ORIENTATIONS = ['maxMin', 'minMax'] as const
+export type AxisOrientation = (typeof AXIS_ORIENTATIONS)[number]
+
+/** `ST_TickMark` — an axis' major or minor tick marks (`c:majorTickMark/@val`, `c:minorTickMark/@val`). */
+export const TICK_MARKS = ['cross', 'in', 'none', 'out'] as const
+export type TickMark = (typeof TICK_MARKS)[number]
+
+/** `ST_CrossBetween` — whether a value axis crosses its category axis between or on categories (`c:crossBetween/@val`). */
+export const CROSS_BETWEEN = ['between', 'midCat'] as const
+export type CrossBetween = (typeof CROSS_BETWEEN)[number]
+
+/** `ST_BuiltInUnit` — the unit a value axis displays its labels in (`c:builtInUnit/@val`). */
+export const BUILT_IN_UNITS = [
+	'hundreds',
+	'thousands',
+	'tenThousands',
+	'hundredThousands',
+	'millions',
+	'tenMillions',
+	'hundredMillions',
+	'billions',
+	'trillions',
+] as const
+export type BuiltInUnit = (typeof BUILT_IN_UNITS)[number]
+
+/** `ST_TimeUnit` — a date axis' base, major or minor time unit (`c:baseTimeUnit/@val` and its two siblings). */
+export const TIME_UNITS = ['days', 'months', 'years'] as const
+export type TimeUnit = (typeof TIME_UNITS)[number]
+
+/** `ST_ErrDir` — the axis an error bar measures along (`c:errDir/@val`). */
+export const ERROR_BAR_DIRECTIONS = ['x', 'y'] as const
+export type ErrorBarDirection = (typeof ERROR_BAR_DIRECTIONS)[number]
+
+/** `ST_ErrBarType` — which sides of a point draw an error bar (`c:errBarType/@val`). */
+export const ERROR_BAR_TYPES = ['both', 'minus', 'plus'] as const
+export type ErrorBarType = (typeof ERROR_BAR_TYPES)[number]
+
+/** `ST_ErrValType` — how an error bar's amount is read (`c:errValType/@val`). */
+export const ERROR_BAR_VALUE_TYPES = ['cust', 'fixedVal', 'percentage', 'stdDev', 'stdErr'] as const
+export type ErrorBarValueType = (typeof ERROR_BAR_VALUE_TYPES)[number]
 
 /**
  * The twelve theme colour slots (`a:clrScheme` children) a `p:clrMap` token can point at.

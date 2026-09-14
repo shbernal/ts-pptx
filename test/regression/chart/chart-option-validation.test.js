@@ -19,6 +19,31 @@ import { chartXml } from './chart-parts.js'
 const SERIES = [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }]
 const BASE = { x: 1, y: 1, w: 6, h: 3 }
 
+/** The error `fn` throws, or `null` when it returns. */
+function thrownBy(fn) {
+	try {
+		fn()
+	} catch (err) {
+		return err
+	}
+	return null
+}
+
+/** Build one chart and return its XML with the diagnostics it raised. */
+async function chartWith(data, options) {
+	const {
+		result: xml,
+		codes,
+		messages,
+	} = await captureDiagnostics(async () => {
+		const { zip } = await build((p) => {
+			p.addSlide().addChart(data, { ...BASE, ...options })
+		})
+		return chartXml(zip)
+	})
+	return { xml, codes, messages }
+}
+
 defineRegressionSuite('Chart option validation', [
 	{
 		name: 'lineDataSymbolSize above the 2-72 range is clamped to 72',
@@ -760,6 +785,249 @@ defineRegressionSuite('Chart option validation', [
 				messages.some((m) => m.includes('`dataLabelFontSize`') && !m.includes('`color`')),
 				'only the data-label field should be reported as dropped; got ' + JSON.stringify(messages)
 			)
+		},
+	},
+	{
+		// Every one of these reached its attribute as written, and one bar chart carried them all
+		// without a warning. `inside` is what `ChartAxisTickMark` used to offer.
+		name: 'an axis enumeration outside its schema type warns and takes the default',
+		fn: async () => {
+			const { xml, codes, messages } = await chartWith(SERIES, {
+				type: ChartType.bar,
+				valAxisOrientation: 'up',
+				valAxisCrossBetween: 'x',
+				valAxisLabelPos: 'bogus',
+				valAxisDisplayUnit: 'zillions',
+				valAxisMajorTickMark: 'sideways',
+				catAxisMinorTickMark: 'inside',
+			})
+			for (const value of ['up', 'x', 'bogus', 'zillions', 'sideways', 'inside']) {
+				assertNotIncludes(xml, `val="${value}"`, `${value} is not written`)
+			}
+			assertEqual(
+				codes.filter((code) => code === 'chart/invalid-option-value').length,
+				6,
+				`each option warns; got ${JSON.stringify(messages)}`
+			)
+			assertNotIncludes(xml, '<c:dispUnits>', 'a rejected display unit leaves the element off')
+			assertIncludes(xml, '<c:crossBetween val="between"/>', 'the bar default stands')
+			assertIncludes(xml, '<c:minorTickMark val="none"/>', 'and the tick mark default')
+		},
+	},
+	{
+		// `catAxes[i]` and `valAxes[i]` are spread over the chart's options at emit time, after every
+		// other check, so an entry has to be vetted on its own and named by the path the caller wrote.
+		name: 'catAxes and valAxes entries are vetted and named by their index',
+		fn: async () => {
+			const catAxes = [{ catAxisLabelPos: 'bogus' }]
+			const valAxes = [{ valAxisMajorUnit: -1, valAxisDisplayUnit: 'zillions' }]
+			const { xml, messages } = await chartWith(SERIES, { type: ChartType.bar, catAxes, valAxes })
+			for (const path of [
+				'catAxes[0].catAxisLabelPos',
+				'valAxes[0].valAxisDisplayUnit',
+				'valAxes[0].valAxisMajorUnit',
+			]) {
+				assert(
+					messages.some((m) => m.includes(path)),
+					`${path} is named; got ${JSON.stringify(messages)}`
+				)
+			}
+			assertNotIncludes(xml, 'bogus', 'the entry label position is not written')
+			assertNotIncludes(xml, 'zillions', 'nor its display unit')
+			assertNotIncludes(xml, '<c:majorUnit val="-1"/>', 'nor its unit')
+			assertEqual(catAxes[0].catAxisLabelPos, 'bogus', "the caller's entry is not rewritten")
+			assertEqual(valAxes[0].valAxisMajorUnit, -1, "the caller's entry is not rewritten")
+		},
+	},
+	{
+		// `ST_AxisUnit` is a double above 0. The value axis deleted a non-number in silence and kept a
+		// negative; the category axis wrote a string as given.
+		name: 'an axis unit that is not a number above 0 warns and is left off',
+		fn: async () => {
+			for (const unit of [-5, 0, NaN, '5']) {
+				const { xml, codes } = await chartWith(SERIES, { type: ChartType.bar, valAxisMajorUnit: unit })
+				assertNotIncludes(xml, '<c:majorUnit', `${String(unit)} is not written`)
+				assert(codes.includes('chart/option-out-of-range'), `${String(unit)} warns; got ${JSON.stringify(codes)}`)
+			}
+			const { xml, codes } = await chartWith([{ name: 'S1', values: [1, 2, 3] }], {
+				type: ChartType.scatter,
+				catAxisMajorUnit: '2',
+			})
+			assertNotIncludes(xml, '<c:majorUnit val="2"/>', 'a string unit on the X axis is not written')
+			assert(codes.includes('chart/option-out-of-range'), `and warns; got ${JSON.stringify(codes)}`)
+			assertIncludes(
+				(await chartWith(SERIES, { type: ChartType.bar, valAxisMajorUnit: 5 })).xml,
+				'<c:majorUnit val="5"/>',
+				'a positive unit is written'
+			)
+		},
+	},
+	{
+		// `ST_LogBase` is 2 to 1000, and the type doc said 2 to 99.
+		name: 'valAxisLogScaleBase clamps into 2-1000, and a NaN one throws',
+		fn: async () => {
+			const low = await chartWith(SERIES, { type: ChartType.bar, valAxisLogScaleBase: 1 })
+			assertIncludes(low.xml, '<c:logBase val="2"/>', 'a base below 2 clamps to 2')
+			assert(low.codes.includes('chart/option-out-of-range'), `and warns; got ${JSON.stringify(low.codes)}`)
+			assertIncludes(
+				(await chartWith(SERIES, { type: ChartType.bar, valAxisLogScaleBase: 5000 })).xml,
+				'<c:logBase val="1000"/>',
+				'a base above 1000 clamps to 1000'
+			)
+			assertIncludes(
+				(await chartWith(SERIES, { type: ChartType.bar, valAxisLogScaleBase: 500 })).xml,
+				'<c:logBase val="500"/>',
+				'a base past the old documented 99 is kept'
+			)
+			const thrown = thrownBy(() =>
+				new TsPptx().addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, valAxisLogScaleBase: NaN })
+			)
+			assert(thrown instanceof InvalidOptionError, `a NaN base throws; got ${thrown}`)
+			assertEqual(thrown.code, 'chart/option-non-finite', 'with the shared code')
+		},
+	},
+	{
+		// A `NaN` bound was dropped because the emitter tested `x || x === 0`, which rescaled the axis
+		// the caller had pinned. It has no nearest legal value, so it is refused.
+		name: 'an axis bound that is not a finite number throws, and 0 is written',
+		fn: async () => {
+			/** @type {[string, object][]} */
+			const cases = [
+				['valAxisMaxVal: NaN', { valAxisMaxVal: NaN }],
+				['catAxisMinVal: Infinity', { catAxisMinVal: Infinity }],
+				['valAxes[0].valAxisMinVal: NaN', { valAxes: [{ valAxisMinVal: NaN }], catAxes: [{}] }],
+			]
+			for (const [label, options] of cases) {
+				const thrown = thrownBy(() =>
+					new TsPptx().addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, ...options })
+				)
+				assert(thrown instanceof InvalidOptionError, `${label} throws; got ${thrown}`)
+				assertEqual(thrown.code, 'chart/option-non-finite', `${label} carries the shared code`)
+			}
+			assertIncludes(
+				(await chartWith(SERIES, { type: ChartType.bar, valAxisMaxVal: 0 })).xml,
+				'<c:max val="0"/>',
+				'a zero bound is a stated bound'
+			)
+		},
+	},
+	{
+		name: 'an error bar enumeration outside its schema type warns and takes the default',
+		fn: async () => {
+			const errorBars = { valueType: 'bogus', direction: 'z', barType: 'up', value: 2 }
+			const { xml, codes } = await chartWith([{ ...SERIES[0], errorBars }], { type: ChartType.bar })
+			assertIncludes(
+				xml,
+				'<c:errBars><c:errDir val="y"/><c:errBarType val="both"/><c:errValType val="fixedVal"/><c:noEndCap val="0"/><c:val val="2"/></c:errBars>',
+				'each rejected enumeration takes its default'
+			)
+			assertEqual(
+				codes.filter((code) => code === 'chart/invalid-option-value').length,
+				3,
+				`each enumeration warns; got ${JSON.stringify(codes)}`
+			)
+			assertEqual(errorBars.direction, 'z', "the caller's bar is not rewritten")
+		},
+	},
+	{
+		// `value: NaN` wrote `<c:val val="NaN"/>`. The width went through a lenient conversion, so a
+		// `NaN` one wrote `w="0"` while the series' own stroke threw for the same value.
+		name: 'an error bar value or width that is not a number throws, and a negative width clamps',
+		fn: async () => {
+			/** @type {[string, any, string][]} */
+			const cases = [
+				['value', { value: NaN }, 'chart/option-non-finite'],
+				['width', { value: 1, width: NaN }, 'coord/non-finite'],
+				['size', { value: 1, size: NaN }, 'coord/non-finite'],
+			]
+			for (const [label, bar, code] of cases) {
+				const thrown = thrownBy(() =>
+					new TsPptx().addSlide().addChart([{ ...SERIES[0], errorBars: bar }], { ...BASE, type: ChartType.bar })
+				)
+				assert(thrown instanceof InvalidOptionError, `a NaN ${label} throws; got ${thrown}`)
+				assertEqual(thrown.code, code, `${label} carries its converter's code`)
+			}
+			const negative = await chartWith([{ ...SERIES[0], errorBars: { value: 1, width: -1 } }], {
+				type: ChartType.bar,
+			})
+			assertIncludes(negative.xml, '<a:ln w="0">', 'a negative width clamps to 0')
+			assert(negative.codes.includes('line/width-out-of-range'), `and warns; got ${JSON.stringify(negative.codes)}`)
+			assertIncludes(
+				(await chartWith([{ ...SERIES[0], errorBars: { value: 1, size: 1 } }], { type: ChartType.bar })).xml,
+				'<a:ln w="12700">',
+				'the deprecated size is still honoured'
+			)
+		},
+	},
+	{
+		// The same values on `layout` warned and were dropped; on `legendLayout` they were written.
+		name: 'a legendLayout value outside the layout range warns and is dropped',
+		fn: async () => {
+			const legendLayout = { x: NaN, y: 5, w: -1 }
+			const { xml, codes } = await chartWith(SERIES, { type: ChartType.bar, showLegend: true, legendLayout })
+			const legend = xml.match(/<c:legend>[\s\S]*<\/c:legend>/)?.[0] ?? ''
+			assertNotIncludes(legend, '<c:layout>', 'no axis of the legend layout survives, so there is none')
+			assertEqual(
+				codes.filter((code) => code === 'chart/layout-out-of-range').length,
+				3,
+				`each stated key warns; got ${JSON.stringify(codes)}`
+			)
+			assert(Number.isNaN(legendLayout.x), "the caller's layout is not rewritten")
+
+			const partial = await chartWith(SERIES, { type: ChartType.bar, showLegend: true, legendLayout: { x: 0.5 } })
+			assertIncludes(
+				partial.xml,
+				'<c:layout><c:manualLayout><c:xMode val="edge"/><c:x val="0.5"/></c:manualLayout></c:layout>',
+				'a valid axis is placed on its own'
+			)
+			assert(!partial.codes.includes('chart/layout-out-of-range'), 'and the keys left out are not reported')
+			const plot = await chartWith(SERIES, { type: ChartType.bar, layout: { x: 0.1, y: 0.1 } })
+			assert(
+				!plot.codes.includes('chart/layout-out-of-range'),
+				`the plot area no longer reports the keys left out; got ${JSON.stringify(plot.codes)}`
+			)
+		},
+	},
+	{
+		// `0` is documented as "% opaque" and was deleted, so the series painted fully opaque.
+		name: 'chartColorsOpacity 0 is a transparent fill, and a NaN one throws',
+		fn: async () => {
+			assertIncludes(
+				(await chartWith(SERIES, { type: ChartType.bar, chartColorsOpacity: 0 })).xml,
+				'<a:alpha val="0"/>',
+				'a zero opacity is written'
+			)
+			const over = await chartWith(SERIES, { type: ChartType.bar, chartColorsOpacity: 150 })
+			assertIncludes(over.xml, '<a:alpha val="100000"/>', 'an opacity above 100 clamps')
+			assert(over.codes.includes('chart/option-out-of-range'), `and warns; got ${JSON.stringify(over.codes)}`)
+			const thrown = thrownBy(() =>
+				new TsPptx().addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, chartColorsOpacity: NaN })
+			)
+			assert(thrown instanceof InvalidOptionError, `a NaN opacity throws; got ${thrown}`)
+			assertEqual(thrown.code, 'chart/option-non-finite', 'with the shared code')
+		},
+	},
+	{
+		name: 'a stockStyle or dataLabelFormatScatter the chart does not know warns',
+		fn: async () => {
+			const stock = await chartWith([SERIES[0], SERIES[0], SERIES[0]], { type: ChartType.stock, stockStyle: 'bogus' })
+			assert(stock.codes.includes('chart/invalid-option-value'), `stockStyle warns; got ${JSON.stringify(stock.codes)}`)
+			assert(!stock.codes.includes('chart/stock-series-count'), 'and falls back to hlc, which takes three series')
+
+			// `showLabel` alone draws nothing on a scatter; an unknown format matched none of the three
+			// arms, so the caller got no labels and no warning.
+			const scatter = await chartWith(
+				[
+					{ name: 'X', values: [1, 2, 3] },
+					{ name: 'Y', values: [4, 5, 6], labels: ['a', 'b', 'c'] },
+				],
+				{ type: ChartType.scatter, showLabel: true, dataLabelFormatScatter: 'bogus' }
+			)
+			assert(
+				scatter.codes.includes('chart/invalid-option-value'),
+				`dataLabelFormatScatter warns; got ${JSON.stringify(scatter.codes)}`
+			)
+			assertIncludes(scatter.xml, '<c:dLbl>', 'and the scatter default, custom labels, is drawn')
 		},
 	},
 ])
