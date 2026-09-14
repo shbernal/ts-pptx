@@ -11,8 +11,8 @@
 A `.pptx` is a zip full of XML. ts-pptx writes that zip for you, so you describe
 slides in TypeScript and a `.pptx` comes out the other end. PowerPoint never runs, no
 Office licence is involved, and nothing has to be installed on the machine doing the
-writing. The file it produces is the real format: it opens in PowerPoint on Windows
-and on a Mac, and imports into Google Slides, Keynote and LibreOffice Impress.
+writing. The file opens cleanly in desktop PowerPoint, and Keynote, LibreOffice Impress
+and Google Slides import it on a best-effort basis.
 
 Reach for it when a deck has to be built from data that changes: a monthly report,
 one deck per customer, a hundred decks per night, or a download button on a page that
@@ -24,11 +24,9 @@ hands the user a deck built from what they are looking at.
 pnpm add pptx-ts
 ```
 
-The scoped name [`@shbernal/ts-pptx`](https://www.npmjs.com/package/@shbernal/ts-pptx)
-is the same package, same version, published from the same commit. It is the name this
-project shipped under first, so installs that already use it keep working. Pick one of
-the two names and stay on it: two copies of the library in one dependency tree are two
-separate libraries as far as your program is concerned. Everything here uses `pptx-ts`.
+`@shbernal/ts-pptx` is the same package under its first name, so install one or the other.
+[Installation](docs/getting-started/installation.md) covers npm, CommonJS and the optional
+math dependencies.
 
 ## Quick start
 
@@ -53,6 +51,8 @@ await pptx.writeFile({ fileName: "example.pptx" })
 That is the whole shape of it. Make a presentation, add a slide, put things on the
 slide, write the file. Positions are in inches by default, so `x: 1, y: 1` is an inch
 in from the top-left corner of a 10 by 5.625 inch slide.
+[Your first deck](docs/getting-started/first-deck.md) builds a bigger one from data, with a
+table, a chart and speaker notes.
 
 ## What you can put on a slide
 
@@ -88,28 +88,15 @@ unusual: the library it descends from generates decks and does not read them.
 
 ## Where it runs
 
-- **Node 24 and up.** `import` it, or `require()` it. Node loads ES modules through
-  `require()` since 22.12, so `const { default: TsPptx } = require("pptx-ts")` works
-  on every version of Node this package supports.
-- **Browsers.** Import it in any app built with Vite, Webpack, Rollup, or any bundler
-  at all. With no build step, an ESM CDN serves it straight to a module script:
+| Runtime | Load it with | `writeFile` |
+| --- | --- | --- |
+| Node.js 24 or later | `import`, or `require()` with the class on `.default` | writes to disk |
+| A browser app built with a bundler | `import` | downloads the file |
+| A browser page with no build step | `import TsPptx from "https://esm.sh/pptx-ts/browser"` in a module script | downloads the file |
+| Deno, Bun, edge workers | `import` | throws; use `toBytes()` |
 
-  ```html
-  <script type="module">
-    import TsPptx from "https://esm.sh/pptx-ts/browser"
-    const pptx = new TsPptx()
-    pptx.addSlide().addText("Built in your browser", { x: 1, y: 1, w: 8, h: 1 })
-    await pptx.writeFile({ fileName: "example.pptx" }) // downloads the file
-  </script>
-  ```
-
-  The browser build is checked in CI against a real Chromium, and the deck a browser
-  assembles is compared part for part against the one Node builds. They are identical.
-- **Deno, Bun, edge workers.** They author and hand back bytes like anywhere else.
-  `writeFile()` is the one thing they cannot do, because there is no disk to write to
-  and no page to download onto.
-
-Full detail is in [runtime and package support](docs/getting-started/runtime.md).
+[Where it runs](docs/getting-started/runtime.md) lists every entry point and how each runtime
+loads the one ESM build.
 
 <!-- comparison:start -->
 <!-- GENERATED REGION. Do not edit by hand.
@@ -141,35 +128,34 @@ including the calls that differ, is on [side-by-side syntax](docs/comparison-syn
 
 ## Documentation
 
-The full documentation site, including the generated API reference, is at
-**<https://shbernal.github.io/ts-pptx/>**.
+The documentation site, with the generated API reference, is at
+**<https://shbernal.github.io/ts-pptx/>**. The [demos page](https://shbernal.github.io/ts-pptx/demos)
+builds a quarterly review deck in your browser and previews the slides.
 
-The [demos page](https://shbernal.github.io/ts-pptx/demos) builds a quarterly review
-deck in your browser and previews the slides. Nothing to clone, nothing to install.
-
-- [Tables](docs/tables.md), [groups](docs/groups.md),
-  [connectors](docs/connectors.md), [HTML tables to slides](docs/html-tables.md)
-- [Errors](docs/errors.md) and [diagnostics](docs/diagnostics.md): what the library
-  throws, what it warns about, and how to route or silence the warnings
-- [Troubleshooting](docs/troubleshooting.md)
+- Start with the [Introduction](docs/getting-started/introduction.md),
+  [Your first deck](docs/getting-started/first-deck.md) and
+  [Core concepts](docs/getting-started/concepts.md)
+- [Tables](docs/tables.md), [connectors](docs/connectors.md), [groups](docs/groups.md) and
+  [HTML tables to slides](docs/html-tables.md)
+- [Smaller bundles](docs/bundle-size.md) for a browser program that composes only what it uses
+- [Errors](docs/errors.md), [diagnostics](docs/diagnostics.md) and
+  [troubleshooting](docs/troubleshooting.md)
 
 ## Something wrong, or missing?
 
 Open an issue: <https://github.com/shbernal/ts-pptx/issues>. Errors the library knows
 are its own fault print that link themselves.
 
-If an agent writes most of your code, install the `ts-pptx-upstream` skill that ships
-inside the package. An agent that hits a library defect usually routes around it in
-silence, and nobody ever hears about it. The skill turns that moment into a filed issue
-with a reproduction small enough to become a regression test here:
+If an agent writes most of your code, install the `ts-pptx-upstream` skill that ships inside
+the package. It turns a library defect the agent hits into a filed issue with a small
+reproduction, instead of a silent workaround:
 
 ```bash
 npx skills add ./node_modules/pptx-ts -s '*' -a claude-code -a codex -a universal -y
 ```
 
-Name the runtimes you actually use, as above. [CONTRIBUTING.md](CONTRIBUTING.md) covers
-what the skill does with the report, keeping your decks off a public tracker, and
-refreshing the installed copy after a version bump.
+Name the runtimes you use. [CONTRIBUTING.md](CONTRIBUTING.md) covers what the skill does
+with a report and how to refresh it after a version bump.
 
 ## License
 
