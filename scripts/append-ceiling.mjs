@@ -269,7 +269,7 @@ const PROBES = [
 			}),
 		check: (slide) => {
 			const stops = slide.shapes.map((sp) => sp.gradientStops).find((g) => g?.length)
-			return [stops?.map((st) => st.color ?? st.effectiveHex).join(','), 'FF0000,0000FF']
+			return [stops?.map((st) => st.colorRef.srgb ?? st.colorRef.resolved?.effectiveHex).join(','), 'FF0000,0000FF']
 		},
 	},
 	{
@@ -301,10 +301,10 @@ const PROBES = [
 			s.background = { color: 'EEEEEE' }
 			s.addText('bg', { x: 1, y: 1, w: 2, h: 1 })
 		},
-		// SlideBackground is a discriminated union; the solid variant carries a ResolvedColor.
+		// SlideBackground is a discriminated union; the solid variant carries a ColorRef.
 		check: (slide) => {
 			const bg = slide.background
-			return [bg?.type === 'solid' ? (bg.color?.hex ?? JSON.stringify(bg.color)) : bg?.type, 'EEEEEE']
+			return [bg?.type === 'solid' ? (bg.colorRef.resolved?.hex ?? JSON.stringify(bg.colorRef)) : bg?.type, 'EEEEEE']
 		},
 	},
 ]

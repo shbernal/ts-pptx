@@ -211,9 +211,9 @@ function bulletStyle(bullet: BulletStyle, notes: NoteScope): Record<string, IrVa
 function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined {
 	return colorOption(
 		{
-			scheme: bullet.schemeColor,
-			ownHex: bullet.color,
-			resolvedHex: bullet.resolvedColor?.effectiveHex ?? null,
+			scheme: bullet.colorRef.scheme,
+			ownHex: bullet.colorRef.srgb,
+			resolvedHex: bullet.colorRef.resolved?.effectiveHex ?? null,
 		},
 		notes,
 		'text.bullet.schemeToken',

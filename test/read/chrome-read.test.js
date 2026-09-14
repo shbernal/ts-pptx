@@ -133,14 +133,14 @@ describe('Theme / SlideMaster / SlideLayout — write→read fidelity', () => {
 		const bg = branded.background
 		assertEqual(bg?.type, 'solid', 'the BRANDED layout authors a solid background')
 		assertEqual(bg?.source, 'layout', 'the background is sourced from the layout itself')
-		assertEqual(bg?.color?.effectiveHex, 'F1F2F3', 'the background colour round-trips')
+		assertEqual(bg?.colorRef?.resolved?.effectiveHex, 'F1F2F3', 'the background colour round-trips')
 
 		// The default layout authors a theme-indexed background instead.
 		const def = master.layouts.find((l) => l.name === 'DEFAULT')
 		const defBg = def.background
 		assertEqual(defBg?.type, 'themeRef', 'the DEFAULT layout authors a theme-indexed background')
 		assertEqual(defBg?.idx, 1001, 'the bgRef index round-trips')
-		assertEqual(defBg?.color?.hex, 'FFFFFF', 'bg1 resolves through the colour map + scheme to white')
+		assertEqual(defBg?.colorRef?.resolved?.hex, 'FFFFFF', 'bg1 resolves through the colour map + scheme to white')
 	})
 
 	test('the chrome is navigable from both the deck and a slide (T2.2)', async () => {

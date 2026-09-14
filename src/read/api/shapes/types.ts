@@ -14,6 +14,7 @@
 // Type-only, so it is erased and no runtime import cycle exists: `ConnectionSite` names the
 // shape union whose members are defined in terms of these very types.
 import type { AnyShape } from '../shapes.js'
+import type { ColorRef } from '../theme-context.js'
 
 /** Discriminator for the concrete `Shape` subclass. */
 export type ShapeType = 'autoShape' | 'picture' | 'connector' | 'graphicFrame' | 'group'
@@ -65,12 +66,11 @@ export interface ConnectionSite {
  * matching the write-side {@link ShadowProps} convention so it round-trips.
  */
 export interface OuterShadow {
-	/** Effective shadow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
-	color: string | null
-	/** Theme colour token when the shadow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
-	colorToken?: string
-	/** Shadow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
-	alpha?: number
+	/**
+	 * The shadow colour, as written and resolved against the slide theme. Its `resolved.alpha` is the
+	 * shadow's opacity, absent when it is fully opaque.
+	 */
+	colorRef: ColorRef
 	/** Blur radius in points (`@blurRad` ÷ 12700), or `undefined` when unset. */
 	blurPt?: number
 	/** Offset distance in points (`@dist` ÷ 12700), or `undefined` when unset. */
@@ -87,12 +87,11 @@ export interface OuterShadow {
  * direction in degrees, matching the write-side `shadow: { type: 'inner' }`.
  */
 export interface InnerShadow {
-	/** Effective shadow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
-	color: string | null
-	/** Theme colour token when the shadow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
-	colorToken?: string
-	/** Shadow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
-	alpha?: number
+	/**
+	 * The shadow colour, as written and resolved against the slide theme. Its `resolved.alpha` is the
+	 * shadow's opacity, absent when it is fully opaque.
+	 */
+	colorRef: ColorRef
 	/** Blur radius in points (`@blurRad` ÷ 12700), or `undefined` when unset. */
 	blurPt?: number
 	/** Offset distance in points (`@dist` ÷ 12700), or `undefined` when unset. */
@@ -108,12 +107,11 @@ export interface InnerShadow {
  * colour round-trip.
  */
 export interface Glow {
-	/** Effective glow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
-	color: string | null
-	/** Theme colour token when the glow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
-	colorToken?: string
-	/** Glow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
-	alpha?: number
+	/**
+	 * The glow colour, as written and resolved against the slide theme. Its `resolved.alpha` is the
+	 * glow's opacity, absent when it is fully opaque.
+	 */
+	colorRef: ColorRef
 	/** Glow radius in points (`@rad` ÷ 12700), or `undefined` when unset. */
 	radiusPt?: number
 }
@@ -264,28 +262,15 @@ export interface ChildFrame {
 }
 
 /**
- * A colour reference inside a picture recolour effect, split by colour model
- * (mirrors {@link GradientStop}). At most one field is non-`null`.
- */
-export interface RecolorColor {
-	/** Explicit RGB as 6-hex (`a:srgbClr/@val`), or `null`. */
-	color: string | null
-	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null`. */
-	schemeColor: string | null
-	/** Preset colour name (`a:prstClr/@val`, e.g. `black`/`white` — the duotone icon-tint stops), or `null`. */
-	presetColor: string | null
-}
-
-/**
  * A picture's blip recolour effect (`p:blipFill/a:blip` recolour child), as read.
  * A small discriminated union over the effects a faithful reader needs to
- * reproduce a recoloured image. Colours use the same `color`/`schemeColor`/
- * `presetColor` split as {@link GradientStop}, so theme tokens can resolve through
- * {@link Slide.themeContext}. `threshold`/`amount` are 0–1 fractions.
+ * reproduce a recoloured image. Each colour is a {@link ColorRef}, resolved against the
+ * slide theme, so a duotone's `a:prstClr` and `a:sysClr` stops resolve as any other colour
+ * does. `threshold`/`amount` are 0–1 fractions.
  */
 export type Recolor =
-	| { kind: 'duotone'; stops: RecolorColor[] }
-	| { kind: 'clrChange'; from: RecolorColor | null; to: RecolorColor | null }
+	| { kind: 'duotone'; stops: ColorRef[] }
+	| { kind: 'clrChange'; from: ColorRef | null; to: ColorRef | null }
 	| { kind: 'grayscale' }
 	| { kind: 'biLevel'; threshold: number | null }
 	| { kind: 'alphaModFix'; amount: number }

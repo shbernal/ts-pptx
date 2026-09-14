@@ -16,10 +16,9 @@ import {
 	numberValue,
 	pctPointsAttr,
 } from '../../oxml/dom.js'
-import { colorValueIf } from '../../oxml/fill.js'
 import { type ThemeContext } from '../../oxml/theme.js'
 import {
-	resolveColorElement,
+	readColorRef,
 	resolveInheritedRunBold,
 	resolveInheritedRunItalic,
 	resolveInheritedRunColor,
@@ -206,9 +205,7 @@ export class Paragraph {
 			// fixed-point `80000`. Reading only the second reported the first as no size at all.
 			sizePct: buSzPct ? pctPointsAttr(buSzPct, 'val') : null,
 			sizePt: ptFromHundredths(ptVal),
-			color: colorValueIf(colorEl, 'srgbClr'),
-			schemeColor: colorValueIf(colorEl, 'schemeClr'),
-			resolvedColor: resolveColorElement(colorEl, this.context.ctx),
+			colorRef: readColorRef(colorEl, this.context.ctx),
 		}
 	}
 

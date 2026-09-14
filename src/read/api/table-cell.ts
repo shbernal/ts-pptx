@@ -53,7 +53,7 @@ import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPatternFill, type PatternFill } from './pattern-fill.js'
 import { readLineBasics } from './line.js'
 import { resolveTableCellStyleFill, type ResolvedTableStyle, type TableConditionFlags } from './table-style-resolve.js'
-import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
+import { resolveSolidFillColor, type ColorRef, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
 import { InvalidOptionError, PackageReadError } from '../../errors.js'
 import { EMU_PER_POINT } from '../../units.js'
@@ -96,9 +96,8 @@ export interface TableCellStyleContext {
 /**
  * One edge border of a table cell (`a:tcPr/a:lnL|lnR|lnT|lnB|lnTlToBr|lnBlToTr`).
  * Mirrors the `a:ln`-style decode used for shape strokes: {@link widthPt} from
- * `@w` (EMU → points), {@link dash} from `a:prstDash/@val`, and the stroke colour
- * split into a resolved {@link color} (literal hex) and the raw {@link schemeColor}
- * token — the cell-border counterpart of a shape's line accessors.
+ * `@w` (EMU → points), {@link dash} from `a:prstDash/@val`, and the stroke colour as a
+ * {@link ColorRef} — the cell-border counterpart of a shape's line accessors.
  */
 export interface CellBorder {
 	/** Border width in points (`@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
@@ -106,28 +105,12 @@ export interface CellBorder {
 	/** Dash style (`a:prstDash/@val`, e.g. `solid`/`sysDash`), or `null` when unset. */
 	dash: string | null
 	/**
-	 * The stroke colour as a full {@link ResolvedColor} — base `hex`, the raw
-	 * `transforms` list (`lumMod`/`shade`/…) in document order, and the
-	 * `effectiveHex`/`alpha` after applying them — the same object a shape's
-	 * `resolvedLine` gives. `null` when the edge carries no solid fill, or the
-	 * colour cannot be made literal.
-	 *
-	 * This is the field to read when re-authoring a border against a *different*
-	 * theme: {@link color} alone is one theme baked in, so a `lumMod`-darkened
-	 * accent carried forward as a literal hex silently stops tracking the theme it
-	 * came from. `transforms` is what says whether there was anything to track, and
-	 * an empty list here means the edge stated none — not that the reader could not
-	 * see them.
+	 * The stroke's solid colour, as written and resolved against the slide theme; every field is
+	 * `null` when the edge carries no solid fill. `resolved.effectiveHex` is what a renderer paints,
+	 * and `resolved.transforms` is what to carry when re-authoring a border against a different
+	 * theme: a `lumMod`-darkened accent carried forward as a literal hex stops tracking its theme.
 	 */
-	resolvedColor: ResolvedColor | null
-	/**
-	 * The stroke colour resolved against the table theme to a literal hex — exactly
-	 * `resolvedColor?.effectiveHex ?? null`, kept as a flat field because painting a
-	 * rule is what most callers want. `null` when the edge has no resolvable colour.
-	 */
-	color: string | null
-	/** Raw `schemeClr` token of the stroke (`a:solidFill/a:schemeClr/@val`), or `null` for an srgb/absent colour. */
-	schemeColor: string | null
+	colorRef: ColorRef
 	/** `true` when the edge is an explicit no-border (`a:noFill`) — a deliberately suppressed side. */
 	noFill: boolean
 }
@@ -562,16 +545,7 @@ export class TableCell {
 		const decode = (qname: string): CellBorder | null => {
 			const ln = firstChild(tcPr, qname)
 			if (!ln) return null
-			const line = readLineBasics(ln, this.themeContext)
-			return {
-				widthPt: line.widthPt,
-				dash: line.dash,
-				resolvedColor: line.resolvedColor,
-				// The resolved hex, where a shape's `lineColor` and a chart series' `color` are the raw one.
-				color: line.resolvedColor ? line.resolvedColor.effectiveHex : null,
-				schemeColor: line.schemeColor,
-				noFill: line.noFill,
-			}
+			return readLineBasics(ln, this.themeContext)
 		}
 		const borders: CellBorders = {
 			left: decode('a:lnL'),

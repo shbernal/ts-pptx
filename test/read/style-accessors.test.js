@@ -34,7 +34,9 @@ function shapeFromXml(Kind, local, innerXml) {
 	const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
 	const el = spTree.getElementsByTagNameNS(P_NS, local)[0]
 	if (!el) throw new Error(`no <p:${local}> in the supplied XML`)
-	return new Kind(el, /** stand-in slide */ {})
+	// A stand-in slide whose theme maps nothing: a literal colour resolves to itself, a token to nothing.
+	const themeContext = () => ({ clrMap: new Map(), clrScheme: new Map(), fmtScheme: null })
+	return new Kind(el, /** @type {any} */ ({ themeContext }))
 }
 
 /** A `p:pic` proxy whose blip carries the given recolour child XML. */
@@ -210,16 +212,20 @@ describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 		const linear2 = shapeNamed(slide, 'grad-linear-2')
 		assertEqual(linear2.gradientStops.length, 2, 'two-stop linear gradient')
 		assertEqual(linear2.gradientStops[0].position, 0, 'first stop at 0%')
-		assertEqual(linear2.gradientStops[0].color, '451DC7', 'first stop is explicit srgb')
+		assertEqual(linear2.gradientStops[0].colorRef.srgb, '451DC7', 'first stop is explicit srgb')
 		assertEqual(linear2.gradientStops[1].position, 1, 'last stop at 100%')
-		assertEqual(linear2.gradientStops[1].color, 'FFFFFF', 'last stop is explicit srgb')
+		assertEqual(linear2.gradientStops[1].colorRef.srgb, 'FFFFFF', 'last stop is explicit srgb')
 
 		const linear3 = shapeNamed(slide, 'grad-linear-3-scheme')
 		assertEqual(linear3.gradientStops.length, 3, 'three-stop gradient')
-		assertEqual(linear3.gradientStops[0].schemeColor, 'accent1', 'first stop is a scheme colour')
-		assertEqual(linear3.gradientStops[0].effectiveHex, 'B01513', 'scheme stop resolves through the Ion theme')
+		assertEqual(linear3.gradientStops[0].colorRef.scheme, 'accent1', 'first stop is a scheme colour')
+		assertEqual(
+			linear3.gradientStops[0].colorRef.resolved?.effectiveHex,
+			'B01513',
+			'scheme stop resolves through the Ion theme'
+		)
 		assertEqual(linear3.gradientStops[1].position, 0.5, 'middle stop at 50%')
-		assertEqual(linear3.gradientStops[1].color, '1EB4D2', 'middle stop is explicit srgb')
+		assertEqual(linear3.gradientStops[1].colorRef.srgb, '1EB4D2', 'middle stop is explicit srgb')
 
 		const radial = shapeNamed(slide, 'grad-radial')
 		assertEqual(radial.gradientStops.length, 2, 'radial/path gradient still exposes its stops')
@@ -233,14 +239,14 @@ describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 		// stated none", which is only readable as such because the field exists at all.
 		const slide = (await openFixture('gradient-fill')).slides[0]
 		const stop = shapeNamed(slide, 'grad-linear-2').gradientStops[0]
-		assert(stop.resolvedColor, 'an explicit srgb stop resolves')
-		assertEqual(stop.resolvedColor.hex, '451DC7', 'base hex is the srgb value')
-		assertEqual(stop.resolvedColor.transforms.length, 0, 'a bare srgbClr carries no transform children')
-		assertEqual(stop.resolvedColor.effectiveHex, stop.effectiveHex, 'the flat effectiveHex mirrors resolvedColor')
+		assert(stop.colorRef.resolved, 'an explicit srgb stop resolves')
+		assertEqual(stop.colorRef.resolved.hex, '451DC7', 'base hex is the srgb value')
+		assertEqual(stop.colorRef.resolved.transforms.length, 0, 'a bare srgbClr carries no transform children')
+		assertEqual(stop.colorRef.srgb, stop.colorRef.resolved.hex, 'the literal the stop states is its base hex')
 	})
 })
 
-describe('GradientStop.resolvedColor — the transform list survives the read (off-fixture)', () => {
+describe('GradientStop colorRef.resolved — the transform list survives the read (off-fixture)', () => {
 	// A gradient stop used to keep only the *result* of applying its colour
 	// transforms, so a `lumMod`-darkened accent came back as a literal hex with
 	// nothing saying it had ever been one — and a consumer re-authoring against a
@@ -277,16 +283,16 @@ describe('GradientStop.resolvedColor — the transform list survives the read (o
 			[['lt2', '1E5155']]
 		)
 		const stop = shape.gradientStops[0]
-		assertEqual(stop.schemeColor, 'bg2', 'the raw token is still reported')
-		assert(stop.resolvedColor, 'the stop now carries a full ResolvedColor')
-		assertEqual(stop.resolvedColor.hex, '1E5155', 'base hex is the theme colour before any transform')
+		assertEqual(stop.colorRef.scheme, 'bg2', 'the raw token is still reported')
+		assert(stop.colorRef.resolved, 'the stop now carries a full ResolvedColor')
+		assertEqual(stop.colorRef.resolved.hex, '1E5155', 'base hex is the theme colour before any transform')
 		assertEqual(
-			stop.resolvedColor.transforms.map((t) => `${t.name}=${t.value}`).join(','),
+			stop.colorRef.resolved.transforms.map((t) => `${t.name}=${t.value}`).join(','),
 			'lumMod=60000,lumOff=40000,alpha=7000',
 			'every transform child is reported in document order'
 		)
-		assertEqual(stop.resolvedColor.effectiveHex, stop.effectiveHex, 'the flat effectiveHex mirrors resolvedColor')
-		assert(stop.resolvedColor.effectiveHex !== '1E5155', 'the transforms actually moved the colour')
+		assertEqual(stop.colorRef.srgb, null, 'a scheme stop states no literal hex')
+		assert(stop.colorRef.resolved.effectiveHex !== '1E5155', 'the transforms actually moved the colour')
 	})
 
 	test('the three colour models beyond srgb/scheme resolve, and a preset reports its raw name', () => {
@@ -307,26 +313,26 @@ describe('GradientStop.resolvedColor — the transform list survives the read (o
 		)
 		const [preset, sys, hsl] = shape.gradientStops
 
-		assertEqual(preset.presetColor, 'cornflowerBlue', 'the raw prstClr name is reported')
-		assertEqual(preset.color, null, 'a preset stop states no srgb colour')
-		assertEqual(preset.schemeColor, null, 'nor a scheme token')
-		assertEqual(preset.resolvedColor.hex, '6495ED', 'cornflowerBlue resolves through the ECMA preset table')
-		assertEqual(preset.resolvedColor.transforms.length, 1, 'and its transform child survives')
+		assertEqual(preset.colorRef.preset, 'cornflowerBlue', 'the raw prstClr name is reported')
+		assertEqual(preset.colorRef.srgb, null, 'a preset stop states no srgb colour')
+		assertEqual(preset.colorRef.scheme, null, 'nor a scheme token')
+		assertEqual(preset.colorRef.resolved.hex, '6495ED', 'cornflowerBlue resolves through the ECMA preset table')
+		assertEqual(preset.colorRef.resolved.transforms.length, 1, 'and its transform child survives')
 
 		// sysClr and hslClr have no raw field of their own: they are reported through
-		// resolvedColor alone, which is stated on the interface rather than inferred.
-		assertEqual(sys.presetColor, null, 'a sysClr stop names no preset')
-		assertEqual(sys.effectiveHex, '000000', 'sysClr resolves through @lastClr')
-		assertEqual(hsl.effectiveHex, 'FFFFFF', 'hslClr at lum 100% is white')
+		// colorRef.resolved alone, which is stated on the interface rather than inferred.
+		assertEqual(sys.colorRef.preset, null, 'a sysClr stop names no preset')
+		assertEqual(sys.colorRef.resolved?.effectiveHex, '000000', 'sysClr resolves through @lastClr')
+		assertEqual(hsl.colorRef.resolved?.effectiveHex, 'FFFFFF', 'hslClr at lum 100% is white')
 	})
 
-	test('an unresolvable stop colour reports a null resolvedColor rather than an empty one', () => {
+	test('an unresolvable stop colour reports a null resolved colour rather than an empty one', () => {
 		// With no clrScheme entry the token cannot be made literal. Reporting `null`
 		// keeps "could not see it" distinct from "there was nothing to see".
 		const shape = spGrad('<p:spPr><a:gradFill><a:gsLst>' + MASTER_STOP + '</a:gsLst></a:gradFill></p:spPr>', [])
 		const stop = shape.gradientStops[0]
-		assertEqual(stop.resolvedColor, null, 'an unmapped token yields no resolved colour')
-		assertEqual(stop.effectiveHex, null, 'and the flat field agrees')
+		assertEqual(stop.colorRef.resolved, null, 'an unmapped token yields no resolved colour')
+		assertEqual(stop.colorRef.scheme, 'bg2', 'while the token it could not resolve is still reported')
 	})
 })
 
@@ -421,9 +427,9 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		assertEqual(grad.angleDeg, 0, 'a:lin/@ang (60000ths) ÷ 60000 ⇒ degrees')
 		assertEqual(grad.stops.length, 2, 'both stops surfaced')
 		assertEqual(grad.stops[0].position, 0, 'first stop at 0%')
-		assertEqual(grad.stops[0].effectiveHex, '451DC7', 'explicit srgb stop resolves to itself')
+		assertEqual(grad.stops[0].colorRef.resolved?.effectiveHex, '451DC7', 'explicit srgb stop resolves to itself')
 		assertEqual(grad.stops[1].position, 1, 'last stop at 100%')
-		assertEqual(grad.stops[1].effectiveHex, 'BEADF3', 'second explicit srgb stop resolves to itself')
+		assertEqual(grad.stops[1].colorRef.resolved?.effectiveHex, 'BEADF3', 'second explicit srgb stop resolves to itself')
 	})
 
 	test('lineGradient is null for a solid line and when there is no a:ln', () => {
@@ -678,11 +684,11 @@ describe('Picture recolour reads (recolor)', () => {
 		const recolor = tinted.recolor
 		assertEqual(recolor.kind, 'duotone', 'a:duotone is read as a duotone recolour')
 		assertEqual(recolor.stops.length, 2, 'a duotone has two colour stops')
-		assertEqual(recolor.stops[0].presetColor, 'black', 'first stop is the prstClr black')
-		assertEqual(recolor.stops[0].color, null, 'a prstClr stop carries no srgb colour')
-		assertEqual(recolor.stops[0].schemeColor, null, 'a prstClr stop carries no scheme colour')
-		assertEqual(recolor.stops[1].color, 'B6D3ED', 'second stop is the explicit srgb tint')
-		assertEqual(recolor.stops[1].presetColor, null, 'an srgb stop carries no preset colour')
+		assertEqual(recolor.stops[0].preset, 'black', 'first stop is the prstClr black')
+		assertEqual(recolor.stops[0].srgb, null, 'a prstClr stop carries no srgb colour')
+		assertEqual(recolor.stops[0].scheme, null, 'a prstClr stop carries no scheme colour')
+		assertEqual(recolor.stops[1].srgb, 'B6D3ED', 'second stop is the explicit srgb tint')
+		assertEqual(recolor.stops[1].preset, null, 'an srgb stop carries no preset colour')
 	})
 
 	test('a picture with no recolour effect reads null', () => {
@@ -694,9 +700,23 @@ describe('Picture recolour reads (recolor)', () => {
 			'<a:clrChange><a:clrFrom><a:srgbClr val="FF0000"/></a:clrFrom><a:clrTo><a:schemeClr val="accent1"/></a:clrTo></a:clrChange>'
 		).recolor
 		assertEqual(recolor.kind, 'clrChange', 'a:clrChange is read as a clrChange recolour')
-		assertEqual(recolor.from.color, 'FF0000', 'clrFrom is the explicit source colour')
-		assertEqual(recolor.to.schemeColor, 'accent1', 'clrTo is a scheme token left for the theme resolver')
-		assertEqual(recolor.to.color, null, 'a scheme clrTo carries no explicit colour')
+		assertEqual(recolor.from.srgb, 'FF0000', 'clrFrom is the explicit source colour')
+		assertEqual(recolor.to.scheme, 'accent1', 'clrTo is a scheme token left for the theme resolver')
+		assertEqual(recolor.to.srgb, null, 'a scheme clrTo carries no explicit colour')
+	})
+
+	test('a duotone stop resolves whatever colour model it is written in', () => {
+		// An a:sysClr stop names no srgb, scheme or preset value, so a raw-only read reported it as
+		// all-null. Resolving each stop against the slide theme is what makes it readable.
+		const recolor = pictureWithBlipChild(
+			'<a:duotone><a:sysClr val="windowText" lastClr="000000"/><a:prstClr val="white"/></a:duotone>'
+		).recolor
+		assertEqual(recolor.kind, 'duotone', 'a:duotone is read as a duotone recolour')
+		assertEqual(recolor.stops.length, 2, 'both stops are read')
+		assertEqual(recolor.stops[0].srgb, null, 'a sysClr stop names no srgb value')
+		assertEqual(recolor.stops[0].resolved?.effectiveHex, '000000', 'the sysClr stop resolves through @lastClr')
+		assertEqual(recolor.stops[1].preset, 'white', 'the prstClr stop reports its raw name')
+		assertEqual(recolor.stops[1].resolved?.effectiveHex, 'FFFFFF', 'and resolves through the preset table')
 	})
 
 	test('grayscl / biLevel / alphaModFix map to their kinds with 0–1 fractions', () => {

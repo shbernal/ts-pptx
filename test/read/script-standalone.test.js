@@ -168,11 +168,11 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 				`master ${index} title ${JSON.stringify(master.props.title)} does not come from ${JSON.stringify(expected)}`
 			)
 			const background = layouts[index].background ?? presentation.masters()[0].background
-			if (background?.type === 'solid' && background.color) {
+			if (background?.type === 'solid' && background.colorRef.resolved) {
 				const emitted = /** @type {Record<string, string> | undefined} */ (master.props.background)
 				assertEqual(
 					emitted?.color,
-					background.color.effectiveHex.replace(/^#/, '').toUpperCase(),
+					background.colorRef.resolved.effectiveHex.replace(/^#/, '').toUpperCase(),
 					`master ${index} background`
 				)
 			}

@@ -206,16 +206,16 @@ describe('Table cell styling', () => {
 		const labels = allTables(await openFixture('table')).find((t) => t.cell(0, 0)?.borders?.bottom)
 		assert(labels, 'fixture has a table whose cells carry PowerPoint-authored borders')
 		const bottom = labels.cell(0, 0).borders.bottom
-		assertEqual(bottom.schemeColor, 'bg1', 'the raw token is still reported')
-		assert(bottom.resolvedColor, 'the border now carries a full ResolvedColor')
-		assertEqual(bottom.resolvedColor.hex, 'FFFFFF', 'base hex is bg1 before the transform')
+		assertEqual(bottom.colorRef.scheme, 'bg1', 'the raw token is still reported')
+		assert(bottom.colorRef.resolved, 'the border now carries a full ResolvedColor')
+		assertEqual(bottom.colorRef.resolved.hex, 'FFFFFF', 'base hex is bg1 before the transform')
 		assertEqual(
-			bottom.resolvedColor.transforms.map((t) => `${t.name}=${t.value}`).join(','),
+			bottom.colorRef.resolved.transforms.map((t) => `${t.name}=${t.value}`).join(','),
 			'lumMod=85000',
 			'the lumMod PowerPoint wrote survives the read'
 		)
-		assertEqual(bottom.resolvedColor.effectiveHex, 'D9D9D9', 'lumMod 85% darkens white to D9D9D9')
-		assertEqual(bottom.color, 'D9D9D9', 'the flat color mirrors resolvedColor.effectiveHex')
+		assertEqual(bottom.colorRef.resolved.effectiveHex, 'D9D9D9', 'lumMod 85% darkens white to D9D9D9')
+		assertEqual(bottom.colorRef.srgb, null, 'a scheme-coloured border states no literal hex')
 	})
 
 	test('element_ escape hatches expose the underlying a:tbl / a:tr / a:tc nodes', async () => {

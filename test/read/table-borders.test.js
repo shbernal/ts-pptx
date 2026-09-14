@@ -63,20 +63,20 @@ describe('TableCell.borders — a:tcPr/a:lnL|lnR|lnT|lnB', () => {
 		// Writer maps the [top,right,bottom,left] option tuple onto a:lnT/lnR/lnB/lnL.
 		assertEqual(borders.top.widthPt, 3, 'top width in points')
 		assertEqual(borders.top.dash, 'solid', 'a solid border reads prstDash "solid"')
-		assertEqual(borders.top.color, 'FF0000', 'top colour resolves to the authored hex')
+		assertEqual(borders.top.colorRef.resolved?.effectiveHex, 'FF0000', 'top colour resolves to the authored hex')
 		assertEqual(borders.top.noFill, false, 'a drawn border is not noFill')
 
 		assertEqual(borders.right.widthPt, 1, 'right width in points')
 		assertEqual(borders.right.dash, 'sysDash', 'a dash border reads prstDash "sysDash"')
-		assertEqual(borders.right.color, '00FF00', 'right colour')
+		assertEqual(borders.right.colorRef.resolved?.effectiveHex, '00FF00', 'right colour')
 
 		assertEqual(borders.bottom.widthPt, 2, 'bottom width in points')
-		assertEqual(borders.bottom.color, '0000FF', 'bottom colour')
+		assertEqual(borders.bottom.colorRef.resolved?.effectiveHex, '0000FF', 'bottom colour')
 
 		// A type:'none' side is emitted as <a:lnL w="0"><a:noFill/></a:lnL>.
 		assert(borders.left, 'the suppressed side is still present as an element')
 		assertEqual(borders.left.noFill, true, 'the none side reads noFill')
-		assertEqual(borders.left.color, null, 'a noFill side has no colour')
+		assertEqual(borders.left.colorRef.resolved, null, 'a noFill side has no colour')
 
 		// The writer authors only the four edges, never the diagonals.
 		assertEqual(borders.tlToBr, null, 'no diagonal ╲ authored')
@@ -91,7 +91,7 @@ describe('TableCell.borders — a:tcPr/a:lnL|lnR|lnT|lnB', () => {
 		for (const side of ['left', 'right', 'top', 'bottom']) {
 			assert(borders[side], `${side} edge is present`)
 			assertEqual(borders[side].noFill, true, `${side} edge reads noFill`)
-			assertEqual(borders[side].color, null, `${side} edge has no colour`)
+			assertEqual(borders[side].colorRef.resolved, null, `${side} edge has no colour`)
 		}
 	})
 
@@ -100,11 +100,11 @@ describe('TableCell.borders — a:tcPr/a:lnL|lnR|lnT|lnB', () => {
 		// stated none", which is only readable as such because the field exists at all.
 		const { presentation } = await authorRead(borderedTable)
 		const top = firstTable(presentation).cell(0, 0).borders.top
-		assert(top.resolvedColor, 'a drawn border carries a full ResolvedColor')
-		assertEqual(top.resolvedColor.hex, 'FF0000', 'base hex is the authored literal')
-		assertEqual(top.resolvedColor.transforms.length, 0, 'a bare srgbClr carries no transform children')
-		assertEqual(top.resolvedColor.effectiveHex, top.color, 'the flat color mirrors resolvedColor.effectiveHex')
-		assertEqual(firstTable(presentation).cell(0, 0).borders.left.resolvedColor, null, 'a noFill edge resolves none')
+		assert(top.colorRef.resolved, 'a drawn border carries a full ResolvedColor')
+		assertEqual(top.colorRef.resolved.hex, 'FF0000', 'base hex is the authored literal')
+		assertEqual(top.colorRef.resolved.transforms.length, 0, 'a bare srgbClr carries no transform children')
+		assertEqual(top.colorRef.srgb, 'FF0000', 'the literal the border states is reported beside its resolution')
+		assertEqual(firstTable(presentation).cell(0, 0).borders.left.colorRef.resolved, null, 'a noFill edge resolves none')
 	})
 
 	test.skipIf(!validatorInstalled)('the authored bordered/styled decks are schema-valid', async () => {

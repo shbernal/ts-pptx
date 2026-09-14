@@ -97,7 +97,7 @@ describe('TableCell.borders — the two diagonals', () => {
 
 		assert(borders.tlToBr, 'the ╲ diagonal is read')
 		assertEqual(borders.tlToBr.widthPt, 2, '╲ width in points')
-		assertEqual(borders.tlToBr.color, 'C00000', '╲ colour')
+		assertEqual(borders.tlToBr.colorRef.resolved?.effectiveHex, 'C00000', '╲ colour')
 		assertEqual(borders.tlToBr.dash, 'solid', '╲ dash')
 
 		assert(borders.blToTr, 'the ╱ diagonal is read')

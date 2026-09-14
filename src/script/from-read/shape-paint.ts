@@ -224,7 +224,7 @@ export function shadowOption(shape: AnyShape, notes: NoteScope): IrValue | undef
 		// A shadow takes a scheme token too (`createColorElement` writes it as `a:schemeClr`), so a
 		// writable one is kept and the copy keeps tracking its theme; this baked every token to hex.
 		color: colorOption(
-			{ scheme: source.colorToken ?? null, resolvedHex: source.color },
+			{ scheme: source.colorRef.scheme, resolvedHex: source.colorRef.resolved?.effectiveHex ?? null },
 			notes,
 			'shadow.schemeToken',
 			'shadow'
@@ -232,7 +232,7 @@ export function shadowOption(shape: AnyShape, notes: NoteScope): IrValue | undef
 		blur: source.blurPt,
 		offset: source.offsetPt,
 		angle: source.angleDeg,
-		transparency: alphaToTransparency(source.alpha),
+		transparency: alphaToTransparency(source.colorRef.resolved?.alpha),
 	})
 }
 
@@ -243,8 +243,13 @@ export function glowOption(shape: AnyShape, notes: NoteScope): IrValue | undefin
 	return compact({
 		size: glow.radiusPt,
 		// The same ladder as the shadow: a glow writes a scheme token as `a:schemeClr` as well.
-		color: colorOption({ scheme: glow.colorToken ?? null, resolvedHex: glow.color }, notes, 'glow.schemeToken', 'glow'),
-		opacity: glow.alpha,
+		color: colorOption(
+			{ scheme: glow.colorRef.scheme, resolvedHex: glow.colorRef.resolved?.effectiveHex ?? null },
+			notes,
+			'glow.schemeToken',
+			'glow'
+		),
+		opacity: glow.colorRef.resolved?.alpha,
 	})
 }
 

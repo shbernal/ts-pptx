@@ -51,7 +51,6 @@ export type {
 	OuterShadow,
 	PatternFill,
 	Recolor,
-	RecolorColor,
 	Reflection,
 	ShapeType,
 	SoftEdge,

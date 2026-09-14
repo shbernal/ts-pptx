@@ -11,6 +11,7 @@
  */
 import { applyColorTransforms, type ColorTransform } from '../oxml/color-transform.js'
 import { attr, boolValue, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
+import { colorValueIf } from '../oxml/fill.js'
 import {
 	parseClrMap,
 	parseClrScheme,
@@ -500,6 +501,46 @@ export function resolveColorElement(colorEl: Element | null, ctx: ColorContext):
 	return alpha === undefined
 		? { hex: resolved.hex, transforms, effectiveHex: hex }
 		: { hex: resolved.hex, transforms, effectiveHex: hex, alpha }
+}
+
+/**
+ * A DrawingML colour as the file writes it and as it renders. Every read value type that carries a
+ * colour carries one of these: a gradient stop, a shadow or glow, a bullet, a cell border, a
+ * pattern's two colours, a picture's recolour, a solid background, and a chart series' fill and line.
+ *
+ * At most one of {@link srgb}, {@link scheme} and {@link preset} is set, naming the colour model the
+ * file used. A colour written as `a:sysClr` or `a:hslClr` sets none of the three and is reported
+ * through {@link resolved} alone. With no colour at all, every field is `null`.
+ */
+export interface ColorRef {
+	/** `a:srgbClr/@val`, a 6-hex literal, or `null`. */
+	srgb: string | null
+	/** `a:schemeClr/@val`, a theme token such as `accent1`, or `null`. */
+	scheme: string | null
+	/** `a:prstClr/@val`, a preset name such as `black`, or `null`; `presetColorHex` makes one literal. */
+	preset: string | null
+	/**
+	 * The colour resolved against the theme, with its transforms applied, or `null` when there is no
+	 * colour, it cannot be made literal (an unmapped token, or `a:scrgbClr`), or it was read without a
+	 * theme, as a chart part's colours are. Read `resolved.transforms` when re-authoring against a
+	 * different theme: `effectiveHex` alone is one theme baked in, and an empty list means the file
+	 * stated no transforms.
+	 */
+	resolved: ResolvedColor | null
+}
+
+/**
+ * Read a colour element into a {@link ColorRef}.
+ * @param colorEl - an `a:EG_ColorChoice` element, or `null` for no colour
+ * @param ctx - the theme to resolve against, or `null` to leave {@link ColorRef.resolved} unset
+ */
+export function readColorRef(colorEl: Element | null, ctx: ColorContext | null): ColorRef {
+	return {
+		srgb: colorValueIf(colorEl, 'srgbClr'),
+		scheme: colorValueIf(colorEl, 'schemeClr'),
+		preset: colorValueIf(colorEl, 'prstClr'),
+		resolved: ctx ? resolveColorElement(colorEl, ctx) : null,
+	}
 }
 
 /**

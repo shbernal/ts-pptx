@@ -14,7 +14,7 @@
  */
 
 import { attr, firstChild, firstChildElement, numberValue, pctAttr, type Element } from '../../oxml/dom.js'
-import { resolveColorElement } from '../theme-context.js'
+import { readColorRef } from '../theme-context.js'
 import type { ColorContext } from '../../oxml/theme.js'
 import type { Glow, InnerShadow, OuterShadow, Reflection, SoftEdge } from './types.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT } from '../../../units.js'
@@ -36,28 +36,6 @@ function scaledAttr(el: Element, name: string, divisor: number): number | null {
 	return raw === null ? null : raw / divisor
 }
 
-/**
- * Resolve `colorEl` against the theme and stamp `color`/`colorToken`/`alpha` onto a result.
- * @param out - the effect result being built
- * @param colorEl - the effect's colour child, if any
- * @param ctx - the host's colour context
- */
-function applyEffectColor(
-	out: { color: string | null; colorToken?: string; alpha?: number },
-	colorEl: Element | null,
-	ctx: ColorContext
-): void {
-	const resolved = resolveColorElement(colorEl, ctx)
-	if (resolved) {
-		out.color = resolved.effectiveHex
-		if (resolved.alpha !== undefined) out.alpha = resolved.alpha
-	}
-	// A `schemeClr` with no `val` leaves `colorToken` off entirely, which is the read model's one
-	// spelling of "not a theme colour" — the same invariant `compact()` keeps downstream.
-	const token = colorEl && colorEl.localName === 'schemeClr' ? attr(colorEl, 'val') : null
-	if (token !== null) out.colorToken = token
-}
-
 /** A named child of an effect list (`a:effectLst/<qname>`), or `null`. */
 function effect(effectLst: Element | null, qname: string): Element | null {
 	return effectLst ? firstChild(effectLst, qname) : null
@@ -70,14 +48,13 @@ function effect(effectLst: Element | null, qname: string): Element | null {
  * @returns the decoded shadow
  */
 function readShadow(shdw: Element, ctx: ColorContext): OuterShadow {
-	const out: OuterShadow = { color: null }
 	// `a:EG_ColorChoice` is a required, single-member group, so the colour element is the shadow's
 	// only child and taking the first one is both correct and total — the same thing `glow` below
 	// does. Naming `a:srgbClr` and `a:schemeClr` explicitly dropped the other four models on the
 	// floor: `a:sysClr` resolves everywhere else in the read model, and this library emits
 	// `a:prstClr` itself (`gen/slide/notes.ts`). `resolveColor` now answers for five of the six
 	// (`a:scrgbClr` is the exception, and reports no colour rather than a guessed one).
-	applyEffectColor(out, firstChildElement(shdw), ctx)
+	const out: OuterShadow = { colorRef: readColorRef(firstChildElement(shdw), ctx) }
 	const blur = scaledAttr(shdw, 'blurRad', EMU_PER_POINT)
 	const dist = scaledAttr(shdw, 'dist', EMU_PER_POINT)
 	const dir = scaledAttr(shdw, 'dir', ANGLE_UNITS_PER_DEGREE)
@@ -115,8 +92,7 @@ export function readInnerShadow(effectLst: Element | null, ctx: ColorContext): I
 export function readGlow(effectLst: Element | null, ctx: ColorContext): Glow | null {
 	const glow = effect(effectLst, 'a:glow')
 	if (!glow) return null
-	const out: Glow = { color: null }
-	applyEffectColor(out, firstChildElement(glow), ctx)
+	const out: Glow = { colorRef: readColorRef(firstChildElement(glow), ctx) }
 	const rad = scaledAttr(glow, 'rad', EMU_PER_POINT)
 	if (rad !== null) out.radiusPt = rad
 	return out

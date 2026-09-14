@@ -241,10 +241,10 @@ describe('Paragraph getter edges', () => {
 		// @val is thousandths of a percent: 80000 → 80%.
 		assertEqual(bullet.sizePct, 80, 'a:buSzPct/@val as a percentage')
 		assertEqual(bullet.sizePt, null, 'no a:buSzPts')
-		assertEqual(bullet.color, 'C00000', 'a:buClr/a:srgbClr/@val')
-		assertEqual(bullet.schemeColor, null, 'not a scheme colour')
+		assertEqual(bullet.colorRef.srgb, 'C00000', 'a:buClr/a:srgbClr/@val')
+		assertEqual(bullet.colorRef.scheme, null, 'not a scheme colour')
 		// A literal colour resolves to itself, even against a theme that maps nothing.
-		assertEqual(bullet.resolvedColor?.effectiveHex, 'C00000', 'a:buClr literal resolved')
+		assertEqual(bullet.colorRef.resolved?.effectiveHex, 'C00000', 'a:buClr literal resolved')
 	})
 
 	test('bulletDetail reads a scheme bullet colour and an absolute buSzPts', () => {
@@ -252,8 +252,8 @@ describe('Paragraph getter edges', () => {
 			`<a:buClr><a:schemeClr val="accent2"/></a:buClr><a:buSzPts val="1400"/><a:buChar char="▪"/>`,
 			'char'
 		)
-		assertEqual(bullet.schemeColor, 'accent2', 'a:buClr/a:schemeClr/@val')
-		assertEqual(bullet.color, null, 'not an srgb colour')
+		assertEqual(bullet.colorRef.scheme, 'accent2', 'a:buClr/a:schemeClr/@val')
+		assertEqual(bullet.colorRef.srgb, null, 'not an srgb colour')
 		// @val is hundredths of a point: 1400 → 14pt.
 		assertEqual(bullet.sizePt, 14, 'a:buSzPts/@val as points')
 		assertEqual(bullet.sizePct, null, 'no a:buSzPct')

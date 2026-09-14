@@ -625,7 +625,7 @@ concrete fill it renders as, in `resolvedFill: BackgroundFill | null`. `idx` is
 `a:bgFillStyleLst` entry (an `idx` below 1000 selects `a:fillStyleLst`), and
 its `phClr` is substituted by the bgRef's own colour child, resolved through
 the slide theme (same path `importSlide({ theme: 'preserve' })` bakes with). So
-the default `{ type: 'themeRef', idx: 1001 }` above exposes `resolvedFill: { type: 'solid', color: { effectiveHex: 'FFFFFF', … } }`
+the default `{ type: 'themeRef', idx: 1001 }` above exposes `resolvedFill: { type: 'solid', colorRef: { scheme: 'bg1', resolved: { effectiveHex: 'FFFFFF', … }, … } }`
 (entry 1 is a solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is
 `null` when the theme has no `fmtScheme`, the indexed entry is absent, or the
 colour cannot be resolved. `BackgroundFill` is the source-less fill union
@@ -1013,11 +1013,11 @@ abstract class Shape {
 	lineSchemeColor: string | null // spPr/a:ln/a:solidFill/a:schemeClr/@val — settable
 	noFill(): void // set an explicit <a:noFill/> (transparent surface)
 	readonly customGeometry: CustomGeometry | null // spPr/a:custGeom/a:pathLst freeform paths; null for preset/none
-	readonly patternFill: PatternFill | null // a:pattFill { preset, foreground, background } (fg/bg theme-resolved)
+	readonly patternFill: PatternFill | null // a:pattFill { preset, foreground, background } (each colour a ColorRef)
 	readonly pictureFill: PictureFill | null // spPr/a:blipFill — an image-filled *surface* (not a Picture)
 	readonly shadow: OuterShadow | null // a:effectLst/a:outerShdw
 	readonly innerShadow: InnerShadow | null // a:innerShdw (structurally an OuterShadow)
-	readonly glow: Glow | null // a:glow { radiusPt, color }
+	readonly glow: Glow | null // a:glow { colorRef, radiusPt }
 	readonly reflection: Reflection | null // a:reflection (read-only; writer authors none)
 	readonly softEdge: SoftEdge | null // a:softEdge { radiusPt } (read-only)
 	readonly hasTextFrame: boolean
@@ -1228,6 +1228,29 @@ explicitly empty `<a:srcRect/>` reports zeros rather than `null`: its presence
 is meaningful. A slide background's `image` variant carries the whole thing under
 `picture`, alongside the flat `relId`/`partName` it always had.
 
+#### Colours
+
+Every read value that carries a colour carries a `ColorRef`: a gradient stop, a
+shadow or glow, a bullet, a cell border, a pattern's two colours, a picture's
+recolour, a solid or theme-referenced background, and a chart series' fill and
+line.
+
+```ts
+interface ColorRef {
+	srgb: string | null // a:srgbClr/@val
+	scheme: string | null // a:schemeClr/@val, e.g. 'accent1'
+	preset: string | null // a:prstClr/@val, e.g. 'black'
+	resolved: ResolvedColor | null // hex, transforms, effectiveHex, alpha
+}
+```
+
+At most one of `srgb`, `scheme` and `preset` is set, naming the colour model the
+file used; `a:sysClr` and `a:hslClr` set none of the three and report through
+`resolved` alone. A colour that is absent has every field `null`, so a
+`ColorRef` itself is never `null`. `resolved` is `null` when the colour cannot
+be made literal, and always `null` on a chart series, whose part is read
+without a theme. `readColorRef(colorEl, ctx)` reads one.
+
 #### Pattern fill and effects
 
 `patternFill` decodes `a:pattFill`: `{ preset, foreground, background }`, with
@@ -1237,19 +1260,22 @@ the shadow read over the shape's `a:effectLst`:
 
 ```ts
 interface PatternFill {
-	preset: string // a:pattFill/@prst
-	foreground: ResolvedColor | null // a:fgClr
-	background: ResolvedColor | null // a:bgClr
+	preset: string | null // a:pattFill/@prst
+	foreground: ColorRef // a:fgClr
+	background: ColorRef // a:bgClr
 }
 interface OuterShadow {
-	// type: 'outer'; blurPt, distancePt, directionDeg, color, alignment, … (all optional)
+	colorRef: ColorRef // resolved.alpha is the shadow's opacity
+	blurPt?: number // @blurRad ÷ 12700
+	offsetPt?: number // @dist ÷ 12700
+	angleDeg?: number // @dir ÷ 60000
 }
 interface InnerShadow {
-	// type: 'inner'; structurally an OuterShadow minus sx/sy/kx/ky/algn/rotWithShape
+	// the same fields as OuterShadow, as a distinct type
 }
 interface Glow {
-	radiusPt: number // a:glow/@rad ÷ 12700
-	color: ResolvedColor | null
+	colorRef: ColorRef // resolved.alpha is the glow's opacity
+	radiusPt?: number // a:glow/@rad ÷ 12700
 }
 interface Reflection {
 	/* stA/stPos/endA/endPos (÷100000 → 0–1), dir/fadeDir (÷60000 → deg), … all optional */
@@ -1367,11 +1393,9 @@ class TableRow {
 }
 
 interface CellBorder {
-	widthPt: number // a:ln/@w ÷ 12700
+	widthPt: number | null // a:ln/@w ÷ 12700
 	dash: string | null // a:prstDash/@val
-	resolvedColor: ResolvedColor | null // base hex + raw transform list + effectiveHex
-	color: string | null // effective hex — exactly resolvedColor?.effectiveHex ?? null
-	schemeColor: string | null // unresolved theme token, when the stroke is a schemeClr
+	colorRef: ColorRef // the edge's solid colour; every field null when it has none
 	noFill: boolean // explicit <a:noFill/> — a deliberately suppressed edge
 }
 
@@ -1397,17 +1421,16 @@ class TableCell {
 }
 ```
 
-A border reports its colour twice on purpose. `color` is the hex a renderer
-paints, which is what most callers want. `resolvedColor` is the same colour
-unflattened: the base `hex` before any transform, the raw `transforms` list
+A border's `colorRef.resolved.effectiveHex` is the hex a renderer paints, which
+is what most callers want. `colorRef.resolved` is the same colour unflattened:
+the base `hex` before any transform, the raw `transforms` list
 (`lumMod`/`shade`/…) in document order, and the `effectiveHex`/`alpha` after
-applying them. Read the second when you are re-authoring a border against a
-*different* theme. `color` alone is one theme baked in. Carry a
+applying them. Read the whole of it when you are re-authoring a border against
+a *different* theme. `effectiveHex` alone is one theme baked in: carry a
 `lumMod`-darkened accent forward as a literal hex and it stops tracking the
-theme it came from, with nothing in the flat field to say so. An empty
-`transforms` means the edge stated none; a `null` `resolvedColor` means there
-was no resolvable colour to read. `GradientStop.resolvedColor` carries the same
-object for the same reason, beside its own flat `effectiveHex`.
+theme it came from. An empty `transforms` means the edge stated none; a `null`
+`resolved` means there was no resolvable colour to read. Every `ColorRef`
+carries the same object, for the same reason.
 
 `styleId` reports the **raw** `a:tableStyleId` GUID, not a resolved style. The
 id is the codegen handoff to the writer's `tableStyle` option, whose built-in
@@ -1524,15 +1547,13 @@ interface ChartDataLabels {
 	numberFormat: AxisNumberFormat | null
 }
 interface ChartFill {
-	color: string | null // raw srgbClr hex (NOT theme-resolved)
-	schemeColor: string | null // unresolved token
+	colorRef: ColorRef // srgb / scheme / preset as written; resolved is always null
 	noFill: boolean
 }
 interface ChartLine {
 	widthPt: number | null // a:ln/@w ÷ 12700
 	dash: string | null
-	color: string | null
-	schemeColor: string | null
+	colorRef: ColorRef // as ChartFill.colorRef
 	noFill: boolean
 }
 ```
@@ -1547,9 +1568,10 @@ Charts are **read-only**: the values exposed are the cache PowerPoint stores
 alongside the embedded workbook (`c:numCache` / `c:strCache`). Rewriting chart
 data (which means rewriting the embedded `.xlsx`) is not yet supported.
 
-The chart part has **no theme context**, so series/axis colours surface as a raw
-`color` (srgbClr hex) plus an unresolved `schemeColor` token: deliberately *not*
-flattened to an effective hex the way shape/run colours are. Note that bar/area
+The chart part has **no theme context**, so a series colour surfaces as written,
+`colorRef.srgb` or an unresolved `colorRef.scheme` token, and `colorRef.resolved`
+is always `null`: deliberately *not* flattened to an effective hex the way
+shape/run colours are. Note that bar/area
 series carry no `a:ln` by default, so `ChartSeries.line` is `null` for them; the
 stroke path is exercised by line/radar series.
 

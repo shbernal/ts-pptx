@@ -15,13 +15,14 @@ import {
 	type Element,
 	ELEMENT_NODE,
 	firstChild,
+	firstChildElement,
 	getElements,
 	numberValue,
 	OOXML_NS,
 } from '../oxml/dom.js'
-import { solidFillColor } from '../oxml/fill.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
 import { readLineBasics } from './line.js'
+import { readColorRef, type ColorRef } from './theme-context.js'
 
 /** A chart axis number format (`c:numFmt`). */
 export interface AxisNumberFormat {
@@ -63,10 +64,11 @@ export interface ChartDataLabels {
 
 /** A series' solid fill (`c:ser/c:spPr`). */
 export interface ChartFill {
-	/** Literal fill colour (`a:srgbClr/@val`), or `null` for a scheme/no fill. */
-	color: string | null
-	/** Raw scheme-colour token (`a:schemeClr/@val`), unresolved. */
-	schemeColor: string | null
+	/**
+	 * The fill's solid colour; every field is `null` for a non-solid fill. A chart part is read
+	 * without a theme, so `resolved` is always `null` and a scheme colour stays a token.
+	 */
+	colorRef: ColorRef
 	/** Whether the fill is explicitly suppressed (`a:noFill`). */
 	noFill: boolean
 }
@@ -77,10 +79,8 @@ export interface ChartLine {
 	widthPt: number | null
 	/** Dash style (`a:prstDash/@val`), or `null` when solid/unset. */
 	dash: string | null
-	/** Literal stroke colour (`a:srgbClr/@val`), or `null`. */
-	color: string | null
-	/** Raw scheme-colour token (`a:schemeClr/@val`), unresolved. */
-	schemeColor: string | null
+	/** The stroke's solid colour; unresolved, as {@link ChartFill.colorRef} is. */
+	colorRef: ColorRef
 	/** Whether the line is explicitly suppressed (`a:noFill`). */
 	noFill: boolean
 }
@@ -381,7 +381,7 @@ export class ChartSeries {
 		const spPr = firstChild(this.ser, 'c:spPr')
 		if (!spPr) return null
 		const solid = readSolid(spPr)
-		if (solid.color === null && solid.schemeColor === null && !solid.noFill) return null
+		if (solid.colorRef.srgb === null && solid.colorRef.scheme === null && !solid.noFill) return null
 		return solid
 	}
 
@@ -393,9 +393,9 @@ export class ChartSeries {
 		const spPr = firstChild(this.ser, 'c:spPr')
 		const ln = spPr && firstChild(spPr, 'a:ln')
 		if (!ln) return null
-		// The chart part is read without a theme, so the colour stays the raw `a:srgbClr`.
-		const { widthPt, dash, color, schemeColor, noFill } = readLineBasics(ln, null)
-		return { widthPt, dash, color, schemeColor, noFill }
+		// The chart part is read without a theme, so the colour stays unresolved.
+		const { widthPt, dash, colorRef, noFill } = readLineBasics(ln, null)
+		return { widthPt, dash, colorRef, noFill }
 	}
 
 	/** Series index (`c:idx/@val`), or `null` if absent. */
@@ -565,15 +565,14 @@ function readNumberFormat(parent: Element): AxisNumberFormat | null {
 }
 
 /**
- * Decode the solid colour of a properties container (`c:spPr` or `a:ln`): the
- * literal `a:srgbClr` hex, the raw `a:schemeClr` token, and whether the fill is
- * explicitly suppressed via `a:noFill`. The chart part carries no theme context,
- * so scheme tokens are surfaced raw (unresolved) rather than flattened to hex.
+ * Decode the solid colour of a series' `c:spPr`, and whether its fill is explicitly suppressed via
+ * `a:noFill`. The chart part carries no theme context, so the colour is left unresolved and a
+ * scheme token surfaces raw rather than flattened to hex.
  */
-function readSolid(container: Element): { color: string | null; schemeColor: string | null; noFill: boolean } {
+function readSolid(container: Element): ChartFill {
+	const solidFill = firstChild(container, 'a:solidFill')
 	return {
-		color: solidFillColor(container, 'a:srgbClr'),
-		schemeColor: solidFillColor(container, 'a:schemeClr'),
+		colorRef: readColorRef(solidFill ? firstChildElement(solidFill) : null, null),
 		noFill: !!firstChild(container, 'a:noFill'),
 	}
 }

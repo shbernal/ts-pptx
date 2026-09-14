@@ -23,11 +23,12 @@ import { fitSrcRectPercents, getImageSizeFromBytes } from '../../../media/image-
 import { imageFormatForContentType } from '../../../media/image-formats.js'
 import { warn } from '../../../diagnostics.js'
 import { relativePartName, resolvePartName } from '../../opc/partnames.js'
-import { colorValueIf } from '../../oxml/fill.js'
+import type { ColorContext } from '../../oxml/theme.js'
 import { readRect, type FillRect } from '../picture-fill.js'
+import { readColorRef, type ColorRef } from '../theme-context.js'
 import { Shape } from './base.js'
 import { childElements, type PaintSurface } from './oxml.js'
-import type { Recolor, RecolorColor } from './types.js'
+import type { Recolor } from './types.js'
 import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
 import { BLIPFILL_BLIP_AFTER, BLIPFILL_SRCRECT_AFTER, PIC_BLIPFILL_AFTER } from '../../../ooxml/sequence.js'
@@ -51,14 +52,13 @@ function extFromContentType(contentType: string): string {
 	return ext
 }
 
-/** Convert a DrawingML colour element to a {@link RecolorColor}, or `null` when it is not an `a:` colour element. */
-function recolorColorOf(color: Element | null): RecolorColor | null {
+/**
+ * Read a recolour effect's DrawingML colour element into a {@link ColorRef} resolved against `ctx`,
+ * or `null` when it is not an `a:` colour element.
+ */
+function recolorColorOf(color: Element | null, ctx: ColorContext): ColorRef | null {
 	if (!color || color.namespaceURI !== OOXML_NS.a) return null
-	return {
-		color: colorValueIf(color, 'srgbClr'),
-		schemeColor: colorValueIf(color, 'schemeClr'),
-		presetColor: colorValueIf(color, 'prstClr'),
-	}
+	return readColorRef(color, ctx)
 }
 
 /** A picture (`p:pic`). */
@@ -182,6 +182,7 @@ export class Picture extends Shape {
 	get recolor(): Recolor | null {
 		const blip = this.#blip()
 		if (!blip) return null
+		const ctx = this.host.themeContext()
 		for (const child of childElements(blip)) {
 			if (child.namespaceURI !== OOXML_NS.a) continue
 			switch (child.localName) {
@@ -189,16 +190,16 @@ export class Picture extends Shape {
 					return {
 						kind: 'duotone',
 						stops: childElements(child)
-							.map(recolorColorOf)
-							.filter((c): c is RecolorColor => c !== null),
+							.map((color) => recolorColorOf(color, ctx))
+							.filter((c): c is ColorRef => c !== null),
 					}
 				case 'clrChange': {
 					const from = firstChild(child, 'a:clrFrom')
 					const to = firstChild(child, 'a:clrTo')
 					return {
 						kind: 'clrChange',
-						from: from ? recolorColorOf(firstChildElement(from)) : null,
-						to: to ? recolorColorOf(firstChildElement(to)) : null,
+						from: from ? recolorColorOf(firstChildElement(from), ctx) : null,
+						to: to ? recolorColorOf(firstChildElement(to), ctx) : null,
 					}
 				}
 				case 'grayscl':

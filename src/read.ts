@@ -98,7 +98,6 @@ export {
 	type AbsoluteFrameFailure,
 	type ChildFrame,
 	type Recolor,
-	type RecolorColor,
 } from './read/api/shapes.js'
 export {
 	TextFrame,
@@ -147,7 +146,7 @@ export {
 } from './read/api/diagram.js'
 
 // Theme colour resolution (schemeClr → literal hex) shared by the colour getters.
-export { type ResolvedColor, resolveColorElement } from './read/api/theme-context.js'
+export { type ColorRef, type ResolvedColor, readColorRef, resolveColorElement } from './read/api/theme-context.js'
 export type { ColorContext } from './read/oxml/theme.js'
 // DrawingML colour-transform application (base hex + transforms → effective hex).
 export { applyColorTransforms, type ColorTransform, type EffectiveColor } from './read/oxml/color-transform.js'

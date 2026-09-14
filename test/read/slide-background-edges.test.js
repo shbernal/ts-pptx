@@ -55,21 +55,27 @@ describe('slide background — imported-only p:bg variants', () => {
 		assert(bg.type === 'pattern', 'a:pattFill decodes to the pattern variant')
 		assertEqual(bg.source, 'slide', 'authored on the slide itself')
 		assertEqual(bg.preset, 'lgCheck', 'the ST_PresetPatternVal token is kept verbatim')
-		assertEqual(bg.foreground?.effectiveHex, 'C00000', 'the literal fgClr resolves')
+		assertEqual(bg.foreground.resolved?.effectiveHex, 'C00000', 'the literal fgClr resolves')
 		// bgClr is a token, so it exercises the colour-map + scheme walk, not just a literal.
-		assertEqual(bg.background?.effectiveHex, 'FFFFFF', 'the bgClr schemeClr resolves through bg1 → lt1 → white')
-		assertEqual(bg.backgroundSchemeColor, 'bg1', 'and its token is reported beside the resolution')
-		assertEqual(bg.foregroundSchemeColor, null, 'a literal fgClr has no token')
+		assertEqual(
+			bg.background.resolved?.effectiveHex,
+			'FFFFFF',
+			'the bgClr schemeClr resolves through bg1 → lt1 → white'
+		)
+		assertEqual(bg.background.scheme, 'bg1', 'and its token is reported beside the resolution')
+		assertEqual(bg.foreground.scheme, null, 'a literal fgClr has no token')
 	})
 
 	test('a pattFill with no prst and no colour wrappers reads all-null, not undefined', async () => {
 		const bg = await backgroundFrom('<p:bg><p:bgPr><a:pattFill/></p:bgPr></p:bg>')
 		assert(bg.type === 'pattern', 'still the pattern variant')
 		assertEqual(bg.preset, null, 'a missing @prst reads null')
-		assertEqual(bg.foreground, null, 'a missing a:fgClr reads null')
-		assertEqual(bg.background, null, 'a missing a:bgClr reads null')
-		assertEqual(bg.foregroundSchemeColor, null, 'and neither side has a token')
-		assertEqual(bg.backgroundSchemeColor, null, 'and neither side has a token')
+		for (const [side, ref] of Object.entries({ 'a:fgClr': bg.foreground, 'a:bgClr': bg.background })) {
+			assertEqual(ref.srgb, null, `a missing ${side} states no literal`)
+			assertEqual(ref.scheme, null, `a missing ${side} has no token`)
+			assertEqual(ref.preset, null, `a missing ${side} names no preset`)
+			assertEqual(ref.resolved, null, `a missing ${side} resolves to nothing`)
+		}
 	})
 
 	test('an explicit a:noFill is a transparent background, not an absent one', async () => {
@@ -107,7 +113,7 @@ describe('slide background — imported-only p:bg variants', () => {
 		const bg = await backgroundFrom('<p:bg><p:bgRef idx="1009"><a:schemeClr val="bg1"/></p:bgRef></p:bg>')
 		assert(bg.type === 'themeRef', 'still a theme-indexed background')
 		assertEqual(bg.idx, 1009, 'the raw idx is kept for fidelity even when unresolvable')
-		assertEqual(bg.color?.effectiveHex, 'FFFFFF', "the bgRef's own colour still resolves")
+		assertEqual(bg.colorRef.resolved?.effectiveHex, 'FFFFFF', "the bgRef's own colour still resolves")
 		assertEqual(bg.resolvedFill, null, 'no matching fmtScheme entry → no concrete fill')
 	})
 
@@ -119,8 +125,12 @@ describe('slide background — imported-only p:bg variants', () => {
 		assertEqual(stops.length, 3, 'all three stops decode')
 		// Every stop is `phClr` + its own shade/tint, so each resolves off accent1 (4472C4)
 		// to a *different* hex — proving the substitution happened before the transforms.
-		assertEqual(stops[0].color, '4472C4', 'the phClr was substituted with the resolved accent1')
-		assertEqual(new Set(stops.map((s) => s.effectiveHex)).size, 3, 'each stop applies its own transforms')
+		assertEqual(stops[0].colorRef.srgb, '4472C4', 'the phClr was substituted with the resolved accent1')
+		assertEqual(
+			new Set(stops.map((s) => s.colorRef.resolved?.effectiveHex ?? null)).size,
+			3,
+			'each stop applies its own transforms'
+		)
 	})
 })
 

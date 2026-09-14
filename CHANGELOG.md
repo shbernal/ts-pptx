@@ -10,11 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **A pattern fill reports each colour's theme token, and `pptxToScript` keeps it.**
-  - `PatternFill.foregroundSchemeColor` and `backgroundSchemeColor` read the `a:schemeClr`
-    token of `a:fgClr` and `a:bgClr`, beside the resolved colours, the split `GradientStop`
-    already makes. `foreground` and `background` carry only the resolved hex, so a
-    theme-coloured hatch could not be told from a literal one. A slide background's `pattern`
-    variant carries both fields too.
+  - A pattern fill's `foreground` and `background` report the `a:schemeClr` token of `a:fgClr`
+    and `a:bgClr` as `scheme`, beside the resolved colour. They carried only the resolved hex,
+    so a theme-coloured hatch could not be told from a literal one. A slide background's
+    `pattern` variant reports the same.
   - The script converter gave both colours as hex, so a converted hatch stopped tracking its
     theme with nothing to say so. A token the write path maps is now kept as a token, which the
     pattern emitter writes as `a:schemeClr`, and any other token is baked to hex and noted as
@@ -252,6 +251,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer needs one.
 
 ### Changed
+
+- **Breaking: every read value that carries a colour carries one `ColorRef`, under `colorRef`.**
+  - One field name meant different things on different types. `color` was the raw `a:srgbClr` on
+    a gradient stop, a recolour colour and a bullet, and the resolved hex on a shadow, a glow and
+    a cell border. The theme token was `colorToken` or `schemeColor`, and the resolved colour
+    `resolvedColor`, `foreground`, `color` or a flat `effectiveHex`.
+  - `ColorRef` is `{ srgb, scheme, preset, resolved }`: the colour as the file writes it, one field
+    per colour model, and the `ResolvedColor` it renders as. It is never `null`; a colour that is
+    absent has every field `null`. `readColorRef(colorEl, ctx)` reads one, and both are exported
+    from `pptx-ts/read`.
+  - A picture recolour's colours now resolve against the slide theme. A duotone stop written as
+    `a:sysClr` read all-null, and a preset stop reported only its name.
+  - `RecolorColor` is removed: a recolour's colours are `ColorRef`s. A pattern colour that is
+    absent reads as a `ColorRef` with every field `null`, where it read `null`.
+  - **Migration:** read the fields below. `colorRef.resolved?.effectiveHex` is `undefined` rather
+    than `null` when nothing resolves, so add `?? null` where a comparison expects `null`.
+
+    | Type | Before | After |
+    | --- | --- | --- |
+    | `GradientStop` | `color`, `schemeColor`, `presetColor` | `colorRef.srgb`, `colorRef.scheme`, `colorRef.preset` |
+    | `GradientStop` | `resolvedColor`, `effectiveHex`, `alpha` | `colorRef.resolved`, `colorRef.resolved?.effectiveHex`, `colorRef.resolved?.alpha` |
+    | `OuterShadow`, `InnerShadow`, `Glow` | `color`, `colorToken`, `alpha` | `colorRef.resolved?.effectiveHex`, `colorRef.scheme`, `colorRef.resolved?.alpha` |
+    | `BulletStyle` | `color`, `schemeColor`, `resolvedColor` | `colorRef.srgb`, `colorRef.scheme`, `colorRef.resolved` |
+    | `CellBorder` | `color`, `schemeColor`, `resolvedColor` | `colorRef.resolved?.effectiveHex`, `colorRef.scheme`, `colorRef.resolved` |
+    | `PatternFill` | `foreground`, `background` | `foreground.resolved`, `background.resolved`; each colour's token is its `scheme` |
+    | `Recolor` stops, `from`, `to` | `color`, `schemeColor`, `presetColor` | `srgb`, `scheme`, `preset`, and the new `resolved` |
+    | `SlideBackground` and `BackgroundFill`, `solid` and `themeRef` | `color` | `colorRef.resolved` |
+    | `ChartFill`, `ChartLine` | `color`, `schemeColor` | `colorRef.srgb`, `colorRef.scheme`; `resolved` is always `null` |
 
 - **Breaking: the read model's text, table and diagram proxies take the context they are read
   against, and always resolve against a theme.**

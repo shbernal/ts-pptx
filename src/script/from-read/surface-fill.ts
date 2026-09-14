@@ -56,7 +56,7 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
 			// therefore reported as an undeclared defect, and on a line gradient the note's prose
 			// said "fill" about a stroke.
 			const color = colorOption(
-				{ scheme: stop.schemeColor, resolvedHex: stop.effectiveHex },
+				{ scheme: stop.colorRef.scheme, resolvedHex: stop.colorRef.resolved?.effectiveHex ?? null },
 				notes,
 				`${where}.gradient.schemeToken`,
 				stopLabel(where)
@@ -65,7 +65,7 @@ export function gradientStops(gradient: GradientFill, notes: NoteScope, where: F
 			return compact({
 				color,
 				position: fractionToPercent(stop.position ?? 0),
-				transparency: alphaToTransparency(stop.alpha),
+				transparency: alphaToTransparency(stop.colorRef.resolved?.alpha),
 			}) as IrValue
 		})
 		.filter((stop): stop is IrValue => stop !== null)
@@ -118,8 +118,8 @@ export function patternOption(
 		type: 'pattern',
 		pattern: compact({
 			preset: pattern.preset,
-			fgColor: color(pattern.foregroundSchemeColor, pattern.foreground, 'pattern foreground'),
-			bgColor: color(pattern.backgroundSchemeColor, pattern.background, 'pattern background'),
+			fgColor: color(pattern.foreground.scheme, pattern.foreground.resolved, 'pattern foreground'),
+			bgColor: color(pattern.background.scheme, pattern.background.resolved, 'pattern background'),
 		}) ?? { preset: pattern.preset },
 	}
 }

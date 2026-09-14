@@ -110,7 +110,7 @@ function fillIr(
 		case 'none':
 			return undefined
 		case 'solid':
-			return fill.color ? solidIr(fill.color) : undefined
+			return fill.colorRef.resolved ? solidIr(fill.colorRef.resolved) : undefined
 		case 'image': {
 			const asset = fill.partName === null ? null : assets.assetFor(fill.partName)
 			return asset ? { data: asset } : undefined

@@ -57,7 +57,7 @@ describe('the read model resolves a slide-scoped background of every kind', () =
 		assertEqual(themeRef.idx, 1001, 'the raw idx is kept for fidelity')
 		assertEqual(themeRef.resolvedFill?.type, 'solid', 'bgFillStyleLst[0] is a solid fill in the stock theme')
 
-		assertEqual(translucent.color?.alpha, 0.6, '<a:alpha val="60000"/> reads as 0.6 opacity')
+		assertEqual(translucent.colorRef.resolved?.alpha, 0.6, '<a:alpha val="60000"/> reads as 0.6 opacity')
 	})
 })
 

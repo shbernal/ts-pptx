@@ -89,7 +89,7 @@ describe('SlideMaster.background — the master tier of the chain', () => {
 		const bg = (await open('mixed')).masters()[0].background
 		assert(bg?.type === 'solid', "mixed.pptx's master authors a solid p:bgPr")
 		assertEqual(bg.source, 'master', 'the source records the master tier, not slide/layout')
-		assertEqual(bg.color?.effectiveHex, 'FFFFFF', 'the fill colour resolves')
+		assertEqual(bg.colorRef.resolved?.effectiveHex, 'FFFFFF', 'the fill colour resolves')
 	})
 
 	test('a p:bgRef on the master keeps its idx and resolves through the theme', async () => {
@@ -97,7 +97,11 @@ describe('SlideMaster.background — the master tier of the chain', () => {
 		assert(bg?.type === 'themeRef', 'the Ion master authors a theme-indexed background')
 		assertEqual(bg.source, 'master', 'sourced from the master')
 		assertEqual(bg.idx, 1003, 'the raw bgRef index')
-		assertEqual(bg.color?.effectiveHex, '1E5155', "the bgRef's own schemeClr resolves through the Ion palette")
+		assertEqual(
+			bg.colorRef.resolved?.effectiveHex,
+			'1E5155',
+			"the bgRef's own schemeClr resolves through the Ion palette"
+		)
 	})
 
 	test('a master defining no background of its own reads null, not a none-fill', async () => {

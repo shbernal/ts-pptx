@@ -54,18 +54,18 @@ describe('Picture recolour — write→read fidelity (T1.1)', () => {
 		const { recolor } = await recolorOf({ clrChange: { from: '000000', to: 'FF0000' } })
 		assert(recolor, 'the authored clrChange recolour reads back')
 		assertEqual(recolor.kind, 'clrChange', 'clrChange → a:clrChange → kind "clrChange"')
-		assertEqual(recolor.from.color, '000000', 'clrFrom is the explicit source hex')
-		assertEqual(recolor.from.schemeColor, null, 'a hex clrFrom carries no scheme token')
-		assertEqual(recolor.to.color, 'FF0000', 'clrTo is the explicit replacement hex')
+		assertEqual(recolor.from.srgb, '000000', 'clrFrom is the explicit source hex')
+		assertEqual(recolor.from.scheme, null, 'a hex clrFrom carries no scheme token')
+		assertEqual(recolor.to.srgb, 'FF0000', 'clrTo is the explicit replacement hex')
 	})
 
 	test('clrChange preserves a scheme-colour target as a theme token', async () => {
 		const { recolor } = await recolorOf({ clrChange: { from: 'FF0000', to: 'accent1' } })
 		assert(recolor, 'the authored clrChange reads back')
 		assertEqual(recolor.kind, 'clrChange', 'kind "clrChange"')
-		assertEqual(recolor.from.color, 'FF0000', 'the hex source round-trips')
-		assertEqual(recolor.to.schemeColor, 'accent1', 'a scheme clrTo is left as a token for the resolver')
-		assertEqual(recolor.to.color, null, 'a scheme clrTo carries no explicit hex')
+		assertEqual(recolor.from.srgb, 'FF0000', 'the hex source round-trips')
+		assertEqual(recolor.to.scheme, 'accent1', 'a scheme clrTo is left as a token for the resolver')
+		assertEqual(recolor.to.srgb, null, 'a scheme clrTo carries no explicit hex')
 	})
 
 	test.skipIf(!validatorInstalled)('all three authored recolour decks are schema-valid', async () => {

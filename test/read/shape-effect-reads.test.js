@@ -44,6 +44,18 @@ function sp(spPrInner) {
 	return new AutoShape(el, /** @type {any} */ ({ themeContext: () => ctx() }))
 }
 
+/**
+ * Assert a colour reference carries no colour at all: every field `null`.
+ * @param {import('../../dist/read.js').ColorRef} ref - the colour reference
+ * @param {string} label - what the colour is, for the messages
+ */
+function assertNoColor(ref, label) {
+	assertEqual(ref.srgb, null, `${label}: no literal`)
+	assertEqual(ref.scheme, null, `${label}: no token`)
+	assertEqual(ref.preset, null, `${label}: no preset`)
+	assertEqual(ref.resolved, null, `${label}: nothing resolved`)
+}
+
 describe('Shape.shadow — outer drop shadow reads', () => {
 	test('reads blur / offset / angle (EMU + 60000ths) and an srgb colour with alpha', () => {
 		const shape = sp(
@@ -52,21 +64,22 @@ describe('Shape.shadow — outer drop shadow reads', () => {
 		)
 		const shadow = shape.shadow
 		assert(shadow, 'an outerShdw surfaces a shadow')
-		assertEqual(shadow.color, '808080', 'effectiveHex of the plain srgb shadow colour')
-		assert(Math.abs(shadow.alpha - 0.4) < 1e-9, `alpha 40000 → 0.4, got ${shadow.alpha}`)
+		assertEqual(shadow.colorRef.resolved?.effectiveHex, '808080', 'effectiveHex of the plain srgb shadow colour')
+		const alpha = shadow.colorRef.resolved?.alpha ?? Number.NaN
+		assert(Math.abs(alpha - 0.4) < 1e-9, `alpha 40000 → 0.4, got ${alpha}`)
 		assertEqual(shadow.blurPt, 4, 'blurRad 50800 EMU → 4pt')
 		assertEqual(shadow.offsetPt, 3, 'dist 38100 EMU → 3pt')
 		assertEqual(shadow.angleDeg, 45, 'dir 2700000 (60000ths) → 45°')
-		assertEqual(shadow.colorToken, undefined, 'an srgb shadow carries no scheme colour token')
+		assertEqual(shadow.colorRef.scheme, null, 'an srgb shadow carries no scheme colour token')
 	})
 
-	test('a scheme-coloured shadow surfaces its colorToken even when unresolved', () => {
+	test('a scheme-coloured shadow surfaces its scheme token even when unresolved', () => {
 		const shadow = sp(
 			`<p:spPr><a:effectLst><a:outerShdw><a:schemeClr val="accent1"/></a:outerShdw></a:effectLst></p:spPr>`
 		).shadow
 		assert(shadow, 'the outerShdw still surfaces a shadow')
-		assertEqual(shadow.colorToken, 'accent1', 'the scheme token is reported for a downstream resolver')
-		assertEqual(shadow.color, null, 'with empty colour maps the scheme colour does not resolve')
+		assertEqual(shadow.colorRef.scheme, 'accent1', 'the scheme token is reported for a downstream resolver')
+		assertEqual(shadow.colorRef.resolved, null, 'with empty colour maps the scheme colour does not resolve')
 	})
 
 	test('the colour is read whatever model it uses, not only srgb and scheme', () => {
@@ -74,14 +87,18 @@ describe('Shape.shadow — outer drop shadow reads', () => {
 		// `a:EG_ColorChoice` group — one of `a:scrgbClr | a:srgbClr | a:hslClr | a:sysClr |
 		// a:schemeClr | a:prstClr`. So "the shadow's first element child" is the colour, always,
 		// which is what `glow` has always done. Naming two of the six explicitly read the other
-		// four as `color: null`, and `a:sysClr` is not hypothetical: `resolveColor` resolves it
+		// four as no colour, and `a:sysClr` is not hypothetical: `resolveColor` resolves it
 		// everywhere else in the read model, through its `lastClr` snapshot.
 		const sys = sp(
 			`<p:spPr><a:effectLst><a:outerShdw blurRad="50800" dist="38100">` +
 				`<a:sysClr val="windowText" lastClr="000000"/></a:outerShdw></a:effectLst></p:spPr>`
 		).shadow
 		assert(sys, 'a sysClr outerShdw surfaces a shadow')
-		assertEqual(sys.color, '000000', 'the sysClr lastClr snapshot resolves like it does elsewhere')
+		assertEqual(
+			sys.colorRef.resolved?.effectiveHex,
+			'000000',
+			'the sysClr lastClr snapshot resolves like it does elsewhere'
+		)
 		assertEqual(sys.offsetPt, 3, 'and the geometry is decoded alongside it')
 		// `a:prstClr` is the model this library emits itself (`gen/slide/notes.ts`). It reads as a
 		// colour now that `resolveColor` carries the ECMA-376 preset table (`read/oxml/preset-color.ts`);
@@ -91,12 +108,12 @@ describe('Shape.shadow — outer drop shadow reads', () => {
 		).shadow
 		assert(prst, 'a prstClr outerShdw surfaces a shadow')
 		assertEqual(prst.blurPt, 4, 'with its geometry decoded')
-		assertEqual(prst.color, '000000', 'the preset name resolves through the table')
+		assertEqual(prst.colorRef.resolved?.effectiveHex, '000000', 'the preset name resolves through the table')
 		// The fifth model. The sixth, `a:scrgbClr`, still reports no colour on purpose.
 		const hsl = sp(
 			`<p:spPr><a:effectLst><a:outerShdw><a:hslClr hue="0" sat="100000" lum="50000"/></a:outerShdw></a:effectLst></p:spPr>`
 		).shadow
-		assertEqual(hsl.color, 'FF0000', 'an hslClr shadow resolves too')
+		assertEqual(hsl.colorRef.resolved?.effectiveHex, 'FF0000', 'an hslClr shadow resolves too')
 	})
 
 	test('no effectLst / no outerShdw → null', () => {
@@ -164,8 +181,9 @@ describe('Shape.innerShadow — inset shadow reads', () => {
 				`<a:srgbClr val="404040"><a:alpha val="60000"/></a:srgbClr></a:innerShdw></a:effectLst></p:spPr>`
 		).innerShadow
 		assert(shadow, 'an innerShdw surfaces an inner shadow')
-		assertEqual(shadow.color, '404040', 'effectiveHex of the inner shadow colour')
-		assert(Math.abs(shadow.alpha - 0.6) < 1e-9, `alpha 60000 → 0.6, got ${shadow.alpha}`)
+		assertEqual(shadow.colorRef.resolved?.effectiveHex, '404040', 'effectiveHex of the inner shadow colour')
+		const alpha = shadow.colorRef.resolved?.alpha ?? Number.NaN
+		assert(Math.abs(alpha - 0.6) < 1e-9, `alpha 60000 → 0.6, got ${alpha}`)
 		assertEqual(shadow.blurPt, 5, 'blurRad 63500 EMU → 5pt')
 		assertEqual(shadow.offsetPt, 2, 'dist 25400 EMU → 2pt')
 		assertEqual(shadow.angleDeg, 270, 'dir 16200000 (60000ths) → 270°')
@@ -193,17 +211,18 @@ describe('Shape.glow — coloured halo reads', () => {
 		).glow
 		assert(glow, 'an a:glow surfaces a glow')
 		assertEqual(glow.radiusPt, 8, 'rad 101600 EMU → 8pt')
-		assertEqual(glow.color, 'FFC000', 'effectiveHex of the glow colour')
-		assert(Math.abs(glow.alpha - 0.75) < 1e-9, `alpha 75000 → 0.75, got ${glow.alpha}`)
+		assertEqual(glow.colorRef.resolved?.effectiveHex, 'FFC000', 'effectiveHex of the glow colour')
+		const alpha = glow.colorRef.resolved?.alpha ?? Number.NaN
+		assert(Math.abs(alpha - 0.75) < 1e-9, `alpha 75000 → 0.75, got ${alpha}`)
 	})
 
-	test('a scheme-coloured glow surfaces its colorToken even when unresolved', () => {
+	test('a scheme-coloured glow surfaces its scheme token even when unresolved', () => {
 		const glow = sp(
 			`<p:spPr><a:effectLst><a:glow rad="50800"><a:schemeClr val="accent2"/></a:glow></a:effectLst></p:spPr>`
 		).glow
 		assert(glow, 'the glow surfaces')
-		assertEqual(glow.colorToken, 'accent2', 'the scheme token is reported for a downstream resolver')
-		assertEqual(glow.color, null, 'with empty colour maps the scheme colour does not resolve')
+		assertEqual(glow.colorRef.scheme, 'accent2', 'the scheme token is reported for a downstream resolver')
+		assertEqual(glow.colorRef.resolved, null, 'with empty colour maps the scheme colour does not resolve')
 	})
 
 	test('no glow → null', () => {
@@ -264,9 +283,9 @@ describe('Shape.patternFill — preset hatch reads', () => {
 		).patternFill
 		assert(pat, 'an a:pattFill surfaces a pattern fill')
 		assertEqual(pat.preset, 'diagCross', 'the preset pattern name is surfaced')
-		assertEqual(pat.foreground.effectiveHex, 'C00000', 'foreground resolved to literal hex')
-		assertEqual(pat.background.effectiveHex, 'FFFF00', 'background resolved to literal hex')
-		assertEqual(pat.foregroundSchemeColor, null, 'a literal colour has no token')
+		assertEqual(pat.foreground.resolved?.effectiveHex, 'C00000', 'foreground resolved to literal hex')
+		assertEqual(pat.background.resolved?.effectiveHex, 'FFFF00', 'background resolved to literal hex')
+		assertEqual(pat.foreground.scheme, null, 'a literal colour has no token')
 	})
 
 	test('a scheme colour reports its token, whether or not it resolves', () => {
@@ -276,18 +295,18 @@ describe('Shape.patternFill — preset hatch reads', () => {
 			`<p:spPr><a:pattFill prst="pct50"><a:fgClr><a:schemeClr val="accent1"/></a:fgClr>` +
 				`<a:bgClr><a:srgbClr val="FFFFFF"/></a:bgClr></a:pattFill></p:spPr>`
 		).patternFill
-		assertEqual(pat.foregroundSchemeColor, 'accent1', 'the foreground token is surfaced')
-		assertEqual(pat.backgroundSchemeColor, null, 'a literal background has no token')
-		assertEqual(pat.background.effectiveHex, 'FFFFFF', 'and resolves as before')
+		assertEqual(pat.foreground.scheme, 'accent1', 'the foreground token is surfaced')
+		assertEqual(pat.background.scheme, null, 'a literal background has no token')
+		assertEqual(pat.background.resolved?.effectiveHex, 'FFFFFF', 'and resolves as before')
 	})
 
-	test('a pattern with missing fg/bg colours reports null for the absent side', () => {
+	test('a pattern with missing fg/bg colours reports no colour for the absent side', () => {
 		const pat = sp(
 			`<p:spPr><a:pattFill prst="pct50"><a:fgClr><a:srgbClr val="000000"/></a:fgClr></a:pattFill></p:spPr>`
 		).patternFill
 		assert(pat, 'the pattFill still surfaces')
-		assertEqual(pat.foreground.effectiveHex, '000000', 'the present foreground resolves')
-		assertEqual(pat.background, null, 'an absent a:bgClr → null background')
+		assertEqual(pat.foreground.resolved?.effectiveHex, '000000', 'the present foreground resolves')
+		assertNoColor(pat.background, 'an absent a:bgClr')
 	})
 
 	test('a solid fill is not read as a pattern fill', () => {
@@ -322,11 +341,12 @@ describe('Shape effects/fill — write→read fidelity', () => {
 		})
 		const shadow = rectOf(presentation).innerShadow
 		assert(shadow, 'the authored inner shadow reads back')
-		assertEqual(shadow.color, 'C0504D', 'authored inner shadow colour')
+		assertEqual(shadow.colorRef.resolved?.effectiveHex, 'C0504D', 'authored inner shadow colour')
 		assertEqual(shadow.blurPt, 4, 'blur 4pt round-trips')
 		assertEqual(shadow.offsetPt, 2, 'offset 2pt round-trips')
 		assertEqual(shadow.angleDeg, 90, 'angle 90° round-trips')
-		assert(Math.abs(shadow.alpha - 0.75) < 1e-9, `transparency 25 → alpha 0.75, got ${shadow.alpha}`)
+		const alpha = shadow.colorRef.resolved?.alpha ?? Number.NaN
+		assert(Math.abs(alpha - 0.75) < 1e-9, `transparency 25 → alpha 0.75, got ${alpha}`)
 	})
 
 	test('an authored pattern fill round-trips through Shape.patternFill', async () => {
@@ -342,8 +362,8 @@ describe('Shape effects/fill — write→read fidelity', () => {
 		const pat = rectOf(presentation).patternFill
 		assert(pat, 'the authored pattern fill reads back')
 		assertEqual(pat.preset, 'pct50', 'authored preset round-trips')
-		assertEqual(pat.foreground.effectiveHex, 'C00000', 'authored fgColor round-trips')
-		assertEqual(pat.background.effectiveHex, 'FFFF00', 'authored bgColor round-trips')
+		assertEqual(pat.foreground.resolved?.effectiveHex, 'C00000', 'authored fgColor round-trips')
+		assertEqual(pat.background.resolved?.effectiveHex, 'FFFF00', 'authored bgColor round-trips')
 	})
 
 	test.skipIf(!validatorInstalled)('the authored inner-shadow + pattern-fill decks are schema-valid', async () => {

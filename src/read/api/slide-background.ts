@@ -21,7 +21,7 @@ import {
 } from '../oxml/dom.js'
 import { styleRefFill, type ThemeContext } from '../oxml/theme.js'
 import type { Relationships } from '../opc/relationships.js'
-import { resolveColorElement, type ResolvedColor } from './theme-context.js'
+import { readColorRef, type ColorRef } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readPatternFill, type PatternFill } from './pattern-fill.js'
@@ -41,7 +41,7 @@ export type BackgroundSource = 'slide' | 'layout' | 'master'
  * geometry, crop, alpha) under `picture`.
  */
 export type BackgroundFill =
-	| { type: 'solid'; color: ResolvedColor | null }
+	| { type: 'solid'; colorRef: ColorRef }
 	| { type: 'gradient'; gradient: GradientFill }
 	| { type: 'image'; picture: PictureFill; relId: string | null; partName: string | null }
 	| ({ type: 'pattern' } & PatternFill)
@@ -57,7 +57,7 @@ export type BackgroundFill =
  * theme/entry cannot be resolved).
  */
 export type SlideBackground =
-	| { type: 'solid'; source: BackgroundSource; color: ResolvedColor | null }
+	| { type: 'solid'; source: BackgroundSource; colorRef: ColorRef }
 	| { type: 'gradient'; source: BackgroundSource; gradient: GradientFill }
 	| { type: 'image'; source: BackgroundSource; picture: PictureFill; relId: string | null; partName: string | null }
 	| ({ type: 'pattern'; source: BackgroundSource } & PatternFill)
@@ -65,7 +65,7 @@ export type SlideBackground =
 			type: 'themeRef'
 			source: BackgroundSource
 			idx: number | null
-			color: ResolvedColor | null
+			colorRef: ColorRef
 			resolvedFill: BackgroundFill | null
 	  }
 	| { type: 'none'; source: BackgroundSource }
@@ -83,7 +83,7 @@ export function backgroundElementOf(root: Element | null): Element | null {
  */
 function decodeBackgroundFill(container: Element, ctx: ThemeContext, rels: Relationships | null): BackgroundFill {
 	const solid = firstChild(container, 'a:solidFill')
-	if (solid) return { type: 'solid', color: resolveColorElement(firstChildElement(solid), ctx) }
+	if (solid) return { type: 'solid', colorRef: readColorRef(firstChildElement(solid), ctx) }
 
 	const grad = firstChild(container, 'a:gradFill')
 	if (grad) return { type: 'gradient', gradient: readGradientFill(container, ctx) as GradientFill }
@@ -149,7 +149,7 @@ export function readSlideBackground(
 			type: 'themeRef',
 			source,
 			idx: numberValue(attr(bgRef, 'idx')),
-			color: resolveColorElement(firstChildElement(bgRef), ctx),
+			colorRef: readColorRef(firstChildElement(bgRef), ctx),
 			resolvedFill: resolveThemeRefFill(bgRef, ctx, themeRels),
 		}
 	}

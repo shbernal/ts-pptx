@@ -481,7 +481,7 @@ export abstract class Shape {
 
 	/** Explicit RGB line/border colour (`spPr/a:ln/a:solidFill/a:srgbClr/@val`), or `null`. */
 	get lineColor(): string | null {
-		return this.#lineBasics()?.color ?? null
+		return this.#lineBasics()?.colorRef.srgb ?? null
 	}
 
 	set lineColor(value: string | null) {
@@ -490,7 +490,7 @@ export abstract class Shape {
 
 	/** Theme colour token when the line is a scheme colour (`a:ln/a:solidFill/a:schemeClr/@val`), or `null`. */
 	get lineSchemeColor(): string | null {
-		return this.#lineBasics()?.schemeColor ?? null
+		return this.#lineBasics()?.colorRef.scheme ?? null
 	}
 
 	set lineSchemeColor(value: string | null) {
@@ -768,7 +768,7 @@ export abstract class Shape {
 	get resolvedLine(): ResolvedColor | null {
 		const ctx = this.host.themeContext()
 		const ln = this.#line()
-		return ln ? readLineBasics(ln, ctx).resolvedColor : resolveStyleLineColor(this.element, ctx)
+		return ln ? readLineBasics(ln, ctx).colorRef.resolved : resolveStyleLineColor(this.element, ctx)
 	}
 
 	/** The line element (`spPr/a:ln`), or `null` when absent. */

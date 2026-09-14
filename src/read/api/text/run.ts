@@ -27,6 +27,7 @@ import { resolveThemeFont, type ThemeContext } from '../../oxml/theme.js'
 import {
 	resolveColorElement,
 	resolveSolidFillColor,
+	type ColorRef,
 	type PlaceholderRef,
 	type ResolvedColor,
 	type StyleFontRef,
@@ -124,12 +125,8 @@ export interface BulletStyle {
 	sizePct: number | null
 	/** `a:buSzPts/@val` as an absolute point size (the raw attribute is hundredths of a point), or `null`. The alternative to {@link sizePct}; at most one is set. */
 	sizePt: number | null
-	/** Explicit RGB bullet colour as 6-hex (`a:buClr/a:srgbClr/@val`), or `null`. */
-	color: string | null
-	/** Theme colour token when the bullet colour is a scheme colour (`a:buClr/a:schemeClr/@val`), or `null`. */
-	schemeColor: string | null
-	/** The bullet colour resolved against the slide theme with its transforms applied, or `null` when unset or not resolvable to a literal. */
-	resolvedColor: ResolvedColor | null
+	/** The bullet's own colour (`a:buClr`); every field is `null` when the paragraph leaves it to be inherited. */
+	colorRef: ColorRef
 }
 
 /**

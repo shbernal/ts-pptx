@@ -357,7 +357,7 @@ function seriesColors(chart: Chart): IrValue | undefined {
 	const colors: string[] = []
 	for (const one of series) {
 		const fill = one.fill
-		const hex = fill?.color
+		const hex = fill?.colorRef.srgb
 		if (!hex) return undefined
 		colors.push(literalColor(hex))
 	}

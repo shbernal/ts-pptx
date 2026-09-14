@@ -330,12 +330,8 @@ function borderIr(edge: CellBorder | null, notes: NoteScope): IrValue {
 			type: dash === null || dash === 'solid' ? 'solid' : 'dash',
 			// `solid` is what an absent/solid dash already implies, so emitting it would be noise.
 			dashType: known && dash !== null && dash !== 'solid' ? dash : undefined,
-			// `edge.color` is the RESOLVED literal (`resolvedColor?.effectiveHex`), not an own one —
-			// a border states either an `a:srgbClr` or an `a:schemeClr` and this field reports what
-			// either resolves to — so it belongs on the resolved leg, where an unwritable token is
-			// still noted before it is baked.
 			color: colorOption(
-				{ scheme: edge.schemeColor, resolvedHex: edge.color },
+				{ scheme: edge.colorRef.scheme, resolvedHex: edge.colorRef.resolved?.effectiveHex ?? null },
 				notes,
 				'table.cell.borders.schemeToken',
 				'cell border'

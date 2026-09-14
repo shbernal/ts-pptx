@@ -166,9 +166,9 @@ describe('Chart series appearance — c:ser/c:spPr', () => {
 		const series = chart.series
 		assertEqual(series.length, 2, 'two series')
 		assert(series[0].fill, 'first series has a fill')
-		assertEqual(series[0].fill.color, 'FF0000', 'first series colour from chartColors[0]')
+		assertEqual(series[0].fill.colorRef.srgb, 'FF0000', 'first series colour from chartColors[0]')
 		assertEqual(series[0].fill.noFill, false, 'a coloured series is not noFill')
-		assertEqual(series[1].fill.color, '00FF00', 'second series colour from chartColors[1]')
+		assertEqual(series[1].fill.colorRef.srgb, '00FF00', 'second series colour from chartColors[1]')
 		assertEqual(series[0].line, null, 'bar series carry no stroke by default')
 	})
 
@@ -178,7 +178,7 @@ describe('Chart series appearance — c:ser/c:spPr', () => {
 		assert(series.line, 'line series has a stroke')
 		assertEqual(series.line.widthPt, 3, 'authored line width in points')
 		assertEqual(series.line.dash, 'dash', 'authored line dash')
-		assertEqual(series.line.color, '0000FF', 'authored line colour')
+		assertEqual(series.line.colorRef.srgb, '0000FF', 'authored line colour')
 		assertEqual(series.line.noFill, false, 'a drawn line is not noFill')
 	})
 })

@@ -112,7 +112,7 @@ describe('Slide.background — write→read fidelity', () => {
 		assert(bg !== null, 'the slide has a background')
 		assert(bg.type === 'solid', 'solid colour background')
 		assertEqual(bg.source, 'slide', 'authored on the slide, not inherited')
-		assertEqual(bg.color?.effectiveHex, 'C0392B', 'the colour resolves to its literal hex')
+		assertEqual(bg.colorRef.resolved?.effectiveHex, 'C0392B', 'the colour resolves to its literal hex')
 	})
 
 	test('gradient background reads kind/angle and each resolved stop', async () => {
@@ -136,7 +136,7 @@ describe('Slide.background — write→read fidelity', () => {
 		assertEqual(bg.gradient.kind, 'linear', 'linear gradient')
 		assertEqual(bg.gradient.angleDeg, 45, '45° preserved through the OOXML 60000ths encoding')
 		assertEqual(bg.gradient.stops.length, 2, 'both stops read')
-		assertEqual(bg.gradient.stops[0].effectiveHex, 'FF0000', 'first stop colour')
+		assertEqual(bg.gradient.stops[0].colorRef.resolved?.effectiveHex, 'FF0000', 'first stop colour')
 		assertEqual(bg.gradient.stops[1].position, 1, 'last stop at position 1 (100%)')
 	})
 
@@ -177,7 +177,11 @@ describe('Slide.background — write→read fidelity', () => {
 		// the bgRef's own <a:schemeClr val="bg1"/> supplies the phClr, and bg1 → lt1 → window (FFFFFF).
 		assert(bg.resolvedFill !== null, 'idx resolves to a concrete fill')
 		assert(bg.resolvedFill.type === 'solid', 'the first bg fill-style entry is a solid fill')
-		assertEqual(bg.resolvedFill.color?.effectiveHex, 'FFFFFF', 'phClr substituted with the resolved bg1 (window/white)')
+		assertEqual(
+			bg.resolvedFill.colorRef.resolved?.effectiveHex,
+			'FFFFFF',
+			'phClr substituted with the resolved bg1 (window/white)'
+		)
 	})
 
 	test.skipIf(!validatorInstalled)('authored backgrounds are schema-valid', async () => {
