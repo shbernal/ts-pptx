@@ -38,9 +38,9 @@ export const PACKAGE_REL_NS = OOXML_NS.pr
 
 /**
  * Prefix for the Microsoft rel types this library emits and reads. Exported for the same reason
- * as {@link OFFICE_REL}: the write side builds one-off MS rel types at their call sites.
+ * as {@link OFFICE_REL}: a rel type only one module names is built from it at that module's call site.
  */
-const MS_REL = 'http://schemas.microsoft.com/office/'
+export const MS_REL = 'http://schemas.microsoft.com/office/'
 
 /** `p:sldIdLst` → a slide part. */
 export const SLIDE_REL = OFFICE_REL + 'slide'
@@ -114,14 +114,17 @@ export const PACKAGE_REL = OFFICE_REL + 'package'
 
 // --- Part content types ----------------------------------------------------
 
-/** Root of the ECMA-376 content types. Private: callers want one of the constants below. */
-const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
-/** Root of the OPC package-level content types. Private, like {@link OD_CONTENT}. */
+/**
+ * Root of the ECMA-376 content types. Exported for a content type only one module names, which is
+ * built from it at that module's call site; a shared one is a constant below.
+ */
+export const OD_CONTENT = 'application/vnd.openxmlformats-officedocument.'
+/** Root of the OPC package-level content types. Private: callers want one of the constants below. */
 const PACKAGE_CONTENT = 'application/vnd.openxmlformats-package.'
 /** Root of the Microsoft Office content types the chartEx family uses. Private. */
 const MS_OFFICE_CONTENT = 'application/vnd.ms-office.'
-/** Root of the PowerPoint-specific Microsoft content types the 2018 comment parts use. Private. */
-const MS_POWERPOINT_CONTENT = 'application/vnd.ms-powerpoint.'
+/** Root of the PowerPoint-specific Microsoft content types. Exported for the same reason as {@link OD_CONTENT}. */
+export const MS_POWERPOINT_CONTENT = 'application/vnd.ms-powerpoint.'
 
 /** `ppt/slides/slideN.xml`. */
 export const SLIDE_CONTENT_TYPE = OD_CONTENT + 'presentationml.slide+xml'

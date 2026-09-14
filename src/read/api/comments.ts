@@ -21,12 +21,14 @@ import {
 	COMMENTS_CONTENT_TYPE,
 	COMMENTS_REL,
 	MODERN_COMMENT_AUTHORS_REL,
+	MS_POWERPOINT_CONTENT,
+	MS_REL,
 } from '../../ooxml/rel-types.js'
 
 /** The slide → modern-comments-part relationship type (2018 schema). Only this module reads one. */
-const MODERN_COMMENTS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/comments'
+const MODERN_COMMENTS_REL_TYPE = MS_REL + '2018/10/relationships/comments'
 /** Content type of the modern per-slide comments part (`ppt/comments/modernComment_*.xml`). */
-const MODERN_COMMENTS_CONTENT_TYPE = 'application/vnd.ms-powerpoint.comments+xml'
+const MODERN_COMMENTS_CONTENT_TYPE = MS_POWERPOINT_CONTENT + 'comments+xml'
 
 /** One entry of the deck-wide comment-author registry (`p:cmAuthor`). */
 export interface CommentAuthor {

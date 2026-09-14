@@ -29,6 +29,7 @@ import {
 	RELATIONSHIPS_CONTENT_TYPE,
 	THEME_CONTENT_TYPE,
 	THEME_REL,
+	OD_CONTENT,
 } from '../../ooxml/rel-types.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
@@ -44,7 +45,7 @@ import { FMT_SCHEME_XML } from '../oxml/fmt-scheme.js'
 /** The SpreadsheetML namespace every part of the embedded workbook is written in. */
 const SML_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 /** The prefix the embedded workbook's SpreadsheetML part types share. */
-const SML_CT = 'application/vnd.openxmlformats-officedocument.spreadsheetml.'
+const SML_CT = OD_CONTENT + 'spreadsheetml.'
 
 /** One `<si>` shared string carrying literal text. */
 const sharedString = (text: string): string => el('si', null, raw(el('t', null, text)))

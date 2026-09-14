@@ -12,9 +12,10 @@
  */
 import { OpcPackage } from '../opc/package.js'
 import { attr, getElements } from '../oxml/dom.js'
+import { OFFICE_REL } from '../../ooxml/rel-types.js'
 
-/** The owner → tags-part relationship type. */
-const TAGS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags'
+/** The owner → tags-part relationship type. Only this module follows one. */
+const TAGS_REL_TYPE = OFFICE_REL + 'tags'
 
 /** One programmatic tag (`p:tag`) — a name/value string pair. */
 export interface Tag {

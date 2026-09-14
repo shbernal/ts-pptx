@@ -21,9 +21,8 @@ import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 import { pushMediaRel } from './image-rel.js'
 import { InvalidOptionError } from '../../errors.js'
-import { OFFICE_REL, PACKAGE_REL, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE } from '../../ooxml/rel-types.js'
+import { OD_CONTENT, OFFICE_REL, PACKAGE_REL, PPTX_CONTENT_TYPE, XLSX_CONTENT_TYPE } from '../../ooxml/rel-types.js'
 
-const OD = 'application/vnd.openxmlformats-officedocument.'
 /** Rel type for a generic OLE-server blob — a compound-file `.bin` (ECMA-376 Part 1 §15.2.10). */
 const OLE_OBJECT_REL = OFFICE_REL + 'oleObject'
 
@@ -52,7 +51,7 @@ const OLE_FORMATS: Record<string, OleFormat> = {
 		name: 'Worksheet',
 	},
 	docx: {
-		contentType: OD + 'wordprocessingml.document',
+		contentType: OD_CONTENT + 'wordprocessingml.document',
 		relType: PACKAGE_REL,
 		progId: 'Word.Document.12',
 		name: 'Document',
@@ -78,7 +77,7 @@ const OLE_FORMATS: Record<string, OleFormat> = {
 }
 /** Fallback for any payload that is not one of the {@link OLE_FORMATS} Office packages. */
 const BIN_FORMAT: OleFormat = {
-	contentType: OD + 'oleObject',
+	contentType: OD_CONTENT + 'oleObject',
 	relType: OLE_OBJECT_REL,
 	progId: 'Package',
 	name: 'Object',

@@ -6,11 +6,6 @@
 	},
 	{
 		"file": "src/gen/chart/embed-xlsx.ts",
-		"literal": "application/vnd.openxmlformats-officedocument.spreadsheetml.",
-		"reason": "Prefix of the embedded workbook's own part content types (workbook, worksheet, styles, shared strings, table). Only this module writes those parts."
-	},
-	{
-		"file": "src/gen/chart/embed-xlsx.ts",
 		"literal": "http://schemas.microsoft.com/office/spreadsheetml/2010/11/main",
 		"reason": "The x15 SpreadsheetML extension namespace, written only into the embedded workbook."
 	},
@@ -23,11 +18,6 @@
 		"file": "src/gen/chart/plot-scatter.ts",
 		"literal": "http://schemas.microsoft.com/office/drawing/2014/chart",
 		"reason": "The c16 chart extension namespace, declared only on the scatter plot's data-label extension."
-	},
-	{
-		"file": "src/gen/define/ole.ts",
-		"literal": "application/vnd.openxmlformats-officedocument.",
-		"reason": "Prefix for the OLE payload formats this table alone names (docx, and the generic oleObject blob). The xlsx and pptx types it shares with other modules come from rel-types.ts."
 	},
 	{
 		"file": "src/gen/define/ole.ts",
@@ -110,16 +100,6 @@
 		"reason": "The p166 namespace of the zoom elements, written only by the zoom frame emitter."
 	},
 	{
-		"file": "src/read/api/comments.ts",
-		"literal": "http://schemas.microsoft.com/office/2018/10/relationships/comments",
-		"reason": "The 2018 modern-comments relationship type. Only the comments reader follows it; nothing writes modern comments."
-	},
-	{
-		"file": "src/read/api/comments.ts",
-		"literal": "application/vnd.ms-powerpoint.comments+xml",
-		"reason": "Content type of a 2018 modern-comments part. Only the comments reader matches on it; nothing writes modern comments."
-	},
-	{
 		"file": "src/read/api/presentation.ts",
 		"literal": "application/vnd.openxmlformats-officedocument.presentationml.template.main+xml",
 		"reason": "The main-part content type of a .potx template, matched only when a template is loaded. The writer never produces one."
@@ -128,10 +108,5 @@
 		"file": "src/read/api/shapes/base.ts",
 		"literal": "http://schemas.microsoft.com/office/drawing/2017/decorative",
 		"reason": "The adec decorative-flag extension namespace, read only by the shape base accessor."
-	},
-	{
-		"file": "src/read/api/tags.ts",
-		"literal": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/tags",
-		"reason": "The tags relationship type, followed only by the tags reader; rel-types.ts names tags as a single-module rel type."
 	}
 ]
