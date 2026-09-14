@@ -17,6 +17,7 @@ import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { LINE_END_TYPES, PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
+import { lineCapToken } from '../../ooxml/line-cap.js'
 import { lineWidthToEmu, mapStated } from '../../units-internal.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -204,16 +205,10 @@ export function withLineDefaults(line: ShapeLineProps, colorLabel: string): Shap
  * @returns {string} value for the `cap` attribute on `<a:ln>`
  */
 export function createLineCap(lineCap?: LineCap): string {
-	if (!lineCap || lineCap === 'flat') {
-		return 'flat'
-	} else if (lineCap === 'square') {
-		return 'sq'
-	} else if (lineCap === 'round') {
-		return 'rnd'
-	} else {
-		const neverLineCap: never = lineCap
-		throw new InvalidOptionError('line/invalid-cap', `Invalid line cap: ${String(neverLineCap)}`)
-	}
+	if (!lineCap) return 'flat'
+	const token = lineCapToken(lineCap)
+	if (token === undefined) throw new InvalidOptionError('line/invalid-cap', `Invalid line cap: ${String(lineCap)}`)
+	return token
 }
 
 /**

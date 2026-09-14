@@ -13,14 +13,8 @@ import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { TRANSITION_TYPES, TRANSITION_VARIANT_ATTRIBUTES } from '../../ooxml/st-enums.js'
+import { transitionSpeedForDuration } from '../../ooxml/transition-speed.js'
 import { warnOnce } from '../../diagnostics.js'
-
-/** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */
-function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast' {
-	if (durationMs <= 500) return 'fast'
-	if (durationMs <= 1000) return 'med'
-	return 'slow'
-}
 
 /**
  * The attributes of a transition's type element, from the caller's `variant`.

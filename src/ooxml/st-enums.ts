@@ -134,6 +134,9 @@ export const SCHEME_COLOR_VALUES = [
 	'lt2',
 ] as const
 
+/** `ST_TransitionSpeed` — a transition's coarse speed bucket (`p:transition/@spd`). */
+export const TRANSITION_SPEEDS = ['slow', 'med', 'fast'] as const
+
 /**
  * The base slide transitions: the `p:` type elements of `CT_SlideTransition`'s choice, in its
  * declaration order. The writer emits the type as `<p:TYPE/>`, so this is also the list a type is
@@ -291,6 +294,9 @@ export type TextHorzOverflowType = (typeof TEXT_HORZ_OVERFLOW)[number]
  */
 export const TEXT_ANCHORS = ['t', 'ctr', 'b', 'just', 'dist'] as const
 
+/** `ST_TextAlignType` — `a:pPr/@algn` and `a:lvlNpPr/@algn`. */
+export const TEXT_ALIGN_TYPES = ['l', 'ctr', 'r', 'just', 'justLow', 'dist', 'thaiDist'] as const
+
 /**
  * `ST_TextVerticalType` — `a:bodyPr/@vert` and `a:tcPr/@vert`.
  * @see ECMA-376 Part 1 §20.1.10.83
@@ -312,6 +318,9 @@ export type TextVerticalType = (typeof TEXT_VERTICAL)[number]
  * @see ECMA-376 Part 1 §20.1.10.33
  */
 export const LINE_END_TYPES = ['none', 'triangle', 'stealth', 'diamond', 'oval', 'arrow'] as const
+
+/** `ST_LineCap` — how a stroke's ends are drawn (`a:ln/@cap`). */
+export const LINE_CAPS = ['rnd', 'sq', 'flat'] as const
 export type LineEndType = (typeof LINE_END_TYPES)[number]
 
 /**

@@ -15,6 +15,7 @@
  * otherwise. See `docs/animations-and-transitions.md`.
  */
 import { InvalidOptionError } from '../../errors.js'
+import { transitionSpeedForDuration } from '../../ooxml/transition-speed.js'
 import {
 	OOXML_NS,
 	attr,
@@ -199,13 +200,6 @@ function parseSound(transition: Element): TransitionSoundInfo | null {
 	return null
 }
 
-/** Map an exact duration (ms) to PowerPoint's coarse speed bucket. */
-function speedForDuration(durationMs: number): TransitionSpeed {
-	if (durationMs <= 500) return 'fast'
-	if (durationMs <= 1000) return 'med'
-	return 'slow'
-}
-
 /**
  * A transition time the caller stated, as whole milliseconds, or `null` when not stated. `NaN`,
  * `Infinity` and a negative number throw: each was written straight into `p14:dur` or `advTm`.
@@ -290,7 +284,7 @@ export function buildTransition(doc: Document, input: TransitionInput, root?: El
 	const durationMs = transitionTime(input.durationMs, 'durationMs')
 	const advanceAfterMs = transitionTime(input.advanceAfterMs, 'advanceAfterMs')
 	const sound = soundFor(input.sound, current)
-	const stated = input.speed ?? (durationMs !== null ? speedForDuration(durationMs) : null)
+	const stated = input.speed ?? (durationMs !== null ? transitionSpeedForDuration(durationMs) : null)
 	// `fast` is the schema default. Keeping it absent where it was absent is what lets a transition
 	// read back (whose `speed` reports `fast` for a missing `spd`) be assigned again unchanged.
 	const keepsDefaultAbsent = stated === 'fast' && !!current && attr(current, 'spd') === null

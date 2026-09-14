@@ -27,6 +27,7 @@
 import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
 import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
 import { TEXT_AUTONUM_SCHEMES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
+import { HALIGN_BY_TEXT_ALIGN } from '../../ooxml/text-align.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
 import type { MapContext } from './context.js'
@@ -46,7 +47,7 @@ import {
  * deliberately absent: the write API has no spelling for them, and mapping them onto
  * `justify` would be a silent visual change rather than a declared loss.
  */
-const ALIGN: Record<string, string> = { l: 'left', ctr: 'center', r: 'right', just: 'justify' }
+const ALIGN = HALIGN_BY_TEXT_ALIGN
 
 /** `AutofitMode` → the write API's `fit`. */
 const FIT: Record<string, string> = { none: 'none', normAutofit: 'shrink', spAutoFit: 'resize' }

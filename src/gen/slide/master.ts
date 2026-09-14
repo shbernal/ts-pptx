@@ -21,6 +21,7 @@ import type { RendererTable } from './objects/shared.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
+import { textAlignToken } from '../../ooxml/text-align.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 import { slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
 
@@ -135,20 +136,9 @@ const MASTER_OTHER_DEFAULTS: MasterLevelDefault[] = LEVEL_MARGINS_EMU.map((marL)
 }))
 
 function masterAlignAttr(align: MasterTextStyleLevel['align']): string {
-	switch (align) {
-		case 'left':
-			return 'l'
-		case 'right':
-			return 'r'
-		case 'center':
-			return 'ctr'
-		case 'justify':
-			return 'just'
-		case undefined:
-			// The only unmatched member: no `align` on the level. `''` omits `@algn` entirely so the
-			// level inherits from the theme, which is NOT the same as pinning it to `l`.
-			return ''
-	}
+	// No `align` on the level: `''` omits `@algn` entirely so the level inherits from the theme,
+	// which is NOT the same as pinning it to `l`. A value the write API does not name does the same.
+	return align === undefined ? '' : (textAlignToken(align) ?? '')
 }
 
 /** Build the bullet element for a master level: caller override wins over the level default. */

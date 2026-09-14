@@ -32,6 +32,7 @@ import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
 import { TEXT_CAPS_TYPES, TEXT_STRIKE_TYPES, TEXT_TAB_ALIGN_TYPES, TEXT_UNDERLINE_TYPES } from '../../ooxml/st-enums.js'
+import { textAlignToken } from '../../ooxml/text-align.js'
 import {
 	clampCharSpacingSpc,
 	clampFontSizeSz,
@@ -180,26 +181,9 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 
 	// A: Build paragraphProperties
 	{
-		// OPTION: align
-		if (opts.align) {
-			switch (opts.align) {
-				case 'left':
-					paragraphPropXml += ' algn="l"'
-					break
-				case 'right':
-					paragraphPropXml += ' algn="r"'
-					break
-				case 'center':
-					paragraphPropXml += ' algn="ctr"'
-					break
-				case 'justify':
-					paragraphPropXml += ' algn="just"'
-					break
-				default:
-					paragraphPropXml += ''
-					break
-			}
-		}
+		// OPTION: align. A value the write API does not name writes no `algn`.
+		const algn = opts.align ? textAlignToken(opts.align) : undefined
+		if (algn) paragraphPropXml += ` algn="${algn}"`
 
 		// A stated spacing reaches its clamp, `NaN` included, and the clamp refuses that by name.
 		// The guards were truthiness, which dropped `NaN` without a word while `Infinity` threw.
