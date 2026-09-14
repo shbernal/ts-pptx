@@ -1,112 +1,80 @@
 ---
 doc-schema-version: 1
-title: "Math equations (LaTeX / MathML → OMML)"
-summary: "Author native PowerPoint equations from LaTeX or MathML via the pptx-ts/math subpath."
+title: "Math equations"
+summary: "Turn LaTeX or MathML into native, editable PowerPoint equations with the pptx-ts/math subpath, as a centered block or inline in a sentence."
 read_when:
-  - Authoring PowerPoint equations from LaTeX or MathML
-  - Changing the latexToOmml / mathmlToOmml converters (src/math.ts)
-  - Deciding how the math: option on addText should be fed
+  - Putting an equation on a slide from LaTeX or MathML
+  - Flowing an equation inside a sentence of text
+  - Checking what a LaTeX construct becomes in PowerPoint's equation editor
+  - Handling invalid LaTeX from user input
 doc_type: "guide"
 ---
 
-# Math equations (LaTeX / MathML → OMML)
+# Math equations
 
-The `math:` option on a text item emits a **native, editable PowerPoint equation**
-(OMML inside PowerPoint's `<a14:m>` markup-compatibility envelope). That option takes
-raw OMML. The `pptx-ts/math` subpath lets you author the equation in LaTeX
-or MathML instead and get the OMML to hand it.
+`latexToOmml` and `mathmlToOmml` from `pptx-ts/math` convert an equation to OMML, the markup
+PowerPoint's equation editor stores. Pass the result to the `math` option of a text item and the
+slide gets an equation you can edit in PowerPoint.
 
-```
-LaTeX  --temml-->  MathML  --mathml2omml-->  OMML  -->  { math: … } on addText
-```
-
-## Install the converters
-
-The converters are **optional peer dependencies**: the core package does not pull
-them in, so consumers who never author math carry no extra weight. Install them to use
-this subpath:
-
-```sh
-npm install temml mathml2omml
-```
-
-- `temml`: LaTeX → MathML ([MIT](https://github.com/ronkok/Temml)).
-- `mathml2omml`: MathML → OMML ([LGPL-3.0-or-later](https://github.com/fiduswriter/mathml2omml)).
-
-`mathml2omml` is LGPL. It is never bundled into this package's output (it stays a
-separate, replaceable dependency in your `node_modules`), and because it is opt-in,
-consumers with policies against LGPL can simply not install it.
-
-> **Node-only.** This subpath loads the converters synchronously via Node's
-> `createRequire`, so it runs under Node, not in a browser bundle. It is an authoring
-> helper; the OMML it produces is plain data you can persist and feed to `math:` from
-> anywhere.
-
-## Usage
-
-```js
+```ts
 import TsPptx from 'pptx-ts'
 import { latexToOmml } from 'pptx-ts/math'
 
 const pptx = new TsPptx()
 const slide = pptx.addSlide()
 
-slide.addText([{ math: latexToOmml('x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}') }], {
-	x: 1,
-	y: 2,
-	w: 8,
-	h: 1,
-})
+slide.addText([{ math: latexToOmml('x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}') }], { x: 1, y: 2, w: 8, h: 1 })
 
 await pptx.writeFile({ fileName: 'quadratic.pptx' })
 ```
 
-The item's `math` value fully controls the paragraph; any `text` on the same item is
-ignored (see [`TextProps.math`](./reference/api/index/interfaces/TextProps.md)).
+A `math` item ignores any `text` on the same item. Without `inline: true` it is also its own
+centered paragraph.
 
-## API
+## Install the converters
 
-### `latexToOmml(latex, opts?)`
+The two converters are optional peer dependencies, so a project that never writes math does not
+carry them. Install both to use `pptx-ts/math`:
 
-Convert a LaTeX math expression to OMML.
+```sh
+npm install temml mathml2omml
+```
 
-- `latex: string`: e.g. `\sum_{i=1}^{n} i = \frac{n(n+1)}{2}`.
-- `opts.display?: boolean` (default `true`) selects display (block) math: render in
-  `displayMode` and wrap the result in a centered `<m:oMathPara>` display paragraph.
-  With `display: false`, temml renders in inline mode and a bare `<m:oMath>` is returned.
-- **Returns** OMML: `<m:oMathPara>…</m:oMathPara>` (display) or `<m:oMath>…</m:oMath>`
-  (inline). Both are accepted by the `math:` option; pass the `display: false` form
-  together with `inline: true` on the text item to flow the equation mid-paragraph
-  (see [Inline math](#inline-math)).
-- **Throws** on invalid LaTeX, surfacing temml's parse position, e.g.
-  `Invalid LaTeX (position 6): …`.
+| Package | Converts | License |
+| --- | --- | --- |
+| [`temml`](https://github.com/ronkok/Temml) | LaTeX to MathML | MIT |
+| [`mathml2omml`](https://github.com/fiduswriter/mathml2omml) | MathML to OMML | LGPL-3.0-or-later |
 
-### `mathmlToOmml(mathml)`
+`mathml2omml` is never bundled into this package's output. It stays a separate, replaceable
+package in your `node_modules`. A project whose policy rules out LGPL code can leave it
+uninstalled and pass OMML to `math` directly.
 
-Convert a MathML string (`<math>…</math>`) to OMML.
+`pptx-ts/math` runs only under Node, because it loads the converters synchronously through
+Node's `createRequire`. The OMML it returns is a plain string: store it, and pass it to `math` in
+any runtime.
 
-- **Returns** a bare `<m:oMath>…</m:oMath>` with no namespace declarations (the `math:`
-  envelope supplies the `m` prefix at emit time).
+## Functions at a glance
 
-## Output form
+| Function | Option | Returns | Usable inline |
+| --- | --- | --- | --- |
+| `latexToOmml(latex)` | `display` omitted or `true` | A centered display block, `<m:oMathPara>` | Prefer `display: false`. With `inline: true` the block's centering wrapper is dropped. |
+| `latexToOmml(latex, { display: false })` | `display: false` | A bare equation, `<m:oMath>`, rendered in inline mode | Yes |
+| `mathmlToOmml(mathml)` | none | A bare equation, `<m:oMath>` | Yes |
 
-Both functions emit OMML in the `m:` (`http://schemas.openxmlformats.org/officeDocument/2006/math`)
-namespace with **no namespace declarations of their own**: the `<a14:m>` envelope that
-`math:` authors declares `m`. `mathmlToOmml` always returns a bare `<m:oMath>`;
-`latexToOmml` returns that same `<m:oMath>` wrapped in a centered `<m:oMathPara>` unless
-`display: false`. All three shapes (inner OMML, `<m:oMath>`, `<m:oMathPara>`) are valid
-inputs to `math:`.
+Neither function puts namespace declarations in its result: the `math` option declares them.
 
-## Inline math
+The text item takes the result through two options:
 
-By default a `math:` item is emitted as its own centered display-math paragraph. To
-flow an equation *in a sentence*, between plain text runs, set `inline: true` on the
-text item and give it the bare `<m:oMath>` form (`latexToOmml(tex, { display: false })`
-or `mathmlToOmml(mathml)`):
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `math` | `string` | none | OMML: a whole `<m:oMathPara>`, a whole `<m:oMath>`, or the contents of one. |
+| `inline` | `boolean` | `false` | Flow the equation between the neighbouring text runs instead of giving it its own centered paragraph. No effect without `math`. |
 
-```js
-import { latexToOmml } from 'pptx-ts/math'
+## Flow an equation inside a sentence
 
+Set `inline: true` on the item and give it the bare form:
+
+```ts
 slide.addText(
   [
     { text: 'where ' },
@@ -117,33 +85,83 @@ slide.addText(
 )
 ```
 
-The equation is emitted as an `<a14:m><m:oMath>` run (no `<m:oMathPara>`) within the
-same paragraph as the surrounding runs. The `Requires="a14"` envelope stays at the
-shape level, exactly as for display math.
+The equation shares one paragraph with the text on either side of it.
 
-## Scope and limits
+## Convert MathML
 
-- **No LaTeX preprocessing / macro packages**: the input goes straight to temml. Custom
-  macros, `\usepackage`, and environments temml does not support are out of scope.
-- **No raster fallback**: output relies on the `Requires="a14"` envelope, understood by
-  PowerPoint 2010+. There is no `mc:Fallback` image for non-a14 consumers.
-- **Fidelity is temml + mathml2omml's**, with one correction applied in between. Accent
-  commands (`\hat`, `\bar`, `\vec`, `\ddot`, …) used to render as `<m:limUpp>` (an
-  over-*limit*, with limit spacing), because temml emits a bare `<mover>` and mathml2omml
-  keys strictly off `accent="true"`. `latexToOmml` now stamps that attribute, and swaps
-  temml's *spacing* modifier (U+02C6, U+2192) for the combining mark ECMA-376 §22.1.2.20
-  says an `accPr` character should be (U+0302, U+20D7), so accents come out as `<m:acc>`
-  with the character Word itself writes. This applies to `latexToOmml` only: `mathmlToOmml`
-  passes your MathML through as written, because there the `accent` attribute is yours to
-  set. Constructs that were already mapping well are untouched: `\widehat` and
-  `\overbrace` stay `<m:groupChr>`, `\overline`/`\underline` stay `<m:borderBox>`,
-  `\stackrel` stays `<m:limUpp>`. Two cases remain limits by necessity: `\utilde` and other
-  under-accents (OMML has no under-accent object, and the symmetric `accentunder="true"`
-  would move the mark *above* the base), and `\ddddot`, whose two-character operator has no
-  single `m:chr`. See [issue #6](https://github.com/shbernal/ts-pptx/issues/6).
+```ts
+import { mathmlToOmml } from 'pptx-ts/math'
 
-## Error policy
+slide.addText(
+  [{ math: mathmlToOmml('<math><msup><mi>e</mi><mi>x</mi></msup></math>') }],
+  { x: 1, y: 3, w: 8, h: 1 }
+)
+```
 
-Invalid LaTeX **throws** (with temml's parse position) rather than emitting a degenerate
-equation: consistent with the library's no-silent-coercion rule. Wrap calls in
-`try/catch` if you convert untrusted input.
+`mathmlToOmml` converts your MathML as written. An `<mover>` becomes an accent only when it
+states `accent="true"`, and without it the `<mover>` becomes an upper limit.
+
+## Handle invalid LaTeX
+
+`latexToOmml` throws on LaTeX that temml cannot parse, rather than returning a broken equation.
+The message carries temml's parse position when temml reports one, as in
+`Invalid LaTeX (position 6): ...`. Catch it when the input comes from users:
+
+```ts
+import { InvalidOptionError, latexToOmml } from 'pptx-ts/math'
+
+function toOmml(latex: string): string | null {
+  try {
+    return latexToOmml(latex)
+  } catch (err) {
+    if (err instanceof InvalidOptionError && err.code === 'math/invalid-latex') return null
+    throw err
+  }
+}
+```
+
+## What each LaTeX construct becomes
+
+`latexToOmml` maps these constructs to these PowerPoint equation objects:
+
+| LaTeX | Equation object |
+| --- | --- |
+| `\frac` | Fraction (`m:f`) |
+| `\sqrt`, `\sqrt[n]` | Radical (`m:rad`) |
+| `\sum`, `\int` | N-ary operator (`m:nary`) |
+| `x^2`, `x_i`, `x_i^2` | Superscript, subscript, both (`m:sSup`, `m:sSub`, `m:sSubSup`) |
+| `\lim_{x \to 0}` | Subscript (`m:sSub`), not a lower limit |
+| `pmatrix`, `cases` | Matrix (`m:m`) |
+| `\hat`, `\^`, `\tilde`, `\~`, `\acute`, `\'`, `\grave`, `` \` ``, `\ddot`, `\"`, `\dot`, `\.`, `\bar`, `\=`, `\breve`, `\u`, `\check`, `\v`, `\mathring`, `\r`, `\H`, `\vec`, `\dddot` | Accent (`m:acc`), carrying the combining mark Word writes |
+| `\widehat`, `\overrightarrow`, `\overgroup`, `\overbrace`, `\underbrace` | Group character (`m:groupChr`) |
+| `\overline`, `\underline` | Border box (`m:borderBox`) |
+| `\stackrel`, `\xrightarrow` | Upper limit (`m:limUpp`) |
+| `\utilde` and other under-accents | Lower limit (`m:limLow`). OMML has no accent object that sits below its base. |
+| `\ddddot` | Upper limit (`m:limUpp`). Its four-dot mark is two characters, and an accent holds one. |
+| `\left( x \right)` | Plain bracket characters, not a delimiter object |
+
+The accent rows describe `latexToOmml`. `mathmlToOmml` follows the `accent` attribute in your
+MathML instead.
+
+## Invalid input
+
+| Condition | Warns or throws | Code |
+| --- | --- | --- |
+| LaTeX temml cannot parse, such as `\frac{` or an unknown command | throws | `InvalidOptionError` `math/invalid-latex` |
+| `temml` or `mathml2omml` is not installed | throws on the first call | `UnsupportedFeatureError` `math/missing-optional-peer` |
+| An empty LaTeX string | returns an empty equation, no error | none |
+| A string that is not MathML, passed to `mathmlToOmml` | not checked: returns the string `'undefined'`, which is not OMML | none |
+
+## Limits
+
+- The converters run only under Node. The OMML string they return works anywhere.
+- LaTeX goes to temml as given: no custom macros, no `\usepackage`, and no environment temml does
+  not support.
+- An equation needs a reader that understands PowerPoint 2010's `a14` extension. There is no
+  image fallback, and a reader without the extension skips the whole text box.
+- Beyond the table above, how an equation looks is up to temml and mathml2omml.
+
+## See also
+
+- [`TextProps`](reference/api/index/interfaces/TextProps.md), for `math` and `inline`
+- [Errors](errors.md)

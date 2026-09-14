@@ -16,7 +16,7 @@
  * halves of that are stale: `ts-pptx/html` imports it too, so tsdown emits it as its own
  * `dist/html-dom-*.js` chunk, and those globs are gone from `vitest.config.ts` entirely. It
  * is covered code now — against happy-dom by the Node suite
- * (test/regression/html-to-slides-node.test.js) and, for the measured width basis that no
+ * (test/regression/html/html-to-slides-node.test.js) and, for the measured width basis that no
  * Node DOM can produce, in a real Chromium (test/browser/table-widths.spec.mjs).
  */
 

@@ -1,164 +1,176 @@
 ---
 doc-schema-version: 1
-title: "Image embedded in a shape"
-summary: "Clip a picture to a preset or freeform shape and crop it to fill the box (blipFill + custGeom)."
+title: "Images in shapes"
+summary: "Clip a picture to a preset or freeform outline with addImage, fill the outline without distortion using sizing, place SVGs at their own aspect ratio, and recolor the picture."
 read_when:
-  - Clipping an image to a circle, rounded rectangle, hexagon, or freeform path
-  - Filling a clip shape with a center-cropped photo (cover/contain)
-  - Reproducing a picture-placeholder look (e.g. a half-disc "D" cover image)
-  - Reaching for a named clip silhouette instead of hand-authoring a points path
-  - Working out why an SVG icon is letterboxed, stretched, or sized at 1 inch
+  - Clipping a photo to a circle, rounded rectangle, hexagon or custom outline
+  - Filling a clipped shape with a photo without stretching it
+  - Cutting a half-disc cover image with clipPath
+  - An SVG icon comes out letterboxed, stretched or 1 inch square
+  - Tinting a picture with duotone, grayscale, black and white or a color swap
 doc_type: "guide"
 ---
 
-# Image embedded in a shape
+# Images in shapes
 
-`slide.addImage()` can clip a picture to a shape and, independently, crop the
-source bitmap so it fills that shape at the right aspect ratio. This is the
-idiomatic OOXML form (a `<p:pic>` whose `<p:spPr>` carries the clip geometry and
-whose `<p:blipFill>` carries the source crop) exactly what a PowerPoint *picture
-placeholder* produces.
+`slide.addImage()` clips a picture to an outline and, separately, controls how the source image
+fills the picture's box.
 
-## Choosing the clip geometry
+```ts
+import TsPptx from 'pptx-ts'
 
-Three mutually exclusive ways to set the clip, in precedence order:
+const pptx = new TsPptx()
+const slide = pptx.addSlide()
+slide.addImage({ path: 'avatar.png', x: 1, y: 1, w: 2, h: 2, shape: 'ellipse', sizing: { type: 'cover' } })
+await pptx.writeFile({ fileName: 'avatar.pptx' })
+```
 
-| Option | Emits | Use when |
-|--------|-------|----------|
-| `points` | `<a:custGeom>` (freeform path) | Arbitrary outline: a half-disc, a speech bubble, any custom silhouette. **Wins over `shape`/`rounding`.** |
-| `shape` | `<a:prstGeom prst="…">` | A named PowerPoint preset: `'roundRect'`, `'hexagon'`, `'ellipse'`, etc. |
-| `rounding: true` | `<a:prstGeom prst="ellipse">` | Shorthand for a circular/elliptical crop. Lowest precedence. |
+## Options at a glance
 
-With none of these the picture stays a plain rectangle (`prst="rect"`).
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `points` | `GeometryPoint[]` | none | Clip to a freeform path measured in the picture's own box. Wins over `shape` and `rounding`. |
+| `shape` | `SHAPE_NAME` | `'rect'` | Clip to a PowerPoint preset such as `'roundRect'` or `'hexagon'`. Wins over `rounding`. |
+| `rounding` | `boolean` | `false` | Clip to an ellipse. |
+| `rectRadius` | `number`, inches | the preset's own radius | Corner radius for `'roundRect'` and the other rounded presets. |
+| `shapeAdjust` | `ShapeAdjustValue` or an array | none | The preset's adjustment handles, each value a 0 to 1 fraction. |
+| `sizing` | `{ type, x?, y?, w?, h? }` | none | How the source fills the box: `cover`, `contain`, `crop` or `stretch`. |
+| `crop` | `{ l?, t?, r?, b? }` | none | Percent trimmed off each edge of the source. Wins over `sizing`. |
+| `line` | `ShapeLineProps` | none | Outline drawn along the clip. |
+| `shadow` | `ShadowProps` | none | Shadow under the picture. |
+| `transparency` | `number`, 0 to 100 | `0` | Picture transparency in percent. |
+| `duotone`, `grayscale`, `biLevel`, `clrChange` | see [Recolor a picture](#recolor-a-picture) | none | Recolor the picture. |
 
-```js
-// Preset clip
+## Clip a picture to a shape
+
+One clip applies, picked in this order:
+
+```mermaid
+flowchart LR
+  P["points set"] -->|yes| F["Freeform path"]
+  P -->|no| S["shape set"]
+  S -->|yes| R["That preset"]
+  S -->|no| O["rounding is true"]
+  O -->|yes| E["Ellipse"]
+  O -->|no| N["Rectangle"]
+```
+
+```ts
+// A preset with rounded corners
 slide.addImage({ path: 'avatar.png', x: 1, y: 1, w: 2, h: 2, shape: 'roundRect', rectRadius: 0.25 })
 
-// Circle (shorthand)
-slide.addImage({ path: 'avatar.png', x: 1, y: 1, w: 2, h: 2, rounding: true })
+// An ellipse
+slide.addImage({ path: 'avatar.png', x: 4, y: 1, w: 2, h: 2, rounding: true })
 
-// Freeform clip (triangle)
+// A freeform triangle
 slide.addImage({
-  path: 'photo.png', x: 1, y: 1, w: 2, h: 2,
+  path: 'photo.png', x: 7, y: 1, w: 2, h: 2,
   points: [{ x: 1, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }, { close: true }],
 })
 ```
 
-`points` are authored in the image's **own** inch/EMU space (`0..w`, `0..h`), not
-slide-relative and not normalized. The DSL matches freeform shapes:
-`moveTo` / `lnTo` / `cubicBezTo` / `quadBezTo` / `arcTo` / `close`.
+<svg viewBox="0 0 320 180" width="320" height="180" role="img" aria-label="A picture box placed on a slide, with a triangle clip inside it. Freeform points are measured from the picture box's top-left corner, labelled (0, 0), to its bottom-right corner, labelled (w, h), not from the corner of the slide." style="max-width:100%;height:auto">
+  <rect x="4" y="4" width="312" height="172" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity="0.5"/>
+  <text x="12" y="20" font-size="11" fill="currentColor" opacity="0.7">slide</text>
+  <rect x="100" y="40" width="120" height="100" fill="none" stroke="currentColor"/>
+  <polygon points="160,40 220,140 100,140" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="100" cy="40" r="3" fill="currentColor"/>
+  <text x="94" y="34" font-size="11" fill="currentColor" text-anchor="end">(0, 0)</text>
+  <circle cx="220" cy="140" r="3" fill="currentColor"/>
+  <text x="226" y="156" font-size="11" fill="currentColor">(w, h)</text>
+</svg>
 
-## Filling the shape: pair with `sizing`
+- `points` are inches inside the picture's own box, `0` to `w` across and `0` to `h` down. They
+  are not slide positions.
+- Write `points` in inches. A percentage string resolves against the slide, not against the box.
+- A path takes the same nodes as a freeform shape: plain points (the first moves the pen,
+  `moveTo: true` starts a new subpath, the rest draw lines), a `curve` of type `cubic`,
+  `quadratic` or `arc`, and `{ close: true }`.
+- A clip changes only the outline. How the source fills the box is set by `sizing`.
 
-A clip changes the *outline*; it does not change how the source pixels map into
-the box. A **raster** is stretched to the box extent by default, which distorts a
-photo whose aspect ratio differs from the clip box. Pair the clip with
-`sizing: { type: 'cover' }` to center-crop the source so it fills the box at its
-natural aspect ratio:
+## Fill the shape without distortion
 
-```js
-slide.addImage({
-  path: 'photo.png', x: 1, y: 1, w: 2, h: 3,
-  points: [/* clip path */],
-  sizing: { type: 'cover' },   // w/h default to the picture's own box
-})
+With no `sizing`, a raster stretches to the box, so a photo whose ratio differs from the box
+distorts. Pair the clip with a `sizing` mode.
+
+| `sizing.type` | Scales the source | Crops | Distorts | Default for |
+| --- | --- | --- | --- | --- |
+| `stretch` | Each axis to the box on its own | No | Yes, when the ratios differ | A raster with no `sizing` |
+| `cover` | Until it covers the whole box | Yes, the overflow, evenly on both sides | No | Nothing |
+| `contain` | Until it fits inside the box | No, it leaves empty bands | No | A measurable SVG with no `sizing` |
+| `crop` | Not at all: the image stays at `w` by `h` | Yes, to the `x`, `y`, `w`, `h` window | No | Nothing |
+
+<svg viewBox="0 0 430 150" width="430" height="150" role="img" aria-label="A wide photo with a circle in it, placed in a tall box three ways. Cover scales the photo to the box height and crops the sides, and the circle stays round. Contain scales the photo to the box width and leaves bands above and below, and the circle stays round. Stretch squeezes the photo to the box, and the circle becomes a tall ellipse." style="max-width:100%;height:auto">
+  <rect x="22.5" y="20" width="135" height="90" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity="0.5"/>
+  <rect x="60" y="20" width="60" height="90" fill="currentColor" fill-opacity="0.15" stroke="currentColor"/>
+  <circle cx="90" cy="65" r="30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="90" y="135" font-size="12" fill="currentColor" text-anchor="middle">cover</text>
+  <rect x="220" y="20" width="60" height="90" fill="none" stroke="currentColor"/>
+  <rect x="220" y="45" width="60" height="40" fill="currentColor" fill-opacity="0.15"/>
+  <circle cx="250" cy="65" r="13.3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="250" y="135" font-size="12" fill="currentColor" text-anchor="middle">contain</text>
+  <rect x="340" y="20" width="60" height="90" fill="currentColor" fill-opacity="0.15" stroke="currentColor"/>
+  <ellipse cx="370" cy="65" rx="13.3" ry="30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <text x="370" y="135" font-size="12" fill="currentColor" text-anchor="middle">stretch</text>
+</svg>
+
+```ts
+// A tall hexagon filled by a wide photo, cropped rather than squashed
+slide.addImage({ path: 'photo.jpg', x: 1, y: 1, w: 2, h: 3, shape: 'hexagon', sizing: { type: 'cover' } })
+
+// A 2in square window cut out of the photo as drawn at 4in by 3in
+slide.addImage({ path: 'photo.jpg', x: 1, y: 1, w: 4, h: 3, sizing: { type: 'crop', x: 1, y: 0.5, w: 2, h: 2 } })
 ```
 
-- `cover`: scales the source to **cover** the box, cropping the overflow (no
-  distortion, no gaps). This is what you want for a photo behind a clip shape.
-- `contain`: scales the source to **fit** inside the box (letterbox; negative
-  `srcRect` inset).
-- `crop`: cuts an explicit window using `x`/`y`/`w`/`h` offsets.
-- `stretch`: fills the box regardless of aspect. A raster's default; name it to
-  opt a vector out of the one below.
+- `sizing.w` and `sizing.h` default to the picture's `w` and `h`. Any other value becomes the
+  drawn size of the picture.
+- `cover` and `contain` read the source's natural size from the image data: the PNG, JPEG, GIF,
+  BMP or WebP header, or an SVG's `width` and `height`, else its `viewBox`. When that fails they
+  use the box's own ratio and warn.
+- `sizing: { type: 'crop' }` measures its window in inches on the image as drawn at `w` by `h`,
+  and the picture shrinks to the window.
+- The `crop` option trims the source by percentages, so it works on any format. With both `crop`
+  and `sizing` set, `crop` applies and `sizing` is ignored with a warning.
 
-`sizing.w` / `sizing.h` default to the picture's own `w` / `h`, so supply them only
-when the fit box is genuinely something other than the picture.
+## Place an SVG at its own aspect ratio
 
-`cover`/`contain` read the image's natural dimensions from the embedded bytes (a
-PNG/JPEG/GIF/BMP/WebP header, or an SVG's `width`/`height` or `viewBox`), so the
-crop is aspect-correct. For an unrecognized format, or an SVG carrying no
-intrinsic size at all, the displayed `w`/`h` ratio is used as a fallback and a
-warning is logged.
+An SVG states its own ratio, so a vector source is placed differently from a raster:
 
-### Vectors place aspect-correct without being asked
+1. `crop` is set: the percentage crop applies, as for a raster.
+2. `sizing` is set: that mode applies. `cover` and `contain` use the SVG's `width` and `height`,
+   else its `viewBox`. With neither, they use the box's ratio and warn.
+3. No `sizing`, and the SVG has a `viewBox` or a `width` and `height`: the SVG is letterboxed
+   inside the box, exactly as `contain` would place it. When the ratios already match, it simply
+   fills the box.
+4. No `sizing`, and the SVG has no intrinsic size: it stretches to the box, without a warning.
 
-An SVG states its own aspect ratio, and a glyph squashed into a box that disagrees
-with it is a defect rather than a layout choice. So a **vector** source with no
-`sizing` is letterboxed to its intrinsic ratio inside its box (exactly as
-`sizing: { type: 'contain' }` would) instead of being stretched:
+A raster with no `sizing` always stretches.
 
-```js
-// A square icon in a non-square box: centered at its true aspect, not squashed.
+```ts
+// A square icon in a 3in by 1in box sits centred at its true ratio
 slide.addImage({ svg: iconMarkup, x: 1, y: 1, w: 3, h: 1 })
 
-// Opt out where the distortion is the point (a stretched vector backdrop, say).
+// Ask for stretch where the distortion is wanted
 slide.addImage({ svg: bandMarkup, x: 0, y: 0, w: 13.33, h: 0.4, sizing: { type: 'stretch' } })
 ```
 
-Nothing is emitted when the ratios already agree: a square glyph in a square box
-produces the same plain `<a:stretch>` it always did. An SVG with neither a
-`viewBox` nor `width`/`height` cannot be measured, so it stretches, silently: no
-sizing was requested, so there is nothing to warn about.
+The SVG's ratio also fills in a missing dimension. Given only `w` or only `h`, the other side
+follows the ratio, so `{ svg, w: 4 }` on a 2:1 `viewBox` is 4in by 2in. Given neither, the
+picture is 1in by 1in: SVG user units are not read as pixels.
 
-The same intrinsic ratio fills in a missing dimension: `{ svg, w: 4 }` on a 2:1
-`viewBox` is 4in × 2in. What it will *not* do is treat user units as pixels: an
-SVG given neither `w` nor `h` falls back to 1 inch rather than becoming a
-quarter-inch object because its icon set was authored on a 24-unit grid.
+## Cut a half-disc with `clipPath()`
 
-`points` (clip) lives in `<p:spPr>` and `sizing` (crop) lives in `<p:blipFill>`,
-so the two compose freely. The emitted blip fill uses the canonical
-`<a:srcRect/><a:stretch><a:fillRect/></a:stretch>` form (ECMA-376 §L.4.8.4.3),
-which PowerPoint and LibreOffice both render with a clean clip edge.
+`clipPath(shape, w, h)` returns the `points` for a named silhouette, sized to a `w` by `h` box.
+It has one silhouette, `half-disc`: a rectangle whose one side is replaced by an arc that bulges
+toward the opposite edge. A cover-slide picture placeholder cuts the same outline.
 
-## Worked example: the half-disc ("D") cover
+```ts
+import TsPptx, { clipPath } from 'pptx-ts'
 
-A right-flush half-disc photo, the curved edge expressed with a single `arcTo`,
-center-cropped to fill the portrait box. The flat side sits at `0.3179·w` from the
-left (the placeholder geometry from the source deck).
-
-```js
-const w = 5.22, h = 7.5            // box size (inches)
-const fx = 0.3179 * w              // x of the flat edge
-
-slide.addImage({
-  path: 'cover-photo.jpg',
-  x: 0, y: 0, w, h,
-  points: [
-    { x: fx, y: 0 },               // top, at the flat edge
-    { x: w,  y: 0 },               // top-right
-    { x: w,  y: h },               // bottom-right
-    { x: fx, y: h },               // bottom, back to the flat edge
-    // curved left edge: an ellipse arc bulging left, from the bottom sweeping 180°
-    { curve: { type: 'arc', hR: h / 2, wR: fx, stAng: 90, swAng: 180 } },
-    { close: true },
-  ],
-  sizing: { type: 'cover', w, h }, // center-crop the (wide) photo into the tall "D"
-})
-```
-
-An `arc` node takes no `x`/`y`. An `<a:arcTo>` carries no explicit end point
-(PowerPoint derives it from the current pen position, the radii and the swept
-angle), so the arc above ends where the 180° sweep lands, back at the flat edge.
-Supplying an end point emits a warning and is otherwise ignored. Unlike a shape
-rotation, arc angles are not wrapped into `0..360`: `swAng: 400` draws a 400°
-sweep, not a 40° one.
-
-The wide source photo is cropped to the box aspect (not squashed) and the curved
-edge is a smooth ellipse arc. See `test/regression/image/image-shape.test.js` for the
-composition tests.
-
-## Named silhouettes: `clipPath()`
-
-The half-disc above recurs often enough (it is what a cover-slide picture
-placeholder cuts) that it is available as data rather than as arithmetic.
-`clipPath(shape, w, h)` resolves a named `ClipShape` to the same `points` array:
-
-```js
-import { clipPath } from 'pptx-ts'
-
-const w = 5.22, h = 7.5
+const pptx = new TsPptx()
+const slide = pptx.addSlide()
+const w = 5.22
+const h = 7.5
 
 slide.addImage({
   path: 'cover-photo.jpg', x: 0, y: 0, w, h,
@@ -167,26 +179,137 @@ slide.addImage({
 })
 ```
 
-`flat` names the edge the straight side sits on, so `'right'` is a flat right edge
-with the arc bulging left. `preset` picks the proportion. `'deep'` is the default:
-the arc spans about 32% of the box width, symmetric about mid-height. `'shallow'` is
-about 13%, with its apex just below mid-height. Both are traced as two cubic Béziers
-rather than an `arcTo`, so unlike the hand-authored example above they are not
-perfect half-ellipses. They are the placeholder proportions PowerPoint decks use.
+| Field | Values | Default | Effect |
+| --- | --- | --- | --- |
+| `kind` | `'half-disc'` | required | The silhouette. |
+| `flat` | `'left'` or `'right'` | required | The edge the straight side sits on. The arc bulges toward the other edge. |
+| `preset` | `'deep'` or `'shallow'` | `'deep'` | `'deep'`: the arc takes about 32% of the width, symmetric top to bottom. `'shallow'`: about 13%, with its tip just below mid-height. |
 
-**`w` and `h` must be the size the picture is drawn at.** The returned path is in
-the image box's *own* inch space (`0..w`, `0..h`), because a `custGeom` point given
-as `%` resolves against the **slide**, not the box. That is why the box size is an
-argument at all: the silhouette's fractions are multiplied out at build time, so
-one shape scales to any region. Hand a `clipPath` result to a picture of a
-different size and the clip lands in the wrong place.
+<svg viewBox="0 0 260 180" width="260" height="180" role="img" aria-label="Two half-disc clips with flat: right, each inside its box. The deep preset's arc takes about a third of the box width. The shallow preset's arc takes about an eighth." style="max-width:100%;height:auto">
+  <g transform="translate(10 10)">
+    <rect x="0" y="0" width="100" height="144" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity="0.5"/>
+    <path d="M31.8 0 L100 0 L100 144 L31.8 144 L30.06 142.45 C11.59 125.04 0 99.92 0 72 C0 44.08 11.59 18.96 30.06 1.55 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
+    <text x="50" y="162" font-size="12" fill="currentColor" text-anchor="middle">deep</text>
+  </g>
+  <g transform="translate(150 10)">
+    <rect x="0" y="0" width="100" height="144" fill="none" stroke="currentColor" stroke-dasharray="4 3" opacity="0.5"/>
+    <path d="M12.61 0 L100 0 L100 144 L11.13 144 L9.98 140.57 C3.52 119.88 0 97.52 0 74.21 C0 50.89 3.52 28.54 9.98 7.85 Z" fill="currentColor" fill-opacity="0.15" stroke="currentColor" stroke-width="1.5"/>
+    <text x="50" y="162" font-size="12" fill="currentColor" text-anchor="middle">shallow</text>
+  </g>
+</svg>
 
-## Borders, shadows, recolor
+- Pass the same `w` and `h` the picture is drawn at. The path is in that box's inches, so a
+  picture of a different size gets the clip in the wrong place.
+- Both presets are traced with two cubic curves, so neither is an exact half-ellipse.
 
-A clipped picture still supports `line` (a `<a:ln>` outline that follows the clip
-geometry), `shadow`, `transparency`, and the recolor modes: the same
-picture-formatting vocabulary as an unclipped image. Four recolor options exist.
-`duotone` takes `{ shadow, highlight }`. `grayscale` takes `true`. `biLevel` takes
-`{ threshold }`, a `0.0–1.0` luminance split into black and white. `clrChange` takes
-`{ from, to }` and repaints one source color as another. They mirror the five effects
-the read model's `Picture.recolor` decodes.
+### Draw the arc yourself
+
+For a silhouette `clipPath` does not name, write the path by hand. This one is a right-flush
+half-disc whose curved edge is a single `arc` node:
+
+```ts
+const fx = 0.3179 * w // x of the flat edge
+
+slide.addImage({
+  path: 'cover-photo.jpg', x: 0, y: 0, w, h,
+  points: [
+    { x: fx, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: h },
+    { x: fx, y: h },
+    // the curved left edge, from the bottom of the flat edge back to its top
+    { curve: { type: 'arc', hR: h / 2, wR: fx, stAng: 90, swAng: 180 } },
+    { close: true },
+  ],
+  sizing: { type: 'cover' },
+})
+```
+
+- An `arc` node takes the radii `hR` and `wR` and the angles `stAng` and `swAng` in degrees. It
+  has no end point: the arc starts at the pen and ends where the sweep lands. An `x` or `y` on it
+  is ignored with a warning.
+- Arc angles are not wrapped: `swAng: 400` sweeps 400 degrees, not 40.
+
+## Recolor a picture
+
+`line`, `shadow` and `transparency` work on a clipped picture as on any other, and `line` follows
+the clip. Four options recolor the image:
+
+| Option | Type | Effect |
+| --- | --- | --- |
+| `duotone` | `{ shadow: Color, highlight: Color }` | Maps dark tones to `shadow` and light tones to `highlight`. |
+| `grayscale` | `boolean` | Turns every pixel gray. |
+| `biLevel` | `{ threshold: number }` | Black and white: pixels at or above the 0 to 1 luminance threshold turn white, the rest black. |
+| `clrChange` | `{ from: Color, to: Color }` | Repaints pixels of one color as another. |
+
+Colors take a hex value or a theme color. Set one recolor option per picture: when several are
+set, all of them are written, and `Picture.recolor` reads back only the first.
+
+```ts
+slide.addImage({
+  path: 'photo.jpg', x: 1, y: 1, w: 3, h: 2,
+  shape: 'roundRect',
+  sizing: { type: 'cover' },
+  line: { color: '0088CC', width: 2 },
+  duotone: { shadow: '250F6B', highlight: 'FFFFFF' },
+})
+```
+
+## Invalid input
+
+"On write" means the check runs when the deck is generated, not when `addImage` is called.
+
+| Condition | Warns or throws | Code |
+| --- | --- | --- |
+| `clipPath` gets a `kind`, `flat` or `preset` it does not know | throws | `InvalidOptionError` `clip/invalid-shape` |
+| An `arc` node carries `x` or `y` | warns, ignores them | `geometry/arc-node-point-ignored` |
+| An arc's `stAng` or `swAng` is not a finite number | throws on write | `InvalidOptionError` `geometry/arc-angle-non-finite` |
+| `rectRadius` is not a finite number | warns, keeps the preset's radius | `geometry/invalid-shape-adjust` |
+| A `shapeAdjust` entry lacks a string `name` or a finite `value` | warns, skips the entry | `geometry/invalid-shape-adjust` |
+| `cover` or `contain` cannot read the source's natural size | warns, uses the box's ratio | `image/unmeasurable-natural-size` |
+| Both `crop` and `sizing` are set | warns, ignores `sizing` | `image/crop-and-sizing-conflict` |
+| A `sizing: { type: 'crop' }` window reaches past the image | throws on write | `InvalidOptionError` `image/crop-window-overflows` |
+| A `crop` edge is outside 0 to 100 | throws on write | `InvalidOptionError` `image/crop-inset-out-of-range` |
+| `crop` `l` plus `r`, or `t` plus `b`, reaches 100 | throws on write | `InvalidOptionError` `image/crop-insets-exceed-extent` |
+| `biLevel.threshold` is outside 0 to 1 | warns, clamps it | `image/bilevel-threshold-out-of-range` |
+| `biLevel.threshold` is not a number | throws on write | `InvalidOptionError` `percent/non-finite` |
+
+## Limits
+
+- `clipPath` has one silhouette, `half-disc`.
+- A `clipPath` result fits one box size. Call it again for a different `w` or `h`.
+- `cover` and `contain` crop evenly around the center. There is no focal point.
+- An SVG given neither `w` nor `h` is placed at 1in by 1in.
+- `rectRadius` is a length in inches, resolved against the shorter side of the box.
+
+## Reading it back
+
+Open the deck with `Presentation` from `pptx-ts/read`. A picture reports its clip, crop and
+recolor:
+
+```ts
+import { readFile } from 'node:fs/promises'
+import { Presentation } from 'pptx-ts/read'
+
+const presentation = await Presentation.load(await readFile('avatar.pptx'))
+for (const shape of presentation.slides[0]?.shapes ?? []) {
+  if (shape.shapeType === 'picture') console.log(shape.presetGeometry, shape.crop, shape.recolor)
+}
+```
+
+| Accessor | Returns |
+| --- | --- |
+| `presetGeometry` | The preset clip, such as `'ellipse'`. `'rect'` for an unclipped picture, `null` for a freeform clip. |
+| `crop` | The source crop as fractions, `{ left, top, right, bottom }`, or `null` when there is none. |
+| `recolor` | The first effect on the image: `duotone`, `clrChange`, `grayscale`, `biLevel`, or `alphaModFix` for `transparency`. A picture with `transparency` reports `alphaModFix` ahead of its recolor. |
+| `setImage(bytes, { contentType, fit })` | Swaps the image. `fit: 'cover'`, `'contain'` or `'stretch'` recomputes the crop for the new image. |
+
+The read model has no accessor for a picture's freeform clip path. See
+[PPTX read and round-trip](reference/pptx-read.md) for the rest of the `Picture` API.
+
+## See also
+
+- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- [`ImageProps`](reference/api/index/type-aliases/ImageProps.md) and [`ImageBaseProps`](reference/api/index/interfaces/ImageBaseProps.md)
+- [`clipPath`](reference/api/index/functions/clipPath.md), [`ClipShape`](reference/api/index/type-aliases/ClipShape.md) and [`GeometryPoint`](reference/api/index/type-aliases/GeometryPoint.md)
+- [PPTX read and round-trip](reference/pptx-read.md)
