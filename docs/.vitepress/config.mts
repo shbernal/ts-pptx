@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitepress'
+import { mermaidFences } from '../../www/diagrams/fence'
 
 const configDir = path.dirname(fileURLToPath(import.meta.url))
 const docsDir = path.resolve(configDir, '..')
@@ -48,6 +49,10 @@ export default defineConfig({
 	cleanUrls: true,
 	description: docsConfig.description,
 	lang: 'en-US',
+	markdown: {
+		// `mermaid` fences render as diagrams, drawn in the browser by `www/diagrams/`.
+		config: mermaidFences,
+	},
 	srcExclude: docsConfig.repoOnly.map((dir) => `${dir}/**`),
 	title: docsConfig.name,
 	themeConfig: {

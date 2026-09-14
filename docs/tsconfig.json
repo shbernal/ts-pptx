@@ -2,6 +2,9 @@
 	"$schema": "https://json.schemastore.org/tsconfig",
 	"display": "ts-pptx site",
 	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"module": "ESNext",
@@ -26,5 +29,15 @@
 	// `.vue` files are not in it and cannot be: `tsc` does not read SFCs, and this repo
 	// carries no `vue-tsc`. That is the reason `www/demos/deck-preview.ts` exists — the
 	// component's logic is in a file this project does read.
-	"include": [".vitepress/**/*.ts", ".vitepress/**/*.mts", "../www/**/*.ts", "../www/**/*.d.ts"]
+	//
+	// One test belongs here rather than to `tsconfig.test.json`: it builds VitePress's markdown
+	// renderer from the site config, and VitePress's declarations only compile under the
+	// `skipLibCheck` above, which the test project does not take.
+	"include": [
+		".vitepress/**/*.ts",
+		".vitepress/**/*.mts",
+		"../www/**/*.ts",
+		"../www/**/*.d.ts",
+		"../test/regression/www/mermaid-fence.test.js"
+	]
 }

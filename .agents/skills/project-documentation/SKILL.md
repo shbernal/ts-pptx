@@ -71,6 +71,16 @@ to make a page feel complete.
 - A repository-only page links relatively to any page under `docs/`, which GitHub
   resolves. It never links a site route like `/reading/`, which GitHub does not.
 
+## Diagrams
+
+A fenced block whose language is `mermaid` renders as a diagram on the site
+(`www/diagrams/`), and GitHub renders the same fence, so repository-only pages can use
+one too. Mermaid loads only on pages that draw a diagram, and a diagram redraws in
+Mermaid's dark theme when the site switches colour mode.
+
+No gate parses a graph. A graph that does not parse shows its parse error in place of
+the diagram, so look at the page under `pnpm run docs:dev` before committing one.
+
 ## Generated Site Docs
 
 - `docs/docs.json` is the canonical navigation source for agents and VitePress.

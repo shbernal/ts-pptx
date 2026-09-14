@@ -35,6 +35,25 @@
 	--vp-home-hero-name-background: linear-gradient(120deg, #e9855c, #f3b48f);
 }
 
+/* --- mermaid diagrams ------------------------------------------------------------ */
+
+.mermaid-diagram {
+	margin: 16px 0;
+	overflow-x: auto;
+	text-align: center;
+}
+
+.mermaid-diagram__failure {
+	border-left: 3px solid var(--vp-c-brand-1);
+	padding-left: 0.75rem;
+	color: var(--vp-c-text-2);
+	/* Mermaid's parse errors point at a column with a caret on the line below. */
+	font-family: var(--vp-font-family-mono);
+	font-size: 0.8rem;
+	text-align: left;
+	white-space: pre-wrap;
+}
+
 /* --- the demos page ------------------------------------------------------------- */
 
 /*

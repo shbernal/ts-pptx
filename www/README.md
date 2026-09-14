@@ -13,8 +13,12 @@ a state machine in it.
 ```
 www/
   theme/
-    index.ts    the VitePress theme: extends the default, registers <DeckPreview />
-    style.css   the site's own palette and the demos page's styles
+    index.ts    the VitePress theme: extends the default, registers the components below
+    style.css   the site's own palette, diagram and demos page styles
+  diagrams/
+    fence.ts            turns a `mermaid` fence into <MermaidDiagram />, in the site config
+    render.ts           draws a graph to SVG, importing mermaid on first use
+    MermaidDiagram.vue  the component a fence becomes; redraws on a colour mode change
   demos/
     deck-preview.ts    the pipeline and its types — plain TS, typechecked, unit-tested
     DeckPreview.vue    the markup and the wiring around it
