@@ -140,8 +140,9 @@ function mergeFlag(cell, name) {
  * Schema validation cannot see any of it. Every covered cell has to resolve to an origin (up
  * through `vMerge`, then left through `hMerge`) whose extent reaches it, its flags have to match
  * where it sits in that extent, so an `hMerge` has its origin to the left and a `vMerge` above,
- * and any span it repeats has to agree with the origin's. This library's writer repeats spans on
- * covered cells and `mergeCells` does not, so both forms pass and neither is required.
+ * and any span it repeats has to agree with the origin's. PowerPoint, this library's writer and
+ * `mergeCells` repeat spans on covered cells, another producer may not, so both forms pass and
+ * neither is required.
  */
 function assertGridConsistent(table) {
 	const colCount = table.columnCount
@@ -203,10 +204,26 @@ function writerMergedTable(p) {
 	)
 }
 
-/** The two forms a 2x2 merge at the top-left of a 3x3 table reaches an edit in. */
+/**
+ * A writer merge with the spans taken off its covered cells: the form a producer that does not
+ * repeat them writes. Nothing in this library writes it any more, and an edit still has to take it.
+ */
+function stripCoveredSpans(table) {
+	for (const row of table.rows) {
+		for (const cell of row.cells) {
+			if (!cell.isMergeContinuation) continue
+			cell.element_.removeAttribute('gridSpan')
+			cell.element_.removeAttribute('rowSpan')
+			cell.markDirty()
+		}
+	}
+}
+
+/** The forms a 2x2 merge at the top-left of a 3x3 table reaches an edit in. */
 const MERGE_FORMS = [
 	{ form: 'the writer', build: writerMergedTable, merge: () => {} },
 	{ form: 'mergeCells', build: plainTable, merge: (table) => table.mergeCells(0, 0, 1, 1) },
+	{ form: 'a producer that repeats no spans', build: writerMergedTable, merge: stripCoveredSpans },
 ]
 
 /** Every structural edit, at every position relative to the merge. */

@@ -49,6 +49,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `slide-background.pptx` | Microsoft Office PowerPoint   | 16.0000    | 3      |
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `shape-line-style-override.pptx` | Microsoft Office PowerPoint | 16.0000 | 1   |
+| `table-merge-encoding.pptx` | Microsoft Office PowerPoint | 16.0000    | 5      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
@@ -186,6 +187,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 cc17c7b216445435c30addbdf5c1aa042e10a22ccd46f9e71fc5d41efc9578c0  slide-background.pptx
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 500d082451a2b1bbed9db2b0646b1542cb8512660359f6412a1cedb1d11a011b  shape-line-style-override.pptx
+c2756f8f042c92c8a05236e4c426846f4d344c07d51f54665983b786e27a9132  table-merge-encoding.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
@@ -543,6 +545,20 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   colour when the own line states no fill, and for the preserve import merging the style line into
   an own `a:ln` rather than skipping it. Authored via PowerPoint COM on Windows (2026-09-14,
   `authoring/author-shape-line-style-override.ps1`).
+- `table-merge-encoding.pptx` — five slides with one table each, read by
+  `table-merge-encoding.test.js`, pinning the span attributes PowerPoint writes on the covered
+  cells of a merged region. Slide 1 (`merge-2x2`) is a 3x3 table with cells (1,1)-(2,2) merged:
+  the origin is `rowSpan="2" gridSpan="2"`, the covered cell in the region's first row
+  `rowSpan="2" hMerge="1"`, the one in its first column `gridSpan="2" vMerge="1"`, and the inner
+  one `hMerge="1" vMerge="1"`. Slide 2 (`merge-inserted`) is the same merge after `Rows.Add(2)`
+  and `Columns.Add(2)` through it: a 3x3 region whose covered cells repeat spans of 3 in the same
+  pattern. Slide 3 (`merge-deleted`) is a 3x3 merge in a 4x4 table after `Rows(2).Delete()` and
+  `Columns(2).Delete()`, which leaves slide 1's pattern. Slides 4 (`merge-1x2`) and 5
+  (`merge-2x1`) merge along one axis only, and their covered cells carry a bare `hMerge="1"` or
+  `vMerge="1"`, since the repeated span would be 1. A merge also moves the text of each covered
+  cell into the origin as its own paragraph, in row-major order, and leaves the covered cells
+  empty. Authored via PowerPoint COM on Windows (2026-09-14,
+  `authoring/author-table-merge-encoding.ps1`).
 - `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
   (2018) `p188` comment schema**, read by `modern-comments.test.js`
   (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
@@ -1176,6 +1192,7 @@ fixtures opened clean with no repair prompt:
 - [x] `slide-transition-sound.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `import-animation-merge.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `shape-line-style-override.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
+- [x] `table-merge-encoding.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

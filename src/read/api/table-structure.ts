@@ -18,9 +18,11 @@
  * 3. A covered cell's own span attributes, where it has any, agree with its origin's.
  *
  * The third is looser than it could be because a merge reaches this module in two forms.
- * {@link mergeCells} leaves covered cells without span attributes, while this library's writer
- * repeats them: the covered cells of a region's first row carry its `@rowSpan`, and those of its
- * first column its `@gridSpan`. A table in either form has to take every edit, so no edit reads
+ * PowerPoint repeats the spans on covered cells: the covered cells of a region's first row carry
+ * its `@rowSpan`, and those of its first column its `@gridSpan`, and inserting or deleting a row
+ * or column through the region rewrites them (`test/read/fixtures/table-merge-encoding.pptx`).
+ * This library's writer and {@link mergeCells} write that form too, but another producer may
+ * leave covered cells without span attributes. A table in either form has to take every edit, so no edit reads
  * a span off a covered cell. {@link regionAt} resolves a cell to its region's origin and the
  * spans come from there, and an edit that changes a region's extent rewrites the spans its
  * covered cells already carry, so the region stays in the form it was written in.
@@ -376,8 +378,8 @@ export function removeColumn(tbl: Element, index: number): void {
  * Merge the rectangle `(row1, col1)`–`(row2, col2)` into one cell.
  *
  * The top-left cell becomes the origin and keeps its content; every other cell in the
- * rectangle becomes a covered cell — flagged, stripped of its own span attributes, and
- * emptied, since a covered cell is never rendered.
+ * rectangle becomes a covered cell — flagged, given the spans PowerPoint repeats on a
+ * region's first row and column, and emptied, since a covered cell is never rendered.
  *
  * A rectangle whose boundary **cuts through** an existing merge is rejected rather than
  * silently widened. Widening would be the friendlier-looking choice and the wrong one: the
@@ -436,6 +438,10 @@ export function mergeCells(tbl: Element, row1: number, col1: number, row2: numbe
 			if (!tc) continue
 			removeAttr(tc, 'gridSpan')
 			removeAttr(tc, 'rowSpan')
+			// What PowerPoint writes: the region's row span on the covered cells of its first row,
+			// its column span on those of its first column, and neither on the cells inside.
+			if (r === r1) setSpan(tc, 'rowSpan', r2 - r1 + 1)
+			if (c === c1) setSpan(tc, 'gridSpan', c2 - c1 + 1)
 			if (c > c1) setAttr(tc, 'hMerge', '1')
 			else removeAttr(tc, 'hMerge')
 			if (r > r1) setAttr(tc, 'vMerge', '1')

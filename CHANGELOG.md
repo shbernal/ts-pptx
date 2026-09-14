@@ -1001,6 +1001,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`Table.mergeCells` writes a merge the way PowerPoint does.**
+  - PowerPoint repeats a merged region's spans on its covered cells: those in the region's first
+    row carry its `rowSpan`, and those in its first column its `gridSpan`. `mergeCells` stripped
+    them, so a merge made through the read path came out in a form PowerPoint never writes, unlike
+    one made by PowerPoint or by the writer. It now writes the same attributes.
+  - `addRow`, `addColumn`, `removeRow` and `removeColumn` already kept a region in whichever form
+    they found it. They are now also checked against PowerPoint's own result of inserting and
+    deleting a row and a column through a merge.
+  - The ground truth is the new `table-merge-encoding.pptx` fixture, authored in desktop
+    PowerPoint.
+
 - **An outline that changes only its weight or dash keeps its shape style's colour.**
   - Changing one property of a styled shape's outline in PowerPoint writes an `a:ln` that states
     only that property, such as `<a:ln w="76200"/>`, beside the untouched `p:style/a:lnRef`, and
