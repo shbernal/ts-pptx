@@ -23,6 +23,7 @@ import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection, solidPaint } from './fill.js'
 import { setOrClear } from '../../options-internal.js'
 import { validateHyperlink } from '../define/hyperlinks.js'
+import { buAutoNumEl, buCharEl } from './bullet.js'
 import { InternalError } from '../../errors.js'
 import { inch2Emu, lineWidthToEmu, mapStated, percentToFixedPercent, ptsToEmuLenient } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
@@ -42,16 +43,6 @@ import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
 
 /** The 2018 hyperlink-color extension namespace, written on the `<ahyp:hlinkClr>` element itself. */
 const AHYP_NS = 'http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor'
-
-/**
- * `<a:buChar>` cannot go through the element builder. Its `char` attribute carries a *pre-escaped*
- * numeric character reference (`&#x2022;` — see `BulletType`), and the builder escapes every
- * attribute value, which would emit `&amp;#x2022;` and render that text literally as the bullet.
- * There is no raw-attribute escape hatch, so this one stays a template.
- */
-function buChar(char: string): string {
-	return `<a:buChar char="${char}"/>`
-}
 
 /**
  * `<a:extLst>` marking a hyperlink whose color should follow the text color rather than the
@@ -309,31 +300,16 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 						'bullet/image-embed-failed',
 						'picture `bullet.image` could not be embedded; using a default bullet glyph'
 					)
-					strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
+					strXmlBullet = strXmlBulletSize + strXmlBulletFont + buCharEl(undefined, BulletType.DEFAULT, 'bullet')
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
 				strXmlBullet =
 					strXmlBulletSize +
 					(strXmlBulletFont || voidEl('a:buFont', { typeface: '+mj-lt' })) +
-					voidEl('a:buAutoNum', {
-						type: opts.bullet.numberType || 'arabicPeriod',
-						startAt: opts.bullet.numberStartAt || '1',
-					})
-			} else if (opts.bullet.characterCode) {
-				let bulletCode = `&#x${opts.bullet.characterCode};`
-
-				// Check value for hex-ness (s/b 4 char hex)
-				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
-					warn(
-						'bullet/invalid-character-code',
-						'`bullet.characterCode` should be a 4-digit unicode character (ex: 22AB)!'
-					)
-					bulletCode = BulletType.DEFAULT
-				}
-
-				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(bulletCode)
+					buAutoNumEl(opts.bullet.numberType || 'arabicPeriod', opts.bullet.numberStartAt || 1, 'bullet')
 			} else {
-				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
+				strXmlBullet =
+					strXmlBulletSize + strXmlBulletFont + buCharEl(opts.bullet.characterCode, BulletType.DEFAULT, 'bullet')
 			}
 		} else if (opts.bullet === 'inherit') {
 			// The paragraph states NOTHING about its bullet: no `a:buChar`/`a:buAutoNum`, no
@@ -353,7 +329,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			// to 100% of the body size in defiance of the master's list style. Same reasoning as
 			// the `a:buNone` note just below, and it keeps `bullet: true` byte-identical to
 			// `bullet: { type: 'bullet' }`, which the object branch above now also leaves out.
-			strXmlBullet = buChar(BulletType.DEFAULT)
+			strXmlBullet = buCharEl(undefined, BulletType.DEFAULT, 'bullet')
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
 			// FIX: specify zero indent and marL or default will be hanging paragraph

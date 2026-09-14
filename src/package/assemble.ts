@@ -21,6 +21,7 @@ import { getNewRelId } from '../gen/utils.js'
 import { pushMediaRel } from '../gen/define/image-rel.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
+import { TRANSITION_TYPES } from '../ooxml/st-enums.js'
 import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from '../gen/prepare.js'
 import { makeXmlApp } from '../gen/opc/app.js'
 import { makeXmlContTypes } from '../gen/opc/content-types.js'
@@ -146,7 +147,10 @@ const registeredTransitionSounds = new WeakMap<PresSlideInternal, RegisteredTran
 function registerTransitionSounds(slides: PresSlideInternal[]): Map<PresSlideInternal, number> {
 	const soundRIds = new Map<PresSlideInternal, number>()
 	slides.forEach((slide) => {
-		const sound = slide.transition?.sound
+		const transition = slide.transition
+		// A transition the emitter will not write has no sound action to register a part for.
+		if (!transition || !(TRANSITION_TYPES as readonly string[]).includes(transition.type)) return
+		const sound = transition.sound
 		if (!sound || sound.stopPrevious) return
 		if (!sound.data && !sound.path) return
 

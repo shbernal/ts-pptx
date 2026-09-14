@@ -893,6 +893,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A caller's bullet code, revision, first slide number or transition could write a part that
+  does not parse or does not validate.**
+  - A slide master text style's bullet `characterCode` went into `<a:buChar char>` raw, so
+    `'ZZ"/><x'` wrote a master that does not parse. It is checked the way a slide bullet's already
+    was: a code that is not four hex digits warns `bullet/invalid-character-code` and uses the
+    default bullet. Both bullet emitters now build `a:buChar` and `a:buAutoNum` in one place. A
+    `numberStartAt` outside `ST_TextBulletStartAtNum`'s 1 to 32767 clamps with the new warning
+    `bullet/start-at-out-of-range`, where a slide bullet wrote it as given.
+  - `pptx.revision` went into `core.xml` unescaped. It is escaped now, and a revision that is not
+    a whole number warns `core/revision-not-a-whole-number` and writes `1`.
+  - `pptx.firstSlideNum = NaN` wrote `firstSlideNum="NaN"`. The setter now throws
+    `presentation/first-slide-num-not-an-integer` for anything but an integer.
+    **Migration:** set a whole number.
+  - A transition's `type` became the element's name and each `variant` key an attribute name,
+    neither checked. An unknown type now warns `transition/unknown-type` and the slide is
+    written without a transition. A variant key the element does not declare, such as `bogus` on
+    a `wipe` that takes only `dir`, warns `transition/unknown-variant` and is left out.
+    `TransitionType` is derived from the same list the emitter checks.
+
 - **Writing a deck wrote into the caller's notes runs, transitions and table runs, and a second
   write or a shared object then broke their links.**
   - A notes hyperlink's relationship id was stamped on the caller's hyperlink object, and the

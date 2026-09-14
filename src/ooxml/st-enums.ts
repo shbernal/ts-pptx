@@ -33,6 +33,65 @@
  */
 
 /**
+ * The base slide transitions: the `p:` type elements of `CT_SlideTransition`'s choice, in its
+ * declaration order. The writer emits the type as `<p:TYPE/>`, so this is also the list a type is
+ * checked against before it becomes an element name, and the list the script converter uses to
+ * decide which read transitions the write API can express. PowerPoint's modern transitions live in
+ * other namespaces and are not here.
+ */
+export const TRANSITION_TYPES = [
+	'blinds',
+	'checker',
+	'circle',
+	'dissolve',
+	'comb',
+	'cover',
+	'cut',
+	'diamond',
+	'fade',
+	'newsflash',
+	'plus',
+	'pull',
+	'push',
+	'random',
+	'randomBar',
+	'split',
+	'strips',
+	'wedge',
+	'wheel',
+	'wipe',
+	'zoom',
+] as const
+
+/**
+ * The attributes each of {@link TRANSITION_TYPES} declares, which is every key a transition's
+ * `variant` can write. Seven are `CT_Empty` and take none.
+ */
+export const TRANSITION_VARIANT_ATTRIBUTES: Readonly<Record<(typeof TRANSITION_TYPES)[number], readonly string[]>> = {
+	blinds: ['dir'],
+	checker: ['dir'],
+	circle: [],
+	dissolve: [],
+	comb: ['dir'],
+	cover: ['dir'],
+	cut: ['thruBlk'],
+	diamond: [],
+	fade: ['thruBlk'],
+	newsflash: [],
+	plus: [],
+	pull: ['dir'],
+	push: ['dir'],
+	random: [],
+	randomBar: ['dir'],
+	split: ['orient', 'dir'],
+	strips: ['dir'],
+	wedge: [],
+	wheel: ['spokes'],
+	wipe: ['dir'],
+	zoom: ['dir'],
+}
+
+/**
  * `ST_BevelPresetType` — the bevel profile applied to a 3-D edge.
  * @see ECMA-376 Part 1 §20.1.10.9
  */

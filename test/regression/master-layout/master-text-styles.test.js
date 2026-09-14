@@ -1,5 +1,6 @@
 import {
 	setDiagnosticHandler,
+	captureDiagnostics,
 	defineRegressionSuite,
 	build,
 	readEntry,
@@ -103,6 +104,52 @@ defineRegressionSuite('Master text styles', [
 			const lvl1 = xml.slice(xml.indexOf('<a:lvl1pPr marL="342900"'), xml.indexOf('<a:lvl2pPr'))
 			assertIncludes(lvl1, '<a:buNone/>', 'lvl1 bullet suppressed')
 			assertNotIncludes(lvl1, '<a:buChar', 'lvl1 has no buChar')
+		},
+	},
+	{
+		// The slide bullet checked its `characterCode`; the master put it into the attribute raw, so a
+		// quote in it ended `char` early and wrote markup into the master.
+		name: 'a bullet characterCode that is not four hex digits warns and uses the default bullet',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({
+						title: 'HOSTILE_MASTER',
+						textStyles: { body: [{ bullet: { characterCode: 'ZZ"/><x' } }] },
+					})
+					p.addSlide({ masterTitle: 'HOSTILE_MASTER' })
+				})
+				return masterXml(zip)
+			})
+			const lvl1 = xml.slice(xml.indexOf('<a:lvl1pPr marL="342900"'), xml.indexOf('<a:lvl2pPr'))
+			assertIncludes(lvl1, '<a:buChar char="&#x2022;"/>', 'lvl1 falls back to the default bullet')
+			assertNotIncludes(xml, 'ZZ', 'the code never reaches the part')
+			assert(codes.includes('bullet/invalid-character-code'), `the caller is told; got ${JSON.stringify(codes)}`)
+		},
+	},
+	{
+		name: 'a numbered level starts at a whole number from 1 to 32767',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({
+						title: 'NUMBERED_MASTER',
+						textStyles: {
+							body: [
+								{ bullet: { type: 'number', numberStartAt: -5 } },
+								{ bullet: { type: 'number', numberStartAt: 2.4, numberType: 'romanUcPeriod' } },
+								{ bullet: { type: 'number' } },
+							],
+						},
+					})
+					p.addSlide({ masterTitle: 'NUMBERED_MASTER' })
+				})
+				return masterXml(zip)
+			})
+			assertIncludes(xml, '<a:buAutoNum type="arabicPeriod" startAt="1"/>', 'a negative start clamps to 1')
+			assertIncludes(xml, '<a:buAutoNum type="romanUcPeriod" startAt="2"/>', 'a fractional start rounds')
+			assertIncludes(xml, '<a:buAutoNum type="arabicPeriod"/>', 'an unstated start is left out')
+			assert(codes.includes('bullet/start-at-out-of-range'), `the clamp is reported; got ${JSON.stringify(codes)}`)
 		},
 	},
 	{

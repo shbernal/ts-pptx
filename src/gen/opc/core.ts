@@ -8,6 +8,7 @@
 import { XML_DECL } from '../../constants-internal.js'
 import { el, raw } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { warn } from '../../diagnostics.js'
 
 /** Each property sits on its own indented line; the parent supplies the closing indent. */
 const PROP = { openPrefix: '\n\t\t' }
@@ -37,6 +38,20 @@ export function coreTimestamp(): string {
 }
 
 /**
+ * `cp:revision` as it is written: a whole number, the only form PowerPoint opens.
+ *
+ * Anything else warns and writes `1`, the revision a new deck starts at.
+ */
+function coreRevision(revision: string): string {
+	if (/^\d+$/.test(revision)) return revision
+	warn(
+		'core/revision-not-a-whole-number',
+		`revision ${JSON.stringify(revision)} is not a whole number, which PowerPoint cannot open; writing 1`
+	)
+	return '1'
+}
+
+/**
  * Creates `docProps/core.xml`
  * @param {string} title - metadata data
  * @param {string} subject - metadata data
@@ -58,8 +73,10 @@ export function makeXmlCore(title: string, subject: string, author: string, revi
 				raw(el('dc:subject', null, subject, PROP)),
 				raw(el('dc:creator', null, author, PROP)),
 				raw(el('cp:lastModifiedBy', null, author, PROP)),
-				// `revision` is interpolated unescaped today; raw() preserves that.
-				raw(el('cp:revision', null, raw(revision), PROP)),
+				// Escaped like every other property. It went in raw on the strength of the setter's note
+				// that a revision is a whole number, which nothing enforced, so a `<` or `&` in one wrote a
+				// `core.xml` that does not parse.
+				raw(el('cp:revision', null, coreRevision(revision), PROP)),
 				raw(el('dcterms:created', dcterms, raw(now), PROP)),
 				raw(el('dcterms:modified', dcterms, raw(now), PROP)),
 			],

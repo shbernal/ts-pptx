@@ -23,7 +23,7 @@
  */
 import type { Slide } from '../../read/api/slide.js'
 import type { TransitionInfo } from '../../read/api/transition.js'
-import type { TransitionType } from '../../types/animation.js'
+import { TRANSITION_TYPES } from '../../ooxml/st-enums.js'
 import type { NoteScope } from '../fidelity.js'
 import type { TransitionIr, TransitionSoundIr } from '../ir.js'
 import type { AssetResolver, MapContext } from './context.js'
@@ -31,35 +31,12 @@ import type { AssetResolver, MapContext } from './context.js'
 /**
  * The transitions the write API can author, as a lookup.
  *
- * Spelled as a `Record` keyed by `TransitionType` rather than as an array of strings so the
- * compiler polices it in *both* directions: a name the union does not have is rejected here,
- * and a name the union gains without being added here fails to satisfy the record. A plain
- * `Set<string>` would silently drift out of date, and the symptom would be a printed script
- * that does not compile — found by whoever runs it, not by this repository's test suite.
+ * Built from the tuple the write API's `TransitionType` is derived from and its emitter validates
+ * against, so the three cannot disagree. A list kept here by hand would drift out of date the
+ * moment the writer gained a name, and the symptom would be a printed script that does not compile
+ * or a transition dropped with a note it did not deserve.
  */
-const WRITABLE_TYPES: Record<TransitionType, true> = {
-	blinds: true,
-	checker: true,
-	circle: true,
-	comb: true,
-	cover: true,
-	cut: true,
-	diamond: true,
-	dissolve: true,
-	fade: true,
-	newsflash: true,
-	plus: true,
-	pull: true,
-	push: true,
-	random: true,
-	randomBar: true,
-	split: true,
-	strips: true,
-	wedge: true,
-	wheel: true,
-	wipe: true,
-	zoom: true,
-}
+const WRITABLE_TYPES: ReadonlySet<string> = new Set(TRANSITION_TYPES)
 
 /**
  * `true` when the write API has a name for this transition.
@@ -75,7 +52,7 @@ const WRITABLE_TYPES: Record<TransitionType, true> = {
  * authors a `p14:fade` to keep this branch honest, since no fixture can.
  */
 function isWritable(info: TransitionInfo): boolean {
-	return info.namespace === 'p' && Object.hasOwn(WRITABLE_TYPES, info.type)
+	return info.namespace === 'p' && WRITABLE_TYPES.has(info.type)
 }
 
 /**

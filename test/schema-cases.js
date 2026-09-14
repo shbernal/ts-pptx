@@ -4568,6 +4568,27 @@ export default [
 		},
 	},
 	{
+		// Caller strings that used to become markup, each now refused or dropped to a legal fallback. The
+		// fallbacks have to be legal too: a default bullet, a clamped start, revision 1, a transition
+		// without its unknown attribute, and a slide without a transition it cannot name.
+		name: 'bullet codes, bullet starts, revision and transitions a caller gets wrong still validate',
+		fn: async () => {
+			const pptx = new TsPptx()
+			pptx.revision = 'a<b&c'
+			pptx.defineSlideMaster({
+				title: 'GUARDED',
+				textStyles: {
+					body: [{ bullet: { characterCode: 'ZZ"/><x' } }, { bullet: { type: 'number', numberStartAt: 40000 } }],
+				},
+			})
+			const first = pptx.addSlide({ masterTitle: 'GUARDED' })
+			first.addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { type: 'number', numberStartAt: -5 } })
+			first.transition = { type: 'split', variant: { orient: 'vert', dir: 'in', bogus: 'x' } }
+			pptx.addSlide().transition = /** @type {any} */ ({ type: 'bogus x="1' })
+			await expectNoSchemaErrors(Buffer.from(await pptx.toBytes()), 'caller-strings-guarded')
+		},
+	},
+	{
 		// Axis units are per axis TYPE, not per axis: `CT_CatAx` and `CT_SerAx` have no slot for
 		// `majorUnit`/`minorUnit` at all, `CT_ValAx` has the numeric pair, and `CT_DateAx` has all
 		// five interleaved. Setting every unit option on a 3-D bar chart puts all three axes in

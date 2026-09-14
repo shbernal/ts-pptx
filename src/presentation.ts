@@ -174,14 +174,14 @@ export default class PresentationCore {
 		return this._version
 	}
 
-	// The eight pass-through pairs below (`author`, `company`, `revision`, `subject`, `theme`,
-	// `title`, `firstSlideNum`, `rtlMode`) are a private field, a getter that returns it and a
-	// setter that assigns it, and nothing else. They are kept as accessors rather than collapsed
-	// into public fields on purpose: `layout`, which sits in the same block and reads like them,
-	// is NOT a pass-through -- it resolves a name against `LAYOUTS` and throws on one that names
-	// nothing. Any of these eight could need the same treatment, and behind an accessor that is an
-	// implementation change rather than a change to the public shape. A clone detector will pair
-	// them again; this is the answer.
+	// The seven pass-through pairs below (`author`, `company`, `revision`, `subject`, `theme`,
+	// `title`, `rtlMode`) are a private field, a getter that returns it and a setter that assigns
+	// it, and nothing else. They are kept as accessors rather than collapsed into public fields on
+	// purpose: `layout`, which sits in the same block and reads like them, is NOT a pass-through --
+	// it resolves a name against `LAYOUTS` and throws on one that names nothing. `firstSlideNum`
+	// needed the same treatment once it refused a value that is not an integer, and behind an
+	// accessor that was an implementation change rather than a change to the public shape. A clone
+	// detector will pair the rest again; this is the answer.
 	/**
 	 * @type {string}
 	 */
@@ -255,9 +255,17 @@ export default class PresentationCore {
 		return this._title
 	}
 
-	/** Slide number shown on the first slide (maps to firstSlideNum in presentation.xml) */
+	/**
+	 * Slide number shown on the first slide (maps to firstSlideNum in presentation.xml)
+	 * @throws {InvalidOptionError} when the value is not an integer `xsd:int` can hold
+	 */
 	private _firstSlideNum: number
 	public set firstSlideNum(value: number) {
+		if (!Number.isInteger(value) || value < -2147483648 || value > 2147483647)
+			throw new InvalidOptionError(
+				'presentation/first-slide-num-not-an-integer',
+				`firstSlideNum must be an integer, got ${String(value)}`
+			)
 		this._firstSlideNum = value
 	}
 

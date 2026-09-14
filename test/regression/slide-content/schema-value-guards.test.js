@@ -224,4 +224,80 @@ defineRegressionSuite('Schema value guards', [
 			assert(codes.includes('chart/invalid-option-value'), 'and the caller is told; got ' + JSON.stringify(codes))
 		},
 	},
+	{
+		// `ST_TextBulletStartAtNum` is 1..32767. A slide numbered bullet wrote `numberStartAt` as given.
+		name: 'a slide numbered bullet starts at a whole number from 1 to 32767',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { type: 'number', numberStartAt: -5 } })
+				})
+				return readEntry(zip, SLIDE_XML)
+			})
+			assert(xml.includes('<a:buAutoNum type="arabicPeriod" startAt="1"/>'), `the start clamps to 1; got: ${xml}`)
+			assert(codes.includes('bullet/start-at-out-of-range'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		// `cp:revision` went into core.xml unescaped, so a `<` or `&` wrote a part that does not parse.
+		name: 'a revision that is not a whole number is not written into core.xml',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.revision = 'a<b&c'
+					p.addSlide()
+				})
+				return readEntry(zip, 'docProps/core.xml')
+			})
+			assert(xml.includes('<cp:revision>1</cp:revision>'), `it writes 1; got: ${xml}`)
+			assert(!xml.includes('a<b'), `the value never reaches the part; got: ${xml}`)
+			assert(codes.includes('core/revision-not-a-whole-number'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'firstSlideNum refuses a value that is not an integer',
+		fn: async () => {
+			for (const value of [NaN, 1.5, Infinity]) {
+				let code = null
+				try {
+					await build((p) => {
+						p.firstSlideNum = value
+					})
+				} catch (err) {
+					code = err?.code ?? null
+				}
+				assert(code === 'presentation/first-slide-num-not-an-integer', `${value} is refused; got ${code}`)
+			}
+		},
+	},
+	{
+		// The type became the element's name, so an unknown one wrote an element the schema does not have
+		// and, with a quote in it, markup.
+		name: 'a transition type the writer does not know is not written',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().transition = /** @type {any} */ ({ type: 'bogus x="1', variant: { dir: 'u' } })
+				})
+				return readEntry(zip, SLIDE_XML)
+			})
+			assert(!xml.includes('<p:transition'), `the slide has no transition; got: ${xml}`)
+			assert(!xml.includes('bogus'), `and the type never reaches the part; got: ${xml}`)
+			assert(codes.includes('transition/unknown-type'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
+	{
+		// Each `variant` key became an attribute name, unchecked.
+		name: 'a transition variant key its element does not declare is left out',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.addSlide().transition = { type: 'wipe', variant: { dir: 'u', 'b="c': 'x', spokes: '3' } }
+				})
+				return readEntry(zip, SLIDE_XML)
+			})
+			assert(xml.includes('<p:wipe dir="u"/>'), `only the declared attribute is written; got: ${xml}`)
+			assert(codes.includes('transition/unknown-variant'), 'and the caller is told; got ' + JSON.stringify(codes))
+		},
+	},
 ])

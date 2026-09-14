@@ -4,6 +4,8 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 
+import type { TRANSITION_TYPES } from '../ooxml/st-enums.js'
+
 /**
  * Base ECMA-376 slide-transition type (`p:transition`'s single type child). Each
  * maps to a `<p:TYPE/>` element; type-specific variants (e.g. direction) go in
@@ -11,28 +13,7 @@
  * Vortex, …) live in the `p14`/`p15`/`p159` namespaces and are out of authoring
  * scope for now. See `docs/animations-and-transitions.md`.
  */
-export type TransitionType =
-	| 'blinds'
-	| 'checker'
-	| 'circle'
-	| 'comb'
-	| 'cover'
-	| 'cut'
-	| 'diamond'
-	| 'dissolve'
-	| 'fade'
-	| 'newsflash'
-	| 'plus'
-	| 'pull'
-	| 'push'
-	| 'random'
-	| 'randomBar'
-	| 'split'
-	| 'strips'
-	| 'wedge'
-	| 'wheel'
-	| 'wipe'
-	| 'zoom'
+export type TransitionType = (typeof TRANSITION_TYPES)[number]
 
 /**
  * Slide-show transition applied between slides (`p:transition`). Assign to

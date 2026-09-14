@@ -114,6 +114,10 @@ export type DiagnosticCode =
 	| 'bullet/image-missing-base64-header'
 	| 'bullet/image-embed-failed'
 	| 'bullet/invalid-character-code'
+	| 'bullet/start-at-out-of-range'
+	// Transitions
+	| 'transition/unknown-type'
+	| 'transition/unknown-variant'
 	// Zooms
 	| 'zoom/missing-target'
 	| 'zoom/unresolved-target'
@@ -161,6 +165,7 @@ export type DiagnosticCode =
 	| 'slide/section-not-found'
 	| 'slide/removed-link-target'
 	| 'layout/invalid-definition'
+	| 'core/revision-not-a-whole-number'
 	// SmartArt
 	| 'diagram/drawing-cache-not-updated'
 	| 'diagram/point-has-no-text-body'
@@ -193,6 +198,8 @@ export type InvalidOptionErrorCode =
 	| 'coord/not-positive'
 	| 'coord/invalid-format'
 	| 'coord/out-of-range'
+	| 'bullet/start-at-not-a-number'
+	| 'presentation/first-slide-num-not-an-integer'
 	// Geometry
 	| 'geometry/arc-angle-non-finite'
 	| 'shadow/angle-non-finite'

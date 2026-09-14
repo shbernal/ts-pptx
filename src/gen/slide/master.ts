@@ -11,6 +11,7 @@ import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } fr
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement, rejectEmptyColor } from '../drawingml/color.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
+import { buAutoNumEl, buCharEl } from '../drawingml/bullet.js'
 import { clampFontSizeSz, clampParaIndentInchesEmu, clampParaMarginInchesEmu } from '../drawingml/clamp.js'
 import { HUNDREDTHS_PER_POINT } from '../../units.js'
 import { warn } from '../../diagnostics.js'
@@ -160,24 +161,22 @@ function masterBulletXml(
 	if (bulletOverride && typeof bulletOverride === 'object') {
 		const font = bulletOverride.fontFace ? voidEl('a:buFont', { typeface: bulletOverride.fontFace }) : ''
 		if (bulletOverride.type === 'number') {
-			const type = bulletOverride.numberType || 'arabicPeriod'
-			const startAt = typeof bulletOverride.numberStartAt === 'number' ? Math.round(bulletOverride.numberStartAt) : null
-			return font + voidEl('a:buAutoNum', { type, startAt })
+			const startAt = typeof bulletOverride.numberStartAt === 'number' ? bulletOverride.numberStartAt : undefined
+			return font + buAutoNumEl(bulletOverride.numberType || 'arabicPeriod', startAt, 'master textStyles bullet')
 		}
-		// character bullet (default). NOTE: `char` is a pre-escaped numeric char ref (e.g.
-		// `&#x25AA;` from `characterCode`) — the same quirk `<a:buChar>` carries in text-run.ts.
-		// The builder would double-escape the `&`, so this one attribute stays a raw template;
-		// see text-run.ts's `<a:buChar>` note for the fuller rationale.
-		const char = bulletOverride.characterCode ? `&#x${bulletOverride.characterCode};` : '•'
+		// character bullet (default)
 		const buFont = bulletOverride.fontFace
 			? font
 			: voidEl('a:buFont', { typeface: 'Arial', pitchFamily: 34, charset: 0 })
-		return `${buFont}<a:buChar char="${char}"/>`
+		return buFont + buCharEl(bulletOverride.characterCode, '•', 'master textStyles bullet')
 	}
 	// No override (undefined / true): keep the level's default bullet
 	if (base === 'none') return voidEl('a:buNone')
 	if (base && typeof base === 'object')
-		return voidEl('a:buFont', { typeface: base.font, pitchFamily: 34, charset: 0 }) + `<a:buChar char="${base.char}"/>`
+		return (
+			voidEl('a:buFont', { typeface: base.font, pitchFamily: 34, charset: 0 }) +
+			buCharEl(undefined, base.char, 'master textStyles bullet')
+		)
 	return '' // otherStyle: no bullet element by default
 }
 
