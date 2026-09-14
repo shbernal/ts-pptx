@@ -509,6 +509,8 @@ function sectionCoverageSummary(snapshot) {
 	const lines = [
 		'## Construct coverage',
 		'',
+		'<CoverageMatrix />',
+		'',
 		...para(`Of ${total} intents, ts-pptx emits ${counts[0]} and pptxgenjs emits ${counts[1]}.`),
 		...para(both.length > 0 ? `Emitted by both: ${labels(both)}.` : 'No intent is emitted by both libraries.'),
 		...para(
@@ -553,6 +555,7 @@ function sectionValiditySummary(snapshot) {
 	const oracle = snapshot.validity?.oracle
 	const lines = ['## Schema validity', '']
 	if (!oracle || isUnavailable(oracle)) return [...lines, ...para('Not measured when this snapshot was written.')]
+	lines.push('<ValidityBars />', '')
 	const total = snapshot.coverage.length
 
 	for (const subject of COLUMNS) {
@@ -664,7 +667,7 @@ function sectionTimingSummary(snapshot) {
 	const timing = snapshot.timing
 	if (!timing?.cases?.length) return []
 	const flip = modeDeltas(timing)
-	const lines = ['## Generation time', '']
+	const lines = ['## Generation time', '', '<TimingRatio />', '']
 	if (flip)
 		lines.push(
 			...para(

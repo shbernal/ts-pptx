@@ -3,7 +3,7 @@
  *
  * It extends the default theme rather than replacing it: the docs are the bulk of the
  * site, and the default layout is what makes them navigable. What is added here is a
- * palette (`style.css`) and two components.
+ * palette (`style.css`) and a handful of components.
  *
  * `<DeckPreview />` is registered **asynchronously** on purpose. It pulls in two copies of
  * the library and the whole of `pptx-html`; a synchronous import would put all of that in
@@ -31,5 +31,18 @@ export default {
 			defineAsyncComponent(() => import('../demos/DeckPreview.vue'))
 		)
 		app.component(MERMAID_COMPONENT, MermaidDiagram)
+		// The comparison charts, asynchronous for the reason `<DeckPreview />` is: one page draws them.
+		app.component(
+			'CoverageMatrix',
+			defineAsyncComponent(() => import('../comparison/CoverageMatrix.vue'))
+		)
+		app.component(
+			'ValidityBars',
+			defineAsyncComponent(() => import('../comparison/ValidityBars.vue'))
+		)
+		app.component(
+			'TimingRatio',
+			defineAsyncComponent(() => import('../comparison/TimingRatio.vue'))
+		)
 	},
 } satisfies Theme

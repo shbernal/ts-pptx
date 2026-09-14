@@ -15,6 +15,10 @@ www/
   theme/
     index.ts    the VitePress theme: extends the default, registers the components below
     style.css   the site's own palette, diagram and demos page styles
+  comparison/
+    comparison.ts       what the comparison charts draw, as data: plain TS, typechecked, unit-tested
+    comparison.data.ts  runs it over scripts/comparison/snapshot.json while the site builds
+    CoverageMatrix.vue, ValidityBars.vue, TimingRatio.vue   the charts on /comparison
   diagrams/
     fence.ts            turns a `mermaid` fence into <MermaidDiagram />, in the site config
     render.ts           draws a graph to SVG, importing mermaid on first use

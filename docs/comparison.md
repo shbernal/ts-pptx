@@ -55,6 +55,8 @@ bundle figure, and the programs behind them.
 
 ## Construct coverage
 
+<CoverageMatrix />
+
 Of 22 intents, ts-pptx emits 21 and pptxgenjs emits 10.
 
 Emitted by both: Text run, Table, Raster image, Bar chart, External hyperlink,
@@ -77,6 +79,8 @@ each intent is read for, the part it is read from, and the notes on individual r
 
 ## Schema validity
 
+<ValidityBars />
+
 ts-pptx built 21 of the 22 decks, and all 21 validated cleanly. It had no API, and so no
 deck, for the remaining one.
 
@@ -89,6 +93,8 @@ fewer decks has fewer decks to be wrong in. [How the comparison was
 measured](comparison-method.md#schema-validity) lists each distinct error.
 
 ## Generation time
+
+<TimingRatio />
 
 Compressed, which is what a file you intend to keep gets, ts-pptx is faster on every deck,
 by 27% on average. Stored, with compression turned off, it is slower on every deck, by 51%
