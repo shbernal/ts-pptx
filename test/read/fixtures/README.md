@@ -48,6 +48,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `slide-background.pptx` | Microsoft Office PowerPoint   | 16.0000    | 3      |
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `shape-line-style-override.pptx` | Microsoft Office PowerPoint | 16.0000 | 1   |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
@@ -184,6 +185,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
 cc17c7b216445435c30addbdf5c1aa042e10a22ccd46f9e71fc5d41efc9578c0  slide-background.pptx
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
+500d082451a2b1bbed9db2b0646b1542cb8512660359f6412a1cedb1d11a011b  shape-line-style-override.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
@@ -529,6 +531,18 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   falls through to `p:defaultTextStyle`. Authored via PowerPoint COM on Windows
   (2026-07-24); ground truth (theme minorFont `Aptos`, `clrMap tx1→dk1` windowText
   `000000`, direct slot `lt1` window `FFFFFF`) read directly off the fixture.
+- `shape-line-style-override.pptx` — four rectangles sharing preset shape style 10, whose
+  `p:style/a:lnRef idx="2"` names accent2 shaded to 15%, read by
+  `shape-line-style-override.test.js`. `StyleOnly` has no `spPr/a:ln`. The other three had one
+  outline property changed after the style was applied, and PowerPoint wrote only that property:
+  `WeightOnly` is `<a:ln w="76200"/>`, `DashOnly` is `<a:ln><a:prstDash val="dash"/></a:ln>`,
+  and `ColorOnly` is an `a:ln` holding only an `a:srgbClr` `FF0000` fill. Exported to PNG,
+  `WeightOnly` paints an 8px outline and `DashOnly` a dashed one, both in `622C0F`, the colour
+  `StyleOnly` paints, while `ColorOnly` paints red. So an own `a:ln` is layered over the style line
+  one property at a time. It is the evidence for `Shape.resolvedLine` falling back to the lnRef
+  colour when the own line states no fill, and for the preserve import merging the style line into
+  an own `a:ln` rather than skipping it. Authored via PowerPoint COM on Windows (2026-09-14,
+  `authoring/author-shape-line-style-override.ps1`).
 - `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
   (2018) `p188` comment schema**, read by `modern-comments.test.js`
   (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
@@ -1161,6 +1175,7 @@ fixtures opened clean with no repair prompt:
 - [x] `slide-animation-presets.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `slide-transition-sound.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `import-animation-merge.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `shape-line-style-override.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

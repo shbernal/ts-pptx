@@ -574,8 +574,8 @@ export function resolveStyleFillColor(shape: Element, ctx: ThemeContext): Resolv
 /**
  * Resolve the line colour a shape inherits from its `p:style` `a:lnRef`
  * (style-matrix line) to a literal hex through `ctx`. Used as the fallback for
- * {@link import('./shapes.js').Shape.resolvedLine} when the shape carries no
- * explicit `spPr/a:ln`. `null` when there is no `lnRef` or it cannot be resolved.
+ * {@link import('./shapes.js').Shape.resolvedLine} when the shape's `spPr/a:ln` states
+ * no fill of its own. `null` when there is no `lnRef` or it cannot be resolved.
  */
 export function resolveStyleLineColor(shape: Element, ctx: ThemeContext): ResolvedColor | null {
 	const style = firstChild(shape, 'p:style')

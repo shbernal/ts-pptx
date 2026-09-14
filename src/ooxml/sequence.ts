@@ -185,6 +185,13 @@ export const SHAPE_AFTER_SPPR = successorsOf(SP_SEQUENCE, 'p:spPr')
 
 /** Successors of a fill choice inside `a:ln`. */
 export const LN_FILL_AFTER = successorsOf(LN_SEQUENCE, 'a:solidFill')
+/**
+ * `CT_LineProperties`'s slots in order, each spelled as a group, for a merge that has to ask
+ * whether a line states anything in a slot rather than place one known child.
+ */
+export const LN_SLOTS: readonly (readonly string[])[] = LN_SEQUENCE.map((step) =>
+	typeof step === 'string' ? [step] : step
+)
 /** Successors of a fill choice inside `a:rPr` (and `a:defRPr`/`a:endParaRPr`). */
 export const RPR_FILL_AFTER = successorsOf(RPR_SEQUENCE, 'a:solidFill')
 /** Successors of `a:latin` inside `a:rPr` (and `a:defRPr`/`a:endParaRPr`). */

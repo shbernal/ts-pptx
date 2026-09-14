@@ -84,6 +84,7 @@ import {
 } from '../../oxml/theme.js'
 import {
 	CSLD_AFTER_BG,
+	LN_SLOTS,
 	RPR_FILL_AFTER,
 	SHAPE_AFTER_SPPR,
 	SPPR_AFTER_XFRM,
@@ -551,11 +552,33 @@ function materializeFill(spPr: Element, fillRef: Element | null, ctx: FlattenCon
 
 function materializeLine(spPr: Element, lnRef: Element | null, ctx: FlattenContext): void {
 	if (!lnRef) return
-	if (!firstChild(spPr, 'a:ln')) {
-		const ln = styleRefLine(lnRef, ctx)
-		if (ln) insertInOrder(spPr, ln, SPPR_LN_AFTER)
+	const styleLn = styleRefLine(lnRef, ctx)
+	if (styleLn) {
+		const own = firstChild(spPr, 'a:ln')
+		if (own) mergeStyleLine(own, styleLn)
+		else insertInOrder(spPr, styleLn, SPPR_LN_AFTER)
 	}
 	neutralizeRef(lnRef)
+}
+
+/**
+ * Fill in what a shape's own `a:ln` leaves unstated from the style line its `lnRef` names.
+ *
+ * PowerPoint layers the two one property at a time: changing only an outline's weight writes
+ * `<a:ln w="76200"/>` and still paints the style's colour, dash and join
+ * (`test/read/fixtures/shape-line-style-override.pptx`). So the own line is not a replacement,
+ * and neutralizing the ref without this merge would drop everything the shape never stated.
+ */
+function mergeStyleLine(own: Element, style: Element): void {
+	for (const name of ['w', 'cap', 'cmpd', 'algn']) {
+		const value = attr(style, name)
+		if (value !== null && attr(own, name) === null) setAttr(own, name, value)
+	}
+	LN_SLOTS.forEach((slot, index) => {
+		if (slot.some((qname) => firstChild(own, qname))) return
+		const inherited = slot.map((qname) => firstChild(style, qname)).find((child) => child !== null)
+		if (inherited) insertInOrder(own, inherited, LN_SLOTS.slice(index + 1).flat())
+	})
 }
 
 function materializeEffect(spPr: Element, effectRef: Element | null, ctx: FlattenContext): void {

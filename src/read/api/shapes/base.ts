@@ -762,13 +762,16 @@ export abstract class Shape {
 	 * Like {@link resolvedFill}, the result carries `effectiveHex` (the base colour
 	 * with its transforms applied) for the final rendered colour.
 	 *
-	 * When the shape carries no explicit `spPr/a:ln`, this falls back to the line
-	 * the shape inherits from its `p:style` `a:lnRef` (the theme style matrix).
+	 * When the shape's `spPr/a:ln` states no fill of its own, this falls back to the line
+	 * colour the shape inherits from its `p:style` `a:lnRef` (the theme style matrix). An
+	 * `a:ln` without a fill is not a replacement: PowerPoint layers it over the style line one
+	 * property at a time, and changing only an outline's weight writes `<a:ln w="76200"/>`
+	 * and paints the style colour (`test/read/fixtures/shape-line-style-override.pptx`).
 	 */
 	get resolvedLine(): ResolvedColor | null {
 		const ctx = this.host.themeContext()
 		const ln = this.#line()
-		return ln ? readLineBasics(ln, ctx).colorRef.resolved : resolveStyleLineColor(this.element, ctx)
+		return hasFillChoice(ln) ? readLineBasics(ln, ctx).colorRef.resolved : resolveStyleLineColor(this.element, ctx)
 	}
 
 	/** The line element (`spPr/a:ln`), or `null` when absent. */

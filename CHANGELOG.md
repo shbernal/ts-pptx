@@ -1001,6 +1001,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An outline that changes only its weight or dash keeps its shape style's colour.**
+  - Changing one property of a styled shape's outline in PowerPoint writes an `a:ln` that states
+    only that property, such as `<a:ln w="76200"/>`, beside the untouched `p:style/a:lnRef`, and
+    PowerPoint keeps painting the style's colour. `Shape.resolvedLine` read any `a:ln` as a
+    replacement and reported `null` for such a shape. It now falls back to the style line colour
+    whenever the own `a:ln` states no fill.
+  - `importSlide` and `importShape` with `theme: 'preserve'` skipped the style line for a shape
+    that had its own `a:ln` and then neutralized the ref, so the copy lost the colour, and also
+    the width or dash it never stated. The style line now fills in whatever the own `a:ln` leaves
+    unstated before the ref is neutralized.
+  - The ground truth is the new `shape-line-style-override.pptx` fixture, authored in desktop
+    PowerPoint and checked against its exported pixels.
+
 - **An SVG the browser cannot rasterize is reported one way, and `onMediaError` decides what
   happens.** The browser entry rasterizes an SVG's PNG fallback on a `<canvas>`, and when that
   failed, what the caller got depended on how the SVG arrived:
