@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { ALLOWED_DOC_TYPES } from './docs-frontmatter.mjs'
+import { ALLOWED_DOC_TYPES, isRepoOnly, readRepoOnlyDirs } from './docs-frontmatter.mjs'
 import { ROOT, parseCliOrExit } from './script-utils.mjs'
 
 /**
@@ -133,6 +133,10 @@ const readWhen = values['read-when'].length > 0 ? values['read-when'] : [`Workin
 const target = path.resolve(docsDir, `${key}.md`)
 if (!target.startsWith(docsDir + path.sep)) {
 	console.error('docs:new: page slug must stay under docs/')
+	process.exit(1)
+}
+if (values['nav-group'] && isRepoOnly(key, readRepoOnlyDirs(docsDir))) {
+	console.error(`docs:new: ${key} is repository-only; the site does not build it, so it takes no --nav-group`)
 	process.exit(1)
 }
 if (existsSync(target) && !values.force) {

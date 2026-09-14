@@ -18,8 +18,12 @@ import {
 	ALLOWED_DOC_TYPES,
 	canonicalBase,
 	compactStrings,
+	githubBlobBase,
+	isRepoOnly,
 	pageForRoute,
 	parseFrontmatter,
+	readRepoOnlyDirs,
+	repoOnlyDirs,
 	requireDocsDir,
 	walkDocs,
 } from './docs-frontmatter.mjs'
@@ -160,11 +164,12 @@ function checkCodeFences(docsDir, rel) {
 }
 
 /**
+ * Navigation against the page set, in both directions. Exported for the test.
  * @param {string} docsDir
  * @param {string[]} relPaths every docs-relative page path
  * @returns {string[]}
  */
-function checkDocsJson(docsDir, relPaths) {
+export function checkDocsJson(docsDir, relPaths) {
 	const configPath = path.join(docsDir, 'docs.json')
 	if (!existsSync(configPath)) return ['docs/docs.json: missing docs navigation file']
 
@@ -178,12 +183,23 @@ function checkDocsJson(docsDir, relPaths) {
 	const pageKeys = new Set(relPaths.map(/** @param {string} rel */ (rel) => rel.replace(/\.md$/, '')))
 	/** @type {string[]} */
 	const errors = []
+	const declared = config.repoOnly ?? []
+	if (!Array.isArray(declared) || declared.some((dir) => typeof dir !== 'string' || !dir.trim())) {
+		errors.push('docs/docs.json: `repoOnly` must be a list of docs-relative directory names')
+	}
+	const repoOnly = repoOnlyDirs(config)
 	/** @type {Set<string>} */
 	const navKeys = new Set()
 	for (const page of collectNavPages(config.navigation ?? [])) {
 		const key = page.trim().replace(/^\/+|\/+$/g, '')
 		navKeys.add(key)
-		if (!pageKeys.has(key)) errors.push(`docs/docs.json: navigation page \`${page}\` has no matching docs page`)
+		if (isRepoOnly(key, repoOnly)) {
+			errors.push(
+				`docs/docs.json: navigation page \`${page}\` is repository-only; the site does not build it, so the entry would 404`
+			)
+		} else if (!pageKeys.has(key)) {
+			errors.push(`docs/docs.json: navigation page \`${page}\` has no matching docs page`)
+		}
 	}
 
 	// And the other direction. Checking nav -> page alone only catches a page that was
@@ -193,8 +209,11 @@ function checkDocsJson(docsDir, relPaths) {
 	// reachable only from other pages' links and from search. A page nothing navigates to
 	// is not a dead page, so this is a nav omission rather than a content problem, but it
 	// is exactly as invisible either way.
+	//
+	// A repository-only page is outside this rule rather than exempt from it: the site never builds
+	// it, so there is no sidebar for it to be missing from.
 	for (const key of pageKeys) {
-		if (navKeys.has(key) || NAV_EXEMPT.has(key)) continue
+		if (navKeys.has(key) || NAV_EXEMPT.has(key) || isRepoOnly(key, repoOnly)) continue
 		if (GENERATED_TREES.some((prefix) => key.startsWith(prefix))) continue
 		errors.push(`docs/docs.json: docs page \`${key}.md\` is in no navigation group`)
 	}
@@ -208,16 +227,23 @@ function checkDocsJson(docsDir, relPaths) {
 /**
  * Every link problem on one page. Exported for the test, per the gate-script convention in
  * `script-utils.mjs`: the rules below are judgement calls about what VitePress will resolve.
+ *
+ * A repository-only page is read on GitHub, so its links resolve there rather than in the site:
+ * relative links to any page work and site routes do not. A served page is the mirror image, and
+ * links a repository-only page by its GitHub URL.
  * @param {string} docsDir the docs tree root
  * @param {string} rel the page, relative to `docsDir`
  * @param {Set<string>} routes every route the site serves
+ * @param {{repoOnly?: string[], blobBase?: string}} [options] the repository-only directories, and
+ *   the GitHub blob URL prefix a served page links them by
  * @returns {string[]}
  */
-export function checkLinks(docsDir, rel, routes) {
+export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '' } = {}) {
 	const filePath = path.join(docsDir, rel)
 	const text = readFileSync(filePath, 'utf8')
 	const errors = []
 	const docsRoot = path.resolve(docsDir)
+	const fromRepoOnly = isRepoOnly(rel, repoOnly)
 
 	for (const match of text.matchAll(MARKDOWN_LINK_RE)) {
 		const target = (match[1] ?? '').trim()
@@ -225,7 +251,13 @@ export function checkLinks(docsDir, rel, routes) {
 
 		const targetPath = target.split('#', 1)[0]?.split('?', 1)[0] ?? ''
 		if (targetPath.startsWith('/')) {
-			if (!routes.has(normalizeRoute(targetPath))) errors.push(`${rel}: broken docs route \`${target}\``)
+			if (fromRepoOnly) {
+				errors.push(
+					`${rel}: site route \`${target}\` does not resolve on GitHub, where this repository-only page is read; link the page relatively`
+				)
+			} else if (!routes.has(normalizeRoute(targetPath))) {
+				errors.push(`${rel}: broken docs route \`${target}\``)
+			}
 			continue
 		}
 		// Only `.md` targets are routes. Anything else (an image, a `.txt` under public/) is an
@@ -243,6 +275,14 @@ export function checkLinks(docsDir, rel, routes) {
 			)
 		} else if (!existsSync(resolved)) {
 			errors.push(`${rel}: broken relative link \`${target}\``)
+		} else if (!fromRepoOnly) {
+			const targetRel = path.relative(docsRoot, resolved).split(path.sep).join('/')
+			if (isRepoOnly(targetRel, repoOnly)) {
+				const anchor = target.slice(targetPath.length)
+				errors.push(
+					`${rel}: relative link \`${target}\` points at a repository-only page, which the site does not build; use \`${blobBase}${path.basename(docsRoot)}/${targetRel}${anchor}\``
+				)
+			}
 		}
 	}
 	return errors
@@ -370,15 +410,29 @@ function main(argv) {
 
 	const relPaths = walkDocs(docsDir)
 
-	const routes = new Set()
-	for (const rel of relPaths) for (const route of routesFor(rel)) routes.add(route)
-
 	const errors = [...checkDocsJson(docsDir, relPaths), ...checkScriptsTable()]
+
+	/** @type {string[]} */
+	let repoOnly = []
+	try {
+		repoOnly = readRepoOnlyDirs(docsDir)
+	} catch {
+		// An unparseable docs.json is already reported by checkDocsJson.
+	}
+	const blobBase = githubBlobBase(docsDir)
+	if (!blobBase) errors.push('package.json: cannot derive the GitHub repository from `repository`')
+
+	const routes = new Set()
+	for (const rel of relPaths) {
+		if (isRepoOnly(rel, repoOnly)) continue
+		for (const route of routesFor(rel)) routes.add(route)
+	}
+
 	for (const rel of relPaths) {
 		errors.push(
 			...checkFrontmatter(docsDir, rel),
 			...checkCodeFences(docsDir, rel),
-			...checkLinks(docsDir, rel, routes)
+			...checkLinks(docsDir, rel, routes, { repoOnly, blobBase: blobBase ?? '' })
 		)
 	}
 

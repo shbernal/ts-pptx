@@ -9,6 +9,8 @@ const docsConfig = JSON.parse(readFileSync(path.join(docsDir, 'docs.json'), 'utf
 	description: string
 	name: string
 	navigation: Array<{ group: string; pages: string[] }>
+	/** Docs-relative directories read on GitHub and never built into the site. */
+	repoOnly: string[]
 }
 
 function pageTitle(page: string): string {
@@ -46,6 +48,7 @@ export default defineConfig({
 	cleanUrls: true,
 	description: docsConfig.description,
 	lang: 'en-US',
+	srcExclude: docsConfig.repoOnly.map((dir) => `${dir}/**`),
 	title: docsConfig.name,
 	themeConfig: {
 		nav: [

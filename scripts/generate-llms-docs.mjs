@@ -14,7 +14,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { canonicalBase, parseFrontmatter, routeForPage, walkDocs } from './docs-frontmatter.mjs'
+import {
+	canonicalBase,
+	isRepoOnly,
+	parseFrontmatter,
+	repoOnlyDirs,
+	routeForPage,
+	walkDocs,
+} from './docs-frontmatter.mjs'
 import { ROOT, parseCliOrExit, repoRel } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
@@ -51,13 +58,16 @@ function siteBase() {
 
 const baseUrl = siteBase()
 
+const repoOnly = repoOnlyDirs(docsConfig)
+
 /**
- * Whether VitePress serves a docs page at a route of its own. A README beside an `index.md` is
- * superseded by it.
+ * Whether VitePress serves a docs page at a route of its own. A repository-only page is not built
+ * at all, and a README beside an `index.md` is superseded by it.
  * @param {string} rel - docs-relative POSIX path of the page
  * @returns {boolean}
  */
 function isServedPage(rel) {
+	if (isRepoOnly(rel, repoOnly)) return false
 	if (path.posix.basename(rel) !== 'README.md') return true
 	return !existsSync(path.join(docsDir, path.posix.dirname(rel), 'index.md'))
 }

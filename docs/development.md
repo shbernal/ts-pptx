@@ -501,7 +501,9 @@ The project site is one VitePress build covering everything at
 is split across two trees on purpose:
 
 - **`docs/`** is content. Markdown under the frontmatter schema, navigated from
-  `docs.json`, validated by `docs:check`.
+  `docs.json`, validated by `docs:check`. The directories `docs.json` lists under
+  `repoOnly` (`docs/contributing/`) are validated the same way but read on GitHub: the site
+  does not build them, and a served page links into them by GitHub URL.
 - **`www/`** is the code that renders it: the VitePress theme, its stylesheet, and the Vue
   components a page mounts. See
   [www/README.md](https://github.com/shbernal/ts-pptx/blob/master/www/README.md).

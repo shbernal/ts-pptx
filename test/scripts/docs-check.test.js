@@ -12,7 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { checkLinks } from '../../scripts/docs-check.mjs'
+import { checkDocsJson, checkLinks } from '../../scripts/docs-check.mjs'
 
 /** A throwaway repo shaped like this one: a `docs/` tree with sibling files outside it. */
 let root = ''
@@ -84,5 +84,85 @@ describe('what is not a route, and so not this gate’s business', () => {
 
 	test('a mail or protocol-relative target', () => {
 		expect(check('[mail](mailto:x@example.com) and [cdn](//example.com/a.md)')).toEqual([])
+	})
+})
+
+// A repository-only page is read on GitHub and never built, so the two kinds of page resolve
+// links in different places: a served page's relative link to one is a dead link in the site,
+// and a repository-only page's site route is a dead link on GitHub.
+describe('the repository-only tree', () => {
+	const repoOnly = { repoOnly: ['contributing'], blobBase: 'https://github.com/o/r/blob/master/' }
+
+	beforeAll(() => {
+		mkdirSync(path.join(docsDir, 'contributing'), { recursive: true })
+		writeFileSync(path.join(docsDir, 'contributing', 'testing.md'), '# testing\n')
+	})
+
+	/** The errors reported for the page at docs-relative `rel` whose body is `markdown`. */
+	function checkAt(rel, markdown) {
+		writeFileSync(path.join(docsDir, rel), markdown)
+		return checkLinks(docsDir, rel, routes, repoOnly)
+	}
+
+	test('a served page linking relatively to a repository-only page is told the GitHub URL', () => {
+		const errors = checkAt('page.md', 'See [testing](./contributing/testing.md#suites).')
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/repository-only/)
+		expect(errors[0]).toContain('https://github.com/o/r/blob/master/docs/contributing/testing.md#suites')
+	})
+
+	test('the GitHub URL is how a served page links one', () => {
+		expect(
+			checkAt('page.md', 'See [testing](https://github.com/o/r/blob/master/docs/contributing/testing.md).')
+		).toEqual([])
+	})
+
+	test('a repository-only page links relatively to any page, served or not', () => {
+		expect(checkAt('contributing/page.md', 'See [start](../guide/start.md) and [testing](./testing.md).')).toEqual([])
+	})
+
+	test('a repository-only page linking a site route is an error, since GitHub has no such route', () => {
+		const errors = checkAt('contributing/page.md', 'See [start](/guide/start).')
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/link the page relatively/)
+	})
+})
+
+describe('navigation and the repository-only tree', () => {
+	/** The navigation errors for `pages` under a docs.json holding `config`. */
+	function checkNav(config, pages) {
+		writeFileSync(path.join(docsDir, 'docs.json'), JSON.stringify(config))
+		return checkDocsJson(docsDir, pages)
+	}
+
+	const pages = ['index.md', 'contributing/testing.md']
+
+	test('a repository-only page needs no navigation group', () => {
+		expect(checkNav({ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['index'] }] }, pages)).toEqual(
+			[]
+		)
+	})
+
+	test('without the repoOnly entry, the same page is an orphan', () => {
+		const errors = checkNav({ navigation: [{ group: 'Start', pages: ['index'] }] }, pages)
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/in no navigation group/)
+	})
+
+	test('a navigation entry naming a repository-only page is an error, because the site would 404', () => {
+		const errors = checkNav(
+			{ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['index', 'contributing/testing'] }] },
+			pages
+		)
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/repository-only/)
+	})
+
+	test('repoOnly must be a list of directory names', () => {
+		const errors = checkNav({ repoOnly: 'contributing', navigation: [{ group: 'Start', pages: ['index'] }] }, [
+			'index.md',
+		])
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/`repoOnly` must be a list/)
 	})
 })

@@ -9,7 +9,9 @@
   package artifacts unless the task explicitly asks for refreshed release outputs.
 - Preserve unrelated dirty state. Do not revert user changes.
 - Three trees are not the library and are easy to confuse. `docs/` is **content**: markdown
-  under a frontmatter schema the docs kit validates. `www/` is the **site's application
+  under a frontmatter schema the docs kit validates. One subtree of it, `docs/contributing/`,
+  is **repository-only**: its pages are checked like any other but are read on GitHub, never
+  built into the site or listed in `llms.txt` (`repoOnly` in `docs/docs.json`). `www/` is the **site's application
   code**, the VitePress theme and the Vue components a page mounts, including the demos
   page that previews a deck via `pptx-html` (`www/README.md`). `demos/` is **clone-and-run
   only**: someone runs a script and gets a `.pptx`. Do not put an application in `docs/`,

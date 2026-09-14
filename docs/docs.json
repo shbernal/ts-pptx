@@ -1,6 +1,7 @@
 {
   "name": "ts-pptx",
   "description": "Documentation for the modern ESM-first ts-pptx.",
+  "repoOnly": ["contributing"],
   "navigation": [
     {
       "group": "Start",

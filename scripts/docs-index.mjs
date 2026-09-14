@@ -7,14 +7,22 @@
 // grouping every page under its scenario hints.
 //
 // Generated pages without `read_when` (e.g. the typedoc `reference/api/` tree) are skipped by
-// construction. The output is a generated artifact (gitignored, like `reference/api/` and
+// construction. Repository-only pages are skipped too: the index is a page of the site, and its
+// relative links to pages the site does not build would be dead links; `docs:list` lists them. The output is a generated artifact (gitignored, like `reference/api/` and
 // `public/llms*.txt`); regenerate it with `pnpm run docs:index`. It is validated by
 // `scripts/docs-check.mjs` (frontmatter + links), which runs after generation in `docs:build`.
 
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
+import {
+	compactStrings,
+	isRepoOnly,
+	parseFrontmatter,
+	readRepoOnlyDirs,
+	requireDocsDir,
+	walkDocs,
+} from './docs-frontmatter.mjs'
 import { parseCliOrExit, repoRel } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
@@ -57,8 +65,11 @@ const HEADER = [
 
 const docsDir = requireDocsDir('docs:index')
 
+const repoOnly = readRepoOnlyDirs(docsDir)
+
 const entries = []
 for (const rel of walkDocs(docsDir, OUTPUT_NAME)) {
+	if (isRepoOnly(rel, repoOnly)) continue
 	const { data } = parseFrontmatter(path.join(docsDir, rel))
 	const hints = compactStrings(data.read_when)
 	if (hints.length === 0) continue // generated/api pages and any page without hints

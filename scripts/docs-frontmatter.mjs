@@ -11,7 +11,7 @@
 // parser would reject frontmatter this one tolerates, which would turn `docs:check` from a lint
 // into a gate on YAML pedantry; the checks that matter are asserted explicitly in `docs-check.mjs`.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 import { ROOT } from './script-utils.mjs'
@@ -161,6 +161,40 @@ export function walkDocs(docsDir, skipName) {
 }
 
 /**
+ * The directories `docs.json` marks as repository-only under `repoOnly`. Their pages keep the
+ * docs schema and are read on GitHub, but the site does not build them and the generated indexes
+ * do not list them. `docs/.vitepress/config.mts` reads the same key, so no consumer names a
+ * directory itself.
+ * @param {unknown} config - the parsed `docs/docs.json`
+ * @returns {string[]} docs-relative directory paths, without surrounding slashes
+ */
+export function repoOnlyDirs(config) {
+	const value =
+		config && typeof config === 'object' ? /** @type {Record<string, unknown>} */ (config).repoOnly : undefined
+	return compactStrings(value).map((dir) => dir.replace(/^\/+|\/+$/g, ''))
+}
+
+/**
+ * {@link repoOnlyDirs}, read from `docs.json` under `docsDir`; empty when there is no such file.
+ * @param {string} docsDir - absolute path to the docs directory
+ * @returns {string[]}
+ */
+export function readRepoOnlyDirs(docsDir) {
+	const configPath = path.join(docsDir, 'docs.json')
+	return existsSync(configPath) ? repoOnlyDirs(JSON.parse(readFileSync(configPath, 'utf8'))) : []
+}
+
+/**
+ * Whether a docs-relative page path or page key sits under a repository-only directory.
+ * @param {string} rel
+ * @param {string[]} dirs - from {@link repoOnlyDirs}
+ * @returns {boolean}
+ */
+export function isRepoOnly(rel, dirs) {
+	return dirs.some((dir) => rel.startsWith(`${dir}/`))
+}
+
+/**
  * Resolve the docs directory, exiting with the script's own message when it is absent.
  * @param {string} label the calling script's name, for the error message
  * @returns {string}
@@ -181,6 +215,27 @@ export function requireDocsDir(label) {
 }
 
 /**
+ * The GitHub owner and repository `package.json` names, as a match whose groups 1 and 2 are them.
+ * @param {string} docsDir - absolute path to the docs directory
+ * @returns {RegExpMatchArray | null}
+ */
+function githubSlug(docsDir) {
+	const pkg = JSON.parse(readFileSync(path.join(docsDir, '..', 'package.json'), 'utf8'))
+	return String(pkg.repository?.url ?? pkg.homepage ?? '').match(/github\.com\/([^/]+)\/([^/.#]+)/)
+}
+
+/**
+ * The prefix a file on the default branch is browsed at on GitHub, which is where a
+ * repository-only page is read and so how a served page has to link one.
+ * @param {string} docsDir - absolute path to the docs directory
+ * @returns {string | null} `https://github.com/<owner>/<repo>/blob/master/`
+ */
+export function githubBlobBase(docsDir) {
+	const slug = githubSlug(docsDir)
+	return slug ? `https://github.com/${slug[1]}/${slug[2]}/blob/master/` : null
+}
+
+/**
  * The URL prefix the published site actually answers on, derived rather than restated: the
  * GitHub Pages host comes from `repository`, the path from the VitePress `base`. Writing the
  * value out a second time is what let `llms.txt` drift to a host that never existed, which is
@@ -191,8 +246,7 @@ export function requireDocsDir(label) {
 export function canonicalBase(docsDir) {
 	if (process.env.DOCS_BASE_URL) return { base: process.env.DOCS_BASE_URL.replace(/\/?$/, '/'), errors: [] }
 
-	const pkg = JSON.parse(readFileSync(path.join(docsDir, '..', 'package.json'), 'utf8'))
-	const slug = String(pkg.repository?.url ?? pkg.homepage ?? '').match(/github\.com\/([^/]+)\/([^/.#]+)/)
+	const slug = githubSlug(docsDir)
 	if (!slug) return { base: null, errors: ['package.json: cannot derive the GitHub Pages host from `repository`'] }
 
 	const config = readFileSync(path.join(docsDir, '.vitepress', 'config.mts'), 'utf8')
