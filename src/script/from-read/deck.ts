@@ -27,6 +27,25 @@ import { compact, inches } from './values.js'
 import { ABSENT_SLIDE_SIZE_EMU } from '../../ooxml/slide-size.js'
 import { assetFilenameExtension } from '../../media/content-type.js'
 
+/** An RFC 7230 token without `$`, a quote or a backtick. */
+const MEDIA_TOKEN = String.raw`[\w!#%&*+.^|~-]+`
+/** `type/subtype` with optional `; name=value` parameters, each part a {@link MEDIA_TOKEN}. */
+const MEDIA_TYPE = new RegExp(
+	String.raw`^${MEDIA_TOKEN}\/${MEDIA_TOKEN}(?:[ \t]*;[ \t]*${MEDIA_TOKEN}=${MEDIA_TOKEN})*$`
+)
+
+/**
+ * A part's content type as the IR may carry it.
+ *
+ * The value is the deck's own `[Content_Types].xml` attribute, and it reaches a printed script
+ * inside a `data:` URI. Anything outside the media-type grammar is not a type a renderer could
+ * act on anyway, so it becomes `application/octet-stream` rather than text the printer has to
+ * be trusted to neutralise.
+ */
+function assetContentType(contentType: string): string {
+	return MEDIA_TYPE.test(contentType) ? contentType : 'application/octet-stream'
+}
+
 /**
  * Collects media as shapes reference it, assigning each part a stable sequential name.
  *
@@ -53,14 +72,15 @@ class Assets implements AssetResolver {
 		const part = this.pres.opc.part(partName)
 		if (!part) return null
 
-		const extension = assetFilenameExtension(part.contentType) ?? partName.split('.').pop() ?? 'bin'
-		const kind = part.contentType.startsWith('audio/') ? 'audio' : 'image'
+		const contentType = assetContentType(part.contentType)
+		const extension = assetFilenameExtension(contentType) ?? partName.split('.').pop() ?? 'bin'
+		const kind = contentType.startsWith('audio/') ? 'audio' : 'image'
 		const index = (this.#counts.get(kind) ?? 0) + 1
 		this.#counts.set(kind, index)
 		const name = `${kind}${index}.${extension}`
 		const ref: AssetRef = { $asset: name }
 		this.#byPartName.set(partName, ref)
-		this.#assets.push({ name, contentType: part.contentType, bytes: part.serialize() })
+		this.#assets.push({ name, contentType, bytes: part.serialize() })
 		return ref
 	}
 

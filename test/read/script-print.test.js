@@ -91,7 +91,7 @@ describe('script printer — corpus invariants', () => {
 		// Against the bindings in the code, not `DeckIr.assets`: the IR also holds the chrome's
 		// pictures and a carried slide's, which this tier leaves to its template and never prints.
 		const { code, assets } = printScript(await irFor(name))
-		const bindings = code.match(/^const \w+ = `data:/gm) ?? []
+		const bindings = code.match(/^const \w+ = 'data:/gm) ?? []
 		assertEqual(bindings.length, assets.size, `${name}: one binding per shipped file`)
 		for (const assetName of assets.keys()) {
 			const identifier = assetName.replace(/\.[^.]*$/, '')

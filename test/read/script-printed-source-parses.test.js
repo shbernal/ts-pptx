@@ -16,6 +16,7 @@ import { Presentation } from '../../dist/read.js'
 import { printScript, printStandaloneScript, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
+import { readFixture } from './corpus.js'
 
 /** A name that ends a block comment and, separately, a line comment. */
 const HOSTILE = `Band */ one${String.fromCharCode(0x2028)}two`
@@ -112,5 +113,75 @@ describe('a printed script parses whatever the deck names hold', () => {
 		assertEqual(parseErrors(code).join('; '), '', 'the module parses')
 		assert(!LONE_SURROGATE.test(code), 'no lone surrogate is written raw')
 		assert(code.includes('\\ud800'), 'it is escaped instead')
+	})
+})
+
+// A media binding in `'file'` mode prints the part's content type beside a file read. The type is
+// the deck's own `[Content_Types].xml` attribute, so it is deck text too, and one that is code
+// once printed would run with the script.
+
+/** The global a payload that ran would set. */
+const PAYLOAD_GLOBAL = '__tsPptxContentTypePayload'
+const PAYLOAD = `image/png;\${globalThis.${PAYLOAD_GLOBAL}=1}`
+
+/**
+ * Run every file-mode binding in `code` with the file read stubbed, and return the bound values.
+ * @param {string} code
+ */
+async function evaluateBindings(code) {
+	const lines = code.split('\n').filter((line) => line.includes('readFile(here('))
+	assert(lines.length > 0, 'the script binds media from files')
+	const names = lines.map((line) => /** @type {RegExpExecArray} */ (/^const (\w+) = /.exec(line))[1])
+	const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor
+	const run = new AsyncFunction('readFile', 'here', `${lines.join('\n')}\nreturn [${names.join(', ')}]`)
+	return /** @type {Promise<string[]>} */ (
+		run(
+			async () => ({ toString: () => 'BYTES' }),
+			(/** @type {string} */ p) => p
+		)
+	)
+}
+
+describe('a content type in the deck does not become code in the printed script', () => {
+	test('one outside the media-type grammar reaches the IR as application/octet-stream', async () => {
+		const zip = await JSZip.loadAsync(await readFixture('image.pptx'))
+		const types = await zip.file('[Content_Types].xml').async('string')
+		const hostile = types.replace('ContentType="image/png"', `ContentType="${PAYLOAD}"`)
+		assert(hostile !== types, 'the PNG default is rewritten')
+		zip.file('[Content_Types].xml', hostile)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		assert(!ir.assets.some((asset) => asset.contentType.includes('$')), 'no asset carries the payload')
+		assert(
+			ir.assets.some((asset) => asset.contentType === 'application/octet-stream'),
+			'the hostile type is replaced'
+		)
+		assert(
+			ir.assets.some((asset) => asset.contentType === 'image/jpeg'),
+			'a valid type is kept'
+		)
+
+		delete (/** @type {any} */ (globalThis)[PAYLOAD_GLOBAL])
+		const { code } = printScript(ir)
+		assertEqual(parseErrors(code).join('; '), '', 'the module parses')
+		const values = await evaluateBindings(code)
+		assertEqual(/** @type {any} */ (globalThis)[PAYLOAD_GLOBAL], undefined, 'the payload did not run')
+		assert(values.includes('data:application/octet-stream;base64,BYTES'), 'the binding is a data URI')
+	})
+
+	test('the printer keeps one the IR carries anyway inside a string', async () => {
+		for (const print of [printScript, printStandaloneScript]) {
+			const ir = readModelToIr(await Presentation.load(await readFixture('image.pptx')))
+			const png = ir.assets.find((asset) => asset.contentType === 'image/png')
+			assert(png, 'the fixture has a PNG asset')
+			png.contentType = PAYLOAD
+
+			delete (/** @type {any} */ (globalThis)[PAYLOAD_GLOBAL])
+			const { code } = print(ir)
+			assertEqual(parseErrors(code).join('; '), '', `${print.name}: the module parses`)
+			const values = await evaluateBindings(code)
+			assertEqual(/** @type {any} */ (globalThis)[PAYLOAD_GLOBAL], undefined, `${print.name}: the payload did not run`)
+			assert(values.includes(`data:${PAYLOAD};base64,BYTES`), `${print.name}: the type is printed as text`)
+		}
 	})
 })

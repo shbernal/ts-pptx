@@ -184,10 +184,11 @@ export function printAssetBindings(
 		const identifier = identifiers.get(asset.name)
 		if (!identifier) continue
 		if (mode === 'file') {
+			// The prefix is a string literal of its own, never text inside a template literal: the
+			// content type comes from the deck, and a `${` in it would be code in the script.
 			const path = printString(`${assetDir}/${asset.name}`)
-			lines.push(
-				`const ${identifier} = \`data:${asset.contentType};base64,\${(await readFile(here(${path}))).toString('base64')}\``
-			)
+			const prefix = printString(`data:${asset.contentType};base64,`)
+			lines.push(`const ${identifier} = ${prefix} + (await readFile(here(${path}))).toString('base64')`)
 		} else {
 			lines.push(`const ${identifier} = ${printString(`data:${asset.contentType};base64,${toBase64(asset.bytes)}`)}`)
 		}

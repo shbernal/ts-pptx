@@ -2598,6 +2598,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clamps to the bound like any other out-of-range number. In-range input is byte-identical.
   New diagnostic: `image/bilevel-threshold-out-of-range`.
 
+### Security
+
+- **A deck converted with `pptx-ts/script` could put code in the printed script.**
+  - In `'file'` asset mode, the default, each media binding was printed as a template literal
+    holding the part's content type exactly as the deck's `[Content_Types].xml` spells it. A
+    type holding `${…}` therefore ran when the script did. The prefix is now a string literal
+    joined to the file read, and no template literal carries deck data.
+  - A content type outside the media-type grammar (`type/subtype` with optional
+    `; name=value` parameters, and no `$`, quote or backtick) reaches `AssetIr.contentType` as
+    `application/octet-stream`.
+  - The file-mode binding line is spelled differently:
+    `const image1 = 'data:image/png;base64,' + (await readFile(here('./assets/image1.png'))).toString('base64')`.
+    **Migration:** none for a script printed from a deck you trust. Re-print any script
+    converted from one you do not, and read it before running it.
+
 ## [3.7.0] - 2026-08-30
 
 `groupObjects()` has always addressed objects by `objectName`, and there has never been a
