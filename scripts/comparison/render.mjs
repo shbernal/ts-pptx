@@ -409,7 +409,7 @@ function sectionConcessions(snapshot) {
 				"`require('pptx-ts')` works, through the ESM interop Node has had since 22.12, which " +
 				'every Node ts-pptx supports has. What upstream reaches that ts-pptx does not is the ' +
 				'Node versions and toolchains below that line. See ' +
-				'[runtime and package support](runtime-and-package-support.md).'
+				'[where it runs](getting-started/runtime.md).'
 		),
 		...bullet(
 			'**A browser loads it as a module.** A bundler, or `<script type="module">` against an ' +
@@ -755,7 +755,7 @@ function sectionBundles(snapshot) {
 			'Both columns construct the library the way every consumer of pptxgenjs constructs it, ' +
 				'with the class that carries everything. ts-pptx has a lower floor than that, reached by ' +
 				'composing a presentation from only the construct families a program uses, and ' +
-				'[bundle size](bundle-size.md) carries those figures. It is deliberately not a row here: ' +
+				'[smaller bundles](bundle-size.md) carries those figures. It is deliberately not a row here: ' +
 				'pptxgenjs has no counterpart to compose, so the cell beside it would be empty and the ' +
 				'percentage would be comparing two different programs.'
 		),

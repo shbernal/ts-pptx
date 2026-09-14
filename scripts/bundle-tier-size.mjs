@@ -56,8 +56,8 @@
  * every program, the ones composed without it included. Nothing else reports it. The types
  * check, the tests pass, the emitted bytes are identical, and `bundle-size-ratchet.mjs` does
  * not move, because `dist/` ships exactly what it shipped before. Here, the `composed-*` rows
- * climb toward the `full` one and the budget fails. `docs/bundle-size.md` states that rule
- * for a reader and carries the numbers a consumer cares about.
+ * climb toward the `full` one and the budget fails. `docs/contributing/architecture.md` states
+ * that rule, and `docs/bundle-size.md` carries the numbers a consumer cares about.
  *
  * **No per-family stub mode.** "What would removing this family save" is a different
  * measurement: it bundles `src/` with whole modules stubbed out, and it is only interesting

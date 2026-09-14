@@ -332,7 +332,7 @@ Calling one without it raises `family/not-composed` naming `measure`, and the
 type does not offer the method in the first place. The export-time bake is
 unaffected either way: `fit:'shrink'` and `fit:'resize'` are applied on the
 ordinary write path, so a composed deck that never measures anything still gets
-its autofit. See [Bundle size](bundle-size.md#everything-else-is-asked-for).
+its autofit. See [Smaller bundles](bundle-size.md#everything-else-is-asked-for).
 
 ```ts
 await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')

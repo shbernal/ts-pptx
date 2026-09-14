@@ -18,7 +18,7 @@ runtime, or OOXML layer before changing code.
 
 Checks:
 
-- Review [Runtime and package support](runtime-and-package-support.md).
+- Review [Where it runs](getting-started/runtime.md).
 - Run `pnpm run test:package`.
 - Inspect `package.json` exports and generated declarations.
 

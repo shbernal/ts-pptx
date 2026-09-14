@@ -11,8 +11,7 @@
         "getting-started/installation",
         "getting-started/first-deck",
         "getting-started/concepts",
-        "runtime-and-package-support",
-        "bundle-size"
+        "getting-started/runtime"
       ]
     },
     {
@@ -29,7 +28,8 @@
         "math-latex",
         "embedded-fonts",
         "ole-objects",
-        "3d-models"
+        "3d-models",
+        "bundle-size"
       ]
     },
     {

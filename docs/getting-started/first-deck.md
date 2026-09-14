@@ -162,7 +162,7 @@ To send the deck somewhere instead, as a server response or an upload, ask for t
 const bytes = await pptx.toBytes()
 ```
 
-[Where it runs](../runtime-and-package-support.md#which-build-the-bare-import-gives-you) lists what
+[Where it runs](runtime.md#which-build-the-bare-import-gives-you) lists what
 `writeFile` does in each runtime.
 
 ## The complete program
@@ -265,5 +265,5 @@ Run it with `node deck.mts` and open `quarterly-summary.pptx`.
 | Draw lines that stay attached to shapes | [Connectors](../connectors.md) |
 | Open an existing deck and edit it | [PPTX read and round-trip](../reference/pptx-read.md) |
 | Turn a deck into a script | [PPTX to script](../reference/pptx-to-script.md) |
-| Ship a smaller browser bundle | [Bundle size](../bundle-size.md) |
+| Ship a smaller browser bundle | [Smaller bundles](../bundle-size.md) |
 | Look up every option | [API reference](../reference/api/index.md) |

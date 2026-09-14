@@ -109,7 +109,7 @@ unusual: the library it descends from generates decks and does not read them.
   `writeFile()` is the one thing they cannot do, because there is no disk to write to
   and no page to download onto.
 
-Full detail is in [runtime and package support](docs/runtime-and-package-support.md).
+Full detail is in [runtime and package support](docs/getting-started/runtime.md).
 
 <!-- comparison:start -->
 <!-- GENERATED REGION. Do not edit by hand.

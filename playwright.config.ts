@@ -89,7 +89,7 @@ export default defineConfig({
 		trace: 'retain-on-failure',
 	},
 	// Chromium only, and the decision is written down rather than left as a default —
-	// see docs/runtime-and-package-support.md "Which Browsers The Lane Runs". Short
+	// see docs/contributing/testing.md "Which browsers the lane runs". Short
 	// version: the APIs in play (`fetch`, `FileReader`, canvas, object URLs,
 	// `<a download>`) are uncontroversial across engines, so a matrix would cost CI time
 	// per push to re-answer a question nothing has raised. Add Firefox/WebKit when a

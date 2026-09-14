@@ -78,7 +78,7 @@ how the OOXML gets built stays on this side of that line.
   bundles a composed program, a composed-plus-one-family program, and the
   `TsPptx` ones. The difference between two of those rows is what a family costs
   a consumer. The measured numbers, the core tier, and what a consumer sees when
-  a family is missing, are in [Bundle size](../bundle-size.md).
+  a family is missing, are in [Smaller bundles](../bundle-size.md).
 - **A construct family is one value, and a presentation is composed with a list of
   them.** What the library knows about charts, or tables, or speaker notes is a
   `ConstructFamily` (`families/shared.ts`). That value carries the methods it

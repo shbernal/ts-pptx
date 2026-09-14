@@ -68,13 +68,13 @@ const pptx = new TsPptx()
 ```
 
 `require()` returns the module's namespace, so the class is on `.default`.
-[Where it runs](../runtime-and-package-support.md#require-from-commonjs) explains why that works
+[Where it runs](runtime.md#require-from-commonjs) explains why that works
 on every supported Node version.
 
 ### A page with no build step
 
 A `<script type="module">` can import `https://esm.sh/pptx-ts/browser` directly. The full snippet
-is in [a browser with a script tag](../runtime-and-package-support.md#a-browser-with-a-script-tag).
+is in [a browser with a script tag](runtime.md#a-browser-with-a-script-tag).
 
 ## Next
 

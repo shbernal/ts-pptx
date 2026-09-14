@@ -54,7 +54,7 @@ The package smoke test should continue to prove that those old artifacts
 are absent and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and
 `pptx-ts/browser` resolve. The `./measure`, `./read`, `./math`, and `./zip`
 subpaths are in package exports but `pnpm run test:package` does not cover them
-yet. See [Runtime and package support](../runtime-and-package-support.md).
+yet. See [Where it runs](../getting-started/runtime.md).
 
 ## Promoting a downstream need
 

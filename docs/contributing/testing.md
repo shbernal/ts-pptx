@@ -970,6 +970,74 @@ That leg does execute, and is green on every CI run to date: including the
 `workflow_call` gate inside `publish.yml`, so the Windows path is exercised on
 every release rather than merely configured.
 
+## Size gates
+
+```bash
+pnpm run bundle-size:check   # what each published entry ships, an upper bound
+pnpm run bundle-tier:check   # what a real program downloads, after tree-shaking
+```
+
+Both run in `verify:full` and `check:package`. The figures a consumer reads are on
+[Smaller bundles](../bundle-size.md).
+
+### What the package ships
+
+`scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point `package.json`
+publishes and the chunks each one pulls in, minified and then gzipped. Per entry rather than
+for the package as a whole, because the question a consumer asks is what importing one
+subpath costs; a shared chunk counts once for every entry that reaches it.
+
+Minified, because `dist/` ships unminified and is close to half doc comments by weight, none
+of which survives a consumer's build. A gate on the raw bytes tracked how much the code was
+documented, and reported a commit that removed code and explained the change as a regression.
+
+It is an upper bound rather than a download size, because a consumer's bundler also
+tree-shakes across the closure and this deliberately does not. What it catches is the step
+change: a dependency reaching the browser entry, or a chunk split going wrong.
+
+`pnpm run bundle-size:list` prints the per-chunk breakdown. The budget lives in
+`scripts/bundle-size-budget.json` and moves only through `pnpm run bundle-size:freeze`.
+
+### What a program downloads
+
+`scripts/bundle-tier-size.mjs` bundles five consumer programs against `dist/browser.js` with
+esbuild (minified, gzipped, code-split) and freezes the two figures each one produces in
+`scripts/bundle-tier-budget.json`. `initial` is the entry chunk plus every chunk reachable from
+it by an `import` statement. `total` is every chunk the program can reach, which matters
+because font metrics load `opentype.js` through a dynamic import that runs only when a font is
+first registered. Charging a program for a chunk it may never fetch is as wrong as hiding one
+it might, so there is no single figure.
+
+The programs come in two shapes, on purpose. The three `new TsPptx()` programs are cumulative:
+`text` writes one slide with one text box, `text-shape-image` adds a shape and a base64 image,
+and `full` adds a chart, a table and an embedded video. The two `composed` programs are one
+program with and without one family, so their difference is what that family costs. They are
+real programs rather than the smallest call the types accept, because a synthetic minimum
+measures the type checker.
+
+Each program runs against `dist/` before it is weighed. esbuild resolves modules and does not
+care whether `slide.addChart` exists, so a renamed method would leave every program
+bundleable, drop the family it reached out of the graph, and make the number go down, which
+looks like a win. Running the program first turns that into a failure.
+
+`pnpm run bundle-tier:list` prints the per-chunk breakdown, and `pnpm run bundle-tier:freeze`
+re-baselines. The regression only this gate can see, a static import that puts a family back
+on the core path, is described under
+[The rule that keeps the tiers real](architecture.md#the-rule-that-keeps-the-tiers-real).
+
+### Why both gates exist
+
+They answer different questions, and their numbers will not agree.
+
+The entry-point gate never bundles, so it cannot see reachability. Making a family unreachable
+for a program that never calls into it deletes no byte from `dist/`, and that gate does not
+move. The tier gate bundles, so a bundler shakes it, and it is the only gate that moves when
+code stops being reachable rather than stops being shipped.
+
+The reverse holds too. A chunk that grows, or a dependency that arrives on the browser entry,
+shows up in the entry-point gate whether or not a measured program reaches it. A change that
+improves one and leaves the other flat is usually working as intended.
+
 ## Font oracles
 
 ```bash
@@ -1066,7 +1134,7 @@ reaching the browser entry would fail the page outright.
 That is not hypothetical: building the harness is what surfaced `opentype.js`
 being a *dynamic* bare import inside the measure/fit chunk. Bundling had always
 hidden it; an unbundled consumer needs it in an import map, and now
-[the docs say so](../runtime-and-package-support.md#using-the-browser-entry-without-a-bundler).
+[the docs say so](../getting-started/runtime.md#using-the-browser-entry-without-a-bundler).
 
 | Spec | Project | Claim |
 |---|---|---|
@@ -1153,14 +1221,44 @@ What this lane does **not** cover, and must not be read as covering:
   are separate claims and must stay separate: a layout difference between two
   browsers is not a defect in this package; a `.pptx` a browser builds differently
   from Node is.
-- **Engines other than Chromium.** A deliberate decision, written down in
-  [Runtime and package support](../runtime-and-package-support.md#which-browsers-the-lane-runs)
-  so it is not re-opened every time CI time is discussed. The APIs in play are
-  uncontroversial across engines, and a matrix would spend CI time re-answering a
-  question nothing has asked. Add Firefox or WebKit when something concrete
-  surfaces. (`adapter-coverage.spec.mjs` is Chromium-only by construction:
-  `page.coverage` is a CDP feature, which is a consequence of that decision,
-  not a reason for it.)
+- **Engines other than Chromium.** A deliberate decision, recorded under
+  [Which browsers the lane runs](#which-browsers-the-lane-runs).
+  (`adapter-coverage.spec.mjs` is Chromium-only by construction: `page.coverage` is a
+  CDP feature, which is a consequence of that decision, not a reason for it.)
+
+### Which browsers the lane runs
+
+Chromium, and only Chromium. This is a decision, not an oversight, and it is recorded here
+so it does not get reopened every time CI time is discussed.
+
+The adapter uses `fetch`, `FileReader`, `<canvas>`, object URLs and `<a download>`. None of
+those is a part of the platform where engines are known to disagree, and no divergence has
+been reported against this package or observed while building the lane. A Firefox and
+WebKit matrix would triple the job to keep answering a question nobody has asked.
+
+Add an engine when there is something concrete to add it for: a reported difference, or a
+new adapter function that touches an API with a real cross-engine history.
+
+### The one expected difference between the runtimes
+
+`createSvgPngPreview` is the one adapter function where Node and the browser are meant to
+disagree. Node has no rasterizer, so it writes a fixed placeholder into the PNG fallback
+relationship, where a browser draws the artwork on a `<canvas>`. The lane asserts the exact
+shape of that difference, one changed part and a real PNG on the browser side, so it cannot
+quietly turn into a different one.
+
+### Why `pptx-ts/math` stays Node-only
+
+`src/math.ts` loads its two optional peers, `temml` and `mathml2omml`, through
+`node:module`'s `createRequire`. That is what keeps `latexToOmml()` and `mathmlToOmml()`
+synchronous. A browser has no `createRequire`, and its replacement, a dynamic `import()`,
+would make both functions async: a breaking change to a published API, paid by every
+existing caller, for a use case nobody has raised. If a browser consumer does turn up, the
+answer is an additional `/math/async` subpath, not a change to this one.
+
+The other `node:*` imports in `dist/` are the Node build's own, and a lazy
+`import('node:fs/promises')` in the zip code. A bundler warns about that one, but it sits on
+the branch that reads a package from a file path, which the write path never runs.
 
 ## Demos are not tests
 

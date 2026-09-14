@@ -36,8 +36,8 @@ features:
     linkText: pptx → script
   - title: Runs where you do
     details: "One ESM build. Node 24+, where require() reaches it through Node's own interop; any bundler; a browser, straight from an ESM CDN if you have no build step. No office application in the loop anywhere."
-    link: /runtime-and-package-support
-    linkText: Runtime support
+    link: /getting-started/runtime
+    linkText: Where it runs
 ---
 
 ## Install

@@ -109,7 +109,7 @@ different thing from `pptx.layout`, which is only the slide size.
 | `toBytes()` | the deck as a `Uint8Array` | every runtime |
 | `toParts()` | the package's parts before zipping, each a path and its bytes | every runtime |
 
-[Where it runs](../runtime-and-package-support.md#which-build-the-bare-import-gives-you) explains which
+[Where it runs](runtime.md#which-build-the-bare-import-gives-you) explains which
 build each runtime loads.
 
 ## Errors and warnings
@@ -123,7 +123,7 @@ with `setDiagnosticHandler`. See [Errors](../errors.md) and [Diagnostics](../dia
 
 `new TsPptx()` can author everything the library supports. `createPresentation({ use })` starts from
 a smaller core and adds only the construct families you name, so a browser bundle carries only those.
-For the same calls, both write the same deck. [Bundle size](../bundle-size.md) lists the families and
+For the same calls, both write the same deck. [Smaller bundles](../bundle-size.md) lists the families and
 what each costs.
 
 ## Reading and converting

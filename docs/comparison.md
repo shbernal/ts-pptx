@@ -61,7 +61,7 @@ refreshed on release cadence and carries the date above. Nothing here is edited 
 - **One ESM build, where pptxgenjs also ships CommonJS.** `require('pptx-ts')` works,
   through the ESM interop Node has had since 22.12, which every Node ts-pptx supports has.
   What upstream reaches that ts-pptx does not is the Node versions and toolchains below
-  that line. See [runtime and package support](runtime-and-package-support.md).
+  that line. See [where it runs](getting-started/runtime.md).
 - **A browser loads it as a module.** A bundler, or `<script type="module">` against an
   ESM CDN such as esm.sh. pptxgenjs also ships a classic-script bundle that defines a
   global, which is the older shape and the one ts-pptx replaced.
@@ -283,10 +283,10 @@ size is choosing between two roughly fixed costs rather than between two slopes.
 
 Both columns construct the library the way every consumer of pptxgenjs constructs it, with
 the class that carries everything. ts-pptx has a lower floor than that, reached by
-composing a presentation from only the construct families a program uses, and [bundle
-size](bundle-size.md) carries those figures. It is deliberately not a row here: pptxgenjs
-has no counterpart to compose, so the cell beside it would be empty and the percentage
-would be comparing two different programs.
+composing a presentation from only the construct families a program uses, and [smaller
+bundles](bundle-size.md) carries those figures. It is deliberately not a row here:
+pptxgenjs has no counterpart to compose, so the cell beside it would be empty and the
+percentage would be comparing two different programs.
 
 Every program is identical in intent on both sides. Each is bundled with esbuild for the
 browser, minified, and gzipped at level 9, following the conventions

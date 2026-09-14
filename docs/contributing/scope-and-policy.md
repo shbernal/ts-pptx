@@ -19,7 +19,7 @@ know first, what the library does, where it runs and where it came from, is on t
 
 - Shipping more than one build. The published ESM artifact is what Node, bundlers, browsers and
   `require()` callers all load; see
-  [Runtime and package support](../runtime-and-package-support.md#one-build-and-everything-that-loads-it).
+  [Where it runs](../getting-started/runtime.md).
 - Reproducing the upstream release matrix: its historical artifact names, its `window.TsPptx`
   global, or compatibility with its build system. A browser reaches this package as a module,
   from a bundler or an ESM CDN.
@@ -50,7 +50,7 @@ for how it moves across.
 The project is Node-first. The generator runs and is tested with no office application near it,
 and the Node suite carries nearly all of its evidence. The browser is still a supported runtime
 with its own CI lane; see
-[what "browser" is tested to mean](../runtime-and-package-support.md#what-browser-is-tested-to-mean).
+[the browser lane](testing.md#browser-lane).
 
 Two areas sit outside what the maintainer actively develops, because no in-house use case drives
 them. Neither is rejected on merit. Reports there tend to wait, pull requests are welcome, and the
@@ -101,7 +101,7 @@ The repository should make sense to a maintainer or an agent starting from a cle
 changes are testable through regression tests, schema fixtures and package-level smoke tests, and
 the evidence, commands and research paths are written down:
 
-- package support: `docs/runtime-and-package-support.md`;
+- package support: `docs/getting-started/runtime.md`;
 - development commands: `docs/contributing/development.md`;
 - verification commands: `docs/contributing/testing.md`;
 - OOXML lookup and what counts as evidence: `docs/contributing/ooxml.md`.

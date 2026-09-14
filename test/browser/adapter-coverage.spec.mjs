@@ -24,7 +24,7 @@ import { buildDeckInHarness, openHarness } from './helpers.mjs'
  *
  * Chromium-only by construction (`page.coverage` is a CDP feature). That is not a
  * constraint the lane feels, because the lane is Chromium-only on purpose — see
- * docs/runtime-and-package-support.md "Which Browsers The Lane Runs".
+ * docs/contributing/testing.md "Which browsers the lane runs".
  */
 
 /**
