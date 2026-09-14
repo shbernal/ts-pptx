@@ -67,6 +67,7 @@ import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { readEmbeddedFontEntries } from './ops/embedded-fonts.js'
 import { pruneIfOrphan, unlinkInbound } from './ops/prune.js'
 import { ImportMemo } from './ops/import-memo.js'
+import type { RescaleMode } from './ops/rescale.js'
 import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
@@ -677,12 +678,12 @@ export class Presentation {
 	}
 
 	/**
-	 * @internal The parts whose geometry a rescale has already rewritten. Exposed for
-	 * `presentation-imports.ts` as a live set the callee adds to — the memo is what makes a
-	 * layout or master shared across repeated imports from one source scale exactly once,
-	 * so like the copy registry it has to outlive the call that fills it.
+	 * @internal The parts whose geometry a rescale has already rewritten, and in which mode.
+	 * Exposed for `presentation-imports.ts` as a live map the callee adds to — the memo is what
+	 * makes a layout or master shared across repeated imports from one source scale exactly
+	 * once, so like the copy registry it has to outlive the call that fills it.
 	 */
-	get rescaledParts(): Set<string> {
+	get rescaledParts(): Map<string, RescaleMode> {
 		return this.#imports.rescaledParts
 	}
 

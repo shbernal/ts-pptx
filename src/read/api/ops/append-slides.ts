@@ -20,7 +20,7 @@ import { emuToInches } from '../../../units.js'
 import { relativePartName } from '../../opc/partnames.js'
 import type { Part } from '../../opc/part.js'
 import type { Relationships } from '../../opc/relationships.js'
-import { InvalidOptionError } from '../../../errors.js'
+import { InternalError, InvalidOptionError, PackageReadError } from '../../../errors.js'
 import {
 	AUDIO_REL,
 	CHART_COLOR_STYLE_CONTENT_TYPE,
@@ -34,8 +34,6 @@ import {
 	HYPERLINK_REL,
 	IMAGE_REL,
 	MS_MEDIA_REL,
-	NOTES_MASTER_REL,
-	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
 	PACKAGE_REL,
 	SLIDE_CONTENT_TYPE,
@@ -48,7 +46,7 @@ import type { Presentation } from '../presentation.js'
 import type { Slide } from '../slide.js'
 import type { AppendSlidesOptions, LayoutHandle, SlideSource } from '../presentation-types.js'
 import { carryGeneratedEmbeddedFonts } from './embedded-fonts.js'
-import { ensureNotesMasterFromXml } from './notes-master.js'
+import { addNotesSlidePart, ensureNotesMasterFromXml } from './notes-master.js'
 import { requireEqualSlideSize } from './slide-size.js'
 import { pickDefined } from '../../../options-internal.js'
 
@@ -174,15 +172,9 @@ function wireNotes(
 	sourceNotesMaster: { xml: string; themeXml: string } | undefined | null
 ): string | null {
 	if (!slide.notes) return null
-	const notesPartName = deck.opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
-	deck.opc.addPart(notesPartName, NOTES_SLIDE_CONTENT_TYPE, textEncoder.encode(slide.notes.xml))
-
-	const notesRels = deck.opc.relationshipsFor(notesPartName)
 	const notesMasterPartName = sourceNotesMaster ? ensureNotesMasterFromXml(deck, sourceNotesMaster) : null
-	if (notesMasterPartName) {
-		notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(notesPartName, notesMasterPartName))
-	}
-	notesRels.addWithId('rId2', SLIDE_REL, relativePartName(notesPartName, partName))
+	const notesPartName = addNotesSlidePart(deck, slide.notes.xml, partName, notesMasterPartName)
+	const notesRels = deck.opc.relationshipsFor(notesPartName)
 	for (const h of slide.notes.hyperlinks) {
 		notesRels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
 	}
@@ -233,8 +225,8 @@ function wireCharts(deck: Presentation, rels: Relationships, partName: string, s
 
 /**
  * Intra-batch slide-to-slide links: a `slide:N` in the source is repointed at the Nth appended
- * slide's new partname. A link out of the batch has no counterpart to point at and throws — which
- * is why pass 1 places every slide before any of this runs.
+ * slide's new partname, which is why pass 1 places every slide before any of this runs. A link out
+ * of the batch was refused before pass 1 by {@link requireLinksInBatch}.
  */
 function wireSlideLinks(
 	rels: Relationships,
@@ -246,13 +238,31 @@ function wireSlideLinks(
 	for (const link of slide.slideLinks) {
 		const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)
 		if (!targetPartName) {
-			throw new InvalidOptionError(
-				'import/unresolved-slide-link',
-				`appendSlides: slide ${index} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`
+			throw new InternalError(
+				'import/slide-link-not-placed',
+				`appendSlides: slide ${index} links to source slide ${link.sourceSlideNumber}, which was checked against the batch but has no appended slide`
 			)
 		}
 		rels.addWithId(`rId${link.rId}`, SLIDE_REL, relativePartName(partName, targetPartName))
 	}
+}
+
+/**
+ * Refuse a batch holding a slide link to a source slide the batch does not append. It has no
+ * counterpart to point at, and finding that while wiring meant the slides ahead of it were already
+ * in the deck.
+ */
+function requireLinksInBatch(slides: readonly PlacedSlide['slide'][]): void {
+	slides.forEach((slide, index) => {
+		for (const link of slide.slideLinks) {
+			if (link.sourceSlideNumber > slides.length) {
+				throw new InvalidOptionError(
+					'import/unresolved-slide-link',
+					`appendSlides: slide ${index} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`
+				)
+			}
+		}
+	})
 }
 
 /**
@@ -327,6 +337,14 @@ export async function appendSlides(
 		},
 		'appendSlides'
 	)
+	// Everything below adds to the deck as it goes, so whatever can refuse the batch is asked first.
+	requireLinksInBatch(extracted.slides)
+	if (!deck.presentationPart.dom.documentElement) {
+		throw new PackageReadError(
+			'package/part-has-no-root',
+			'presentation.xml has no document element to insert slides into'
+		)
+	}
 
 	// Any existing slide partname seeds the fresh-partname family; fall back to a
 	// literal seed for a slide-less template shell (reservePartNameLike parses the

@@ -9,13 +9,14 @@
  * `registerNotesMaster`: they differ only in how the *part* comes into being.
  */
 
-import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '../../oxml/dom.js'
+import { createElement, getOrAddChild, removeChildrenByQName, setAttr, type Element } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, copyTarget, newOwnedScope, rebuildRels, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import {
 	NOTES_MASTER_CONTENT_TYPE,
 	NOTES_MASTER_REL,
+	NOTES_SLIDE_CONTENT_TYPE,
 	NOTES_SLIDE_REL,
 	SLIDE_REL,
 	THEME_CONTENT_TYPE,
@@ -95,6 +96,39 @@ export function carryNotes(
 }
 
 /**
+ * Add a notes slide part holding `xml`, with the relationships every notes slide carries:
+ * `notesMaster` as rId1 and the slide it annotates as rId2, the ids and order the write path
+ * serializes a notes body against. The slide's own relationship *to* the notes part is left to
+ * the caller, because the append path has to add it after every id the slide body names.
+ * @param dest - the deck the part is added to
+ * @param xml - the notes slide body
+ * @param slidePartName - the slide it annotates
+ * @param notesMasterPartName - the deck's notes master, or `null` to leave rId1 unallocated
+ * @returns the notes slide's partname
+ */
+export function addNotesSlidePart(
+	dest: Presentation,
+	xml: string,
+	slidePartName: string,
+	notesMasterPartName: string | null
+): string {
+	const notesPartName = dest.opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
+	dest.opc.addPart(notesPartName, NOTES_SLIDE_CONTENT_TYPE, textEncoder.encode(xml))
+	const notesRels = dest.opc.relationshipsFor(notesPartName)
+	if (notesMasterPartName)
+		notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(notesPartName, notesMasterPartName))
+	notesRels.addWithId('rId2', SLIDE_REL, relativePartName(notesPartName, slidePartName))
+	return notesPartName
+}
+
+/** The partname of this deck's notes master, or `null` when it has none. */
+function existingNotesMaster(dest: Presentation): string | null {
+	const presRels = presentationRels(dest)
+	const existing = presRels.byType(NOTES_MASTER_REL)[0]
+	return existing ? presRels.resolveTarget(existing.id) : null
+}
+
+/**
  * Resolve the notesMaster an imported `notesSlide` should bind to, honouring the
  * single-notesMaster-per-presentation rule (`p:notesMasterIdLst` holds 0..1
  * `p:notesMasterId`). If this deck already has a notesMaster it is reused and the
@@ -103,15 +137,25 @@ export function carryNotes(
  * registered in `presentation.xml`. Returns the destination notesMaster partname.
  */
 function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMasterPartName: string): string {
-	const presRels = presentationRels(dest)
-	const existing = presRels.byType(NOTES_MASTER_REL)[0]
-	if (existing) return presRels.resolveTarget(existing.id)
+	const existing = existingNotesMaster(dest)
+	if (existing) return existing
 
 	// No notesMaster yet: copy the source's (pulls its theme) and register it. A plan
 	// registers nothing, so it remembers the master it would install instead, and the
 	// later notes it plans bind to that one as they would to the registered master.
 	if (ctx.plan) return (ctx.plan.notesMaster ??= copyPart(ctx, sourceNotesMasterPartName))
 	return registerNotesMaster(dest, copyPart(ctx, sourceNotesMasterPartName))
+}
+
+/** `presentation.xml`'s root, where a notes master is registered. */
+function presentationRoot(dest: Presentation): Element {
+	const root = dest.presentationPart.dom.documentElement
+	if (!root)
+		throw new PackageReadError(
+			'package/part-has-no-root',
+			'presentation.xml has no document element to register a notes master in'
+		)
+	return root
 }
 
 /**
@@ -126,15 +170,11 @@ function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMa
  */
 function registerNotesMaster(dest: Presentation, notesMasterPartName: string): string {
 	const presPart = dest.presentationPart
-	const presRels = presentationRels(dest)
-	const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id
-
-	const root = presPart.dom.documentElement
-	if (!root)
-		throw new PackageReadError(
-			'package/part-has-no-root',
-			'presentation.xml has no document element to register a notes master in'
-		)
+	const root = presentationRoot(dest)
+	const relId = presentationRels(dest).add(
+		NOTES_MASTER_REL,
+		relativePartName(presPart.partName, notesMasterPartName)
+	).id
 	// `p:notesMasterIdLst` follows `p:sldMasterIdLst` in CT_Presentation order.
 	const lst = getOrAddChild(root, 'p:notesMasterIdLst', PRESENTATION_AFTER_NOTES_MASTER_ID_LST)
 	// CT_NotesMasterIdList holds a single p:notesMasterId; replace any stray entry.
@@ -147,6 +187,37 @@ function registerNotesMaster(dest: Presentation, notesMasterPartName: string): s
 }
 
 /**
+ * Add a notes master and a theme part of its own, and register the master.
+ *
+ * The two paths that build a notes master rather than copy one differ only in where the bytes come
+ * from. The presentation root is checked first, so a deck that cannot register a master is refused
+ * before either part is added.
+ * @param dest - the deck to install into
+ * @param masterBytes - the notes master body
+ * @param themeBytes - the theme body the master binds to
+ * @param themeContentType - the theme part's content type
+ * @returns the notes master's partname
+ */
+function installNotesMaster(
+	dest: Presentation,
+	masterBytes: Uint8Array,
+	themeBytes: Uint8Array,
+	themeContentType: string = THEME_CONTENT_TYPE
+): string {
+	presentationRoot(dest)
+	const masterPartName = dest.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
+	dest.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, masterBytes)
+
+	// A notesMaster's .rels must resolve a theme; reserve alongside any theme the
+	// destination already owns rather than assuming theme2.xml is free.
+	const themePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
+	dest.opc.addPart(themePartName, themeContentType, themeBytes)
+	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, themePartName))
+
+	return registerNotesMaster(dest, masterPartName)
+}
+
+/**
  * Resolve the notesMaster an *appended* slide's notes should bind to. Same
  * single-notesMaster rule as {@link ensureNotesMaster}: this deck's own wins when it
  * has one, so the destination's notes styling is preserved and `master.xml` is
@@ -154,20 +225,10 @@ function registerNotesMaster(dest: Presentation, notesMasterPartName: string): s
  * theme its `.rels` requires (the normal write path emits that as `theme2.xml`).
  */
 export function ensureNotesMasterFromXml(dest: Presentation, master: { xml: string; themeXml: string }): string {
-	const presRels = presentationRels(dest)
-	const existing = presRels.byType(NOTES_MASTER_REL)[0]
-	if (existing) return presRels.resolveTarget(existing.id)
-
-	const masterPartName = dest.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
-	dest.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, textEncoder.encode(master.xml))
-
-	// A notesMaster's .rels must resolve a theme; reserve alongside any theme the
-	// destination already owns rather than assuming theme2.xml is free.
-	const themePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
-	dest.opc.addPart(themePartName, THEME_CONTENT_TYPE, textEncoder.encode(master.themeXml))
-	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, themePartName))
-
-	return registerNotesMaster(dest, masterPartName)
+	return (
+		existingNotesMaster(dest) ??
+		installNotesMaster(dest, textEncoder.encode(master.xml), textEncoder.encode(master.themeXml))
+	)
 }
 
 /**
@@ -196,9 +257,8 @@ export function ensureNotesMasterFromXml(dest: Presentation, master: { xml: stri
  * @return {string} the destination notesMaster partname
  */
 export function ensureNotesMasterForAuthoring(dest: Presentation, slidePartName: string): string {
-	const presRels = presentationRels(dest)
-	const existing = presRels.byType(NOTES_MASTER_REL)[0]
-	if (existing) return presRels.resolveTarget(existing.id)
+	const existing = existingNotesMaster(dest)
+	if (existing) return existing
 
 	const themePartName = resolveSlideThemeParts(dest.opc, slidePartName).themePartName
 	const themePart = themePartName ? dest.opc.part(themePartName) : undefined
@@ -208,14 +268,11 @@ export function ensureNotesMasterForAuthoring(dest: Presentation, slidePartName:
 			`addNotes: no theme reachable from ${slidePartName} to bind a new notes master to`
 		)
 
-	const masterPartName = dest.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
-	dest.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, textEncoder.encode(makeXmlNotesMaster()))
-
-	// A notesMaster's .rels must resolve a theme; clone the deck's rather than share
-	// the slide master's part. Reserved alongside any theme this deck already owns.
-	const notesThemePartName = dest.opc.reservePartNameLike('/ppt/theme/theme1.xml')
-	dest.opc.addPart(notesThemePartName, themePart.contentType, themePart.serialize())
-	dest.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, notesThemePartName))
-
-	return registerNotesMaster(dest, masterPartName)
+	// Clone the deck's theme rather than share the slide master's part.
+	return installNotesMaster(
+		dest,
+		textEncoder.encode(makeXmlNotesMaster()),
+		themePart.serialize(),
+		themePart.contentType
+	)
 }

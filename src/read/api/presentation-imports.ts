@@ -21,10 +21,11 @@
  */
 
 import type { OpcPackage } from '../opc/package.js'
-import { createElement, firstChild } from '../oxml/dom.js'
+import { createElement, firstChild, type Element } from '../oxml/dom.js'
 import { cSldName, nthShapeChild, reassignDrawingIds } from '../oxml/slide-dom.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 import { carryShapeAnimations } from './animation.js'
+import { checkFiniteEmu, checkPositiveEmu } from './coords.js'
 import { flattenShape } from './ops/flatten.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
 import type { Presentation } from './presentation.js'
@@ -53,7 +54,7 @@ import {
 } from './ops/part-copy.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
-import { rescaleImportedGeometry } from './ops/rescale-import.js'
+import { requireRescaleAgrees, rescaleImportedGeometry } from './ops/rescale-import.js'
 import { requireEqualSlideSize, requireKnownSlideSizes, slideSizesMatch } from './ops/slide-size.js'
 import { carryTableStyles } from './ops/table-styles.js'
 
@@ -75,6 +76,17 @@ export function importSlide(
 	if (options.rescale) requireKnownSlideSizes(target, incoming, 'importSlide rescale')
 	else requireEqualSlideSize(target, incoming, 'importSlide', "pass { rescale: 'fit' | 'stretch' } to rescale")
 	const sizesDiffer = !slideSizesMatch(target, incoming)
+	// A copy reuses the layout and master an earlier import from this source brought, so it may not
+	// rescale them in the other mode.
+	if (sizesDiffer && options.rescale && (options.theme === undefined || options.theme === 'copy')) {
+		requireRescaleAgrees(
+			deck.rescaledParts,
+			deck.importContext(source.opc),
+			sourceSlide.partName,
+			options.rescale === true ? 'fit' : options.rescale,
+			'importSlide'
+		)
+	}
 
 	// 1b. Dry-run the copy of this one page, reading only the source, before anything here moves:
 	//     steps 2 and 4 run as a plan. A jump link to a page this import does not bring is refused
@@ -223,6 +235,20 @@ export function importSlides(deck: Presentation, requests: readonly ImportSlides
 				'importSlides',
 				"pass { rescale: 'fit' | 'stretch' } on the request to rescale"
 			)
+	}
+
+	// Requests that agree with each other may still disagree with an earlier call from the same
+	// source, whose rescale already moved the layout and master this batch would reuse.
+	for (const request of resolved) {
+		const mode = rescaleBySource.get(request.source.opc)
+		if (!mode || slideSizesMatch(target, request.source.slideSize)) continue
+		requireRescaleAgrees(
+			deck.rescaledParts,
+			deck.importContext(request.source.opc),
+			request.sourceSlide.partName,
+			mode,
+			'importSlides'
+		)
 	}
 
 	// 1b. Dry-run the copy against every source, still reading only source
@@ -412,23 +438,32 @@ export function importSlideMasters(
 	const pickMaster = options.masters ?? (() => true)
 	const pickLayout = options.layouts ?? (() => true)
 
-	const ctx = deck.importContext(source.opc)
-	const imported: ImportedSlideMaster[] = []
-	slideMasterPartNames(source).forEach((masterPartName, masterIndex) => {
-		if (!pickMaster(cSldName(source.opc.part(masterPartName)), masterIndex)) return
-
-		// Copy the (lean) master first: copyPart registers it in p:sldMasterIdLst
-		// and clears its layout list, then each copied layout re-links itself in.
-		const newMasterPartName = copyPart(ctx, masterPartName)
-
-		const layoutPartNames: string[] = []
-		layoutPartNamesOf(source, masterPartName).forEach((layoutPartName, layoutIndex) => {
-			if (!pickLayout(cSldName(source.opc.part(layoutPartName)), layoutIndex)) return
-			layoutPartNames.push(copyPart(ctx, layoutPartName))
-		})
-
-		imported.push({ partName: newMasterPartName, layoutPartNames })
+	// What to import is decided once, so the caller's filters run once per master and layout and the
+	// dry run below walks exactly what the copy does.
+	const selected = slideMasterPartNames(source).flatMap((masterPartName, masterIndex) => {
+		if (!pickMaster(cSldName(source.opc.part(masterPartName)), masterIndex)) return []
+		const layouts = layoutPartNamesOf(source, masterPartName).filter((layoutPartName, layoutIndex) =>
+			pickLayout(cSldName(source.opc.part(layoutPartName)), layoutIndex)
+		)
+		return [{ masterPartName, layouts }]
 	})
+
+	// The copy registers each master in presentation.xml before its layouts come across, so a layout
+	// or theme part missing from the source would leave a registered master holding part of its
+	// family. Run it as a plan first, which throws what the copy would and writes nothing.
+	const ctx = deck.importContext(source.opc)
+	const planned = new CopyPlan(deck, 'importSlideMasters').contextFor(ctx)
+	for (const { masterPartName, layouts } of selected) {
+		copyPart(planned, masterPartName)
+		for (const layoutPartName of layouts) copyPart(planned, layoutPartName)
+	}
+
+	// Copy the (lean) master first: copyPart registers it in p:sldMasterIdLst
+	// and clears its layout list, then each copied layout re-links itself in.
+	const imported: ImportedSlideMaster[] = selected.map(({ masterPartName, layouts }) => ({
+		partName: copyPart(ctx, masterPartName),
+		layoutPartNames: layouts.map((layoutPartName) => copyPart(ctx, layoutPartName)),
+	}))
 
 	// Optionally carry the source deck's presentation-level styling parts. Both are
 	// separate traversals from the master/layout copy chain above, and both are
@@ -494,6 +529,12 @@ export function importShapes(
 			)
 		return shape.element_
 	})
+	// The position options are applied once a shape is already in the tree, so a value their
+	// setters refuse is refused here instead, before anything moves.
+	if (options.left != null) checkFiniteEmu(options.left, 'x')
+	if (options.top != null) checkFiniteEmu(options.top, 'y')
+	if (options.width != null) checkPositiveEmu(options.width, 'cx')
+	if (options.height != null) checkPositiveEmu(options.height, 'cy')
 
 	const spTree = target.shapeTree()
 	if (!spTree)
@@ -511,6 +552,18 @@ export function importShapes(
 	// preserve: build the source theme context once; copy/restyle need none.
 	const ctx = theme === 'preserve' ? sourceFlattenContext(sourceOpc, source.partName) : null
 	const importCtx = deck.importContext(sourceOpc)
+
+	// Carry every shape's relationships once as a plan, on a copy of the shape, before the first one
+	// goes in: a source part that is missing or will not parse then refuses the whole call with the
+	// host slide as it was, rather than after the shapes ahead of it were inserted.
+	const plan = new CopyPlan(deck, 'importShapes')
+	const planCtx = plan.contextFor(importCtx)
+	const plannedRels = plan.relationshipsFor(target.partName)
+	const plannedRelIds = new Map<string, string>()
+	for (const shapeEl of sourceElements) {
+		const copy = shapeEl.cloneNode(true) as Element
+		rewriteCarriedRels(copy, planCtx, sourceRels, target.partName, plannedRels, plannedRelIds, newOwnedScope())
+	}
 
 	// Anchor for z-order: the existing shape currently at `at` (insert before it,
 	// preserving batch order), else append before any trailing p:extLst.
@@ -548,8 +601,10 @@ export function importShapes(
 		// remapped onto it.
 		const { map: spidMap } = reassignDrawingIds([imported], target.nextShapeId())
 
-		// Insert into the host tree (this reparents it out of any holder).
+		// Insert into the host tree (this reparents it out of any holder). The part is dirty from here,
+		// so the saved bytes never disagree with a model that already shows the shape.
 		spTree.insertBefore(imported, anchor)
+		target.part.markDirty()
 
 		// Carry the shape's slide-scoped build animation (opt-in): append its effect
 		// click-group(s) + <p:bldP> into the destination timing, remapped to the new id.
@@ -572,6 +627,5 @@ export function importShapes(
 		result.push(shape)
 	}
 
-	target.part.markDirty()
 	return result
 }

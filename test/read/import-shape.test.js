@@ -15,13 +15,23 @@ import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, assert, assertEqual } from '../helpers.js'
+import { TsPptx, PNG_1X1, bytesEqual, throws, assert, assertEqual } from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels } from './opc.js'
 
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+
+/** The `code` of what `fn` throws, or `null` when it does not throw. */
+function codeOf(fn) {
+	try {
+		fn()
+		return null
+	} catch (err) {
+		return err.code
+	}
+}
 
 /** Count the package parts whose name matches `re`. */
 function countParts(opc, re) {
@@ -604,6 +614,51 @@ describe('Presentation.importShape({ rescale })', () => {
 			throws(() => target.importShape(target.slides[0], source.slides[0], 0)),
 			'a size mismatch without rescale throws'
 		)
+	})
+
+	test('a refused importShapes leaves the host slide as it was, in the model and in the bytes', async () => {
+		// The picture's media part is missing, so the call is refused. The text box ahead of it used to
+		// go in first, and the slide was not marked dirty: the model showed the text box while a save
+		// wrote the old slide.
+		const authored = new TsPptx()
+		const slide = authored.addSlide()
+		slide.addText('carried', { x: 1, y: 1, w: 3, h: 1 })
+		slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 4, y: 1, w: 1, h: 1 })
+		const source = await Presentation.load(await authored.toBytes())
+		for (const partName of [...source.opc.parts.keys()].filter((name) => name.startsWith('/ppt/media/')))
+			source.opc.removePart(partName)
+		const text = findShapeIndex(source.slides[0], (s) => s.shapeType !== 'picture')
+		const picture = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+
+		const host = new TsPptx()
+		host.addSlide().addText('host', { x: 1, y: 3, w: 3, h: 1 })
+		const target = await Presentation.load(await host.toBytes())
+		const before = await target.save()
+		const shapeCount = target.slides[0].shapes.length
+
+		assertEqual(
+			codeOf(() => target.importShapes(target.slides[0], source.slides[0], [text, picture])),
+			'package/part-missing',
+			'the missing media refuses the call'
+		)
+		assertEqual(target.slides[0].shapes.length, shapeCount, 'no shape went in')
+		assert(bytesEqual(before, await target.save()), 'and the deck is byte-identical')
+	})
+
+	test('an importShapes position the setters refuse is refused before any shape goes in', async () => {
+		const target = await openFixture('mixed')
+		const source = await openFixture('mixed')
+		assert(source.slides[0].shapes.length > 0, 'the source slide has a shape to import')
+		const before = await target.save()
+		const shapeCount = target.slides[0].shapes.length
+
+		assertEqual(
+			codeOf(() => target.importShapes(target.slides[0], source.slides[0], [0], { width: 0 })),
+			'coord/not-positive',
+			'a zero width is refused'
+		)
+		assertEqual(target.slides[0].shapes.length, shapeCount, 'no shape went in')
+		assert(bytesEqual(before, await target.save()), 'and the deck is byte-identical')
 	})
 
 	test.skipIf(!validatorInstalled)('a rescaled lifted shape stays schema-valid', async () => {

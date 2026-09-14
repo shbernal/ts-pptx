@@ -4,8 +4,8 @@
  * Two memos outlive any one import call. The copy registry maps each source package's partnames to
  * the partnames their copies were given here, so a second import from the same source reuses the
  * layout, master, theme and media it already brought across. The rescale memo holds the parts whose
- * geometry a rescale has already rewritten, so a layout or master shared by several imports is
- * scaled once.
+ * geometry a rescale has already rewritten, and in which mode, so a layout or master shared by
+ * several imports is scaled once and never asked to take a second, different scaling.
  *
  * Both hold destination partnames, and removing a slide frees names that `reservePartNameLike`
  * hands out again. An entry left behind then answers for a part that is no longer there: the
@@ -15,10 +15,11 @@
  */
 
 import type { OpcPackage } from '../../opc/package.js'
+import type { RescaleMode } from './rescale.js'
 
 export class ImportMemo {
 	readonly #registries = new Map<OpcPackage, Map<string, string>>()
-	readonly #rescaled = new Set<string>()
+	readonly #rescaled = new Map<string, RescaleMode>()
 
 	/** The copy registry for imports out of `source`: source partname → destination partname. */
 	registryFor(source: OpcPackage): Map<string, string> {
@@ -30,8 +31,8 @@ export class ImportMemo {
 		return registry
 	}
 
-	/** Destination partnames whose geometry a rescale has already rewritten, as a live set the rescale adds to. */
-	get rescaledParts(): Set<string> {
+	/** Destination partname → the mode a rescale rewrote its geometry in, as a live map the rescale adds to. */
+	get rescaledParts(): Map<string, RescaleMode> {
 		return this.#rescaled
 	}
 

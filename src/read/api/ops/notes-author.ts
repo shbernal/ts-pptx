@@ -30,14 +30,12 @@ import { el, raw, voidEl } from '../../../gen/oxml/el.js'
 import { makeXmlNotesSlideSkeleton } from '../../../gen/slide/notes.js'
 import { attr, firstChild, getElements, parseXml, removeChildrenByQName, type Element } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { NOTES_MASTER_REL, NOTES_SLIDE_CONTENT_TYPE, NOTES_SLIDE_REL, SLIDE_REL } from '../../../ooxml/rel-types.js'
+import { NOTES_SLIDE_REL } from '../../../ooxml/rel-types.js'
 import { InternalError, PackageReadError } from '../../../errors.js'
-import { ensureNotesMasterForAuthoring } from './notes-master.js'
+import { addNotesSlidePart, ensureNotesMasterForAuthoring } from './notes-master.js'
 import type { Slide } from '../slide.js'
 import { OOXML_NS } from '../../../ooxml/namespaces.js'
 import { nvPrOf, spTreeOf } from '../../oxml/slide-dom.js'
-
-const textEncoder = new TextEncoder()
 
 /**
  * The `a:p` children of a notes body, one per `\n`-separated line: the write path's
@@ -148,22 +146,18 @@ export function authorNotes(slide: Slide, text: string): string {
 		return partName
 	}
 
-	// No notes part yet: build one. The slide-number field caches this slide's
-	// 1-based position, the value the write path stamps; PowerPoint recomputes it.
-	const slideNum = slide.index + 1
-	const partName = opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
-	opc.addPart(
-		partName,
-		NOTES_SLIDE_CONTENT_TYPE,
-		textEncoder.encode(makeXmlNotesSlideSkeleton(notesParagraphsXml(text), slideNum))
-	)
-
-	slide.relationships.add(NOTES_SLIDE_REL, relativePartName(slide.partName, partName))
-
-	const notesRels = opc.relationshipsFor(partName)
+	// No notes part yet: build one. The notes master comes first, because resolving it is the step
+	// that can refuse, and it adds nothing until it can succeed: a refusal then leaves no notes part
+	// behind with the slide pointing at it. The slide-number field caches this slide's 1-based
+	// position, the value the write path stamps; PowerPoint recomputes it.
 	const masterPartName = ensureNotesMasterForAuthoring(slide.presentation, slide.partName)
-	notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(partName, masterPartName))
-	notesRels.addWithId('rId2', SLIDE_REL, relativePartName(partName, slide.partName))
-
+	const slideNum = slide.index + 1
+	const partName = addNotesSlidePart(
+		slide.presentation,
+		makeXmlNotesSlideSkeleton(notesParagraphsXml(text), slideNum),
+		slide.partName,
+		masterPartName
+	)
+	slide.relationships.add(NOTES_SLIDE_REL, relativePartName(slide.partName, partName))
 	return partName
 }

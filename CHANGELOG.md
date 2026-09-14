@@ -893,6 +893,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A refused `importShapes`, `importSlideMasters`, `appendSlides` or `Slide.addNotes` left the
+  deck half changed.** Each now leaves the deck byte-identical when it refuses.
+  - `importShapes` inserted the shapes ahead of the one that failed, whether the failure was a
+    missing media part or a `left`, `top`, `width` or `height` the shape setters refuse. The slide
+    was not marked dirty either, so the model showed those shapes while a save wrote the old
+    slide, until a later edit published the half import. Relationships are now carried once as a
+    plan, and the position options checked, before any shape goes in.
+  - `importSlideMasters` registered each master in `presentation.xml` before its layouts were
+    copied, so a missing layout or theme left a registered master holding part of its family.
+    The copy now runs as a plan first.
+  - `appendSlides` wired slide links after every slide was already in the deck, so a link to a
+    slide outside the batch left the slides ahead of it behind. Links are checked before the
+    first slide is added.
+  - `Slide.addNotes` added the notes part and the slide's relationship to it before installing
+    a notes master, which fails on a deck with no theme to bind one to. The master is now
+    resolved first.
+
+- **A later import could rescale a shared layout and master in the other mode.**
+  - `importSlide(source, 0, { rescale: 'fit' })` followed by
+    `importSlide(source, 1, { rescale: 'stretch' })` succeeded, and the master the two pages
+    share stayed scaled for the first one, while the same pair in one `importSlides` batch was
+    refused. Any `importSlide` or `importSlides` call that would reuse a layout or master already
+    rescaled in the other mode now throws `import/rescale-conflict` before anything is copied.
+  - **Migration:** import a source's pages in one mode. For the other mode, load the source
+    again; a second `Presentation` is a separate source and its pages get their own layout and
+    master.
+
 - **An import after `removeSlide` could throw, link to a deleted part, or skip its rescale.**
   - `removeSlide` frees partnames that the next import is given again, and the deck's import
     memos kept naming them. Re-importing the removed page threw

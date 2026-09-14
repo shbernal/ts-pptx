@@ -218,6 +218,27 @@ describe('Presentation.importSlideMasters', () => {
 		assertNoDanglingRels(reopened.opc)
 	})
 
+	test('a refused graft leaves the deck byte-identical, with no master registered', async () => {
+		// The copy registers each master in presentation.xml before its layouts come across, so a layout
+		// missing from the source used to leave a registered master holding part of its family.
+		const target = await openFixture('empty')
+		const source = await openFixture('image')
+		const layouts = masterLayoutList(source.opc, registeredMasters(source.opc)[0])
+		source.opc.removePart(layouts[layouts.length - 1])
+		const mastersBefore = registeredMasters(target.opc).length
+		const before = await target.save()
+
+		let code = null
+		try {
+			target.importSlideMasters(source)
+		} catch (err) {
+			code = err.code
+		}
+		assertEqual(code, 'package/part-missing', 'the missing layout refuses the graft')
+		assertEqual(registeredMasters(target.opc).length, mastersBefore, 'no master was registered')
+		assert(bytesEqual(before, await target.save()), 'and the deck is byte-identical')
+	})
+
 	test('rejects a slide-size mismatch unless overridden', async () => {
 		const target = await openFixture('empty') // 16:9
 		const source = await openFixture('mixed') // 4:3

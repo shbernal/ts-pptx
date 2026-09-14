@@ -426,6 +426,14 @@ export type InternalErrorCode =
 	// open — and one the read model reports as two slides. Caught at the insert.
 	| 'slide/part-already-in-deck'
 	| 'import/part-went-missing'
+	// `appendSlides` wired a slide link to a source slide number it had placed no slide for. The
+	// numbers are checked against the batch before any slide is added, so the wiring pass reaching
+	// one means that check and the wiring disagree about the batch.
+	| 'import/slide-link-not-placed'
+	// A rescale was asked to rewrite a part an earlier import rescaled in another mode. Every import
+	// refuses that before it copies anything, so reaching the rescale with it means a path skipped
+	// the check.
+	| 'import/rescale-mode-changed'
 	// A chart emitter was handed a `ChartType` it has no arm for — one the *other* emitter
 	// owns, or a newly added member nobody routed. The classic and chartEx builders partition
 	// `ChartType` between them and the caller picks by `isChartExType`, so reaching either one

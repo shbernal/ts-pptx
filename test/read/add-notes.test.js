@@ -16,7 +16,7 @@
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { assert, assertEqual } from '../helpers.js'
+import { assert, assertEqual, bytesEqual } from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
 import { openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
@@ -26,6 +26,8 @@ const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
+const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
+const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 
 // `empty.pptx` is a real PowerPoint deck with one slide, no notes part, and no notes
 // master — the only fixture that exercises the branch which has to *install* one. A
@@ -248,6 +250,29 @@ describe('Slide.addNotes on a loaded deck', () => {
 
 		const reopened = await Presentation.load(await target.save())
 		assertEqual(reopened.slides[1].notesText, raw, 'metacharacters round-trip as text, not markup')
+	})
+
+	test('a notes master that cannot be installed leaves no notes part behind', async () => {
+		// Installing a notes master is the step that can refuse, here because nothing binds the slide
+		// master to a theme. It used to run after the notes part and the slide's relationship to it
+		// were added, so the refusal left both.
+		const deck = await openFixture('empty')
+		const slide = deck.slides[0]
+		const layout = resolveSingle(deck.opc, slide.partName, SLIDE_LAYOUT_REL)
+		const master = resolveSingle(deck.opc, layout, SLIDE_MASTER_REL)
+		const masterRels = deck.opc.relationshipsFor(master)
+		masterRels.remove([...masterRels].find((rel) => rel.type === THEME_REL).id)
+		const before = await deck.save()
+
+		let code = null
+		try {
+			slide.addNotes('note')
+		} catch (err) {
+			code = err.code
+		}
+		assertEqual(code, 'package/part-missing', 'there is no theme to bind a notes master to')
+		assertEqual(slide.relationships.byType(NOTES_SLIDE_REL).length, 0, 'the slide has no notes relationship')
+		assert(bytesEqual(before, await deck.save()), 'and the deck is byte-identical')
 	})
 
 	test('a notes part whose target is missing is reported, not silently replaced', async () => {

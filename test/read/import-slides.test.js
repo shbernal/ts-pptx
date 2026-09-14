@@ -393,6 +393,32 @@ describe('Presentation.importSlides', () => {
 		)
 	})
 
+	test('a later call may not rescale a source’s shared layout and master in the other mode', async () => {
+		// The memo that stops a shared layout being scaled twice kept no mode, so a second call asking
+		// for the other one succeeded and left the master scaled for the first call's page.
+		const target = await generatedDeck(false)
+		const source = await otherCanvasDeck()
+		target.importSlide(source, 0, { rescale: 'fit' })
+		const beforeBytes = await target.save()
+
+		assertEqual(
+			catchCode(() => target.importSlide(source, 1, { rescale: 'stretch' })),
+			'import/rescale-conflict',
+			'importSlide refuses the other mode'
+		)
+		assertEqual(
+			catchCode(() => target.importSlides([{ source, sourceIndex: 1, outputIndex: 0, rescale: 'stretch' }])),
+			'import/rescale-conflict',
+			'and so does importSlides'
+		)
+		assert(bytesEqual(beforeBytes, await target.save()), 'neither refusal changed a byte')
+		assertEqual(
+			catchCode(() => target.importSlide(source, 1, { rescale: 'fit' })),
+			null,
+			'the same mode is accepted'
+		)
+	})
+
 	test("{ embedFonts } carries a source deck's faces once, however many of its pages come over", async () => {
 		const target = await openFixture('empty')
 		const source = await openFixture('embedded-fonts')

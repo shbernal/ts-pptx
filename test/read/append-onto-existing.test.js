@@ -605,13 +605,24 @@ describe('Presentation.appendSlides', () => {
 		assertEqual(rels.find((r) => r.type === MS_MEDIA_REL).target, VIDEO, 'MS-2007 media rel Target is unmangled')
 	})
 
-	test('rejects an internal link to a source slide outside the appended batch', async () => {
+	test('rejects an internal link to a source slide outside the appended batch, leaving the deck as it was', async () => {
+		// The slides are all added before their links are wired, so the refusal used to come with the
+		// slides ahead of the bad link already in the deck.
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
 		const pptx = wideGenerator()
+		pptx.addSlide().addText('first', { x: 1, y: 1, w: 6, h: 1 })
 		pptx.addSlide().addText('dangling', { x: 1, y: 1, w: 6, h: 1, hyperlink: { slide: 9 } })
-		assert(
-			await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })),
-			'a link to a non-appended source slide throws'
-		)
+		const before = await pres.save()
+		const slideCount = pres.slides.length
+
+		let code = null
+		try {
+			await pres.appendSlides(pptx, { layout: 'Blank' })
+		} catch (err) {
+			code = err.code
+		}
+		assertEqual(code, 'import/unresolved-slide-link', 'a link to a non-appended source slide throws')
+		assertEqual(pres.slides.length, slideCount, 'no slide was added')
+		assert(bytesEqual(before, await pres.save()), 'and the deck is byte-identical')
 	})
 })

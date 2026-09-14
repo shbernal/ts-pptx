@@ -2293,7 +2293,10 @@ target.importSlides([
   Rescaling one page and not another would leave the second aligned against a
   master that had moved under it, so a batch that disagrees is refused with
   `import/rescale-conflict` before anything is copied. `true` and `'fit'` are the
-  same answer, not a disagreement. Different sources are independent.
+  same answer, not a disagreement. Different sources are independent. The same rule
+  holds across calls: once an `importSlide` or `importSlides` call has rescaled a
+  source's layout and master, a later call from that source that reuses them in the
+  other mode is refused the same way.
 
 Pages come across under `'copy'` theme semantics (their own layout → master →
 theme subgraph, shared parts deduped via the copy registry). `theme`,
