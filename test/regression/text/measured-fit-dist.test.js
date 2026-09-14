@@ -869,7 +869,7 @@ describe('measured fit: code points the registered face has no glyph for', () =>
 	// Silkscreen covers ASCII but not U+2011 (non-breaking hyphen), so a run containing
 	// one is laid out on its `.notdef` advance. PowerPoint would substitute another face
 	// and measure in ITS advances, which is the one approximation here that is not
-	// conservative in a fixed direction — see docs/measured-text-fit.md ("No font fallback").
+	// conservative in a fixed direction. See docs/contributing/design/text-fit.md ("Font fallback").
 	const WITH_NBH = 'Fine print\u2011here'
 
 	/** Run `fn` with the process-global diagnostic handler capturing, then restore it. */

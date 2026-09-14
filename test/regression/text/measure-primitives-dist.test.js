@@ -2,7 +2,7 @@
 //
 // `measureLayout` / `measureHeightPt` / `solveShrink` / `solveResize` are published so a
 // consumer can lay out its own geometry from `FitParagraph[]` it builds itself
-// (docs/measured-text-fit.md → "reach for these primitives"). That entry reaches parts of
+// (docs/text-fit.md → "Measure without a presentation"). That entry reaches parts of
 // the model the deck path provably cannot:
 //
 //   - `buildFitParagraphs` splits every "\n" into its own paragraph before the tokenizer

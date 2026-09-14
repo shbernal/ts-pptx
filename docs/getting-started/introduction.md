@@ -46,7 +46,7 @@ separate renderer, `pptx-html`.
 | Area | What you get | Guide |
 | --- | --- | --- |
 | Text | Paragraphs, runs with their own formatting, bullets, hyperlinks | [API reference](../reference/api/index.md) |
-| Text that fits | The box shrinks or grows to its text, measured against the real font before the file is written | [Measured text fit](../measured-text-fit.md) |
+| Text that fits | The box shrinks or grows to its text, measured against the real font before the file is written | [Text that fits](../text-fit.md) |
 | Tables | Cell styles, borders, merged cells, and tables that continue across as many slides as they need | [Tables](../tables.md) |
 | HTML tables | An existing `<table>` converted to slides, in a browser or under Node | [HTML tables to slides](../html-tables.md) |
 | Shapes and connectors | Preset shapes, and lines that stay attached to the shapes they join | [Connectors](../connectors.md) |

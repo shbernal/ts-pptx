@@ -1041,39 +1041,95 @@ improves one and leaves the other flat is usually working as intended.
 ## Font oracles
 
 ```bash
-pnpm run test:oracles   # the probe, then both oracles and the sidecar check
+pnpm run test:oracles        # the probe, then both oracles and the sidecar check
+pnpm run font-metrics:build  # re-record the metrics sidecar; needs all six faces installed
 ```
 
-Two suites compare the measured-fit model against layout desktop PowerPoint baked:
-`test/read/autofit-calibration-oracle.test.js` (shrink and resize solvers) and
-`test/read/cjk-line-breaking-oracle.test.js` (where PowerPoint breaks East Asian
-lines). Both are only comparisons if the model measures with the same advances
-PowerPoint did, which needs six faces that cannot be committed: Aptos, Aptos SemiBold,
-Arial, Calibri, Tahoma and Malgun Gothic.
+Two suites hold the measured-fit model against layout that desktop PowerPoint baked into
+authored decks. The model and its constants are described in
+[Text that fits: design](design/text-fit.md).
 
-They used to degrade to nothing on CI. Every case was gated on `fc-match` resolving the
-genuine family, no hosted runner has any of these fonts, and the skip branch asserted
-`expect(true).toBe(true)`, so the suites ran, resolved nothing, asserted nothing and
-reported green. That is the failure mode the current arrangement is built against, and
-it is worth stating plainly: a suite that cannot fail is worse than one that does not
-run, because it also occupies the place where a real check would go.
+| Suite | Asserts |
+| --- | --- |
+| `test/read/autofit-calibration-oracle.test.js` | The computed shrink `fontScale` is at or below PowerPoint's, and the computed resize height is at or above both PowerPoint's and LibreOffice's. A last test fails when no case ran. |
+| `test/read/cjk-line-breaking-oracle.test.js` | The line count equals PowerPoint's for each East Asian case, and the height is at or above the height PowerPoint baked. |
 
-Two sources answer for a face now, chosen in `test/read/font-oracle.js`: the installed
-font where the machine has one, and `test/read/fixtures/autofit-font-metrics.json`
-otherwise, which records the advance of every code point the committed cases measure.
-`docs/measured-text-fit.md` (["Where the oracles run"](../measured-text-fit.md#where-the-oracles-run))
-carries the detail, including the three environment knobs. What matters here is which
-lane proves what:
+### Fixture decks
+
+The five decks are in `test/read/fixtures/`. Desktop PowerPoint baked every fit value when
+the authoring recipe saved the deck. `test/read/fixtures/README.md` records their provenance,
+hashes and case ids.
+
+| Deck | Cases | Pins |
+| --- | --- | --- |
+| `autofit-line-metrics.pptx` | 90 | single-line height and advance widths per font and size |
+| `autofit-shrink.pptx` | 29 | `normAutofit`: a core per font, and an Aptos sweep of overflow, line spacing, space before and after, multiple runs, insets, character spacing and anchor |
+| `autofit-resize.pptx` | 19 | `spAutoFit` and the baked height: a core per font, and an Aptos sweep of anchor, under-filled boxes, spacing and insets |
+| `autofit-edge.pptx` | 11 | long unbreakable words, trailing spaces, empty paragraphs, tabs, whitespace-only runs, mixed sizes, one right-to-left box and one CJK box |
+| `autofit-cjk-wrap.pptx` | 11 | where PowerPoint breaks East Asian lines: one `spAutoFit` box per case, in Malgun Gothic at 18 pt |
+
+The first four use Aptos, Aptos SemiBold, Calibri, Tahoma and Arial. The suites read them
+through the derived `autofit-calibration.json`. `autofit-cjk-wrap.pptx` is read directly.
+
+### Regenerating the calibration data
+
+| Step | Runs on | Writes |
+| --- | --- | --- |
+| `node test/read/fixtures/authoring/gen-cases.mjs` | anywhere | the `autofit-*.cases.json` manifests |
+| `test/read/fixtures/authoring/author-all.ps1` | Windows with PowerPoint and LibreOffice | each of the four decks through `author-deck.ps1`, and a `.tmp/<deck>.lo.json` LibreOffice measure through `measure-lo.py` for the line-metrics, resize and edge decks |
+| `node test/read/fixtures/authoring/extract-autofit-calibration.mjs` | anywhere | `autofit-calibration.json`: PowerPoint's baked values read from the committed decks, merged with the LibreOffice measures found under `--lo-dir` (default `.tmp`) |
+| `test/read/fixtures/authoring/author-cjk-wrap.ps1` | Windows with PowerPoint | `autofit-cjk-wrap.pptx` and `autofit-cjk-wrap.oracle.json` |
+
+- The decks are the source of truth, and `autofit-calibration.json` is derived from them.
+- `author-deck.ps1` stops before authoring when a requested font resolves to a substitute.
+- `measure-lo.py` runs under LibreOffice's bundled Python and records each named shape's size
+  after LibreOffice lays the deck out on open.
+- `autofit-cjk-wrap.oracle.json` is not derived from its deck, because a saved package does not
+  record where a line broke. Its `lines` and `lineWidthsPt` come from `TextRange.Lines()` over
+  COM at authoring time. Its `bakedHeightPt` is `a:ext/@cy` in the package, and the CJK suite
+  re-derives it from the committed deck on every run, so a sidecar edited apart from its deck
+  fails.
+
+### Where the fonts come from
+
+Both suites need the faces PowerPoint measured with: Aptos, Aptos SemiBold, Arial, Calibri,
+Tahoma and Malgun Gothic. None of them can be committed. `test/read/font-oracle.js` takes each
+face from one of two sources:
+
+- The installed font. On Windows it reads the font registry under both `HKLM` and `HKCU`. That
+  is the map GDI resolves family names through, and the only one that sees the per-user Aptos
+  Microsoft 365 installs under `%LOCALAPPDATA%`. Elsewhere it runs `fc-match` and rejects a
+  substituted family, so Carlito cannot stand in for Calibri.
+- `test/read/fixtures/autofit-font-metrics.json` otherwise. Per face, it records the raw `hmtx`
+  advance of every code point the committed cases measure, and the code points the face lacks.
+  A code point missing from it throws, naming the face and the character.
+  `test/read/fixtures/authoring/build-font-metrics.mjs` writes it and refuses to write a
+  partial file.
+
+`test/read/font-metrics-sidecar.test.js` re-derives every sidecar entry from the installed font
+wherever one resolves, and fails on any difference.
 
 | Lane | Source | What it establishes |
 | --- | --- | --- |
-| `test` (ubuntu, both Node legs) | the sidecar, always | The solvers are still conservative against PowerPoint's baked values, on every push, for all 58 asserted cases. `FONT_ORACLES=required` makes a face that resolves through neither source a failure. |
-| `font-oracles` (windows-latest) | installed fonts | The recorded advances still match the fonts they came from, for Arial, Calibri, Tahoma and Malgun Gothic. `FONT_ORACLES_GENUINE` names them, so an image that drops one fails the leg rather than falling back to the sidecar. |
-| A workstation with Microsoft 365 | installed fonts | The same check for Aptos and Aptos SemiBold, which no runner carries. `pnpm run test:oracles` reports which faces it was able to verify. |
+| `test` (ubuntu, both Node legs) | the sidecar, always | The solvers are still conservative against PowerPoint's baked values, on every push. |
+| `font-oracles` (windows-latest) | installed fonts | The recorded advances still match the fonts they came from, for Arial, Calibri, Tahoma and Malgun Gothic. |
+| A workstation with Microsoft 365 | installed fonts | The same check for Aptos and Aptos SemiBold, which no runner carries. `pnpm run test:oracles` reports which faces it verified. |
 
-Regenerate the sidecar with `pnpm run font-metrics:build` (all six faces must be
-installed; it refuses to write a partial one) and reformat it afterwards, as with every
-other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
+`test:oracles` starts with `scripts/font-oracle-probe.mjs`, which prints the face-by-face
+resolution table, writes it to the job summary on CI, and fails when a declared family is
+absent.
+
+Three environment variables keep a run that resolves nothing from passing:
+
+| Variable | Effect |
+| --- | --- |
+| `FONT_ORACLES=required` | A face that resolves through neither source fails the suite instead of skipping the case. Both CI lanes set it. |
+| `FONT_ORACLES_GENUINE=A,B,C` | These families must resolve to an installed file. `font-oracles` names Arial, Calibri, Tahoma and Malgun Gothic, so an image that drops one fails the leg instead of falling back to the sidecar. |
+| `FONT_ORACLES_SIDECAR_ONLY=1` | The suites ignore installed fonts and measure from the sidecar, the path every Linux runner takes. The sidecar check still reads the installed fonts. |
+
+Adding or editing an autofit or CJK case makes the sidecar stale, and the suites fail naming
+the face and the character. Regenerate it with `pnpm run font-metrics:build` and reformat it,
+as with every other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
 
 ## Browser lane
 

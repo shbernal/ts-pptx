@@ -1,4 +1,4 @@
-// Layout-time public measurement API (docs/measured-text-fit.md). Three layers:
+// Layout-time public measurement API (docs/text-fit.md). Three layers:
 //  A) the core measureText(registry, …) + shared buildFitParagraphs against src,
 //     with SYNTHETIC metrics so the suite is reproducible and needs no font files;
 //  B) the same through the built `ts-pptx/measure` subpath (P1 re-exports);

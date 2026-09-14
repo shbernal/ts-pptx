@@ -85,7 +85,7 @@ describe(`CJK oracle: the wrap model reproduces PowerPoint's line breaking`, () 
 			if (!covered(c.text)) {
 				// The widths are unreproducible, but the model still has to SAY so: this is
 				// the one gap that can measure short rather than tall, so it is reported
-				// rather than absorbed (docs/measured-text-fit.md, "No font fallback").
+				// rather than absorbed (docs/contributing/design/text-fit.md, "Font fallback").
 				const byFace = new Map()
 				collectUncoveredCodepoints(paragraphs, registry, byFace)
 				expect(byFace.get(c.fontFace)?.size ?? 0).toBeGreaterThan(0)
@@ -104,7 +104,7 @@ describe(`CJK oracle: the wrap model reproduces PowerPoint's line breaking`, () 
 			expect(layout.lineCount).toBe(c.lineCount)
 
 			// And the height stays on the conservative side of what PowerPoint baked,
-			// which is the contract the resize bake depends on (docs/measured-text-fit.md).
+			// which is the contract the resize bake depends on (docs/contributing/design/text-fit.md, "Wrap simulator and solvers").
 			const innerBakedPt = c.bakedHeightPt - c.insetTopPt - c.insetBottomPt
 			expect(layout.heightPt * HEIGHT_SAFETY_FACTOR).toBeGreaterThanOrEqual(innerBakedPt)
 		})

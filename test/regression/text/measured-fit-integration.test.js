@@ -59,7 +59,7 @@ describe("measured fit: fit:'shrink' integration", () => {
 	})
 
 	test('DOCUMENTED DIVERGENCE: empty registry → measureText predicts a shrink the export does not bake', async () => {
-		// Intentional, not a bug (docs/measured-text-fit.md "Unregistered-font heuristic"):
+		// Intentional, not a bug (docs/text-fit.md "Measure text before export"):
 		// applyMeasuredFit reads "no metrics" as "never opted into measured fit" and bakes
 		// nothing, while measureText is a read-only query that stays useful with zero setup.
 		// Pinned so the asymmetry cannot change silently; approximatedFaces is how a caller

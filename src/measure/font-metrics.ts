@@ -9,7 +9,7 @@
  * Width is summed from **raw `hmtx` advances with no kerning/shaping** (GPOS/GSUB
  * are deliberately ignored): kerning almost always narrows a line, so raw advances
  * over-estimate width — the conservative direction (shrink a touch too much, never
- * overflow). See `docs/measured-text-fit.md` ("Font metrics provider").
+ * overflow). See `docs/contributing/design/text-fit.md` ("Font metrics provider").
  */
 
 import { MediaError, UnsupportedFeatureError } from '../errors.js'
@@ -274,9 +274,9 @@ export function makeRegistryResolver(
  * fallback and charges the registered font's `.notdef` advance instead, which is a single
  * flat number unrelated to the glyph that actually paints. Unlike the other approximations
  * here it is **not** conservative in a fixed direction: a `.notdef` wider than the real
- * glyph over-reports (a phantom line — safe), a narrower one under-reports and can drop a
+ * glyph over-reports (a phantom line, which is safe), a narrower one under-reports and can drop a
  * line, which is the overflow direction the resize bake has no safety net for. So it is
- * surfaced rather than absorbed — see `docs/measured-text-fit.md` ("No font fallback").
+ * surfaced rather than absorbed. See `docs/contributing/design/text-fit.md` ("Font fallback").
  *
  * Runs whose face has no registered metrics at all are skipped: they measure through the
  * cmap-less heuristic, which has no coverage to report, and the caller already flags them

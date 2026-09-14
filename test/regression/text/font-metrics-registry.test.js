@@ -1,6 +1,6 @@
 // Font-metrics provider + registry through the public `ts-pptx/measure` subpath
 // (dist/measure.js). These primitives are the standalone surface a consumer uses to
-// build its own resolver/registry (docs/measured-text-fit.md); the registry's
+// build its own resolver/registry (docs/text-fit.md, "Measure without a presentation"); the registry's
 // coverage/fallback methods (`hasFace`, `hasCodepoint`, variant fallback in `get`)
 // are not touched by the export-time bake, so they only get dist coverage here.
 // Silkscreen (OFL, committed under test/read/fixtures/fonts) gives a real cmap:

@@ -6,7 +6,7 @@
 // `<a:tr h="-914400">`, and a stringified one (`rowH: ['1']`, reachable from untyped JS) was
 // honoured by the writer and rejected by the layout API.
 //
-// `docs/measured-text-fit.md` states the invariant: "a layout-time prediction must never
+// `docs/contributing/design/text-fit.md` states the invariant: "a layout-time prediction must never
 // disagree with what the export then bakes". Column widths honoured it through
 // `resolveTableColWidthsEmu`; row heights now honour it through `resolveTableRowHeightEmu`.
 //

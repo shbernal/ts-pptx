@@ -349,7 +349,7 @@ slide.addTable(rows, { x: 1, y: 1, w: 8, rowH: [0.6, null, null, 0.4] })
 
 ## Fit text in a fixed row
 
-`fit: 'shrink'` on a cell or on the table bakes a smaller font size into a cell whose wrapped text is taller than its fixed row. [Measured text fit](measured-text-fit.md) has the full rules.
+`fit: 'shrink'` on a cell or on the table bakes a smaller font size into a cell whose wrapped text is taller than its fixed row. [Text that fits](text-fit.md) has the full rules.
 
 ```ts
 await pptx.registerFontMetrics('Aptos', fontBytes)
@@ -485,7 +485,7 @@ await writeFile('deck-edited.pptx', await deck.save())
 
 ## See also
 
-- [Measured text fit](measured-text-fit.md)
+- [Text that fits](text-fit.md)
 - [Fills and gradients](fills-and-gradients.md)
 - [HTML tables to slides](html-tables.md)
 - [Reading and round-tripping existing decks](reference/pptx-read.md)

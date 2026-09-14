@@ -17,7 +17,7 @@
     {
       "group": "Write a deck",
       "pages": [
-        "measured-text-fit",
+        "text-fit",
         "tables",
         "html-tables",
         "connectors",

@@ -94,7 +94,7 @@ same conversion is the free `tableToSlides` on `pptx-ts/html`, which costs a com
 
 `measure` supplies three presentation methods that measure without authoring anything. Text with
 `fit: 'shrink'` is still shrunk when the deck is written without it; see
-[Measured text fit](measured-text-fit.md#instance-methods-inchespoints-reuse-registered-metrics).
+[Text that fits](text-fit.md#measure-text-before-export).
 
 ## When a family is missing
 

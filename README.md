@@ -68,7 +68,7 @@ Two features worth knowing about by name:
 - **[An HTML table becomes slides](docs/html-tables.md).** Point `tableToSlides` at a
   `<table>` you already have and it comes out as a PowerPoint table, paged across
   slides. Works in a browser and under Node.
-- **[Text that has to fit](docs/measured-text-fit.md).** ts-pptx can measure the text
+- **[Text that has to fit](docs/text-fit.md).** ts-pptx can measure the text
   against the real font and shrink or grow the box before it writes the file, instead
   of leaving you to guess at font sizes.
 

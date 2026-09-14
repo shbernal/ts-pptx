@@ -4,7 +4,7 @@
  * a grid, detect overflow) **before export** without a `TsPptx` instance.
  *
  * This is the same wrap model + solvers the export-time autofit bake uses (see
- * `docs/measured-text-fit.md`), so a layout-time prediction never disagrees with
+ * `docs/contributing/design/text-fit.md`), so a layout-time prediction never disagrees with
  * the baked result. For the ergonomic, inches-based path use
  * `pptx.measureText()` / `pptx.overflowsBox()` on a presentation instance; reach
  * for these primitives when you need to build your own resolver/registry and

@@ -625,7 +625,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * The reading is shared by everything that answers a question about row height: the
 	 * emitted `<a:tr h>`, the export-time measured-fit pass, the auto-pager, and
 	 * `pptx.tableLayout()`. A prediction that disagreed with what the export bakes would be
-	 * worse than no prediction (`docs/measured-text-fit.md`).
+	 * worse than no prediction (`docs/contributing/design/text-fit.md`).
 	 * @default rows of equal height based upon `h`
 	 */
 	rowH?: number | Array<number | null>

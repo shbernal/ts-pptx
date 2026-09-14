@@ -62,7 +62,7 @@ A group never moves or scales its children. Each child stays at the slide positi
   </g>
 </svg>
 
-So you place every child at its final slide position, and grouping leaves the slide looking exactly as it did. Text inside a group takes part in [measured text fit](measured-text-fit.md) at its authored size, like any other text box.
+So you place every child at its final slide position, and grouping leaves the slide looking exactly as it did. [Text that fits](text-fit.md) measures text inside a group at its authored size, like any other text box.
 
 ## Build a group from descriptors
 
@@ -290,7 +290,7 @@ Composing a presentation from construct families is covered in [Smaller bundles]
 
 - [Connectors](connectors.md)
 - [Positions and sizes](reference/layout-units.md#positions-and-sizes)
-- [Measured text fit](measured-text-fit.md)
+- [Text that fits](text-fit.md)
 - [Demos](demos.md), whose showcase deck groups its content
 - [Diagnostics](diagnostics.md) and [Errors](errors.md)
 - API reference: [`Slide`](reference/api/index/interfaces/Slide.md), [`GroupProps`](reference/api/index/interfaces/GroupProps.md), [`GroupChildProps`](reference/api/index/type-aliases/GroupChildProps.md), [`SlideObjectInfo`](reference/api/index/interfaces/SlideObjectInfo.md), [`ObjectLockProps`](reference/api/index/interfaces/ObjectLockProps.md)

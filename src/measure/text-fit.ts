@@ -3,7 +3,7 @@
  *
  * Computes a baked `fontScale` for `fit: 'shrink'` so overflowing text renders
  * pre-shrunk in headless renderers (and on plain file-open) without a manual
- * edit/resize. See `docs/measured-text-fit.md`.
+ * edit/resize. See `docs/contributing/design/text-fit.md`.
  *
  * Calibration: every constant here is pinned against PowerPoint-authored fixtures
  * (`test/read/fixtures/autofit-calibration.json`). The model errs **conservative**
@@ -27,7 +27,7 @@ export const SINGLE_LINE_PITCH = 1.2117
 /** PowerPoint's `fontScale` search grid: discrete 2.5% steps (Findings #3). */
 export const FONT_SCALE_STEP_PCT = 2.5
 
-/** Floor for the shrink search (see `docs/measured-text-fit.md` → Solvers). */
+/** Floor for the shrink search (see `docs/contributing/design/text-fit.md` → Wrap simulator and solvers). */
 export const MIN_FONT_SCALE_PCT = 25
 
 /**
@@ -137,7 +137,7 @@ const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch ==
  * Known gap: no kinsoku (line-break prohibition) rules. PowerPoint will not start
  * a line with `。` or `、` and hangs them past the right inset instead; this model
  * breaks before them. That is a widest-line difference, not a line-count one, and
- * `docs/measured-text-fit.md` records it.
+ * `docs/contributing/design/text-fit.md` records it.
  */
 export function isCjkBreakCharacter(ch: string): boolean {
 	const cp = ch.codePointAt(0) ?? 0

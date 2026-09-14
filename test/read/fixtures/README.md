@@ -1026,11 +1026,11 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   sequentially in document order. `import-animation-merge.oracle.json` pins the `source` (slide 1)
   and `merged` (slide 2) timing trees plus a `mergeMap` recording the spid remap and build ordering.
 
-## Autofit calibration oracle (`docs/measured-text-fit.md`)
+## Autofit calibration oracle (`docs/contributing/testing.md`)
 
 Four desktop-PowerPoint-authored decks that pin **how PowerPoint itself computes
 text autofit** — the fixture-gated precondition for measured-fit solvers
-(`docs/measured-text-fit.md`). Like the authoring
+(`docs/contributing/design/text-fit.md`). Like the authoring
 oracles above, these are **inspection only — not loaded by `test:read`**. PowerPoint
 baked every fit value here (`fontScale`/`lnSpcReduction` for shrink, `ext.cy`/`off.y`
 for resize) non-interactively on `SaveAs`; the decks are the source of truth and the

@@ -208,7 +208,7 @@ how the OOXML gets built stays on this side of that line.
   shrink/resize solvers), `paragraphs.ts` (authored object → simulator inputs),
   `table-fit.ts` (`computeTableLayout` and the cell-grid walk), and `fit.ts` (the
   pass that measures and rewrites slide objects before the sync XML build).
-  `src/measure.ts` is the public barrel over it. See `docs/measured-text-fit.md`.
+  `src/measure.ts` is the public barrel over it. See `docs/contributing/design/text-fit.md`.
 - `src/types/index.ts` and `src/enums.ts` define the public typed contract.
   `types/index.ts` is a re-export barrel over its siblings in `src/types/*` (split
   by domain). The generator-internal `*Internal` wire shapes live in
