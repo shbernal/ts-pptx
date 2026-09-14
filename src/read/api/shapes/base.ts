@@ -38,6 +38,7 @@ import {
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from '../gradient.js'
 import { readPictureFill, type PictureFill } from '../picture-fill.js'
 import { readPatternFill } from '../pattern-fill.js'
+import { readLineBasics, type LineBasics } from '../line.js'
 import { readGlow, readInnerShadow, readOuterShadow, readReflection, readSoftEdge } from './effects.js'
 import { TextFrame } from '../text.js'
 import type { ShapeHost } from './host.js'
@@ -67,7 +68,7 @@ import type {
 	SoftEdge,
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
-import { checkFiniteEmu, checkPositiveEmu, ptFromEmu } from '../coords.js'
+import { checkFiniteEmu, checkPositiveEmu } from '../coords.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -480,7 +481,7 @@ export abstract class Shape {
 
 	/** Explicit RGB line/border colour (`spPr/a:ln/a:solidFill/a:srgbClr/@val`), or `null`. */
 	get lineColor(): string | null {
-		return solidFillColor(this.#line(), 'a:srgbClr')
+		return this.#lineBasics()?.color ?? null
 	}
 
 	set lineColor(value: string | null) {
@@ -489,7 +490,7 @@ export abstract class Shape {
 
 	/** Theme colour token when the line is a scheme colour (`a:ln/a:solidFill/a:schemeClr/@val`), or `null`. */
 	get lineSchemeColor(): string | null {
-		return solidFillColor(this.#line(), 'a:schemeClr')
+		return this.#lineBasics()?.schemeColor ?? null
 	}
 
 	set lineSchemeColor(value: string | null) {
@@ -498,9 +499,7 @@ export abstract class Shape {
 
 	/** Line/border width in points (`spPr/a:ln/@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
 	get lineWidthPt(): number | null {
-		const ln = this.#line()
-		const w = ln ? numberValue(attr(ln, 'w')) : null
-		return ptFromEmu(w)
+		return this.#lineBasics()?.widthPt ?? null
 	}
 
 	/**
@@ -510,9 +509,7 @@ export abstract class Shape {
 	 * otherwise invisible in {@link lineColor}/{@link lineWidthPt} alone.
 	 */
 	get lineDash(): string | null {
-		const ln = this.#line()
-		const dash = ln && firstChild(ln, 'a:prstDash')
-		return dash ? (attr(dash, 'val') ?? null) : null
+		return this.#lineBasics()?.dash ?? null
 	}
 
 	/**
@@ -523,8 +520,7 @@ export abstract class Shape {
 	 * to know the border was explicitly suppressed.
 	 */
 	get lineNoFill(): boolean {
-		const ln = this.#line()
-		return !!(ln && firstChild(ln, 'a:noFill'))
+		return this.#lineBasics()?.noFill ?? false
 	}
 
 	/**
@@ -772,13 +768,19 @@ export abstract class Shape {
 	get resolvedLine(): ResolvedColor | null {
 		const ctx = this.host.themeContext()
 		const ln = this.#line()
-		return ln ? resolveSolidFillColor(ln, ctx) : resolveStyleLineColor(this.element, ctx)
+		return ln ? readLineBasics(ln, ctx).resolvedColor : resolveStyleLineColor(this.element, ctx)
 	}
 
 	/** The line element (`spPr/a:ln`), or `null` when absent. */
 	#line(): Element | null {
 		const props = this.properties()
 		return props ? firstChild(props, 'a:ln') : null
+	}
+
+	/** The line element's width, dash, raw colour and no-fill flag, or `null` when the shape has no `a:ln`. */
+	#lineBasics(): LineBasics | null {
+		const ln = this.#line()
+		return ln ? readLineBasics(ln, null) : null
 	}
 
 	/**

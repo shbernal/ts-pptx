@@ -21,7 +21,7 @@ import {
 } from '../oxml/dom.js'
 import { solidFillColor } from '../oxml/fill.js'
 import { readIndexedPoints } from '../oxml/point-cache.js'
-import { ptFromEmu } from './coords.js'
+import { readLineBasics } from './line.js'
 
 /** A chart axis number format (`c:numFmt`). */
 export interface AxisNumberFormat {
@@ -393,16 +393,9 @@ export class ChartSeries {
 		const spPr = firstChild(this.ser, 'c:spPr')
 		const ln = spPr && firstChild(spPr, 'a:ln')
 		if (!ln) return null
-		const w = numberValue(attr(ln, 'w'))
-		const dash = firstChild(ln, 'a:prstDash')
-		const solid = readSolid(ln)
-		return {
-			widthPt: ptFromEmu(w),
-			dash: dash ? (attr(dash, 'val') ?? null) : null,
-			color: solid.color,
-			schemeColor: solid.schemeColor,
-			noFill: solid.noFill,
-		}
+		// The chart part is read without a theme, so the colour stays the raw `a:srgbClr`.
+		const { widthPt, dash, color, schemeColor, noFill } = readLineBasics(ln, null)
+		return { widthPt, dash, color, schemeColor, noFill }
 	}
 
 	/** Series index (`c:idx/@val`), or `null` if absent. */

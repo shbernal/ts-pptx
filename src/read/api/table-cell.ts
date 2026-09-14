@@ -51,6 +51,7 @@ import type { ThemeContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPatternFill, type PatternFill } from './pattern-fill.js'
+import { readLineBasics } from './line.js'
 import { resolveTableCellStyleFill, type ResolvedTableStyle, type TableConditionFlags } from './table-style-resolve.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
@@ -567,17 +568,15 @@ export class TableCell {
 		const decode = (qname: string): CellBorder | null => {
 			const ln = firstChild(tcPr, qname)
 			if (!ln) return null
-			const w = numberValue(attr(ln, 'w'))
-			const dash = firstChild(ln, 'a:prstDash')
-			const scheme = solidFillColor(ln, 'a:schemeClr')
-			const resolved = this.themeContext ? resolveSolidFillColor(ln, this.themeContext) : null
+			const line = readLineBasics(ln, this.themeContext ?? null)
 			return {
-				widthPt: ptFromEmu(w),
-				dash: dash ? (attr(dash, 'val') ?? null) : null,
-				resolvedColor: resolved,
-				color: resolved ? resolved.effectiveHex : null,
-				schemeColor: scheme,
-				noFill: !!firstChild(ln, 'a:noFill'),
+				widthPt: line.widthPt,
+				dash: line.dash,
+				resolvedColor: line.resolvedColor,
+				// The resolved hex, where a shape's `lineColor` and a chart series' `color` are the raw one.
+				color: line.resolvedColor ? line.resolvedColor.effectiveHex : null,
+				schemeColor: line.schemeColor,
+				noFill: line.noFill,
 			}
 		}
 		const borders: CellBorders = {
