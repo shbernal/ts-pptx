@@ -509,7 +509,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * so a GUID it does not recognise leaves the table with PowerPoint's no-style look —
 	 * a black hairline grid. For brand colours use direct formatting instead:
 	 * `headerRow`, `columns[i]`, the table-level {@link border} / {@link fill}, or per-cell
-	 * options. See `docs/tables.md` → "Table styles".
+	 * options. See `docs/tables.md` → "Apply a built-in table style".
 	 *
 	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1
 	 */

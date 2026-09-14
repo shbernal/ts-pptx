@@ -32,7 +32,7 @@ import { TableStyle } from '../../../dist/node.js'
 //
 // `defineTableStyle()` and `TableProps.styleDrivenCells` used to live here. Both were removed
 // once the render evidence showed a custom style is unreachable markup in PowerPoint whatever
-// it says and wherever it sits -- see CHANGELOG.md and `docs/tables.md` -> "Table styles".
+// it says and wherever it sits -- see CHANGELOG.md and `docs/tables.md` -> "Apply a built-in table style".
 
 const AT = { x: 1, y: 1, w: 8 }
 

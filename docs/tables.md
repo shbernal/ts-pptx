@@ -1,58 +1,111 @@
 ---
 doc-schema-version: 1
 title: "Tables"
-summary: "The table cell model, the styling precedence chain, borders (per-cell, perimeter, dash styles, diagonals), merges, auto-paging, measured fit, and the constructs PowerPoint will not keep."
+summary: "Add a table with addTable(): the cell model and styling precedence, built-in table styles, fills, per-cell and perimeter borders, merged cells, column widths and row heights, fitting text, auto-paging across slides, and reading a table back."
 read_when:
-  - Adding a table with addTable() and deciding how to style its cells
+  - Adding a table with addTable() and styling its cells
   - Working out why a border landed on every cell instead of the table's outside edge
-  - Merging cells, or debugging a colspan/rowspan that renders wrong
-  - Reading or editing a table in an existing deck through ts-pptx/read
-  - Checking whether a table construct is authorable before implementing it
+  - Merging cells, or debugging a colspan or rowspan that renders wrong
+  - Deciding whether a row is fixed or grows, and why fit shrink changed nothing
+  - Paging a long table across slides
+  - Reading or editing a table in an existing deck through pptx-ts/read
 doc_type: "guide"
 ---
 
 # Tables
 
-```js
-const s = pptx.addSlide()
-s.addTable(
+`slide.addTable(rows, options)` draws a PowerPoint table from an array of rows, each an array of cells.
+
+```ts
+import { TsPptx } from 'pptx-ts'
+
+const pptx = new TsPptx()
+pptx.addSlide().addTable(
   [
-    ['Region', 'Q1', 'Q2'],
-    ['North', '120', '145'],
-    ['South', '98', '110'],
+    [{ text: 'Region' }, { text: 'Q1' }, { text: 'Q2' }],
+    [{ text: 'North' }, { text: '120' }, { text: '145' }],
+    [{ text: 'South' }, { text: '98' }, { text: '110' }],
   ],
-  { x: 1, y: 1, w: 8, hasHeader: true }
+  { x: 1, y: 1, w: 8, hasHeader: true },
 )
+await pptx.writeFile({ fileName: 'table.pptx' })
 ```
 
-`slide.addTable(rows, options)` takes a **row-major array of rows**, each an array of
-cells, and emits a `<p:graphicFrame>` wrapping an `<a:tbl>`. A table is an ordinary slide
-object: it takes `x`/`y`/`w`/`h`, an `objectName`, an `altText`, and a `placeholder`.
+`addTable` returns the slide, so calls chain. A table also takes `objectName`, `altText` and `placeholder`, like any other slide object.
 
-## The cell model
+## Options at a glance
 
-A cell is a string, a number, or a `TableCell` object:
+Table options (`TableProps`):
 
-```js
-'plain'                                    // shorthand for { text: 'plain' }
-{ text: 'styled', options: { bold: true } }
-{ text: [{ text: 'mixed ' }, { text: 'runs', options: { bold: true } }] }
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `x`, `y` | `Coord` | `0.5` | Top-left corner. |
+| `w` | `Coord` | from `x` to the right slide margin, in whole inches | Table width, split evenly when `colW` is unset. |
+| `h` | `Coord` | none | Table height. Fixes every row. |
+| `colW` | `number \| number[]` | even split of `w` | Column widths in inches. |
+| `rowH` | `number \| (number \| null)[]` | none | Row heights in inches. |
+| `fitColumns` | `'shrink'` | none | Scales columns down to fit between `x` and the right margin. |
+| `fit` | `'shrink'` | none | `fit` for every cell that sets none. |
+| `slideMargin` | `Margin` | the master's margin, else `0.5` | Margins for the default width, `fitColumns` and auto-paging. |
+| `headerRow` | `TableCellProps` | none | Formatting for every cell of row 0. Implies `hasHeader`. |
+| `columns` | `TableCellProps[]` | none | Formatting for every cell that starts in column `i`. |
+| `fill` | `FillOption` | none | Fill copied onto every cell that sets none. |
+| `tableFill` | `FillOption` | none | One background behind the whole table. |
+| `border` | `BorderProps` or a 4-tuple | no line, unless `tableStyle` is set | Every cell's own four edges. |
+| `outerBorder` | `BorderProps` or a 4-tuple | none | The table's perimeter only. |
+| `margin` | `Margin` | `[0.05, 0.1, 0.05, 0.1]` | Cell insets in inches, top, right, bottom, left. |
+| `fontSize` | `number` | `12` | Text size in points. |
+| `color` | `Color` | `'000000'`, or the theme text colour when a cell has a hyperlink | Text colour. |
+| `tableStyle` | `TableStyle` | none | A built-in PowerPoint table style. |
+| `hasHeader`, `hasFooter` | `boolean` | `false` | Turn on the style's first-row and last-row regions. |
+| `hasBandedRows`, `hasBandedColumns` | `boolean` | `false` | Turn on the style's banding. |
+| `hasFirstColumn`, `hasLastColumn` | `boolean` | `false` | Turn on the style's first-column and last-column regions. |
+| `rtl` | `boolean` | `false` | Mirrors the column order for right-to-left scripts. |
+| `autoPage` | `boolean` | `false` | Continues a table too tall for its slide onto the following slides. |
+| `autoPageRepeatHeader` | `boolean` | `false` | Repeats the header rows on each continuation slide. |
+| `autoPageHeaderRows` | `number` | `1` | How many leading rows make up the header. |
+| `autoPageSlideStartY` | `number` | the top margin | Where the table starts on continuation slides, in inches. |
+| `autoPagePlaceholder` | `boolean` | `false` | Copies the source slide's filled placeholders onto continuation slides. |
+| `autoPageCharWeight` | `number` | `0` | Nudges the pager's characters-per-line estimate. |
+| `autoPageLineWeight` | `number`, `-1` to `1` | `0` | Nudges the pager's line-height estimate. |
+
+Cell options (`TableCellProps`) add these to every text option (`bold`, `italic`, `color`, `fontFace`, `fontSize`, `align`, `valign`, `textDirection`, `hyperlink` and the rest):
+
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `colspan`, `rowspan` | `number` | `1` | Merge the cell across columns or rows. |
+| `fill` | `FillOption` | inherited | Cell fill. |
+| `border` | `BorderProps` or a 4-tuple | inherited | The cell's four edges. Replaces the table's `border` whole. |
+| `diagonal` | `TableCellDiagonals` | none | Corner-to-corner rules. |
+| `margin` | `Margin` | inherited | Cell insets in inches. |
+| `anchorCtr` | `boolean` | `false` | Centres the block of text in the cell, whatever `align` says. |
+| `horzOverflow` | `'clip' \| 'overflow'` | PowerPoint clips | What a single glyph wider than the cell does. |
+| `cell3D` | `TableCell3DProps` | none | A bevel on the cell. |
+| `fit` | `'shrink'` | the table's `fit` | Shrinks text that overflows a fixed row. |
+| `autoPageCharWeight` | `number` | the table's | The pager nudge for this cell. |
+
+## Write cells
+
+A cell is an object with `text` and optional `options`. `text` is a string or an array of runs, and each run has the same `{ text, options }` shape:
+
+```ts
+import type { TableRow } from 'pptx-ts'
+
+const row: TableRow = [
+  { text: 'plain' },
+  { text: 'styled', options: { bold: true, color: 'C00000' } },
+  { text: [{ text: 'mixed ' }, { text: 'runs', options: { bold: true } }] },
+  { text: [{ text: 'line one', options: { breakLine: true } }, { text: 'line two' }] },
+]
 ```
 
-`options` is a `TableCellProps`. It extends `TextBaseProps`, so anything that styles text
-works on a cell: `bold`, `color`, `fontFace`, `fontSize`, `align`, `valign`,
-`textDirection`, and the rest. On top of those sit the table-only options: `fill`,
-`border`, `diagonal`, `margin`, `colspan`, `rowspan`, `anchorCtr`, `horzOverflow`,
-`cell3D` and `fit`.
+- `TableRow` is `TableCell[]`, so TypeScript rejects a bare string or number as a cell. Plain JavaScript that passes one still works.
+- A row under a `rowspan` lists only the cells that start in it. See [Merge cells](#merge-cells).
+- The first row decides how many columns the table has.
 
-Rows may be **lopsided**. A row under a `rowspan` from above holds only the cells that
-actually start in it, and the emitter builds the rectangular merge grid itself. This is the
-one place authoring and reading differ in shape: see [Merging cells](#merging-cells).
+## Style cells
 
-## Styling precedence
-
-Highest wins, matching how PowerPoint resolves styling: direct cell formatting always beats
-a style region:
+Formatting resolves per property. The highest source that sets a property wins:
 
 | # | Source | Applied |
 | --- | --- | --- |
@@ -60,339 +113,381 @@ a style region:
 | 2 | `headerRow` | to every cell of row 0 |
 | 3 | `columns[i]` | to every cell starting in column `i` |
 | 4 | table-level options | to every cell that set none |
-| 5 | **library defaults** | stamped onto every cell as direct formatting |
+| 5 | library defaults | stamped onto every cell as direct formatting |
 | 6 | `tableStyle` | by the built-in style's own region rules |
 
-Exactly eleven table-level options inherit down to cells (row 4): `align`, `bold`, `border`,
-`color`, `fill`, `fontFace`, `fontSize`, `margin`, `textDirection`, `underline`, `valign`.
-The list is closed: `italic`, for instance, is **not** on it, so a table-level `italic: true`
-styles nothing.
+- The merge happens per property, not per object. A header cell can take `bold` from `headerRow` and `fill` from its column.
+- A cell's own `false` or `0` counts as set, so `bold: false` on a cell beats `bold: true` on the table.
+- Fifteen table options reach the cells: `align`, `bold`, `border`, `charSpacing`, `color`, `fill`, `fontFace`, `fontSize`, `italic`, `lineSpacing`, `lineSpacingMultiple`, `margin`, `textDirection`, `underline` and `valign`. No other table option styles a cell.
+- `columns[i]` goes to the cell that starts in grid column `i`, counting the `colspan`s earlier in its row and any `rowspan` from a row above.
+- `headerRow` sets `hasHeader: true` unless you set `hasHeader` yourself.
 
-### The defaults tier
+Tier 5 writes four defaults onto every cell. They are direct formatting, so they beat a table style, and anything you set in tiers 1 to 4 beats them:
 
-Row 5 is the one that surprises people, so it is worth stating plainly: for four properties
-the library stamps a default onto **every cell as direct formatting**.
-
-| Property | Default stamped on every cell |
+| Property | Default on every cell |
 | --- | --- |
-| `border` | `{ type: 'none' }` on all four sides |
+| `border` | no line on all four sides, on a table without `tableStyle` |
 | `color` | `'000000'` |
 | `fontSize` | `12` |
-| `margin` | `[0.05, 0.1, 0.05, 0.1]` in |
+| `margin` | `[0.05, 0.1, 0.05, 0.1]` inches |
 
-This is deliberate rather than accidental. Direct formatting outranks a style region, so the
-explicit four-side `none` is what keeps an unstyled table free of grid lines, and it is the
-tier every option above it overrides. Set any of the four on the table, on `headerRow`, on
-`columns[i]`, or on a cell, and yours wins.
+A hyperlink in any cell switches the black default off for the whole table. Otherwise the words after a link would stay black instead of taking the theme text colour.
 
-One carve-out: a **hyperlink anywhere in the grid** stands the `color` default down for the
-whole table. Black paints the whole run, so without this the words *after* a link would come
-out black instead of following the link colour. Text then falls through to the theme's `tx1`.
+To brand a table, use direct formatting:
 
-### How to brand a table
-
-Direct formatting is the mechanism: `headerRow`, `columns[i]`, the table-level `border` /
-`fill` / `color`, and per-cell `options`:
-
-```js
-s.addTable(rows, {
+```ts
+slide.addTable(rows, {
   hasHeader: true,
   border: { type: 'solid', color: 'D9D9D9', width: 0.5 },
   headerRow: { fill: { color: '1A2B3C' }, color: 'FFFFFF', bold: true },
 })
 ```
 
-For banded rows, set each row's `fill` as you build the data: a table style cannot supply
-brand colours (see [Table styles](#table-styles) below for why).
+For a graduated header band, put the shared typography in `headerRow` with no fill, and give each column its own fill:
 
-The merge is **property-level**, not object-level. A header cell keeps `headerRow`'s
-typography *and* takes its column's `fill` when the two set different properties: which is
-what makes a graduated header band expressible without writing a fill onto every cell:
-
-```js
-s.addTable(rows, {
-  headerRow: { color: 'FFFFFF', bold: true, align: 'center' },   // no fill here
+```ts
+slide.addTable(rows, {
+  headerRow: { color: 'FFFFFF', bold: true, align: 'center' },
   columns: [{}, { fill: { color: 'BBD3FB' } }, { fill: { color: '4B7BE5' } }],
 })
 ```
 
-`columns[i]` follows the table's grid: a cell takes the definition of the column it starts in,
-counting both the `colspan` of cells before it in the row and any `rowspan` from an earlier row
-that holds a column.
+For banded rows in brand colours, set `fill` on the cells of every other row as you build the data.
 
-Setting `headerRow` implies `hasHeader: true` unless you set `hasHeader` explicitly.
+## Apply a built-in table style
 
-### Table styles
+```ts
+import { TableStyle } from 'pptx-ts'
 
-`tableStyle` takes a built-in `TableStyle` member. Which regions activate is controlled by the
-flags: `hasHeader` → `firstRow`, `hasFooter` → `lastRow`, `hasBandedRows` → `band1H`/`band2H`,
-and so on.
-
-```js
-s.addTable(rows, { tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1, hasHeader: true })
+slide.addTable(rows, {
+  tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+  hasHeader: true,
+  hasBandedRows: true,
+})
 ```
 
-`hasHeader` does one thing beyond activating a region: it emits the `firstRow="1"` marker
-PowerPoint's accessibility checker reads, so it is worth setting on any table with a header
-row regardless of styling.
+- The `has*` flags choose which regions of the style paint. Without `tableStyle` they paint nothing.
+- `hasHeader` also marks the first row as a header for PowerPoint's accessibility checker, so set it on any table with a header row.
+- PowerPoint paints only its own built-in styles. It looks the style up in its gallery and never reads a style definition from the file, so a custom table style cannot render. Brand colours go through `headerRow`, `columns`, `fill` and cell options.
+- A styled table with no `border` leaves every edge to the style. Set `border: { type: 'none' }` to keep the style's fills and drop its grid.
 
-#### Only a built-in style renders, and there is no custom-style escape hatch
+## Fill cells and the table background
 
-**PowerPoint resolves `<a:tableStyleId>` against its own table-style gallery. It never
-reads a style definition out of the package.** A GUID it recognises paints, even when the
-deck defines nothing. A GUID it does not recognise paints nothing, however complete the
-definition. The table drops to PowerPoint's no-style look, a black hairline grid on white.
+`fill` and `tableFill` usually look alike. They differ in where the paint lands:
 
-This was measured by rendering, not inferred from the schema (PowerPoint desktop 16.0):
+- `fill` is copied onto each cell that gets no fill from its own options, `headerRow` or `columns`.
+- `tableFill` is one background under the whole table. A cell with no fill of its own shows it.
 
-| how the style is offered | built-in GUID | custom GUID |
+Use `tableFill` when some cells should show the background, or to match a deck read back from PowerPoint, which stores its table background that way.
+
+Both take a `FillOption`, as a cell's `fill` does:
+
+```ts
+import { SchemeColor, type FillOption } from 'pptx-ts'
+
+const fills: FillOption[] = [
+  'F2F2F2',
+  { color: '0088CC', transparency: 50 },
+  { color: SchemeColor.accent1 },
+  {
+    type: 'gradient',
+    gradient: {
+      kind: 'linear',
+      angle: 90,
+      stops: [
+        { position: 0, color: 'FFFFFF' },
+        { position: 100, color: '4B7BE5' },
+      ],
+    },
+  },
+  { type: 'pattern', pattern: { preset: 'diagCross', fgColor: '1A2B3C' } },
+  { type: 'image', image: { path: 'logo.png' } },
+]
+```
+
+- A bare colour string is a solid fill.
+- A picture stretches to the cell and is embedded once, however many cells share it. It must be a raster image.
+- Gradients follow the shape fill model described in [Native backgrounds and gradients](native-backgrounds-and-gradients.md).
+
+## Draw borders
+
+`border` styles each cell's own four edges, so a rule on it repeats across the grid. For the table's outline, use `outerBorder`.
+
+<svg role="img" aria-label="Two three-by-three tables. On the left, border draws every cell edge. On the right, outerBorder draws only the outside of the table." viewBox="0 0 360 130" width="360" style="max-width:100%;height:auto">
+<rect x="20" y="20" width="140" height="80" fill="none" stroke="currentColor" stroke-width="2"/>
+<line x1="67" y1="20" x2="67" y2="100" stroke="currentColor" stroke-width="2"/>
+<line x1="113" y1="20" x2="113" y2="100" stroke="currentColor" stroke-width="2"/>
+<line x1="20" y1="47" x2="160" y2="47" stroke="currentColor" stroke-width="2"/>
+<line x1="20" y1="73" x2="160" y2="73" stroke="currentColor" stroke-width="2"/>
+<rect x="200" y="20" width="140" height="80" fill="none" stroke="currentColor" stroke-width="2"/>
+<line x1="247" y1="20" x2="247" y2="100" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+<line x1="293" y1="20" x2="293" y2="100" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+<line x1="200" y1="47" x2="340" y2="47" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+<line x1="200" y1="73" x2="340" y2="73" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.35"/>
+<text x="90" y="120" fill="currentColor" font-size="12" font-family="monospace" text-anchor="middle">border</text>
+<text x="270" y="120" fill="currentColor" font-size="12" font-family="monospace" text-anchor="middle">outerBorder</text>
+</svg>
+
+```ts
+// Every cell edge: a full grid.
+slide.addTable(rows, { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } })
+
+// Only the outside: a box with no interior lines.
+slide.addTable(rows, { outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } })
+
+// Light lines between rows, and a heavier rule above and below the table.
+const hairline = { type: 'solid', color: 'D9D9D9' } as const
+const none = { type: 'none' } as const
+slide.addTable(rows, {
+  border: [hairline, none, hairline, none],
+  outerBorder: [{ type: 'solid', width: 2 }, undefined, { type: 'solid', width: 2 }, undefined],
+})
+```
+
+Each side of a cell ends up in one of these states:
+
+| The side gets | What is written | Table style shows through |
 | --- | --- | --- |
-| `<a:tableStyleId>` reference | **renders** | never |
-| inline `<a:tableStyle>` in `<a:tblPr>` | not tested | never |
-| `def=` default on `tableStyles.xml` | never | never |
+| nothing, on a table without `tableStyle` | an explicit no-line (the default) | no |
+| nothing, on a table with `tableStyle` | nothing | yes |
+| `null` in a tuple | nothing | yes |
+| `{ type: 'none' }` | an explicit no-line | no |
+| a `BorderProps` | that rule | no |
 
-The decisive control: take a PowerPoint-authored deck and rewrite one style's GUID to a novel
-value in *both* the styles part and the slide, bytes otherwise identical. That table drops to
-the black grid while its untouched neighbours keep their styling. Lifting a genuine
-PowerPoint-authored `<a:tblStyle>` block under a custom GUID does not help either: the markup
-was never the problem. (This is consistent with PowerPoint having no "New Table Style" command,
-unlike Word and Excel.)
+- A single `BorderProps` covers all four sides. A tuple reads `[top, right, bottom, left]`.
+- A cell's own `border` replaces the table's `border` whole. The two do not merge side by side.
+- A rule with keys left out draws `solid`, colour `666666`, 1 pt wide.
+- `outerBorder` applies last, and only on the perimeter. An `undefined` side leaves that edge as `border` drew it.
+- The perimeter follows grid position, so a merged cell that reaches the last column gets the right-hand rule.
 
-So `ppt/tableStyles.xml` ships as a bare stub naming a default style id and defining nothing.
-`Presentation.defineTableStyle()` and `TableProps.styleDrivenCells` were **removed**: they
-emitted well-formed, schema-valid, permanently invisible markup, and `styleDrivenCells` made it
-worse by standing down the direct formatting that was carrying the render. Use
-[direct formatting](#how-to-brand-a-table) for brand colours.
+### Use a dash style
 
-The read side is unaffected and still resolves style graphs out of *imported* decks:
-`Table.resolvedStyle`, `TableCell.resolvedFill`, and `importSlideMasters({ tableStyles })` all
-work against the definitions PowerPoint itself wrote.
+`type` is `'solid'`, `'dash'` or `'none'`. `dashType` takes any of PowerPoint's preset dashes and wins over `type`, except that `type: 'none'` removes the line first:
 
-## Fills
-
-Two table-level fill options, and the difference is where the paint lands rather than how it
-looks:
-
-- **`fill`** is *stamped onto every cell*. Each cell that sets none of its own gets this as
-  its own `a:tcPr` fill.
-- **`tableFill`** is the table's *own* background: one `a:tblPr` fill that the cells sit on
-  top of.
-
-They usually render alike. The difference shows up when a cell is meant to be transparent.
-Under `tableFill`, a cell with no fill lets the background through. Under `fill` there is
-no such thing as a cell without a fill, so nothing can fall back to it. `tableFill` is
-also what a deck read back from PowerPoint actually carries, so it is the right choice
-when reproducing a source deck.
-
-A cell fill is a `ShapeFillProps`, so it takes the whole DrawingML fill group: solid,
-gradient, pattern, or a picture:
-
-```js
-{ fill: { color: '0088CC', transparency: 50 } }
-{ fill: { color: SchemeColor.accent1 } }
-{ fill: { type: 'gradient', gradient: { kind: 'linear', angle: 90, stops: [...] } } }
-{ fill: { type: 'pattern', pattern: { preset: 'diagCross', fgColor: '1A2B3C' } } }
-{ fill: { type: 'image', image: { path: 'logo.png' } } }
+```ts
+slide.addTable(rows, { border: { type: 'solid', color: '999999', dashType: 'lgDashDot' } })
 ```
 
-A picture fill is embedded once and shared by every cell that inherits it. Raster only: an
-SVG warns and is ignored, matching shape fills.
+An unknown `dashType` warns and falls back to what `type` implies: `'dash'` draws `sysDash`, and anything else draws solid.
 
-## Borders
+### Strike a cell with a diagonal
 
-### `border` is a per-cell default, not the table's perimeter
+```ts
+import type { TableCell } from 'pptx-ts'
 
-This is the single most misread option in the table surface. `TableProps.border` is
-broadcast to **every cell**:
-
-```js
-// Every cell gets a top and bottom rule, i.e. a full set of horizontal grid lines,
-// NOT a rule above and below the table.
-s.addTable(rows, { border: [{ type: 'solid' }, { type: 'none' }, { type: 'solid' }, { type: 'none' }] })
+const struck: TableCell = { text: 'n/a', options: { diagonal: { tlToBr: { type: 'solid', color: 'C00000' } } } }
+const crossed: TableCell = { text: '', options: { diagonal: { tlToBr: { type: 'solid' }, blToTr: { type: 'solid' } } } }
 ```
 
-An array is read in **TRBL** order (`[top, right, bottom, left]`); a single `BorderProps` is
-broadcast to all four sides. A cell's own `options.border` overrides the table default
-entirely: the two do not merge per side.
+- A merged cell draws its diagonal once, corner to corner across the whole region.
+- A diagonal with no `color` draws in `363636`, not the edge default.
 
-A `null` entry is a **hole**, not a rule. The element is left out of `<a:tcPr>`
-altogether, so that edge keeps inheriting from the built-in table style, the theme banding
-and the master chain. `{ type: 'none' }` is the other state: an explicit "no line" that
-overrides the inheritance. So `[rule, null, rule, null]` draws horizontal rules and leaves
-the style's vertical ones alone, while `[rule, { type: 'none' }, rule, { type: 'none' }]`
-draws the same two and erases the other two.
+## Merge cells
 
-The third case is a cell with no `border` authored at all, and it turns on `tableStyle`. A
-table that named a style leaves every edge absent, so the style paints its own grid. A
-table with no style takes the four-side no-fill default, which is what keeps it clear of
-PowerPoint's black hairline grid. To erase a styled table's grid, say so: `border: { type: 'none' }`.
-
-### `outerBorder` is the perimeter
-
-For the table's outside edge (the top of the first row, the bottom of the last, the left of
-the first column and the right of the last) use `outerBorder`:
-
-```js
-s.addTable(rows, { outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } })   // box it
-s.addTable(rows, { outerBorder: [rule, undefined, rule, undefined] })              // rules above and below
+```ts
+slide.addTable(
+  [
+    [{ text: 'Wide', options: { colspan: 3 } }],
+    [{ text: 'Tall', options: { rowspan: 2 } }, { text: 'B2' }, { text: 'C2' }],
+    [{ text: 'B3' }, { text: 'C3' }],
+  ],
+  { x: 1, y: 1, w: 9 },
+)
 ```
 
-An omitted entry leaves that side to whatever `border`, or the cell's own option, already
-drew. So the two compose. `border` draws the interior grid, `outerBorder` overrides the
-edges it reaches. "Outline the table, no interior grid" is `outerBorder` with no `border`.
+<svg role="img" aria-label="The merged table from the example: Wide spans the three columns of the first row, Tall spans the first column of the second and third rows, and B2, C2, B3 and C3 fill the rest." viewBox="0 0 240 100" width="240" style="max-width:100%;height:auto">
+<rect x="10" y="10" width="220" height="80" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<line x1="10" y1="37" x2="230" y2="37" stroke="currentColor" stroke-width="1.5"/>
+<line x1="83" y1="63" x2="230" y2="63" stroke="currentColor" stroke-width="1.5"/>
+<line x1="83" y1="37" x2="83" y2="90" stroke="currentColor" stroke-width="1.5"/>
+<line x1="157" y1="37" x2="157" y2="90" stroke="currentColor" stroke-width="1.5"/>
+<text x="120" y="28" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">Wide</text>
+<text x="46" y="67" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">Tall</text>
+<text x="120" y="54" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">B2</text>
+<text x="193" y="54" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">C2</text>
+<text x="120" y="81" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">B3</text>
+<text x="193" y="81" fill="currentColor" font-size="11" font-family="monospace" text-anchor="middle">C3</text>
+</svg>
 
-The perimeter is decided by **grid position**, so merges work. PowerPoint puts a merged
-region's outer edges on the *covered* cells, and a colspan reaching the last column gets
-that column's rule on its covered half.
+- Put `colspan` or `rowspan` on the cell that starts the span.
+- A row under a `rowspan` leaves out the covered cell. The library builds the full grid.
+- A covered position repeats the origin's fill and edges. It never renders, but it holds the region's outer edges, which is where PowerPoint reads them.
+- A span is a whole number from 1 to 1000. Anything else warns and becomes 1. A span that reaches past the table's edge warns and stops at the edge.
+- A cell that starts past the last column is dropped with a warning.
 
-### Dash styles
+## Set column widths
 
-`BorderProps.type` is a coarse three-way switch (`'none' | 'solid' | 'dash'`). For a specific
-dash, set `dashType`, which takes the whole `ST_PresetLineDashVal` set:
-
-```js
-{ border: { type: 'solid', color: '999999', dashType: 'lgDashDot' } }
+```ts
+slide.addTable(rows, { x: 0.5, y: 1, colW: [1.5, 4, 4, 4], fitColumns: 'shrink' })
 ```
 
-`dashType` wins over `type` when both are set, except that `type: 'none'` suppresses the
-border before any dash is chosen. An unrecognized value reports `border/invalid-dash-type`
-and falls back to what `type` implies. A value outside the enum would make the slide part
-schema-invalid, and PowerPoint reports that as a corrupt file rather than as a mis-set
-option.
+- `colW: 2` gives every column 2 inches, and the table is as wide as its columns.
+- An array sets each column. An array whose length differs from the column count warns and splits `w` evenly. A one-entry array applies to every column. A slot that is not a number warns and takes an even share of the table width.
+- Without `colW`, `w` is split evenly. Without `w` either, the table runs from `x` to the right slide margin, rounded down to whole inches.
+- `fitColumns: 'shrink'` scales every column by the same factor when the table is wider than the space from `x` to the right margin. It never widens a column and sets no minimum width.
+- `slideMargin` replaces the master's margins in these calculations.
 
-### Diagonals
+## Set row heights
 
-The two corner-to-corner rules (PowerPoint's "Diagonal Down/Up Border") are a separate
-option, not two more entries on `border`'s tuple:
+Whether a row is fixed decides whether it grows with its text and whether `fit: 'shrink'` can act on it:
 
-```js
-{ diagonal: { tlToBr: { type: 'solid', color: 'C00000' } } }              // strike a cell out
-{ diagonal: { tlToBr: { type: 'solid' }, blToTr: { type: 'solid' } } }    // an X
+| You set | The row is | `fit: 'shrink'` |
+| --- | --- | --- |
+| a `rowH` entry above zero for the row | fixed at that entry | applies |
+| a single `rowH` number above zero | fixed at that number, like every row | applies |
+| `h`, and no usable `rowH` entry for the row | fixed at `h` divided by the row count | applies |
+| neither | auto: it grows to fit its text | never |
+
+```ts
+slide.addTable(rows, { x: 1, y: 1, w: 8, rowH: [0.6, null, null, 0.4] })
 ```
 
-On a merged cell the diagonal is drawn **once**, on the span origin: it is a single stroke
-across the whole region, and repeating it per covered cell would draw a sawtooth. Covered
-cells inherit the origin's *edges* but never its diagonals.
+- A `null` or missing slot is silent. `0`, a negative or a non-number warns, then the row falls through to the next line of the table above.
+- An unfixed row in a table with `h` gets `h` divided by the row count, not the height the fixed rows left over. Mixing `rowH` entries with `h` can make the rows add up to more or less than `h`.
+- A table bound to a layout `placeholder` takes the placeholder's height when you give no `h`, and that fixes its rows.
+- `pptx.tableLayout(rows, options)` returns each cell's rectangle without adding the table. It estimates auto rows and marks them `heightExact: false`.
 
-## Merging cells
+## Fit text in a fixed row
 
-`colspan` and `rowspan` go on the cell that starts the span:
+`fit: 'shrink'` on a cell or on the table bakes a smaller font size into a cell whose wrapped text is taller than its fixed row. [Measured text fit](measured-text-fit.md) has the full rules.
 
-```js
-s.addTable([
-  [{ text: 'wide', options: { colspan: 3 } }],
-  [{ text: 'tall', options: { rowspan: 2 } }, 'B2', 'C2'],
-  ['B3', 'C3'],                                   // no cell for column 0 — the rowspan covers it
-], { x: 1, y: 1, w: 9 })
+```ts
+await pptx.registerFontMetrics('Aptos', fontBytes)
+slide.addTable(rows, { x: 1, y: 1, w: 8, rowH: 0.4, fontFace: 'Aptos', fit: 'shrink' })
 ```
 
-Rows are authored **lopsided**: a row covered by a `rowspan` from above just omits that
-cell. The emitter expands them into the rectangular grid OOXML requires, inserting the
-covered cells with their `hMerge`/`vMerge` flags.
+- It needs font metrics registered with `registerFontMetrics`. With none registered at all, it does nothing and reports nothing.
+- It skips auto rows, which grow instead. `'resize'` is accepted on cells and ignored.
+- Cell text always wraps. `horzOverflow: 'overflow'` only lets a single glyph wider than the cell draw past its edge.
 
-A covered cell inherits the origin's border and fill. That is a deliberate divergence from
-PowerPoint, which writes a bare `<a:tcPr/>` there. A covered cell never renders, because
-the origin spans over it, so copying the fill is invisible either way. Keeping it uniform
-avoids a branch that would change nothing on screen, and it puts the merged region's outer
-edges where PowerPoint expects to find them.
+## Page a long table across slides
 
-## Sizing and overflow
+```ts
+const first = pptx.addSlide()
+first.addTable(rows, {
+  x: 0.5,
+  y: 1.2,
+  w: 9,
+  autoPage: true,
+  autoPageRepeatHeader: true,
+  autoPageSlideStartY: 0.5,
+})
+for (const next of first.newAutoPagedSlides ?? []) {
+  next.addText('continued', { x: 0.5, y: 0.1, w: 3, h: 0.3 })
+}
+```
 
-**Columns.** `colW` takes inches, either one number for every column or an array. Without
-it the table's `w` is split evenly. `fitColumns: 'shrink'` scales every column down by the
-same factor when the total overruns the space left from `x`. It never grows a column and
-enforces no minimum width, so a very high column count can still end up thin.
+The pager walks the rows in order and places each one line at a time:
 
-**Rows.** `rowH` takes inches, one number or an array. A row is auto-height (as tall as its
-content needs) only when the table sets **neither `rowH` nor `h`**. A table-level `h` is
-divided evenly across the rows, so `h` makes every row fixed just as surely as `rowH` does.
+```mermaid
+flowchart TD
+  row["Take the next row"] --> opens{"Does it open a rowspan group?"}
+  opens -- no --> line["Place the row's next line across its cells"]
+  opens -- yes --> group{"Does the whole group fit under the rows already on the page?"}
+  group -- yes --> line
+  group -- no --> before["Start a new page before the group"]
+  before --> line
+  line --> room{"Did the line fit, or is the row in a rowspan group?"}
+  room -- yes --> left{"Lines left in the row?"}
+  room -- no --> split["Close the page with what fit, start a new page, repeat the header rows if asked"]
+  split --> line
+  left -- yes --> line
+  left -- no --> row
+```
 
-**Text that does not fit.** `fit: 'shrink'`, on a cell or on the table, measures the wrapped
-text and bakes a reduced literal font size onto the runs. It requires the font registered via
-`registerFontMetrics` and only triggers when a row's height is **fixed** and the text exceeds
-it: which, per the previous paragraph, means a table with `rowH` *or* `h`. With neither, the
-row simply grows and nothing shrinks. See [Measured text fit](measured-text-fit.md).
+- A page is `h` tall when `h` is set. Otherwise it runs from the start `y` to the slide's bottom margin.
+- The first page starts at `y`. Later pages start at `autoPageSlideStartY`, or at the top margin, or at `y` when `y` is higher on the slide than the margin.
+- A row that does not fit splits between lines, and the rest of it continues on the next page.
+- Rows joined by a `rowspan` stay on one page. A group taller than a page is kept whole, runs past the bottom, and warns.
+- The pager estimates. It counts characters per line from the column width and font size, and prices each line from the font size plus the row's margins. `autoPageCharWeight` and `autoPageLineWeight` nudge those two estimates when a font breaks differently.
+- It never breaks inside a word. A word wider than its column overflows it, so widen the column, lower `fontSize`, or add a `breakLine`.
+- Continuation pages go on the slides after this one. A slide that already exists there gets the table on top of its content, and missing slides are added with the same layout. `slide.newAutoPagedSlides` lists them.
+- `headerRow` formatting and the `hasHeader` marker apply to the first page only, unless the header rows repeat. `columns` applies on every page, and `rowH` entries stay with their rows.
+- `autoPagePlaceholder: true` copies the placeholders you filled on the source slide, such as its title, onto each continuation slide.
 
-**Cell text always wraps.** PowerPoint has no per-cell no-wrap: `wrap="none"` on a cell's
-`a:bodyPr` renders inert and is stripped on the next save. `horzOverflow` is *not* that
-switch. It decides whether a glyph too wide for the line gets clipped at the cell edge or
-draws past it. That matters for oversized display type, and for wide CJK and emoji glyphs.
+## Invalid input
 
-**Auto-paging.** `autoPage: true` shreds a table too tall for one slide across as many as it
-needs. `autoPageRepeatHeader` (with `autoPageHeaderRows`) repeats the header on each,
-`autoPagePlaceholder` copies the source slide's populated placeholders onto the overflow
-slides, and `autoPageSlideStartY` sets where the continuation starts.
+| Condition | Result | Code |
+| --- | --- | --- |
+| `rows` is empty or not an array | throws `InvalidOptionError` | `table/rows-not-an-array` |
+| a row is not an array | throws `InvalidOptionError` | `table/rows-not-nested` |
+| `border` is a string, on the table or a cell | throws a plain `TypeError` | none |
+| `outerBorder` is a string | warns, ignored | `table/invalid-outer-border` |
+| unknown `dashType` | warns, falls back to `type` | `border/invalid-dash-type` |
+| an unknown key on a border object | warns | `border/unknown-key` |
+| `horzOverflow` outside `'clip'` and `'overflow'` | warns, ignored | `table/invalid-horz-overflow` |
+| a `cell3D` value outside its list, a negative size, or a `lightRig` missing `rig` or `dir` | warns, that part ignored | `table/invalid-cell3d` |
+| a single `colW` that is not a positive number | warns, default width | `table/invalid-col-width` |
+| a `colW` slot that is not a number | warns, even share | `table/invalid-col-width` |
+| a `colW` array of the wrong length | warns, even split | `table/col-width-count-mismatch` |
+| a `rowH` entry that is `0`, negative or not a number | warns, row not fixed by it | `table/invalid-row-height` |
+| `margin` that is not a number or four numbers | warns, default margin | `table/invalid-margin` |
+| a margin of 1 or more | warns (likely points, not inches) | `margin/legacy-points` |
+| `colspan` or `rowspan` not a whole number from 1 to 1000, or past the table's edge | warns, 1 or cut at the edge | `table/span-out-of-range` |
+| a cell starting past the last column | warns, cell dropped | `table/cell-past-grid` |
+| `autoPageHeaderRows` not a whole number from 1 to the row count | warns, uses 1 | `table/invalid-header-row-count` |
+| `h` too small to hold one line | warns, uses the slide height | `table/autopage-height-too-small` |
+| a rowspan group taller than a page | warns, kept together | `table/autopage-rowspan-too-tall` |
+| an empty string as a colour | warns, ignored | `color/empty-string` |
+| an SVG picture fill | warns, ignored | `image-fill/svg-unsupported` |
+| `fit: 'shrink'` on a font it cannot measure | warns | `measure/shrink-unmeasured` |
 
-How much fits is an **estimate**, not a measurement. The pager counts wrapped lines from a
-characters-per-line approximation, then prices each line at the font size times a fixed
-line-height factor, plus the cell's top and bottom margins. It never asks a renderer.
+Editing an existing table throws instead of warning. See [Reading it back](#reading-it-back).
 
-So the break lands where the arithmetic says it does. A font whose real metrics sit far
-from the approximation can put it a row out, and `autoPageCharWeight` (characters) and
-`autoPageLineWeight` (line height) nudge the two constants when that happens. What the
-pager does guarantee is self-consistency: pages of equal usable height get equal row
-budgets. Continuation slides start at `autoPageSlideStartY`, or at the top margin when it
-is unset, so a first page placed lower with `y` is the one page that legitimately holds
-fewer rows.
+## Limits
 
-Rows joined by a `rowspan` stay on one page. The pager prices the row that opens the span
-together with every row the span covers. When the group does not fit below the rows already on
-the page, the page breaks before it. A group taller than a whole page is kept together and runs
-past the bottom, with a `table/autopage-rowspan-too-tall` warning. Splitting it would leave a
-page ending on a cell whose `rowSpan` reaches past its last row, which PowerPoint reports as
-corrupt.
+- Only PowerPoint's built-in table styles render. A custom table style never does.
+- Cell text always wraps. PowerPoint has no per-cell no-wrap.
+- Screen-reader links from a cell to its header cells cannot be authored. PowerPoint deletes them on the first save, and `hasHeader` is the header marker it keeps.
+- No table-level effects, such as a shadow on the whole table. PowerPoint has no control for one.
+- A span covers at most 1000 columns or rows.
+- The first row sets the column count.
+- Auto-paging estimates text size and never breaks inside a word.
+- `fit: 'shrink'` needs registered font metrics and a fixed row.
+- `fitColumns` only shrinks, with no minimum width.
+- `pptx.tableLayout()` does not model auto-paging.
 
-A word wider than its column **overflows it**. The pager never breaks inside a word. It
-fills a line word by word and starts a new one when the next word will not fit, so a word
-that fits on no line is emitted whole and runs past the column edge in PowerPoint.
+## Reading it back
 
-That is a decision, not an oversight. The alternative was weighed. A hard break at the
-column width, which is what a browser's `overflow-wrap: break-word` does, would have to
-break against the same estimate everything else here is measured against. It would land
-mid-word, at a position the renderer disagrees with. Worse, the broken text would then
-have to keep the line count and the emitted text in step, or the row gets priced for lines
-it does not have. Overflowing is at least predictable, and it is visible. Where it
-matters, widen the column with `colW`, lower the cell's `fontSize`, or insert the break
-yourself with `breakLine`.
+`pptx-ts/read` opens a table in any deck, including one this library did not write:
 
-## Reading and editing an existing table
+```ts
+import { readFile, writeFile } from 'node:fs/promises'
+import { Presentation } from 'pptx-ts/read'
 
-`pptx-ts/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM
-element. Reading covers the cell model, the six borders, both fills, the spans and the
-style graph. `TableCell.resolvedFill` reports the colour a cell *renders* as, banding
-folded in. `TableCell.hasOwnFill` says whether that colour is the cell's own. Anything
-reproducing a table needs that second answer. Bake an inherited banding colour into a
-copy and the copy stops responding to its own style.
+const deck = await Presentation.load(await readFile('deck.pptx'))
+for (const slide of deck.slides) {
+  for (const shape of slide.shapes) {
+    if (shape.shapeType !== 'graphicFrame' || !shape.table) continue
+    const table = shape.table
+    const corner = table.cell(0, 0)
+    if (corner) {
+      console.log(corner.text, corner.resolvedFill?.effectiveHex, corner.hasOwnFill)
+      corner.text = 'Region'
+      corner.setFillColor('1A2B3C')
+    }
+    table.addRow()
+  }
+}
+await writeFile('deck-edited.pptx', await deck.save())
+```
 
-Editing covers cell properties (`setAnchor`, `setVerticalText`, `setHorzOverflow`,
-`setAnchorCtr`, `setMarginsEmu`, `setBorder`, `setFillColor`, `setFillSchemeColor`,
-`noFill`) and structure (`addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells`,
-`unmergeCell`). Each mutates in place and marks the part dirty.
+- `Table` has `rows`, `rowCount`, `columnCount`, `columnWidths` (EMU), `styleId`, `resolvedStyle`, `firstRowHeader`, `bandedRows`, and its background through `resolvedFill`, `gradientFill`, `patternFill` and `pictureFill`.
+- `TableCell` has `text`, `textFrame`, `gridSpan`, `rowSpan`, `isMergeContinuation`, `borders` (four edges and two diagonals), `marginsEmu`, `anchor`, `anchorCtr`, `verticalText`, `horzOverflow`, `cell3D`, and its fill.
+- `resolvedFill` is the colour a cell renders, table style banding included. `hasOwnFill` says whether that colour is the cell's own. Check it before copying a colour, or the copy stops following its style.
+- A stored table has a cell for every grid position, with covered cells present and marked `isMergeContinuation`.
+- Cells edit through `setAnchor`, `setVerticalText`, `setHorzOverflow`, `setAnchorCtr`, `setMarginsEmu`, `setBorder`, `setFillColor`, `setFillSchemeColor` and `noFill`. The table edits its structure through `addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells` and `unmergeCell`.
+- `setBorder(edge, null)` and `setFillColor(null)` remove the setting so the style shows again. `setBorder(edge, { noFill: true })` and `noFill()` write an explicit "none" that hides it.
+- Inserting a row or column inside a merge extends the merge. Removing a merge's origin hands the region to its next cell. `mergeCells` refuses a range that cuts through an existing merge, and `unmergeCell` refuses a covered cell.
+- An invalid edit throws `InvalidOptionError` instead of leaving the deck unchanged: `table/invalid-cell-anchor`, `table/invalid-cell-vert`, `table/invalid-cell-overflow`, `table/invalid-cell-margin`, `table/invalid-cell-border`, `table/row-index-out-of-range`, `table/column-index-out-of-range` or `table/merge-range-invalid`. A bad colour throws `color/invalid-hex` or `color/invalid-scheme-token`.
 
-Unlike the write path, an invalid value **throws** here instead of warning and being
-dropped. Otherwise a caller who edits one attribute is left staring at an unchanged deck
-with nothing to explain it.
+[Reading and round-tripping existing decks](reference/pptx-read.md) lists every member.
 
-A **stored** table's grid is already rectangular: unlike the authoring side, every `a:tr`
-holds one `a:tc` per column with the covered halves present and flagged. The structural
-editors keep it that way. Insert a row or column *through* a merge and the merge extends
-rather than splits. Remove a merge origin and its first continuation is promoted, so the
-region survives one shorter. `mergeCells` rejects a rectangle that cuts through an
-existing merge instead of quietly widening it to fit.
+## See also
 
-## Not authorable
-
-Constructs measured against desktop PowerPoint and found not to be worth an emitter. Each is
-recorded so it is not re-attempted.
-
-| Construct | Why |
-| --- | --- |
-| **Per-cell no-wrap** | PowerPoint has none. `TextFrame.WordWrap` is read-only on a cell over COM, and `<a:bodyPr wrap="none"/>` in a cell renders inert and is stripped on the next save. Probe: `test/read/fixtures/authoring/probe-table-cell-wrap.ps1`. |
-| **`a:tc/@id` and `a:tcPr/a:headers`** | The screen-reader header association. PowerPoint opens a deck carrying both without complaint and then **strips them on the first save**, so an emitter would ship a feature that dies as soon as anyone edits the deck. Read accessors (`TableCell.id`, `.headerIds`) exist for decks from other producers. `hasHeader` is the header marker PowerPoint keeps, and the one its own accessibility checker reads. Probe: `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1`. |
-| **Table-level effects** (`a:tblPr` `EG_EffectProperties`) | Schema-legal, but PowerPoint's UI exposes no table-level effect, so a source deck will not contain one and there is nothing to reproduce. |
-
-`a:tcPr/a:cell3D` is the counter-example that makes the header-association result
-trustworthy rather than circumstantial: it was injected into the **same** `a:tcPr` by the
-same probe, and PowerPoint preserved it verbatim while discarding `a:headers`. So it is a
-deliberate normalization, not a failed patch, and `cell3D` is authorable, via
-`TableCellProps.cell3D`.
+- [Measured text fit](measured-text-fit.md)
+- [Native backgrounds and gradients](native-backgrounds-and-gradients.md)
+- [HTML tables to slides](html-tables.md)
+- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Diagnostics](diagnostics.md) and [Errors](errors.md)
+- API reference: [`TableProps`](reference/api/index/interfaces/TableProps.md), [`TableCellProps`](reference/api/index/interfaces/TableCellProps.md), [`TableCell`](reference/api/index/interfaces/TableCell.md), [`TableRow`](reference/api/index/type-aliases/TableRow.md), [`TableCellDiagonals`](reference/api/index/interfaces/TableCellDiagonals.md), [`TableCell3DProps`](reference/api/index/interfaces/TableCell3DProps.md), [`BorderProps`](reference/api/index/type-aliases/BorderProps.md), [`FillOption`](reference/api/index/type-aliases/FillOption.md), [`TableStyle`](reference/api/index/enumerations/TableStyle.md), [`TableLayoutResult`](reference/api/index/interfaces/TableLayoutResult.md)

@@ -1376,8 +1376,8 @@ wrong" into "the gallery is consulted and the package part is not."
 Applies to `pnpm run test:com` too, which asserts on shape state read back over COM. It
 is the right tool for *package* health (a deck PowerPoint reports as corrupt, an
 `hlinkClick` that resolves to the wrong `PpActionType`) and the wrong tool for whether
-a construct is painted. See [tables.md → Table styles](../tables.md#table-styles) for the
-worked case.
+a construct is painted. See [tables.md → Apply a built-in table style](../tables.md#apply-a-built-in-table-style) for the
+custom-table-style case.
 
 A second, sharper demonstration came from the 3D-model work, and it is why the
 `model3d` leg of `test:com` exports a PNG rather than stopping at the read-back. Take a
@@ -1412,7 +1412,7 @@ do here moves it.
 A finding of that shape has to end up in front of whoever is about to re-attempt the
 construct, and nobody reads an issue tracker before writing an emitter. So it does not
 go in a tracker: distil it into the doc that the feature's own workflow already sends
-them to ([tables.md → Table styles](../tables.md#table-styles) for the custom-table-style
+them to ([tables.md → Apply a built-in table style](../tables.md#apply-a-built-in-table-style) for the custom-table-style
 case) and put any reusable *method* note (how the render evidence was obtained) here in
 this section. An issue that merely records the negative result is filed and forgotten;
 a paragraph in the feature's own doc is read at exactly the moment it matters.
