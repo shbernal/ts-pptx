@@ -228,7 +228,7 @@ usually working as intended.
 ## Keeping it true
 
 The whole design rests on one rule, and
-[Architecture](architecture.md#the-rule-that-keeps-the-tiers-real) states it: a static
+[Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md#the-rule-that-keeps-the-tiers-real) states it: a static
 import from `slide.ts`, `gen/slide/object.ts` or `package/assemble.ts` into a family
 module is what the tier budget is watching for. Break it and every composed program
 pays for every family again, silently, while every test still passes.

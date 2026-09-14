@@ -9,9 +9,9 @@ tested and contributed to.
 - **[AGENTS.md](AGENTS.md)**: repository expectations, scope, the API evolution
   policy, and the OOXML/PowerPoint working rules. Read this first, whether you are a
   human or an agent.
-- **[docs/agent-development.md](docs/agent-development.md)**: how changes are
+- **[docs/contributing/agent-development.md](docs/contributing/agent-development.md)**: how changes are
   developed and verified in this repo, end to end.
-- **[docs/testing.md](docs/testing.md)**: regression, schema, package, demo and
+- **[docs/contributing/testing.md](docs/contributing/testing.md)**: regression, schema, package, demo and
   coverage commands, plus the fast edit-then-test inner loop (a `tsdown` watcher and a
   Vitest watcher in two terminals) and single-test invocation.
 - **[docs/project-target.md](docs/project-target.md)**: what this project aims to
@@ -30,7 +30,7 @@ pnpm run verify:full   # before pushing, and for package or release changes
 Keep source changes in `src/` and tests in `test/`; treat `dist/` as generated output.
 The project site is a fourth tree: markdown content in `docs/`, the theme and components
 that render it in `www/`. `pnpm run docs:dev` serves the lot, see
-[docs/development.md](docs/development.md#site-changes).
+[docs/contributing/development.md](docs/contributing/development.md#site-changes).
 
 Changes to emitted OOXML need a fixture in `test/schema-cases.js`, which `verify`
 already runs. The schema suite validates through `ooxml-validate`, which fetches and

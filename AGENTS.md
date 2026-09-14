@@ -80,7 +80,7 @@
 
 ## OOXML and PowerPoint work
 
-- Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
+- Before changing emitted OOXML, read `docs/contributing/ooxml.md`.
 - Do not vendor full standards PDFs or large extracted specification text into this
   repository as agent context. Small, repo-specific notes with section references
   instead.
@@ -90,8 +90,8 @@
   validated against real Office XML, or a write-side path whose target is "whatever
   PowerPoint authors". Where that fixture does not exist yet, do not implement against
   synthetic or round-tripped XML. Open a GitHub issue naming the construct the oracle
-  has to contain, and stop until the fixture is authored. See
-  `docs/evidence-and-fixtures.md`.
+  has to contain, and stop until the fixture is authored. See "Evidence and fixtures" in
+  `docs/contributing/ooxml.md`.
 
 ### MCP tool selection
 
@@ -177,7 +177,7 @@ MCPs' corpora.
 - **Describe a downstream consumer's need ANONYMOUSLY.** Issues are public; the
   consumer is not. State the missing PPTX behaviour and how *any* consumer would
   reproduce it. Never the consumer's name, its file paths, deck or client names,
-  or its content. See `docs/agent-development.md` for the checklist that moves
+  or its content. See `docs/contributing/agent-development.md` for the checklist that moves
   such a need into the project.
 
 ## Verification
@@ -220,7 +220,7 @@ MCPs' corpora.
   and costs nothing; under memory pressure it scales down instead of driving the box
   into swap. `VITEST_MAX_WORKERS` pins it explicitly and is never clamped. Do not
   "fix" a slow run by raising `maxConcurrency`. Since validator batching landed, that
-  knob no longer buys spawn parallelism. See docs/testing.md "Suite cost and the worker
+  knob no longer buys spawn parallelism. See docs/contributing/testing.md "Suite cost and the worker
   ceiling".
 - **The suite runs `isolate: false`**, so one module registry is shared per worker rather
   than rebuilt per test file. `dist/` is over 1 MB of JS, and all 235 files were each
@@ -230,7 +230,7 @@ MCPs' corpora.
   `irFor` memo both got better for it); state carrying one test's *intent* does not.
   `test/setup-globals.js` resets `setDiagnosticHandler` after every test, and
   `sequence.shuffle.files` randomizes file order so an order dependence fails rather than
-  hides. See docs/testing.md "One module registry per worker".
+  hides. See docs/contributing/testing.md "One module registry per worker".
 - **`pnpm run script:roundtrip:all`** (~25s, in `verify:full` and CI) is the script
   converter's gate: for every read fixture it prints a script, runs it, and diffs the
   result against the source with the printer's own fidelity notes as the exclusion list.
@@ -297,7 +297,7 @@ MCPs' corpora.
   the browser lane's V8 coverage into that report and additionally fails when a number
   clears its notch by less than a full point. It needs both lanes' output on disk, so
   running it locally means `test:coverage` **and** `test:browser` (~120 MB Chromium) have
-  run first; otherwise leave it to CI's `coverage` job. See docs/testing.md
+  run first; otherwise leave it to CI's `coverage` job. See docs/contributing/testing.md
   "Merged coverage".
 
 ### Do not run these, the git hooks already own them
@@ -417,7 +417,7 @@ have rejected three legitimate subjects that open with a code span.
   citation needs a `/` and a source extension. It resolves root-relative,
   file-relative, or as a path suffix (comments write `gen/oxml/el.ts` without the
   `src/` prefix), and `.js` falls back to `.ts`. Build output and `CHANGELOG.md` are
-  skipped on purpose, because `RELEASING.md` lists `dist/pptxgen.*` as negative space
+  skipped on purpose, because `docs/contributing/releasing.md` lists `dist/pptxgen.*` as negative space
   and those must *never* resolve. Anything else deliberately dead goes in `ALLOWLIST` in
   `scripts/path-refs.mjs` with its reason, and an allowlist entry that stops firing
   fails the gate too. `pnpm run path-refs:list` prints every citation with its verdict.
@@ -474,13 +474,13 @@ have rejected three legitimate subjects that open with a code span.
   element carrying mixed content, and any element on its text-bearing list. This is not a
   looser `check`, and running it because `check` went red is the misuse it is shaped to
   resist. `check` remains the gate for every write-side refactor. It has been used once,
-  for the `src/gen/chart/` flatten (`docs/chart-whitespace-flatten.md`), and it earned
+  for the `src/gen/chart/` flatten (`docs/contributing/chart-whitespace-flatten.md`), and it earned
   itself there: it caught the codemod silently taking the space out of
   `<c:layoutTarget val="inner" />`, which nobody reading a 57-part whitespace diff would
   have. A second use adds a section to that doc first, so the carve-out stays a written
   record rather than a precedent.
 - For release and package boundary changes, run `pnpm run verify:full` (it bundles
-  `package:lint` and `test:package`) and consult `docs/testing.md` for what each one
+  `package:lint` and `test:package`) and consult `docs/contributing/testing.md` for what each one
   covers. Nothing under `demos/` is a gate. The demos are showcases with no test role,
   so a demo that breaks fails no check and a demo that passes proves nothing about the
   published package. The byte-identity harness does *build* the showcase decks, but it
@@ -511,7 +511,7 @@ have rejected three legitimate subjects that open with a code span.
   or when PowerPoint is not COM-registered.
 
   Two of its checks read pixels rather than the object model, for the reason
-  `docs/testing.md` gives. A 3D model that resolved is not a 3D model that drew, and an
+  `docs/contributing/testing.md` gives. A 3D model that resolved is not a 3D model that drew, and an
   out-of-range `<a:gd>` adjustment guide reads back through `Shape.Adjustments` exactly
   as stored whether PowerPoint honours it or pins it. Both compare exported PNGs, and the
   preset-geometry one carries its own sensitivity pair, two *in*-range values that must

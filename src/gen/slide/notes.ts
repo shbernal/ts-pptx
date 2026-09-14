@@ -352,7 +352,7 @@ export function makeXmlNotesSlide(slide: PresSlideInternal, notes: NotesSlideCon
  * because the read model authors notes onto a *loaded* deck (`Slide.addNotes`), where
  * there is no `PresSlideInternal` to serialize but the part must come out identical:
  * a second private copy of this frame is exactly the drift `src/ooxml/` exists to
- * prevent (see docs/architecture.md).
+ * prevent (see docs/contributing/architecture.md).
  * @param {string} bodyParagraphsXml - `a:p` children of the body placeholder's `p:txBody`
  * @param {number} slideNum - cached value of the slide-number `a:fld`
  * @return {string} XML

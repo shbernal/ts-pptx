@@ -24,7 +24,7 @@ import {
 // would have noticed the day one of them started emitting a degenerate `<p:cm>` instead.
 //
 // Three branches are deliberately left red, all "unreachable by construction" in the sense of
-// docs/testing.md:
+// docs/contributing/testing.md:
 //   - `if (!first)` and the `?? first` fallback in `deriveAuthorInitials`. The function is only
 //     ever called after `author` has been trimmed and checked non-empty, so splitting it on
 //     whitespace and dropping the blanks always yields at least one word, and the last index is

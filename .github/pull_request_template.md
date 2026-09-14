@@ -37,11 +37,11 @@
 - [ ] The change is covered by a focused test.
 - [ ] **Emitted-OOXML changes only:** the change is grounded in evidence and
       carries a fixture, per
-      [docs/evidence-and-fixtures.md](../docs/evidence-and-fixtures.md).
+      [docs/contributing/ooxml.md](../docs/contributing/ooxml.md#evidence-and-fixtures).
 - [ ] **Breaking changes only:** [CHANGELOG.md](../CHANGELOG.md) records the
       change and its migration guidance.
 - [ ] I read [AGENTS.md](../AGENTS.md) and
-      [docs/agent-development.md](../docs/agent-development.md), which are the
+      [docs/contributing/agent-development.md](../docs/contributing/agent-development.md), which are the
       authoritative contributor docs.
 
 ## Notes for the reviewer

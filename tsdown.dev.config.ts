@@ -11,7 +11,7 @@ import { defineConfig } from 'tsdown'
 // (and sibling) suites — the pieces a one-assertion change actually touches.
 //
 // Use it via `pnpm run watch:dev` in one terminal + `pnpm run test:watch`
-// in another. See docs/testing.md "Fast inner loop".
+// in another. See docs/contributing/testing.md "Fast inner loop".
 export default defineConfig({
 	dts: false,
 	deps: {

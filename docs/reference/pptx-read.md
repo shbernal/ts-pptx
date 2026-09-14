@@ -1868,7 +1868,7 @@ mirrored edit and an unmirrored one identically and cannot be the oracle here.
 `pnpm run test:lo` renders instead through LibreOffice, which has no SmartArt layout
 engine and therefore paints the cache and nothing else: it paints the new string after a
 `text` edit, and keeps painting the old one after a `textFrame` edit. See
-[testing.md](../testing.md#a-second-render-oracle-for-what-powerpoint-recomputes).
+[testing.md](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#a-second-render-oracle-for-what-powerpoint-recomputes).
 
 Out of scope, and staying there: **authoring a diagram from nothing**. The layout part is
 a constraint-solver program PowerPoint executes, and the presentation tree it generates is
@@ -2664,7 +2664,7 @@ independent so a bug in one can't mask a bug in the other. Those suites are
 `notes-read.test.js` (speaker-notes rich text), and the fidelity legs added to
 `shape-effect-reads.test.js` and `slide-read-edges.test.js`. Schema cases require the
 OOXML oracle, which `ooxml-validate` fetches on first use, and are skipped with a
-notice when it cannot be obtained. See [testing](../testing.md).
+notice when it cannot be obtained. See [testing](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md).
 
 Beyond the automated suite, two scripts emit decks for a manual PowerPoint open
 (schema validity is necessary but does not prove PowerPoint won't show a repair

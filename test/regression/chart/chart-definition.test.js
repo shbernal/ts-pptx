@@ -24,7 +24,7 @@ import { chartXml } from './chart-parts.js'
 // that has no `<c:dLblPos>` to begin with) the case asserts the absence instead, and a sibling case
 // in the same block shows the same attribute present, so the absence is a real signal.
 //
-// Left deliberately red, all "unreachable by construction" in the sense of docs/testing.md. They
+// Left deliberately red, all "unreachable by construction" in the sense of docs/contributing/testing.md. They
 // fall into three groups:
 //
 //   1. THIRTEEN self-cancelling ternaries, of the form

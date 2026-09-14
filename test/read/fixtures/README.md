@@ -26,7 +26,7 @@ PowerPoint output contributed by the maintainer or authored locally with desktop
 PowerPoint COM and confirmed license-clean for inclusion. `mixed.pptx` was
 promoted here from a real-world deck because it exercises shape kinds the
 vendored set does not — the promotion procedure is in
-[`docs/testing.md`](../../../docs/testing.md). Minimal locally authored decks
+[`docs/contributing/testing.md`](../../../docs/contributing/testing.md). Minimal locally authored decks
 are stored byte-for-byte as saved by PowerPoint.
 
 | Local name             | Application                    | AppVersion | Slides |

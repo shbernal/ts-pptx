@@ -27,7 +27,7 @@ import {
 // starts throwing, or starts emitting a graphicFrame pointing at nothing.
 //
 // Three branches across the two modules are deliberately left red, all "unreachable by
-// construction" in the sense of docs/testing.md:
+// construction" in the sense of docs/contributing/testing.md:
 //   - `if (!firstSlide) return` in the Summary Zoom tile loop. The list it walks was already
 //     filtered on `_slides.length > 0`; the guard is there to keep the callback total, and its
 //     own comment says so. Covering it would mean reaching past the public surface.

@@ -67,7 +67,7 @@ perfectly generic. Don't raise them.
 What this package owes such a consumer is sound primitives. The composition on top
 of them belongs to the consumer. A generic PPTX gap uncovered while building one
 *is* in scope, though. See
-[Agent development guide → Promoting a downstream need](agent-development.md#promoting-a-downstream-need)
+[Agent development guide → Promoting a downstream need](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/agent-development.md#promoting-a-downstream-need)
 for how it moves across.
 
 ## Out of active scope (contributions welcome)
@@ -212,6 +212,6 @@ The repository should be understandable to a maintainer or an agent starting
 from a clean checkout:
 
 - package support is documented in `docs/runtime-and-package-support.md`;
-- development commands are documented in `docs/development.md`;
-- verification commands are documented in `docs/testing.md`;
-- OOXML source-of-truth lookup is documented in `docs/ooxml-agent-context.md`.
+- development commands are documented in `docs/contributing/development.md`;
+- verification commands are documented in `docs/contributing/testing.md`;
+- OOXML source-of-truth lookup is documented in `docs/contributing/ooxml.md`.

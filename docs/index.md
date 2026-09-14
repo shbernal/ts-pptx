@@ -56,12 +56,10 @@ docs use `pptx-ts` throughout.
 - [Project target](project-target.md): what this project is optimized for.
 - [Runtime and package support](runtime-and-package-support.md): supported package
   imports, and how each runtime loads the one build.
-- [Development guide](development.md): setup, source layout, and generated
-  output rules.
-- [Testing guide](testing.md): regression, schema, package, browser, and manual
-  verification.
-- [Reference](reference/index.md): public API reference and stable command
-  surfaces.
+- [API reference](reference/api/index.md): the generated reference for `pptx-ts`,
+  `pptx-ts/node` and `pptx-ts/browser`.
+- [Contributing](contribute.md): reporting a problem, and the documentation for working on
+  the repository.
 
 ## Maintenance focus
 

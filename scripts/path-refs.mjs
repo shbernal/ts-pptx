@@ -44,8 +44,8 @@
  *
  * ## What is not checked
  *
- * - `dist/`, `coverage/`, `.tmp/` and demo `output/` — build artifacts. `RELEASING.md`
- *   in particular lists `dist/pptxgen.*` files *on purpose*, as the negative space of
+ * - `dist/`, `coverage/`, `.tmp/` and demo `output/` — build artifacts.
+ *   `docs/contributing/releasing.md` in particular lists `dist/pptxgen.*` files *on purpose*, as the negative space of
  *   what this package refuses to ship; those must never resolve.
  * - Generated trees *inside* the scanned roots, which are skipped as sources as well as
  *   as targets — see `SKIP_PATHS`.
@@ -93,7 +93,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', '
  *
  * `docs/.vitepress/cache` is Vite's dependency pre-bundle, on the same grounds. Its siblings
  * are not generated -- `config.mts` and `theme/index.ts` are hand-written and are cited by
- * name from `docs/development.md` and `www/README.md` -- so the whole of `.vitepress` used to
+ * name from `docs/contributing/development.md` and `www/README.md` -- so the whole of `.vitepress` used to
  * be excluded by directory name and those two citations resolved only because `resolves()`
  * consulted the filesystem behind the walk's back. `.vitepress/dist` needs no entry: `dist` is
  * excluded by name wherever it appears.
@@ -155,7 +155,7 @@ const GENERATED_FILES = new Set(['docs/doc-index.md'])
  */
 const ALLOWLIST = [
 	{
-		where: 'docs/testing.md:scripts/demo-smoke.mjs',
+		where: 'docs/contributing/testing.md:scripts/demo-smoke.mjs',
 		why: 'names the deleted script whose job this section explains taking over',
 	},
 	{

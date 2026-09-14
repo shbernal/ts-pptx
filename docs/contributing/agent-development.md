@@ -28,7 +28,7 @@ check someone else can run.
 ## OOXML workflow
 
 Before changing emitted OOXML, read
-[OOXML agent context](ooxml-agent-context.md).
+[OOXML agent context](ooxml.md).
 
 Use:
 
@@ -54,7 +54,7 @@ The package smoke test should continue to prove that those old artifacts
 are absent and that `pptx-ts`, `pptx-ts/inspect`, `pptx-ts/node`, and
 `pptx-ts/browser` resolve. The `./measure`, `./read`, `./math`, and `./zip`
 subpaths are in package exports but `pnpm run test:package` does not cover them
-yet. See [Runtime and package support](runtime-and-package-support.md).
+yet. See [Runtime and package support](../runtime-and-package-support.md).
 
 ## Promoting a downstream need
 
@@ -80,7 +80,7 @@ chart and table and media serialization, current TypeScript or ESM behavior: all
 candidates. Anything resting on CommonJS, IIFE globals, a direct CDN script tag, or
 a legacy artifact name is not, and stays that way until the documented target
 changes.
-[Project target → What stays in the consumer](project-target.md#what-stays-in-the-consumer)
+[Project target → What stays in the consumer](../project-target.md#what-stays-in-the-consumer)
 lists what this package turns down no matter how good the case is.
 
 ## Communication expectations

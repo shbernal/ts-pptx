@@ -41,7 +41,7 @@ function roundTrip(name) {
 // Every committed fixture, not a hand-picked five.
 //
 // This list used to be `['empty', 'textbox', 'image', 'table', 'mixed']`, and
-// docs/testing.md told you to add to it by hand when promoting a deck into the corpus.
+// docs/contributing/testing.md told you to add to it by hand when promoting a deck into the corpus.
 // Nobody did: the corpus grew to 44 and the OPC contract kept being proved against the
 // same 5, so the decks that actually stress it — chartEx, model3d, math-omml, embedded
 // fonts, av-media, modern comments — were carried without ever being round-tripped here.

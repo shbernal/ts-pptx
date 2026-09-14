@@ -225,7 +225,7 @@ Options:
 
 	if ((await validatorPath()) === null) {
 		console.error('the ooxml-validate oracle could not be obtained.')
-		console.error('It is fetched from GitHub Releases on first use; see docs/testing.md.')
+		console.error('It is fetched from GitHub Releases on first use; see docs/contributing/testing.md.')
 		return 1
 	}
 

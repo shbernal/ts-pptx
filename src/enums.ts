@@ -403,7 +403,7 @@ export enum SlideObjectType {
  * (`bentConnector{3,4,5}` / `curvedConnector{3,4,5}`) — see `connectorPresetFor`.
  *
  * Not exported: `connectorPresetFor`, eleven lines below, is its only reader, and
- * `docs/architecture.md` puts internal OOXML generators off the published surface unless
+ * `docs/contributing/architecture.md` puts internal OOXML generators off the published surface unless
  * deliberately exposed. Callers name a connector by its `ConnectorType`, or by the
  * {@link CONNECTOR_PRESET_NAME} the function returns.
  */

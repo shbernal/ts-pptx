@@ -1,7 +1,7 @@
 /**
  * ts-pptx: the script converter's unit conversions, on the seam between its two halves.
  *
- * `docs/architecture.md` states the seam: "`from-read/` knows OOXML and the read model,
+ * `docs/contributing/architecture.md` states the seam: "`from-read/` knows OOXML and the read model,
  * `print/` knows only strings, and neither can see the other." Both halves nonetheless have
  * to turn an EMU slide size into inches — `ir.ts` keeps `slideSize` in EMU deliberately,
  * because "converting here would introduce a rounding decision at the wrong layer" — and the

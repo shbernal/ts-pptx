@@ -147,7 +147,6 @@ The full documentation site, including the generated API reference, is at
 The [demos page](https://shbernal.github.io/ts-pptx/demos) builds a quarterly review
 deck in your browser and previews the slides. Nothing to clone, nothing to install.
 
-- [Documentation index](docs/README.md)
 - [Tables](docs/tables.md), [groups](docs/groups.md),
   [connectors](docs/connectors.md), [HTML tables to slides](docs/html-tables.md)
 - [Errors](docs/errors.md) and [diagnostics](docs/diagnostics.md): what the library

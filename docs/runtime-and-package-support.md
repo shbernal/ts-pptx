@@ -30,7 +30,8 @@ The package publishes:
   `dist/node.js` or `dist/browser.js` instead. See
   [Which build the bare import gives you](#which-build-the-bare-import-gives-you).
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
-  inspection, slide/object extraction, and geometry helpers.
+  inspection, slide/object extraction, and geometry helpers (see
+  [PPTX inspection](reference/pptx-inspection.md)).
 - `dist/measure.js` and `dist/measure.d.ts` for headless text-measurement and
   autofit helpers (see [Measured text fit](measured-text-fit.md)).
 - `dist/read.js` and `dist/read.d.ts` for opening, editing, and round-tripping
@@ -53,6 +54,10 @@ The package publishes:
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
   `./script`, `./math`, `./zip`, `./html`, `./families`, `./node`, and
   `./browser`.
+
+The generated [API reference](reference/api/index.md) covers `pptx-ts`, `pptx-ts/node`
+and `pptx-ts/browser`. The other subpaths are documented on the pages linked above, except
+`pptx-ts/zip`, which has no page of its own: it is the plumbing `read` and `inspect` share.
 
 Supported environments are modern module-aware environments:
 
@@ -213,7 +218,7 @@ Two gaps, stated rather than implied:
   `toDataURL` that throws. Neither is reachable in a browser that has a working
   canvas and is drawing a same-origin data URI; reaching them means stubbing DOM
   constructors, which asserts about the stub. The lane's own coverage floor
-  accounts for them (see [Testing](testing.md#browser-lane)).
+  accounts for them (see [Testing](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#browser-lane)).
 
 ## What `/math` costs in a browser, and why it stays Node-only
 

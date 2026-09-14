@@ -34,7 +34,7 @@ import {
 // and decisive for two of them -- see the line-defaults and picture-bullet cases below. The definer
 // copies before cleaning, but preserves that sharing within a single call, so it still holds.
 //
-// Left deliberately red, all "unreachable by construction" in the sense of docs/testing.md:
+// Left deliberately red, all "unreachable by construction" in the sense of docs/contributing/testing.md:
 //   - `const objectOptions = opts || {}` (L36). All four callers -- `SlideBuilder.addText`,
 //     `addChildDefinition`, `createSlideMaster` and `addPlaceholdersToSlideLayouts` -- pass an
 //     object. It could not survive being reached anyway: four lines later `opts.shape` is read

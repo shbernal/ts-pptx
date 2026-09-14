@@ -24,7 +24,7 @@ import {
 // for a plain string/number `text`, and the fall-through for a `text` that is neither array nor
 // object. Every entry point (`addShape`, `addText`, `addTable`) hands the walker an object or an
 // array of them, and both recursive calls are guarded by `Array.isArray`. Unreachable by
-// construction per docs/testing.md, so left red rather than fenced.
+// construction per docs/contributing/testing.md, so left red rather than fenced.
 
 const relsPath = (n) => `ppt/slides/_rels/slide${n}.xml.rels`
 

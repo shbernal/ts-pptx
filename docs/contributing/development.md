@@ -80,7 +80,7 @@ Do not "tidy" such a member to the bare name; doing so silently converts a flagg
 hatch into ordinary-looking API. Every `element_` is paired with a public
 `markDirty()` on the same object, because handing out a live DOM node without the
 obligation that comes with it is how an edit vanishes on save. See the
-"Escape hatches" section of [project target](project-target.md) for when a new
+"Escape hatches" section of [project target](../project-target.md) for when a new
 hatch is acceptable at all.
 
 ## Common commands
@@ -112,7 +112,7 @@ every commit, and a gate that failed on every commit would get switched off.
 `pnpm run bundle-size:list` shows the per-chunk breakdown; `pnpm run bundle-size:freeze`
 re-baselines deliberately. Minified, because `dist/` is roughly half doc
 comments and a gate on the raw bytes charges a commit for prose. The number is
-still an upper bound, not a download size. See [Bundle size](bundle-size.md#what-the-package-ships).
+still an upper bound, not a download size. See [Bundle size](../bundle-size.md#what-the-package-ships).
 
 `bundle-tier:check` answers the other half of the question. It bundles five
 consumer programs against `dist/browser.js` with esbuild, recording the entry
@@ -124,7 +124,7 @@ difference between them is what that family costs. Because it bundles, a
 bundler can tree-shake it. That makes it the only gate that moves when code
 stops being *reachable* rather than stopping being *shipped*. `pnpm run bundle-tier:list`
 shows the per-chunk breakdown; `pnpm run bundle-tier:freeze` re-baselines
-`scripts/bundle-tier-budget.json`. See [Bundle size](bundle-size.md).
+`scripts/bundle-tier-budget.json`. See [Bundle size](../bundle-size.md).
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
 pnpm forwards the `--` **literally** to the underlying binary: `pnpm run lint -- --fix`
@@ -442,7 +442,7 @@ effect of changing linters.
 ## OOXML changes
 
 Before changing emitted OOXML, read
-[OOXML agent context](ooxml-agent-context.md).
+[OOXML agent context](ooxml.md).
 
 For serialization changes:
 
@@ -462,7 +462,7 @@ pnpm run test:schema
 
 The package ships one ESM build. Changes to package exports, generated filenames, or
 package contents should preserve the support contract documented in
-[runtime and package support](runtime-and-package-support.md).
+[runtime and package support](../runtime-and-package-support.md).
 
 Package-boundary verification:
 

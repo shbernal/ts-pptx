@@ -4,57 +4,48 @@
   "repoOnly": ["contributing"],
   "navigation": [
     {
-      "group": "Start",
+      "group": "Getting started",
+      "pages": ["demos", "project-target", "runtime-and-package-support", "bundle-size"]
+    },
+    {
+      "group": "Write a deck",
       "pages": [
-        "index",
-        "demos",
-        "project-target",
-        "comparison",
-        "comparison-syntax",
-        "runtime-and-package-support",
-        "bundle-size",
-        "development",
-        "testing"
+        "measured-text-fit",
+        "tables",
+        "html-tables",
+        "connectors",
+        "groups",
+        "image-in-shape",
+        "native-backgrounds-and-gradients",
+        "animations-and-transitions",
+        "math-latex",
+        "embedded-fonts",
+        "ole-objects",
+        "3d-models"
       ]
+    },
+    {
+      "group": "Read and convert",
+      "pages": ["reference/pptx-read", "reference/pptx-inspection", "reference/pptx-to-script"]
     },
     {
       "group": "Reference",
       "pages": [
-        "reference/index",
+        "reference/api/index",
         "reference/layout-units",
-        "reference/pptx-inspection",
-        "reference/pptx-read",
-        "reference/pptx-to-script",
         "reference/object-identity",
         "errors",
         "diagnostics",
-        "tables",
-        "html-tables",
-        "groups",
-        "connectors",
-        "image-in-shape",
-        "ole-objects",
-        "3d-models",
-        "math-latex",
-        "animations-and-transitions",
-        "reference/api/index",
-        "ooxml-agent-context",
-        "RELEASING"
+        "troubleshooting"
       ]
     },
     {
-      "group": "Maintenance",
-      "pages": [
-        "architecture",
-        "agent-development",
-        "native-backgrounds-and-gradients",
-        "measured-text-fit",
-        "embedded-fonts",
-        "evidence-and-fixtures",
-        "chart-whitespace-flatten",
-        "troubleshooting",
-        "README"
-      ]
+      "group": "ts-pptx vs PptxGenJS",
+      "pages": ["comparison", "comparison-syntax"]
+    },
+    {
+      "group": "Project",
+      "pages": ["contribute"]
     }
   ]
 }

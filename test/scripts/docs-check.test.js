@@ -135,33 +135,39 @@ describe('navigation and the repository-only tree', () => {
 		return checkDocsJson(docsDir, pages)
 	}
 
-	const pages = ['index.md', 'contributing/testing.md']
+	const pages = ['index.md', 'demos.md', 'contributing/testing.md']
+	const navigation = [{ group: 'Start', pages: ['demos'] }]
 
 	test('a repository-only page needs no navigation group', () => {
-		expect(checkNav({ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['index'] }] }, pages)).toEqual(
-			[]
-		)
+		expect(checkNav({ repoOnly: ['contributing'], navigation }, pages)).toEqual([])
 	})
 
 	test('without the repoOnly entry, the same page is an orphan', () => {
-		const errors = checkNav({ navigation: [{ group: 'Start', pages: ['index'] }] }, pages)
+		const errors = checkNav({ navigation }, pages)
 		expect(errors).toHaveLength(1)
 		expect(errors[0]).toMatch(/in no navigation group/)
 	})
 
 	test('a navigation entry naming a repository-only page is an error, because the site would 404', () => {
 		const errors = checkNav(
-			{ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['index', 'contributing/testing'] }] },
+			{ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['demos', 'contributing/testing'] }] },
 			pages
 		)
 		expect(errors).toHaveLength(1)
 		expect(errors[0]).toMatch(/repository-only/)
 	})
 
+	test('the home page stays out of navigation, since the site title links it', () => {
+		const errors = checkNav(
+			{ repoOnly: ['contributing'], navigation: [{ group: 'Start', pages: ['index', 'demos'] }] },
+			pages
+		)
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/`index` is exempt from navigation but is listed in it/)
+	})
+
 	test('repoOnly must be a list of directory names', () => {
-		const errors = checkNav({ repoOnly: 'contributing', navigation: [{ group: 'Start', pages: ['index'] }] }, [
-			'index.md',
-		])
+		const errors = checkNav({ repoOnly: 'contributing', navigation }, ['demos.md'])
 		expect(errors).toHaveLength(1)
 		expect(errors[0]).toMatch(/`repoOnly` must be a list/)
 	})

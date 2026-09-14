@@ -34,7 +34,7 @@ Likely causes:
 
 Checks:
 
-- Review [OOXML Agent Context](ooxml-agent-context.md).
+- Review [OOXML Agent Context](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/ooxml.md).
 - Add or update a focused fixture.
 - Run the relevant schema or regression test.
 

@@ -63,7 +63,7 @@ describe('run-steps expansion', () => {
 })
 
 describe('path-refs citation resolution', () => {
-	const known = new Set(['src/gen/chart/plot-bar.ts', 'src/read/api/shapes/types.ts', 'docs/reference/index.md'])
+	const known = new Set(['src/gen/chart/plot-bar.ts', 'src/read/api/shapes/types.ts', 'docs/reference/pptx-read.md'])
 	const from = path.join(ROOT, 'src', 'gen', 'chart', 'chart-xml.ts')
 
 	test('a repo-root-relative path resolves', () => {

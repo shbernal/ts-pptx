@@ -20,11 +20,11 @@ tooling keys on the directory names.
 
 | Path | Harness | What it covers |
 |---|---|---|
-| `test/regression/<subject>/*.test.js` | `defineRegressionSuite()` (`helpers.js`) — see [docs/testing.md](../docs/testing.md) | write side: public API → emitted OOXML/package parts |
+| `test/regression/<subject>/*.test.js` | `defineRegressionSuite()` (`helpers.js`) — see [docs/contributing/testing.md](../docs/contributing/testing.md) | write side: public API → emitted OOXML/package parts |
 | `test/read/*.test.js` | Vitest `describe`/`test` | `src/read/**` lossless read + edit round-trip |
 | `test/schema-cases.js` (+ `schema-validation.test.js`) | fixture data module | OOXML schema validation of emitted parts |
 | `test/scripts/*.test.js` | Vitest | the `scripts/` gates and shared helpers — the parsing and exemption logic whose failure mode is a gate that silently stops counting (see [scripts/README.md](../scripts/README.md)) |
-| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/testing.md](../docs/testing.md#browser-lane) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, Node↔browser byte identity, and `tableToSlides` against a table a browser laid out |
+| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/contributing/testing.md](../docs/contributing/testing.md#browser-lane) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, Node↔browser byte identity, and `tableToSlides` against a table a browser laid out |
 | `test/browser/harness/*` | served to the page, not run by a harness | the two fixtures the specs drive: `index.html` for an unbundled load of the shipped `dist/browser.js` (plus the deck definitions both runtimes build from), and `table.html` for a rendered `<table>` with a real `offsetWidth` |
 
 `test/browser/` is the one directory `pnpm test` does not run: Vitest excludes it
@@ -100,7 +100,7 @@ pnpm run test:coverage
 
 Then read `coverage/coverage-summary.json` for a per-file
 statements/branches/functions/lines rollup (no HTML scraping needed). Note the
-dist-vs-src trap documented in [docs/testing.md](../docs/testing.md#coverage-gate):
+dist-vs-src trap documented in [docs/contributing/testing.md](../docs/contributing/testing.md#coverage-gate):
 a line shown red in the dist report may already be covered by a `src/`-importing
 test.
 
@@ -113,4 +113,4 @@ test.
    provenance inside the suite name — `defineRegressionSuite('Table margins [legacy bug-14]', …)` —
    which is where a reporter will show it.
 3. Prefer public-API deck generation + focused package/XML assertions. See
-   [docs/testing.md § Regression Suite Layout](../docs/testing.md#regression-suite-layout).
+   [docs/contributing/testing.md § Regression Suite Layout](../docs/contributing/testing.md#regression-suite-layout).

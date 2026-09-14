@@ -24,7 +24,7 @@ import { chartXml } from './chart-parts.js'
 //
 // A second such pin used to live here — bubble's `<c:f>` carrying no indentation where every
 // other numeric-reference block had four spaces. The chart emitters are flat now
-// (docs/chart-whitespace-flatten.md), so that difference no longer exists to pin.
+// (docs/contributing/chart-whitespace-flatten.md), so that difference no longer exists to pin.
 
 const XY = [
 	{ name: 'X', labels: ['a', 'b', 'c'], values: [1, 2, 3] },
@@ -119,7 +119,7 @@ defineRegressionSuite('Shared chart fragments', [
 		fn: async () => {
 			// This case used to pin four different indentations, one of which was bubble's y-block
 			// having none where the other three had four spaces. All four are flat now
-			// (docs/chart-whitespace-flatten.md), so what is left to pin is the part that was
+			// (docs/contributing/chart-whitespace-flatten.md), so what is left to pin is the part that was
 			// always the point: one builder, one shape, and the right formula in each block.
 			const scatter = await chartFor(ChartType.scatter, XY)
 			assertIncludes(valBlock(scatter, 'c:xVal'), '<c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>', 'scatter x-block')
@@ -169,7 +169,7 @@ defineRegressionSuite('Shared chart fragments', [
 			// run is pinned as one contiguous string because the ORDER is `CT_DLbls`'s and is not
 			// negotiable: a flag in the wrong place is a repair prompt, not a wrong-looking chart.
 			// (It used to pin the indentation too; that is gone, see
-			// docs/chart-whitespace-flatten.md.)
+			// docs/contributing/chart-whitespace-flatten.md.)
 			for (const xml of [line, scatter]) {
 				assertIncludes(
 					xml,

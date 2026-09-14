@@ -41,7 +41,7 @@ immediately after, and `1.0.0` onward went through CI with provenance.
 It has been spent twice, once for each of the two names this project publishes:
 `@shbernal/ts-pptx` and `pptx-ts`. It applies again only if this project starts
 publishing under another **new name or scope**, and the runbook for that is
-"Bootstrapping a new package name" in `docs/RELEASING.md`. It is never part of cutting a release. For
+"Bootstrapping a new package name" in `docs/contributing/releasing.md`. It is never part of cutting a release. For
 every release of a name that already exists, the rule above holds without
 qualification: no local `npm publish`.
 

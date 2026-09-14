@@ -4,7 +4,7 @@ Showcases for `pptx-ts`, for someone who has cloned this repository and wants a
 deck out of it. **None of this is a test.** No verification aggregate runs anything here,
 CI never builds a demo, and a broken demo fails no gate. The published package is covered
 by `pnpm run check:package`. See
-[docs/testing.md](../docs/testing.md#demos-are-not-tests) for why it works that way.
+[docs/contributing/testing.md](../docs/contributing/testing.md#demos-are-not-tests) for why it works that way.
 
 If you only want to *see* a deck, you do not need any of this: the
 [demos page](https://shbernal.github.io/ts-pptx/demos) builds one in your browser and shows

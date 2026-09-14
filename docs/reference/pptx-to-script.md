@@ -691,5 +691,5 @@ rather than the working directory.
 ## See also
 
 - [PPTX Read / Round-Trip](pptx-read.md): the read model this builds on.
-- [Architecture](../architecture.md): where `src/script/` sits and why.
-- [Testing Guide](../testing.md): the verification commands.
+- [Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md): where `src/script/` sits and why.
+- [Testing Guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md): the verification commands.

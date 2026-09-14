@@ -496,7 +496,7 @@ file's path. That loose third rule exists because comments legitimately write
 `gen/oxml/el.ts` without the `src/` prefix. A `.js` token also resolves against
 its `.ts` source, since ESM specifiers name the emitted file.
 
-Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) is skipped: `RELEASING.md`
+Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) is skipped: `docs/contributing/releasing.md`
 lists `dist/pptxgen.*` files *on purpose*, as the negative space of what this package
 refuses to ship, and those must never resolve. `CHANGELOG.md` is skipped entirely: a
 release log describes the tree as it stood, so a moved path there is a correct historical
@@ -875,7 +875,7 @@ absent one is not proof of coverage.
 that excuses a difference from one that never fires, so the per-construct numbers
 the reference publishes drift silently as reader gaps close and fixtures land;
 this is what re-measures them. Full contract in
-[PPTX To Script](reference/pptx-to-script.md).
+[PPTX To Script](../reference/pptx-to-script.md).
 
 ## Full test command
 
@@ -993,7 +993,7 @@ run, because it also occupies the place where a real check would go.
 Two sources answer for a face now, chosen in `test/read/font-oracle.js`: the installed
 font where the machine has one, and `test/read/fixtures/autofit-font-metrics.json`
 otherwise, which records the advance of every code point the committed cases measure.
-`docs/measured-text-fit.md` (["Where the oracles run"](./measured-text-fit.md#where-the-oracles-run))
+`docs/measured-text-fit.md` (["Where the oracles run"](../measured-text-fit.md#where-the-oracles-run))
 carries the detail, including the three environment knobs. What matters here is which
 lane proves what:
 
@@ -1066,7 +1066,7 @@ reaching the browser entry would fail the page outright.
 That is not hypothetical: building the harness is what surfaced `opentype.js`
 being a *dynamic* bare import inside the measure/fit chunk. Bundling had always
 hidden it; an unbundled consumer needs it in an import map, and now
-[the docs say so](runtime-and-package-support.md#using-the-browser-entry-without-a-bundler).
+[the docs say so](../runtime-and-package-support.md#using-the-browser-entry-without-a-bundler).
 
 | Spec | Project | Claim |
 |---|---|---|
@@ -1090,7 +1090,7 @@ fix is in `src/gen/table/autopage.ts`, and the regression guarding it is DOM-fre
 (`test/regression/table/table-autopage-continuation-budget.test.js`). One triage rule
 came out of it: ask what the browser actually supplies to a code path before accepting a
 report as a layout report. It is stated with the scope line in
-[project target](project-target.md).
+[project target](../project-target.md).
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
 and are built **twice** (once in Chromium, once in Node) from that one
@@ -1149,12 +1149,12 @@ What this lane does **not** cover, and must not be read as covering:
   (arithmetic the pager owes itself), never that an estimated row height is the
   height PowerPoint will draw. That second claim is layout
   fidelity, it has no oracle, and it remains out of active scope
-  ([project target](project-target.md)). *Runtime support* and *layout fidelity*
+  ([project target](../project-target.md)). *Runtime support* and *layout fidelity*
   are separate claims and must stay separate: a layout difference between two
   browsers is not a defect in this package; a `.pptx` a browser builds differently
   from Node is.
 - **Engines other than Chromium.** A deliberate decision, written down in
-  [Runtime and package support](runtime-and-package-support.md#which-browsers-the-lane-runs)
+  [Runtime and package support](../runtime-and-package-support.md#which-browsers-the-lane-runs)
   so it is not re-opened every time CI time is discussed. The APIs in play are
   uncontroversial across engines, and a matrix would spend CI time re-answering a
   question nothing has asked. Add Firefox or WebKit when something concrete
@@ -1278,7 +1278,7 @@ wrong" into "the gallery is consulted and the package part is not."
 Applies to `pnpm run test:com` too, which asserts on shape state read back over COM. It
 is the right tool for *package* health (a deck PowerPoint reports as corrupt, an
 `hlinkClick` that resolves to the wrong `PpActionType`) and the wrong tool for whether
-a construct is painted. See [tables.md → Table styles](tables.md#table-styles) for the
+a construct is painted. See [tables.md → Table styles](../tables.md#table-styles) for the
 worked case.
 
 A second, sharper demonstration came from the 3D-model work, and it is why the
@@ -1314,7 +1314,7 @@ do here moves it.
 A finding of that shape has to end up in front of whoever is about to re-attempt the
 construct, and nobody reads an issue tracker before writing an emitter. So it does not
 go in a tracker: distil it into the doc that the feature's own workflow already sends
-them to ([tables.md → Table styles](tables.md#table-styles) for the custom-table-style
+them to ([tables.md → Table styles](../tables.md#table-styles) for the custom-table-style
 case) and put any reusable *method* note (how the render evidence was obtained) here in
 this section. An issue that merely records the negative result is filed and forgotten;
 a paragraph in the feature's own doc is read at exactly the moment it matters.

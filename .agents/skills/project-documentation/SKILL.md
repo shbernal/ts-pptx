@@ -45,6 +45,9 @@ doc_type: "guide"
 Allowed `doc_type` values: `overview`, `architecture`, `guide`, `reference`,
 `troubleshooting`, `decision`, `runbook`.
 
+Describe the package as it loads: one ESM build, `require()` on Node 24+ through
+Node's own ESM interop, and a browser reaching it through a bundler or an ESM CDN.
+
 ## Source-Backed Claims
 
 - CLI docs come from implementation, help output, package scripts, and tests.

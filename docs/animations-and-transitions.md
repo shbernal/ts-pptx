@@ -277,7 +277,7 @@ Author with desktop PowerPoint COM (skill `powerpoint-fixture-authoring`; clear
 
 Update `test/read/fixtures/README.md` (provenance, hash, purpose, PowerPoint
 check date). Until a fixture exists, it is the blocking precondition: see
-[Evidence and fixtures](evidence-and-fixtures.md).
+[Evidence and fixtures](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/ooxml.md#evidence-and-fixtures).
 
 ## Out of scope / phasing
 

@@ -15,7 +15,7 @@ beforeAll(async () => {
 		throw new Error(
 			'the ooxml-validate oracle could not be obtained, so this suite would prove nothing.\n' +
 				'It is fetched from GitHub Releases on first use and cached under ~/.cache/ooxml-validate;\n' +
-				'see docs/testing.md if this machine cannot reach it.'
+				'see docs/contributing/testing.md if this machine cannot reach it.'
 		)
 	}
 	const pres = new TsPptx()

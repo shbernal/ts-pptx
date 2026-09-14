@@ -265,7 +265,7 @@ The consequence lands on a **major**. When this package goes 4.x,
 decks the *old* writer produced, and the docs build keeps resolving. But the
 page stops demonstrating the version it sits beside, until `pptx-html` ships
 a matching release. Nothing in this repo's gates detects that, because
-nothing here asserts what the preview looks like (docs/testing.md, "Demos
+nothing here asserts what the preview looks like (docs/contributing/testing.md, "Demos
 are not tests").
 
 So: release, then open an issue on `pptx-html`. Do not hold a release for

@@ -162,7 +162,7 @@ which maps to the `…Connector3` variants.
 
 - API reference: [`ConnectorProps`](reference/api/index/interfaces/ConnectorProps.md),
   [`ConnectorType`](reference/api/index/type-aliases/ConnectorType.md).
-- Where it lives in the pipeline: [Architecture](architecture.md).
+- Where it lives in the pipeline: [Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md).
   `gen/define/connector.ts` `addConnectorDefinition` (add) →
   `gen/slide/objects/connector.ts` `renderConnectorObject` (emit `<p:cxnSp>`).
 - Regression coverage: `test/regression/shape/connector-shape.test.js`.
