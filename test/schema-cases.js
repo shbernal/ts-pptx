@@ -1034,7 +1034,7 @@ export default [
 		},
 	},
 	{
-		// Author-side embedded fonts (Feature B): pptx.embedFont() emits raw .fntdata parts,
+		// Author-side embedded fonts: pptx.embedFont() emits raw .fntdata parts,
 		// an `application/x-fontdata` Default, presentation font rels, and a p:embeddedFontLst
 		// at CT_Presentation index 7. Validate the whole package against the oracle structure
 		// (verbatim list from embedded-fonts.oracle.json) and the OpenXmlValidator.

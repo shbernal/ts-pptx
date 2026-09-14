@@ -1,4 +1,4 @@
-// Feature A (import-carry) for embedded fonts: importSlide(source, i, { embedFonts: true })
+// Import carry for embedded fonts: importSlide(source, i, { embedFonts: true })
 // brings the source deck's presentation-level embedded fonts across — the binary
 // `.fntdata` parts, the `application/x-fontdata` content-type Default, the font
 // relationships, and a merged `p:embeddedFontLst` — while the default (flag off)

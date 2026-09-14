@@ -1,4 +1,4 @@
-// Feature B (author-side embedding): pptx.embedFont() embeds a whole font face so
+// Author-side embedding: pptx.embedFont() embeds a whole font face so
 // the deck renders with it on machines lacking the font. Asserts the public API
 // shape — byte sources (Uint8Array / ArrayBuffer / base64), multi-face
 // accumulation under one typeface, and input validation — plus the emitted package

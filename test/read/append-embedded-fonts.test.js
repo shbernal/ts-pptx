@@ -4,7 +4,7 @@
 // in embedded-fonts.test.js. Asserts the font parts, the application/x-fontdata
 // content-type Default, the presentation font rels, and the merged embeddedFontLst,
 // plus de-dupe across repeated appends and schema validity. The generator side
-// (pptx.embedFont emit) is covered in test/regression/embed-font.test.js.
+// (pptx.embedFont emit) is covered in test/regression/media/embed-font.test.js.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'

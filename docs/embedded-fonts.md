@@ -1,177 +1,201 @@
 ---
 doc-schema-version: 1
 title: "Embedded fonts"
-summary: "How ts-pptx embeds whole font faces (author-side pptx.embedFont() and import-carry importSlide({ embedFonts: true })), the shared OOXML model behind both, and the PowerPoint-authored oracle."
+summary: "Embed font files in a deck with embedFont(), carry a source deck's embedded fonts through importSlide(), importSlides(), importSlideMasters() and appendSlides(), name the typeface PowerPoint matches against, and read the embedded faces back."
 read_when:
-  - Changing embedded-font emit or merge (src/embedded-fonts.ts and its callers)
-  - Touching pptx.embedFont() or importSlide({ embedFonts })
-  - Adjusting presentation.xml font wiring (embeddedFontLst, font rels, fntdata Default)
-  - Regenerating or interpreting the embedded-fonts fixtures
-doc_type: "decision"
+  - Embedding a font file so a deck renders on machines that do not have the font
+  - Embedding the bold, italic or bold italic face of a family
+  - Carrying embedded fonts through importSlide, importSlides, importSlideMasters or appendSlides
+  - Working out why PowerPoint does not use an embedded font
+  - Choosing between embedFont and registerFontMetrics
+doc_type: "guide"
 ---
 
 # Embedded fonts
 
-## Status
-
-**Shipped (2026-06-25).** A deck can carry whole font faces so it renders with
-them on machines that lack the font, mirroring PowerPoint's *Save → Embed fonts
-in the file*. Two independent entry points share one OOXML model:
-
-- **Author-side**: `await pptx.embedFont({ path | data, typeface, style })`
-  embeds a face when generating a deck from scratch.
-  Source: `src/presentation.ts` (`embedFont`, `_embeddedFonts`), write-side wiring in
-  `src/gen/pres/presentation.ts`, field on the internal model in `src/types/index.ts`.
-- **Import-carry**: `importSlide(source, i, { embedFonts: true })` brings a
-  source deck's presentation-level embedded fonts across when lifting a slide.
-  `importSlides` spells it per request (`{ ..., embedFonts: true }`) and carries a
-  source's whole list exactly once, however many of its pages the batch names. It
-  has a dry run of its own, so a refused batch leaves the deck byte-identical.
-  Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`,
-  `checkEmbeddedFontsCopyable`).
-
-Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
-See `CHANGELOG.md` for the import-carry limits. Tests:
-`test/regression/media/embed-font.test.js` (author-side), `test/read/embedded-fonts.test.js`
-(import-carry, incl. schema validity), and an author-side case in
-`test/schema-cases.js` (validator-checked against the oracle).
-
-## OOXML target (ECMA-376 transitional)
-
-Embedded fonts are three coordinated pieces:
-
-1. **Binary font parts** (one per face) at `/ppt/fonts/fontN.fntdata`. The bytes
-   are the **raw** TTF/OTF file: PresentationML does *not* obfuscate embedded
-   fonts (unlike WordprocessingML's `.odttf`). `[Content_Types].xml` carries a
-   single `Default Extension="fntdata" ContentType="application/x-fontdata"`
-   covering every font part.
-2. **Relationships** from `presentation.xml` (in `ppt/_rels/presentation.xml.rels`),
-   one per face, type `…/relationships/font`, target `fonts/fontN.fntdata`.
-3. **`p:embeddedFontLst`** inside `presentation.xml`, at **index 7** of the
-   `CT_Presentation` child sequence: after `notesSz`, before `defaultTextStyle`.
-
-```xml
-<p:embeddedFontLst>
-  <p:embeddedFont>
-    <p:font typeface="My Font"/>   <!-- CT_TextFont: typeface required (+ optional panose/pitchFamily/charset) -->
-    <p:regular    r:id="rIdN"/>    <!-- CT_EmbeddedFontDataId, 0..1 -->
-    <p:bold       r:id="rIdM"/>    <!-- 0..1 -->
-    <p:italic     r:id="rIdO"/>    <!-- 0..1 -->
-    <p:boldItalic r:id="rIdP"/>    <!-- 0..1 -->
-  </p:embeddedFont>
-</p:embeddedFontLst>
-```
-
-`CT_EmbeddedFontListEntry` child order is `font`, `regular`, `bold`, `italic`,
-`boldItalic`. Only `font` is required; each of the four face slots is `0..1` and
-carries the single `r:id` to its font part. The constant `EMBEDDED_FONT_SLOTS`
-fixes this order so the read- and write-side emitters agree.
-
-We embed **whole** faces, never a glyph subset, so on `p:presentation` we set
-`embedTrueTypeFonts="1" saveSubsetFonts="0"` whenever any face has bytes. When no
-font is embedded, output is unchanged: the historical inert `saveSubsetFonts="1"`
-stays and `embedTrueTypeFonts` is absent.
-
-## Shared model (`src/embedded-fonts.ts`)
-
-One representation both features build/consume:
+`pptx.embedFont(options)` writes a font file into the deck, so PowerPoint can render text in that font on a machine that does not have it installed.
 
 ```ts
-interface EmbeddedFontFace { slot: EmbeddedFontSlot; bytes?: Uint8Array }
-interface EmbeddedFont { typeface: string; panose?; pitchFamily?; charset?; faces: EmbeddedFontFace[] }
+import { TsPptx } from 'pptx-ts'
+
+const pptx = new TsPptx()
+await pptx.embedFont({ path: 'fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
+pptx.addSlide().addText('Hello', { x: 1, y: 1, w: 6, h: 1, fontFace: 'Silkscreen' })
+await pptx.writeFile({ fileName: 'embedded.pptx' })
 ```
 
-The module owns only OOXML-shape knowledge; rId allocation and part placement stay
-with each caller (their packaging models differ). It exposes:
+`embedFont` returns a promise, so await it before writing the deck. Fonts belong to the deck, not to a slide, so the call can come before or after the slides that use the font.
 
-- `flattenEmbeddedFaces(fonts, firstRId)` → ordered `FlatEmbeddedFace[]` assigning
-  sequential 1-based part indices and rIds; faces without bytes are skipped. Used
-  by the write path so the part writer, rels writer, and list emitter all agree.
-- `serializeEmbeddedFontLst(fonts, rIdForFace)` → the `<p:embeddedFontLst>` string
-  (empty when no face has an allocated rId), assuming the enclosing doc declares
-  the `p:`/`r:` prefixes.
-- The constants `FONT_DATA_EXTENSION`, `FONT_DATA_CONTENT_TYPE`, `FONT_REL_TYPE`,
-  `EMBEDDED_FONT_SLOTS`.
+## Options at a glance
 
-## Author-side: `pptx.embedFont`
+`pptx.embedFont(options)`:
+
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `path` | `string` | none | The font file to read: a file path under Node, or an `http` or `https` URL. Wins over `data` when both are set. |
+| `data` | `Uint8Array \| ArrayBuffer \| string` | none | The font bytes. A string is base64, bare or as a `data:` URL, and never a path. |
+| `typeface` | `string` | required | The family name written to the deck. It must be the `fontFace` your text uses. |
+| `style` | `'regular' \| 'bold' \| 'italic' \| 'boldItalic'` | `'regular'` | Which face of the family the bytes are. |
+
+The import methods of `pptx-ts/read` take one option each:
+
+| Option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `ImportSlideOptions.embedFonts` | `boolean` | `false` | `importSlide` copies every font the source deck embeds. |
+| `ImportSlidesRequest.embedFonts` | `boolean` | `false` | `importSlides` copies every font of that request's source deck, once per source. |
+| `ImportSlideMastersOptions.embedFonts` | `boolean` | `false` | `importSlideMasters` copies every font the source deck embeds. |
+
+`appendSlides` has no option: it always carries the fonts the generator embedded.
+
+## Embed a font file
+
+Pass the font as a file, a URL or bytes:
 
 ```ts
-await pptx.embedFont({ path: '/fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
-await pptx.embedFont({ path: '/fonts/Silkscreen-Bold.ttf', typeface: 'Silkscreen', style: 'bold' })
-slide.addText('hi', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen' })
+import { readFile } from 'node:fs/promises'
+
+await pptx.embedFont({ path: 'fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
+await pptx.embedFont({ path: 'https://example.com/fonts/Inter-Regular.ttf', typeface: 'Inter' })
+await pptx.embedFont({ data: await readFile('fonts/Lora-Regular.ttf'), typeface: 'Lora' })
+await pptx.embedFont({ data: loraBase64, typeface: 'Lora', style: 'italic' })
 ```
 
-- `path` is a path/URL loaded via the runtime adapter (`loadFontData`); `data` is
-  in-memory bytes: `Uint8Array`, `ArrayBuffer`, or a base64 string (with or
-  without a data-URL prefix).
-- `style` is one of `'regular'` (default) | `'bold'` | `'italic'` | `'boldItalic'`.
-  Repeated calls with the same `typeface` and different `style` accumulate into one
-  `p:embeddedFont` entry; a repeat of the same `typeface`+`style` replaces the
-  prior bytes (last call wins).
-- **The declared `typeface` MUST match the family name your runs/`fontFace` use**
-  or PowerPoint won't bind the embedded face.
-- Validates input: missing `typeface`, missing byte source, and an invalid `style`
-  all throw.
+- The Node entry point reads a path from disk and fetches an `http` or `https` URL. The browser and default entry points fetch every `path`.
+- A `data` string is decoded as base64, with or without a `data:font/ttf;base64,` prefix.
+- The file goes into the deck whole, as `ppt/fonts/fontN.fntdata`. No glyphs are removed.
+- The deck is marked as carrying whole faces: `embedTrueTypeFonts="1"` and `saveSubsetFonts="0"` on `presentation.xml`. A deck with no embedded font keeps `saveSubsetFonts="1"` and no `embedTrueTypeFonts`.
 
-At write time (in `src/gen/pres/presentation.ts`) the accumulated `_embeddedFonts` drive:
-`makeXmlContTypes` (the `fntdata` Default), `makeXmlPresentationRels` (one `font`
-rel per face, rIds allocated after the slide/master rels), `makeXmlPresentation`
-(the `p:embeddedFontLst` between `notesSz` and `defaultTextStyle`, plus the
-`embedTrueTypeFonts`/`saveSubsetFonts` flags), and the `zip.add` of each
-`/ppt/fonts/fontN.fntdata` part (STORE-compressed, fonts are already compact).
+## Embed bold and italic faces
 
-## Import-carry: `importSlide({ embedFonts: true })`
+A family has up to four faces. Embed each file under the same `typeface` with its own `style`:
 
-Opt-in (default off, so existing behaviour is unchanged). When set,
-`carryEmbeddedFonts` runs a **separate** traversal of the source
-`presentation.xml` (not part of the slide-part copy chain, which still skips
-`p:embeddedFontLst`):
+```ts
+await pptx.embedFont({ path: 'fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
+await pptx.embedFont({ path: 'fonts/Silkscreen-Bold.ttf', typeface: 'Silkscreen', style: 'bold' })
+pptx.addSlide().addText([
+  { text: 'Regular ', options: { fontFace: 'Silkscreen' } },
+  { text: 'bold', options: { fontFace: 'Silkscreen', bold: true } },
+], { x: 1, y: 1, w: 6, h: 1 })
+```
 
-1. Parse the source `p:embeddedFontLst`; for each face resolve its `r:id` against
-   the source `presentation.xml.rels`.
-2. `ensureDefault('fntdata', …)` **before** copying, so `#copyPart`'s `addPart`
-   resolves the content type via the Default (one Default, no per-part Override).
-3. Copy each referenced font part via `#copyPart` (the per-source registry
-   dedupes, so faces shared across repeated imports copy exactly once) and add a
-   fresh `font` relationship in the target `presentation.xml.rels`.
-4. Merge into the target `p:embeddedFontLst` (created at index 7 if absent),
-   cloning the source `p:font` identity (`typeface` + optional
-   `panose`/`pitchFamily`/`charset`) and inserting each face slot in schema order.
-5. De-dupe by `typeface` + face slot: a face this deck already embeds is reused,
-   not duplicated, so importing the same slide twice carries each face once.
+- Calls with the same `typeface` share one entry in the deck's font list.
+- The faces are written in the order `regular`, `bold`, `italic`, `boldItalic`, whatever order the calls came in.
+- A second call with the same `typeface` and `style` replaces the bytes of the first.
+- A different `typeface` makes a separate entry, even for files of the same family.
 
-`importSlides` runs the same carry, once per source deck whose requests include at
-least one `embedFonts`. It also runs `checkEmbeddedFontsCopyable` first, a
-read-only walk of steps 1 and 3 over the source alone. The batch's guarantee is
-that it applies in full or leaves the deck byte-identical, and the carry happens
-after the pages are copied, so without that check a source missing a font binary
-would throw with parts already added. Keep the two in step: they have to skip the
-same entries (a `p:font` with no `typeface`, a face slot with no `r:id`).
+## Name the typeface your text uses
 
-## Oracle & fixtures
+PowerPoint matches an embedded font to text by name. The `typeface` you pass is written to the deck's font list, and `fontFace` is written to each run, so the two strings must be equal:
 
-Per the project's fixture-gated-work rule, the emitted/merged XML is validated against
-**PowerPoint-authored** output, not synthetic XML:
+```ts
+await pptx.embedFont({ path: 'fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
+pptx.addSlide().addText('matches', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen' })
+pptx.addSlide().addText('does not match', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen Regular' })
+```
 
-- `test/read/fixtures/embedded-fonts.pptx`: a real PowerPoint deck that embeds
-  Silkscreen regular + bold (whole characters), one slide using the face. Its
-  verbatim `embeddedFontLst`, font rels, and part list are captured in
-  `test/read/fixtures/embedded-fonts.oracle.json`, the comparison oracle for both
-  the import-carry merge test and the author-side emit test.
-- `test/read/fixtures/fonts/Silkscreen-Regular.ttf` / `Silkscreen-Bold.ttf`:
-  raw redistributable (SIL OFL) faces fed to the author-side API in tests.
+- PowerPoint does not use the embedded font for text whose `fontFace` differs from `typeface`.
+- The library does not read the font file, so it cannot check the name, and a mismatch raises no warning. Use the family name the font file declares.
 
-`pnpm run test:schema` confirms the validator accepts the `fntdata` Default and the
-`embeddedFontLst` placement.
+## Carry fonts when importing slides
 
-## Standing caveats
+Fonts are stored on the presentation, not on a slide, so a slide copied from another deck arrives without them. Ask for them with `embedFonts`:
 
-- **Font licensing is the caller's responsibility.** TTF `OS/2.fsType` carries
-  embedding-permission bits; v1 does not enforce them: it embeds whatever bytes
-  the caller hands over.
-- **No subsetting.** We embed whole faces, so `saveSubsetFonts="0"`. Subsetting
-  (and the matching `saveSubsetFonts="1"`) is not implemented.
-- **No auto-detection of `typeface`/style** from the font's `name`/`OS/2` tables:
-  the caller declares them (no font-table parser dependency). Revisit if needed.
-- Import-carry is wired for `importSlide`; `importShape`/`importSlideMasters` do
-  not carry fonts (no consumer needs it yet).
+```ts
+import { readFile, writeFile } from 'node:fs/promises'
+import { Presentation } from 'pptx-ts/read'
+
+const deck = await Presentation.load(await readFile('deck.pptx'))
+const library = await Presentation.load(await readFile('library.pptx'))
+
+deck.importSlide(library, 0, { embedFonts: true })
+deck.importSlides([
+  { source: library, sourceIndex: 3, outputIndex: 1, embedFonts: true },
+  { source: library, sourceIndex: 4, outputIndex: 2 },
+])
+deck.importSlideMasters(library, { embedFonts: true })
+await writeFile('deck-merged.pptx', await deck.save())
+```
+
+- The source deck's whole font list comes across. The list does not record which slide uses which face, so the copy cannot be narrowed to one slide.
+- In `importSlides`, one request that asks carries its source's fonts once for the whole batch, however many of that source's pages the batch names.
+- The merge goes by `typeface` and face. A face the deck already embeds is kept, and the incoming copy of that face is not added. Importing the same slide twice adds each face once.
+- When the deck already has an entry for the `typeface`, that entry keeps its own attributes, and only the missing faces are added to it.
+- The import checks that every font file the source lists is in the source package before it changes anything. A missing one throws, and the deck is left byte-identical.
+- `appendSlides` carries the fonts of the `TsPptx` you pass it, with the same merge rules.
+
+## Register font metrics separately for text fit
+
+`embedFont` and `registerFontMetrics` both take a font file and a family name, and they do different jobs. Neither one does the other's:
+
+| | `embedFont` | `registerFontMetrics` |
+| --- | --- | --- |
+| Result | The font file is stored in the deck. | The library measures text in that font. Nothing is stored in the deck. |
+| Used by | PowerPoint, when it opens the deck | `fit: 'shrink'` and `measureText`, when the deck is built |
+| Arguments | `{ path \| data, typeface, style }` | `(face, source, { bold, italic, font })` |
+| A string source | `path` is a path or URL. A `data` string is base64. | Always a path or URL. |
+| Weight and style | `style` names the face | `bold` and `italic` flags |
+
+A deck that fits text in an embedded font passes the file to both:
+
+```ts
+const bytes = await readFile('fonts/Silkscreen-Regular.ttf')
+await pptx.embedFont({ data: bytes, typeface: 'Silkscreen' })
+await pptx.registerFontMetrics('Silkscreen', bytes)
+```
+
+[Text that fits](text-fit.md) covers `registerFontMetrics`.
+
+## Invalid input
+
+| Condition | Result | Code |
+| --- | --- | --- |
+| `typeface` missing, not a string, or only spaces | throws `InvalidOptionError` | `font/missing-typeface` |
+| `style` outside the four faces | throws `InvalidOptionError` | `font/invalid-style-slot` |
+| neither `path` nor `data` | throws `InvalidOptionError` | `font/missing-source` |
+| `path` not a string, and `data` not bytes or a string | throws `InvalidOptionError` | `font/missing-source` |
+| a `data` string that is not base64, including `''` | throws `InvalidOptionError` | `font/invalid-base64` |
+| a `path` file that cannot be read, under Node | throws `MediaError` | `font/read-failed` |
+| a `path` URL that answers with an error status | throws `MediaError` | `font/fetch-failed` |
+| a font file the source deck lists but does not contain, on an import with `embedFonts` | throws `PackageReadError`, deck unchanged | `package/part-missing` |
+
+## Limits
+
+- Faces are embedded whole. There is no subsetting.
+- The bytes are not checked. An empty array or a file that is not a font is embedded as given.
+- The font's embedding permissions (`OS/2.fsType`) are not read. Licensing is the caller's responsibility.
+- The typeface name and the style are not read from the file. A wrong `typeface` or `style` is not detected.
+- An import copies the source deck's whole font list, not only the faces its slides use.
+- `importShape` and `importShapes` do not carry fonts.
+- An import or `appendSlides` adds fonts without setting `embedTrueTypeFonts` on the destination deck. A deck built with `embedFont` has it set, but a template that never embedded a font does not.
+- An open deck gains fonts only through the imports and `appendSlides`. No method adds a font file directly or removes one.
+
+## Reading it back
+
+`Presentation.embeddedFonts` lists the fonts any deck embeds, including one PowerPoint saved:
+
+```ts
+import { readFile } from 'node:fs/promises'
+import { Presentation } from 'pptx-ts/read'
+
+const deck = await Presentation.load(await readFile('deck.pptx'))
+for (const font of deck.embeddedFonts) {
+  for (const face of font.faces) {
+    const bytes = deck.opc.part(face.partName)?.serialize()
+    console.log(font.typeface, face.slot, face.partName, bytes?.length)
+  }
+}
+```
+
+- Each entry has `typeface`, `panose` (a string, or `null` when the deck declares none), and `faces`.
+- Each face has `slot` and `partName`, the package path of its font file. Faces come in the order `regular`, `bold`, `italic`, `boldItalic`.
+- The list is `[]` when the deck embeds no font. An entry with no `typeface`, and a face whose file reference does not resolve, are left out.
+- A face PowerPoint saved as a subset holds only some of the font's glyphs, so its bytes can be smaller than the original font file.
+
+[Reading and round-tripping existing decks](reference/pptx-read.md) lists every member.
+
+## See also
+
+- [Text that fits](text-fit.md)
+- [Reading and round-tripping existing decks](reference/pptx-read.md)
+- [Errors](errors.md)
+- API reference: [`TsPptx.embedFont`](reference/api/index/classes/TsPptx.md#embedfont), [`TsPptx.registerFontMetrics`](reference/api/index/classes/TsPptx.md#registerfontmetrics)

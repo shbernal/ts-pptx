@@ -94,10 +94,10 @@ by the `ts-pptx/read` harness. Two groups:
   an embedded `.glb` — namespace/`graphicData@uri`, the `mc:Choice`/`mc:Fallback` pair, the
   `2017/06` model3d rel type, the `model/gltf.binary` content-type `Default`, and the camera /
   lighting / transform subtree; the write-side oracle for `addModel3d()`).
-- **Embedded fonts**: `embedded-fonts.pptx` (PowerPoint-embedded font part graph —
+- **Embedded fonts**: `embedded-fonts.pptx` (PowerPoint-embedded font part graph:
   `p:embeddedFontLst` + `font` relationships + `application/x-fontdata` Default +
   `ppt/fonts/*.fntdata` parts; the read/merge + author-side emit oracle for
-  `docs/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
+  `docs/contributing/design/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
   the verbatim `embeddedFontLst`, the font rels, the part list, and the raw-face
   hashes; the whole OFL faces it embeds live under `fonts/` (below).
 - **Transitions / animations**: `slide-transition.pptx`, `slide-animation-basic.pptx`,
@@ -203,9 +203,9 @@ d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
 
 ### Embedded font faces (`fonts/`)
 
-Raw, whole (un-subsetted) **SIL OFL 1.1** font faces committed under `fonts/` —
-the bytes the author-side embedding API (`docs/embedded-fonts.md`, Feature B —
-`pptx.embedFont()`) embeds verbatim, and the un-subsetted counterpart of the subsetted
+Raw, whole (un-subsetted) **SIL OFL 1.1** font faces committed under `fonts/`:
+the bytes `pptx.embedFont()` embeds verbatim in the tests (`docs/embedded-fonts.md`),
+and the un-subsetted counterpart of the subsetted
 `.fntdata` parts inside `embedded-fonts.pptx`. The font is
 [**Silkscreen**](https://github.com/google/fonts/tree/main/ofl/silkscreen) (Jason
 Kottke), a tiny pixel display family chosen so the fixture stays light while still
@@ -902,9 +902,9 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     JSON chunk is re-emitted by `Microsoft GLTF Exporter 2.8.3.91` (accessors reordered,
     index `componentType` widened 5123→5125). That is normalization, not a validity
     requirement — `addModel3d()` embeds the caller's bytes unchanged.
-- `embedded-fonts.pptx` — **authoring oracle** for embedded fonts
-  (`docs/embedded-fonts.md`: Feature A import-carry merge + Feature B
-  author-side emit). One blank 16:9 slide whose text box `silkscreen-text` has a
+- `embedded-fonts.pptx`: **authoring oracle** for embedded fonts
+  (`docs/contributing/design/embedded-fonts.md`: the import-carry merge and the
+  `embedFont` emit). One blank 16:9 slide whose text box `silkscreen-text` has a
   regular paragraph and a bold paragraph, both in the SIL OFL font **Silkscreen**,
   so PowerPoint embedded **both** faces under a single `p:embeddedFont`. Pins the
   three coordinated pieces of PresentationML font embedding:
@@ -918,19 +918,18 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     before `defaultTextStyle`), exactly:
     `<p:embeddedFontLst><p:embeddedFont><p:font typeface="Silkscreen" pitchFamily="2" charset="0"/><p:regular r:id="rId3"/><p:bold r:id="rId4"/></p:embeddedFont></p:embeddedFontLst>`,
     with `p:presentation@embedTrueTypeFonts="1"`.
-  - **Subsetting caveat (resolves an `embedded-fonts.md` §6 open question):**
+  - **Subsetting caveat:**
     PowerPoint COM `SaveAs(…, EmbedTrueTypeFonts:=msoTrue)` **only ever subsets** the
-    embedded faces — the "Embed all characters" radio is interactive-only (no COM
+    embedded faces. The "Embed all characters" radio is interactive-only (no COM
     property; the `EmbedAllChars` Options reg value is inert for COM-driven saves), so
     the `.fntdata` parts here are subsetted glyph sets and `saveSubsetFonts="1"`.
     Subsetting changes only the part *bytes* and that one flag, not the
-    `embeddedFontLst`/rels/content-type/part structure, and a subsetted embed is what
-    real-world decks most commonly carry. The whole un-subsetted faces (what Feature B
-    embeds and emits with `saveSubsetFonts="0"`) are committed separately under
-    `fonts/`. The verbatim oracle (rels, part list, `embeddedFontLst`, raw-face hashes)
-    is recorded in `embedded-fonts.oracle.json`. The genuine package validates clean
-    (`[]`) through the OOXML-Validator CLI, confirming the validator accepts the
-    `fntdata` Default and `embeddedFontLst` placement (plan §1.3).
+    `embeddedFontLst`/rels/content-type/part structure. The whole un-subsetted faces
+    (what `pptx.embedFont()` embeds, with `saveSubsetFonts="0"`) are committed
+    separately under `fonts/`. The verbatim oracle (rels, part list, `embeddedFontLst`,
+    raw-face hashes) is recorded in `embedded-fonts.oracle.json`. The genuine package
+    validates clean (`[]`) through the OOXML-Validator CLI, confirming the validator
+    accepts the `fntdata` Default and `embeddedFontLst` placement.
 - `slide-transition.pptx` — **authoring oracle** and read fixture for slide
   transitions (`docs/contributing/design/animations.md`). Six blank 16:9 slides,
   each with one distinct `p:transition` (positioned in `CT_Slide` between

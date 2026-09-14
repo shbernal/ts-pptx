@@ -4,7 +4,7 @@
 	"application": "Microsoft Office PowerPoint",
 	"appVersion": "16.0000",
 	"sha256": "bfa889fb328989d93f7e5fb07303d38f6981e11261bc2754ff5b087ab32d35f4",
-	"notes": "PowerPoint-authored embedded-font oracle for docs/plans/embedded-fonts.md (Feature A import-carry merge test + Feature B author-side emit test). One blank slide whose text box 'silkscreen-text' uses both the regular and bold faces of the SIL OFL font 'Silkscreen', so PowerPoint embedded both faces under a single p:embeddedFont entry. PowerPoint COM SaveAs only ever SUBSETS embedded faces (the 'Embed all characters' radio is interactive-only; there is no COM property and the EmbedAllChars Options reg value is inert for COM-driven saves), so the .fntdata parts are subsetted glyph sets and saveSubsetFonts=\"1\". This does not affect the structural oracle (embeddedFontLst / rels / content-type / part layout are identical regardless of subsetting), and a subsetted embed is what real-world decks most commonly carry. Feature B emits WHOLE faces; its byte source is the raw OFL .ttf under fonts/, not these subsetted parts.",
+	"notes": "PowerPoint-authored embedded-font oracle for docs/contributing/design/embedded-fonts.md (the import-carry merge test and the embedFont emit test). One blank slide whose text box 'silkscreen-text' uses both the regular and bold faces of the SIL OFL font 'Silkscreen', so PowerPoint embedded both faces under a single p:embeddedFont entry. PowerPoint COM SaveAs only ever SUBSETS embedded faces (the 'Embed all characters' radio is interactive-only; there is no COM property and the EmbedAllChars Options reg value is inert for COM-driven saves), so the .fntdata parts are subsetted glyph sets and saveSubsetFonts=\"1\". This does not affect the structural oracle (embeddedFontLst / rels / content-type / part layout are identical regardless of subsetting), and a subsetted embed is what real-world decks most commonly carry. pptx.embedFont() emits WHOLE faces; its byte source is the raw OFL .ttf under fonts/, not these subsetted parts.",
 	"presentationAttributes": {
 		"embedTrueTypeFonts": "1",
 		"saveSubsetFonts": "1"
@@ -39,7 +39,7 @@
 	],
 	"fontParts": ["ppt/fonts/font1.fntdata", "ppt/fonts/font2.fntdata"],
 	"rawFaces": {
-		"note": "Whole, un-subsetted OFL faces (the bytes Feature B embeds). fsType = Installable (embedding permitted). Family name 'Silkscreen' must match the embeddedFont typeface and any fontFace/run typeface for PowerPoint to bind it.",
+		"note": "Whole, un-subsetted OFL faces (the bytes pptx.embedFont() embeds in the tests). fsType = Installable (embedding permitted). Family name 'Silkscreen' must match the embeddedFont typeface and any fontFace/run typeface for PowerPoint to bind it.",
 		"regular": {
 			"file": "fonts/Silkscreen-Regular.ttf",
 			"bytes": 32220,

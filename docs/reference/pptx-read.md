@@ -2304,7 +2304,7 @@ target.importSlides([
   `p:embeddedFontLst` does not record which page uses which face, so there is
   nothing finer to carry: one request asking is the source's entire list coming
   across. Merging into this deck de-dupes by typeface and face slot, exactly as
-  [`importSlide`'s `embedFonts`](../embedded-fonts.md#import-carry-importslide-embedfonts-true) does, so several
+  [`importSlide`'s `embedFonts`](../embedded-fonts.md#carry-fonts-when-importing-slides) does, so several
   sources embedding one family contribute it once. The font parts are part of the
   up-front dry run too, for the same reason the notes are: the carry runs after
   the pages are copied, so a missing binary would otherwise be a way back into a
