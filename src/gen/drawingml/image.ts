@@ -15,14 +15,17 @@ import { InvalidOptionError } from '../../errors.js'
 /** Every `<a:srcRect>` below is followed by this same fill directive. */
 const STRETCH = STRETCH_FILL_RECT
 
-/** The `<a:srcRect>` fitting `imgSize` into `boxDim`, followed by the fill directive. */
+/**
+ * The `<a:srcRect>` fitting `imgSize` into `boxDim`, followed by the fill directive. A zero-size box
+ * or image has no fit, and gets the fill directive alone, a plain stretch.
+ */
 function fitSrcRect(
 	type: 'cover' | 'contain',
 	imgSize: { w: number; h: number },
 	boxDim: { w: number; h: number }
 ): string {
-	const { l, r, t, b } = fitSrcRectPercents(type, imgSize, boxDim)
-	return voidEl('a:srcRect', { l, r, t, b }) + STRETCH
+	const rect = fitSrcRectPercents(type, imgSize, boxDim)
+	return rect ? voidEl('a:srcRect', rect) + STRETCH : STRETCH
 }
 
 export const ImageSizingXml = {
@@ -79,9 +82,9 @@ export function genXmlVectorAspectFit(
 	imgSize: { w: number; h: number },
 	boxDim: { w: number; h: number }
 ): string | null {
-	const { l, r, t, b } = fitSrcRectPercents('contain', imgSize, boxDim)
-	if (l === 0 && r === 0 && t === 0 && b === 0) return null
-	return fitSrcRect('contain', imgSize, boxDim)
+	const rect = fitSrcRectPercents('contain', imgSize, boxDim)
+	if (!rect || (rect.l === 0 && rect.r === 0 && rect.t === 0 && rect.b === 0)) return null
+	return voidEl('a:srcRect', rect) + STRETCH
 }
 
 /**

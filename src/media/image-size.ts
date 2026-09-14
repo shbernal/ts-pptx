@@ -189,16 +189,21 @@ export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } |
  * Single source of truth for the crop math shared by the write side
  * (`ImageSizingXml`) and the read API's `Picture.setImage({ fit })`. `l`/`r` and
  * `t`/`b` are symmetric (centered crop).
+ *
+ * There is no fit for a side that is not greater than zero: a zero-size box gave every percentage
+ * as `NaN`, and a zero-width one gave `-Infinity`, both written straight into the part.
  * @param {'cover' | 'contain'} type - fit mode
  * @param {{ w: number, h: number }} img - natural image pixel size
  * @param {{ w: number, h: number }} box - displayed frame size (any consistent unit)
- * @returns {{ l: number, r: number, t: number, b: number }} srcRect percentages
+ * @returns {{ l: number, r: number, t: number, b: number } | null} srcRect percentages, or `null`
+ *   when any of the four sizes is not greater than zero
  */
 export function fitSrcRectPercents(
 	type: 'cover' | 'contain',
 	img: { w: number; h: number },
 	box: { w: number; h: number }
-): { l: number; r: number; t: number; b: number } {
+): { l: number; r: number; t: number; b: number } | null {
+	if (!(img.w > 0 && img.h > 0 && box.w > 0 && box.h > 0)) return null
 	const imgRatio = img.h / img.w
 	const boxRatio = box.h / box.w
 	let width: number
@@ -228,8 +233,11 @@ export function fitSrcRectPercents(
 function getSvgSizeFromMarkup(svg: string): { w: number; h: number } | null {
 	const openTag = /<svg\b[^>]*>/i.exec(svg)?.[0]
 	if (!openTag) return null
+	// Anchored on the whitespace before the name. A word boundary also matched inside a longer name,
+	// between its `-` and the rest, so `stroke-width="2"` was read as the width and `data-height` as
+	// the height whenever it came first.
 	const attr = (name: string): string | null =>
-		new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(openTag)?.[1] ?? null
+		new RegExp(`(?:^|\\s)${name}\\s*=\\s*(["'])(.*?)\\1`, 'i').exec(openTag)?.[2] ?? null
 	// Leading number with an optional absolute unit; a percentage is not an intrinsic length.
 	const absLength = (val: string | null): number => {
 		if (val == null || /%\s*$/.test(val)) return NaN

@@ -8,7 +8,7 @@
  */
 import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
-import type { Coord, ImageProps, ObjectOptions } from '../../types/index.js'
+import type { ImageProps, ObjectOptions } from '../../types/index.js'
 import type { PresSlideInternal, ShapeFillPropsInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, preencodedPath } from '../utils.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
@@ -17,7 +17,7 @@ import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
-import { findLayoutPlaceholder } from './layout-placeholder.js'
+import { placeholderFrame } from './layout-placeholder.js'
 import { registerImageMediaRel, registerSvgImageRels, resolveImageSource } from './image-rel.js'
 import { registerHyperlinkRel, validateHyperlink } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
@@ -97,26 +97,14 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// Explicit `opt` values always win; this only fills the gaps so a picture placeholder no longer
 	// collapses to the image's natural/1in fallback when no dimensions are supplied. Mirrors the
 	// text-object placeholder inheritance in addTextDefinition().
-	let phX: Coord | undefined
-	let phY: Coord | undefined
-	let phW: Coord | undefined
-	let phH: Coord | undefined
-	if (opt.placeholder && target._slideLayout?._slideObjects) {
-		const placeHold = findLayoutPlaceholder(target._slideLayout, opt.placeholder)
-		if (placeHold?.options) {
-			phX = placeHold.options.x
-			phY = placeHold.options.y
-			phW = placeHold.options.w
-			phH = placeHold.options.h
-		}
-	}
+	const placeholder = placeholderFrame(target._slideLayout, opt.placeholder)
 
 	// FIRST: Set vars for this image (object param replaces positional args in 1.1.0)
 	// `undefined` when neither the caller nor the placeholder states the axis. `0` is a stated extent.
-	const givenX = opt.x ?? phX
-	const givenY = opt.y ?? phY
-	const givenW = opt.w ?? phW
-	const givenH = opt.h ?? phH
+	const givenX = opt.x ?? placeholder.x
+	const givenY = opt.y ?? placeholder.y
+	const givenW = opt.w ?? placeholder.w
+	const givenH = opt.h ?? placeholder.h
 	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.
 	// `data`/`path` win when also supplied, matching the documented precedence.
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
@@ -192,6 +180,11 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			} else if (typeof givenH === 'number' && givenW === undefined) {
 				// Only height given: preserve aspect ratio for width (same unit as height)
 				defWidth = givenH * (natural.w / natural.h)
+			} else {
+				// The given side is a string (`'20%'`, `'2in'`), which resolves against the slide only
+				// when the frame is written, so the other side is derived then, as for a path image. It
+				// used to fall to the 1in default here, so a square image came out twice as wide as tall.
+				szAuto = { w: givenW === undefined, h: givenH === undefined }
 			}
 		} else if (strImagePath) {
 			// Path image: defer measurement to serialize time. Record which side(s) to derive

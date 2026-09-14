@@ -271,6 +271,8 @@ export class Picture extends Shape {
 		const { contentType } = options
 		if (!contentType)
 			throw new InvalidOptionError('image/missing-content-type', 'setImage requires a contentType (e.g. "image/png")')
+		// Checked before the image part is added, so a refused fit leaves the picture as it was.
+		if (options.fit === 'cover' || options.fit === 'contain') this.#requireFitExtent(options.fit)
 		const extension = (options.extension ?? extFromContentType(contentType)).toLowerCase().replace(/^\./, '')
 
 		const opc = this.host.opc
@@ -281,6 +283,27 @@ export class Picture extends Shape {
 		setAttr(this.#getOrAddBlip(), 'r:embed', relId)
 		if (options.fit) this.#applyFit(options.fit, bytes)
 		this.markDirty()
+	}
+
+	/**
+	 * Refuse a `cover` or `contain` fit on a picture with no extent to fit into: no transform, or a
+	 * side that is not greater than zero. A zero extent used to write every crop percentage as `NaN`.
+	 */
+	#requireFitExtent(fit: 'cover' | 'contain'): void {
+		const cx = this.width
+		const cy = this.height
+		if (cx == null || cy == null) {
+			throw new InvalidOptionError(
+				'image/fit-needs-extent',
+				`setImage fit '${fit}' needs a frame extent (a:xfrm/a:ext); this picture has no transform`
+			)
+		}
+		if (!(cx > 0 && cy > 0)) {
+			throw new InvalidOptionError(
+				'image/fit-needs-extent',
+				`setImage fit '${fit}' needs a frame extent greater than zero; this picture is ${cx} x ${cy} EMU`
+			)
+		}
 	}
 
 	/**
@@ -295,22 +318,16 @@ export class Picture extends Shape {
 			return
 		}
 		const natural = getImageSizeFromBytes(bytes)
-		if (!natural) {
+		// The extent was checked by `setImage`; a natural size of zero has no fit either.
+		const rect = natural && fitSrcRectPercents(fit, natural, { w: this.width ?? 0, h: this.height ?? 0 })
+		if (!rect) {
 			warn(
 				'image/unmeasurable-natural-size',
 				`setImage fit '${fit}': could not measure the new image's natural size; leaving the crop unchanged (it may look stretched). Provide a raster (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox.`
 			)
 			return
 		}
-		const cx = this.width
-		const cy = this.height
-		if (cx == null || cy == null) {
-			throw new InvalidOptionError(
-				'image/fit-needs-extent',
-				`setImage fit '${fit}' needs a frame extent (a:xfrm/a:ext); this picture has no transform`
-			)
-		}
-		const { l, r, t, b } = fitSrcRectPercents(fit, { w: natural.w, h: natural.h }, { w: cx, h: cy })
+		const { l, r, t, b } = rect
 		const srcRect = getOrAddChild(blipFill, 'a:srcRect', ['a:tile', 'a:stretch'])
 		setAttr(srcRect, 'l', String(l))
 		setAttr(srcRect, 'r', String(r))

@@ -13,7 +13,7 @@
 
 import type {
 	AnimationProps,
-	BackgroundProps,
+	BackgroundOption,
 	HexColor,
 	SlideComment,
 	PresLayout,
@@ -185,14 +185,17 @@ export default class SlideBuilder {
 	 * @example base64 `background: { data:'image/png;base64,ABC[...]123' }`
 	 * @example url `background: { path:'https://some.url/image.jpg'}`
 	 */
-	private _background?: BackgroundProps
-	public set background(props: BackgroundProps) {
+	private _background?: BackgroundOption | undefined
+	public set background(props: BackgroundOption | undefined) {
 		this._background = props
-		// Add background (image data/path must be captured before the package is built)
-		if (props) addBackgroundDefinition(props, this)
+		// Every assignment reaches the definer, `undefined` included: it is what drops an image an
+		// earlier assignment registered. Skipping it left `background = undefined` reading back as
+		// no background while the slide still painted the image. (Image data/path must be captured
+		// before the package is built.)
+		addBackgroundDefinition(props, this)
 	}
 
-	public get background(): BackgroundProps | undefined {
+	public get background(): BackgroundOption | undefined {
 		return this._background
 	}
 

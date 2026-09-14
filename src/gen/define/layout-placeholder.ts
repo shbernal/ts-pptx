@@ -12,6 +12,7 @@
 
 import { SlideObjectType } from '../../enums.js'
 import type { SlideLayoutInternal, SlideObject } from '../../types/internal.js'
+import type { AuthoredFrame } from './frame.js'
 
 /**
  * The layout placeholder named `name`: the first `placeholder` object on the layout whose
@@ -33,4 +34,23 @@ export function findLayoutPlaceholder(
 			(obj) => obj._type === SlideObjectType.placeholder && obj.options?.placeholder === name
 		) ?? null
 	)
+}
+
+/**
+ * The frame the layout placeholder named `name` states, for an object that fills the placeholder's
+ * geometry to take any axis it leaves unstated, as `given[axis] ?? placeholder[axis]`.
+ *
+ * An image and a table each copied the four axes themselves, under different rules: the image
+ * treated a `null` axis as unstated and the table did not, so `x: null` put an image at the
+ * placeholder's left edge and a table at the default half inch.
+ * @param layout - the slide's layout, if it has one
+ * @param name - the placeholder name the slide object states, if any
+ * @returns the placeholder's axes, each absent when it states none or there is no such placeholder
+ */
+export function placeholderFrame(
+	layout: SlideLayoutInternal | null | undefined,
+	name: string | undefined
+): AuthoredFrame {
+	const options = findLayoutPlaceholder(layout, name)?.options
+	return options ? { x: options.x, y: options.y, w: options.w, h: options.h } : {}
 }

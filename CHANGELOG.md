@@ -900,6 +900,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Image geometry holds for string extents, zero boxes, prefixed SVG attributes and `null` axes.**
+  - An image supplied as `data` and given one side as a string (`w: '20%'`, `h: '1in'`) left the
+    other at the 1in default, so a square image came out twice as wide as tall. The other side
+    is derived from the image's natural ratio now, as it already was for a `path` image.
+  - `sizing: { type: 'cover' | 'contain' }` on a zero-size box wrote `<a:srcRect>` with `NaN`
+    in every edge. It writes a plain stretch now. On the read side, `Picture.setImage({ fit })`
+    on a zero-extent picture throws `image/fit-needs-extent`, as it did for a picture with no
+    transform, and either refusal now comes before the new image part is added.
+  - An SVG's size was read from the first attribute whose name ended in `width` or `height`, so
+    `stroke-width="2"` before `width="200"` made the image 2 units wide, and `data-height` did
+    the same to its height. That size decides a derived extent, a cover or contain crop and the
+    default letterbox. Only `width`, `height` and `viewBox` themselves are read now.
+  - `slide.background = undefined` read back as no background while the slide kept painting the
+    image an earlier assignment set. It drops the image now.
+  - A table on a layout placeholder kept an axis stated as `null` and later put the table at the
+    half-inch default, while an image took that axis from the placeholder. Both take it from the
+    placeholder now.
+  - **Migration:** a table with a placeholder and `x`, `y`, `w` or `h` set to `null` takes that
+    value from the placeholder. Leave the key out, or give a number, to keep a position of its own.
+
 - **An inline image is read one way wherever it is embedded.**
   - A `data:` URI whose type has a `-`, `.` or `+` in it named no type, so `data:image/x-emf;…`
     and `data:image/x-wmf;…` were written into `.png` parts declared `image/png`. The script

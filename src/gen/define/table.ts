@@ -34,7 +34,7 @@ import {
 	usableTableWidthEmu,
 } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
-import { findLayoutPlaceholder } from './layout-placeholder.js'
+import { placeholderFrame } from './layout-placeholder.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { resolveFillKind } from '../drawingml/fill.js'
@@ -360,16 +360,20 @@ export function addTableDefinition(
 	// position/size for any of x/y/w/h the caller omits, mirroring the image and
 	// text placeholder inheritance. Explicit values always win; this only fills the gaps so
 	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
-	if (opt.placeholder && slideLayout?._slideObjects) {
-		const placeHold = findLayoutPlaceholder(slideLayout, opt.placeholder)
-		if (placeHold?.options) {
-			// A placeholder that states none of its own leaves the gap open for the fallback
-			// below to fill, so the key stays absent rather than being written as `undefined`.
-			if (opt.x === undefined && placeHold.options.x !== undefined) opt.x = placeHold.options.x
-			if (opt.y === undefined && placeHold.options.y !== undefined) opt.y = placeHold.options.y
-			if (opt.w === undefined && placeHold.options.w !== undefined) opt.w = placeHold.options.w
-			if (opt.h === undefined && placeHold.options.h !== undefined) opt.h = placeHold.options.h
-		}
+	// An axis stated as `null` is unstated here, as it is for an image; it used to be kept and later
+	// became the half-inch default.
+	if (opt.placeholder) {
+		const placeholder = placeholderFrame(slideLayout, opt.placeholder)
+		// A placeholder that states none of its own leaves the gap open for the fallback
+		// below to fill, so the key stays absent rather than being written as `undefined`.
+		const x = opt.x ?? placeholder.x
+		const y = opt.y ?? placeholder.y
+		const w = opt.w ?? placeholder.w
+		const h = opt.h ?? placeholder.h
+		if (x !== undefined) opt.x = x
+		if (y !== undefined) opt.y = y
+		if (w !== undefined) opt.w = w
+		if (h !== undefined) opt.h = h
 	}
 
 	// STEP 1: REALITY-CHECK
