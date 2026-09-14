@@ -21,6 +21,7 @@
  * Placeholder-inheritance resolution (what a placeholder gets from its layout/master chain) is
  * its own concern and lives in `placeholder-inherit.ts`.
  */
+import { COLOR_MAP_TOKENS, THEME_COLOR_SLOTS } from '../../ooxml/st-enums.js'
 import { hslClrToHex } from './color-transform.js'
 import { presetColorHex } from './preset-color.js'
 import {
@@ -37,22 +38,6 @@ import {
 	setAttr,
 	type Element,
 } from './dom.js'
-
-/** The 12 `a:clrScheme` slot names, in schema order. */
-export const SCHEME_SLOTS = [
-	'dk1',
-	'lt1',
-	'dk2',
-	'lt2',
-	'accent1',
-	'accent2',
-	'accent3',
-	'accent4',
-	'accent5',
-	'accent6',
-	'hlink',
-	'folHlink',
-]
 
 /** Scheme tokens that name a `clrScheme` slot directly, bypassing the `clrMap`. */
 const DIRECT_SLOT_TOKENS = new Set(['dk1', 'lt1', 'dk2', 'lt2'])
@@ -137,7 +122,7 @@ export interface ThemeContext extends ColorContext {
 export function parseClrScheme(clrScheme: Element | null): Map<string, string> {
 	const out = new Map<string, string>()
 	if (!clrScheme) return out
-	for (const slot of SCHEME_SLOTS) {
+	for (const slot of THEME_COLOR_SLOTS) {
 		const slotEl = firstChild(clrScheme, `a:${slot}`)
 		const hex = slotEl && colorElementHex(firstChildElement(slotEl))
 		if (hex) out.set(slot, hex)
@@ -152,20 +137,7 @@ export function parseClrScheme(clrScheme: Element | null): Map<string, string> {
 export function parseClrMap(clrMap: Element | null): Map<string, string> {
 	const out = new Map<string, string>()
 	if (!clrMap) return out
-	for (const token of [
-		'bg1',
-		'tx1',
-		'bg2',
-		'tx2',
-		'accent1',
-		'accent2',
-		'accent3',
-		'accent4',
-		'accent5',
-		'accent6',
-		'hlink',
-		'folHlink',
-	]) {
+	for (const token of COLOR_MAP_TOKENS) {
 		const slot = attr(clrMap, token)
 		if (slot) out.set(token, slot)
 	}

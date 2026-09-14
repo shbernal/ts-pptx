@@ -77,7 +77,6 @@ import {
 	resolveColor,
 	type ResolvedColorRef,
 	resolveSchemeToken,
-	SCHEME_SLOTS,
 	styleRefFill,
 	styleRefLine,
 	substitutePhClr,
@@ -93,6 +92,7 @@ import {
 	SPPR_SCENE3D_AFTER,
 	SPPR_SP3D_AFTER,
 } from '../../../ooxml/sequence.js'
+import { THEME_COLOR_SLOTS } from '../../../ooxml/st-enums.js'
 import { cSldOf, nvPrOf } from '../../oxml/slide-dom.js'
 
 /**
@@ -223,10 +223,10 @@ export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void 
 	}
 }
 
-/** Reverse a slot → RGB `clrScheme` into RGB → slot, in `SCHEME_SLOTS` order (first slot wins on a shared RGB). */
+/** Reverse a slot → RGB `clrScheme` into RGB → slot, in `THEME_COLOR_SLOTS` order (first slot wins on a shared RGB). */
 function reverseClrScheme(clrScheme: Map<string, string>): Map<string, string> {
 	const out = new Map<string, string>()
-	for (const slot of SCHEME_SLOTS) {
+	for (const slot of THEME_COLOR_SLOTS) {
 		const hex = clrScheme.get(slot)
 		if (hex && !out.has(hex.toUpperCase())) out.set(hex.toUpperCase(), slot)
 	}
