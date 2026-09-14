@@ -11,6 +11,9 @@ doc_type: "guide"
 
 # Installation
 
+Add ts-pptx to a project, then import it from an ES module, from CommonJS, or from a page with no
+build step.
+
 ## Requirements
 
 - Node.js 24 or later. The package declares `"engines": { "node": ">=24" }`.

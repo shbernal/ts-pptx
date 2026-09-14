@@ -53,7 +53,7 @@ separate renderer, `pptx-html`.
 | Groups | Objects grouped, and groups nested inside groups | [Grouping objects](../groups.md) |
 | Pictures | Images and SVGs, and a picture clipped to a shape | [Image embedded in a shape](../image-in-shape.md) |
 | Video and audio | Media embedded in the slide | [API reference](../reference/api/index.md) |
-| Charts | Bar, line, pie, scatter and the other classic types, plus newer types such as waterfall and treemap, each with a workbook behind it that opens in PowerPoint | [API reference](../reference/api/index.md) |
+| Charts | Classic types such as bar, line and pie, newer ones such as waterfall and treemap, each with its data in an embedded workbook | [API reference](../reference/api/index.md) |
 | Masters and layouts | Slide masters, layouts, sections and speaker notes | [API reference](../reference/api/index.md) |
 | Backgrounds and fills | Solid, gradient and picture fills | [Native backgrounds and gradients](../native-backgrounds-and-gradients.md) |
 | Animations and transitions | Entrance, emphasis and exit effects, and slide transitions | [Animations and transitions](../animations-and-transitions.md) |
