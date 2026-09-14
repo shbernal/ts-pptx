@@ -262,6 +262,9 @@ export type InvalidOptionErrorCode =
 	| 'ole/missing-source'
 	| 'ole/invalid-image-size'
 	| 'zoom/invalid-transition-duration'
+	// Editing a slide transition (`ts-pptx/read`)
+	| 'transition/invalid-time'
+	| 'transition/sound-unsupported'
 	// 3D models
 	| 'model3d/missing-source'
 	| 'model3d/invalid-camera'

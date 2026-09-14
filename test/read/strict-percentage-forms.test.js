@@ -99,11 +99,16 @@ describe('ST_Percentage union — the string form reads as the value it states',
 		assertEqual(frame.paragraphs[0].runs[0].baselinePct, null, 'unparseable @baseline')
 	})
 
-	test('a:buSzPct is NOT a union and stays a bare fixed-point read', async () => {
-		// `ST_TextBulletSizePercent` has no string form, so this one was correct as written and
-		// must not be converted along with its neighbours.
-		const detail = (await frameFrom()).paragraphs[0].bulletDetail
-		assert(detail?.kind === 'char', `expected a glyph bullet; got ${detail?.kind}`)
-		assertEqual(detail.sizePct, 75, 'buSzPct in thousandths of a percent')
+	test('a:buSzPct/@val: both lexical forms give the same bullet size', async () => {
+		// `ST_TextBulletSizePercent` is a string type in both profiles, and its only declared form is
+		// `75%`; PowerPoint writes the fixed-point `75000`. It was read as fixed-point only, so the
+		// form the schema declares came back as no size at all.
+		const fixed = (await frameFrom()).paragraphs[0].bulletDetail
+		assert(fixed?.kind === 'char', `expected a glyph bullet; got ${fixed?.kind}`)
+		assertEqual(fixed.sizePct, 75, 'buSzPct in thousandths of a percent')
+		const percent = (await frameFrom((xml) => xml.replace('<a:buSzPct val="75000"/>', '<a:buSzPct val="75%"/>')))
+			.paragraphs[0].bulletDetail
+		assert(percent?.kind === 'char', `expected a glyph bullet; got ${percent?.kind}`)
+		assertEqual(percent.sizePct, 75, 'buSzPct with a literal %')
 	})
 })

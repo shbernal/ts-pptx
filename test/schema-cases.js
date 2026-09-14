@@ -3554,6 +3554,28 @@ export default [
 		},
 	},
 	{
+		// The read model's transition setter carries the existing `p:sndAc` into the new node, in both the
+		// bare form and the `mc:AlternateContent` Choice and Fallback, drops it for `sound: null`, and
+		// keeps an absent `spd` absent when a transition is assigned back unchanged.
+		name: 'slide transitions edited through the read model (sound kept, sound removed, spd kept absent)',
+		fn: async () => {
+			const { Presentation } = await import('../dist/read.js')
+			const load = async (/** @type {string} */ name) =>
+				Presentation.load(await readFile(new URL(`./read/fixtures/${name}.pptx`, import.meta.url)))
+			const sounds = await load('slide-transition-sound')
+			sounds.slides[0].transition = { ...sounds.slides[0].transition, speed: 'slow', advanceAfterMs: 1500 }
+			sounds.slides[1].transition = { ...sounds.slides[1].transition, durationMs: null }
+			sounds.slides[2].transition = { ...sounds.slides[2].transition, sound: null }
+			await expectNoSchemaErrors(Buffer.from(await sounds.save()), 'read-transition-sound-edits')
+			const plain = await load('slide-transition')
+			for (const slide of plain.slides) {
+				const current = slide.transition
+				slide.transition = current
+			}
+			await expectNoSchemaErrors(Buffer.from(await plain.save()), 'read-transition-roundtrip')
+		},
+	},
+	{
 		// Speaker-notes hyperlinks + rich runs (upstream-issue-1250): notes runs carry
 		// inline formatting and external `url` hyperlinks. The hyperlink emits an
 		// <a:hlinkClick> in the notes body and an external relationship in the notes

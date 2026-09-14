@@ -37,6 +37,11 @@ import { warn } from '../../diagnostics.js'
  */
 const MAX_POINT_INDEX = 1048576
 
+/** Whether `idx` can name a slot: a whole number from 0 below {@link MAX_POINT_INDEX}. */
+function isPointIndex(idx: number): boolean {
+	return Number.isInteger(idx) && idx >= 0 && idx < MAX_POINT_INDEX
+}
+
 /**
  * Read indexed cache points into a dense, idx-ordered array.
  *
@@ -61,7 +66,9 @@ export function readIndexedPoints(
 	let dropped = 0
 	for (const pt of pts) {
 		const idx = numberValue(attr(pt, 'idx')) ?? 0
-		if (idx < 0 || idx >= MAX_POINT_INDEX) {
+		// A fractional index is as impossible as an out-of-range one. It used to size the array as
+		// `new Array(16.5)`, a raw `RangeError`, or land on a property rather than a slot.
+		if (!isPointIndex(idx)) {
 			dropped++
 			continue
 		}
@@ -70,19 +77,19 @@ export function readIndexedPoints(
 	if (dropped > 0) {
 		warn(
 			'chart/point-index-out-of-range',
-			`${label}: ${dropped} cache point(s) are indexed outside 0..${MAX_POINT_INDEX - 1}, which no worksheet-backed chart can reference; they were dropped`
+			`${label}: ${dropped} cache point(s) are not indexed by a whole number within 0..${MAX_POINT_INDEX - 1}, which no worksheet-backed chart can reference; they were dropped`
 		)
 	}
 	if (declaredCount !== null && declaredCount !== count) {
 		warn(
 			'chart/point-count-mismatch',
-			`${label} declares ${declaredCount} point(s) but the cache carries ${pts.length}; reading ${count} rather than allocating the declared size`
+			`${label} declares ${declaredCount} point(s) but the cache carries ${pts.length - dropped} usable; reading ${count} rather than allocating the declared size`
 		)
 	}
 	const points: (string | null)[] = new Array<string | null>(count).fill(null)
 	for (const pt of pts) {
 		const idx = numberValue(attr(pt, 'idx')) ?? 0
-		if (idx < 0 || idx >= count) continue
+		if (!isPointIndex(idx) || idx >= count) continue
 		points[idx] = valueOf(pt)
 	}
 	return points

@@ -113,6 +113,70 @@ describe('slide.transition (write/edit)', () => {
 		const reopened = await Presentation.load(saved)
 		assert.equal(reopened.slides[0].transition, null)
 	})
+
+	test('refuses a duration or advance time that is not a number of milliseconds, changing nothing', async () => {
+		// `NaN` and `-5` were written straight into `p14:dur` and `advTm`.
+		const pres = await openFixture('slide-transition')
+		const slide = pres.slides[1]
+		const before = slide.transition
+		for (const times of [
+			{ durationMs: NaN },
+			{ durationMs: -1 },
+			{ advanceAfterMs: Infinity },
+			{ advanceAfterMs: -5 },
+		]) {
+			assert.throws(
+				() => {
+					slide.transition = { type: 'fade', ...times }
+				},
+				(err) => /** @type {any} */ (err).code === 'transition/invalid-time',
+				`refuses ${Object.entries(times).map(([k, v]) => `${k} ${v}`)}`
+			)
+		}
+		assert.deepEqual(slide.transition, before, 'the slide keeps its transition')
+	})
+
+	test('a transition read back and assigned again keeps an absent spd absent', async () => {
+		// The getter reports `fast` for a missing `spd`, its schema default, and assigning that back
+		// used to write `spd="fast"` onto every such slide.
+		const original = await readFile(fixturePath('slide-transition'))
+		const pres = await Presentation.load(original)
+		for (const slide of pres.slides) {
+			const current = slide.transition
+			slide.transition = current
+		}
+		const saved = await pres.save()
+		const spd = async (bytes, n) =>
+			((await slidePartXml(bytes, n)).match(/<p:transition[^>]*>/)?.[0] ?? '').match(/spd="\w+"/)?.[0] ?? null
+		for (let n = 1; n <= pres.slides.length; n++)
+			assert.equal(await spd(saved, n), await spd(original, n), `slide ${n} spd`)
+	})
+
+	test('keeps the sound through a spread, removes it with null, and refuses a different one', async () => {
+		// The setter had no sound field and removed the whole node, so changing only the speed dropped
+		// the sound.
+		const pres = await openFixture('slide-transition-sound')
+		const slide = pres.slides[0]
+		const sound = slide.transition.sound
+		assert.ok(sound, 'the fixture slide has a sound')
+
+		slide.transition = { ...slide.transition, speed: 'slow' }
+		let reopened = await Presentation.load(await pres.save())
+		assert.deepEqual(reopened.slides[0].transition.sound, sound, 'a spread keeps the sound')
+		assert.equal(reopened.slides[0].transition.speed, 'slow', 'and changes the speed')
+
+		assert.throws(
+			() => {
+				slide.transition = { ...slide.transition, sound: { ...sound, name: 'other.wav' } }
+			},
+			(err) => /** @type {any} */ (err).code === 'transition/sound-unsupported'
+		)
+		assert.deepEqual(slide.transition.sound, sound, 'a refused sound changes nothing')
+
+		slide.transition = { ...slide.transition, sound: null }
+		reopened = await Presentation.load(await pres.save())
+		assert.equal(reopened.slides[0].transition.sound, null, 'null removes the sound')
+	})
 })
 
 describe('slide animations (opaque, spid-aware)', () => {

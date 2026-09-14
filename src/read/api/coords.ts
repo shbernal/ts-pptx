@@ -14,7 +14,7 @@
 
 import { InvalidOptionError } from '../../errors.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
-import { emuToPoints, FIXED_PCT_PER_PERCENT, HUNDREDTHS_PER_POINT } from '../../units.js'
+import { emuToPoints, HUNDREDTHS_PER_POINT } from '../../units.js'
 
 /**
  * Round a measurement to whole EMU, rejecting a value that cannot be written.
@@ -84,33 +84,15 @@ export function ptFromEmu(emu: number | null): number | null {
  * `a:spcPts/@val`, `a:buSzPts/@val`), and six getters across `text.ts` and `theme-context.ts`
  * each wrote the divisor out as a bare `100`.
  *
- * Naming the unit is the point: `a:buSzPct` next door is *thousandths of a percent*, so a bare
- * divisor leaves a reader to remember which attribute is which. Read against
- * {@link pctFromThousandths}.
+ * Naming the unit is the point: `a:buSzPct` next door is *thousandths of a percent*, or a string
+ * with a literal `%`, so a bare divisor leaves a reader to remember which attribute is which. That
+ * one is read through `pctPointsAttr` in `read/oxml/dom.ts`, which knows both spellings.
  *
  * The two `LineSpacing` sites divide by {@link HUNDREDTHS_PER_POINT} and
- * {@link FIXED_PCT_PER_PERCENT} in place, for the reason {@link ptFromEmu} gives about
+ * `FIXED_PCT_PER_PERCENT` in place, for the reason {@link ptFromEmu} gives about
  * accumulators: their field is a plain `number` inside an object the caller's own null check
  * already guards, so a nullable return would only be unwrapped again.
  */
 export function ptFromHundredths(value: number | null): number | null {
 	return value === null ? null : value / HUNDREDTHS_PER_POINT
-}
-
-/**
- * Thousandths of a percent → percent, propagating "absent" — `a:buSzPct/@val`
- * (`ST_TextBulletSizePercent`), which spells 100% as `100000`. That is the same fixed-point
- * percentage the write side scales into with {@link FIXED_PCT_PER_PERCENT}, read in the other
- * direction.
- *
- * **Fixed-point only, by design.** It takes a `number`, so a caller must have parsed the
- * attribute already — and the `…PercentOrPercentString` types (`ST_Percentage` and its
- * relatives) also admit a decimal string with a literal `%`, which is the ONLY form the Strict
- * profile has. `numberValue('62.5%')` is `null`, so four getters reported a value that was
- * present as absent. Read one of those through `parsePercent`/`pctAttr` in `read/oxml/dom.ts`,
- * which takes the raw attribute and knows both spellings; this one is for the attributes whose
- * type has no string form.
- */
-export function pctFromThousandths(value: number | null): number | null {
-	return value === null ? null : value / FIXED_PCT_PER_PERCENT
 }

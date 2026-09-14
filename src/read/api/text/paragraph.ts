@@ -31,7 +31,7 @@ import {
 	type ResolvedColor,
 } from '../theme-context.js'
 import { HUNDREDTHS_PER_POINT } from '../../../units.js'
-import { pctFromThousandths, ptFromEmu, ptFromHundredths } from '../coords.js'
+import { ptFromEmu, ptFromHundredths } from '../coords.js'
 import { Run, type BulletDetail, type BulletStyle, type LineSpacing, type PlaceholderTextContext } from './run.js'
 import { setParagraphText } from './edit.js'
 /** One paragraph (`a:p`) of a text frame. */
@@ -230,11 +230,12 @@ export class Paragraph {
 		// `a:buClr` holds the colour element directly (CT_Color), not wrapped in an
 		// `a:solidFill` the way a run or a shape fill does.
 		const colorEl = buClr ? firstChildElement(buClr) : null
-		const pctVal = buSzPct ? numberValue(attr(buSzPct, 'val')) : null
 		const ptVal = buSzPts ? numberValue(attr(buSzPts, 'val')) : null
 		return {
 			font: buFont ? (attr(buFont, 'typeface') ?? null) : null,
-			sizePct: pctFromThousandths(pctVal),
+			// `ST_TextBulletSizePercent` is a string type whose declared form is `80%`; Office writes the
+			// fixed-point `80000`. Reading only the second reported the first as no size at all.
+			sizePct: buSzPct ? pctPointsAttr(buSzPct, 'val') : null,
 			sizePt: ptFromHundredths(ptVal),
 			color: colorValueIf(colorEl, 'srgbClr'),
 			schemeColor: colorValueIf(colorEl, 'schemeClr'),

@@ -234,16 +234,19 @@ export class Slide implements ShapeHost {
 	 * (a `p14` Choice carrying `p14:dur` plus a base `mc:Fallback`); otherwise the
 	 * bare `<p:transition>` is written. The node is inserted at its schema slot —
 	 * after `p:clrMapOvr`, before `p:timing`/`p:extLst`. Marks the slide part dirty.
+	 *
+	 * The new transition is built from the current one before that is removed: it keeps the sound
+	 * unless `sound` says otherwise (see {@link TransitionInput.sound}), and a value that is refused
+	 * (a `durationMs` or `advanceAfterMs` that is not a number of milliseconds from 0, or a sound
+	 * that is not the slide's own) leaves the slide as it was.
 	 */
 	set transition(value: TransitionInput | null) {
 		const root = this.part.dom.documentElement
 		if (!root)
 			throw new PackageReadError('package/part-has-no-root', `Slide ${this.partName} has no root <p:sld> element`)
+		const built = value ? buildTransition(this.part.dom, value, root) : null
 		removeTransition(root)
-		if (value) {
-			const doc = this.part.dom
-			insertInOrder(root, buildTransition(doc, value), ['p:timing', 'p:extLst'])
-		}
+		if (built) insertInOrder(root, built, ['p:timing', 'p:extLst'])
 		this.part.markDirty()
 	}
 

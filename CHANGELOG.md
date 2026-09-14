@@ -900,6 +900,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The read model decodes a percent bullet size and a fractional point index, and the
+  transition setter keeps what it is not told to change.**
+  - `Paragraph.bulletDetail.sizePct` read `a:buSzPct` as fixed-point only, so `val="80%"`, the
+    form `ST_TextBulletSizePercent` declares, read as no size at all. Both forms read now.
+  - A chart point cache whose last `c:pt` had a fractional `idx` made `series.values` throw a
+    raw `RangeError`, and a fractional index elsewhere lost its value. Such a point is dropped
+    and counted in the `chart/point-index-out-of-range` warning, as an out-of-range one is.
+  - `slide.transition = { … }` wrote `durationMs` and `advanceAfterMs` as given, `NaN` and
+    negative numbers included. Either one that is not a number of milliseconds from 0 throws
+    `InvalidOptionError` (`transition/invalid-time`) before the slide changes.
+  - The setter had no `sound` field and replaced the whole node, so
+    `slide.transition = { ...slide.transition, speed: 'slow' }` dropped the transition sound.
+    `TransitionInput.sound` takes three states: left out keeps the sound, `null` removes it, and
+    the slide's own sound (as a spread passes it) keeps it. Any other sound throws
+    `transition/sound-unsupported`, because it would name an audio part the setter does not add.
+  - A transition read back and assigned again wrote `spd="fast"` onto a slide that had no `spd`.
+    A default `fast` now stays absent where it was absent, as PowerPoint writes it.
+  - A transition with `durationMs` written through the read model put `Requires="p14"` on its
+    `mc:Choice` without declaring the `p14` prefix there, which the schema refuses on a slide
+    whose root does not declare it. The prefix is declared on the `mc:Choice` now, as PowerPoint
+    writes it.
+  - **Migration:** a spread of `slide.transition` that relied on losing the sound needs
+    `sound: null`. A `durationMs` or `advanceAfterMs` of `NaN`, `Infinity` or below 0 throws;
+    pass a number of milliseconds or `null`.
+
 - **A number that is not one is refused on the write side, and one out of range is clamped the
   same way everywhere.**
   - The text measures clamped into a schema range left a non-finite value to their unit

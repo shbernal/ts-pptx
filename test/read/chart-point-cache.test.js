@@ -96,6 +96,35 @@ describe('Chart point caches are sized by the points that are there', () => {
 		assert(codes.includes('chart/point-index-out-of-range'), `expected the out-of-range warning; got ${codes}`)
 	})
 
+	test('a fractional c:pt index is dropped and counted, rather than sizing the array or taking no slot', async () => {
+		// On the last point, `idx="3.5"` sized the array as `new Array(4.5)`, a raw RangeError out of
+		// `series.values`. Anywhere else it wrote a property rather than a slot, so its value was lost.
+		const last = await captureDiagnostics(() =>
+			authorEditRead(
+				ChartType.bar,
+				(xml) => replaceLast(xml, '<c:pt idx="3">', '<c:pt idx="3.5">'),
+				(presentation) => firstChartOf(presentation).series[0].values
+			)
+		)
+		assertEqual(JSON.stringify(last.result), JSON.stringify([10, 20, 30]), 'the fractional last point is dropped')
+		assert(last.codes.includes('chart/point-index-out-of-range'), `and counted; got ${last.codes}`)
+
+		const first = await captureDiagnostics(() =>
+			authorEditRead(
+				ChartType.bar,
+				(xml) => replaceLast(xml, '<c:pt idx="0">', '<c:pt idx="0.5">'),
+				(presentation) => firstChartOf(presentation).series[0].values
+			)
+		)
+		assertEqual(
+			JSON.stringify(first.result),
+			JSON.stringify([null, 20, 30, 40]),
+			'an inner fractional point leaves a gap'
+		)
+		assert(!Object.keys(first.result).includes('0.5'), 'and writes no property for it')
+		assert(first.codes.includes('chart/point-index-out-of-range'), `and is counted; got ${first.codes}`)
+	})
+
 	test('chartEx caches take the same bound from the same helper', async () => {
 		const { result, codes } = await captureDiagnostics(() =>
 			authorEditRead(
