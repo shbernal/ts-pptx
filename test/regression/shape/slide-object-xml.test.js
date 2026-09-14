@@ -37,7 +37,7 @@ const textObj = (options = {}) => ({
 	options: { objectName: 'T', ...options },
 })
 
-describe('escaping: cNvPrOpen escapes objectName and altText; cSld-name is escaped here', () => {
+describe('escaping: cNvPrEl escapes objectName and altText; cSld-name is escaped here', () => {
 	// A slide object stores its `objectName` as the caller wrote it (the define layer validates but
 	// does not escape it), so this layer is the one place it is escaped.
 	test('objectName IS escaped, and exactly once', () => {

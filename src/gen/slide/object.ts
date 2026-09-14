@@ -634,9 +634,27 @@ export function slideObjectToXml(
 }
 
 /**
+ * The relationship id a part's default relationships are numbered from: one past the highest id
+ * among its hyperlink, chart and media relationships.
+ *
+ * Exported because the master's `<p:sldLayoutId r:id>` values have to name the ids its `.rels` part
+ * gives the layouts, and `makeXmlMaster` derived them as `_rels.length + idx + 1`. The two agreed
+ * only while nothing registered a chart or media relationship on the master, since that count
+ * ignores both.
+ * @param slide - the slide, layout or master whose relationships are numbered
+ */
+export function defaultRelIdStart(slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal): number {
+	let lastRid = 0
+	for (const rel of slide._rels) lastRid = Math.max(lastRid, rel.rId)
+	for (const rel of slide._relsChart || []) lastRid = Math.max(lastRid, rel.rId)
+	for (const rel of slide._relsMedia || []) lastRid = Math.max(lastRid, rel.rId)
+	return lastRid + 1
+}
+
+/**
  * Transforms slide relations to XML string.
  * Extra relations that are not dynamic can be passed using the 2nd arg (e.g. theme relation in master file).
- * These relations use rId series that starts with 1-increased maximum of rIds used for dynamic relations.
+ * These relations are numbered from {@link defaultRelIdStart}.
  * @param {PresSlideInternal | SlideLayoutInternal | SlideMasterInternal} slide - slide, layout or master whose relations are being transformed
  * @param {{ target: string; type: string }[]} defaultRels - array of default relations
  * @return {string} XML
@@ -645,7 +663,6 @@ export function slideObjectRelationsToXml(
 	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
 	defaultRels: Array<{ target: string; type: string }>
 ): string {
-	let lastRid = 0 // stores maximum rId used for dynamic relations
 	const rels: string[] = []
 
 	/**
@@ -668,7 +685,6 @@ export function slideObjectRelationsToXml(
 
 	// STEP 1: Add all rels for this Slide
 	slide._rels.forEach((rel: SlideRel) => {
-		lastRid = Math.max(lastRid, rel.rId)
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
 				rels.push(relationshipEl(rel.rId, SLIDE_REL, `slide${rel.Target}.xml`))
@@ -682,7 +698,6 @@ export function slideObjectRelationsToXml(
 		// The notesSlide rel every slide needs comes from `defaultRels` in `makeXmlSlideRel`.
 	})
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
-		lastRid = Math.max(lastRid, rel.rId)
 		// chartEx parts use the MS chartEx rel type; classic charts use the ECMA `chart` rel.
 		rels.push(relationshipEl(rel.rId, rel.isChartEx ? CHARTEX_REL : CHART_REL, rel.Target))
 	})
@@ -695,7 +710,6 @@ export function slideObjectRelationsToXml(
 		mediaTargets.add(rel.Target)
 		const media = (type: string, targetMode?: string): string =>
 			relationshipEl(rel.rId, type, rel.Target, { targetMode })
-		lastRid = Math.max(lastRid, rel.rId)
 		if (rel.oleRelType) {
 			// An OLE payload part carries its rel type verbatim (`.../package` or `.../oleObject`);
 			// its `type` is the part's content type, which the sniffing below would misread.
@@ -720,8 +734,9 @@ export function slideObjectRelationsToXml(
 	})
 
 	// STEP 2: Add default rels
+	const start = defaultRelIdStart(slide)
 	defaultRels.forEach((rel, idx) => {
-		rels.push(relationshipEl(lastRid + idx + 1, rel.type, rel.target))
+		rels.push(relationshipEl(start + idx, rel.type, rel.target))
 	})
 
 	return relationshipsPart(rels)

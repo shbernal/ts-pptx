@@ -16,7 +16,7 @@ import { clampFontSizeSz, clampParaIndentInchesEmu, clampParaMarginInchesEmu } f
 import { HUNDREDTHS_PER_POINT } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
+import { defaultRelIdStart, slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 import type { RendererTable } from './objects/shared.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
@@ -318,10 +318,12 @@ export function makeXmlMaster(
 	layouts: SlideLayoutInternal[],
 	renderers: RendererTable
 ): string {
-	// NOTE: Pass layouts as static rels because they are not referenced any time
+	// The layouts are the first of the master's default relationships (`makeXmlMasterRel`), so their
+	// ids start where that part numbers default relationships from.
+	const layoutRidStart = defaultRelIdStart(slide)
 	const layoutDefs = layouts
 		.map((_layoutDef, idx) =>
-			voidEl('p:sldLayoutId', { id: LAYOUT_IDX_SERIES_BASE + idx, 'r:id': `rId${slide._rels.length + idx + 1}` })
+			voidEl('p:sldLayoutId', { id: LAYOUT_IDX_SERIES_BASE + idx, 'r:id': `rId${layoutRidStart + idx}` })
 		)
 		.join('')
 
