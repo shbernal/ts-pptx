@@ -26,9 +26,7 @@ import { presentationRels, type DeckTarget } from './deck-target.js'
 import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
 import { PRESENTATION_AFTER_SLD_MASTER_ID_LST } from '../../../ooxml/sequence.js'
 import { PackageReadError } from '../../../errors.js'
-
-// ST_SlideMasterId and ST_SlideLayoutId share this floor.
-const MIN_SLIDE_MASTER_ID = 2147483648
+import { MIN_SLIDE_MASTER_ID } from '../../../ooxml/ids.js'
 
 /**
  * Wire a freshly-copied slide master into `presentation.xml`: add a

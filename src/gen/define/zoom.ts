@@ -21,6 +21,7 @@ import { clampRangedInput, getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
+import { MIN_SLIDE_ID } from '../../ooxml/ids.js'
 
 const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
 const ZOOM_API = { slide: 'addSlideZoom', section: 'addSectionZoom', summary: 'addSummaryZoom' } as const
@@ -113,7 +114,7 @@ export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoo
 		return
 	}
 	const targetSlide = opts.target as PresSlideInternal
-	const sldId = typeof opts.target === 'number' ? 256 + (opts.target - 1) : targetSlide._slideId
+	const sldId = typeof opts.target === 'number' ? MIN_SLIDE_ID + (opts.target - 1) : targetSlide._slideId
 	const slideNum = typeof opts.target === 'number' ? opts.target : targetSlide._slideNum
 	if (sldId == null || slideNum == null) {
 		warn('zoom/unresolved-target', 'addSlideZoom: could not resolve the target slide; ignoring.')

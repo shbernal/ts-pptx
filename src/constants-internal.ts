@@ -13,13 +13,14 @@
 import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
 import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
+import { MIN_SLIDE_LAYOUT_ID } from './ooxml/ids.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
-// Base for `<p:sldLayoutId id>` (layout N gets BASE + N). 2147483649 = 0x80000001:
-// ECMA-376 ST_SlideLayoutId requires id >= 0x80000000, and PowerPoint conventionally
-// starts layout IDs one past that. See `makeXmlMaster` in `gen/slide/master.ts`.
-export const LAYOUT_IDX_SERIES_BASE = 2147483649
+// Base for `<p:sldLayoutId id>` (layout N gets BASE + N). One past the ST_SlideLayoutId floor,
+// where PowerPoint conventionally starts layout IDs: the floor itself is the master's id, and the
+// two share one id space. See `makeXmlMaster` in `gen/slide/master.ts`.
+export const LAYOUT_IDX_SERIES_BASE = MIN_SLIDE_LAYOUT_ID + 1
 export const LINEH_MODIFIER = 1.67 // AKA: Golden Ratio Typography
 
 export const DEF_BULLET_MARGIN = 27

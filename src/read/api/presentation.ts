@@ -23,6 +23,7 @@ import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import { attr, createElement, firstChild, getElements, getOrAddChild, numberValue, setAttr } from '../oxml/dom.js'
 import { PRESENTATION_AFTER_SLD_ID_LST } from '../../ooxml/sequence.js'
+import { MAX_SLIDE_ID, MIN_SLIDE_ID } from '../../ooxml/ids.js'
 import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import type { AnyShape } from './shapes.js'
@@ -83,12 +84,6 @@ import {
 /** Content type of the main part in a `.potx` template package — flipped to {@link PRESENTATION_MAIN_CONTENT_TYPE} by {@link Presentation.fromTemplate}. */
 const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
-
-/** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
-const MIN_SLIDE_ID = 256
-
-/** ST_SlideId maximum (ECMA-376). One past it is not a slide id, it is a repair prompt. */
-const MAX_SLIDE_ID = 2147483647
 
 export class Presentation {
 	#presentationPart: Part | undefined

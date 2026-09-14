@@ -12,6 +12,7 @@ import { presentationFixedRelIds, presentationFontRelStart } from './presentatio
 import { el, raw, voidEl } from '../oxml/el.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
+import { MIN_SLIDE_MASTER_ID } from '../../ooxml/ids.js'
 
 function defaultTextStyleLevel(idy: number, marL: number): string {
 	return lvlPPr(idy, { marL, algn: 'l' }, [raw(themeFontDefRPr('mn', { sz: 1800, kern: 1200 }))])
@@ -81,7 +82,11 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 	// BEFORE sldIdLst — emitting notesMasterIdLst after sldIdLst (or after
 	// sldSz/notesSz) violates the schema and is flagged by OpenXmlValidator as
 	// Sch_UnexpectedElementContentExpectingComplex.
-	const sldMasterIdLst = el('p:sldMasterIdLst', null, raw(voidEl('p:sldMasterId', { id: 2147483648, 'r:id': 'rId1' })))
+	const sldMasterIdLst = el(
+		'p:sldMasterIdLst',
+		null,
+		raw(voidEl('p:sldMasterId', { id: MIN_SLIDE_MASTER_ID, 'r:id': 'rId1' }))
+	)
 
 	// NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic)
 	const notesMasterIdLst = el(

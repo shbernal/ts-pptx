@@ -15,6 +15,7 @@
 
 import { warn } from './diagnostics.js'
 import { InternalError, InvalidOptionError } from './errors.js'
+import { MIN_SLIDE_ID } from './ooxml/ids.js'
 import SlideBuilder from './slide.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './constants-internal.js'
 import type {
@@ -873,7 +874,7 @@ export default class PresentationCore {
 			authors: this.#composition.authors,
 			childAuthors: this.#composition.children,
 			setSlideNum: this.setSlideNumber,
-			slideId: this._slides.length + 256,
+			slideId: this._slides.length + MIN_SLIDE_ID,
 			slideRId: this._slides.length + 2,
 			slideNumber: this._slides.length + 1,
 			slideLayout,
