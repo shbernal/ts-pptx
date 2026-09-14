@@ -939,6 +939,67 @@ describe('deck IR — picture fills', () => {
 })
 
 /** The per-shape notes a graphic frame with no write-API emitter raises, one per payload. */
+describe('deck IR — connectors', () => {
+	/** `mixed.pptx` with every connector's `p:cxnSp` rewritten by `rewrite`, as a fresh IR. */
+	async function mixedWithConnectors(rewrite) {
+		const zip = await JSZip.loadAsync(await readFixture('mixed.pptx'))
+		let count = 0
+		for (const name of Object.keys(zip.files).filter((entry) => /^ppt\/slides\/slide\d+\.xml$/.test(entry))) {
+			const xml = await zip.file(name).async('string')
+			zip.file(
+				name,
+				xml.replace(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g, (cxn) => {
+					count++
+					return rewrite(cxn)
+				})
+			)
+		}
+		assert(count > 0, 'mixed.pptx carries connectors to rewrite')
+		return readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+	}
+
+	test('a connector with no outline stays invisible, as a line shape with no stroke', async () => {
+		// The stroke filter kept only the keys `addConnector` takes and dropped `type: 'none'`, so
+		// the call held only geometry and the write path drew its default line, with no note.
+		const ir = await mixedWithConnectors((cxn) =>
+			cxn.replace(/<a:ln\b[^>]*\/>|<a:ln\b[^>]*>[\s\S]*?<\/a:ln>/, '<a:ln><a:noFill/></a:ln>')
+		)
+		const calls = allCalls(ir)
+		assertEqual(calls.filter((call) => call.method === 'addConnector').length, 0, 'no connector is drawn with a line')
+		const lines = calls.filter((call) => call.method === 'addShape' && call.args[0] === 'line')
+		assert(lines.length > 0, 'the connectors are emitted as line shapes')
+		for (const call of lines) {
+			assertEqual(call.args[1].line?.type, 'none', `${call.sourceName} states no outline`)
+		}
+	})
+
+	test('a connector line cap `addConnector` cannot take is noted', async () => {
+		const ir = await mixedWithConnectors((cxn) => cxn.replace(/<a:ln\b(?![^>]*\bcap=)/, '<a:ln cap="rnd"'))
+		const connectors = allCalls(ir).filter((call) => call.method === 'addConnector')
+		assert(connectors.length > 0, 'mixed.pptx carries connectors on a slide')
+		const noted = new Set(
+			ir.fidelity.filter((note) => note.construct === 'connector.line').map((note) => note.shapeName)
+		)
+		for (const call of connectors) {
+			assert(noted.has(call.sourceName), `${call.sourceName}: the dropped cap is noted`)
+		}
+	})
+
+	test('a connector inside a group is kept as a line shape child', async () => {
+		// `addGroup` takes a `shape` child, and a connector paints as a `line` one, but a connector
+		// child had no arm and was dropped under a note blaming charts, tables and media.
+		const ir = await irFor('mixed.pptx')
+		assertEqual(ir.fidelity.filter((note) => note.construct === 'group.child').length, 0, 'no group child is dropped')
+		for (const groupName of ['Groupe 7', 'Groupe 2']) {
+			const group = allCalls(ir).find((call) => call.method === 'addGroup' && call.sourceName === groupName)
+			assert(group, `${groupName} is emitted`)
+			const lines = group.args[0].filter((child) => child.shape?.type === 'line')
+			assert(lines.length > 0, `${groupName} keeps its connector as a line child`)
+			for (const child of lines) assert(child.shape.options.line, `${groupName}: the line child carries its stroke`)
+		}
+	})
+})
+
 const UNWRITABLE_FRAME_NOTES = ['chartEx.all', 'diagram.all', 'graphicFrame.unknown']
 
 describe('deck IR — slide sourcing', () => {

@@ -955,6 +955,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptxToScript` keeps a connector with no outline invisible, and keeps a connector inside a
+  group.**
+  - A connector whose outline is `a:noFill` came out as an `addConnector` with no stroke
+    options, which the write path draws with its default line, and nothing noted it. It is
+    emitted as a `line` shape with `line: { type: 'none' }` now, the way a layout's connectors
+    already were.
+  - A connector's line cap has no `addConnector` option and was dropped in silence. It raises
+    `connector.line` now.
+  - A connector inside a group was dropped under `group.child`, whose note blamed charts, tables
+    and media. It is kept as a `line` shape child, which `addGroup` accepts, and the note names
+    the kind a group does drop.
+
 - **`pptxToScript` keeps a shape's alt text and a picture's shadow, and guards a picture's crop.**
   - `Shape.description` (`p:cNvPr/@descr`) was read and never emitted, so every picture, text
     box, shape, table and chart lost its alt text with no note. Each call now carries it as

@@ -316,7 +316,7 @@ Both tiers, in corpus order:
 Plus, at 1–2 fixtures each: `diagram.all`,
 `graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
 `shape.empty`, `chart.xLabels`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
-`group.child`, `image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
+`image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
 `slide.background`, `slide.layout`, `table.cell.fill.picture.geometry`,
 `table.rowAuto`, `text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
 

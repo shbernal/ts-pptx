@@ -37,7 +37,16 @@ import {
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
-import { compact, emu, frameOf, identityOptions, nameOf, positionOptions, type ShapeBox } from './values.js'
+import {
+	compact,
+	compactRequired,
+	emu,
+	frameOf,
+	identityOptions,
+	nameOf,
+	positionOptions,
+	type ShapeBox,
+} from './values.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
@@ -369,17 +378,20 @@ const CONNECTOR_LINE_KEYS = ['color', 'width', 'dashType', 'beginArrowType', 'en
  * in the output, so a connector lands unbound and stops following its shapes when they move.
  */
 function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
-	const frame = frameOf(shape, notes)
-	if (!frame) return null
-
-	if (shape.startConnection || shape.endConnection) {
-		notes.note(
-			'connector.binding',
-			'dropped',
-			'unsupported',
-			'connector endpoint bindings reference source shape ids with no counterpart in the output, so the connector lands unbound and no longer follows its shapes'
-		)
+	const drawn = connectorLine(
+		shape,
+		notes,
+		'connector endpoint bindings reference source shape ids with no counterpart in the output, so the connector lands unbound and no longer follows its shapes'
+	)
+	if (!drawn) return null
+	// A connector with no outline has no `addConnector` spelling: its stroke options take no `type`,
+	// and one given none is drawn with the write path's default line. The `line` shape it paints as
+	// states `line: { type: 'none' }` and stays invisible, the way a layout's connectors already do.
+	if (drawn.line?.['type'] === 'none') {
+		return { method: 'addShape', args: ['line', drawn.options], ...nameOf(shape) }
 	}
+	const frame = drawn.box
+
 	if (shape.rotation) {
 		notes.note(
 			'connector.rotation',
@@ -389,18 +401,18 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 		)
 	}
 
-	const line = lineOption(shape, notes) ?? {}
+	const line = drawn.line ?? {}
 	const stroke: Record<string, IrValue> = {}
 	for (const key of CONNECTOR_LINE_KEYS) {
 		const value = line[key]
 		if (value !== undefined) stroke[key] = value
 	}
-	if (line['type'] === 'gradient' || line['transparency'] !== undefined) {
+	if (line['type'] === 'gradient' || line['transparency'] !== undefined || line['cap'] !== undefined) {
 		notes.note(
 			'connector.line',
 			'flattened',
 			'unwritable',
-			'a connector styles its stroke with flat colour/width options, which cannot express a gradient stroke or a stroke transparency, so those fall back to a plain line'
+			'a connector styles its stroke with flat colour, width, dash and arrowhead options, which cannot express a gradient stroke, a stroke transparency or a line cap, so a gradient or a transparency falls back to a plain line and a cap to the default'
 		)
 	}
 
@@ -497,8 +509,8 @@ function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
  * contents when resized and the emitted one will not — so that case, and only that case,
  * is noted.
  *
- * Charts, tables, media and placeholders are excluded from groups by the write API, so a
- * group holding one loses that child.
+ * Charts, tables and placeholders are excluded from groups by the write API, so a group holding
+ * one loses that child. A connector is kept as the `line` shape it paints as, which a group takes.
  */
 function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 	const { notes } = ctx
@@ -506,6 +518,16 @@ function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 	if (!box) return null
 	const children: IrValue[] = []
 	for (const child of shape.shapes) {
+		// `addConnector` has no group child variant, and a connector child used to be dropped.
+		if (isConnector(child)) {
+			const drawn = connectorLine(
+				child,
+				forShape(ctx, child).notes,
+				'this connector is bound to shapes; it is re-authored as a line shape inside its group, which paints the same stroke but no longer follows them'
+			)
+			if (drawn) children.push(lineShape(drawn.options))
+			continue
+		}
 		const call = shapeCall(child, ctx)
 		if (!call) continue
 		const tagged = asGroupChild(call)
@@ -514,7 +536,7 @@ function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 				'group.child',
 				'dropped',
 				'unsupported',
-				`addGroup accepts no ${kindLabel(call.method)} child (charts, tables and media are excluded by design), so this child is omitted from the group`
+				`addGroup accepts no ${kindLabel(call.method)} child (a group takes text, shapes, images and other groups), so this child is omitted from the group`
 			)
 			continue
 		}
@@ -578,7 +600,8 @@ function asGroupChild(call: CallIr): IrValue | null {
 		case 'addGroup':
 			return { group: compact({ children: first, options: second }) ?? {} }
 		default:
-			// Charts, tables, connectors and media have no GroupChildProps variant.
+			// Charts and tables have no GroupChildProps variant. A connector never arrives here:
+			// `groupCall` keeps it as the line shape it paints as.
 			return null
 	}
 }
@@ -628,14 +651,14 @@ function commonShapeVariant(call: CallIr): IrValue | null {
  * lost.
  */
 export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
-	// The connector arm bypasses `shapeCall`, so it carries the hidden check with it.
+	// A connector reaches a layout only as a line shape, so it bypasses `shapeCall`.
 	if (isConnector(shape)) {
-		const scoped = forShape(ctx, shape).notes
-		if (shape.hidden) {
-			noteHidden(scoped)
-			return null
-		}
-		return connectorObject(shape, scoped)
+		const drawn = connectorLine(
+			shape,
+			forShape(ctx, shape).notes,
+			'this connector is bound to shapes on the layout; it is re-authored as a line shape, which paints the same stroke but no longer follows them'
+		)
+		return drawn && lineShape(drawn.options)
 	}
 
 	const call = shapeCall(shape, ctx)
@@ -679,47 +702,67 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
 	}
 }
 
+/** What {@link connectorLine} reads off a connector. */
+interface ConnectorLine {
+	/** Where the connector's box sits. */
+	box: ShapeBox
+	/** Its stroke, as {@link lineOption} reads it. */
+	line: Record<string, IrValue> | undefined
+	/** The options of the `line` shape the connector paints as. */
+	options: Record<string, IrValue>
+}
+
 /**
- * A `Connector` as a `line` shape descriptor, which is the only way one reaches a layout.
+ * A `Connector` as the `line` shape it paints as, or `null` when it produces nothing: it is hidden,
+ * or nothing places it. Either way the note has been recorded.
  *
- * The alternative to this arm is dropping every connector a layout carries, and in the fixture
- * corpus that is 18 of the 45 shapes every layout actually draws — because PowerPoint's
- * line tool authors a `p:cxnSp`, so a plain horizontal rule under a title is usually a
- * connector rather than a shape. Drawing it as a `line` preset paints the identical stroke.
+ * A layout reaches a connector only this way. The alternative is dropping every connector a layout
+ * carries, and in the fixture corpus that is 18 of the 45 shapes every layout actually draws,
+ * because PowerPoint's line tool authors a `p:cxnSp`, so a plain rule under a title is usually a
+ * connector rather than a shape. Drawing it as a `line` preset paints the identical stroke, and a
+ * shape carries `rotate`, which `addConnector` does not. What that costs is the endpoint binding,
+ * which on a layout costs nothing that was working: `a:stCxn`/`a:endCxn` reference shapes in the
+ * layout's own tree.
  *
- * What that costs is the endpoint binding, and on a layout it costs nothing that was working:
- * `a:stCxn`/`a:endCxn` reference shapes in the *layout's* tree, and nothing a slide later puts
- * on top is one of them. The slide-side `addConnector` mapping loses the binding too.
- *
- * It is also better than that mapping in one respect. `addConnector` takes two endpoints and
- * no rotation, so a rotated connector lands along the unrotated diagonal of its box; a shape
- * carries `rotate`, so this keeps it.
+ * `addConnector` reads its endpoints and stroke from the same place, so the frame, the binding note
+ * and the stroke are decided once for every way a connector is emitted. The binding note's prose
+ * is the caller's, since what the loss means depends on where the connector lands.
+ * @param shape - the connector
+ * @param notes - the scope bound to this connector
+ * @param bindingDetail - the endpoint-binding note's detail, for where this connector lands
  */
-function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
+function connectorLine(shape: Connector, notes: NoteScope, bindingDetail: string): ConnectorLine | null {
+	if (shape.hidden) {
+		noteHidden(notes)
+		return null
+	}
 	const box = frameOf(shape, notes)
 	if (!box) return null
 
 	if (shape.startConnection || shape.endConnection) {
-		notes.note(
-			'connector.binding',
-			'dropped',
-			'unsupported',
-			'this connector is bound to shapes on the layout; it is re-authored as a line shape, which paints the same stroke but no longer follows them'
-		)
+		notes.note('connector.binding', 'dropped', 'unsupported', bindingDetail)
 	}
 
+	const line = lineOption(shape, notes)
 	// No `fill`: a connector's `p:spPr` has no fill that a line geometry could show, and asking
 	// `fillOption` for one would resolve the `p:style/a:fillRef` a `p:cxnSp` always carries into
 	// a colour that paints nothing on the source and a filled box on the output.
-	const options = compact({
+	const options = compactRequired({
 		...positionOptions(box),
 		...transformOptions(shape),
-		line: lineOption(shape, notes),
+		line,
 		shadow: shadowOption(shape, notes),
 		glow: glowOption(shape, notes),
 		...identityOptions(shape),
 	})
-	// Through `compact` like the other arms, so every emitted descriptor spells its keys in the
-	// same order and the printed script does not read as two different mappers.
-	return { shape: compact({ type: 'line', options: options ?? {} }) ?? {} }
+	return { box, line, options }
+}
+
+/**
+ * A connector's `line` shape as a key-tagged descriptor, the form a layout object and a group child
+ * both take. Through `compact` like the other arms, so every emitted descriptor spells its keys in
+ * the same order and the printed script does not read as two different mappers.
+ */
+function lineShape(options: Record<string, IrValue>): IrValue {
+	return { shape: compact({ type: 'line', options }) ?? {} }
 }
