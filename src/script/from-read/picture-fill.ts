@@ -102,13 +102,14 @@ function pictureAsset(
 }
 
 /** `true` when a rect actually insets an edge; an explicit but empty rect reports zeros. */
-function isRectSet(rect: FillRect | null): boolean {
+export function isRectSet(rect: FillRect | null): boolean {
 	return rect !== null && (rect.left !== 0 || rect.top !== 0 || rect.right !== 0 || rect.bottom !== 0)
 }
 
 /**
- * The source crop as the write API's `image.crop`, or `undefined` when this rect cannot be
- * one — in which case the caller notes it as uncarried instead.
+ * The source crop as the write API's `crop`, or `undefined` when this rect cannot be one — in which
+ * case the caller notes it as uncarried instead. A picture fill's `image.crop` and a picture's own
+ * `crop` take the same percentage insets, so both go through here.
  *
  * An all-zero rect is `undefined` rather than four zeros: `<a:srcRect/>` is what the write
  * path emits with no `crop` at all, so carrying zeros would add an option that changes
@@ -121,7 +122,7 @@ function isRectSet(rect: FillRect | null): boolean {
  * source area. Carrying either would emit a script that throws when it is run, so they
  * stay uncarried and keep their note.
  */
-function cropOption(srcRect: FillRect | null): IrValue | undefined {
+export function cropOption(srcRect: FillRect | null): IrValue | undefined {
 	if (!isRectSet(srcRect) || srcRect === null) return undefined
 	// Exact, so the crop survives the trip byte for byte rather than to within a rounding step.
 	const edges = {

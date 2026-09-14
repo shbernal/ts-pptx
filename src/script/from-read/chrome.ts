@@ -42,7 +42,7 @@ import { isGroupShape, type AnyShape } from '../../read/api/shapes.js'
 import { uniqueTitle, type ChromeIr, type IrValue, type MasterIr, type ThemeIr } from '../ir.js'
 import { layoutShapeScope, type NoteScope } from '../fidelity.js'
 import { masterObject } from './shape.js'
-import type { MapContext } from './context.js'
+import { forShape, type MapContext } from './context.js'
 import { hasDecorativeShapes, hasFormatScheme, hasTextStyles, isPlaceholderShape } from './detect.js'
 import { backgroundIr, MASTER_BACKGROUND } from './background.js'
 import { compact, literalColor, orUndefined } from './values.js'
@@ -252,19 +252,16 @@ function layoutObjects(layout: SlideLayout, ctx: MapContext): IrValue[] {
 
 /** {@link layoutObjects}'s walk, recursing through groups. */
 function collectObjects(shapes: AnyShape[], out: IrValue[], ctx: MapContext): void {
-	const { notes } = ctx
 	for (const shape of shapes) {
 		if (isPlaceholderShape(shape.element_)) continue
 
 		if (isGroupShape(shape)) {
-			notes
-				.forShape(shape.name || '')
-				.note(
-					'group',
-					'flattened',
-					'unwritable',
-					"defineSlideMaster({ objects }) has no group variant, so this group's children are emitted as loose objects; they land in the same places — the group's offset, rotation, flips and child-space scaling are composed into each child's coordinates — but the layout no longer offers them as one selectable object"
-				)
+			forShape(ctx, shape).notes.note(
+				'group',
+				'flattened',
+				'unwritable',
+				"defineSlideMaster({ objects }) has no group variant, so this group's children are emitted as loose objects; they land in the same places — the group's offset, rotation, flips and child-space scaling are composed into each child's coordinates — but the layout no longer offers them as one selectable object"
+			)
 			collectObjects(shape.shapes, out, ctx)
 			continue
 		}

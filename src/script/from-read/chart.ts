@@ -21,7 +21,7 @@ import type { Chart, ChartSeries } from '../../read/api/chart.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
-import { compact, frameOf, literalColor, nameOf, orUndefined, positionOptions } from './values.js'
+import { compact, frameOf, identityOptions, literalColor, nameOf, orUndefined, positionOptions } from './values.js'
 
 /**
  * Read chart-group token → `CHART_NAME`. The read model strips the `Chart` suffix from the
@@ -132,7 +132,7 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		// otherwise, so a flat surface came back tilted.
 		surface3D: sourceType === 'surface' ? false : undefined,
 		...positionOptions(box),
-		objectName: frame.name || undefined,
+		...identityOptions(frame),
 		...titleOptions(chart),
 		...legendOptions(chart),
 		...labelOptions(chart, type, notes),

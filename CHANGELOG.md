@@ -955,6 +955,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptxToScript` keeps a shape's alt text and a picture's shadow, and guards a picture's crop.**
+  - `Shape.description` (`p:cNvPr/@descr`) was read and never emitted, so every picture, text
+    box, shape, table and chart lost its alt text with no note. Each call now carries it as
+    `altText`. A picture with no alt text is still described by its image path on the write
+    side, which the round trip counts as a write-path default.
+  - A picture's shadow was read and never mapped to `addImage`'s `shadow`. It is now.
+  - A picture's crop went through no range check. A negative inset, which PowerPoint writes for a
+    fit crop, reached the script as `crop: { l: -5 }` with no note, and the script threw
+    `image/crop-inset-out-of-range` when it ran. The crop takes the picture fill's guard now:
+    a crop the option cannot hold is left off and noted as `image.crop`, and a kept one carries
+    the source's own precision.
+
 - **A chart's cell references and its embedded workbook agree.** A chart paints from its caches,
   so these only showed on "Edit Data", which opens the cells the references name.
   - A category reference over labels with two or more levels pointed at column A, which holds the

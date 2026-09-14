@@ -102,6 +102,11 @@ const WRITER_DEFAULTS: Record<string, string> = {
 		'an outline with no explicit width takes the write path’s 1pt default; the source’s came from the unread theme line style',
 	// A shape with no geometry of its own — an unfilled placeholder — has no preset to name.
 	shape: 'a shape that inherits its geometry from a layout is emitted as a plain rectangle',
+	// The image renderer falls back to the image path for `p:cNvPr/@descr` when it is given no alt
+	// text, and `altText: ''` does not suppress that, so a source picture with no description comes
+	// back described by its file name. Bare, because array indices are not part of a path and an
+	// `addImage`'s options sit where every other call's do; no other kind invents a description.
+	altText: 'a picture with no alt text is described by its image path on the write side',
 	'fill.type': 'a fill with no explicit kind takes the write path’s solid default',
 	'line.type': 'an outline with no explicit kind takes the write path’s solid default',
 	// Chart options the write path always emits; the read side reports only what the chart

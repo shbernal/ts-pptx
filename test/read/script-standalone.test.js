@@ -21,6 +21,7 @@ import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import JSZip from 'jszip'
 import { describe, expect, test } from 'vitest'
 import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
@@ -379,6 +380,35 @@ describe('standalone printer — the fidelity contract', () => {
 		]) {
 			assert(constructs.has(construct), `a standalone script must declare ${construct}`)
 		}
+	})
+})
+
+describe('standalone printer — picture crop', () => {
+	test('a picture whose crop `crop` cannot hold prints a script that runs', async () => {
+		// A negative inset used to reach the script as `crop: { l: -5 }`, and the script threw
+		// `image/crop-inset-out-of-range` at `addImage`. It is left off and noted now.
+		const zip = await JSZip.loadAsync(
+			await authored((pptx) => {
+				pptx.addSlide().addImage({
+					data: 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+					x: 1,
+					y: 1,
+					w: 1,
+					h: 1,
+					crop: { l: 10 },
+				})
+			})
+		)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const bled = slideXml.replace(/<a:srcRect[^>]*\/>/, '<a:srcRect l="-5000"/>')
+		assert(bled !== slideXml, 'the authored srcRect was found and made negative')
+		zip.file('ppt/slides/slide1.xml', bled)
+		const { printed, report } = await runStandalone(await zip.generateAsync({ type: 'nodebuffer' }))
+		assert(
+			printed.notes.some((note) => note.construct === 'image.crop'),
+			'the uncarried crop is noted in the script'
+		)
+		assertEqual(report.undeclared.length, 0, `no undeclared difference, got ${JSON.stringify(report.undeclared)}`)
 	})
 })
 

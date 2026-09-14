@@ -27,6 +27,7 @@ import {
 	colorOption,
 	compact,
 	frameOf,
+	identityOptions,
 	inches,
 	nameOf,
 	orUndefined,
@@ -97,7 +98,7 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
 	const columnWidths = table.columnWidths
 	const options = compact({
 		...positionOptions(box),
-		objectName: frame.name || undefined,
+		...identityOptions(frame),
 		// The source GUID resolves against the destination's own tableStyles.xml, which a
 		// template-anchored output carries over intact.
 		tableStyle: orUndefined(styleId),

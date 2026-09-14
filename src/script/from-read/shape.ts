@@ -37,13 +37,14 @@ import {
 } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
-import { compact, emu, frameOf, nameOf, positionOptions, type ShapeBox } from './values.js'
+import { compact, emu, frameOf, identityOptions, nameOf, positionOptions, type ShapeBox } from './values.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
 import { forShape, type MapContext } from './context.js'
+import { cropOption, isRectSet } from './picture-fill.js'
 export type { AssetResolver } from './context.js'
 import { PERCENT_SCALE } from '../../units.js'
 
@@ -136,7 +137,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 		...positionOptions(box),
 		...transformOptions(shape),
 		...styleOptions(shape, ctx),
-		objectName: shape.name || undefined,
+		...identityOptions(shape),
 	}
 
 	if (custom) {
@@ -318,18 +319,31 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 		)
 	}
 
-	const crop = shape.crop
+	// The same guard a picture fill's crop takes. A negative inset (PowerPoint writes one for a fit
+	// crop) or opposite insets summing to 100% or more have no `crop` spelling, and passing them
+	// through put a crop in the IR that made the printed script throw at `addImage`.
+	const crop = cropOption(shape.crop)
+	if (crop === undefined && isRectSet(shape.crop)) {
+		notes.note(
+			'image.crop',
+			'approximated',
+			'unwritable',
+			"this picture's source crop (a:srcRect) has an inset outside the 0–100% `crop` accepts, or opposite insets that leave no image, so the picture is emitted uncropped"
+		)
+	}
 	const options = compact({
 		...positionOptions(box),
 		...transformOptions(shape),
-		objectName: shape.name || undefined,
+		...identityOptions(shape),
+		// `ImageBaseProps.shadow` takes the same `ShadowProps` every other shape does; a picture's
+		// shadow was read and never mapped.
+		shadow: shadowOption(shape, notes),
 		// `crop`, not `sizing`. Both exist and they are not interchangeable: `crop` is
 		// `a:srcRect` emitted verbatim as percentage edge insets — the exact model the read
 		// model reports — while `sizing: 'crop'` cuts a window in *displayed inches* against
 		// the image's measured natural size. Feeding fractions to `sizing` read them as
 		// inches, which shrank every cropped picture to a fraction of its box.
-		crop:
-			crop === null ? undefined : { l: crop.left * 100, t: crop.top * 100, r: crop.right * 100, b: crop.bottom * 100 },
+		crop,
 	})
 	return { method: 'addImage', args: [{ ...options, data: asset }], ...nameOf(shape) }
 }
@@ -403,7 +417,7 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 				y1: emu(shape.flipV ? bottom : frame.top),
 				x2: emu(shape.flipH ? frame.left : right),
 				y2: emu(shape.flipV ? frame.top : bottom),
-				objectName: shape.name || undefined,
+				...identityOptions(shape),
 				...stroke,
 			}) ?? {},
 		],
@@ -500,7 +514,7 @@ function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 				'group.child',
 				'dropped',
 				'unsupported',
-				`addGroup accepts no ${call.method.replace(/^add/, '').toLowerCase()} child (charts, tables and media are excluded by design), so this child is omitted from the group`
+				`addGroup accepts no ${kindLabel(call.method)} child (charts, tables and media are excluded by design), so this child is omitted from the group`
 			)
 			continue
 		}
@@ -542,9 +556,14 @@ function groupCall(shape: GroupShape, ctx: MapContext): CallIr | null {
 
 	return {
 		method: 'addGroup',
-		args: [children, compact({ ...positionOptions(box), objectName: shape.name || undefined }) ?? {}],
+		args: [children, compact({ ...positionOptions(box), ...identityOptions(shape) }) ?? {}],
 		...nameOf(shape),
 	}
+}
+
+/** A call's object kind as a note's prose names it: `addImage` is `image`. */
+function kindLabel(method: string): string {
+	return method.replace(/^add/, '').toLowerCase()
 }
 
 /**
@@ -609,10 +628,9 @@ function commonShapeVariant(call: CallIr): IrValue | null {
  * lost.
  */
 export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
-	const { notes } = ctx
 	// The connector arm bypasses `shapeCall`, so it carries the hidden check with it.
 	if (isConnector(shape)) {
-		const scoped = notes.forShape(shape.name || '')
+		const scoped = forShape(ctx, shape).notes
 		if (shape.hidden) {
 			noteHidden(scoped)
 			return null
@@ -640,27 +658,23 @@ export function masterObject(shape: AnyShape, ctx: MapContext): IrValue | null {
 			// always already noted, and a silent `return null` is the one thing that could break
 			// that invariant if `chartCall` ever loosens.
 			if (type === undefined || first === undefined) {
-				notes
-					.forShape(shape.name || '')
-					.note(
-						'decoration',
-						'dropped',
-						'unwritable',
-						'a chart on a slide layout that names no type or carries no series has no defineSlideMaster({ objects }) variant, so it is dropped from the layout the output rebuilds'
-					)
+				forShape(ctx, shape).notes.note(
+					'decoration',
+					'dropped',
+					'unwritable',
+					'a chart on a slide layout that names no type or carries no series has no defineSlideMaster({ objects }) variant, so it is dropped from the layout the output rebuilds'
+				)
 				return null
 			}
 			return { chart: compact({ type, data: first, opts: options }) ?? {} }
 		}
 		default:
-			notes
-				.forShape(shape.name || '')
-				.note(
-					'decoration',
-					'dropped',
-					'unwritable',
-					`a ${call.method.replace(/^add/, '').toLowerCase()} on a slide layout has no defineSlideMaster({ objects }) variant — the union covers a chart, an image, a shape and a text box — so it is dropped from the layout the output rebuilds`
-				)
+			forShape(ctx, shape).notes.note(
+				'decoration',
+				'dropped',
+				'unwritable',
+				`a ${kindLabel(call.method)} on a slide layout has no defineSlideMaster({ objects }) variant — the union covers a chart, an image, a shape and a text box — so it is dropped from the layout the output rebuilds`
+			)
 			return null
 	}
 }
@@ -703,7 +717,7 @@ function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),
 		glow: glowOption(shape, notes),
-		objectName: shape.name || undefined,
+		...identityOptions(shape),
 	})
 	// Through `compact` like the other arms, so every emitted descriptor spells its keys in the
 	// same order and the printed script does not read as two different mappers.

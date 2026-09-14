@@ -172,6 +172,24 @@ export function nameOf(subject: { name: string | null }): { sourceName?: string 
 	return subject.name ? { sourceName: subject.name } : {}
 }
 
+/**
+ * The write options that carry a source object's identity onto the object a call authors: its
+ * Selection Pane name and its alt text.
+ *
+ * Seven call builders spelled `objectName: shape.name || undefined` beside {@link nameOf}, so what a
+ * source's identity becomes on the write side was a decision made seven times over, and none of the
+ * seven made it for the description: `p:cNvPr/@descr` was read and never emitted, so every picture's
+ * and text box's alt text was lost with no note. An empty description is no description, which is
+ * how the write side spells one it was not given.
+ * @param subject - the source shape or graphic frame
+ */
+export function identityOptions(subject: {
+	name: string | null
+	description: string | null
+}): Record<string, IrValue | undefined> {
+	return { objectName: subject.name || undefined, altText: subject.description || undefined }
+}
+
 /** Normalize a hex to the bare 6-digit uppercase form the write API expects. */
 export function literalColor(hex: string): string {
 	return stripHash(hex).toUpperCase()

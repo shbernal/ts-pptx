@@ -160,6 +160,8 @@ export const NOTE_CONSTRUCTS = {
 	'group.childSpace': { fields: ['x', 'y', 'w', 'h', 'rotate', 'flipH', 'flipV'], tiers: BOTH_TIERS },
 	'group.empty': { fields: ['*'], tiers: BOTH_TIERS },
 	'group.transform': { fields: ['rotate', 'flipH', 'flipV'], tiers: BOTH_TIERS },
+	// A picture crop with no `crop` spelling is left off, so the difference lands on the option.
+	'image.crop': { fields: ['crop'], tiers: BOTH_TIERS },
 	'image.data': { fields: ['data', '$asset'], tiers: BOTH_TIERS },
 	'image.recolor': { fields: ['duotone', 'grayscale', 'biLevel', 'clrChange'], tiers: BOTH_TIERS },
 	// Covers the picture's bytes, not just an `svg` option: an SVG picture's raster fallback

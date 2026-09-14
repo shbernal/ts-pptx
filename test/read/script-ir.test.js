@@ -828,6 +828,66 @@ describe('deck IR — picture fills', () => {
 		assert(noted[0].detail.includes('a:srcRect'), `and names the source crop, got: ${noted[0].detail}`)
 	})
 
+	test('alt text carries as `altText`, on a picture and on a text box', async () => {
+		// `p:cNvPr/@descr` was read and never emitted, so every description was lost with no note.
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.addImage({ data: PNG_1X1, x: 1, y: 1, w: 1, h: 1, altText: 'A red square' })
+			slide.addText('described', { x: 3, y: 1, w: 2, h: 1, altText: 'described text' })
+			slide.addText('plain', { x: 3, y: 3, w: 2, h: 1 })
+		})
+		const calls = allCalls(readModelToIr(presentation))
+		const image = calls.find((call) => call.method === 'addImage').args[0]
+		const [described, plain] = calls.filter((call) => call.method === 'addText').map((call) => call.args[1])
+		assertEqual(image.altText, 'A red square', 'the picture keeps its description')
+		assertEqual(described.altText, 'described text', 'so does the text box')
+		assertEqual('altText' in plain, false, `a shape with no description states none, got ${JSON.stringify(plain)}`)
+	})
+
+	test("a picture's shadow carries as `shadow`", async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addImage({
+				data: PNG_1X1,
+				x: 1,
+				y: 1,
+				w: 1,
+				h: 1,
+				shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '336699' },
+			})
+		})
+		const image = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addImage').args[0]
+		assertEqual(image.shadow?.type, 'outer', `the shadow is carried, got ${JSON.stringify(image)}`)
+		assertEqual(image.shadow.color, '336699', 'with its colour')
+		assertEqual(image.shadow.blur, 3, 'its blur')
+		assertEqual(image.shadow.angle, 45, 'and its angle')
+	})
+
+	test("a picture's crop carries at the source's precision, and one `crop` cannot hold is noted", async () => {
+		const { presentation, buf } = await authorRead((pres) => {
+			pres.addSlide().addImage({ data: PNG_1X1, x: 1, y: 1, w: 1, h: 1, crop: { l: 12.5, t: 33.333 } })
+		})
+		const kept = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addImage').args[0]
+		assertEqual(JSON.stringify(kept.crop), '{"l":12.5,"t":33.333}', 'a crop in range carries, zero edges left out')
+
+		// PowerPoint writes a negative inset for a fit crop. Passed through, it put `{ l: -5 }` in
+		// the IR with no note, and the printed script threw at `addImage`.
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const bled = slideXml.replace(/<a:srcRect[^>]*\/>/, '<a:srcRect l="-5000"/>')
+		assert(bled !== slideXml, 'the authored srcRect was found and made negative')
+		zip.file('ppt/slides/slide1.xml', bled)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+		const image = allCalls(ir).find((call) => call.method === 'addImage').args[0]
+		assertEqual(
+			'crop' in image,
+			false,
+			`no crop is emitted for an inset the option cannot hold, got ${JSON.stringify(image)}`
+		)
+		const noted = ir.fidelity.filter((note) => note.construct === 'image.crop')
+		assertEqual(noted.length, 1, 'the loss is declared')
+		assert(noted[0].detail.includes('a:srcRect'), `and names the source crop, got: ${noted[0].detail}`)
+	})
+
 	test('a fill whose blip embeds nothing is dropped with a note, not emitted unfilled in silence', async () => {
 		const { buf } = await authorRead((pres) => {
 			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1X1 } } })
