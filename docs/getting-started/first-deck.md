@@ -260,7 +260,7 @@ Run it with `node deck.mts` and open `quarterly-summary.pptx`.
 | --- | --- |
 | Understand the model behind these calls | [Core concepts](concepts.md) |
 | Style a table, merge cells, or page a long one across slides | [Tables](../tables.md) |
-| Clip a picture to a shape | [Image embedded in a shape](../image-in-shape.md) |
+| Clip a picture to a shape | [Images in shapes](../image-in-shape.md) |
 | Make text fit its box | [Measured text fit](../measured-text-fit.md) |
 | Draw lines that stay attached to shapes | [Connectors](../connectors.md) |
 | Open an existing deck and edit it | [PPTX read and round-trip](../reference/pptx-read.md) |

@@ -207,7 +207,7 @@ const fills: FillOption[] = [
 
 - A bare colour string is a solid fill.
 - A picture stretches to the cell and is embedded once, however many cells share it. It must be a raster image.
-- Gradients follow the shape fill model described in [Native backgrounds and gradients](native-backgrounds-and-gradients.md).
+- [Fills and gradients](fills-and-gradients.md) covers every fill kind, and which ones a table takes.
 
 ## Draw borders
 
@@ -486,7 +486,7 @@ await writeFile('deck-edited.pptx', await deck.save())
 ## See also
 
 - [Measured text fit](measured-text-fit.md)
-- [Native backgrounds and gradients](native-backgrounds-and-gradients.md)
+- [Fills and gradients](fills-and-gradients.md)
 - [HTML tables to slides](html-tables.md)
 - [Reading and round-tripping existing decks](reference/pptx-read.md)
 - [Diagnostics](diagnostics.md) and [Errors](errors.md)

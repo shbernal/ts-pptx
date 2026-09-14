@@ -50,7 +50,7 @@ dependencies. Install them only if you use it:
 npm install temml mathml2omml
 ```
 
-[Math and LaTeX](../math-latex.md) covers the rest, including why `mathml2omml` is never bundled.
+[Math equations](../math-latex.md) covers the rest, including why `mathml2omml` is never bundled.
 
 ## Import it
 

@@ -50,16 +50,16 @@ separate renderer, `pptx-html`.
 | Tables | Cell styles, borders, merged cells, and tables that continue across as many slides as they need | [Tables](../tables.md) |
 | HTML tables | An existing `<table>` converted to slides, in a browser or under Node | [HTML tables to slides](../html-tables.md) |
 | Shapes and connectors | Preset shapes, and lines that stay attached to the shapes they join | [Connectors](../connectors.md) |
-| Groups | Objects grouped, and groups nested inside groups | [Grouping objects](../groups.md) |
-| Pictures | Images and SVGs, and a picture clipped to a shape | [Image embedded in a shape](../image-in-shape.md) |
+| Groups | Objects grouped, and groups nested inside groups | [Groups](../groups.md) |
+| Pictures | Images and SVGs, and a picture clipped to a shape | [Images in shapes](../image-in-shape.md) |
 | Video and audio | Media embedded in the slide | [API reference](../reference/api/index.md) |
 | Charts | Classic types such as bar, line and pie, newer ones such as waterfall and treemap, each with its data in an embedded workbook | [API reference](../reference/api/index.md) |
 | Masters and layouts | Slide masters, layouts, sections and speaker notes | [API reference](../reference/api/index.md) |
-| Backgrounds and fills | Solid, gradient and picture fills | [Native backgrounds and gradients](../native-backgrounds-and-gradients.md) |
+| Backgrounds and fills | Solid, gradient, pattern and picture fills on shapes, backgrounds, tables and charts | [Fills and gradients](../fills-and-gradients.md) |
 | Animations and transitions | Entrance, emphasis and exit effects, and slide transitions | [Animations and transitions](../animations-and-transitions.md) |
 | Embedded objects | A workbook or document that opens in place when double-clicked | [OLE embedded objects](../ole-objects.md) |
 | 3D models | A `.glb` model that PowerPoint shows live | [3D models](../3d-models.md) |
-| Math | LaTeX or MathML turned into native PowerPoint equations | [Math and LaTeX](../math-latex.md) |
+| Math | LaTeX or MathML turned into native PowerPoint equations | [Math equations](../math-latex.md) |
 | Fonts | Font files embedded in the deck, so it looks the same on a machine without them | [Embedded fonts](../embedded-fonts.md) |
 
 ## What "works" means
