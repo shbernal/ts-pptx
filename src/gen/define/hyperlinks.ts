@@ -103,35 +103,60 @@ type HyperlinkTextObject = (TextProps | SlideObject | TableCellInternal) & {
 	text?: string | number | TextProps[] | TableCellInternal[]
 }
 
+type HyperlinkTree =
+	| number
+	| string
+	| SlideObject
+	| TextProps
+	| TextProps[]
+	| TableCellInternal[]
+	| TableCellInternal[][]
+
+/** The objects one level of a text or table-cell tree holds: a table row is itself an array. */
+function hyperlinkTreeLevel(text: HyperlinkTree): Array<HyperlinkTextObject | TableCellInternal[]> {
+	// Only text objects can have hyperlinks, bail when text param is plain text
+	if (typeof text === 'string' || typeof text === 'number') return []
+	// IMPORTANT: Array.isArray must come before typeof===object! Otherwise, code will exhaust recursion!
+	if (Array.isArray(text)) return text
+	return typeof text === 'object' ? [text] : []
+}
+
 /**
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
+ *
+ * Every link in the tree is checked before any is registered, by the same rules as an image's. A
+ * refused link on a second run used to throw after the first run's relationship was already on
+ * the slide, left pointing at a shape that was never added.
  * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
  * @param {number | string | TextProps | TextProps[] | TableCellInternal[][]} text - text to parse
  * @param call - the method the objects were authored through, for a refused hyperlink's message
  */
-export function createHyperlinkRels(
-	target: PresSlideInternal,
-	text: number | string | SlideObject | TextProps | TextProps[] | TableCellInternal[] | TableCellInternal[][],
-	call = 'addText'
-): void {
-	let textObjs: Array<HyperlinkTextObject | TableCellInternal[]> = []
+export function createHyperlinkRels(target: PresSlideInternal, text: HyperlinkTree, call = 'addText'): void {
+	validateHyperlinkTree(text, call)
+	registerHyperlinkTree(target, text)
+}
 
-	// Only text objects can have hyperlinks, bail when text param is plain text
-	if (typeof text === 'string' || typeof text === 'number') return
-	// IMPORTANT: "else if" Array.isArray must come before typeof===object! Otherwise, code will exhaust recursion!
-	else if (Array.isArray(text)) textObjs = text
-	else if (typeof text === 'object') textObjs = [text]
+/** Refuse the first hyperlink in the tree the writer cannot express, before anything is registered. */
+function validateHyperlinkTree(text: HyperlinkTree, call: string): void {
+	for (const item of hyperlinkTreeLevel(text)) {
+		if (Array.isArray(item)) {
+			validateHyperlinkTree(item, call)
+			continue
+		}
+		if (item.options?.hyperlink) validateHyperlink(item.options.hyperlink, call)
+		if (Array.isArray(item.text)) validateHyperlinkTree(item.text, call)
+	}
+}
 
-	textObjs.forEach((text: HyperlinkTextObject | TableCellInternal[]) => {
+/** Register a relationship for every hyperlink in an already-validated tree. */
+function registerHyperlinkTree(target: PresSlideInternal, tree: HyperlinkTree): void {
+	hyperlinkTreeLevel(tree).forEach((text: HyperlinkTextObject | TableCellInternal[]) => {
 		// A table row: walk its cells.
 		if (Array.isArray(text)) {
-			createHyperlinkRels(target, text, call)
+			registerHyperlinkTree(target, text)
 			return
 		}
 
-		// Refused when it is authored rather than when it is written, and by the same rules as an
-		// image's and a run's.
-		if (text.options?.hyperlink) validateHyperlink(text.options.hyperlink, call)
 		if (Array.isArray(text.text)) {
 			// A shape carrying a hyperlink AND a run list needs BOTH walked: its own `hlinkClick` goes
 			// on `p:cNvPr`, its runs' on their `a:rPr`, and they are two elements resolving two ids.
@@ -143,7 +168,7 @@ export function createHyperlinkRels(
 			// A table cell's own link is registered on the cell below and not copied onto its runs:
 			// the run emitter already carries it to every run. Merging the cell's options over the
 			// first run's, which this walk once did, replaced that run's own colour and formatting.
-			createHyperlinkRels(target, text.text, call)
+			registerHyperlinkTree(target, text.text)
 		}
 
 		const options = text.options

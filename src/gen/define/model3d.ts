@@ -144,7 +144,7 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 				'draws the live model over it, but thumbnails, PDF export and older viewers show the placeholder.'
 		)
 	}
-	const previewRid = registerPreviewImage(target, opt.preview)
+	const previewRid = registerPreviewImage(target, opt.preview, 'addModel3d `preview`')
 
 	// LAST: Push the slide object for the `<mc:AlternateContent>` emitter.
 	const slideData: SlideObject = {

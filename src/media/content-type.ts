@@ -22,6 +22,21 @@ export function imageContentType(extn: string): string {
 }
 
 /**
+ * The media type an inline payload states in its header, lower-cased, or `null` when it states none.
+ *
+ * Takes a `data:` URI or the same header without its `data:` scheme (`image/png;base64,…`), the
+ * two forms the definers accept. It is the one reading of that header: the patterns it replaces
+ * each stopped short somewhere, `image\/(\w+);` at `-`, `.` and `+`, so `data:image/x-emf;…` named
+ * no type and its EMF bytes were written into a `.png` part declared `image/png`.
+ * @param data - a `data:` URI, a header-first base64 payload, or anything else
+ * @returns the `type/subtype`, e.g. `image/x-emf`, or `null`
+ */
+export function dataUriMediaType(data: string): string | null {
+	const match = /^(?:data:)?([a-z]+\/[\w.+-]+)[;,]/i.exec(data || '')
+	return match?.[1]?.toLowerCase() ?? null
+}
+
+/**
  * Resolve the file extension an embedded image part should carry, from the caller's source.
  *
  * A `data:` URI states its mime type outright, so it wins over `path`: the bytes are the thing
@@ -31,9 +46,10 @@ export function imageContentType(extn: string): string {
  * getting it from a placeholder path is how a deck ends up declaring `image/png` over SVG
  * bytes, which is exactly the mismatch PowerPoint offers to "repair".
  *
- * `image/svg+xml` needs its own test because the `\w+` mime capture stops at the `+`. The
- * result is always lower-cased, so a `data:image/PNG;` source names its part the same way a
- * `photo.PNG` path does.
+ * A type the format registry carries names its part by the registry's extension (`image/x-emf` is
+ * `emf`, `image/svg+xml` is `svg`). Any other type names it by its subtype, so `image/jpg` keeps
+ * `jpg`. The result is always lower-cased, so a `data:image/PNG;` source names its part the same
+ * way a `photo.PNG` path does.
  * @param {string} path - caller-supplied path/URL (may be empty); query and fragment are stripped
  * @param {string} data - caller-supplied `data:`/base64 payload (may be empty)
  * @returns {string} file extension, no dot (e.g. `png`, `jpeg`, `svg`)
@@ -41,14 +57,11 @@ export function imageContentType(extn: string): string {
 export function imageExtensionForSource(path: string, data: string): string {
 	// NOTE: Split to address URLs with params (eg: `path/brent.jpg?someParam=true`)
 	const strPath = path || ''
-	const strData = data || ''
 	const pathFile = strPath.slice(strPath.lastIndexOf('/') + 1).split('?')[0] || ''
 	const pathExtn = ((pathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
 
-	// Pre-encoded images can be whatever mime-type they want (and good for them!)
-	const mimeMatch = /image\/(\w+);/.exec(strData)
-	if (strData && mimeMatch?.[1]) return mimeMatch[1].toLowerCase()
-	if (strData.toLowerCase().includes('image/svg+xml')) return 'svg'
+	const mime = dataUriMediaType(data)
+	if (mime?.startsWith('image/')) return imageFormatForContentType(mime)?.ext ?? mime.slice('image/'.length)
 	return pathExtn
 }
 

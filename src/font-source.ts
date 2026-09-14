@@ -44,9 +44,8 @@ export async function resolveFontBytes(
 	if (source instanceof ArrayBuffer) return new Uint8Array(source)
 	if (typeof source === 'string') {
 		if (!opts?.base64) return await runtime.loadFontData(source)
-		// A caller may paste either a bare base64 body or a whole data URL; the decoder wants the
-		// second, so a body with no comma gets the `fntdata` header the parts themselves carry.
-		const decoded = decodeBase64ToBytes(source.includes(',') ? source : `application/x-fontdata;base64,${source}`)
+		// A caller may paste either a bare base64 body or a whole data URL, and the decoder takes both.
+		const decoded = decodeBase64ToBytes(source)
 		if (!decoded) throw new InvalidOptionError('font/invalid-base64', `${label} is not valid base64`)
 		return decoded
 	}

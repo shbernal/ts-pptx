@@ -114,11 +114,9 @@ function imageMediaOf(slide: PresSlideInternal, avPreviewRids: ReadonlySet<numbe
 	return slide._relsMedia
 		.filter((rel) => rel.type.toLowerCase().includes('image') && !avPreviewRids.has(rel.rId))
 		.map((rel) => {
-			// Normalize the base64 payload's data-URI prefix: a bare payload gets a whole prefix,
-			// one that carries a media type but no encoding gets the encoding.
-			let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
-			if (!data.includes(',')) data = 'image/png;base64,' + data
-			else if (!data.includes(';')) data = 'image/png;' + data
+			// `decodeBase64ToBytes` takes a bare payload and a `data:` URI alike, so there is no prefix to
+			// normalize. The one this used to add changed no decoded byte.
+			const data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
 			const bytes = decodeBase64ToBytes(data)
 			const extn = relExtension(rel, 'png')
 			return bytes ? { rId: rel.rId, bytes, extn, contentType: imageContentType(extn) } : null

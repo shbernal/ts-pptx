@@ -9,7 +9,42 @@
  */
 import type { PresSlideInternal, SlideRelMedia } from '../../types/internal.js'
 import { getNewRelId, nextMediaTarget, preencodedPath } from '../utils.js'
-import { imageContentType } from '../../media/content-type.js'
+import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
+import { hasBase64Header } from '../../media/base64.js'
+
+/** An image source a media rel is registered from: the caller's `path` and `data`, and the extension its part is named with. */
+export interface ImageSource {
+	readonly path: string
+	readonly data: string
+	readonly extn: string
+}
+
+/** Why a caller's image source cannot be registered. */
+export type ImageSourceProblem = 'missing-source' | 'missing-base64-header'
+
+/**
+ * Resolve a caller's `{ path, data }` to the source an image media rel is registered from, or say
+ * why there is none.
+ *
+ * Every definer that embeds an image reads its source here: `addImage`, image fills, picture
+ * bullets, backgrounds, and the covers and previews Zoom, OLE and 3D model objects are drawn from.
+ * Each used to check its own subset, and three checked no header at all, so a cover of
+ * `{ data: 'hello world' }` wrote a 7-byte `.png` part with nothing said.
+ *
+ * What a problem costs is the caller's to decide, because it depends on what the image is for: a
+ * picture with nothing to degrade to throws, a cover falls back to a placeholder, and a fill, a
+ * bullet or a background is dropped. This only reports it.
+ * @param source - the caller's `path` and `data`, either of which may be absent
+ */
+export function resolveImageSource(
+	source: { path?: string | undefined; data?: string | undefined } | undefined
+): ImageSource | ImageSourceProblem {
+	const path = source?.path || ''
+	const data = source?.data || ''
+	if (!path && !data) return 'missing-source'
+	if (data && !hasBase64Header(data)) return 'missing-base64-header'
+	return { path, data, extn: imageExtensionForSource(path, data) }
+}
 
 /** One media source, as {@link pushMediaRel} registers it. */
 export interface MediaRelSource {

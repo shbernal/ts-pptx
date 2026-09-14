@@ -4,11 +4,12 @@
  * Registers an `addBackground()` image as a slide media rel (color backgrounds carry no rel);
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
+import { warn } from '../../diagnostics.js'
 import type { BackgroundOption } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
-import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
+import { imageContentType } from '../../media/content-type.js'
 import { getNewRelId, preencodedPath } from '../utils.js'
-import { pushMediaRel } from './image-rel.js'
+import { pushMediaRel, resolveImageSource } from './image-rel.js'
 
 /**
  * Adds a background image or color to a slide definition.
@@ -34,6 +35,10 @@ import { pushMediaRel } from './image-rel.js'
  * was replaced by a colour still carries the image part and an `image` relationship nothing
  * references. That is valid OPC, only unused bytes. Dropping it would need either a tombstone the
  * rel and part emitters skip, or media part names that do not depend on the count.
+ *
+ * An image whose `data` has no base64 header is dropped with a warning, as an image fill's is,
+ * and leaves any colour the background states to paint. It used to be written as a part holding
+ * the caller's text.
  * @param {BackgroundOption} props - a bare colour, or an object with a colour or image definition
  * @param {SlideLayoutInternal} target - slide or layout that the background is set on
  */
@@ -47,7 +52,16 @@ export function addBackgroundDefinition(props: BackgroundOption | undefined, tar
 	// bytes alone used to fall back on a PNG placeholder path and declare `image/png` no matter
 	// what it actually carried, so `{ data: 'data:image/svg+xml;…' }` shipped SVG bytes in a part
 	// the package announced as PNG.
-	let strImgExtn = imageExtensionForSource(props.path || '', props.data || '')
+	const source = resolveImageSource(props)
+	if (typeof source === 'string') {
+		warn(
+			'background/missing-base64-header',
+			"background `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring the background image."
+		)
+		delete target._bkgdImgRid
+		return
+	}
+	let strImgExtn = source.extn
 	if (strImgExtn === 'jpg') strImgExtn = 'jpeg' // base64-encoded jpg's come out as "data:image/jpeg;base64,/9j/[...]", so correct exttnesion to avoid content warnings at PPT startup
 	const type = imageContentType(strImgExtn)
 
@@ -57,10 +71,10 @@ export function addBackgroundDefinition(props: BackgroundOption | undefined, tar
 		// The record `pushMediaRel` would write, on the rel and part the earlier background holds.
 		// Kept local: `props` is the caller's own object on the `slide.background =` path, not a clone.
 		target._relsMedia[previous] = {
-			path: props.path || preencodedPath(strImgExtn),
+			path: source.path || preencodedPath(strImgExtn),
 			type,
 			extn: strImgExtn,
-			data: props.data || '',
+			data: source.data,
 			rId: replaced.rId,
 			Target: replaced.Target.replace(/\.[^./]+$/, `.${strImgExtn}`),
 		}
@@ -71,6 +85,6 @@ export function addBackgroundDefinition(props: BackgroundOption | undefined, tar
 	// own, which is all they read, and `master.ts` passes one the same way.
 	const slide = target as PresSlideInternal
 	const rId = getNewRelId(slide)
-	pushMediaRel(slide, { kind: 'image', extn: strImgExtn, type, path: props.path, data: props.data, rId })
+	pushMediaRel(slide, { kind: 'image', extn: strImgExtn, type, path: source.path, data: source.data, rId })
 	target._bkgdImgRid = rId
 }

@@ -151,7 +151,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	})
 
 	// STEP 4: Register the preview picture (gray placeholder when the caller supplied no cover).
-	const previewRid = registerPreviewImage(target, opt.cover)
+	const previewRid = registerPreviewImage(target, opt.cover, 'addOleObject `cover`')
 
 	// LAST: Push the slide object for the `<p:graphicFrame>` emitter.
 	const slideData: SlideObject = {

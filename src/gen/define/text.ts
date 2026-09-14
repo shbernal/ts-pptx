@@ -13,13 +13,13 @@ import { warn } from '../../diagnostics.js'
 import type { TextProps, TextPropsOptions } from '../../types/index.js'
 import type { ObjectOptionsInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId } from '../utils.js'
-import { pushMediaRel, registerSvgImageRels } from './image-rel.js'
+import { pushMediaRel, registerSvgImageRels, resolveImageSource } from './image-rel.js'
 import { setOrClear } from '../../options-internal.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { resolveFillKind } from '../drawingml/fill.js'
 import { withLineDefaults } from '../drawingml/line.js'
 import { resolveTextAnchor } from '../drawingml/text-body.js'
-import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
+import { imageContentType } from '../../media/content-type.js'
 import { ptsToEmuLenient, resolveInsetsEmu } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
@@ -401,7 +401,8 @@ function createBulletImageRels(
 		// REALITY-CHECK: base64 `data` must carry a base64 header (mirror addImage()). Unlike
 		// `addImage()` this warns rather than throws: refusing the rel is not fatal, because the run
 		// emitter falls back to a default glyph and the deck still opens.
-		if (img.data && (typeof img.data !== 'string' || !img.data.toLowerCase().includes('base64,'))) {
+		const source = resolveImageSource(img)
+		if (typeof source === 'string') {
 			warn(
 				'bullet/image-missing-base64-header',
 				"bullet.image `data` value lacks a base64 header, ex: 'image/png;base64,iVBOR[...]'"
@@ -414,8 +415,8 @@ function createBulletImageRels(
 		// carries the rel; otherwise (re-)register so the new slide's .rels and media part exist.
 		if (bullet._rId && target._relsMedia.some((rel) => rel.rId === bullet._rId)) return
 
-		// Determine extension: the `data:` mime wins, else parse the path (mirror addImageDefinition())
-		const strImgExtn = imageExtensionForSource(img.path || '', img.data || '')
+		// The `data:` mime wins, else the path's extension (mirror addImageDefinition())
+		const strImgExtn = source.extn
 
 		if (strImgExtn === 'svg') {
 			// SVG bullets consume *TWO* rels, mirroring addImage(): a PNG preview (referenced by the
@@ -423,7 +424,7 @@ function createBulletImageRels(
 			// Auto-paging shares one bullet options object across the overflow slides, so a re-registration
 			// has to keep the pair of ids that object already carries rather than mint a new one.
 			const pinned = bullet._rId && bullet._rIdSvg ? { pngRid: bullet._rId, svgRid: bullet._rIdSvg } : undefined
-			const { pngRid, svgRid } = registerSvgImageRels(target, { path: img.path ?? '', data: img.data ?? '' }, pinned)
+			const { pngRid, svgRid } = registerSvgImageRels(target, { path: source.path, data: source.data }, pinned)
 			bullet._rId = pngRid
 			bullet._rIdSvg = svgRid
 		} else {
@@ -432,8 +433,8 @@ function createBulletImageRels(
 				kind: 'image',
 				extn: strImgExtn,
 				type: imageContentType(strImgExtn),
-				path: img.path,
-				data: img.data || '',
+				path: source.path,
+				data: source.data,
 				rId: relId,
 			})
 			bullet._rId = relId

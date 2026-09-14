@@ -900,6 +900,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An inline image is read one way wherever it is embedded.**
+  - A `data:` URI whose type has a `-`, `.` or `+` in it named no type, so `data:image/x-emf;…`
+    and `data:image/x-wmf;…` were written into `.png` parts declared `image/png`. The script
+    converter prints an EMF or WMF picture it reads in exactly that form. They are written as
+    `.emf` and `.wmf` parts with their own content types now, on a picture, a background, a
+    fill, a bullet or a cover. A transition sound's `data:` URI goes through the same parser.
+  - A zoom `coverImage`, an OLE `cover` and a 3D model `preview` whose `data` has no base64
+    header were written as image parts holding the caller's text, with nothing said. They warn
+    `preview-image/missing-base64-header` and embed the gray placeholder. A background image
+    with no header warns `background/missing-base64-header` and is left out, and a colour the
+    background states still paints.
+  - `addImage` with a hyperlink it refuses threw after registering the image, so a caller who
+    caught the error wrote a slide with a media part and relationship nothing used. Every
+    check runs before anything is registered now. A text box or table whose later run carries
+    a refused link no longer leaves an earlier run's link relationship behind.
+
 - **A caller's mistake is reported as the caller's, naming the option.**
   - A `hyperlink: { slide }` that is not a 1-based slide number (`-1`, `0`, `1.5`) was written
     as a relationship to `slide-1.xml` or `slide1.5.xml`, and `extractSlides()` then threw an

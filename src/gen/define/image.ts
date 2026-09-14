@@ -13,13 +13,12 @@ import type { PresSlideInternal, ShapeFillPropsInternal, SlideObject } from '../
 import { getNewRelId, preencodedPath } from '../utils.js'
 import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
-import { imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { findLayoutPlaceholder } from './layout-placeholder.js'
-import { registerImageMediaRel, registerSvgImageRels } from './image-rel.js'
+import { registerImageMediaRel, registerSvgImageRels, resolveImageSource } from './image-rel.js'
 import { registerHyperlinkRel, validateHyperlink } from './hyperlinks.js'
 import { InvalidOptionError } from '../../errors.js'
 import { pickDefined } from '../../options-internal.js'
@@ -38,15 +37,14 @@ const IMAGE_NATURAL_DPI = 96
  *   relationship id is stamped back onto it
  */
 export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillPropsInternal): void {
-	const strImagePath = fill.image?.path || ''
-	const strImageData = fill.image?.data || ''
+	const source = resolveImageSource(fill.image)
 
-	if (!strImagePath && !strImageData) {
+	if (source === 'missing-source') {
 		warn('image-fill/missing-source', 'image fill requires `image.path` or `image.data`; ignoring image fill.')
 		fill.type = 'none'
 		return
 	}
-	if (strImageData && !strImageData.toLowerCase().includes('base64,')) {
+	if (source === 'missing-base64-header') {
 		warn(
 			'image-fill/missing-base64-header',
 			"image fill `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring image fill."
@@ -55,9 +53,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 		return
 	}
 
-	const strImgExtn = imageExtensionForSource(strImagePath, strImageData)
-
-	if (strImgExtn === 'svg') {
+	if (source.extn === 'svg') {
 		warn(
 			'image-fill/svg-unsupported',
 			'SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).'
@@ -67,7 +63,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 	}
 
 	const imageRelId = getNewRelId(target)
-	registerImageMediaRel(target, { path: strImagePath, data: strImageData, extn: strImgExtn }, imageRelId)
+	registerImageMediaRel(target, source, imageRelId)
 	fill.type = 'image'
 	fill._imgRid = imageRelId
 }
@@ -125,19 +121,12 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// `data`/`path` win when also supplied, matching the documented precedence.
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
 	const strImagePath = opt.path || ''
-	const imageRelId = getNewRelId(target)
-	const objectName = resolveObjectName(target, SlideObjectType.image, {
-		label: 'Image',
-		kind: 'image',
-		supplied: opt.objectName,
-	})
 
 	// REALITY-CHECK: an unusable source has nothing to degrade to — there is no image to place —
-	// so these reject rather than warn. `addMedia()` already rejects the missing-source and
-	// missing-header cases, as does the `hyperlink` check further down this same function.
-	if (!strImagePath && !strImageData) {
-		throw new InvalidOptionError('image/missing-source', "addImage(): either 'data' or 'path' is required")
-	} else if (strImagePath && typeof strImagePath !== 'string') {
+	// so these reject rather than warn, as `addMedia()` does. Every check runs before anything is
+	// registered, the hyperlink's included: a refused link used to throw after the image's media
+	// part and relationship were already on the slide, with no picture ever added to use them.
+	if (strImagePath && typeof strImagePath !== 'string') {
 		throw new InvalidOptionError(
 			'image/path-not-a-string',
 			`addImage(): 'path' should be a string, ex: {path:'/img/sample.png'} - you sent ${String(strImagePath)}`
@@ -147,15 +136,27 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			'image/data-not-a-string',
 			`addImage(): 'data' should be a string, ex: {data:'image/png;base64,NMP[...]'} - you sent ${String(strImageData)}`
 		)
-	} else if (strImageData && typeof strImageData === 'string' && !strImageData.toLowerCase().includes('base64,')) {
+	}
+	const source = resolveImageSource({ path: strImagePath, data: strImageData })
+	if (source === 'missing-source') {
+		throw new InvalidOptionError('image/missing-source', "addImage(): either 'data' or 'path' is required")
+	} else if (source === 'missing-base64-header') {
 		throw new InvalidOptionError(
 			'image/missing-base64-header',
 			"addImage(): `data` value lacks a base64 header, ex: 'image/png;base64,NMP[...]'"
 		)
 	}
+	if (opt.hyperlink) validateHyperlink(opt.hyperlink, 'addImage')
+
+	const imageRelId = getNewRelId(target)
+	const objectName = resolveObjectName(target, SlideObjectType.image, {
+		label: 'Image',
+		kind: 'image',
+		supplied: opt.objectName,
+	})
 
 	// STEP 1: Set extension (the `data:` mime wins over the path when both are supplied)
-	const strImgExtn = imageExtensionForSource(strImagePath, strImageData)
+	const strImgExtn = source.extn
 
 	// STEP 2: Set type/path
 	newObject._type = SlideObjectType.image
@@ -247,22 +248,21 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		// An SVG consumes *TWO* rels — the PNG fallback and the SVG itself — allocated and
 		// pushed by `registerSvgImageRels`, which the picture-bullet definer shares.
 		newObject.imageRid = registerSvgImageRels(target, {
-			path: strImagePath ?? '',
-			data: strImageData ?? '',
+			path: source.path,
+			data: source.data,
 			svgSize: {
 				w: getSmartParseNumber(objectOptions.w, 'X', target._presLayout),
 				h: getSmartParseNumber(objectOptions.h, 'Y', target._presLayout),
 			},
 		}).svgRid
 	} else {
-		registerImageMediaRel(target, { path: strImagePath, data: strImageData, extn: strImgExtn }, imageRelId)
+		registerImageMediaRel(target, source, imageRelId)
 		newObject.imageRid = imageRelId
 	}
 
-	// STEP 6: Hyperlink support. An `action` alone needs no relationship: the picture's `<p:cNvPr>`
-	// carries it, as an action button's does.
+	// STEP 6: Hyperlink support, already validated above. An `action` alone needs no relationship:
+	// the picture's `<p:cNvPr>` carries it, as an action button's does.
 	if (opt.hyperlink) {
-		validateHyperlink(opt.hyperlink, 'addImage')
 		if (opt.hyperlink.url || opt.hyperlink.slide) registerHyperlinkRel(target, opt.hyperlink)
 		newObject.hyperlink = opt.hyperlink
 	}

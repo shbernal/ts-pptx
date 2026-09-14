@@ -80,6 +80,8 @@ export type DiagnosticCode =
 	| 'image-fill/missing-base64-header'
 	| 'image-fill/svg-unsupported'
 	| 'image-fill/unresolved-media'
+	| 'preview-image/missing-base64-header'
+	| 'background/missing-base64-header'
 	| 'image/crop-and-sizing-conflict'
 	| 'image/unmeasurable-natural-size'
 	| 'image/bilevel-threshold-out-of-range'

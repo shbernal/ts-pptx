@@ -84,7 +84,7 @@ export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoo
 		return
 	}
 
-	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, slideNum)
 	const tile: ZoomTileInternal = { sldId, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
 	pushZoomObject(target, 'slide', opts, {
@@ -115,7 +115,7 @@ export function addSectionZoomDefinition(
 		return
 	}
 
-	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, firstSlide._slideNum)
 	const tile: ZoomTileInternal = { sectionId: section._id, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
 	pushZoomObject(target, 'section', opts, {
@@ -169,7 +169,7 @@ export function addSummaryZoomDefinition(
 	const originY = Math.round((frameCy - gridH) / 2)
 
 	// One shared preview image across all tiles (identical placeholder/cover).
-	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const tiles: ZoomTileInternal[] = []
 	targets.forEach((section, i) => {
 		const firstSlide = section._slides[0]

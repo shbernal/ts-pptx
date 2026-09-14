@@ -20,7 +20,7 @@ import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { getNewRelId } from '../gen/utils.js'
 import { pushMediaRel } from '../gen/define/image-rel.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
-import { audioExtensionForSubtype } from '../media/content-type.js'
+import { audioExtensionForSubtype, dataUriMediaType } from '../media/content-type.js'
 import { TRANSITION_TYPES } from '../ooxml/st-enums.js'
 import {
 	backfillPlaceholders,
@@ -174,10 +174,10 @@ function registerTransitionSounds(slides: PresSlideInternal[]): Map<PresSlideInt
 		// The mime's subtype is not itself an extension for the spellings PowerPoint actually
 		// uses (`audio/x-wav` for a transition sound), so it goes through the mapping rather
 		// than into the filename raw — see `audioExtensionForSubtype`.
-		const dataMime = /audio\/([\w.-]+)[;,]/.exec(sound.data ?? '')
+		const dataMime = dataUriMediaType(sound.data ?? '')
 		const pathFile = sound.path ? ((sound.path.split('/').pop() ?? '').split('?')[0] ?? '') : ''
-		const extn = dataMime
-			? audioExtensionForSubtype(dataMime[1] ?? '')
+		const extn = dataMime?.startsWith('audio/')
+			? audioExtensionForSubtype(dataMime.slice('audio/'.length))
 			: (pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 		const rId = getNewRelId(slide)

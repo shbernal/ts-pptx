@@ -9,6 +9,7 @@ import { SlideObjectType } from '../../enums.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, preencodedPath } from '../utils.js'
+import { hasBase64Header } from '../../media/base64.js'
 import { pushMediaRel } from './image-rel.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
@@ -58,22 +59,17 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	// by the async media pass, so that a deck carrying no media never links the artwork. The
 	// base64-header check below still guards a cover the caller *did* pass.
 	const strCover = opt.cover || ''
-	const objectName = resolveObjectName(target, SlideObjectType.media, {
-		label: 'Media',
-		kind: 'media',
-		supplied: opt.objectName,
-	})
 	const slideData: SlideObject = { _type: SlideObjectType.media }
 
-	// STEP 1: REALITY-CHECK
+	// STEP 1: REALITY-CHECK, before the object name below takes its index
 	if (!strPath && !strData && strType !== 'online') {
 		throw new InvalidOptionError('media/missing-source', 'addMedia(): either `data` or `path` are required!')
-	} else if (strData && !strData.toLowerCase().includes('base64,')) {
+	} else if (strData && !hasBase64Header(strData)) {
 		throw new InvalidOptionError(
 			'media/missing-base64-header',
 			"addMedia(): `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')"
 		)
-	} else if (strCover && !strCover.toLowerCase().includes('base64,')) {
+	} else if (strCover && !hasBase64Header(strCover)) {
 		throw new InvalidOptionError(
 			'media/cover-missing-base64-header',
 			"addMedia(): `cover` value lacks a base64 header! Ex: 'data:image/png;base64,iV[...]')"
@@ -83,6 +79,11 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	if (strType === 'online' && !strLink) {
 		throw new InvalidOptionError('media/online-missing-link', 'addMedia(): online videos require `link` value')
 	}
+	const objectName = resolveObjectName(target, SlideObjectType.media, {
+		label: 'Media',
+		kind: 'media',
+		supplied: opt.objectName,
+	})
 
 	const strExtn =
 		opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'

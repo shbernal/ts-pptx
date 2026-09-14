@@ -72,3 +72,12 @@ export function decodeBase64ToBytes(b64: string): Uint8Array | null {
 		return null
 	}
 }
+
+/**
+ * Whether an inline payload carries the `base64,` header the definers ask image and media bytes
+ * to arrive with. A value that is not a string has none.
+ * @param data - the caller's `data`
+ */
+export function hasBase64Header(data: unknown): boolean {
+	return typeof data === 'string' && data.toLowerCase().includes('base64,')
+}
