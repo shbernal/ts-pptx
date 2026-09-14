@@ -12,7 +12,12 @@
  */
 
 import { CRLF, XML_DECL } from '../../constants-internal.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../../types/internal.js'
+import type {
+	PresSlideInternal,
+	SlideLayoutInternal,
+	SlideMasterInternal,
+	SlideRelMedia,
+} from '../../types/internal.js'
 import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -103,7 +108,7 @@ function contributedOverride(entry: ContentTypeOverride): string {
 export function makeXmlContTypes(opts: {
 	slides: PresSlideInternal[]
 	slideLayouts: SlideLayoutInternal[]
-	masterSlide?: PresSlideInternal
+	masterSlide?: SlideMasterInternal
 	hasCustomProps?: boolean
 	embeddedFonts?: EmbeddedFont[]
 	contributions?: ContentTypeContributions

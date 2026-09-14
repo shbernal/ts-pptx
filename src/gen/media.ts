@@ -3,7 +3,7 @@
  */
 
 import { IMG_BROKEN } from '../media/placeholders.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideMasterInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import { toMediaDataUri } from '../media/base64.js'
 import { warn } from '../diagnostics.js'
@@ -18,13 +18,13 @@ function hasEncodingPath(rel: SlideRelMedia): rel is SlideMediaRelWithPath {
 
 /**
  * Encode Image/Audio/Video into base64
- * @param {PresSlideInternal | SlideLayoutInternal} layout - slide layout
+ * @param {PresSlideInternal | SlideLayoutInternal | SlideMasterInternal} layout - slide, layout or master
  * @param {RuntimeAdapter} runtime - runtime adapter (Node/browser media loader)
  * @param {'throw' | 'placeholder'} onMediaError - failure policy: reject the export (default) or substitute a placeholder and warn
  * @return {Promise} promise
  */
 export function encodeSlideMediaRels(
-	layout: PresSlideInternal | SlideLayoutInternal,
+	layout: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
 	runtime: RuntimeAdapter,
 	onMediaError: 'throw' | 'placeholder' = 'throw'
 ): Array<Promise<string>> {

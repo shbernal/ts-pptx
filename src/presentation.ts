@@ -44,6 +44,7 @@ import type {
 	PresSlideInternal,
 	SectionInternalProps,
 	SlideLayoutInternal,
+	SlideMasterInternal,
 } from './types/internal.js'
 import type { Slide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
@@ -286,11 +287,8 @@ export default class PresentationCore {
 		return this._rtlMode
 	}
 
-	/** master slide layout object */
-	private readonly _masterSlide: PresSlideInternal
-	public get masterSlide(): Slide {
-		return this._masterSlide
-	}
+	/** the slide master the deck's master part is written from; not a `Slide`, so not handed out */
+	private readonly _masterSlide: SlideMasterInternal
 
 	/** this Presentation's Slide objects */
 	private readonly _slides: PresSlideInternal[]
@@ -424,41 +422,26 @@ export default class PresentationCore {
 		this._sections = []
 		this._customProperties = []
 		this._masterSlide = {
-			addChart: null,
-			addComment: null,
-			addConnector: null,
-			addImage: null,
-			addMedia: null,
-			addNotes: null,
-			addShape: null,
-			addTable: null,
-			addText: null,
-			addAnimation: null,
-			//
-			_name: null,
-			_animations: [],
 			_presLayout: this._presLayout,
-			_rId: null,
 			_rels: [],
 			_relsChart: [],
 			_relsMedia: [],
-			_slideId: null,
-			_slideLayout: null,
 			_slideNum: null,
 			_slideNumberProps: null,
 			_slideObjects: [],
-			// Deliberately-partial internal stub: the master slide carries only rels/objects,
-			// so its authoring methods and ids are intentionally null (never invoked on the master).
-		} as unknown as PresSlideInternal
+		}
 	}
 
 	/**
 	 * Provides an API for `addTableDefinition` to create slides as needed for auto-paging
-	 * @param {AddSlideProps} options - slide masterTitle and/or sectionTitle
+	 * @param layout - the layout of the slide the table is paged from
 	 * @return {Slide} new Slide
 	 */
-	private readonly addNewSlide = (options?: AddSlideProps): PresSlideInternal => {
-		const nextOptions = options || {}
+	private readonly addNewSlide = (layout: SlideLayoutInternal | null): PresSlideInternal => {
+		const nextOptions: AddSlideProps = {}
+		// A registered layout is asked for by name. Any other is the default a slide added with no
+		// `masterTitle` carries, which the continuation gets by naming none.
+		if (layout && this._slideLayouts.includes(layout)) setOrClear(nextOptions, 'masterTitle', layout._name)
 		// Preserve the originating slide's section for all auto-paged continuation slides.
 		// Search for the section that owns the current last slide rather than assuming it is
 		// the last section — the originating slide may not be at the tail of the deck.
@@ -870,9 +853,16 @@ export default class PresentationCore {
 			_slideObjects: [],
 		}
 
+		// A title that matches no master falls back to the default layout and says so, as a
+		// `sectionTitle` that matches no section does below.
 		if (masterTitle) {
 			const tmpLayout = this._slideLayouts.find((layout) => layout._name === masterTitle)
 			if (tmpLayout) slideLayout = tmpLayout
+			else
+				warn(
+					'slide/master-not-found',
+					`addSlide: unable to find a slide master with title: "${masterTitle}"; using the default layout`
+				)
 		}
 
 		const newSlide: PresSlideInternal = new SlideBuilder({

@@ -605,9 +605,8 @@ describe('Presentation.appendSlides', () => {
 		assertEqual(rels.find((r) => r.type === MS_MEDIA_REL).target, VIDEO, 'MS-2007 media rel Target is unmangled')
 	})
 
-	test('rejects an internal link to a source slide outside the appended batch, leaving the deck as it was', async () => {
-		// The slides are all added before their links are wired, so the refusal used to come with the
-		// slides ahead of the bad link already in the deck.
+	test('rejects a link to a slide the source deck does not have, leaving the deck as it was', async () => {
+		// The source refuses it while extracting, before the append has anything to add.
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
 		const pptx = wideGenerator()
 		pptx.addSlide().addText('first', { x: 1, y: 1, w: 6, h: 1 })
@@ -618,6 +617,34 @@ describe('Presentation.appendSlides', () => {
 		let code = null
 		try {
 			await pres.appendSlides(pptx, { layout: 'Blank' })
+		} catch (err) {
+			code = err.code
+		}
+		assertEqual(code, 'slide/link-past-last-slide', 'a link past the source deck throws')
+		assertEqual(pres.slides.length, slideCount, 'no slide was added')
+		assert(bytesEqual(before, await pres.save()), 'and the deck is byte-identical')
+	})
+
+	test('rejects an internal link to a source slide outside the appended batch, leaving the deck as it was', async () => {
+		// The slides are all added before their links are wired, so the refusal used to come with the
+		// slides ahead of the bad link already in the deck. A source is anything with `extractSlides`,
+		// so one can hand over a slide without the slide it links to.
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		pptx.addSlide().addText('to the next', { x: 1, y: 1, w: 6, h: 1, hyperlink: { slide: 2 } })
+		pptx.addSlide().addText('next', { x: 1, y: 1, w: 6, h: 1 })
+		const firstOnly = {
+			extractSlides: async () => {
+				const all = await pptx.extractSlides()
+				return { ...all, slides: all.slides.slice(0, 1) }
+			},
+		}
+		const before = await pres.save()
+		const slideCount = pres.slides.length
+
+		let code = null
+		try {
+			await pres.appendSlides(firstOnly, { layout: 'Blank' })
 		} catch (err) {
 			code = err.code
 		}

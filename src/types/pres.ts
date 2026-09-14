@@ -5,7 +5,6 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { WRITE_OUTPUT_TYPE } from '../enums.js'
-import type { Slide } from './slide.js'
 import type { ThemeProps } from './theme.js'
 
 export interface WriteBaseProps {
@@ -114,7 +113,6 @@ export interface PresentationProps {
 	author: string
 	company: string
 	layout: string
-	masterSlide: Slide
 	/**
 	 * Presentation's layout
 	 * read-only

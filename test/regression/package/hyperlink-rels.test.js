@@ -362,6 +362,59 @@ defineRegressionSuite('Hyperlink relationship registration', [
 		},
 	},
 	{
+		// A slide link names a slide by its 1-based number. `-1` and `1.5` were written as the targets
+		// `slide-1.xml` and `slide1.5.xml`, and `extractSlides` then reported them as a library bug.
+		name: 'a slide hyperlink that is not a 1-based slide number is refused on a shape, an image, a run and a table cell',
+		fn: async () => {
+			for (const slide of [-1, 0, 1.5]) {
+				const link = { slide }
+				const authors = {
+					shape: (p) => p.addSlide().addShape('rect', { x: 1, y: 1, w: 2, h: 1, hyperlink: link }),
+					image: (p) => p.addSlide().addImage({ data: PNG, x: 1, y: 1, w: 1, h: 1, hyperlink: link }),
+					run: (p) =>
+						p.addSlide().addText([{ text: 'link', options: { hyperlink: link } }], { x: 1, y: 1, w: 4, h: 0.5 }),
+					'table cell': (p) =>
+						p.addSlide().addTable([[{ text: 'cell', options: { hyperlink: link } }]], { x: 1, y: 1, w: 4 }),
+				}
+				for (const [label, buildFn] of Object.entries(authors)) {
+					const error = await failedBuild(buildFn)
+					assertEqual(error?.code, 'hyperlink/invalid-slide', `${label}, slide ${slide}`)
+				}
+			}
+		},
+	},
+	{
+		// Whether the slide exists is only known once the deck is complete, so it is checked when the
+		// deck is serialized, by a write and by `extractSlides` alike.
+		name: 'a slide link past the last slide is refused when the deck is written or extracted, and the last slide is not',
+		fn: async () => {
+			const author = (p, slide) => {
+				p.addSlide().addText('next', { x: 1, y: 1, w: 2, h: 1, hyperlink: { slide } })
+				p.addSlide()
+			}
+			let deck
+			const error = await failedBuild((p) => {
+				author(p, 3)
+				deck = p
+			})
+			assertEqual(error?.code, 'slide/link-past-last-slide', 'the write')
+			assertEqual(error?.constructor.name, 'InvalidOptionError', 'the write blames the caller')
+			const extracted = await deck.extractSlides().then(
+				() => undefined,
+				(err) => err
+			)
+			assertEqual(extracted?.code, 'slide/link-past-last-slide', 'extractSlides')
+
+			const { pres, zip } = await build((p) => author(p, 2))
+			const rels = relationships(await readEntry(zip, relsPath(1)))
+			assert(
+				rels.some((r) => r.type === 'slide' && r.target === 'slide2.xml'),
+				`the last slide is a valid target: ${JSON.stringify(rels)}`
+			)
+			await pres.extractSlides()
+		},
+	},
+	{
 		// An image refused `action` alone, which a shape accepted and the picture emitter already writes.
 		name: 'an action-only image hyperlink is written on the picture, with no relationship',
 		fn: async () => {

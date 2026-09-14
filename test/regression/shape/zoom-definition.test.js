@@ -113,6 +113,36 @@ defineRegressionSuite('Zoom definition', [
 		},
 	},
 	{
+		// A number reaches the ids arithmetically, so one that is not a slide number came out as
+		// `sldId="256.5"`, or `sldId="253"` over a relationship to `slide-2.xml`.
+		name: 'addSlideZoom with a numeric target that is not a slide number warns and emits nothing',
+		fn: async () => {
+			const { zip, warnings } = await buildCapturingWarnings((p) => {
+				const host = p.addSlide()
+				p.addSlide()
+				host.addSlideZoom({ target: -2, x: 1, y: 1, w: 3, h: 1.7 })
+				host.addSlideZoom({ target: 1.5, x: 5, y: 1, w: 3, h: 1.7 })
+			})
+			assertEqual(warnings.length, 2, `expected one warning per dropped zoom; got: ${JSON.stringify(warnings)}`)
+			assertWarned(warnings, /is not a 1-based slide number/, 'for a negative or fractional target')
+			assertNotIncludes(await readEntry(zip, 'ppt/slides/slide1.xml'), 'slidezoom', 'slide 1')
+		},
+	},
+	{
+		name: 'addSlideZoom to a slide number past the last slide is refused when the deck is written',
+		fn: async () => {
+			let error
+			try {
+				await build((p) => {
+					p.addSlide().addSlideZoom({ target: 99, x: 1, y: 1, w: 3, h: 1.7 })
+				})
+			} catch (err) {
+				error = err
+			}
+			assertEqual(error?.code, 'slide/link-past-last-slide', 'the write')
+		},
+	},
+	{
 		// Position is optional on every zoom kind, so a caller can register one and place it later
 		// in PowerPoint. The frame must still be well-formed — an omitted `w` becomes an explicit
 		// `cx="0"`, not a missing attribute, which is what PowerPoint requires of `<a:ext>`.

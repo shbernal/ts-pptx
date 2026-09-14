@@ -110,6 +110,31 @@ defineRegressionSuite('Clip silhouettes (clipPath)', [
 		},
 	},
 	{
+		// From JavaScript the union is not enforced. An unknown preset failed reading a field off
+		// `undefined`, an unknown kind returned nothing and an unknown flat side traced the right-flat path.
+		name: 'a shape clipPath does not name is refused with the values it takes',
+		fn: () => {
+			const refused = (shape) => {
+				try {
+					clipPath(/** @type {any} */ (shape), 4, 6)
+				} catch (err) {
+					return err
+				}
+				return undefined
+			}
+			for (const shape of [
+				{ kind: 'half-disc', flat: 'right', preset: 'bogus' },
+				{ kind: 'half-disc', flat: 'top' },
+				{ kind: 'full-disc', flat: 'right' },
+				undefined,
+			]) {
+				assertEqual(refused(shape)?.code, 'clip/invalid-shape', JSON.stringify(shape))
+			}
+			const preset = refused({ kind: 'half-disc', flat: 'right', preset: 'bogus' })
+			assert(/deep, shallow/.test(preset.message), `the message names the presets: ${preset.message}`)
+		},
+	},
+	{
 		name: 'addImage({ points: clipPath(...) }) emits a custGeom clip in the picture EMU space',
 		fn: async () => {
 			const w = 4

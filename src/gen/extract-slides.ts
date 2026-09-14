@@ -22,7 +22,7 @@ import { isHyperlinkRel } from './utils.js'
 import { msMediaRid, previewRid } from './define/media.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { avContentType, imageContentType } from '../media/content-type.js'
-import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from './prepare.js'
+import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets, requireSlideLinksInDeck } from './prepare.js'
 import { makeXmlSlide } from './slide/slide.js'
 import type { RendererTable } from './slide/objects/shared.js'
 import type { SlideExtractors } from '../families/shared.js'
@@ -204,6 +204,9 @@ export async function extractSlides(
 	const onMediaError = opts.onMediaError ?? 'throw'
 	const { presentation } = source
 	const deckSlides = presentation.slides
+
+	// A link to a slide the deck does not have is refused before anything is prepared, as on a write.
+	requireSlideLinksInDeck(deckSlides)
 
 	// STEP 1+2: The same pre-serialization pass `buildPackageParts` runs — backfill placeholders,
 	// encode media, bake measured fit — so extracted bodies match a normal write by construction

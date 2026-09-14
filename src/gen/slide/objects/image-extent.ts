@@ -7,7 +7,12 @@
  * read it here. This module writes no XML, which is why `gen/slide/object.ts` may import it.
  */
 
-import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
+import type {
+	PresSlideInternal,
+	SlideLayoutInternal,
+	SlideMasterInternal,
+	SlideObject,
+} from '../../../types/internal.js'
 import { getImageSizeFromBase64 } from '../../../media/image-size.js'
 import { pixelsToEmu } from '../../../units.js'
 import { getSmartParseNumber } from '../../../units-internal.js'
@@ -23,7 +28,7 @@ import { getSmartParseNumber } from '../../../units-internal.js'
  */
 export function imageNaturalSize(
 	obj: SlideObject,
-	slide: PresSlideInternal | SlideLayoutInternal
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal
 ): { w: number; h: number } | null {
 	const relData = (slide._relsMedia || []).find((rel) => rel.rId === obj.imageRid)?.data
 	return typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
@@ -43,7 +48,7 @@ export function imageNaturalSize(
  */
 export function resolveImageExtent(
 	obj: SlideObject,
-	slide: PresSlideInternal | SlideLayoutInternal,
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
 	frame: { cx: number; cy: number }
 ): { frameW: number; frameH: number; drawnW: number; drawnH: number } {
 	const opts = obj.options ?? {}

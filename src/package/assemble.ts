@@ -22,7 +22,12 @@ import { pushMediaRel } from '../gen/define/image-rel.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
 import { TRANSITION_TYPES } from '../ooxml/st-enums.js'
-import { backfillPlaceholders, bakeMeasuredFit, encodeMediaForTargets } from '../gen/prepare.js'
+import {
+	backfillPlaceholders,
+	bakeMeasuredFit,
+	encodeMediaForTargets,
+	requireSlideLinksInDeck,
+} from '../gen/prepare.js'
 import { makeXmlApp } from '../gen/opc/app.js'
 import { makeXmlContTypes } from '../gen/opc/content-types.js'
 import { makeXmlCore } from '../gen/opc/core.js'
@@ -253,6 +258,9 @@ export async function buildPackageParts(
 	const partPromises: Promise<unknown>[] = []
 	const contributors = orderedContributors(source.partContributors)
 	const zip = new ZipWriter()
+
+	// A link to a slide the deck does not have is refused before anything is registered or built.
+	requireSlideLinksInDeck(pres.slides)
 
 	// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
 	const transitionSoundRIds = registerTransitionSounds(pres.slides)

@@ -93,6 +93,43 @@ defineRegressionSuite('Deck argument guards', [
 		},
 	},
 	{
+		name: 'addSlide naming a master that does not exist warns and uses the default layout',
+		fn: async () => {
+			// A mistyped `masterTitle` fell back to the default layout with nothing said, while a
+			// mistyped `sectionTitle` beside it warned.
+			const { result, codes } = await captureDiagnostics(async () => {
+				const pres = new TsPptx()
+				pres.defineSlideMaster({ title: 'MASTER' })
+				pres.addSlide({ masterTitle: 'MASTR' })
+				return pres.toBytes()
+			})
+			assertIncludes(codes, 'slide/master-not-found')
+			assert(result.byteLength > 0, 'the deck still builds')
+		},
+	},
+	{
+		name: 'a table auto-paged from a slide with or without a master adds its slides with nothing to report',
+		fn: async () => {
+			// Each continuation slide takes the source slide's layout. A slide added with no master
+			// carries an unregistered default layout, whose name matches no master.
+			const rows = Array.from({ length: 60 }, (_, i) => [{ text: `row ${i}` }])
+			const { result, codes } = await captureDiagnostics(async () => {
+				const plain = new TsPptx()
+				plain.addSlide().addTable(rows, { x: 0.5, y: 0.5, w: 4, autoPage: true })
+				const mastered = new TsPptx()
+				mastered.defineSlideMaster({ title: 'MASTER' })
+				mastered.addSlide({ masterTitle: 'MASTER' }).addTable(rows, { x: 0.5, y: 0.5, w: 4, autoPage: true })
+				return { plain, mastered }
+			})
+			assertEqual(JSON.stringify(codes), '[]', 'no diagnostics')
+			assert(result.plain.slides.length > 1 && result.mastered.slides.length > 1, 'both tables paged')
+			assert(
+				result.mastered.slides.every((s) => /** @type {any} */ (s)._slideLayout?._name === 'MASTER'),
+				'every continuation keeps the master'
+			)
+		},
+	},
+	{
 		name: 'once sections are in use, a slide added without one lands in a generated default',
 		fn: async () => {
 			// PowerPoint has no concept of a loose slide alongside sections, so a slide added

@@ -21,6 +21,7 @@
  * the clip in the wrong place on every box that is not the full slide.
  */
 
+import { checkEnumOrThrow } from './ooxml/check-enum.js'
 import type { GeometryPoint } from './types/index.js'
 
 /**
@@ -110,6 +111,11 @@ const SHALLOW_DISC: HalfDiscSpec = {
 
 const HALF_DISC: Record<HalfDiscPreset, HalfDiscSpec> = { deep: DEEP_DISC, shallow: SHALLOW_DISC }
 
+/** The values each {@link ClipShape} field takes, for refusing one a JavaScript caller got wrong. */
+const CLIP_KINDS: readonly ClipShape['kind'][] = ['half-disc']
+const FLAT_SIDES: readonly FlatSide[] = ['left', 'right']
+const HALF_DISC_PRESETS = Object.keys(HALF_DISC) as HalfDiscPreset[]
+
 /**
  * Half-disc clip path for a `w × h` box. Authored flat-right; `flat: 'left'` mirrors `x → 1 - x`.
  */
@@ -148,6 +154,9 @@ function halfDisc(w: number, h: number, flat: FlatSide, preset: HalfDiscPreset):
  * @param {number} w - image box width (inches)
  * @param {number} h - image box height (inches)
  * @returns {GeometryPoint[]} the freeform path, for `addImage({ points })`
+ * @throws {InvalidOptionError} `clip/invalid-shape` when `kind`, `flat` or `preset` is not one the
+ *   silhouette names. From JavaScript an unknown preset used to fail reading a field off
+ *   `undefined`, an unknown kind returned nothing and an unknown flat side traced the right-flat path.
  * @example
  * const w = 5.22, h = 7.5
  * slide.addImage({
@@ -157,8 +166,14 @@ function halfDisc(w: number, h: number, flat: FlatSide, preset: HalfDiscPreset):
  * })
  */
 export function clipPath(shape: ClipShape, w: number, h: number): GeometryPoint[] {
-	switch (shape.kind) {
+	const kind = checkEnumOrThrow(String(shape?.kind), CLIP_KINDS, 'clipPath `kind`', 'clip/invalid-shape')
+	switch (kind) {
 		case 'half-disc':
-			return halfDisc(w, h, shape.flat, shape.preset ?? 'deep')
+			return halfDisc(
+				w,
+				h,
+				checkEnumOrThrow(shape.flat, FLAT_SIDES, 'clipPath `flat`', 'clip/invalid-shape'),
+				checkEnumOrThrow(shape.preset ?? 'deep', HALF_DISC_PRESETS, 'clipPath `preset`', 'clip/invalid-shape')
+			)
 	}
 }

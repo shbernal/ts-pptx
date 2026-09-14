@@ -40,8 +40,8 @@ import {
 //     object. It could not survive being reached anyway: four lines later `opts.shape` is read
 //     unguarded, so a caller that passed `undefined` would throw before the fallback mattered.
 //   - `target._slideNum == null ? 'sm' : ...` (L256), the first arm of the media-key triple. The
-//     only slide with a null `_slideNum` is `presentation.ts`'s `_masterSlide`, a deliberately-partial
-//     stub whose authoring methods are all `null` and which no definer is ever pointed at. The same
+//     only target with a null `_slideNum` is `presentation.ts`'s `_masterSlide`, which is not a slide,
+//     has no authoring methods and is never handed to a definer. The same
 //     dead arm appears verbatim in define/image.ts (twice), define/ole.ts and define/preview-image.ts;
 //     the layout arm below is the one a caller can actually reach.
 //   - `_placeholderType ||` -> `` `Placeholder ${...}` `` (L176), the last rung of the placeholder
@@ -89,6 +89,31 @@ async function bulletMedia(image) {
 }
 
 defineRegressionSuite('Text definition', [
+	{
+		// The signature takes a string, a number or an array of runs. A single run object is the form a
+		// caller reaches for, and it failed inside the definer with a `TypeError`.
+		name: 'a single run object where an array belongs is refused on addText and on a text descriptor',
+		fn: async () => {
+			const refused = async (buildFn) => {
+				try {
+					await build(buildFn)
+				} catch (err) {
+					return err
+				}
+				return undefined
+			}
+			const run = /** @type {any} */ ({ text: 'x' })
+			const box = { x: 1, y: 1, w: 2, h: 1 }
+			const viaAddText = await refused((p) => p.addSlide().addText(run, box))
+			assertEqual(viaAddText?.code, 'text/invalid-text', 'addText')
+			const viaGroup = await refused((p) =>
+				p
+					.addSlide()
+					.addGroup([{ text: { text: run, options: box } }, { text: { text: 'y', options: { ...box, x: 4 } } }])
+			)
+			assertEqual(viaGroup?.code, 'text/invalid-text', 'a text descriptor in a group')
+		},
+	},
 	{
 		// `addText([])` is the one caller shape that reaches the empty-text default: the string and
 		// number forms are wrapped into a one-run array by `SlideBuilder.addText` before the definer

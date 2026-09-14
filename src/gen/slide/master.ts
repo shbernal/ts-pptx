@@ -8,7 +8,7 @@
 
 import { CRLF, LAYOUT_IDX_SERIES_BASE, LEVEL_MARGINS_EMU, XML_DECL } from '../../constants-internal.js'
 import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../types/index.js'
-import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
+import type { SlideLayoutInternal, SlideMasterInternal } from '../../types/internal.js'
 import { createColorElement, rejectEmptyColor } from '../drawingml/color.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { buAutoNumEl, buCharEl } from '../drawingml/bullet.js'
@@ -324,7 +324,7 @@ function makeXmlMasterDefaultTxStyles(): string {
  * @return XML
  */
 export function makeXmlMaster(
-	slide: PresSlideInternal,
+	slide: SlideMasterInternal,
 	layouts: SlideLayoutInternal[],
 	renderers: RendererTable
 ): string {
@@ -365,11 +365,11 @@ export function makeXmlMaster(
 
 /**
  * Creates `ppt/slideMasters/_rels/slideMaster1.xml.rels`
- * @param {PresSlideInternal} masterSlide - Slide object
+ * @param {SlideMasterInternal} masterSlide - the deck's slide master
  * @param {SlideLayoutInternal[]} slideLayouts - Slide Layouts
  * @return {string} XML
  */
-export function makeXmlMasterRel(masterSlide: PresSlideInternal, slideLayouts: SlideLayoutInternal[]): string {
+export function makeXmlMasterRel(masterSlide: SlideMasterInternal, slideLayouts: SlideLayoutInternal[]): string {
 	const defaultRels = slideLayouts.map((_layoutDef, idx) => ({
 		target: targetFromPptSubpart(slideLayoutPath(idx + 1)),
 		type: SLIDE_LAYOUT_REL,

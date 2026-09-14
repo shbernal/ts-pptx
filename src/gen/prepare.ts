@@ -36,21 +36,48 @@
  * parts.
  */
 
+import { InvalidOptionError } from '../errors.js'
 import { applyMeasuredFit } from '../measure/fit.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
-import type { PresSlideInternal, SlideLayoutInternal } from '../types/internal.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideMasterInternal } from '../types/internal.js'
 import { addPlaceholdersToSlideLayouts } from './define/placeholder.js'
 import { encodeSlideMediaRels } from './media.js'
+import { isHyperlinkRel } from './utils.js'
+
+/**
+ * Before any step: refuse a link to a slide the deck does not have.
+ *
+ * A `hyperlink: { slide }` and a Slide Zoom's numeric `target` are checked for being slide numbers
+ * when they are authored, but whether the slide exists is only known once the deck is complete: a
+ * link to slide 3 can be authored before slide 3 is added. Both serializing callers check here,
+ * before anything is built. Otherwise the link is written as a relationship to a part the package
+ * never has.
+ * @param slides - every slide in the deck, in order
+ */
+export function requireSlideLinksInDeck(slides: readonly PresSlideInternal[]): void {
+	for (const slide of slides) {
+		for (const rel of slide._rels) {
+			if (!isHyperlinkRel(rel) || rel.data !== 'slide') continue
+			// Negated so a target that is not a number at all passes on to the internal assertion
+			// `extractSlides` makes, rather than being blamed on the caller here.
+			if (!(Number(rel.Target) > slides.length)) continue
+			throw new InvalidOptionError(
+				'slide/link-past-last-slide',
+				`Slide ${slide._slideNum} links to slide ${String(rel.Target)}, but the deck has ${slides.length} slide${slides.length === 1 ? '' : 's'}.`
+			)
+		}
+	}
+}
 
 /**
  * Step 2: load and base64-encode every media rel on the given targets, populating `rel.data`.
- * @param {ReadonlyArray<PresSlideInternal | SlideLayoutInternal>} targets - media-bearing targets (slides, layouts, master)
+ * @param {ReadonlyArray<PresSlideInternal | SlideLayoutInternal | SlideMasterInternal>} targets - media-bearing targets (slides, layouts, master)
  * @param {RuntimeAdapter} runtime - runtime adapter used to load media
  * @param {'throw' | 'placeholder'} onMediaError - failure policy for unloadable media
  */
 export async function encodeMediaForTargets(
-	targets: ReadonlyArray<PresSlideInternal | SlideLayoutInternal>,
+	targets: ReadonlyArray<PresSlideInternal | SlideLayoutInternal | SlideMasterInternal>,
 	runtime: RuntimeAdapter,
 	onMediaError: 'throw' | 'placeholder'
 ): Promise<void> {

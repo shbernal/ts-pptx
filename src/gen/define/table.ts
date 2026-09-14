@@ -10,7 +10,6 @@ import { SlideObjectType } from '../../enums.js'
 import { DEF_CELL_BORDER, DEF_FONT_COLOR, DEF_FONT_SIZE } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type {
-	AddSlideProps,
 	BorderProps,
 	FillOption,
 	PresLayout,
@@ -331,7 +330,7 @@ export function addTableDefinition(
 	options: TableProps,
 	slideLayout: SlideLayoutInternal | null,
 	presLayout: PresLayout,
-	addSlide: (options?: AddSlideProps) => PresSlideInternal,
+	addSlide: (layout: SlideLayoutInternal | null) => PresSlideInternal,
 	getSlide: (slideNumber: number) => PresSlideInternal | undefined
 ): PresSlideInternal[] {
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
@@ -629,7 +628,10 @@ export function addTableDefinition(
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
 			let newSlide = getSlide(target._slideNum + idx)
 			if (!newSlide) {
-				newSlide = addSlide(slideLayout?._name ? { masterTitle: slideLayout._name } : {})
+				// The layout itself, not its name: only the presentation knows whether it is a registered
+				// layout or the unregistered default a slide added with no `masterTitle` carries, whose
+				// name is the slide size and matches no master.
+				newSlide = addSlide(slideLayout)
 				slides.push(newSlide)
 			}
 

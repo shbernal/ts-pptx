@@ -49,6 +49,11 @@ export function hyperlinkRel(rId: number, hyperlink: HyperlinkProps): SlideRel {
  * image refused an action-only link that a shape accepted, and nothing refused `url` together with
  * `slide`: that wrote two `<a:hlinkClick>` into one `<p:cNvPr>`, which allows one, over a slide-typed
  * relationship whose target was built from the URL.
+ *
+ * A `slide` has to be a 1-based slide number. `-1` and `1.5` were written as the targets
+ * `slide-1.xml` and `slide1.5.xml`, parts no deck has. Whether the numbered slide exists is only
+ * known once the deck is complete, so a number past the last slide is refused when the deck is
+ * written (`requireSlideLinksInDeck`).
  * @param hyperlink - the caller's `hyperlink` option
  * @param call - the method or option the link was authored through, opening the message
  */
@@ -63,6 +68,11 @@ export function validateHyperlink(hyperlink: unknown, call: string): asserts hyp
 		throw new InvalidOptionError(
 			'hyperlink/conflicting-targets',
 			`${call}: \`hyperlink\` takes one destination but states both \`url\` and \`slide\`.`
+		)
+	if (slide != null && !(Number.isInteger(slide) && slide >= 1))
+		throw new InvalidOptionError(
+			'hyperlink/invalid-slide',
+			`${call}: \`hyperlink.slide\` is a 1-based slide number, got ${typeof slide === 'string' ? JSON.stringify(slide) : String(slide)}.`
 		)
 	if (!url && !slide && !action)
 		throw new InvalidOptionError(

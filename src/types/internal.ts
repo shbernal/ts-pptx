@@ -469,9 +469,18 @@ export interface SectionInternalProps extends SectionProps {
 	/** Stable section GUID (`{XXXXXXXX-...}`), assigned at section creation so Section/Summary Zoom can address it. */
 	_id: string
 }
+/**
+ * The deck's slide master as the writer holds it: the relationships, objects and deck-wide settings
+ * `slideMaster1.xml` is written from. It is not a {@link Slide}. Nothing is authored onto it, so it
+ * has none of a slide's methods, and it has no slide number: `_slideNum` is `null`, which is how
+ * media registration tells it from a slide or a layout.
+ */
+export interface SlideMasterInternal extends Omit<SlideBaseProps, '_slideNum'> {
+	_slideNum: null
+}
 // PRIVATE interface
 export interface PresentationPropsInternal extends PresentationProps {
-	masterSlide: PresSlideInternal
+	masterSlide: SlideMasterInternal
 	sections: SectionInternalProps[]
 	slideLayouts: SlideLayoutInternal[]
 	slides: PresSlideInternal[]

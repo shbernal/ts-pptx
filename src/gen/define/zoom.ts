@@ -70,6 +70,12 @@ export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoo
 		)
 		return
 	}
+	// A number has to be a slide number: `-2` and `1.5` were written as `slide-2.xml` and
+	// `sldId="256.5"`. Whether that slide exists is checked when the deck is written, once it is complete.
+	if (typeof opts.target === 'number' && !(Number.isInteger(opts.target) && opts.target >= 1)) {
+		warn('zoom/unresolved-target', `addSlideZoom: \`target\` ${opts.target} is not a 1-based slide number; ignoring.`)
+		return
+	}
 	const targetSlide = opts.target as PresSlideInternal
 	const sldId = typeof opts.target === 'number' ? 256 + (opts.target - 1) : targetSlide._slideId
 	const slideNum = typeof opts.target === 'number' ? opts.target : targetSlide._slideNum

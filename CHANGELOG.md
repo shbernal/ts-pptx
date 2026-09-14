@@ -816,6 +816,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`masterSlide` is gone from the presentation and from `PresentationProps`.** It was typed as
+  a `Slide` and had none of a slide's methods: `pptx.masterSlide.addText(...)` threw a
+  `TypeError`, and `addGroup`, `addModel3d`, the zooms and `groupObjects` were not there at all.
+  The master is internal state `slideMaster1.xml` is written from, and nothing could be done
+  through the getter. **Migration:** author master content with `defineSlideMaster`, and drop
+  any reference to `masterSlide`.
+
 - **`scripts/docs-init.mjs` and the `docs:init` script are gone.** The scaffolder planted a
   fresh repo's docs kit -- the `project-documentation` skill, `docs/docs.json`, four starter
   pages and the `docs:*` script block -- and in this repo every file it wrote already
@@ -892,6 +899,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `solid`, `gradient` or `pattern`.
 
 ### Fixed
+
+- **A caller's mistake is reported as the caller's, naming the option.**
+  - A `hyperlink: { slide }` that is not a 1-based slide number (`-1`, `0`, `1.5`) was written
+    as a relationship to `slide-1.xml` or `slide1.5.xml`, and `extractSlides()` then threw an
+    `InternalError` calling it a bug in ts-pptx. It throws `InvalidOptionError`
+    (`hyperlink/invalid-slide`) where the link is authored now, on a shape, an image, a run or a
+    table cell.
+  - A slide link past the last slide was written as a relationship to a part the package does
+    not have. A write and `extractSlides()` throw `InvalidOptionError`
+    (`slide/link-past-last-slide`) naming the slide and the number. A Slide Zoom's numeric
+    `target` is checked the same way.
+  - `addSlideZoom` with a numeric `target` that is not a slide number (`-2`, `1.5`) wrote
+    `sldId="253"` or `sldId="256.5"`. It warns `zoom/unresolved-target` and draws nothing, as an
+    unresolvable target already did.
+  - `addSlide({ masterTitle })` naming no defined master fell back to the default layout with
+    nothing said, while a `sectionTitle` naming no section warned. It warns
+    `slide/master-not-found` now.
+  - `addText({ text: 'x' })`, a single run where the signature takes an array, failed with a
+    `TypeError` inside the library. It throws `InvalidOptionError` (`text/invalid-text`), as does
+    a `text` descriptor holding one in a group or a slide master.
+  - `clipPath` with an unknown `preset` failed with a `TypeError`, an unknown `kind` returned
+    `undefined`, and an unknown `flat` traced the right-flat path. Each throws
+    `InvalidOptionError` (`clip/invalid-shape`) naming the values it takes.
+  - **Migration:** a deck linking past its last slide, or to a number that is not a slide
+    number, fails to write rather than writing a broken link. Fix the number or add the slide.
+    Wrap a single text run in an array: `addText([{ text: 'x' }])`.
 
 - **The read model's paint setters agree on what they change, and on what a kind cannot take.**
   - `Run.color = null` and `Run.fontName = null` marked the part dirty on a run with nothing

@@ -13,6 +13,7 @@ import type {
 	ObjectOptionsInternal,
 	PresSlideInternal,
 	SlideLayoutInternal,
+	SlideMasterInternal,
 	SlideObject,
 } from '../../../types/internal.js'
 import { encodeXmlAttrValue } from '../../utils.js'
@@ -60,8 +61,8 @@ export interface RenderContext {
 	 * reached yet.
 	 */
 	shapeIds: ReadonlyMap<SlideObject, number>
-	/** The page it belongs to — a slide or a layout. */
-	slide: PresSlideInternal | SlideLayoutInternal
+	/** The page it belongs to — a slide, a layout or the master. */
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal
 	/** The resolved box in EMU: normalized for negative extents, then overridden by a placeholder. */
 	frame: { x: number; y: number; cx: number; cy: number }
 	/** The layout placeholder this object inherits from, or `null`. */

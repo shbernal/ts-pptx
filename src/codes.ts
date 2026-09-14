@@ -168,6 +168,7 @@ export type DiagnosticCode =
 	| 'section/duplicate-title'
 	| 'section/invalid-order'
 	| 'slide/section-not-found'
+	| 'slide/master-not-found'
 	| 'slide/removed-link-target'
 	| 'layout/invalid-definition'
 	| 'core/revision-not-a-whole-number'
@@ -277,10 +278,16 @@ export type InvalidOptionErrorCode =
 	| 'table/row-index-out-of-range'
 	| 'table/column-index-out-of-range'
 	| 'table/merge-range-invalid'
-	// Hyperlinks
+	// Hyperlinks, and slide links in general
 	| 'hyperlink/not-an-object'
 	| 'hyperlink/missing-target'
 	| 'hyperlink/conflicting-targets'
+	| 'hyperlink/invalid-slide'
+	| 'slide/link-past-last-slide'
+	// Text
+	| 'text/invalid-text'
+	// Clip silhouettes (`clipPath`)
+	| 'clip/invalid-shape'
 	// HTML table conversion
 	| 'html/no-document'
 	| 'html/table-not-found'

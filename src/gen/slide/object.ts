@@ -18,6 +18,7 @@ import type { ObjectOptions, SlideNumberProps } from '../../types/index.js'
 import type {
 	PresSlideInternal,
 	SlideLayoutInternal,
+	SlideMasterInternal,
 	SlideObject,
 	SlideRel,
 	SlideRelChart,
@@ -144,7 +145,10 @@ interface ObjectFrame {
  * @param slide - the slide or layout holding it
  * @returns the object's frame
  */
-function resolveObjectFrame(obj: SlideObject, slide: PresSlideInternal | SlideLayoutInternal): ObjectFrame {
+function resolveObjectFrame(
+	obj: SlideObject,
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal
+): ObjectFrame {
 	const itemOpts = obj.options ?? {}
 	const layout = slide._presLayout
 	// The same lookup the definers use, so the frame and `<p:ph>` come from the placeholder the
@@ -184,7 +188,7 @@ function resolveObjectFrame(obj: SlideObject, slide: PresSlideInternal | SlideLa
  * counter that keeps layout media keys from colliding with slide media — neither is a page
  * number, and neither belongs in the field's cached text.
  */
-function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal): boolean {
+function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal): boolean {
 	return slide._slideNum != null && slide._slideNum < 1000
 }
 
@@ -199,7 +203,7 @@ function hasRealSlideNumber(slide: PresSlideInternal | SlideLayoutInternal): boo
  * child of another group) is a collision the Selection Pane shows, and checking only the top
  * level cannot see it.
  */
-function warnDuplicateObjectNames(slide: PresSlideInternal | SlideLayoutInternal): void {
+function warnDuplicateObjectNames(slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal): void {
 	const collectObjectNames = (objects: SlideObject[]): string[] =>
 		objects.flatMap((obj) => [
 			...(typeof obj.options?.objectName === 'string' ? [obj.options.objectName] : []),
@@ -222,7 +226,7 @@ function warnDuplicateObjectNames(slide: PresSlideInternal | SlideLayoutInternal
  * mutually exclusive because a master carrying both a `color` and a `path` must still produce a
  * single `<p:bg>`.
  */
-function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal): string {
+function slideBackgroundXml(slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal): string {
 	let strSlideXml = ''
 	if (slide._bkgdImgRid) {
 		strSlideXml += el(
@@ -291,7 +295,7 @@ function spTreeOpenXml(): string {
  * @param slideNumberId - the `<p:cNvPr>` id to use, already allocated by the caller
  */
 function slideNumberPlaceholderXml(
-	slide: PresSlideInternal | SlideLayoutInternal,
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
 	snProps: SlideNumberProps,
 	slideNumberId: number
 ): string {
@@ -405,7 +409,10 @@ function slideNumberPlaceholderXml(
  *   this arrives as an argument rather than being imported here
  * @return XML string with `<p:cSld>` as the root
  */
-export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal, renderers: RendererTable): string {
+export function slideObjectToXml(
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
+	renderers: RendererTable
+): string {
 	// `_name` is escaped here, at emission, as `objectName` is in `cNvPrOpen`: `_name` doubles as the
 	// raw lookup key `addSlide({masterTitle})` matches
 	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
@@ -651,12 +658,12 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal,
  * Transforms slide relations to XML string.
  * Extra relations that are not dynamic can be passed using the 2nd arg (e.g. theme relation in master file).
  * These relations use rId series that starts with 1-increased maximum of rIds used for dynamic relations.
- * @param {PresSlideInternal | SlideLayoutInternal} slide - slide object whose relations are being transformed
+ * @param {PresSlideInternal | SlideLayoutInternal | SlideMasterInternal} slide - slide, layout or master whose relations are being transformed
  * @param {{ target: string; type: string }[]} defaultRels - array of default relations
  * @return {string} XML
  */
 export function slideObjectRelationsToXml(
-	slide: PresSlideInternal | SlideLayoutInternal,
+	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
 	defaultRels: Array<{ target: string; type: string }>
 ): string {
 	let lastRid = 0 // stores maximum rId used for dynamic relations

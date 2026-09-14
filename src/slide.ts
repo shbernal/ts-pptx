@@ -12,7 +12,6 @@
  */
 
 import type {
-	AddSlideProps,
 	AnimationProps,
 	BackgroundProps,
 	HexColor,
@@ -69,7 +68,7 @@ function toSlideObjectInfo(obj: SlideObject): SlideObjectInfo {
 export default class SlideBuilder {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
 
-	public addSlide: (options?: AddSlideProps) => PresSlideInternal
+	public addSlide: (layout: SlideLayoutInternal | null) => PresSlideInternal
 	public getSlide: (slideNum: number) => PresSlideInternal | undefined
 	public getSections: () => SectionInternalProps[]
 	public _name: string
@@ -120,7 +119,7 @@ export default class SlideBuilder {
 	declare public groupObjects: Slide['groupObjects']
 
 	constructor(params: {
-		addSlide: (options?: AddSlideProps) => PresSlideInternal
+		addSlide: (layout: SlideLayoutInternal | null) => PresSlideInternal
 		getSlide: (slideNum: number) => PresSlideInternal | undefined
 		getSections?: () => SectionInternalProps[]
 		presLayout: PresLayout

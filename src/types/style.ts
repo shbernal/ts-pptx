@@ -92,7 +92,7 @@ export type HyperlinkActionJump =
 // used by: image, object, text,
 export interface HyperlinkProps {
 	/**
-	 * Slide number to link to
+	 * The 1-based number of the slide to link to. The deck has to have that slide when it is written.
 	 */
 	slide?: number
 	/**

@@ -20,10 +20,15 @@
 
 import type { ZipWriter } from '../../zip.js'
 import type { ContentTypeContributions, ContentTypeDefault, ContentTypeOverride } from '../../gen/opc/content-types.js'
-import type { PresentationPropsInternal, PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
+import type {
+	PresentationPropsInternal,
+	PresSlideInternal,
+	SlideLayoutInternal,
+	SlideMasterInternal,
+} from '../../types/internal.js'
 
 /** A slide, a layout, or the master — anything carrying the rel arrays a part can be derived from. */
-export type PartTarget = PresSlideInternal | SlideLayoutInternal
+export type PartTarget = PresSlideInternal | SlideLayoutInternal | SlideMasterInternal
 
 /**
  * One construct family's contribution to the package.

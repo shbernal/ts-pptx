@@ -199,7 +199,6 @@ export function genXmlTextBody(slideObj: SlideObject | TableCellInternal): strin
 		CASES:
 		addText( 'string' ) // string
 		addText( 'line1\n line2' ) // string with lineBreak
-		addText( {text:'word1'} ) // TextProps object
 		addText( ['barry','allen'] ) // array of strings
 		addText( [{text:'word1'}, {text:'word2'}] ) // TextProps object array
 		addText( [{text:'line1\n line2'}, {text:'end word'}] ) // TextProps object array with lineBreak
@@ -207,23 +206,8 @@ export function genXmlTextBody(slideObj: SlideObject | TableCellInternal): strin
 	if (typeof slideObj.text === 'string' || typeof slideObj.text === 'number') {
 		// Handle cases 1,2
 		tmpTextObjects.push({ text: slideObj.text.toString(), options: opts || {} })
-	} else if (
-		slideObj.text &&
-		!Array.isArray(slideObj.text) &&
-		typeof slideObj.text === 'object' &&
-		Object.keys(slideObj.text).includes('text')
-	) {
-		// Handle case 3
-		// `math`/`inline` are copied only when stated: this is a model the steps below spread
-		// (`{ ...itext.options }`, `{ ...itext }`), so a key holding `undefined` is not the same as
-		// an absent one.
-		const authored = slideObj.text as TextProps
-		const textObject: TextProps = { text: slideObj.text || '', options: slideObj.options || {} }
-		if (authored.math !== undefined) textObject.math = authored.math
-		if (authored.inline !== undefined) textObject.inline = authored.inline
-		tmpTextObjects.push(textObject)
 	} else if (Array.isArray(slideObj.text)) {
-		// Handle cases 4,5,6
+		// Handle cases 3,4,5
 		// NOTE: use cast as text is TextProps[]|TableCellInternal[] and their `options` dont overlap (they share the same TextBaseProps though)
 		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
 		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => {
