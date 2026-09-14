@@ -48,11 +48,8 @@ export const BODY_INSET_DEFAULTS_EMU = {
 } as const
 
 /**
- * A table cell's default text insets in EMU: the schema defaults of `a:tcPr/@marL`, `@marR`
- * (91440, 0.1in) and `@marT`, `@marB` (45720, 0.05in) on `CT_TableCellProperties`.
- *
- * Unlike the body insets these are real XSD defaults, so they are transcribed from the schema
- * rather than derived. They happen to equal {@link BODY_INSET_DEFAULTS_EMU}. A cell that states
- * one side leaves the other three at these values, not at zero.
+ * A table cell's default text insets in EMU. They happen to equal {@link BODY_INSET_DEFAULTS_EMU}.
+ * Declared in `table-cell-margins.ts`, which imports nothing, so the write path's inch defaults can
+ * derive from it without bringing this module along.
  */
-export const TABLE_CELL_MARGIN_DEFAULTS_EMU = { left: 91440, right: 91440, top: 45720, bottom: 45720 } as const
+export { TABLE_CELL_MARGIN_DEFAULTS_EMU } from './table-cell-margins.js'

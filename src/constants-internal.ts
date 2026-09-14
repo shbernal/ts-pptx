@@ -14,6 +14,7 @@ import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
 import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
 import { MIN_SLIDE_LAYOUT_ID } from './ooxml/ids.js'
+import { TABLE_CELL_MARGIN_DEFAULTS_EMU } from './ooxml/table-cell-margins.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
@@ -29,7 +30,15 @@ export const DEF_BULLET_MARGIN = 27
 // `BorderProps` all three are `T | undefined`, and the fallback is not assignable to the field it
 // is the fallback for.
 export const DEF_CELL_BORDER = { type: 'solid', color: '666666', width: 1 } as const satisfies BorderProps
-export const DEF_CELL_MARGIN_IN: [number, number, number, number] = [0.05, 0.1, 0.05, 0.1] // "Normal" margins in PPT-2021 ("Narrow" is `0.05` for all 4)
+// A table cell's default margins in inches, `[top, right, bottom, left]`: the schema defaults of
+// `a:tcPr`, which are PowerPoint's "Normal" margins ("Narrow" is `0.05` for all 4). 45720/914400
+// and 91440/914400 are exactly the doubles 0.05 and 0.1.
+export const DEF_CELL_MARGIN_IN: [number, number, number, number] = [
+	TABLE_CELL_MARGIN_DEFAULTS_EMU.top / EMU_PER_INCH,
+	TABLE_CELL_MARGIN_DEFAULTS_EMU.right / EMU_PER_INCH,
+	TABLE_CELL_MARGIN_DEFAULTS_EMU.bottom / EMU_PER_INCH,
+	TABLE_CELL_MARGIN_DEFAULTS_EMU.left / EMU_PER_INCH,
+]
 // `satisfies` for the same reason as DEF_CELL_BORDER above.
 export const DEF_CHART_BORDER = { type: 'solid', color: '363636', width: 1 } as const satisfies BorderProps
 export const DEF_CHART_GRIDLINE: OptsChartGridLine = { color: '888888', dashType: 'solid', width: 1, cap: 'flat' }
