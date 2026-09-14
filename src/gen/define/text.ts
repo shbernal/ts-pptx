@@ -185,8 +185,10 @@ export function addTextDefinition(
 			// C: Line-spacing opts
 			// `NaN` is falsy, so the truthiness test is the whole guard; an out-of-range value is
 			// clamped and reported by `clamp.ts` at emit rather than dropped without a word here.
-			if (!itemOpts.lineSpacing) delete itemOpts.lineSpacing
-			if (!itemOpts.lineSpacingMultiple) delete itemOpts.lineSpacingMultiple
+			// Only an unstated spacing is removed. `NaN` is kept so the clamp refuses it by name.
+			if (itemOpts.lineSpacing == null || itemOpts.lineSpacing === 0) delete itemOpts.lineSpacing
+			if (itemOpts.lineSpacingMultiple == null || itemOpts.lineSpacingMultiple === 0)
+				delete itemOpts.lineSpacingMultiple
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			// Copy, never adopt: an incoming `_bodyProp` belongs to something else. It arrives here

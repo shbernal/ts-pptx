@@ -6,6 +6,7 @@
  * use the external-link variant. The timing / `<p:pic>` XML is emitted later.
  */
 import { SlideObjectType } from '../../enums.js'
+import { warn } from '../../diagnostics.js'
 import type { MediaProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId, preencodedPath } from '../utils.js'
@@ -96,7 +97,15 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	// Playback looping (embedded audio/video only; online embeds have no timing tree)
 	if (strType !== 'online') {
 		if (opt.loop) slideData.loop = true
-		else if (typeof opt.loopCount === 'number' && opt.loopCount > 0) slideData.loopCount = opt.loopCount
+		else if (typeof opt.loopCount === 'number' && Number.isFinite(opt.loopCount) && opt.loopCount > 0)
+			slideData.loopCount = opt.loopCount
+		// A stated count that plays nothing used to be dropped without a word, and `Infinity` was
+		// written as `repeatCount="Infinity"`.
+		else if (opt.loopCount != null)
+			warn(
+				'media/invalid-loop-count',
+				`addMedia(): \`loopCount\` is how many times to play, a finite number above 0; got ${String(opt.loopCount)}, so the media plays once. Use \`loop: true\` to repeat it without end.`
+			)
 	}
 
 	// STEP 3: Set media properties & options

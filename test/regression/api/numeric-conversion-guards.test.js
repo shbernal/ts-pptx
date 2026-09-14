@@ -63,24 +63,19 @@ defineRegressionSuite('Numeric conversion guards', [
 	{
 		// `ptToHundredths` was the one converter in `units.ts` with no finiteness guard. An
 		// `Infinity` reached it through every truthiness-guarded caller, came back as `Infinity`,
-		// and was then reported as out of range and emitted as `sz="Infinity"`.
-		name: 'a non-finite point measure is refused instead of reaching the attribute',
+		// and was then reported as out of range and emitted as `sz="Infinity"`. A measure with a
+		// schema range now clamps `Infinity` to its bound with a warning, the way every ranged
+		// option does (the bytes are pinned in non-finite-numbers.test.js), so the measures still
+		// refused here are the ones with no range to clamp into.
+		name: 'a non-finite point measure never reaches the attribute',
 		fn: async () => {
-			assertEqual(
-				await codeFrom((p) => p.addSlide().addText('x', { ...BOX, fontSize: Infinity })),
-				'coord/non-finite',
-				'infinite font size'
-			)
-			assertEqual(
-				await codeFrom((p) => p.addSlide().addText('x', { ...BOX, charSpacing: Infinity })),
-				'coord/non-finite',
-				'infinite character spacing'
-			)
-			assertEqual(
-				await codeFrom((p) => p.addSlide().addText('x', { ...BOX, lineSpacing: Infinity })),
-				'coord/non-finite',
-				'infinite line spacing'
-			)
+			for (const option of ['fontSize', 'charSpacing', 'lineSpacing']) {
+				assertEqual(
+					await codeFrom((p) => p.addSlide().addText('x', { ...BOX, [option]: Infinity })),
+					null,
+					`infinite ${option} is clamped to its bound rather than refused`
+				)
+			}
 			assertEqual(
 				await codeFrom((p) => p.addSlide().addText('x', { ...BOX, paraSpaceBefore: Infinity })),
 				'coord/non-finite',

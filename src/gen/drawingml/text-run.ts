@@ -201,11 +201,15 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			}
 		}
 
-		if (opts.lineSpacing) {
-			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPts', { val: clampLineSpacingPts(opts.lineSpacing) })))
-		} else if (opts.lineSpacingMultiple) {
-			const val = clampLineSpacingMultiplePct(opts.lineSpacingMultiple)
-			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPct', { val })))
+		// A stated spacing reaches its clamp, `NaN` included, and the clamp refuses that by name.
+		// The guards were truthiness, which dropped `NaN` without a word while `Infinity` threw.
+		const spacingPts = mapStated(opts.lineSpacing, clampLineSpacingPts)
+		const spacingPct =
+			spacingPts === undefined ? mapStated(opts.lineSpacingMultiple, clampLineSpacingMultiplePct) : undefined
+		if (spacingPts !== undefined) {
+			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPts', { val: spacingPts })))
+		} else if (spacingPct !== undefined) {
+			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPct', { val: spacingPct })))
 		}
 
 		// OPTION: indent
@@ -431,7 +435,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		cap: opts?.caps ? checkEnumOrWarn(opts.caps, TEXT_CAPS_TYPES, 'text/invalid-caps', 'text `caps`') : null,
 		u: underline,
 		baseline,
-		spc: opts.charSpacing ? clampCharSpacingSpc(opts.charSpacing) : null,
+		spc: mapStated(opts.charSpacing, clampCharSpacingSpc) ?? null,
 		kern: opts.charSpacing ? 0 : null, // IMPORTANT: Also disable kerning; otherwise text won't actually expand
 		dirty: '0',
 	}

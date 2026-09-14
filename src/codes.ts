@@ -132,6 +132,7 @@ export type DiagnosticCode =
 	| 'zoom/section-not-found'
 	| 'zoom/section-empty'
 	| 'zoom/no-sections-to-summarize'
+	| 'zoom/transition-duration-out-of-range'
 	// Colour, shadow, geometry, locks
 	| 'color/not-a-string'
 	| 'color/invalid-value'
@@ -158,6 +159,7 @@ export type DiagnosticCode =
 	// Media, theme, masters, notes
 	| 'media/load-failed'
 	| 'model3d/preview-missing'
+	| 'media/invalid-loop-count'
 	| 'theme/invalid-color-override'
 	| 'master/invalid-text-style-font-size'
 	| 'master/too-many-text-style-levels'
@@ -258,6 +260,8 @@ export type InvalidOptionErrorCode =
 	| 'media/cover-missing-base64-header'
 	| 'media/online-missing-link'
 	| 'ole/missing-source'
+	| 'ole/invalid-image-size'
+	| 'zoom/invalid-transition-duration'
 	// 3D models
 	| 'model3d/missing-source'
 	| 'model3d/invalid-camera'

@@ -112,6 +112,27 @@ function resolvePartExtn(opt: OleObjectProps): string {
 	return EXTN_BY_PROG_ID.get((opt.progId || '').toLowerCase()) ?? 'bin'
 }
 
+/** The largest `ST_PositiveCoordinate32`, the type of `p:oleObj@imgW` and `@imgH`. */
+const MAX_POSITIVE_COORDINATE_32 = 2147483647
+
+/**
+ * The caller's `imgW` or `imgH`, as the whole EMU `ST_PositiveCoordinate32` allows, or `undefined`
+ * when it is not stated. A value that is not a number from 0 to that type's maximum throws naming
+ * the option, as a 3D model's camera does: `NaN` and `-5` were written into both the choice and the
+ * fallback, and a fraction was written as given.
+ * @param value - the caller's option
+ * @param name - which of the two it is
+ */
+function oleImageSize(value: number | undefined, name: 'imgW' | 'imgH'): number | undefined {
+	if (value === undefined || value === null) return undefined
+	if (typeof value !== 'number' || !(value >= 0 && value <= MAX_POSITIVE_COORDINATE_32))
+		throw new InvalidOptionError(
+			'ole/invalid-image-size',
+			`addOleObject(): \`${name}\` is a size in EMU from 0 to ${MAX_POSITIVE_COORDINATE_32}; got ${String(value)}.`
+		)
+	return Math.round(value)
+}
+
 /**
  * Adds an embedded OLE object to a slide definition.
  * @param {PresSlideInternal} target - slide the object will be added to
@@ -125,6 +146,8 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	if (!strPath && !strData) {
 		throw new InvalidOptionError('ole/missing-source', 'addOleObject(): either `data` or `path` are required!')
 	}
+	const imgW = oleImageSize(opt.imgW, 'imgW')
+	const imgH = oleImageSize(opt.imgH, 'imgH')
 
 	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId.
 	const extn = resolvePartExtn(opt)
@@ -169,8 +192,8 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 			progId: opt.progId || format.progId,
 			name: format.name,
 			showAsIcon: !!opt.showAsIcon,
-			...(typeof opt.imgW === 'number' ? { imgW: opt.imgW } : {}),
-			...(typeof opt.imgH === 'number' ? { imgH: opt.imgH } : {}),
+			...(imgW !== undefined ? { imgW } : {}),
+			...(imgH !== undefined ? { imgH } : {}),
 		},
 	}
 	target._slideObjects.push(slideData)

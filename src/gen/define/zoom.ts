@@ -17,13 +17,16 @@ import type {
 	ZoomTileInternal,
 } from '../../types/internal.js'
 import { getNewRelId, getUuid } from '../utils.js'
-import { getSmartParseNumber } from '../../units-internal.js'
+import { clampRangedInput, getSmartParseNumber } from '../../units-internal.js'
 import { resolveObjectName } from './object-name.js'
 import { resolveAuthoredFrame } from './frame.js'
 import { registerPreviewImage } from './preview-image.js'
 
 const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
 const ZOOM_API = { slide: 'addSlideZoom', section: 'addSectionZoom', summary: 'addSummaryZoom' } as const
+
+/** The longest `zmPr@transitionDur` written, in milliseconds: the largest signed 32-bit integer. */
+const MAX_TRANSITION_DUR_MS = 2147483647
 
 /** A fresh, braced, upper-case v4 GUID for a `zmPr@id`. */
 function zoomGuid(): string {
@@ -35,6 +38,39 @@ function registerSlideRel(target: PresSlideInternal, slideNum: number): number {
 	const rId = getNewRelId(target)
 	target._rels.push({ type: SlideObjectType.hyperlink, data: 'slide', rId, Target: String(slideNum) })
 	return rId
+}
+
+/** The two `zmPr` settings every variant takes from its options the same way. */
+type ZoomSettings = Pick<ZoomInternal, 'returnToParent' | 'transitionDur'>
+
+/**
+ * Resolve the `zmPr` settings a zoom's options state, before the definer registers anything.
+ *
+ * All three definers copied these, and `transitionDur` went into the attribute unchecked: `NaN`
+ * and `Infinity` were written as that text, and `-1` and `1.5` as given. It is clamped here the
+ * one way an out-of-range number is: `NaN` throws naming the option, a number outside
+ * 0-2147483647 moves to the bound with a warning, and the result is a whole number of milliseconds.
+ * @param opts - the zoom's options
+ * @param variant - which zoom, for the option name in a message
+ */
+function resolveZoomSettings(
+	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps,
+	variant: ZoomInternal['variant']
+): ZoomSettings {
+	const transitionDur =
+		opts.transitionDur == null
+			? 1000
+			: Math.round(
+					clampRangedInput(
+						opts.transitionDur,
+						0,
+						MAX_TRANSITION_DUR_MS,
+						'zoom/transition-duration-out-of-range',
+						`${ZOOM_API[variant]} transitionDur`,
+						'zoom/invalid-transition-duration'
+					)
+				)
+	return { returnToParent: !!opts.returnToParent, transitionDur }
 }
 
 /** Shared object-name + object-scaffold for all three variants. */
@@ -83,14 +119,14 @@ export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoo
 		warn('zoom/unresolved-target', 'addSlideZoom: could not resolve the target slide; ignoring.')
 		return
 	}
+	const settings = resolveZoomSettings(opts, 'slide')
 
 	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, slideNum)
 	const tile: ZoomTileInternal = { sldId, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
 	pushZoomObject(target, 'slide', opts, {
 		tiles: [tile],
-		returnToParent: !!opts.returnToParent,
-		transitionDur: opts.transitionDur ?? 1000,
+		...settings,
 	})
 }
 
@@ -114,14 +150,14 @@ export function addSectionZoomDefinition(
 		warn('zoom/section-empty', `addSectionZoom: section "${opts.sectionTitle}" has no slides; ignoring.`)
 		return
 	}
+	const settings = resolveZoomSettings(opts, 'section')
 
 	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, firstSlide._slideNum)
 	const tile: ZoomTileInternal = { sectionId: section._id, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
 	pushZoomObject(target, 'section', opts, {
 		tiles: [tile],
-		returnToParent: !!opts.returnToParent,
-		transitionDur: opts.transitionDur ?? 1000,
+		...settings,
 	})
 }
 
@@ -144,6 +180,7 @@ export function addSummaryZoomDefinition(
 		)
 		return
 	}
+	const settings = resolveZoomSettings(opts, 'summary')
 
 	// Grid geometry (EMU). Tiles preserve the slide aspect ratio; the grid is centered in the frame,
 	// last row left-aligned (matching PowerPoint). See the Summary oracle in plan `foamy-imagining-narwhal`.
@@ -187,7 +224,6 @@ export function addSummaryZoomDefinition(
 
 	pushZoomObject(target, 'summary', opts, {
 		tiles,
-		returnToParent: !!opts.returnToParent,
-		transitionDur: opts.transitionDur ?? 1000,
+		...settings,
 	})
 }

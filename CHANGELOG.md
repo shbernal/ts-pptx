@@ -900,6 +900,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A number that is not one is refused on the write side, and one out of range is clamped the
+  same way everywhere.**
+  - The text measures clamped into a schema range left a non-finite value to their unit
+    converter. `fontSize`, `charSpacing` and `lineSpacing` threw `coord/non-finite` for
+    `Infinity` without naming the option, `lineSpacingMultiple` and `transparency` clamped it
+    with a warning, and `NaN` on `charSpacing`, `lineSpacing` or `lineSpacingMultiple` was
+    dropped with nothing said. All of them clamp `Infinity` to the bound with a warning now,
+    and throw for `NaN` naming the option. A value within half a unit of a bound, which used
+    to round into range quietly, also warns; the bytes written do not change.
+  - `addOleObject` wrote `imgW` and `imgH` as given, `NaN` and negative numbers included. A
+    value that is not a size in EMU from 0 to 2147483647 throws `InvalidOptionError`
+    (`ole/invalid-image-size`), and a fraction is rounded.
+  - A zoom's `transitionDur` was written as given, `NaN` and `Infinity` included. `NaN` throws
+    `InvalidOptionError` (`zoom/invalid-transition-duration`) before the zoom registers
+    anything, a number outside 0-2147483647 is clamped with a warning
+    (`zoom/transition-duration-out-of-range`), and a fraction is rounded.
+  - `addMedia` dropped a `loopCount` of `NaN`, `0` or a negative number with nothing said, and
+    wrote `Infinity` as `repeatCount="Infinity"`. Each warns `media/invalid-loop-count` now,
+    and the media plays once.
+  - `measureText` treated a `NaN` or missing `wIn` as a box, put every word on a line of its
+    own and reported the result as measurable, and gave a width inside its insets back as
+    unmeasurable with no reason. It throws `InvalidOptionError` now: `coord/non-finite` for a
+    `wIn` or `insetIn` that is not a finite number, and `coord/not-positive` when the insets
+    leave no width. `fitsBox`, `shrinkScaleFor` and `overflowsBox` check `hIn` the same way.
+  - **Migration:** `fontSize`, `charSpacing` and `lineSpacing` of `Infinity` write the bound
+    instead of throwing. `NaN` on `charSpacing`, `lineSpacing` or `lineSpacingMultiple`, a
+    `NaN` OLE size or zoom duration, a `measureText` call without `wIn`, and an `hIn` of `0`
+    now throw; pass a finite number, and a positive one for a width or height.
+
 - **Image geometry holds for string extents, zero boxes, prefixed SVG attributes and `null` axes.**
   - An image supplied as `data` and given one side as a string (`w: '20%'`, `h: '1in'`) left the
     other at the 1in default, so a square image came out twice as wide as tall. The other side

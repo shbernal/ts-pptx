@@ -17,7 +17,7 @@
  * program can leave out.
  */
 
-import { measureText } from '../measure/fit.js'
+import { measureText, requireBoxHeight } from '../measure/fit.js'
 import { computeTableLayout } from '../measure/table-fit.js'
 import type { ConstructFamily } from './shared.js'
 
@@ -28,6 +28,8 @@ export const measureFamily = {
 			return measureText(ctx.fontMetrics, text, opts)
 		},
 		overflowsBox(ctx, text, opts) {
+			// Checked first: text that cannot be measured never reached the height check.
+			requireBoxHeight(opts.hIn, 'overflowsBox')
 			const m = measureText(ctx.fontMetrics, text, opts)
 			return m.measurable && !m.fitsBox(opts.hIn)
 		},

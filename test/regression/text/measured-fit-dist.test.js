@@ -491,10 +491,16 @@ describe('measured fit: solver floor and edges', () => {
 		expect(m.lineCount).toBe(0)
 	})
 
-	test('a zero-width measure box is unmeasurable rather than a divide-by-zero', async () => {
+	test('a zero-width measure box is refused rather than laid out', async () => {
+		// It came back unmeasurable with no reason given. A box with no width is the caller's to fix.
 		const pres = await pptxWithSilkscreen()
-		const m = pres.measureText('alpha', { wIn: 0, fontSize: 12, fontFace: 'Silkscreen' })
-		expect(m.measurable).toBe(false)
+		let code
+		try {
+			pres.measureText('alpha', { wIn: 0, fontSize: 12, fontFace: 'Silkscreen' })
+		} catch (err) {
+			code = err.code
+		}
+		expect(code).toBe('coord/not-positive')
 	})
 })
 

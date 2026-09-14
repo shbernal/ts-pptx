@@ -8,9 +8,8 @@
  */
 
 import { EMU_PER_INCH, EMU_PER_POINT, HUNDREDTHS_PER_POINT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
-import { inch2Emu, ptsToEmuLenient } from '../../units-internal.js'
-import { warnOnce } from '../../diagnostics.js'
-import type { DiagnosticCode } from '../../codes.js'
+import { clampRangedInput, inch2Emu, ptsToEmuLenient } from '../../units-internal.js'
+import type { DiagnosticCode, InvalidOptionErrorCode } from '../../codes.js'
 
 /**
  * One clamped text measure: how to convert the caller's value, what range the schema type
@@ -19,35 +18,49 @@ import type { DiagnosticCode } from '../../codes.js'
 interface ClampSpec {
 	/** Diagnostic code raised when the value is clamped. */
 	code: DiagnosticCode
+	/** Error code thrown when the value is not a number at all. */
+	nonFiniteCode: InvalidOptionErrorCode
 	/** Option name as the caller spells it, opening the warning. */
 	label: string
 	/** The valid range in the caller's own unit, as the warning states it. */
 	range: string
 	/** The caller's unit to the attribute's own unit. */
 	convert: (value: number) => number
-	/** Converted units per caller unit — divides the clamped value back for the warning. */
+	/** Converted units per caller unit: the bounds below, divided by it, are the range in the caller's unit. */
 	perUnit: number
 	min: number
 	max: number
 }
 
 /**
- * Clamp a caller's value into its schema range and warn once if it did not already fit.
+ * Clamp a caller's value into its schema range, warn once if it did not already fit, and convert
+ * it to the attribute's unit.
  *
- * The six measures below differ only in the fields of {@link ClampSpec}; the arithmetic and
- * the shape of the warning are the same for all of them. `warnOnce` keys its dedupe set on the
- * code plus the message, so the wording is part of the contract, not decoration.
+ * The range is applied in the caller's own unit, through {@link clampRangedInput}: `Infinity`
+ * clamps to the bound and warns, and `NaN` throws naming the option. Converting first left a
+ * non-finite value to whatever the converter did with it, so `fontSize: Infinity` threw without
+ * naming the option while `transparency: Infinity` clamped and warned. A value within half a unit
+ * of a bound that used to round into range now also warns, though it writes the same bytes.
+ *
+ * The measures below differ only in the fields of {@link ClampSpec}. The warning is deduped on its
+ * code plus its message, so the wording is part of the contract, not decoration.
  */
 function clampWithWarn(value: number, spec: ClampSpec, label = spec.label): number {
-	const raw = spec.convert(value)
-	const clamped = Math.min(spec.max, Math.max(spec.min, raw))
-	if (clamped !== raw)
-		warnOnce(spec.code, `${label} ${value} is outside the valid range ${spec.range}; using ${clamped / spec.perUnit}.`)
-	return clamped
+	const clamped = clampRangedInput(
+		value,
+		spec.min / spec.perUnit,
+		spec.max / spec.perUnit,
+		spec.code,
+		label,
+		spec.nonFiniteCode,
+		{ once: true, range: spec.range }
+	)
+	return spec.convert(clamped)
 }
 
 const FONT_SIZE: ClampSpec = {
 	code: 'font/size-out-of-range',
+	nonFiniteCode: 'coord/non-finite',
 	label: 'fontSize',
 	range: '1-4000pt',
 	convert: ptToHundredths,
@@ -58,6 +71,7 @@ const FONT_SIZE: ClampSpec = {
 
 const CHAR_SPACING: ClampSpec = {
 	code: 'text/char-spacing-out-of-range',
+	nonFiniteCode: 'coord/non-finite',
 	label: 'charSpacing',
 	range: '-4000..4000pt',
 	convert: ptToHundredths,
@@ -68,6 +82,7 @@ const CHAR_SPACING: ClampSpec = {
 
 const PARA_MARGIN: ClampSpec = {
 	code: 'text/paragraph-margin-out-of-range',
+	nonFiniteCode: 'coord/non-finite',
 	label: 'paraMarginLeft',
 	range: '0-4032pt',
 	convert: ptsToEmuLenient,
@@ -78,6 +93,7 @@ const PARA_MARGIN: ClampSpec = {
 
 const PARA_INDENT: ClampSpec = {
 	code: 'text/paragraph-indent-out-of-range',
+	nonFiniteCode: 'coord/non-finite',
 	label: 'paraIndent',
 	range: '-4032..4032pt',
 	convert: ptsToEmuLenient,
@@ -104,6 +120,7 @@ const PARA_INDENT_INCHES: ClampSpec = {
 
 const LINE_SPACING: ClampSpec = {
 	code: 'text/line-spacing-out-of-range',
+	nonFiniteCode: 'coord/non-finite',
 	label: 'lineSpacing',
 	range: '0-1584pt',
 	convert: ptToHundredths,
@@ -114,6 +131,7 @@ const LINE_SPACING: ClampSpec = {
 
 const LINE_SPACING_MULTIPLE: ClampSpec = {
 	code: 'text/line-spacing-out-of-range',
+	nonFiniteCode: 'percent/non-finite',
 	label: 'lineSpacingMultiple',
 	range: '0-132',
 	convert: (multiple) => Math.round(multiple * PERCENT_SCALE),

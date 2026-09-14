@@ -321,7 +321,8 @@ export function measureLayout(
 	lnSpcReductionPct: number,
 	widthSafety = 1
 ): LayoutResult | null {
-	if (innerWidthPt <= 0) return null
+	// Negated so `NaN` is refused too; `Infinity` still passes, for a layout that does not wrap.
+	if (!(innerWidthPt > 0)) return null
 	let total = 0
 	let lineCount = 0
 	let widestLineWidthPt = 0

@@ -14,6 +14,7 @@ import { SlideObjectType } from '../enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
 import { getSmartParseNumber } from '../units-internal.js'
 import { warn } from '../diagnostics.js'
+import { InvalidOptionError } from '../errors.js'
 import { collectUncoveredCodepoints, makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import {
 	solveShrink,
@@ -107,12 +108,23 @@ export function measureText(
 	text: string | TextProps[],
 	opts: MeasureTextOptions
 ): TextMeasurement {
+	// The box is checked before the text. A `NaN` or missing width passed every comparison the
+	// layout makes as false, so each word went on a line of its own and the result read as
+	// measurable; a width inside the insets came back unmeasurable with no reason given.
+	const inset = opts.insetIn ?? 0
+	requireFiniteInches(opts.wIn, 'wIn', 'measureText')
+	requireFiniteInches(inset, 'insetIn', 'measureText')
+	if (!(opts.wIn > 2 * inset))
+		throw new InvalidOptionError(
+			'coord/not-positive',
+			`measureText: \`wIn\` ${opts.wIn} leaves no width inside an inset of ${inset} on each side.`
+		)
+
 	const runs: TextProps[] =
 		typeof text === 'string' || typeof text === 'number' ? [{ text: String(text) }] : Array.isArray(text) ? text : []
 	const paragraphs = buildFitParagraphs(runs, measureOptsToRunOpts(opts))
 	if (!paragraphs) return unmeasurable()
 
-	const inset = opts.insetIn ?? 0
 	const innerWidthPt = (opts.wIn - 2 * inset) * POINTS_PER_INCH
 	const heuristicFaces = new Set<string>()
 	const resolve = makeRegistryResolver(registry, (face) => heuristicFaces.add(face))
@@ -139,14 +151,39 @@ export function measureText(
 		approximatedFaces: [...heuristicFaces],
 		uncoveredCodepoints: flattenCodepoints(uncoveredByFace),
 		// Mirrors solveShrink's fit check at scale 100 (height already inflated).
-		fitsBox: (hIn: number) => heightPt <= hIn * POINTS_PER_INCH,
+		fitsBox: (hIn: number) => {
+			requireBoxHeight(hIn, 'fitsBox')
+			return heightPt <= hIn * POINTS_PER_INCH
+		},
 		shrinkScaleFor: (hIn: number) => {
+			requireBoxHeight(hIn, 'shrinkScaleFor')
 			const box: FitBox = { innerWidthPt, innerHeightPt: hIn * POINTS_PER_INCH }
 			const outcome = solveShrink(paragraphs, box, resolve)
 			if (outcome.kind === 'shrink') return outcome.result.fontScalePct
 			return 100 // 'fits' (or, defensively, 'unmeasurable') → no shrink
 		},
 	}
+}
+
+/** Refuse a measure that is not a finite number of inches, naming the option and the call. */
+function requireFiniteInches(value: unknown, name: string, call: string): void {
+	if (typeof value !== 'number' || !Number.isFinite(value))
+		throw new InvalidOptionError(
+			'coord/non-finite',
+			`${call}: \`${name}\` must be a finite number of inches; got ${String(value)}.`
+		)
+}
+
+/**
+ * Refuse a box height a fit cannot be tested against: not a finite number, or not above 0. A `NaN`
+ * height made `fitsBox` answer `false` and `shrinkScaleFor` answer `100`, both as if measured.
+ * @param hIn - the caller's inner box height, in inches
+ * @param call - the method it was passed to, opening the message
+ */
+export function requireBoxHeight(hIn: unknown, call: string): void {
+	requireFiniteInches(hIn, 'hIn', call)
+	if (!((hIn as number) > 0))
+		throw new InvalidOptionError('coord/not-positive', `${call}: \`hIn\` must be greater than 0; got ${String(hIn)}.`)
 }
 
 /**

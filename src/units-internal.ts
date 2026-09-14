@@ -419,6 +419,9 @@ export function mapStated<T extends number | string, R>(
  * @param code - diagnostic code raised when the value is clamped
  * @param label - option name as the caller spells it, opening the warning
  * @param nonFiniteCode - error code thrown when the value is not a number at all
+ * @param report - how a clamp is reported: `once` dedupes the warning on its code and message, as
+ *   a measure repeated across every run of a deck needs, and `range` states the range in the
+ *   caller's wording (`'1-4000pt'`) rather than as the two bare bounds
  */
 export function clampRangedInput(
 	value: number,
@@ -426,7 +429,8 @@ export function clampRangedInput(
 	max: number,
 	code: DiagnosticCode,
 	label: string,
-	nonFiniteCode: InvalidOptionErrorCode = 'percent/non-finite'
+	nonFiniteCode: InvalidOptionErrorCode = 'percent/non-finite',
+	report: { readonly once?: boolean; readonly range?: string } = {}
 ): number {
 	if (typeof value !== 'number' || Number.isNaN(value))
 		throw new InvalidOptionError(
@@ -434,7 +438,11 @@ export function clampRangedInput(
 			`${label} must be a number from ${min} to ${max}; received ${String(value)}.`
 		)
 	const clamped = Math.min(max, Math.max(min, value))
-	if (clamped !== value) warn(code, `${label} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
+	if (clamped !== value) {
+		const message = `${label} ${value} is outside the valid range ${report.range ?? `${min}-${max}`}; using ${clamped}.`
+		if (report.once) warnOnce(code, message)
+		else warn(code, message)
+	}
 	return clamped
 }
 
