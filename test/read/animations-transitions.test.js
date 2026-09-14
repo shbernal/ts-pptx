@@ -1,5 +1,5 @@
 // Read-model tests for slide transitions and build animations
-// (docs/animations-and-transitions.md, Phase 1).
+// (docs/contributing/design/animations.md).
 //
 // Transitions are a full typed accessor (get/set), validated against the
 // PowerPoint-authored slide-transition oracle. Animations are opaque,
@@ -287,13 +287,12 @@ describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
 	})
 })
 
-// --- Phase 2 fixtures (docs/animations-and-transitions.md). Preset expansion (B)
-// and transition sounds (C) are implemented write-side (see test/regression); the
-// importShape animation carry (A) is exercised at the end of this file. These
-// blocks assert the fixtures load + their oracles match the bytes against the
-// opaque, spid-aware read model. ---
+// --- Preset, sound and import fixtures. The expanded preset set and transition sounds
+// are tested write-side in test/regression; the importShape animation carry is
+// exercised at the end of this file. These blocks assert the fixtures load + their
+// oracles match the bytes against the opaque, spid-aware read model. ---
 
-describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
+describe('slide-animation-presets (read fixture)', () => {
 	test('hasAnimations + animationSpids match the oracle', async () => {
 		const oracle = await readOracle('slide-animation-presets')
 		const slide = (await openFixture('slide-animation-presets')).slides[0]
@@ -319,7 +318,7 @@ describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
 	})
 })
 
-describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
+describe('slide-transition-sound (read fixture)', () => {
 	test('decodes the fade transition on every slide', async () => {
 		const oracle = await readOracle('slide-transition-sound')
 		const pres = await openFixture('slide-transition-sound')
@@ -363,7 +362,7 @@ describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 	})
 })
 
-describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
+describe('import-animation-merge (read fixture)', () => {
 	test('enumerates spids on both slides per the oracle', async () => {
 		const oracle = await readOracle('import-animation-merge')
 		const pres = await openFixture('import-animation-merge')
@@ -397,14 +396,14 @@ describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
 	})
 })
 
-// Phase 2 capability A: importShape({ carryAnimation: true }) carries the lifted
+// importShape({ carryAnimation: true }) carries the lifted
 // shape's build animation into the destination timing — the programmatic analogue
 // of PowerPoint's copy/paste-with-animation captured by the import-animation-merge
 // oracle. The destination timing is ts-pptx's own construction (not byte-equal to
 // PowerPoint's full-tree renumber), so the contract asserted is the mergeMap
 // semantics: the carried shape takes a new spid, its spTgt/bldP are remapped to it
 // and appended after any existing build, and no reference dangles.
-describe('importShape carryAnimation (Phase 2 capability A)', () => {
+describe('importShape carryAnimation', () => {
 	/** Every animation spid on a slide resolves to a real shape id (no dangling reference). */
 	function assertNoDanglingSpids(xml) {
 		const shapeIds = new Set([...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1])))

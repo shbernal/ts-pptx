@@ -101,15 +101,15 @@ by the `ts-pptx/read` harness. Two groups:
   the verbatim `embeddedFontLst`, the font rels, the part list, and the raw-face
   hashes; the whole OFL faces it embeds live under `fonts/` (below).
 - **Transitions / animations**: `slide-transition.pptx`, `slide-animation-basic.pptx`,
-  and `slide-animation-rich.pptx` (the fixture gate for `docs/animations-and-transitions.md`
-  — Phase 1 transition read+write and animation opaque-preserve + spid
-  enumerate/remap/prune). Each pairs with a `*.oracle.json` recording the verbatim
-  `p:transition` / `p:timing` XML and decoded fields; the transition oracle also embeds
-  the full probed `PpEntryEffect → element` table (the write-side preset table).
-- **Transitions / animations — Phase 2 gate**: `slide-animation-presets.pptx`,
-  `slide-transition-sound.pptx`, and `import-animation-merge.pptx` (the fixture gate for
-  the Phase 2 capabilities of `docs/animations-and-transitions.md` — expand the preset set,
-  transition sounds, and carry a build animation through `importShape`). Each pairs with a
+  and `slide-animation-rich.pptx` (the fixtures behind transition read and write, and
+  animation preserve + spid enumerate/remap/prune, in
+  `docs/contributing/design/animations.md`). Each pairs with a `*.oracle.json` recording
+  the verbatim `p:transition` / `p:timing` XML and decoded fields; the transition oracle
+  also embeds the full probed `PpEntryEffect → element` table (the write-side preset table).
+- **Transitions / animations, presets, sounds and import**: `slide-animation-presets.pptx`,
+  `slide-transition-sound.pptx`, and `import-animation-merge.pptx` (the fixtures behind the
+  expanded preset set, transition sounds, and carrying a build animation through
+  `importShape`, in `docs/contributing/design/animations.md`). Each pairs with a
   `*.oracle.json` recording verbatim XML + decoded fields (`presetTemplates`, `soundRels`,
   and `mergeMap` respectively). See the per-fixture purpose notes below.
 
@@ -932,7 +932,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     (`[]`) through the OOXML-Validator CLI, confirming the validator accepts the
     `fntdata` Default and `embeddedFontLst` placement (plan §1.3).
 - `slide-transition.pptx` — **authoring oracle** and read fixture for slide
-  transitions (`docs/animations-and-transitions.md`, Phase 1). Six blank 16:9 slides,
+  transitions (`docs/contributing/design/animations.md`). Six blank 16:9 slides,
   each with one distinct `p:transition` (positioned in `CT_Slide` between
   `p:clrMapOvr` and `p:timing`), authored via `SlideShowTransition`: **slide 1** fade,
   fast bucket (the `spd` attribute is **absent** = the ECMA-376 default `fast`),
@@ -950,7 +950,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   95 of the 158 effects are modern (`p14`/`p15`/`p159`, e.g. `p159:morph`) and appear
   only inside `mc:Choice` with a `<p:fade/>` fallback.
 - `slide-animation-basic.pptx` — **authoring oracle** for the minimal build-animation
-  case (`docs/animations-and-transitions.md`, Phase 1 opaque-preserve + spid enumerate).
+  case (`docs/contributing/design/animations.md`: preserve + spid enumerate).
   One blank 16:9 slide whose text box `fade-target` (shape id / spid `2`) carries a
   single entrance Fade-on-click (`MsoAnimEffect=10`). The `p:timing` tree
   (`tnLst → par → cTn[tmRoot] → seq[mainSeq]`) has one effect `cTn`
@@ -961,8 +961,8 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `(presetID, presetClass, presetSubtype)` triple, and the referenced spid (the only
   structured data the read model extracts — the tree is otherwise preserved opaquely).
 - `slide-animation-rich.pptx` — **authoring oracle** for the multi-effect case and the
-  source deck for the write-side preset templates (`docs/animations-and-transitions.md`,
-  Phase 1 spid enumerate/remap/prune). One blank 16:9 slide with four text boxes, one
+  source deck for the write-side preset templates (`docs/contributing/design/animations.md`:
+  spid enumerate/remap/prune). One blank 16:9 slide with four text boxes, one
   effect each spanning all three preset classes and all three triggers: `ent-fade-click`
   (spid 2) entrance Fade `presetID=10` `clickEffect`; `ent-fly-after` (spid 3) entrance
   Fly `presetID=2` `subtype=4` `afterEffect`; `emph-grow-with` (spid 4) emphasis
@@ -973,14 +973,14 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `<p:bldP spid grpId>` per shape (spids `2,3,4,5`). `slide-animation-rich.oracle.json`
   pins the verbatim `p:timing`/`p:bldLst`, the per-effect `(presetID, presetClass,
   presetSubtype, nodeType)` tuples keyed by shape name, and the enumerated spid set.
-- `slide-animation-presets.pptx` — **authoring oracle** for the Phase 2 write-side preset
-  expansion (`docs/animations-and-transitions.md`, capability B). One blank 16:9 slide, one
+- `slide-animation-presets.pptx` — **authoring oracle** for the write-side preset
+  expansion (`docs/contributing/design/animations.md`). One blank 16:9 slide, one
   labeled text box per preset, one on-click effect each, across all three preset classes
   (spids `2..9`): entrance `entr-fadeIn` (presetID 10), `entr-flyIn` (2/sub4), `entr-appear`
   (1), `entr-wipe` (22/sub4, `filter="wipe(down)"`); emphasis `emph-grow` (6, `animScale`
   `by x=150000 y=150000`) and `emph-spin` (8, `animRot by="21600000"` on attr `r`); exit
   `exit-fadeOut` (10) and `exit-flyOut` (2/sub4). `fadeIn`/`flyIn`/`grow`/`fadeOut` **reconfirm**
-  the Phase 1 `ANIM_PRESETS` templates byte-for-byte; `appear`/`wipe`/`spin`/`flyOut` are the
+  the original four `ANIM_PRESETS` templates byte-for-byte; `appear`/`wipe`/`spin`/`flyOut` are the
   NEW templates to add. `slide-animation-presets.oracle.json` adds a `presetTemplates` map:
   preset → `{ key:(presetID,presetClass,presetSubtype,nodeType), effectParXml, behaviorsXml,
   bldPXml }` (`behaviorsXml` is the parameterizable write template, by spid/dur/id). Two
@@ -991,7 +991,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   no opacity-pulse — probed `1..150`, none emit a `style.opacity` node), so the emphasis pair
   authored is grow + spin and Pulse is recorded as a gap rather than mislabeled.
 - `slide-transition-sound.pptx` — **authoring oracle** for transition sounds
-  (`docs/animations-and-transitions.md`, capability C: `p:sndAc`). Three blank 16:9 slides,
+  (`docs/contributing/design/animations.md`: `p:sndAc`). Three blank 16:9 slides,
   each a fade transition: **slide 1** an embedded start sound, **slide 2** the same sound
   looped, **slide 3** the stop-previous form. Pins the `sndAc` structure and rel graph
   (confirmed against `CT_TransitionSoundAction`):
@@ -1014,7 +1014,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     a tiny **self-generated** WAV (16-bit PCM mono 8 kHz sine, 844 bytes) to stay license-clean
     of Microsoft's bundled audio; the built-in equivalence is recorded in the oracle, not embedded.
 - `import-animation-merge.pptx` — **authoring oracle** for carrying a build animation through
-  `importShape` (`docs/animations-and-transitions.md`, capability A). Two blank
+  `importShape` (`docs/contributing/design/animations.md`). Two blank
   16:9 slides. **Slide 1** `Source` (spid 2) has an
   entrance Fade-on-click (presetID 10). **Slide 2** `HostExisting` (spid 2) has its own entrance
   Fly-on-click (presetID 2/sub4); then in PowerPoint `Source` was **copied from slide 1 and

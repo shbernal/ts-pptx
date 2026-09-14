@@ -3564,7 +3564,7 @@ export default [
 		},
 	},
 	{
-		// Slide transitions (docs/animations-and-transitions.md, Phase 1): p:transition
+		// Slide transitions (docs/contributing/design/animations.md): p:transition
 		// is emitted between p:clrMapOvr and p:timing. Bare form for a speed bucket;
 		// mc:AlternateContent (p14 Choice with p14:dur + base Fallback) for an exact
 		// duration. Asserts both forms — and their type-variant attrs — stay schema-valid.
@@ -3581,7 +3581,7 @@ export default [
 		},
 	},
 	{
-		// Preset build animations (docs/animations-and-transitions.md, Phase 1): the
+		// Preset build animations (docs/contributing/design/animations.md): the
 		// p:timing mainSeq is assembled from captured preset templates, grouped into
 		// click steps by trigger, with one p:bldP per animated shape. Mirrors the rich
 		// fixture (entrance/emphasis/exit x click/after/with). Asserts schema validity.
@@ -3600,9 +3600,9 @@ export default [
 		},
 	},
 	{
-		// Phase 2 capability B (docs/animations-and-transitions.md): the expanded
-		// preset set adds appear/wipe (entr), spin (emph), and flyOut (exit) on top
-		// of the Phase 1 four. Emits one on-click effect per preset across all three
+		// The expanded preset set (docs/contributing/design/animations.md) adds
+		// appear/wipe (entr), spin (emph), and flyOut (exit) on top of the original
+		// four. Emits one on-click effect per preset across all three
 		// classes (mirrors slide-animation-presets.pptx). Asserts the timing tree +
 		// p:bldLst for the new templates stays schema-valid.
 		name: 'expanded preset build animations (appear/wipe/spin/flyOut)',
@@ -3620,7 +3620,7 @@ export default [
 		},
 	},
 	{
-		// Phase 2 capability C (docs/animations-and-transitions.md): transition sounds.
+		// Transition sounds (docs/contributing/design/animations.md).
 		// A start sound (p:sndAc/p:stSnd/p:snd r:embed) pulls in an audio relationship,
 		// an embedded WAV media part, and a wav=audio/x-wav Default content type; the
 		// looped form adds @loop and the stop-previous form is a bare p:endSnd (no rel/

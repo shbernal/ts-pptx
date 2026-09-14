@@ -8,7 +8,7 @@
  * references — `<p:spTgt spid>` inside the timing tree and `<p:bldP spid>` in the
  * build list — so animations stay coherent when shape ids change. Three purely
  * structural operations: **enumerate**, **remap**, and **prune**. See
- * `docs/animations-and-transitions.md` ("spid-awareness").
+ * `docs/contributing/design/animations.md` ("spid-aware operations").
  */
 import {
 	OOXML_NS,

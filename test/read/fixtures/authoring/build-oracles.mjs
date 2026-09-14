@@ -136,7 +136,7 @@ function buildTransition() {
 		appVersion: f.appVersion,
 		sha256: f.sha256,
 		notes:
-			'PowerPoint-authored slide-transition oracle for docs/animations-and-transitions.md (Phase 1 transition read+write). ' +
+			'PowerPoint-authored slide-transition oracle for docs/contributing/design/animations.md (transition read and write). ' +
 			'Six slides, each with one distinct p:transition authored via SlideShowTransition: fade (fast bucket, spd attr absent = default fast), ' +
 			'push dir="d" (exact 1.25s -> mc:AlternateContent p14:dur="1250"), wipe dir="u" (med bucket), cut (fast bucket), ' +
 			'dissolve (exact 2.0s -> p14:dur="2000"), and fade (med bucket, advClick="0" + advTm="3000" timed auto-advance). ' +
@@ -227,7 +227,7 @@ function buildAnimation(deck, noteHead) {
 buildTransition()
 buildAnimation(
 	'slide-animation-basic',
-	'PowerPoint-authored basic-animation oracle for docs/animations-and-transitions.md (Phase 1 animation opaque-preserve + spid enumerate). ' +
+	'PowerPoint-authored basic-animation oracle for docs/contributing/design/animations.md (animation preserve and spid enumerate). ' +
 		'One blank 16:9 slide whose text box "fade-target" (shape id/spid 2) carries a single entrance effect: Fade on click ' +
 		'(MsoAnimEffect=10). The p:timing tree is CT_TimeNodeList: tnLst > par > cTn(tmRoot) > seq(mainSeq) with one nested par/cTn ' +
 		'carrying presetID="10" presetClass="entr" presetSubtype="0" nodeType="clickEffect", a p:set of style.visibility + p:animEffect ' +
@@ -237,7 +237,7 @@ buildAnimation(
 )
 buildAnimation(
 	'slide-animation-rich',
-	'PowerPoint-authored rich-animation oracle for docs/animations-and-transitions.md (Phase 1 spid enumerate/remap/prune + write-side ' +
+	'PowerPoint-authored rich-animation oracle for docs/contributing/design/animations.md (spid enumerate/remap/prune + write-side ' +
 		'preset templates). One blank 16:9 slide with four text boxes, each with one effect spanning all three preset classes and all ' +
 		'three triggers: "ent-fade-click" (spid 2) entrance Fade presetID=10 nodeType="clickEffect"; "ent-fly-after" (spid 3) entrance ' +
 		'Fly presetID=2 subtype=4 nodeType="afterEffect"; "emph-grow-with" (spid 4) emphasis Grow/Shrink presetID=6 nodeType="withEffect" ' +

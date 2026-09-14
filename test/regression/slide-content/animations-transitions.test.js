@@ -16,7 +16,7 @@ import {
 } from '../../helpers.js'
 
 // Write-side slide transitions and preset build animations
-// (docs/animations-and-transitions.md, Phase 1). The emitters reproduce
+// (docs/contributing/design/animations.md). The emitters reproduce
 // PowerPoint-authored XML verbatim, so these assert byte-equality against the
 // PowerPoint oracles in test/read/fixtures (slide-transition / slide-animation-*).
 
@@ -89,7 +89,7 @@ defineRegressionSuite('Slide transitions (write)', [
 
 defineRegressionSuite('Preset build animations (write)', [
 	{
-		// Phase 2 capability B: the expanded preset set. One on-click effect per
+		// The expanded preset set. One on-click effect per
 		// preset across all three classes (entr/emph/exit), reproducing
 		// slide-animation-presets.pptx (spids 2..9). Asserts the whole timing tree
 		// byte-for-byte — reconfirms fadeIn/flyIn/grow/fadeOut and pins the new
@@ -272,7 +272,7 @@ defineRegressionSuite('Preset build animations (write)', [
 	},
 ])
 
-// Phase 2 capability C: transition sounds (p:sndAc). The writer reproduces
+// Transition sounds (p:sndAc). The writer reproduces
 // PowerPoint's sndAc forms (embedded start / looped / stop-previous) plus the audio
 // rel + media part + content-type graph, deduping identical sound bytes. rIds use
 // TsPptx's own numbering, so the sndAc is compared rId-normalized to the oracle.

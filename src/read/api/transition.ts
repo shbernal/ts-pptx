@@ -12,7 +12,7 @@
  *
  * The getter prefers the `p14` Choice (so `durationMs` is recovered); the setter
  * emits the `mc:AlternateContent` form when `durationMs` is set and the bare form
- * otherwise. See `docs/animations-and-transitions.md`.
+ * otherwise. See `docs/contributing/design/animations.md`.
  */
 import { InvalidOptionError } from '../../errors.js'
 import { transitionSpeedForDuration } from '../../ooxml/transition-speed.js'

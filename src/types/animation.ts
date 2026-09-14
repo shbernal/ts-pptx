@@ -63,7 +63,7 @@ export interface TransitionSoundProps {
 /**
  * A preset build-animation effect. The supported set is fixed (each is a verbatim
  * template captured from PowerPoint); adding one means adding a fixture + template,
- * not a new code path. See `docs/animations-and-transitions.md`.
+ * not a new code path. See `docs/contributing/design/animations.md`.
  */
 export type PresetEffect = 'fadeIn' | 'flyIn' | 'appear' | 'wipe' | 'grow' | 'spin' | 'fadeOut' | 'flyOut'
 

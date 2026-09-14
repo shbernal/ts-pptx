@@ -72,7 +72,7 @@ function transitionSoundToXml(transition: TransitionProps, soundRId: number | un
  * between `p:clrMapOvr` and `p:timing`. Emits PowerPoint's `mc:AlternateContent`
  * form (a `p14` Choice carrying the exact `p14:dur`, plus a base `mc:Fallback`)
  * when `durationMs` is set, and the bare `<p:transition>` otherwise. See
- * `docs/animations-and-transitions.md`.
+ * `docs/contributing/design/animations.md`.
  * @param slide - the slide whose transition is emitted
  * @param soundRId - the relationship id this slide's start sound was registered under, if one was.
  *   It is the slide's, not the transition's: one transition object can sit on several slides, each
