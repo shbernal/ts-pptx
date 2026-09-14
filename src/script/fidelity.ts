@@ -495,6 +495,15 @@ export function noteAppliesTo(construct: string, tier: PrintTier): boolean {
 	return true
 }
 
+/**
+ * `a`, `a and b`, `a, b and c` — a note is a sentence a human reads, and a bare
+ * `join(', ')` made a two-item one read as a list that had lost its last member.
+ */
+export function andList(items: readonly string[]): string {
+	if (items.length < 2) return items.join('')
+	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+}
+
 /** A graphic frame payload with no write-API emitter. */
 export type UnwritableFramePayload = 'chartEx' | 'diagram' | 'unknown'
 

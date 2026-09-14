@@ -42,7 +42,7 @@ import {
 	type CanonicalDeck,
 	type CanonicalSlide,
 } from './canonical.js'
-import type { IrValue } from '../ir.js'
+import { DECK_PROP_KEYS, type IrValue } from '../ir.js'
 
 /**
  * Which way a difference points.
@@ -123,11 +123,9 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	// fails: the source's own values become `changed`, which nothing here excuses.
 	// Path-qualified so they reach `docProps` and nothing else: a bare `title` also excused an
 	// added chart title and an added layout title in `chrome.masters`.
-	'props.title': 'a deck that declares no title gets the write path’s own',
-	'props.author': 'a deck that declares no author gets the write path’s own',
-	'props.subject': 'a deck that declares no subject gets the write path’s own',
-	'props.revision': 'a deck that declares no revision gets the write path’s own',
-	'props.company': 'a deck that declares no company gets the write path’s own',
+	...Object.fromEntries(
+		DECK_PROP_KEYS.map((key) => [`props.${key}`, `a deck that declares no ${key} gets the write path’s own`])
+	),
 }
 
 export interface IrDifference {

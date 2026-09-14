@@ -25,8 +25,8 @@
  * construct that made it uncarryable — which each shape has already declared for itself. That
  * is why {@link DeckIr}'s calls are populated even for a carried slide.
  */
-import { uniqueTitle, type DeckIr, type IrValue, type MasterIr } from '../ir.js'
-import { NoteCollector, noteAppliesTo, scopeNotes } from '../fidelity.js'
+import { DECK_PROP_KEYS, uniqueTitle, type DeckIr, type IrValue, type MasterIr } from '../ir.js'
+import { NoteCollector, andList, noteAppliesTo, scopeNotes } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
@@ -120,21 +120,11 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 }
 
 /**
- * The document properties the write API can set.
+ * The document properties the write API can set, the ones `DECK_PROPS` in `ir.ts` lists.
  *
- * Four of the twelve the read model exposes, which is the loss `deck.docProps` already
- * declares — and unlike the template-anchored tier, here it is a real one, because nothing
- * else carries them.
+ * The rest the read model exposes are the loss `deck.docProps` already declares, and unlike the
+ * template-anchored tier, here it is a real one, because nothing else carries them.
  */
-/**
- * `a`, `a and b`, `a, b and c` — a note is a sentence a human reads, and a bare
- * `join(', ')` made a two-item one read as a list that had lost its last member.
- */
-function andList(items: readonly string[]): string {
-	if (items.length < 2) return items.join('')
-	return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
-}
-
 function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
 	const entries = Object.entries(ir.props).filter(([, value]) => typeof value === 'string')
 
@@ -148,7 +138,7 @@ function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
 	// deck declared no company — a claim the converter had never checked and one that is false
 	// for most real decks. Now that `Presentation.appProperties` reads `docProps/app.xml`, the
 	// key is populated when the source states one and the note is only raised when it does not.
-	const stamped = ['title', 'author', 'subject', 'revision', 'company'].filter((key) => !(key in ir.props))
+	const stamped = DECK_PROP_KEYS.filter((key) => !(key in ir.props))
 	if (stamped.length > 0) {
 		scopeNotes(collector, null).note(
 			'deck.docPropsDefault',
@@ -161,7 +151,7 @@ function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
 	if (entries.length === 0) return []
 	return [
 		'// Document properties. Only these have write-API setters; see the fidelity notes.',
-		...entries.map(([key, value]) => `pptx.${key} = ${printString(value as string)}`),
+		...entries.map(([key, value]) => `pptx.${key} = ${printString(value)}`),
 	]
 }
 

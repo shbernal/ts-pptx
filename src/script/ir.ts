@@ -25,6 +25,7 @@
  * inline base64 literal.
  */
 import type { FidelityNote } from './fidelity.js'
+import type { CoreProperties, ExtendedProperties } from '../read/api/document-properties.js'
 
 /**
  * A reference to bytes held in {@link DeckIr.assets}, standing where a write-API option
@@ -295,17 +296,35 @@ export interface ChromeIr {
 }
 
 /**
- * Deck-level properties, reduced to the five `docProps` fields that round-trip: they have a
- * write-API setter and the read model reports them. Four are `docProps/core.xml`; `company` is
- * `<Company>` in `docProps/app.xml`, which `Presentation.appProperties` reads.
+ * The `docProps` fields that round-trip, each keyed by its write-API setter and naming the read
+ * accessor it comes from: four are `docProps/core.xml`, read through `Presentation.coreProperties`
+ * (`author` is `dc:creator`), and `company` is `<Company>` in `docProps/app.xml`, read through
+ * `Presentation.appProperties`.
+ *
+ * The one spelling of the list. {@link DeckPropsIr}, the mapping, the core properties that are not
+ * carried, the ones a written deck is stamped with and the round trip's writer defaults all derive
+ * from it. They used to be spelled out at each of those sites, and `company`, added late, was
+ * missing from one of them.
  */
-export interface DeckPropsIr {
-	title?: string
-	author?: string
-	subject?: string
-	revision?: string
-	company?: string
-}
+export const DECK_PROPS = {
+	title: { part: 'core', key: 'title' },
+	author: { part: 'core', key: 'creator' },
+	subject: { part: 'core', key: 'subject' },
+	revision: { part: 'core', key: 'revision' },
+	company: { part: 'app', key: 'company' },
+} as const satisfies Record<
+	string,
+	{ part: 'core'; key: keyof CoreProperties } | { part: 'app'; key: keyof ExtendedProperties }
+>
+
+/** A deck property the write API can set, named by its setter. */
+export type DeckPropKey = keyof typeof DECK_PROPS
+
+/** {@link DECK_PROPS}' keys, in its order. */
+export const DECK_PROP_KEYS = Object.keys(DECK_PROPS) as DeckPropKey[]
+
+/** Deck-level properties, reduced to the {@link DECK_PROPS} fields that round-trip. */
+export type DeckPropsIr = { [K in DeckPropKey]?: string }
 
 /**
  * A whole deck, ready to print.

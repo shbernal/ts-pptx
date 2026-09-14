@@ -17,9 +17,22 @@ import type { Presentation } from '../../read/api/presentation.js'
 import type { Slide } from '../../read/api/slide.js'
 import type { Paragraph } from '../../read/api/text.js'
 import { isGraphicFrame, isGroupShape, type AnyShape } from '../../read/api/shapes.js'
+import type { CoreProperties } from '../../read/api/document-properties.js'
 import { backgroundIr, SLIDE_BACKGROUND } from './background.js'
-import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
-import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
+import { NoteCollector, andList, scopeNotes, type NoteScope } from '../fidelity.js'
+import {
+	DECK_PROPS,
+	DECK_PROP_KEYS,
+	type AssetIr,
+	type AssetRef,
+	type BackgroundIr,
+	type CallIr,
+	type DeckIr,
+	type DeckPropKey,
+	type DeckPropsIr,
+	type SlideIr,
+	type SlideLayoutIr,
+} from '../ir.js'
 import { shapeCall, unwritableFramePayload } from './shape.js'
 import type { AssetResolver, MapContext } from './context.js'
 import { chromeToIr } from './chrome.js'
@@ -132,34 +145,50 @@ export function readModelToIr(pres: Presentation): DeckIr {
 	}
 }
 
+/** A `CoreProperties` key {@link DECK_PROPS} reads. */
+type CarriedCoreKey = Extract<(typeof DECK_PROPS)[DeckPropKey], { part: 'core' }>['key']
+
 /**
- * Deck properties, reduced to the five `docProps` fields this converter can carry: they have a
- * write-API setter AND the read model reports them. Four come from `docProps/core.xml`; `company`
- * comes from `docProps/app.xml` through `Presentation.appProperties`. The other seven core fields
- * the read model exposes have no setter. All of them survive anyway in a template-anchored
+ * The core properties with no write-API setter, each as a note's prose names it.
+ *
+ * Typed as every `CoreProperties` key {@link DECK_PROPS} does not read, less the three timestamps,
+ * which describe the file rather than the deck. A property the read model gains does not compile
+ * here until it is placed.
+ */
+const UNCARRIED_CORE_PROPS: Record<
+	Exclude<keyof CoreProperties, CarriedCoreKey | 'created' | 'modified' | 'lastPrinted'>,
+	string
+> = {
+	keywords: 'keywords',
+	description: 'description',
+	category: 'category',
+	contentStatus: 'content status',
+	lastModifiedBy: 'last-modified-by',
+}
+
+/**
+ * Deck properties, reduced to the {@link DECK_PROPS} fields this converter can carry: they have a
+ * write-API setter AND the read model reports them. The core fields in
+ * {@link UNCARRIED_CORE_PROPS} have no setter. All of them survive anyway in a template-anchored
  * output, since the source deck itself becomes the template; this is only a loss for a standalone
  * one.
  */
 function deckProps(pres: Presentation, notes: NoteScope): DeckPropsIr {
-	const core = pres.coreProperties
-	const carried = ['keywords', 'description', 'category', 'contentStatus', 'lastModifiedBy'] as const
-	if (carried.some((key) => core[key] !== undefined)) {
+	const parts = { core: pres.coreProperties, app: pres.appProperties }
+	const uncarried = Object.keys(UNCARRIED_CORE_PROPS) as (keyof typeof UNCARRIED_CORE_PROPS)[]
+	if (uncarried.some((key) => parts.core[key] !== undefined)) {
 		notes.note(
 			'deck.docProps',
 			'dropped',
 			'unwritable',
-			'only title, author, subject, revision and company round-trip; keywords, description, category, content status and last-modified-by have no write-API setter'
+			`only ${andList(DECK_PROP_KEYS)} round-trip; ${andList(Object.values(UNCARRIED_CORE_PROPS))} have no write-API setter`
 		)
 	}
-	return (
-		compact({
-			title: core.title,
-			author: core.creator,
-			subject: core.subject,
-			revision: core.revision,
-			company: pres.appProperties.company,
-		}) ?? {}
-	)
+	const read = (key: DeckPropKey): string | undefined => {
+		const source = DECK_PROPS[key]
+		return source.part === 'core' ? parts.core[source.key] : parts.app[source.key]
+	}
+	return compact(Object.fromEntries(DECK_PROP_KEYS.map((key) => [key, read(key)]))) ?? {}
 }
 
 /**
