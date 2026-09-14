@@ -1448,6 +1448,19 @@ magenta so the two distinct failures separate cleanly: magenta in the frame mean
 PowerPoint fell back to the picture, and a blank frame means the payload never
 rasterized. Both absent is the only passing state.
 
+#### Reading OLE objects back
+
+The `ole` leg of `test:com` checks package health, which is a question the object model
+does answer. PowerPoint does not report a `p:oleObj` it rejects as a corrupt file. It drops
+the whole `p:graphicFrame`, and the slide opens with no shape where the object was. Schema
+validation cannot see that, so the leg opens a generated OLE deck and reads each shape's
+`OLEFormat.ProgID` back against `EXPECTED_OLE_PROGID` in `scripts/com/contract.mjs`.
+
+A COM check that reads OLE objects must open the deck with a window. A windowless
+PowerPoint does not instantiate embedded objects, so `Shapes` comes back without them, even
+for a deck PowerPoint authored itself, and that looks the same as PowerPoint having dropped
+them. `vbsOpenHeader()` in `scripts/com/vbs.mjs` takes a `withWindow` flag for this.
+
 #### "PowerPoint will never paint this" is a claim that needs render evidence
 
 The claim *this construct is valid OOXML, we can emit it, and PowerPoint does not
