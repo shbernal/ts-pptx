@@ -37,6 +37,7 @@ import {
 } from '../../read/api/shapes.js'
 import { UNWRITABLE_FRAME_CONSTRUCTS, type NoteScope, type UnwritableFramePayload } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
+import type { ConnectorProps, ShapeLineProps } from '../../types/style.js'
 import {
 	compact,
 	compactRequired,
@@ -353,7 +354,33 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
  * the routing (`straight`/`elbow`/`curved`), not a fill kind — so spreading a line option
  * object into it wholesale would both drop silently and collide.
  */
-const CONNECTOR_LINE_KEYS = ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'] as const
+const CONNECTOR_LINE_KEYS = [
+	'color',
+	'width',
+	'dashType',
+	'beginArrowType',
+	'endArrowType',
+] as const satisfies readonly (keyof ConnectorProps & keyof ShapeLineProps)[]
+
+/**
+ * Every other `ShapeLineProps` key: what a connector's flat stroke options cannot express, which
+ * the `connector.line` note declares.
+ *
+ * Typed as the complement of {@link CONNECTOR_LINE_KEYS}, so a stroke option the write API gains
+ * does not compile here until it is placed, carried or noted. Unplaced, it would reach `lineOption`'s
+ * output and the copy loop would drop it without a note. `type` is the fill kind, and gets this far
+ * only as `'gradient'`: a `'none'` outline has already become a `line` shape.
+ */
+const CONNECTOR_FLATTENED_LINE_KEYS: Record<
+	Exclude<keyof ShapeLineProps, (typeof CONNECTOR_LINE_KEYS)[number]>,
+	true
+> = {
+	type: true,
+	gradient: true,
+	pattern: true,
+	transparency: true,
+	cap: true,
+}
 
 /**
  * A `Connector` becomes `addConnector`.
@@ -396,7 +423,7 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 		const value = line[key]
 		if (value !== undefined) stroke[key] = value
 	}
-	if (line['type'] === 'gradient' || line['transparency'] !== undefined || line['cap'] !== undefined) {
+	if (Object.keys(CONNECTOR_FLATTENED_LINE_KEYS).some((key) => line[key] !== undefined)) {
 		notes.note(
 			'connector.line',
 			'flattened',
