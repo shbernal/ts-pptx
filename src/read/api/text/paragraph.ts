@@ -2,11 +2,9 @@
  * The `Paragraph` read/write proxy (`a:p`).
  *
  * A paragraph owns its `a:pPr` — alignment, indents, spacing, the bullet — and hands each
- * `a:r` to a {@link Run}. It reads the same {@link PlaceholderTextContext} rather than
- * resolving inheritance itself.
+ * `a:r` to a {@link Run}. It is handed its frame's {@link TextContext}, and builds the one
+ * {@link InheritedRunProps} its runs share.
  */
-import type { Part } from '../../opc/part.js'
-import type { Relationships } from '../../opc/relationships.js'
 import { resolvePartName } from '../../opc/partnames.js'
 import {
 	attr,
@@ -28,97 +26,68 @@ import {
 	resolveInheritedRunFontFace,
 	resolveInheritedRunSize,
 	type PlaceholderRef,
-	type ResolvedColor,
 } from '../theme-context.js'
 import { HUNDREDTHS_PER_POINT } from '../../../units.js'
 import { ptFromEmu, ptFromHundredths } from '../coords.js'
-import { Run, type BulletDetail, type BulletStyle, type LineSpacing, type PlaceholderTextContext } from './run.js'
+import {
+	Run,
+	type BulletDetail,
+	type BulletStyle,
+	type InheritedRunProps,
+	type LineSpacing,
+	type TextContext,
+} from './run.js'
 import { setParagraphText } from './edit.js'
 /** One paragraph (`a:p`) of a text frame. */
 export class Paragraph {
 	constructor(
 		private readonly element: Element,
-		private readonly part: Part,
-		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Run} for the `resolved*` getters. */
-		private readonly themeContext?: ThemeContext,
+		/** What the paragraph is read against; see {@link TextContext}. */
+		private readonly context: TextContext,
 		/**
-		 * Placeholder + slide-list-style context for resolving a placeholder-inherited
-		 * run colour/size/face; absent for non-placeholder text. The owning
-		 * {@link TextFrame} supplies the placeholder identity and the text body's
-		 * `a:lstStyle`.
+		 * The owning text body's own `a:lstStyle`, the tier just below the paragraph in the chain its
+		 * runs inherit through. Read only when {@link TextContext.inherit} is set.
 		 */
-		private readonly inherit?: { placeholder: PlaceholderTextContext; slideLstStyle: Element | null },
-		/** The owning part's relationships, threaded to each {@link Run} for hyperlink `@r:id` resolution; absent when reached without them. */
-		private readonly relationships?: Relationships
+		private readonly slideLstStyle: Element | null
 	) {}
 
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
-		const inheritedColor = this.#inheritedColorResolver()
-		const inheritedSize = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
-			resolveInheritedRunSize(ph, level, pPr, slideLst, ctx)
-		)
-		const inheritedFace = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
-			resolveInheritedRunFontFace(ph, level, pPr, slideLst, ctx)
-		)
-		const inheritedBold = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
-			resolveInheritedRunBold(ph, level, pPr, slideLst, ctx)
-		)
-		const inheritedItalic = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
-			resolveInheritedRunItalic(ph, level, pPr, slideLst, ctx)
-		)
-		const fontRef = this.inherit?.placeholder.fontRef ?? null
-		return getElements(this.element, 'a:r').map(
-			(element) =>
-				new Run(
-					element,
-					this.part,
-					this.themeContext,
-					inheritedColor,
-					inheritedSize,
-					inheritedFace,
-					inheritedBold,
-					inheritedItalic,
-					this.relationships,
-					fontRef
-				)
-		)
+		const inherited = this.#inheritedRunProps()
+		return getElements(this.element, 'a:r').map((element) => new Run(element, this.context, inherited))
 	}
 
 	/**
-	 * A memoized thunk resolving the colour every run in this paragraph inherits
-	 * when it sets none of its own, or `undefined` for non-placeholder paragraphs.
-	 * Runs in one paragraph share a level and `a:pPr`, so the lookup runs at most
-	 * once per paragraph and only when a colourless run actually asks for it.
+	 * What every run in this paragraph inherits when it sets no value of its own, or `null` for text
+	 * that inherits through nothing. Runs in one paragraph share a level and `a:pPr`, so each
+	 * property is resolved at most once per paragraph, and only when a run lacking its own value asks.
 	 */
-	#inheritedColorResolver(): (() => ResolvedColor | null) | undefined {
-		return this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
-			resolveInheritedRunColor(ph, level, pPr, slideLst, ctx)
-		)
-	}
-
-	/**
-	 * Build a memoized per-paragraph thunk for one inherited run property
-	 * (colour/size/face/bold/italic), or `undefined` for non-placeholder paragraphs. All runs in
-	 * a paragraph share its level and `a:pPr`, so each `resolve` runs at most once
-	 * and only when a run actually lacks its own value and asks.
-	 */
-	#inheritedResolver<T>(
-		resolve: (
-			ph: PlaceholderRef | null,
-			level: number,
-			pPr: Element | null,
-			slideLstStyle: Element | null,
-			ctx: ThemeContext
-		) => T | null
-	): (() => T | null) | undefined {
-		if (!this.inherit) return undefined
-		const { placeholder, slideLstStyle } = this.inherit
+	#inheritedRunProps(): InheritedRunProps | null {
+		const inherit = this.context.inherit
+		if (!inherit) return null
 		const pPr = firstChild(this.element, 'a:pPr')
 		const level = this.level
-		let cached: T | null | undefined
-		return () =>
-			cached === undefined ? (cached = resolve(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached
+		const { ctx } = this.context
+		const slideLstStyle = this.slideLstStyle
+		const once = <T>(
+			resolve: (
+				ph: PlaceholderRef | null,
+				level: number,
+				pPr: Element | null,
+				slideLstStyle: Element | null,
+				ctx: ThemeContext
+			) => T | null
+		): (() => T | null) => {
+			let cached: T | null | undefined
+			return () => (cached === undefined ? (cached = resolve(inherit.ph, level, pPr, slideLstStyle, ctx)) : cached)
+		}
+		return {
+			color: once(resolveInheritedRunColor),
+			size: once(resolveInheritedRunSize),
+			face: once(resolveInheritedRunFontFace),
+			bold: once(resolveInheritedRunBold),
+			italic: once(resolveInheritedRunItalic),
+		}
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -239,7 +208,7 @@ export class Paragraph {
 			sizePt: ptFromHundredths(ptVal),
 			color: colorValueIf(colorEl, 'srgbClr'),
 			schemeColor: colorValueIf(colorEl, 'schemeClr'),
-			resolvedColor: this.themeContext ? resolveColorElement(colorEl, this.themeContext) : null,
+			resolvedColor: resolveColorElement(colorEl, this.context.ctx),
 		}
 	}
 
@@ -253,7 +222,7 @@ export class Paragraph {
 	 */
 	#bulletImagePartName(buBlip: Element): string | null {
 		const blip = firstChild(buBlip, 'a:blip')
-		return resolvePartName(blip && attr(blip, 'r:embed'), this.relationships ?? null)
+		return resolvePartName(blip && attr(blip, 'r:embed'), this.context.rels)
 	}
 
 	/** Points from a spacing child's `a:spcPts/@val` (hundredths of a point), or `null`. */
@@ -298,7 +267,7 @@ export class Paragraph {
 	 */
 	set text(value: string) {
 		setParagraphText(this.element, value)
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Escape hatch: the underlying `a:p` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -308,7 +277,7 @@ export class Paragraph {
 
 	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
 	markDirty(): void {
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 }
 

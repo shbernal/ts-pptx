@@ -253,6 +253,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: the read model's text, table and diagram proxies take the context they are read
+  against, and always resolve against a theme.**
+  - `TextFrame` takes one `TextContext`, `{ part, ctx, rels, inherit }`, in place of its part,
+    theme context, placeholder context and relationships. `inherit` is `{ ph, fontRef }` for a
+    shape's text, `ph` being `null` outside a placeholder, and `null` for text that inherits
+    through nothing, as a table cell's does. `rels` is `null` only for text read without its
+    part's relationships. `Paragraph` and `Run` take the same context, and a `Run` takes one
+    `InheritedRunProps` in place of five resolver functions. All three types are exported from
+    `pptx-ts/read`.
+  - `Table`, `TableRow`, `TableCell`, `Diagram` and `DiagramPoint` require the theme context and
+    the relationships, and `Table` the package. The getters that answered `null` when a proxy had
+    no theme context resolve now: a run's `resolvedColor`, a bullet's `resolvedColor`, a table's
+    and a cell's `resolvedFill`, `gradientFill` and `patternFill`, and a cell border's colour. A
+    run's `highlight` resolves a theme token rather than only a literal.
+  - Nothing reached through `Presentation` changes: every proxy it builds already carried both.
+  - **Migration:** only a proxy constructed by hand is affected. Write
+    `new TextFrame(txBody, { part, ctx, rels: null, inherit: null })` for text outside a shape,
+    and pass a `ThemeContext` and the part's `Relationships` to the table and diagram proxies.
+
 - **Breaking: chart axis, error-bar and legend-layout options are checked before they reach the
   chart part, and three option types narrow to the schema's values.**
   - `ChartAxisTickMark` is `'cross' | 'in' | 'none' | 'out'`, the values of `ST_TickMark`. It

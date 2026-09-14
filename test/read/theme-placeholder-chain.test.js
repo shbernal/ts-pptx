@@ -55,7 +55,12 @@ function phRun(flatten, ph = { type: 'body', idx: '0' }) {
 	const txBody = parse(
 		`<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/><a:p><a:r><a:t>x</a:t></a:r></a:p></p:txBody>`
 	)
-	return new TextFrame(txBody, /** @type {any} */ (stubPart()), flatten, { ph, flatten }).paragraphs[0].runs[0]
+	return new TextFrame(txBody, {
+		part: /** @type {any} */ (stubPart()),
+		ctx: flatten,
+		rels: null,
+		inherit: { ph, fontRef: null },
+	}).paragraphs[0].runs[0]
 }
 
 function ctx(overrides) {
@@ -136,9 +141,11 @@ describe('inherited size + anchor through the chain', () => {
 		const masterRoot = root('sldMaster', phSp('body', '0', { bodyPr: '<a:bodyPr anchor="ctr"/>' }))
 		const txBody = parse(`<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/><a:p/></p:txBody>`)
 		const flatten = ctx({ layoutRoot: null, masterRoot })
-		const frame = new TextFrame(txBody, /** @type {any} */ (stubPart()), flatten, {
-			ph: { type: 'body', idx: '0' },
-			flatten,
+		const frame = new TextFrame(txBody, {
+			part: /** @type {any} */ (stubPart()),
+			ctx: flatten,
+			rels: null,
+			inherit: { ph: { type: 'body', idx: '0' }, fontRef: null },
 		})
 		assertEqual(frame.resolvedAnchor, 'ctr', 'anchor inherited from the master placeholder bodyPr')
 	})

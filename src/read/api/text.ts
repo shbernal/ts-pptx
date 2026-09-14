@@ -14,9 +14,11 @@ export {
 	Run,
 	type BulletDetail,
 	type BulletStyle,
+	type InheritedRunProps,
 	type LineSpacing,
-	type PlaceholderTextContext,
 	type RunHyperlink,
+	type TextContext,
+	type TextInheritance,
 } from './text/run.js'
 export { Paragraph } from './text/paragraph.js'
 export { TextFrame, type AutofitMode, type BodyProperties } from './text/frame.js'

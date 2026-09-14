@@ -60,12 +60,11 @@ export class NotesPlaceholder extends Placeholder {
 		if (!txBody) return null
 		// The notes *body* placeholder's runs inherit their effective size/face/bold
 		// (and colour) from the notesMaster's `p:notesStyle`, carried on the notes theme
-		// context (`resolveNotesColorContext`). Give the body frame a placeholder context
-		// so `Run.resolved*` walks that chain; the `sldNum` field frame needs none.
+		// context (`resolveNotesColorContext`). Give the body frame an inheritance so
+		// `Run.resolved*` walks that chain; the `sldNum` field frame needs none.
 		const ctx = this.host.themeContext()
-		const placeholder =
-			this.type === 'body' ? { ph: { type: this.type, idx: this.idx ?? '0' }, flatten: ctx } : undefined
-		return new TextFrame(txBody, this.host.part, ctx, placeholder, this.host.relationships)
+		const inherit = this.type === 'body' ? { ph: { type: this.type, idx: this.idx ?? '0' }, fontRef: null } : null
+		return new TextFrame(txBody, { part: this.host.part, ctx, rels: this.host.relationships, inherit })
 	}
 
 	/** The placeholder's flattened text (paragraphs joined by `\n`), or `''` when it has no text body. */

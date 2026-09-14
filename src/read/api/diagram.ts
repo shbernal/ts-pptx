@@ -173,7 +173,7 @@ class DrawingIndex {
 	constructor(
 		root: Element | null,
 		private readonly drawingPart: Part | null,
-		private readonly themeContext?: ThemeContext
+		private readonly themeContext: ThemeContext
 	) {
 		const cxnLst = root && firstChild(root, 'dgm:cxnLst')
 		for (const cxn of cxnLst ? getElements(cxnLst, 'dgm:cxn') : []) {
@@ -233,7 +233,14 @@ class DrawingIndex {
 							part: this.drawingPart,
 							modelId: arm.destId,
 							paragraphIndex: arm.destinationOrder,
-							textFrame: new TextFrame(txBody, this.drawingPart, this.themeContext),
+							// The drawing part's relationships are not read, so a hyperlink in the cached
+							// text reports its raw `@r:id`.
+							textFrame: new TextFrame(txBody, {
+								part: this.drawingPart,
+								ctx: this.themeContext,
+								rels: null,
+								inherit: null,
+							}),
 							element_: sp,
 						}
 					: null,
@@ -249,8 +256,8 @@ export class DiagramPoint {
 		private readonly pt: Element,
 		/** The diagram data part, so a text edit marks the right part dirty. */
 		private readonly part: Part,
-		private readonly themeContext?: ThemeContext,
-		private readonly relationships?: Relationships,
+		private readonly themeContext: ThemeContext,
+		private readonly relationships: Relationships,
 		/** The owning diagram's drawing index, built on first use; absent when reached without one. */
 		private readonly drawing?: () => DrawingIndex
 	) {}
@@ -302,7 +309,9 @@ export class DiagramPoint {
 	 */
 	get textFrame(): TextFrame | null {
 		const t = firstChild(this.pt, 'dgm:t')
-		return t ? new TextFrame(t, this.part, this.themeContext, undefined, this.relationships) : null
+		return t
+			? new TextFrame(t, { part: this.part, ctx: this.themeContext, rels: this.relationships, inherit: null })
+			: null
 	}
 
 	/**
@@ -449,7 +458,7 @@ export class Diagram {
 		private readonly opc: OpcPackage,
 		/** Relationships of the part holding the frame — what `dgm:relIds` resolves against. */
 		private readonly frameRelationships: Relationships,
-		private readonly themeContext?: ThemeContext
+		private readonly themeContext: ThemeContext
 	) {}
 
 	/** Partname of the diagram data part. */

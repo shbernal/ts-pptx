@@ -16,13 +16,13 @@ export class TableRow {
 		private readonly tr: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
-		private readonly themeContext?: ThemeContext,
-		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}. */
-		private readonly style?: TableCellStyleContext | null,
+		private readonly themeContext: ThemeContext,
+		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}; `null` when no style resolves. */
+		private readonly style: TableCellStyleContext | null,
 		/** This row's zero-based index in the table, for style-graph banding/edge conditions. */
-		private readonly rowIndex = 0,
+		private readonly rowIndex: number,
 		/** The owning slide's relationships, threaded to each cell for {@link TableCell.pictureFill}. */
-		private readonly rels?: Relationships
+		private readonly rels: Relationships
 	) {}
 
 	/** The row's cells (`a:tc`) in left-to-right order. */

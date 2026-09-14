@@ -30,11 +30,11 @@ export class Table {
 		private readonly tbl: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
-		private readonly themeContext?: ThemeContext,
+		private readonly themeContext: ThemeContext,
 		/** The deck package, for resolving `a:tableStyleId` against `tableStyles.xml` (style-graph cell fills). */
-		private readonly opc?: OpcPackage,
+		private readonly opc: OpcPackage,
 		/** The owning slide's relationships, for resolving a cell picture fill's `r:embed` to a partname. */
-		private readonly rels?: Relationships
+		private readonly rels: Relationships
 	) {}
 
 	/** The table's rows (`a:tr`) in document (top-to-bottom) order. */
@@ -54,7 +54,7 @@ export class Table {
 	 * resolved per-cell colour off {@link TableCell.resolvedFill}.
 	 */
 	get resolvedStyle(): ResolvedTableStyle | null {
-		return this.opc ? resolveTableStyle(this.opc, this.styleId) : null
+		return resolveTableStyle(this.opc, this.styleId)
 	}
 
 	/**
@@ -73,9 +73,8 @@ export class Table {
 	#resolvedStyle: ResolvedTableStyle | null = null
 	#styleAsked = false
 
-	/** The per-cell style-resolution context, or `null` when no style resolves or there is no theme context. */
+	/** The per-cell style-resolution context, or `null` when no style resolves. */
 	#styleContext(): TableCellStyleContext | null {
-		if (!this.opc || !this.themeContext) return null
 		if (!this.#styleAsked) {
 			this.#resolvedStyle = resolveTableStyle(this.opc, this.styleId)
 			this.#styleAsked = true
@@ -139,10 +138,9 @@ export class Table {
 	 * genuinely different thing from a cell fill: a `a:tblPr` fill sits *behind* the grid, so
 	 * a cell with no fill of its own shows it through. Reports `null` for a non-solid choice
 	 * (`a:blipFill`/`a:gradFill`/`a:pattFill`/`a:noFill`) — read {@link pictureFill} for an
-	 * image background — and `null` with no theme context.
+	 * image background.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
 		if (!hasFillChoice(tblPr)) return null
 		return resolveSolidFillColor(tblPr, this.themeContext)
@@ -156,7 +154,7 @@ export class Table {
 	 */
 	get pictureFill(): PictureFill | null {
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
-		return tblPr ? readPictureFill(tblPr, this.rels ?? null) : null
+		return tblPr ? readPictureFill(tblPr, this.rels) : null
 	}
 
 	/**
@@ -165,7 +163,6 @@ export class Table {
 	 * {@link resolvedFill} decodes only solid colours.
 	 */
 	get gradientFill(): GradientFill | null {
-		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
 		return tblPr ? readGradientFill(tblPr, this.themeContext) : null
 	}
@@ -175,7 +172,6 @@ export class Table {
 	 * pattern-filled.
 	 */
 	get patternFill(): PatternFill | null {
-		if (!this.themeContext) return null
 		const tblPr = firstChild(this.tbl, 'a:tblPr')
 		return tblPr ? readPatternFill(tblPr, this.themeContext) : null
 	}

@@ -65,13 +65,6 @@ import { EMU_PER_POINT } from '../../units.js'
  * Deliberately not `CellBorder` itself: that type reports every field, `null` included, so
  * passing one back would make "leave this alone" unsayable. Here an omitted field is simply
  * not written, which is what an edit usually means.
- *//**
- * One border as {@link TableCell.setBorder} takes it — the write-side mirror of
- * {@link CellBorder}, which is what reading one gives back.
- *
- * Deliberately not `CellBorder` itself: that type reports every field, `null` included, so
- * passing one back would make "leave this alone" unsayable. Here an omitted field is simply
- * not written, which is what an edit usually means.
  */
 export interface TableCellBorderEdit {
 	/** Border width in points; omitted leaves `@w` unset, which renders as a hairline. */
@@ -181,24 +174,26 @@ export class TableCell {
 		private readonly tc: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
-		private readonly themeContext?: ThemeContext,
-		/** The table's style-resolution context, for the {@link resolvedFill} style-graph fallback. */
-		private readonly style?: TableCellStyleContext | null,
+		private readonly themeContext: ThemeContext,
+		/** The table's style-resolution context, for the {@link resolvedFill} style-graph fallback; `null` when no style resolves. */
+		private readonly style: TableCellStyleContext | null,
 		/** This cell's zero-based row index in the table. */
-		private readonly rowIndex = 0,
+		private readonly rowIndex: number,
 		/** This cell's zero-based column index in its row. */
-		private readonly colIndex = 0,
+		private readonly colIndex: number,
 		/** The owning slide's relationships, for resolving {@link pictureFill}'s `r:embed` to a partname. */
-		private readonly rels?: Relationships
+		private readonly rels: Relationships
 	) {}
 
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
 	get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.tc, 'a:txBody')
 		// The cell's own relationships, so a run's `<a:hlinkClick r:id>` resolves to a url the same
-		// way the identical run in a text box on this slide does. `GraphicFrame.table` has passed
-		// them since it started forwarding `this.host.relationships`; only this frame was not given them.
-		return txBody ? new TextFrame(txBody, this.part, this.themeContext, undefined, this.rels) : null
+		// way the identical run in a text box on this slide does. A cell's runs inherit through no
+		// placeholder chain, and not through `p:defaultTextStyle` either.
+		return txBody
+			? new TextFrame(txBody, { part: this.part, ctx: this.themeContext, rels: this.rels, inherit: null })
+			: null
 	}
 
 	/** The cell's text, paragraphs joined by `\n`. */
@@ -441,13 +436,12 @@ export class TableCell {
 	 * reports `null` for one rather than falling through to the inherited shading —
 	 * the same guard {@link import('./shapes.js').AutoShape.resolvedFill} applies to
 	 * the style matrix. Read {@link pictureFill} for an image-filled cell. Also
-	 * `null` with no theme context, or when neither source yields a solid colour (an
+	 * `null` when neither source yields a solid colour (an
 	 * unmapped token, an explicit style `a:noFill`). The returned
 	 * {@link ResolvedColor} carries `effectiveHex` (the base colour with its
 	 * `lumMod`/`lumOff`/… transforms applied) — read that for the final colour.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		if (!this.themeContext) return null
 		if (this.hasOwnFill) return resolveSolidFillColor(this.#tcPr(), this.themeContext)
 		return this.style ? this.#styleFill() : null
 	}
@@ -502,7 +496,7 @@ export class TableCell {
 	 */
 	get pictureFill(): PictureFill | null {
 		const tcPr = this.#tcPr()
-		return tcPr ? readPictureFill(tcPr, this.rels ?? null) : null
+		return tcPr ? readPictureFill(tcPr, this.rels) : null
 	}
 
 	/** The fill this cell inherits from the table style graph, or `null` when the style defines none for it. */
@@ -528,7 +522,7 @@ export class TableCell {
 	 */
 	get gradientFill(): GradientFill | null {
 		const tcPr = this.#tcPr()
-		return tcPr && this.themeContext ? readGradientFill(tcPr, this.themeContext) : null
+		return tcPr ? readGradientFill(tcPr, this.themeContext) : null
 	}
 
 	/**
@@ -537,7 +531,7 @@ export class TableCell {
 	 */
 	get patternFill(): PatternFill | null {
 		const tcPr = this.#tcPr()
-		return tcPr && this.themeContext ? readPatternFill(tcPr, this.themeContext) : null
+		return tcPr ? readPatternFill(tcPr, this.themeContext) : null
 	}
 
 	/**
@@ -568,7 +562,7 @@ export class TableCell {
 		const decode = (qname: string): CellBorder | null => {
 			const ln = firstChild(tcPr, qname)
 			if (!ln) return null
-			const line = readLineBasics(ln, this.themeContext ?? null)
+			const line = readLineBasics(ln, this.themeContext)
 			return {
 				widthPt: line.widthPt,
 				dash: line.dash,

@@ -4,13 +4,10 @@
  * The frame is where a shape's text begins: it owns the body properties (insets, anchor,
  * wrap, autofit) and hands each `a:p` to a {@link Paragraph}.
  */
-import type { Part } from '../../opc/part.js'
-import type { Relationships } from '../../opc/relationships.js'
 import { attr, type Element, firstChild, getElements, numberValue, pctPointsAttr } from '../../oxml/dom.js'
-import { type ThemeContext } from '../../oxml/theme.js'
 import { resolveInheritedAnchor } from '../theme-context.js'
 import { emuToPoints } from '../../../units.js'
-import type { PlaceholderTextContext } from './run.js'
+import type { TextContext } from './run.js'
 import { Paragraph } from './paragraph.js'
 import { setTextBodyText } from './edit.js'
 /**
@@ -43,29 +40,19 @@ export type AutofitMode = 'none' | 'normAutofit' | 'spAutoFit'
 export class TextFrame {
 	constructor(
 		private readonly txBody: Element,
-		private readonly part: Part,
-		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Paragraph}/{@link Run} for the `resolved*` getters. */
-		private readonly themeContext?: ThemeContext,
 		/**
-		 * The placeholder this text body lives in, when any — enables
-		 * placeholder-inherited run colour/size/face resolution. Absent for ordinary
-		 * text boxes and table cells.
+		 * What the frame is read against — its part, the theme, the part's relationships and the
+		 * inheritance its runs fall back through — handed on to each {@link Paragraph} and {@link Run}.
 		 */
-		private readonly placeholder?: PlaceholderTextContext,
-		/** The owning part's relationships, threaded to each {@link Paragraph}/{@link Run} for hyperlink `@r:id` resolution; absent when reached without them. */
-		private readonly relationships?: Relationships
+		private readonly context: TextContext
 	) {}
 
 	/** Paragraphs (`a:p`) in document order. */
 	get paragraphs(): Paragraph[] {
-		// The slide text body's own list style is the tier just below the run/paragraph
-		// in the placeholder inheritance chain; resolve it once and share it.
-		const inherit = this.placeholder
-			? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') }
-			: undefined
-		return getElements(this.txBody, 'a:p').map(
-			(element) => new Paragraph(element, this.part, this.themeContext, inherit, this.relationships)
-		)
+		// The text body's own list style is the tier just below the run/paragraph in the
+		// inheritance chain; resolve it once and share it.
+		const slideLstStyle = this.context.inherit ? firstChild(this.txBody, 'a:lstStyle') : null
+		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.context, slideLstStyle))
 	}
 
 	/**
@@ -106,9 +93,9 @@ export class TextFrame {
 		const own = this.bodyProperties?.anchor
 		if (own) return own
 		// Anchor inheritance is placeholder-only; a non-placeholder frame (ph null) has none.
-		const ph = this.placeholder?.ph
+		const ph = this.context.inherit?.ph
 		if (!ph) return null
-		return resolveInheritedAnchor(ph, this.placeholder.flatten)
+		return resolveInheritedAnchor(ph, this.context.ctx)
 	}
 
 	/**
@@ -172,7 +159,7 @@ export class TextFrame {
 	 */
 	set text(value: string) {
 		setTextBodyText(this.txBody, value)
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Escape hatch: the underlying `p:txBody` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -182,6 +169,6 @@ export class TextFrame {
 
 	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
 	markDirty(): void {
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 }

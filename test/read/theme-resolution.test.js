@@ -43,7 +43,8 @@ const stubPart = () => ({ markDirty() {} })
 function runWith(rPrInner, flatten) {
 	const xml = `<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/><a:p><a:r>${rPrInner}<a:t>x</a:t></a:r></a:p></p:txBody>`
 	const txBody = new DOMParser().parseFromString(xml, 'text/xml').documentElement
-	return new TextFrame(txBody, /** @type {any} */ (stubPart()), flatten).paragraphs[0].runs[0]
+	return new TextFrame(txBody, { part: /** @type {any} */ (stubPart()), ctx: flatten, rels: null, inherit: null })
+		.paragraphs[0].runs[0]
 }
 
 /** An AutoShape over a hand-authored p:sp, resolving against `flatten`. */

@@ -50,9 +50,9 @@ function txBodyEl(inner) {
 
 /** A placeholder `TextFrame` over `inner`, resolving against `flatten`. */
 function placeholderFrame(inner, flatten = ctx()) {
-	const placeholder = { ph: { type: 'body', idx: '0' }, flatten }
+	const inherit = { ph: { type: 'body', idx: '0' }, fontRef: null }
 	// The read-side `resolved*` getters never touch `part`; a stand-in is enough.
-	return new TextFrame(txBodyEl(inner), /** @type {any} */ ({}), flatten, placeholder)
+	return new TextFrame(txBodyEl(inner), { part: /** @type {any} */ ({}), ctx: flatten, rels: null, inherit })
 }
 
 /** First run of the first paragraph. */
@@ -229,17 +229,18 @@ describe('inherited run size / face / bold / italic — the two upper tiers', ()
 	})
 
 	test('a non-placeholder run reports null, never undefined', () => {
-		// `TextFrame` builds the inheritance thunks only for placeholder text, so a
-		// plain text box reaches no tier at all. The point here is the *shape* of the
-		// answer: `resolvedItalic` degrades to `null` like `resolvedBold`, rather than
-		// being an absent accessor — which is the whole defect issue #27 reported.
-		const frame = new TextFrame(
-			txBodyEl(`<a:p><a:pPr><a:defRPr b="1" i="1"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`),
-			/** @type {any} */ ({}),
-			ctx()
-		)
+		// A frame given no inheritance builds no inherited run properties, so its runs
+		// reach no tier at all. The point here is the *shape* of the answer:
+		// `resolvedItalic` degrades to `null` like `resolvedBold`, rather than being an
+		// absent accessor — which is the whole defect issue #27 reported.
+		const frame = new TextFrame(txBodyEl(`<a:p><a:pPr><a:defRPr b="1" i="1"/></a:pPr><a:r><a:t>x</a:t></a:r></a:p>`), {
+			part: /** @type {any} */ ({}),
+			ctx: ctx(),
+			rels: null,
+			inherit: null,
+		})
 		const run = firstRun(frame)
-		assertEqual(run.resolvedBold, null, 'no inheritance thunk → null')
+		assertEqual(run.resolvedBold, null, 'no inheritance → null')
 		assertEqual(run.resolvedItalic, null, 'italic degrades identically, not to undefined')
 	})
 

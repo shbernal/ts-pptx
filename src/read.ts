@@ -108,8 +108,11 @@ export {
 	type AutofitMode,
 	type BulletDetail,
 	type BulletStyle,
+	type InheritedRunProps,
 	type RunHyperlink,
 	type LineSpacing,
+	type TextContext,
+	type TextInheritance,
 } from './read/api/text.js'
 export {
 	Table,

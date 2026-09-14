@@ -20,11 +20,22 @@ const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
 const stubPart = () => ({ markDirty() {} })
 
-/** A TextFrame over hand-authored p:txBody inner XML (a stub part absorbs markDirty). */
+/** A theme with no colours, fonts or roots: a scheme token resolves to nothing, a literal to itself. */
+const emptyTheme = () => ({ clrMap: new Map(), clrScheme: new Map(), fmtScheme: null })
+
+/**
+ * The context a hand-built frame is read against: a part (a stub absorbs markDirty), the empty
+ * theme, the given relationships, and no inheritance.
+ * @param {any} [part]
+ * @param {any} [rels]
+ */
+const bareText = (part = stubPart(), rels = null) => ({ part, ctx: emptyTheme(), rels, inherit: null })
+
+/** A TextFrame over hand-authored p:txBody inner XML. */
 function frame(inner) {
 	const xml = `<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/>${inner}</p:txBody>`
 	const txBody = new DOMParser().parseFromString(xml, 'text/xml').documentElement
-	return new TextFrame(txBody, /** @type {any} */ (stubPart()))
+	return new TextFrame(txBody, bareText())
 }
 
 /** The first run of a single-paragraph frame. */
@@ -99,7 +110,7 @@ describe('Run character-property setters', () => {
 		}
 		const xml = `<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr/><a:p><a:r><a:rPr b="1"/><a:t>x</a:t></a:r></a:p></p:txBody>`
 		const txBody = new DOMParser().parseFromString(xml, 'text/xml').documentElement
-		const r = new TextFrame(txBody, /** @type {any} */ (part)).paragraphs[0].runs[0]
+		const r = new TextFrame(txBody, bareText(part)).paragraphs[0].runs[0]
 		r.color = null
 		r.schemeColor = null
 		r.fontName = null
@@ -141,13 +152,13 @@ describe('Run.resolvedColor with a fill of its own that is not solid', () => {
 	})
 })
 
-describe('Run getter edges without a theme context', () => {
+describe('Run getter edges on text that inherits through nothing', () => {
 	test('text is empty when the run has no a:t', () => {
 		assertEqual(run(`<a:r><a:rPr/></a:r>`).text, '', 'no a:t → empty text')
 	})
 
 	test('resolvedColor is null and resolvedFontFace falls back to the literal own face', () => {
-		assertEqual(run(`<a:r><a:t>x</a:t></a:r>`).resolvedColor, null, 'no themeContext → null resolvedColor')
+		assertEqual(run(`<a:r><a:t>x</a:t></a:r>`).resolvedColor, null, 'no own fill and no inheritance → null')
 		const r = run(`<a:r><a:rPr><a:latin typeface="Georgia"/></a:rPr><a:t>x</a:t></a:r>`)
 		assertEqual(r.resolvedFontFace, 'Georgia', 'own literal face resolves without a fontScheme')
 	})
@@ -207,8 +218,7 @@ describe('Paragraph getter edges', () => {
 				`<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}" xmlns:r="${R_NS}"><a:bodyPr/>` +
 				`<a:p><a:pPr><a:buBlip><a:blip r:embed="${relId}"/></a:buBlip></a:pPr><a:r><a:t>x</a:t></a:r></a:p></p:txBody>`
 			const txBody = /** @type {any} */ (new DOMParser().parseFromString(xml, 'text/xml').documentElement)
-			const bullet = new TextFrame(txBody, /** @type {any} */ (stubPart()), undefined, undefined, rels).paragraphs[0]
-				.bulletDetail
+			const bullet = new TextFrame(txBody, bareText(stubPart(), rels)).paragraphs[0].bulletDetail
 			if (bullet?.kind !== 'picture') throw new Error(`expected a picture bullet, got ${JSON.stringify(bullet)}`)
 			return bullet.imagePartName
 		}
@@ -233,8 +243,8 @@ describe('Paragraph getter edges', () => {
 		assertEqual(bullet.sizePt, null, 'no a:buSzPts')
 		assertEqual(bullet.color, 'C00000', 'a:buClr/a:srgbClr/@val')
 		assertEqual(bullet.schemeColor, null, 'not a scheme colour')
-		// No theme context on a synthetic frame, so the resolved form is unavailable.
-		assertEqual(bullet.resolvedColor, null, 'no theme context → null resolvedColor')
+		// A literal colour resolves to itself, even against a theme that maps nothing.
+		assertEqual(bullet.resolvedColor?.effectiveHex, 'C00000', 'a:buClr literal resolved')
 	})
 
 	test('bulletDetail reads a scheme bullet colour and an absolute buSzPts', () => {
@@ -283,7 +293,7 @@ describe('TextFrame.text setter + resolvedAnchor + element_', () => {
 			`<p:txBody xmlns:p="${P_NS}" xmlns:a="${A_NS}"><a:bodyPr anchor="ctr"/><a:p/></p:txBody>`,
 			'text/xml'
 		).documentElement
-		const f = new TextFrame(withAnchor, /** @type {any} */ (stubPart()))
+		const f = new TextFrame(withAnchor, bareText())
 		assertEqual(f.resolvedAnchor, 'ctr', 'own bodyPr @anchor wins')
 		assertEqual(frame(`<a:p/>`).resolvedAnchor, null, 'no own anchor and no placeholder → null')
 	})

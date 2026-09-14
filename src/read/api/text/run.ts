@@ -3,8 +3,7 @@
  *
  * A run is where inheritance actually bites: an uncoloured, unsized, unfaced run resolves
  * through the placeholder tier, the shape's `p:style/a:fontRef` and the presentation's
- * `p:defaultTextStyle`, which is why {@link PlaceholderTextContext} threads down to here from
- * the frame.
+ * `p:defaultTextStyle`, which is why {@link TextContext} threads down to here from the frame.
  */
 import type { Part } from '../../opc/part.js'
 import type { Relationships } from '../../opc/relationships.js'
@@ -21,7 +20,7 @@ import {
 	removeChildrenByQName,
 	setAttr,
 } from '../../oxml/dom.js'
-import { applySolidFill, colorValueIf, hasFillChoice, solidFillColor, type SolidFillEdit } from '../../oxml/fill.js'
+import { applySolidFill, hasFillChoice, solidFillColor, type SolidFillEdit } from '../../oxml/fill.js'
 import { checkEnumOrThrow } from '../../../ooxml/check-enum.js'
 import { TEXT_UNDERLINE_TYPES } from '../../../ooxml/st-enums.js'
 import { resolveThemeFont, type ThemeContext } from '../../oxml/theme.js'
@@ -38,19 +37,49 @@ import { RPR_FILL_AFTER, RPR_LATIN_AFTER } from '../../../ooxml/sequence.js'
 import { ptFromHundredths } from '../coords.js'
 
 /**
- * What a {@link Run}'s text body needs to resolve an *inherited* run
- * colour/size/face/bold: which placeholder the text lives in (or `null` for a
- * non-placeholder shape, which still resolves its `p:style/a:fontRef` and the
- * presentation `p:defaultTextStyle`), the slide theme context (with the
- * layout/master roots) to resolve against, and the shape's resolved
- * `p:style/a:fontRef` text tier. The owning slide's text body `a:lstStyle` is added
- * per text frame. Absent only for text reached without a theme context (table cells).
+ * What a text body is read against, handed from a {@link TextFrame} to each paragraph and run: the
+ * part an edit marks dirty, the theme the `resolved*` getters resolve against, the relationships
+ * a hyperlink or a picture bullet resolves through, and the inheritance its runs fall back through.
  */
-export interface PlaceholderTextContext {
+export interface TextContext {
+	/** The part the text lives in. */
+	part: Part
+	/** The theme the text resolves against: the colour maps, `fontScheme`, and the layout and master roots. */
+	ctx: ThemeContext
+	/**
+	 * The owning part's relationships, or `null` for text read without them — a SmartArt drawing's
+	 * cached text — whose run hyperlinks then report their raw `@r:id`, `@action` and `@tooltip`.
+	 */
+	rels: Relationships | null
+	/**
+	 * What a run that sets no colour, size, face, bold or italic of its own inherits through, or
+	 * `null` for text that inherits through nothing: a table cell's and a SmartArt point's.
+	 */
+	inherit: TextInheritance | null
+}
+
+/** The inheritance a shape's text resolves through below its own run properties. */
+export interface TextInheritance {
+	/**
+	 * The placeholder the text lives in, or `null` for a non-placeholder shape, which still resolves
+	 * its `p:style/a:fontRef` and the presentation's `p:defaultTextStyle`.
+	 */
 	ph: PlaceholderRef | null
-	flatten: ThemeContext
-	/** The shape's resolved `p:style/a:fontRef` colour + face tier, or `null` when it has none. */
-	fontRef?: StyleFontRef | null
+	/** The shape's resolved `p:style/a:fontRef` colour and face, or `null` when it has none. */
+	fontRef: StyleFontRef | null
+}
+
+/**
+ * What the runs of one paragraph inherit, each property resolved at most once and only when a run
+ * that sets no value of its own asks. Every run in a paragraph shares its level and `a:pPr`, so
+ * they share one of these.
+ */
+export interface InheritedRunProps {
+	color(): ResolvedColor | null
+	size(): number | null
+	face(): string | null
+	bold(): boolean | null
+	italic(): boolean | null
 }
 
 /**
@@ -149,55 +178,18 @@ export type BulletDetail =
 export class Run {
 	constructor(
 		private readonly element: Element,
-		private readonly part: Part,
-		/** The owning slide's theme context (colour maps + `fontScheme`), for the `resolved*` getters; absent when the run was reached without one. */
-		private readonly themeContext?: ThemeContext,
 		/**
-		 * Resolves the colour this run inherits from its placeholder/list-style chain
-		 * when it sets none of its own (item A). Built by the owning {@link Paragraph}
-		 * for placeholder text; absent for non-placeholder runs. Called lazily.
+		 * What the run is read against; see {@link TextContext}. Its `inherit.fontRef` is the tier
+		 * {@link resolvedColor} and {@link resolvedFontFace} consult just below the run's own `a:rPr`
+		 * and above the placeholder and `p:defaultTextStyle` chain.
 		 */
-		private readonly inheritedColor?: () => ResolvedColor | null,
+		private readonly context: TextContext,
 		/**
-		 * Resolves the point size this run inherits from the same chain when it sets no
-		 * own `@sz`. Built by the owning {@link Paragraph} for placeholder text; absent
-		 * for non-placeholder runs. Called lazily.
+		 * What the run inherits when it sets no colour, size, face, bold or italic of its own, or `null`
+		 * for text that inherits through nothing. Built by the owning {@link Paragraph} and shared by
+		 * its runs; nothing in it is resolved until a run asks.
 		 */
-		private readonly inheritedSize?: () => number | null,
-		/**
-		 * Resolves the typeface this run inherits from the same chain (a `+mj-*`/`+mn-*`
-		 * theme token already resolved to a literal face) when it sets no own `a:latin`.
-		 * Built by the owning {@link Paragraph} for placeholder text; absent otherwise.
-		 * Called lazily.
-		 */
-		private readonly inheritedFace?: () => string | null,
-		/**
-		 * Resolves whether this run inherits bold from the same chain when it sets no
-		 * own `@b`. Built by the owning {@link Paragraph} for placeholder text; absent
-		 * for non-placeholder runs. Called lazily.
-		 */
-		private readonly inheritedBold?: () => boolean | null,
-		/**
-		 * Resolves whether this run inherits italic from the same chain when it sets no
-		 * own `@i`. Built by the owning {@link Paragraph} for placeholder text; absent
-		 * for non-placeholder runs. Called lazily.
-		 */
-		private readonly inheritedItalic?: () => boolean | null,
-		/**
-		 * The owning part's relationships, used to resolve a run hyperlink's `@r:id`
-		 * to its external URL or internal target partname. Every frame the read model builds
-		 * now carries them — a table cell's and a notes placeholder's included — but the
-		 * parameter stays optional for a frame constructed by hand, in which case
-		 * {@link hyperlink} still reports the raw `@r:id`/`@action`/`@tooltip`.
-		 */
-		private readonly relationships?: Relationships,
-		/**
-		 * The owning shape's resolved `p:style/a:fontRef` colour + face tier — the
-		 * fallback consulted for {@link resolvedColor}/{@link resolvedFontFace} just
-		 * below the run's own `a:rPr` and above the placeholder/`p:defaultTextStyle`
-		 * chain. Absent when the shape has no `p:style/a:fontRef`.
-		 */
-		private readonly fontRef?: StyleFontRef | null
+		private readonly inherited: InheritedRunProps | null
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -211,7 +203,7 @@ export class Run {
 		// Preserve significant leading/trailing whitespace per the XML spec.
 		if (value !== value.trim()) setAttr(t, 'xml:space', 'preserve')
 		else removeAttr(t, 'xml:space')
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Font size in points (`a:rPr/@sz` is hundredths of a point), or `null` if unset. */
@@ -228,7 +220,7 @@ export class Run {
 		if (!Number.isFinite(value) || value <= 0)
 			throw new InvalidOptionError('font/size-not-positive', `fontSizePt must be a positive number, got ${value}`)
 		setAttr(this.#getOrAddRPr(), 'sz', String(ptToHundredths(value)))
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Bold (`a:rPr/@b`), or `null` when unset (inherited from style). */
@@ -262,7 +254,7 @@ export class Run {
 		}
 		const token = checkEnumOrThrow(value, TEXT_UNDERLINE_TYPES, 'underline', 'text/invalid-underline')
 		setAttr(this.#getOrAddRPr(), 'u', token)
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/**
@@ -308,30 +300,25 @@ export class Run {
 
 	/**
 	 * The run's highlight colour (`a:rPr/a:highlight`), resolved to a literal hex
-	 * through the owning slide's theme, or `null` when the run has no highlight
-	 * (or a token colour cannot be made literal without a theme context). The
-	 * writer authors highlights from a hex colour, so `effectiveHex` is that
-	 * colour; imported decks may carry a theme token, resolved here when possible.
+	 * through the owning slide's theme, or `null` when the run has no highlight or
+	 * its colour cannot be made literal. The writer authors highlights from a hex
+	 * colour, so `effectiveHex` is that colour; imported decks may carry a theme token.
 	 */
 	get highlight(): ResolvedColor | null {
 		const rPr = this.#rPr()
 		const hl = rPr && firstChild(rPr, 'a:highlight')
 		if (!hl) return null
 		const colorEl = firstChildElement(hl)
-		if (!colorEl) return null
-		if (this.themeContext) return resolveColorElement(colorEl, this.themeContext)
-		// Without a theme context only a literal srgbClr can be made concrete.
-		const hex = colorValueIf(colorEl, 'srgbClr')
-		return hex ? { hex, transforms: [], effectiveHex: hex } : null
+		return colorEl ? resolveColorElement(colorEl, this.context.ctx) : null
 	}
 
 	/**
 	 * The run's click hyperlink (`a:rPr/a:hlinkClick`), or `null` when the run
 	 * carries none. A URL link resolves its `@r:id` to the external target
 	 * ({@link RunHyperlink.url}); a slide jump resolves it to the linked slide's
-	 * partname ({@link RunHyperlink.targetPartName}). When the run was reached
-	 * without the owning part's relationships, only the raw `@r:id`/`@action`/
-	 * `@tooltip` are reported (the target stays `null`).
+	 * partname ({@link RunHyperlink.targetPartName}). When the run is read without
+	 * its part's relationships (see {@link TextContext.rels}), only the raw
+	 * `@r:id`/`@action`/`@tooltip` are reported (the target stays `null`).
 	 */
 	get hyperlink(): RunHyperlink | null {
 		const rPr = this.#rPr()
@@ -342,10 +329,11 @@ export class Run {
 		const tooltip = attr(hlink, 'tooltip') || null
 		let url: string | null = null
 		let targetPartName: string | null = null
-		if (relId && this.relationships) {
-			const rel = this.relationships.get(relId)
+		const rels = this.context.rels
+		if (relId && rels) {
+			const rel = rels.get(relId)
 			if (rel?.targetMode === 'External') url = rel.target
-			else if (rel) targetPartName = this.relationships.resolveTarget(relId)
+			else if (rel) targetPartName = rels.resolveTarget(relId)
 		}
 		return { url, targetPartName, action, tooltip, relId }
 	}
@@ -362,12 +350,12 @@ export class Run {
 			const rPr = this.#rPr()
 			if (!rPr || !firstChild(rPr, 'a:latin')) return
 			removeChildrenByQName(rPr, ['a:latin'])
-			this.part.markDirty()
+			this.context.part.markDirty()
 			return
 		}
 		const latin = getOrAddChild(this.#getOrAddRPr(), 'a:latin', RPR_LATIN_AFTER)
 		setAttr(latin, 'typeface', value)
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Explicit RGB fill colour as a 6-hex string (`a:solidFill/a:srgbClr/@val`), or `null`. */
@@ -396,8 +384,8 @@ export class Run {
 	 * `p:style/a:fontRef` colour, then — for a run inside a placeholder — the colour
 	 * it inherits from the placeholder/list-style chain (layout → master placeholder
 	 * `a:lstStyle` → master `p:txStyles`), then the presentation's
-	 * `p:defaultTextStyle`. `null` when the run sets no colour and inherits none, the
-	 * colour cannot be made literal, or the run was reached without a theme context.
+	 * `p:defaultTextStyle`. `null` when the run sets no colour and inherits none, or the
+	 * colour cannot be made literal.
 	 * `null` too when the run's own fill is not a solid colour (`a:noFill`, a gradient):
 	 * the run decides its own colour then, and the one it would otherwise inherit is not
 	 * what it paints in, the rule `Shape.resolvedFill` and `TableCell.resolvedFill` follow.
@@ -405,10 +393,9 @@ export class Run {
 	 * its child transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
-		if (!this.themeContext) return null
 		const rPr = this.#rPr()
-		if (hasFillChoice(rPr)) return resolveSolidFillColor(rPr, this.themeContext)
-		return this.fontRef?.color ?? this.inheritedColor?.() ?? null
+		if (hasFillChoice(rPr)) return resolveSolidFillColor(rPr, this.context.ctx)
+		return this.context.inherit?.fontRef?.color ?? this.inherited?.color() ?? null
 	}
 
 	/**
@@ -420,7 +407,7 @@ export class Run {
 	 * resolved counterpart of {@link fontSizePt}, which reports only the run's own value.
 	 */
 	get resolvedSizePt(): number | null {
-		return this.fontSizePt ?? this.inheritedSize?.() ?? null
+		return this.fontSizePt ?? this.inherited?.size() ?? null
 	}
 
 	/**
@@ -436,8 +423,8 @@ export class Run {
 	 */
 	get resolvedFontFace(): string | null {
 		const own = this.fontName
-		if (own !== null) return resolveThemeFont(own, this.themeContext?.fontScheme ?? null)
-		return this.fontRef?.face ?? this.inheritedFace?.() ?? null
+		if (own !== null) return resolveThemeFont(own, this.context.ctx.fontScheme ?? null)
+		return this.context.inherit?.fontRef?.face ?? this.inherited?.face() ?? null
 	}
 
 	/**
@@ -449,7 +436,7 @@ export class Run {
 	 * resolved counterpart of {@link bold}, which reports only the run's own value.
 	 */
 	get resolvedBold(): boolean | null {
-		return this.bold ?? this.inheritedBold?.() ?? null
+		return this.bold ?? this.inherited?.bold() ?? null
 	}
 
 	/**
@@ -463,7 +450,7 @@ export class Run {
 	 * can be authored with an inherited italic can be read back with one.
 	 */
 	get resolvedItalic(): boolean | null {
-		return this.italic ?? this.inheritedItalic?.() ?? null
+		return this.italic ?? this.inherited?.italic() ?? null
 	}
 
 	/** Escape hatch: the underlying `a:r` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
@@ -473,7 +460,7 @@ export class Run {
 
 	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
 	markDirty(): void {
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	#rPr(): Element | null {
@@ -497,7 +484,7 @@ export class Run {
 		const rPr = this.#rPr()
 		if (!rPr) return
 		removeAttr(rPr, name)
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	#setBoolRPrAttr(name: string, value: boolean | null): void {
@@ -506,7 +493,7 @@ export class Run {
 			return
 		}
 		setAttr(this.#getOrAddRPr(), name, value ? '1' : '0')
-		this.part.markDirty()
+		this.context.part.markDirty()
 	}
 
 	/** Replace the run's solid fill with a single colour, or clear it when `null`. */
@@ -515,6 +502,6 @@ export class Run {
 			edit === null
 				? applySolidFill(this.#rPr(), null)
 				: applySolidFill(this.#rPr(), edit, () => this.#getOrAddRPr(), RPR_FILL_AFTER)
-		if (changed) this.part.markDirty()
+		if (changed) this.context.part.markDirty()
 	}
 }
