@@ -16,7 +16,7 @@
 
 import { ChartType } from '../../enums.js'
 import type { ChartPropsChartStock } from '../../types/index.js'
-import type { ChartMultiInternal } from '../../types/internal.js'
+import type { ChartMultiInternal, OptsChartDataInternal } from '../../types/internal.js'
 
 /** A `ChartOptsInternal._type`: one chart kind, or a combo chart's list of subcharts. */
 type ChartTypeOrCombo = ChartType | ChartMultiInternal[] | undefined
@@ -37,6 +37,21 @@ export function isScatterChart(type: ChartTypeOrCombo): boolean {
  */
 export function isXyChart(type: ChartTypeOrCombo): boolean {
 	return isScatterChart(type) || isBubbleChart(type)
+}
+
+/**
+ * A series' `<c:idx>` and `<c:order>`, which is also the index its `seriesOptions` entry and its
+ * palette colour are read at.
+ *
+ * `_dataIndex` is the series' row in the chart's data, counted across every subchart of a combo, so
+ * no two subcharts share an index. An XY plot's first row holds the X values and is not a series, so
+ * its Y series sit one below their rows: on a scatter or bubble chart of its own the first Y series
+ * is 0, the index `seriesOptions` is documented against.
+ * @param series - the data row the series is plotted from
+ * @param plotType - the plot the series belongs to, a combo subchart's own type
+ */
+export function seriesIdx(series: OptsChartDataInternal, plotType: ChartType): number {
+	return isXyChart(plotType) ? series._dataIndex - 1 : series._dataIndex
 }
 
 /**

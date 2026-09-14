@@ -16,7 +16,7 @@ import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
-import { isStackedGrouping } from './chart-kind.js'
+import { isStackedGrouping, seriesIdx } from './chart-kind.js'
 import {
 	catValRefs,
 	chartDataLabels,
@@ -84,8 +84,8 @@ function serShapeProps(
 }
 
 /** Per-series `<c:dLbls>`: number format, an optional label background, text style, show flags. */
-function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seriesColor: string): string {
-	const over = opts.seriesOptions?.[obj._dataIndex]
+function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seriesColor: string, idx: number): string {
+	const over = opts.seriesOptions?.[idx]
 	const defRPr = dataLabelDefRPr(opts, over)
 	const txPr = labelTextProps(defRPr)
 	const lblFmtCode = over?.dataLabelFormatCode ?? opts.dataLabelFormatCode
@@ -156,7 +156,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 	// One `<c:ser>` per data row.
 	const sers = data
 		.map((obj) => {
-			// EVERY per-series lookup here keys on `_dataIndex`, the series' position across the whole
+			// EVERY per-series lookup here keys on `seriesIdx`, the series' position across the whole
 			// chart -- the same number written to `<c:idx>`/`<c:order>` just below. For a single-type
 			// chart that is also its position within this subchart, so the two only part company on a
 			// combo, where each subchart's own loop restarts at 0.
@@ -168,17 +168,14 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// (read back over COM; `test/regression/chart/combo-charts.test.js` carries the case).
 			// `lineDashValues` moved with it, for the same reason and by the same reading of "the series
 			// order in the `data` array".
-			const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
-			const seriesColor = namedColorOr(
-				seriesOverride?.color,
-				paletteColor(chartColors, obj._dataIndex),
-				'seriesOptions color'
-			)
+			const idx = seriesIdx(obj, chartType)
+			const seriesOverride = opts.seriesOptions?.[idx]
+			const seriesColor = namedColorOr(seriesOverride?.color, paletteColor(chartColors, idx), 'seriesOptions color')
 			return el('c:ser', null, [
-				raw(voidEl('c:idx', { val: obj._dataIndex })),
-				raw(voidEl('c:order', { val: obj._dataIndex })),
+				raw(voidEl('c:idx', { val: idx })),
+				raw(voidEl('c:order', { val: idx })),
 				raw(seriesNameRef(obj, sheet)),
-				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, obj._dataIndex)),
+				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, idx)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
 				// The marker takes the series' own colour, not a second palette lookup — the two used to
@@ -189,7 +186,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				raw(makeSeriesDataPointsXml(chartType, obj, opts, barVaryColors)),
 				// NOTE: [20190117] Adding data labels to a RADAR chart causes unrecoverable corruption,
 				// and CT_RadarSer has no error bars either.
-				chartType === ChartType.radar ? null : raw(serDataLabels(obj, opts, seriesColor)),
+				chartType === ChartType.radar ? null : raw(serDataLabels(obj, opts, seriesColor, idx)),
 				chartType === ChartType.radar ? null : raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
 				raw(catValRefs(obj, opts, valFmtCode, sheet, { multiLevel: true })),
 				chartType === ChartType.line ? raw(voidEl('c:smooth', { val: xsdBool(opts.lineSmooth) })) : null,

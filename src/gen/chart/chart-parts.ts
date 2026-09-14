@@ -33,6 +33,7 @@ import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { borderLine, createLineCap, noStrokeLine, resolveDash, strokeDash, strokePaint } from '../drawingml/line.js'
 import { gridLineStroke, gridLineSuppressed } from './chart-stroke.js'
+import { seriesIdx } from './chart-kind.js'
 import {
 	convertAngleUnits,
 	lineWidthToEmu,
@@ -1252,9 +1253,8 @@ export interface XySeriesRefs {
  * `Sheet1!$C$2:$C$6` over a workbook four rows deep. `addChartDefinition` warns about the values past
  * the rows.
  *
- * The index is the series' position across the chart less one, for the X row that precedes it. On a
- * chart of its own that counts the Y series from 0, the index `seriesOptions` is documented against;
- * in a combo it stays clear of every other subchart's indices.
+ * The index is {@link seriesIdx}: one below the series' row, for the X row that precedes it.
+ * @param chartType - the plot, scatter or either bubble
  * @param obj - the Y series
  * @param data - the plot's series, X row first
  * @param opts - the chart's options, for the palette and `seriesOptions`
@@ -1262,6 +1262,7 @@ export interface XySeriesRefs {
  * @param valFmtCode - the caches' format code
  */
 export function xySeriesRefs(
+	chartType: ChartType,
 	obj: OptsChartDataInternal,
 	data: readonly OptsChartDataInternal[],
 	opts: ChartOptsInternal,
@@ -1269,7 +1270,7 @@ export function xySeriesRefs(
 	valFmtCode: string
 ): XySeriesRefs {
 	const rows = sheet.rowCount
-	const idx = obj._dataIndex - 1
+	const idx = seriesIdx(obj, chartType)
 	const over = opts.seriesOptions?.[idx]
 	const xCol = sheet.valueColumn(data[0]?._dataIndex ?? 0)
 	const yCol = sheet.valueColumn(obj._dataIndex)

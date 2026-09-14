@@ -30,7 +30,7 @@ import {
 	seriesNameRef,
 	type PlotBuilder,
 } from './chart-parts.js'
-import { STOCK_STYLE_SPEC, type StockStyle } from './chart-kind.js'
+import { seriesIdx, STOCK_STYLE_SPEC, type StockStyle } from './chart-kind.js'
 
 /** True when the given (already-normalized) stock style leads with a Volume bar series. */
 export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!style && STOCK_STYLE_SPEC[style].volume
@@ -40,6 +40,7 @@ const STOCK_DLBLS = el('c:dLbls', null, [...dLblShowFlags({})])
 
 /** Emit a single stock (line) series: invisible line, optional close-marker, cat/val refs. */
 function makeStockLineSer(
+	idx: number,
 	obj: OptsChartDataInternal,
 	opts: ChartOptsInternal,
 	valFmtCode: string,
@@ -65,8 +66,8 @@ function makeStockLineSer(
 			])
 		: el('c:marker', null, raw(voidEl('c:symbol', { val: 'none' })))
 	return el('c:ser', null, [
-		raw(voidEl('c:idx', { val: obj._dataIndex })),
-		raw(voidEl('c:order', { val: obj._dataIndex })),
+		raw(voidEl('c:idx', { val: idx })),
+		raw(voidEl('c:order', { val: idx })),
 		raw(seriesNameRef(obj, sheet)),
 		raw(spPr),
 		raw(marker),
@@ -81,7 +82,7 @@ function makeStockLineSer(
  * `<c:stockChart>` on the secondary axis pair; the non-volume styles draw only the stock chart on
  * the primary pair. `valAxisId`/`catAxisId` are the primary ids passed by the dispatch.
  */
-export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
+export const makeStockPlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
 	const spec = STOCK_STYLE_SPEC[(opts.stockStyle as StockStyle) || 'hlc']
 	const chartColors = resolveChartPalette(opts)
 	const volumeSeries = spec.volume ? data[0] : null
@@ -90,9 +91,10 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 
 	// VOLUME: a bar series on the PRIMARY axis pair (drawn behind the price series).
 	if (volumeSeries) {
+		const volumeIdx = seriesIdx(volumeSeries, chartType)
 		const volumeSer = el('c:ser', null, [
-			raw(voidEl('c:idx', { val: volumeSeries._dataIndex })),
-			raw(voidEl('c:order', { val: volumeSeries._dataIndex })),
+			raw(voidEl('c:idx', { val: volumeIdx })),
+			raw(voidEl('c:order', { val: volumeIdx })),
 			raw(seriesNameRef(volumeSeries, sheet)),
 			raw(
 				el(
@@ -100,11 +102,7 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 					null,
 					raw(
 						genXmlColorSelection(
-							namedColorOr(
-								opts.seriesOptions?.[volumeSeries._dataIndex]?.color,
-								chartColors[0] ?? '4472C4',
-								'seriesOptions color'
-							)
+							namedColorOr(opts.seriesOptions?.[volumeIdx]?.color, chartColors[0] ?? '4472C4', 'seriesOptions color')
 						)
 					)
 				)
@@ -126,20 +124,21 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 
 	// STOCK: the price series drawn with invisible lines + hi-low lines (+ up-down bars for OHLC).
 	const sers = stockSeries
-		.map((obj, idx) => {
+		.map((obj, pos) => {
+			const idx = seriesIdx(obj, chartType)
 			// HLC/VHLC (no up-down bars) mark the final "close" series with a dot so it reads on the chart.
-			const isClose = !spec.upDownBars && idx === stockSeries.length - 1
+			const isClose = !spec.upDownBars && pos === stockSeries.length - 1
 			// The price series draw no line of their own -- the hi-low lines and up-down bars carry the
 			// visual -- so a `seriesOptions.color` has exactly two referents on a stock chart: the
 			// volume bar above, and the dot that marks the close series where there are no up-down bars.
 			const markColor = isClose
 				? namedColorOr(
-						opts.seriesOptions?.[obj._dataIndex]?.color,
-						paletteColor(chartColors, obj._dataIndex, 'ED7D31'),
+						opts.seriesOptions?.[idx]?.color,
+						paletteColor(chartColors, idx, 'ED7D31'),
 						'seriesOptions color'
 					)
 				: null
-			return makeStockLineSer(obj, opts, valFmtCode, markColor, sheet)
+			return makeStockLineSer(idx, obj, opts, valFmtCode, markColor, sheet)
 		})
 		.join('')
 	const hiLowLines = el(

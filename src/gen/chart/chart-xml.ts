@@ -448,17 +448,20 @@ function makeLegendXml(rel: SlideRelChart): string {
 	// For combo charts: suppress the series belonging to subcharts that set `showLegend: false`.
 	let entries = ''
 	if (Array.isArray(rel.opts._type)) {
-		let seriesIdx = 0
 		for (const type of rel.opts._type) {
 			if (type.options?.showLegend === false) {
-				for (let i = 0; i < type.data.length; i++) {
+				// One entry per data row, numbered by the row's position across the chart. That is the
+				// series `<c:idx>` for every family but XY, where the X row is not a series and each Y
+				// series sits one below its row (`seriesIdx`). Whether `legendEntry/c:idx` names the
+				// series index or the entry's position in the legend is not established, so the rows
+				// keep the numbering they have always had.
+				for (const row of type.data) {
 					entries += el('c:legendEntry', null, [
-						raw(voidEl('c:idx', { val: seriesIdx + i })),
+						raw(voidEl('c:idx', { val: row._dataIndex })),
 						raw(voidEl('c:delete', { val: 1 })),
 					])
 				}
 			}
-			seriesIdx += type.data.length
 		}
 	}
 

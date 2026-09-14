@@ -195,7 +195,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// `seriesOptions[0]` styles the FIRST Y series, `data[1]`: `data[0]` is the shared X row and is
 			// not a series. In a combo the index stays clear of every other subchart's, where a count
 			// restarting at 0 gave a bar and a scatter the same `<c:idx>` and the same colour.
-			const { idx, over, color: serColor, xVal, yVal } = xySeriesRefs(obj, data, opts, sheet, valFmtCode)
+			const { idx, over, color: serColor, xVal, yVal } = xySeriesRefs(chartType, obj, data, opts, sheet, valFmtCode)
 
 			// Scatter data point labels. `chartUuid` tails each point's `c16:uniqueId` and is minted
 			// per build, for the reason {@link customXYRuns} gives about the `a:fld` ids.

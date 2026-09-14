@@ -84,7 +84,7 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 	const sers = data
 		.slice(1)
 		.map((obj) => {
-			const { idx, over, color, xVal, yVal, rows } = xySeriesRefs(obj, data, opts, sheet, valFmtCode)
+			const { idx, over, color, xVal, yVal, rows } = xySeriesRefs(chartType, obj, data, opts, sheet, valFmtCode)
 			const spPr = bubbleSerShapeProps(opts, color, idx, over?.lineSize)
 			// The sizes carry a constant `General` format code: no option spells a size number format.
 			// Cached against the sheet's rows like the Y values: sized from the sizes themselves, a

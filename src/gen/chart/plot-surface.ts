@@ -10,18 +10,21 @@
  */
 
 import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
+import type { ChartType } from '../../enums.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import type { WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import { catValRefs, paletteColor, resolveChartPalette, seriesNameRef, type PlotBuilder } from './chart-parts.js'
+import { seriesIdx } from './chart-kind.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
 
 /** Emit a single surface series: name ref, 3-D shape props, and cat/val refs. */
 function makeSurfaceSer(
+	chartType: ChartType,
 	obj: OptsChartDataInternal,
 	opts: ChartOptsInternal,
 	valFmtCode: string,
@@ -36,9 +39,10 @@ function makeSurfaceSer(
 		raw(voidEl('a:effectLst')),
 		raw(voidEl('a:sp3d')),
 	])
+	const idx = seriesIdx(obj, chartType)
 	return el('c:ser', null, [
-		raw(voidEl('c:idx', { val: obj._dataIndex })),
-		raw(voidEl('c:order', { val: obj._dataIndex })),
+		raw(voidEl('c:idx', { val: idx })),
+		raw(voidEl('c:order', { val: idx })),
 		raw(seriesNameRef(obj, sheet)),
 		raw(spPr),
 		raw(catValRefs(obj, opts, valFmtCode, sheet, { multiLevel: false })),
@@ -50,11 +54,15 @@ function makeSurfaceSer(
  * series shares the category axis; the series axis (Z) is the third axis. `valAxisId`/`catAxisId`
  * are the primary ids passed by the dispatch; the series axis uses `AXIS_ID_SERIES_PRIMARY`.
  */
-export const makeSurfacePlot: PlotBuilder = (_chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
+export const makeSurfacePlot: PlotBuilder = (chartType, data, opts, valAxisId, catAxisId, valFmtCode, sheet) => {
 	const tag = isSurface3D(opts) ? 'surface3DChart' : 'surfaceChart'
 	const chartColors = resolveChartPalette(opts)
+	// The palette counts this plot's own series from 0, where `<c:idx>` counts rows across the chart;
+	// the two agree on a surface chart of its own.
 	const sers = data
-		.map((obj, idx) => makeSurfaceSer(obj, opts, valFmtCode, paletteColor(chartColors, idx, '4472C4'), sheet))
+		.map((obj, idx) =>
+			makeSurfaceSer(chartType, obj, opts, valFmtCode, paletteColor(chartColors, idx, '4472C4'), sheet)
+		)
 		.join('')
 	return el(`c:${tag}`, null, [
 		raw(voidEl('c:wireframe', { val: xsdBool(opts.surfaceWireframe) })),
