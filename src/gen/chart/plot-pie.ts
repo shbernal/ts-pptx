@@ -14,7 +14,7 @@ import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/inter
 import { warn } from '../../diagnostics.js'
 import { createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
-import { dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef, type WorksheetLayout } from './data-refs.js'
+import { categoryRange, dataValues, firstLabelGroup, sheetRangeRef, type WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
@@ -31,7 +31,7 @@ import {
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	strRefBlock,
+	seriesNameRef,
 } from './chart-parts.js'
 
 /**
@@ -141,12 +141,10 @@ function pieLabelFlags(opts: ChartOptsInternal, customLbl?: string): XmlChild[] 
  * The `<c:cat>` slice-name reference, keyed on the label count.
  *
  * The cache holds the leaf labels, and the workbook writes the leaf level in the last label
- * column, outermost level first. For one level that is column A. A pie with two label levels
- * pointed at column A regardless, which holds the outer level.
+ * column, outermost level first ({@link categoryRange}).
  */
 function pieCategories(labels: string[], sheet: WorksheetLayout): string {
-	const leafCol = sheet.labelCols
-	return el('c:cat', null, raw(catRefBlock('str', sheetRangeRef(leafCol, 2, leafCol, labels.length + 1), labels)))
+	return el('c:cat', null, raw(catRefBlock('str', categoryRange(sheet, labels.length), labels)))
 }
 
 /**
@@ -237,7 +235,7 @@ export function makePiePlot(
 	const ser = el('c:ser', null, [
 		raw(voidEl('c:idx', { val: 0 })),
 		raw(voidEl('c:order', { val: 0 })),
-		raw(strRefBlock(sheetCellRef(sheet.valueColumn(optsChartData._dataIndex), 1), optsChartData.name ?? '')),
+		raw(seriesNameRef(optsChartData, sheet)),
 		raw(spPr),
 		raw(
 			Array.from({ length: sliceCount }, (_unused, idx) =>

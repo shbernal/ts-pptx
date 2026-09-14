@@ -1,6 +1,7 @@
 import { ChartType } from '../../../dist/node.js'
 import JSZip from 'jszip'
-import { build, defineRegressionSuite, assert, assertEqual } from '../../helpers.js'
+import { build, defineRegressionSuite, assert, assertEqual, assertIncludes } from '../../helpers.js'
+import { chartXml } from './chart-parts.js'
 
 const LABELS = [
 	['Gear', 'Berg', 'Motr', 'Swch', 'Plug', 'Cord', 'Pump', 'Leak', 'Seal'], // leaf (inner) — labels[0]
@@ -102,6 +103,26 @@ defineRegressionSuite('Multi-level category chart embedded workbook [upstream-pr
 			// Row 5 (idx=3): Elec (outer) in A5, Swch (leaf) in B5
 			assertEqual(cellValue(sheetXml, 'A5'), '5', 'A5 should reference Elec (SST index 5)')
 			assertEqual(cellValue(sheetXml, 'B5'), '10', 'B5 should reference Swch (SST index 10)')
+		},
+	},
+	{
+		// The workbook writes the outer level in column A and the leaf level in B. A single-column
+		// category reference caches the leaf labels, so it has to point at B; it pointed at A.
+		name: 'a single-column category reference over nested labels points at the leaf column',
+		fn: async () => {
+			const leafRef = '<c:f>Sheet1!$B$2:$B$10</c:f>'
+			/** @type {[string, object, string][]} */
+			const cases = [
+				['a bar with a category format code', { type: ChartType.bar, catLabelFormatCode: '0' }, 'numRef'],
+				['a stock chart', { type: ChartType.stock }, 'strRef'],
+				['a surface chart', { type: ChartType.surface }, 'strRef'],
+			]
+			for (const [label, opts, cache] of cases) {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(DATA, { ...opts, x: 1, y: 1, w: 6, h: 4 })
+				})
+				assertIncludes(await chartXml(zip), `<c:cat><c:${cache}>${leafRef}`, `${label} references the leaf column`)
+			}
 		},
 	},
 ])

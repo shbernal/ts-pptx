@@ -41,7 +41,16 @@ import {
 	ptsToEmuLenient,
 } from '../../units-internal.js'
 import { coordToEmu, EMU_PER_INCH } from '../../units.js'
-import { dataValues, type WorksheetLayout } from './data-refs.js'
+import {
+	categoryRange,
+	dataLabels,
+	dataValues,
+	firstLabelGroup,
+	seriesHeader,
+	sheetCellRef,
+	sheetRangeRef,
+	type WorksheetLayout,
+} from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
@@ -1088,6 +1097,139 @@ export function strRefBlock(ref: string, name: string): string {
 	const strCache = el('c:strCache', null, [raw(voidEl('c:ptCount', { val: 1 })), raw(pt)])
 	const strRef = el('c:strRef', null, [raw(el('c:f', null, ref)), raw(strCache)])
 	return el('c:tx', null, raw(strRef))
+}
+
+/**
+ * A series' `<c:tx>`: its header cell in the embedded workbook, and the header text cached beside it,
+ * which {@link seriesHeader} decides for both sides.
+ * @param obj - the series
+ * @param sheet - the chart's worksheet layout
+ */
+export function seriesNameRef(obj: OptsChartDataInternal, sheet: WorksheetLayout): string {
+	return strRefBlock(sheetCellRef(sheet.valueColumn(obj._dataIndex), 1), seriesHeader(obj))
+}
+
+/**
+ * A category series' `<c:cat>` and `<c:val>`: the category reference over the leaf label column, and
+ * the value cache over the series' own column, one point per sheet row.
+ *
+ * The category-axis, stock and surface plots each built these. Surface ignored `catLabelFormatCode`
+ * where the other two honoured it, and all three pointed a single-column reference at column A, which
+ * on a sheet with nested labels holds the outermost level rather than the leaf level the cache holds.
+ *
+ * A series with no labels of its own states no categories: `<c:cat>` is optional in `CT_Ser`.
+ * @param obj - the series
+ * @param opts - the chart's options, for `catLabelFormatCode`
+ * @param valFmtCode - the value cache's format code
+ * @param sheet - the chart's worksheet layout
+ * @param shape - `multiLevel` caches every label level as a `<c:multiLvlStrRef>`. Only the
+ *   category-axis plots take it; a stock or surface chart caches the leaf level.
+ */
+export function catValRefs(
+	obj: OptsChartDataInternal,
+	opts: ChartOptsInternal,
+	valFmtCode: string,
+	sheet: WorksheetLayout,
+	shape: { multiLevel: boolean }
+): string {
+	const valCol = sheet.valueColumn(obj._dataIndex)
+	const val = numRefBlock(
+		'c:val',
+		sheetRangeRef(valCol, 2, valCol, sheet.rowCount + 1),
+		valFmtCode,
+		dataValues(obj),
+		sheet.rowCount
+	)
+	const groups = dataLabels(obj)
+	const cats = firstLabelGroup(obj)
+	if (cats.length === 0) return val
+	let cat: string
+	if (opts.catLabelFormatCode) {
+		// A `catLabelFormatCode` means numbers (dates), which take a `numRef` carrying that format so
+		// PowerPoint renders them as dates rather than serial numbers.
+		cat = catRefBlock('num', categoryRange(sheet, cats.length), cats, opts.catLabelFormatCode)
+	} else if (groups.length === 1 || !shape.multiLevel) {
+		cat = catRefBlock('str', categoryRange(sheet, cats.length), cats)
+	} else {
+		const lvls = groups
+			.map((labelsGroup) =>
+				el(
+					'c:lvl',
+					null,
+					raw(labelsGroup.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join(''))
+				)
+			)
+			.join('')
+		const cache = el('c:multiLvlStrCache', null, [raw(voidEl('c:ptCount', { val: cats.length })), raw(lvls)])
+		cat = el('c:multiLvlStrRef', null, [
+			raw(el('c:f', null, sheetRangeRef(1, 2, groups.length, cats.length + 1))),
+			raw(cache),
+		])
+	}
+	return el('c:cat', null, raw(cat)) + val
+}
+
+/** What {@link xySeriesRefs} resolves for one scatter or bubble series. */
+export interface XySeriesRefs {
+	/** The series' `<c:idx>`: its position across the chart less one, for the X row. */
+	idx: number
+	/** Its `seriesOptions` entry. */
+	over: ChartSeriesOpts | undefined
+	/** Its resolved colour. */
+	color: string
+	xVal: string
+	yVal: string
+	/** How many points each cache holds: the sheet's rows. */
+	rows: number
+}
+
+/**
+ * What a scatter and a bubble series share: its index, its `seriesOptions` entry, its colour, and its
+ * X and Y caches cut to the sheet's rows.
+ *
+ * Both plot builders spelled this out near verbatim, and both cached against the X row's own length.
+ * That is the sheet's row count on a chart of their own, but not in a combo, whose sheet has one row
+ * per category: a scatter subchart with five X values in a three-category combo cached
+ * `Sheet1!$C$2:$C$6` over a workbook four rows deep. `addChartDefinition` warns about the values past
+ * the rows.
+ *
+ * The index is the series' position across the chart less one, for the X row that precedes it. On a
+ * chart of its own that counts the Y series from 0, the index `seriesOptions` is documented against;
+ * in a combo it stays clear of every other subchart's indices.
+ * @param obj - the Y series
+ * @param data - the plot's series, X row first
+ * @param opts - the chart's options, for the palette and `seriesOptions`
+ * @param sheet - the chart's worksheet layout
+ * @param valFmtCode - the caches' format code
+ */
+export function xySeriesRefs(
+	obj: OptsChartDataInternal,
+	data: readonly OptsChartDataInternal[],
+	opts: ChartOptsInternal,
+	sheet: WorksheetLayout,
+	valFmtCode: string
+): XySeriesRefs {
+	const rows = sheet.rowCount
+	const idx = obj._dataIndex - 1
+	const over = opts.seriesOptions?.[idx]
+	const xCol = sheet.valueColumn(data[0]?._dataIndex ?? 0)
+	const yCol = sheet.valueColumn(obj._dataIndex)
+	const yValues = dataValues(obj)
+	return {
+		idx,
+		over,
+		color: namedColorOr(over?.color, paletteColor(resolveChartPalette(opts), idx), 'seriesOptions color'),
+		xVal: numRefBlock('c:xVal', sheetRangeRef(xCol, 2, xCol, rows + 1), valFmtCode, dataValues(data[0]), rows),
+		// A Y series shorter than the rows leaves gaps rather than a short cache.
+		yVal: numRefBlock(
+			'c:yVal',
+			sheetRangeRef(yCol, 2, yCol, rows + 1),
+			valFmtCode,
+			Array.from({ length: rows }, (_unused, i) => yValues[i]),
+			rows
+		),
+		rows,
+	}
 }
 
 /**

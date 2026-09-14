@@ -117,4 +117,39 @@ defineRegressionSuite('Series worksheet references', [
 			}
 		},
 	},
+	{
+		// A combo's sheet has one row per category. A scatter subchart cached its X row's own length,
+		// so five X values in a three-category combo ran past the last row the workbook writes.
+		name: 'a scatter subchart caches no further than the combo sheet rows',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ type: ChartType.bar, data: [{ name: 'A', labels: ['a', 'b', 'c'], values: [1, 2, 3] }], options: {} },
+						{
+							type: ChartType.scatter,
+							data: [
+								{ name: 'X', values: [1, 2, 3, 4, 5] },
+								{ name: 'Y', values: [5, 6, 7, 8, 9] },
+							],
+							options: { secondaryValAxis: true, secondaryCatAxis: true },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			const xml = await chartXml(zip)
+			assertWellFormedRefs(xml, 'combo')
+			const xVal = xml.match(/<c:xVal>[\s\S]*?<\/c:xVal>/)?.[0] ?? ''
+			const yVal = xml.match(/<c:yVal>[\s\S]*?<\/c:yVal>/)?.[0] ?? ''
+			for (const [label, block, ref] of [
+				['X', xVal, 'Sheet1!$C$2:$C$4'],
+				['Y', yVal, 'Sheet1!$D$2:$D$4'],
+			]) {
+				assert(block.includes(`<c:f>${ref}</c:f>`), `${label} spans the three sheet rows; got ${block}`)
+				assert(block.includes('<c:ptCount val="3"/>'), `${label} caches three points; got ${block}`)
+				assertNotIncludes(block, '<c:pt idx="3">', `${label} caches nothing past the rows`)
+			}
+		},
+	},
 ])

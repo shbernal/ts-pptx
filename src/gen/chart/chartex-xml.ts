@@ -27,7 +27,7 @@ import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts } from './chart-parts.js'
 import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
-import { type WorksheetLayout, worksheetLayout } from './data-refs.js'
+import { seriesHeader, type WorksheetLayout, worksheetLayout } from './data-refs.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
 
@@ -164,7 +164,7 @@ function makeChartExSeriesName(rel: SlideRelChart, sheet: WorksheetLayout): stri
 		raw(
 			el('cx:txData', null, [
 				raw(el('cx:f', null, chartExSeriesNameRef(sheet))),
-				raw(el('cx:v', null, rel.data[0]?.name ?? '')),
+				raw(el('cx:v', null, seriesHeader(rel.data[0]))),
 			])
 		)
 	)

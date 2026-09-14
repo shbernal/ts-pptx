@@ -191,6 +191,13 @@ async function problemsFor(addChart) {
 
 const FRAME = { x: 1, y: 1, w: 6, h: 4 }
 const LABELS = ['Jan', 'Feb', 'Mar']
+/** Two label levels, leaf first, whose leaf labels read as numbers. */
+const NESTED = [
+	['1', '2', '3', '4'],
+	['G1', '', 'G2', ''],
+]
+/** Three series over {@link NESTED}. */
+const NESTED_SERIES = ['A', 'B', 'C'].map((name, n) => ({ name, labels: NESTED, values: [1 + n, 2 + n, 3 + n, 4 + n] }))
 
 /**
  * `[name, addChart]`, every shape the matrix covers.
@@ -401,6 +408,63 @@ const MATRIX = [
 				{ type: ChartType.bubble, ...FRAME }
 			),
 	],
+	[
+		// A date category cache holds the leaf labels, and was referenced against column A, which
+		// holds the outer level. So were a stock and a surface chart's categories, whatever the format.
+		'bar with multi-level labels and a category format code',
+		(s) => s.addChart(NESTED_SERIES, { type: ChartType.bar, catLabelFormatCode: '0', ...FRAME }),
+	],
+	['stock with multi-level labels', (s) => s.addChart(NESTED_SERIES, { type: ChartType.stock, ...FRAME })],
+	['surface with multi-level labels', (s) => s.addChart(NESTED_SERIES, { type: ChartType.surface, ...FRAME })],
+	[
+		// The combo sheet has one row per category, and the scatter cached all five X values past it.
+		'bar and scatter combo, the scatter longer than the categories',
+		(s) =>
+			s.addChart(
+				[
+					{ type: ChartType.bar, data: [{ name: 'A', labels: LABELS, values: [1, 2, 3] }], options: {} },
+					{
+						type: ChartType.scatter,
+						data: [
+							{ name: 'X', values: [10, 20, 30, 40, 50] },
+							{ name: 'Y', values: [5, 6, 7, 8, 9] },
+						],
+						options: { secondaryValAxis: true, secondaryCatAxis: true },
+					},
+				],
+				FRAME
+			),
+	],
+	[
+		// The sheet rewrote `X-Axis` to `X-Values` inside every name; the cache kept the name.
+		'bar with a series named X-Axis',
+		(s) => s.addChart([{ name: 'X-Axis Sales', labels: LABELS, values: [1, 2, 3] }], { type: ChartType.bar, ...FRAME }),
+	],
+	[
+		// An unnamed series was a space in the sheet and an empty string in the cache.
+		'bar with an unnamed series',
+		(s) => s.addChart([{ labels: LABELS, values: [1, 2, 3] }], { type: ChartType.bar, ...FRAME }),
+	],
+	[
+		'scatter with an unnamed series',
+		(s) =>
+			s.addChart([{ name: 'X', values: [10, 20, 30] }, { values: [5, 6, 7] }], { type: ChartType.scatter, ...FRAME }),
+	],
+	[
+		// An unnamed bubble series was `Y-Axis1` in the sheet.
+		'bubble with an unnamed series',
+		(s) =>
+			s.addChart(
+				[
+					{ name: 'X', values: [10, 20, 30] },
+					{ values: [5, 6, 7], sizes: [1, 2, 3] },
+				],
+				{
+					type: ChartType.bubble,
+					...FRAME,
+				}
+			),
+	],
 ]
 
 defineRegressionSuite('Chart formulas resolve to their cache through the embedded workbook', [
@@ -411,6 +475,42 @@ defineRegressionSuite('Chart formulas resolve to their cache through the embedde
 			assert(problems.length === 0, `${name}:\n  ${problems.join('\n  ')}`)
 		},
 	})),
+	{
+		// No formula reads the table part, so the matrix cannot see it. A scatter's columns were
+		// `X-Values0` and `Y-Value 1`, and a bubble's X column `X-Values`, names no header cell held.
+		name: 'the table names each column by its header cell',
+		fn: async () => {
+			for (const [type, data] of [
+				[
+					ChartType.scatter,
+					[
+						{ name: 'Across', values: [10, 20, 30] },
+						{ name: 'Up', values: [5, 6, 7] },
+					],
+				],
+				[
+					ChartType.bubble,
+					[
+						{ name: 'Across', values: [10, 20, 30] },
+						{ name: 'Up', values: [5, 6, 7], sizes: [1, 2, 3] },
+					],
+				],
+			]) {
+				const { zip } = await build((p) => p.addSlide().addChart(data, { type, ...FRAME }))
+				const read = await readWorkbook(zip)
+				const name = listEntries(zip).find((entry) => /^ppt\/embeddings\/.*\.xlsx$/.test(entry))
+				const xlsx = await JSZip.loadAsync(await zip.file(name).async('arraybuffer'))
+				const table = parser.parseFromString(await xlsx.file('xl/tables/table1.xml').async('string'), 'text/xml')
+				for (const column of Array.from(table.getElementsByTagName('tableColumn'))) {
+					const col = Number(column.getAttribute('id'))
+					assert(
+						column.getAttribute('name') === read(col, 1),
+						`${type}: table column ${col} is named ${JSON.stringify(column.getAttribute('name'))}, its header reads ${JSON.stringify(read(col, 1))}`
+					)
+				}
+			}
+		},
+	},
 	{
 		// The check has to be able to fail: a resolver that read every cell as blank, or a comparison
 		// that skipped every point, would pass the matrix above. Point one series at its neighbour's

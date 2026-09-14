@@ -15,6 +15,22 @@ import { InvalidOptionError } from '../../errors.js'
 import type { OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
 import { isBubbleChart, isScatterChart } from './chart-kind.js'
 
+/**
+ * The text a series' header cell holds, and so the text its `<c:tx>` caches: the series' name, or
+ * the empty string for a series with none.
+ *
+ * The workbook and the chart part used to spell this apart. The sheet wrote an unnamed series as
+ * `' '` where every cache held `''`, rewrote `X-Axis` to `X-Values` inside any name holding it, named
+ * an unnamed bubble series `Y-Axis1`, and headed a bubble's X column `X-Axis` whatever it was called.
+ * A bubble's size column has no name of its own and no cache reads its header, so it keeps
+ * `Size<n>`.
+ * @param series - the series
+ * @param role - `values` for the column a series' values take, `sizes` for a bubble's size column
+ */
+export function seriesHeader(series: OptsChartDataInternal | undefined, role: 'values' | 'sizes' = 'values'): string {
+	return role === 'sizes' ? `Size${series?._dataIndex ?? 0}` : (series?.name ?? '')
+}
+
 // ===== Series-data accessors =====
 // The normalized (internal) chart-series arrays are populated at addChart time but stay
 // optional on OptsChartDataInternal; read them through these accessors with an empty-array
@@ -103,6 +119,14 @@ export function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, r
  * two sides disagreed the moment a caller labelled only the first series.
  */
 export interface WorksheetLayout {
+	/**
+	 * `category` for a sheet with a block of label columns whose header cells point at a blank string,
+	 * whether or not any series carries labels; `xy` for a scatter or bubble sheet, which has neither.
+	 * The workbook writer reads this rather than asking the chart type again.
+	 */
+	kind: 'category' | 'xy'
+	/** Every column after the label block, in column order. */
+	columns: readonly WorksheetColumn[]
 	/** How many leading columns the label groups occupy. */
 	labelCols: number
 	/** How many data rows the sheet has, header row excluded. */
@@ -115,6 +139,27 @@ export interface WorksheetLayout {
 	 */
 	valueColumn(dataIndex: number): number
 }
+
+/** One column of a chart's worksheet after its label block. */
+export interface WorksheetColumn {
+	/** The 1-based column index. */
+	col: number
+	/** The header cell's text. */
+	header: string
+	/**
+	 * The value in one data row.
+	 * @param row - the 0-based data row, header excluded
+	 * @returns the value, or `null`/`undefined` for a gap
+	 */
+	value(row: number): number | null | undefined
+}
+
+/** A column holding one series' values under its name. */
+const valuesColumn = (series: OptsChartDataInternal, col: number): WorksheetColumn => ({
+	col,
+	header: seriesHeader(series),
+	value: (row) => dataValues(series)[row],
+})
 
 /**
  * The 1-based column a bubble series' sizes occupy on a bubble chart's sheet: the one after its
@@ -148,16 +193,32 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 	const data = rel.data
 	const type = rel.opts._type
 	if (isBubbleChart(type)) {
+		const valueColumn = (dataIndex: number): number => (dataIndex === 0 ? 1 : dataIndex * 2)
 		return {
+			kind: 'xy',
+			columns: data.flatMap((series, idx): WorksheetColumn[] =>
+				idx === 0
+					? [valuesColumn(series, 1)]
+					: [
+							valuesColumn(series, valueColumn(series._dataIndex)),
+							{
+								col: bubbleSizeColumn(series._dataIndex),
+								header: seriesHeader(series, 'sizes'),
+								value: (row) => dataSizes(series)[row],
+							},
+						]
+			),
 			labelCols: 0,
 			rowCount: dataValues(data[0]).length,
 			// 1 for the X values, then 2 for every Y series.
 			colCount: (data.length - 1) * 2 + 1,
-			valueColumn: (dataIndex) => (dataIndex === 0 ? 1 : dataIndex * 2),
+			valueColumn,
 		}
 	}
 	if (isScatterChart(type)) {
 		return {
+			kind: 'xy',
+			columns: data.map((series) => valuesColumn(series, series._dataIndex + 1)),
 			labelCols: 0,
 			rowCount: dataValues(data[0]).length,
 			colCount: data.length,
@@ -167,6 +228,8 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 	const labelled = labelSeries(data)
 	const labelCols = dataLabels(labelled).length
 	return {
+		kind: 'category',
+		columns: data.map((series) => valuesColumn(series, series._dataIndex + labelCols + 1)),
 		labelCols,
 		rowCount: firstLabelGroup(labelled).length || Math.max(0, ...data.map((series) => dataValues(series).length)),
 		colCount: data.length + labelCols,
@@ -175,10 +238,15 @@ export function worksheetLayout(rel: Pick<SlideRelChart, 'data' | 'opts'>): Work
 }
 
 /**
- * The category-name range in column A, header row excluded: `Sheet1!$A$2:$A$<count + 1>`.
+ * The category-name range in the leaf label column, header row excluded:
+ * `Sheet1!$B$2:$B$<count + 1>` on a sheet with two label levels.
  *
- * Six plot families built this string by hand around the very module whose header says the
- * mapping lives in one place so `$`-anchoring cannot drift between the two sides.
+ * Six plot families built this string by hand around the very module whose header says the mapping
+ * lives in one place. It then hard-coded column A, which holds the outermost level: a leaf cache over
+ * nested labels was referenced against the outer labels' cells. The workbook writes the leaf level in
+ * the last label column, which for single-level labels is column A.
+ * @param sheet - the chart's worksheet layout
  * @param count - how many categories the series carries
  */
-export const categoryRange = (count: number): string => sheetRangeRef(1, 2, 1, count + 1)
+export const categoryRange = (sheet: WorksheetLayout, count: number): string =>
+	sheetRangeRef(sheet.labelCols, 2, sheet.labelCols, count + 1)

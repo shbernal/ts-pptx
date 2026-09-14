@@ -6,12 +6,10 @@
  * series. Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
-import { namedColorOr } from '../drawingml/color.js'
 import { ChartType } from '../../enums.js'
-import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { createLineCap } from '../drawingml/line.js'
-import { bubbleSizeColumn, dataSizes, dataValues, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { bubbleSizeColumn, dataSizes, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
@@ -23,12 +21,11 @@ import {
 	dLblShowFlags,
 	labelTextProps,
 	numRefBlock,
-	paletteColor,
 	type PlotBuilder,
-	resolveChartPalette,
+	seriesNameRef,
 	seriesShapeProps,
 	seriesStroke,
-	strRefBlock,
+	xySeriesRefs,
 } from './chart-parts.js'
 
 /**
@@ -95,54 +92,29 @@ export const makeBubblePlot: PlotBuilder = (chartType, data, opts, valAxisId, ca
 					{ name:'Y-Values 2', values:[ 1,  2,  5,  9], sizes:[ 5, 3,  9,  3] }
 				];
             */
-	const chartColors = resolveChartPalette(opts)
 	// X values come from the first row; each later row is one series, and consumes two sheet
-	// columns — its Y values and its sizes. Every column comes from the worksheet layout.
-	const xValues = dataValues(data[0])
-	const xCol = sheet.valueColumn(data[0]?._dataIndex ?? 0)
-
-	// One series per Y-Axis row.
+	// columns, its Y values and its sizes. Every column comes from the worksheet layout.
 	const sers = data
 		.slice(1)
 		.map((obj) => {
-			const yCol = sheet.valueColumn(obj._dataIndex)
-			const sizeCol = bubbleSizeColumn(obj._dataIndex)
-			const name = strRefBlock(sheetCellRef(yCol, 1), obj.name ?? '')
-			// The series' position less one, for the shared X row that is not a series: it counts the
-			// value series from 0, so it is this series' own `<c:idx>` -- the index `seriesOptions` is
-			// documented against. The same reading as a scatter's.
-			const idx = obj._dataIndex - 1
-			const over: ChartSeriesOpts | undefined = opts.seriesOptions?.[idx]
-			const spPr = bubbleSerShapeProps(
-				opts,
-				namedColorOr(over?.color, paletteColor(chartColors, idx), 'seriesOptions color'),
-				idx,
-				over?.lineSize
-			)
-			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
-			// values than X leaves gaps rather than a short cache.
-			const yValues = dataValues(obj)
-			const xVal = numRefBlock('c:xVal', sheetRangeRef(xCol, 2, xCol, xValues.length + 1), valFmtCode, xValues)
-			const yVal = numRefBlock(
-				'c:yVal',
-				sheetRangeRef(yCol, 2, yCol, xValues.length + 1),
-				valFmtCode,
-				xValues.map((_value, i) => yValues[i])
-			)
+			const { idx, over, color, xVal, yVal, rows } = xySeriesRefs(obj, data, opts, sheet, valFmtCode)
+			const spPr = bubbleSerShapeProps(opts, color, idx, over?.lineSize)
 			// The sizes carry a constant `General` format code: no option spells a size number format.
-			// Cached against the X series' length like the Y values: sized from the sizes themselves, a
+			// Cached against the sheet's rows like the Y values: sized from the sizes themselves, a
 			// series with none wrote the backwards range `Sheet1!$C$2:$C$1`.
 			const sizes = dataSizes(obj)
+			const sizeCol = bubbleSizeColumn(obj._dataIndex)
 			const sizeVal = numRefBlock(
 				'c:bubbleSize',
-				sheetRangeRef(sizeCol, 2, sizeCol, xValues.length + 1),
+				sheetRangeRef(sizeCol, 2, sizeCol, rows + 1),
 				'General',
-				xValues.map((_value, i) => sizes[i])
+				Array.from({ length: rows }, (_unused, i) => sizes[i]),
+				rows
 			)
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: idx })),
 				raw(voidEl('c:order', { val: idx })),
-				raw(name),
+				raw(seriesNameRef(obj, sheet)),
 				raw(spPr),
 				// No `<c:dLbls>` per series — the chart-level block below carries the labels.
 				raw(xVal),

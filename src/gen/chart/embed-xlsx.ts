@@ -33,20 +33,10 @@ import {
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import { relationshipEl, relationshipsEl } from '../opc/rels.js'
 import { CORE_PROPS_NS, coreTimestamp } from '../opc/core.js'
-import {
-	bubbleSizeColumn,
-	dataLabels,
-	dataSizes,
-	dataValues,
-	getExcelColName,
-	labelSeries,
-	type WorksheetLayout,
-	worksheetLayout,
-} from './data-refs.js'
+import { dataLabels, getExcelColName, labelSeries, type WorksheetLayout, worksheetLayout } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
 import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
-import { isBubbleChart, isScatterChart } from './chart-kind.js'
 import { FMT_SCHEME_XML } from '../oxml/fmt-scheme.js'
 
 /** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
@@ -239,9 +229,9 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 		}
 
-		zipExcel.add('xl/sharedStrings.xml', buildXlsxSharedStrings(chartObject, data, layout))
-		zipExcel.add('xl/tables/table1.xml', buildXlsxTable(chartObject, data, layout))
-		zipExcel.add('xl/worksheets/sheet1.xml', buildXlsxSheet(chartObject, data, layout))
+		zipExcel.add('xl/sharedStrings.xml', buildXlsxSharedStrings(data, layout))
+		zipExcel.add('xl/tables/table1.xml', buildXlsxTable(layout))
+		zipExcel.add('xl/worksheets/sheet1.xml', buildXlsxSheet(data, layout))
 
 		// Done — return the embedded workbook bytes for the caller to place.
 		return zipExcel.toBytes()
@@ -276,28 +266,23 @@ function categoryLabelCells(data: readonly OptsChartDataInternal[]): LabelCell[]
 }
 
 /**
- * Build the embedded workbook's `xl/sharedStrings.xml` (series names + category labels).
+ * Build the embedded workbook's `xl/sharedStrings.xml`: the column headers, and on a category sheet a
+ * leading blank and the category labels.
+ *
+ * The headers are the layout's, which the chart part caches as well ({@link seriesHeader}).
  */
-function buildXlsxSharedStrings(
-	chartObject: SlideRelChart,
-	data: OptsChartDataInternal[],
-	layout: WorksheetLayout
-): string {
-	const isBubble = isBubbleChart(chartObject.opts._type)
-	const isScatter = isScatterChart(chartObject.opts._type)
-	let count: number
-	let uniqueCount: number
+function buildXlsxSharedStrings(data: OptsChartDataInternal[], layout: WorksheetLayout): string {
+	const headers = layout.columns.map((column) => sharedString(column.header)).join('')
+	let count = layout.columns.length
+	let uniqueCount = count
 	let blank = ''
 	let labels = ''
-	if (isBubble || isScatter) {
-		// One header string per column.
-		count = uniqueCount = layout.colCount
-	} else {
-		// A blank, the series names, then every non-blank label. `count` is how many cells refer to
-		// a string: each label column's header points at the blank, then one per name and per label.
+	if (layout.kind === 'category') {
+		// A blank, the headers, then every non-blank label. `count` is how many cells refer to a
+		// string: each label column's header points at the blank, then one per header and per label.
 		const cells = categoryLabelCells(data)
-		count = layout.labelCols + data.length + cells.length
-		uniqueCount = 1 + data.length + cells.length
+		count = layout.labelCols + layout.columns.length + cells.length
+		uniqueCount = 1 + layout.columns.length + cells.length
 		labels = cells.map((cell) => sharedString(cell.label)).join('')
 		// The leading entry is the blank the header row's label columns point at. Its two spellings
 		// are not interchangeable: `<t/>` is the empty string, `<t xml:space="preserve"></t>` is a
@@ -307,17 +292,7 @@ function buildXlsxSharedStrings(
 				? el('si', null, raw(voidEl('t')))
 				: el('si', null, raw(el('t', { 'xml:space': 'preserve' })))
 	}
-
-	// Series names. A bubble series contributes both a name and a size column.
-	const names = isBubble
-		? data
-				.map((objData, idx) =>
-					idx === 0 ? sharedString('X-Axis') : sharedString(objData.name || `Y-Axis${idx}`) + sharedString(`Size${idx}`)
-				)
-				.join('')
-		: data.map((objData) => sharedString((objData.name || ' ').replace('X-Axis', 'X-Values'))).join('')
-
-	return XML_DECL + el('sst', { xmlns: SML_NS, count, uniqueCount }, [raw(blank), raw(names), raw(labels)]) + '\n'
+	return XML_DECL + el('sst', { xmlns: SML_NS, count, uniqueCount }, [raw(blank), raw(headers), raw(labels)]) + '\n'
 }
 
 /**
@@ -326,41 +301,17 @@ function buildXlsxSharedStrings(
  * Its range comes from the same layout as the sheet's `<dimension>`. The two were derived
  * separately once, and the bubble range used the column count as its row count, so one workbook
  * said `ref="A1:C3"` in this part and `<dimension ref="A1:C5"/>` in the other.
+ *
+ * Each column after the label block is named by its header. A scatter's used to be `X-Values0` and
+ * `Y-Value 1`, and a bubble's X column `X-Values`, names no header cell held.
  */
-function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], layout: WorksheetLayout): string {
+function buildXlsxTable(layout: WorksheetLayout): string {
 	const ref = `A1:${getExcelColName(layout.colCount)}${layout.rowCount + 1}`
-	let columns: string
-	if (isBubbleChart(chartObject.opts._type)) {
-		columns = data
-			.map((obj, idx) => {
-				if (idx === 0) return voidEl('tableColumn', { id: layout.valueColumn(obj._dataIndex), name: 'X-Values' })
-				// `?? ''`, like the category branch below: `name` is required on a `tableColumn`,
-				// so an absent one omitted the attribute rather than writing an empty string.
-				return (
-					voidEl('tableColumn', { id: layout.valueColumn(obj._dataIndex), name: obj.name ?? '' }) +
-					voidEl('tableColumn', { id: bubbleSizeColumn(obj._dataIndex), name: `Size${idx}` })
-				)
-			})
-			.join('')
-	} else if (isScatterChart(chartObject.opts._type)) {
-		columns = data
-			.map((obj, idx) =>
-				voidEl('tableColumn', {
-					id: layout.valueColumn(obj._dataIndex),
-					name: `${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}`,
-				})
-			)
-			.join('')
-	} else {
-		// The leading columns are the label groups; the series follow them.
-		columns =
-			dataLabels(labelSeries(data))
-				.map((_labelsGroup, idx) => voidEl('tableColumn', { id: idx + 1, name: `Column${idx + 1}` }))
-				.join('') +
-			data
-				.map((obj) => voidEl('tableColumn', { id: layout.valueColumn(obj._dataIndex), name: obj.name ?? '' }))
-				.join('')
-	}
+	// The leading columns are the label groups; the named columns follow them.
+	const columns =
+		Array.from({ length: layout.labelCols }, (_unused, idx) =>
+			voidEl('tableColumn', { id: idx + 1, name: `Column${idx + 1}` })
+		).join('') + layout.columns.map((column) => voidEl('tableColumn', { id: column.col, name: column.header })).join('')
 	return (
 		XML_DECL +
 		el('table', { xmlns: SML_NS, id: 1, name: 'Table1', displayName: 'Table1', ref, totalsRowShown: 0 }, [
@@ -380,9 +331,7 @@ function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[
 /**
  * Build the embedded workbook's `xl/worksheets/sheet1.xml` (header row + per-series data rows).
  */
-function buildXlsxSheet(chartObject: SlideRelChart, data: OptsChartDataInternal[], layout: WorksheetLayout): string {
-	const isBubble = isBubbleChart(chartObject.opts._type)
-	const isScatter = isScatterChart(chartObject.opts._type)
+function buildXlsxSheet(data: OptsChartDataInternal[], layout: WorksheetLayout): string {
 	const { labelCols, colCount, rowCount } = layout
 	/**
 	 * One cell. `t="s"` marks a shared-string index; without it the value is a number.
@@ -406,103 +355,40 @@ function buildXlsxSheet(chartObject: SlideRelChart, data: OptsChartDataInternal[
 	const sheetRow = (row: number, span: number, cells: string): string =>
 		el('row', { r: row, spans: `1:${span}` }, raw(cells))
 
+	/* EX: a category sheet, labels in A and one column per series:
+				-|---A---|--B--|--C--|--D--|
+				1|       | Red | Amb | Grn |
+				2|Jan-17 |   11|   22|   33|
+				3|Feb-17 |   55|   43|   70|
+				-|-------|-----|-----|-----|
+			A scatter sheet has no label block: X in A and one column per Y series. A bubble sheet
+			follows each Y column with that series' sizes. */
 	let rows = ''
 
-	if (isBubble) {
-		/* EX: INPUT: `data`
-				[
-					{ name:'X-Axis'  , values:[10,11,12,13,14,15,16,17,18,19,20] },
-					{ name:'Y-Axis 1', values:[ 1, 6, 7, 8, 9], sizes:[ 4, 5, 6, 7, 8] },
-					{ name:'Y-Axis 2', values:[33,32,42,53,63], sizes:[11,12,13,14,15] }
-				];
-				*/
-		/* EX: OUTPUT: bubbleChart Worksheet:
-					-|----A-----|------B-----|------C-----|------D-----|------E-----|
-					1| X-Values | Y-Values 1 | Y-Sizes 1  | Y-Values 2 | Y-Sizes 2  |
-					2|    11    |     22     |      4     |     33     |      8     |
-					-|----------|------------|------------|------------|------------|
-				*/
-		// Header row. Every column is a shared-string index; column A is the 'X-Axis' name.
-		let header = ''
-		for (let idx = 0; idx < colCount; idx++) header += cell(idx + 1, 1, idx, true)
-		rows += sheetRow(1, colCount, header)
+	// Header row. On a category sheet the label columns point at the blank shared string, which the
+	// column headers follow; an xy sheet has neither, so its first header is string 0.
+	const headerOffset = layout.kind === 'category' ? 1 : 0
+	let header = ''
+	for (let col = 1; col <= labelCols; col++) header += cell(col, 1, 0, true)
+	layout.columns.forEach((column, k) => (header += cell(column.col, 1, headerOffset + k, true)))
+	rows += sheetRow(1, colCount, header)
 
-		// One row per X value; each series contributes a value column and a size column.
-		dataValues(data[0]).forEach((val, idx) => {
-			let cells = cell(1, idx + 2, val)
-			for (const series of data.slice(1)) {
-				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, dataValues(series)[idx] ?? '')
-				cells += cell(bubbleSizeColumn(series._dataIndex), idx + 2, dataSizes(series)[idx] ?? '')
-			}
-			rows += sheetRow(idx + 2, colCount, cells)
-		})
-	} else if (isScatter) {
-		/* EX: INPUT: `data`
-					[
-						{ name:'X-AxisA', values:[ 1, 2, 3, 4, 5] },
-						{ name:'Y-AxisB', values:[ 2,22,42,52,62] },
-						{ name:'Y-AxisC', values:[ 3,33,43,53,63] }
-					];
-				*/
-		/* EX: OUTPUT: sheet1.xml:
-					-|----A----|----B----|----C----|
-					1| X-AxisA | Y-AxisB | Y-AxisC |
-					2|    1    |    2    |    3    |
-					-|---------|---------|---------|
-				*/
-		let header = ''
-		for (let idx = 0; idx < colCount; idx++) header += cell(idx + 1, 1, idx, true)
-		rows += sheetRow(1, colCount, header)
-
-		dataValues(data[0]).forEach((val, idx) => {
-			// The leading column is the X value; the rest are one Y series each.
-			let cells = cell(1, idx + 2, val)
-			for (const series of data.slice(1)) {
-				const yValue = dataValues(series)[idx]
-				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, yValue || yValue === 0 ? yValue : '')
-			}
-			rows += sheetRow(idx + 2, colCount, cells)
-		})
-	} else {
-		/* EX: INPUT: `data`
-					[
-						{ name:'Red', labels:['Jan..May-17'], values:[11,13,14,15,16] },
-						{ name:'Amb', labels:['Jan..May-17'], values:[22, 6, 7, 8, 9] },
-						{ name:'Grn', labels:['Jan..May-17'], values:[33,32,42,53,63] }
-					];
-				*/
-		/* EX: OUTPUT: lineChart Worksheet:
-					-|---A---|--B--|--C--|--D--|
-					1|       | Red | Amb | Grn |
-					2|Jan-17 |   11|   22|   33|
-					3|Feb-17 |   55|   43|   70|
-					4|Mar-17 |   56|  143|   99|
-					5|Apr-17 |   65|    3|  120|
-					6|May-17 |   75|   93|  170|
-					-|-------|-----|-----|-----|
-				*/
-		// Header row: the label columns point at the blank shared string, then the series names.
-		let header = ''
-		for (let col = 1; col <= labelCols; col++) header += cell(col, 1, 0, true)
-		data.forEach((series, idx) => (header += cell(layout.valueColumn(series._dataIndex), 1, idx + 1, true)))
-		rows += sheetRow(1, colCount, header)
-
-		// Each non-blank label's cell, by row, in column order. Its shared string follows the blank
-		// entry and the series names, in the order the strings part writes them.
-		const labelsByRow = new Map<number, string>()
+	// Each non-blank label's cell, by row, in column order. Its shared string follows the blank entry
+	// and the headers, in the order the strings part writes them.
+	const labelsByRow = new Map<number, string>()
+	if (layout.kind === 'category') {
 		categoryLabelCells(data).forEach(({ col, row }, k) =>
-			labelsByRow.set(row, (labelsByRow.get(row) ?? '') + cell(col, row + 2, data.length + 1 + k, true))
+			labelsByRow.set(row, (labelsByRow.get(row) ?? '') + cell(col, row + 2, layout.columns.length + 1 + k, true))
 		)
+	}
 
-		// Normally one row per category; a category-less chartEx layout (a histogram feeds PowerPoint
-		// raw observations with no labels) has no label groups, so the row count falls back to the
-		// longest value series and the leading label columns are simply skipped — values land in A.
-		for (let idx = 0; idx < rowCount; idx++) {
-			let cells = labelsByRow.get(idx) ?? ''
-			for (const series of data)
-				cells += cell(layout.valueColumn(series._dataIndex), idx + 2, dataValues(series)[idx] ?? '')
-			rows += sheetRow(idx + 2, colCount, cells)
-		}
+	// One row per category, or per X value. A category-less chartEx layout (a histogram feeds
+	// PowerPoint raw observations with no labels) has no label groups, so the row count falls back to
+	// the longest value series and the leading label columns are simply skipped: values land in A.
+	for (let idx = 0; idx < rowCount; idx++) {
+		let cells = labelsByRow.get(idx) ?? ''
+		for (const column of layout.columns) cells += cell(column.col, idx + 2, column.value(idx) ?? '')
+		rows += sheetRow(idx + 2, colCount, cells)
 	}
 
 	const sheetView = el(

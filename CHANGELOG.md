@@ -955,6 +955,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A chart's cell references and its embedded workbook agree.** A chart paints from its caches,
+  so these only showed on "Edit Data", which opens the cells the references name.
+  - A category reference over labels with two or more levels pointed at column A, which holds the
+    outermost level, while its cache held the leaf level: on a stock or surface chart always, and
+    on a bar, line, area or radar chart with `catLabelFormatCode`. It points at the leaf column
+    now, as the pie's already did. A surface chart's category cache also honours
+    `catLabelFormatCode` now, as the stock and category-axis charts' did.
+  - A scatter subchart with more X values than its combo has categories cached them past the last
+    row the workbook writes. Its caches stop at the sheet's rows; `addChart` already warns about
+    the values past them.
+  - The workbook's header cells hold each series' name as the chart caches it. The sheet rewrote
+    `X-Axis` to `X-Values` inside every series name, wrote an unnamed series as a space, named an
+    unnamed bubble series `Y-Axis1`, and headed a bubble's X column `X-Axis` whatever its name.
+    The table part names each column by its header too, where a scatter's were `X-Values0` and
+    `Y-Value 1`.
+
 - **`addChart` no longer empties the caller's `barSeriesLine`.** Scrubbing an out-of-range width
   or an unknown cap deleted them from the caller's own object, so `{ width: 0, cap: 'bevel' }` was
   `{}` after the call, and a second chart built from the same options drew the default line in

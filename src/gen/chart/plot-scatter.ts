@@ -8,12 +8,11 @@
  * dispatch.
  */
 
-import { namedColorOr } from '../drawingml/color.js'
 import { BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartSeriesOpts } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { getUuid } from '../utils.js'
-import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { dataLabels, firstLabelGroup } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
@@ -25,14 +24,12 @@ import {
 	labelFontChildren,
 	makeChartErrorBarsXml,
 	makeSeriesDataPointsXml,
-	numRefBlock,
-	paletteColor,
 	type PlotBuilder,
-	resolveChartPalette,
+	seriesNameRef,
 	seriesShapeProps,
 	seriesStroke,
 	serMarker,
-	strRefBlock,
+	xySeriesRefs,
 } from './chart-parts.js'
 
 /**
@@ -200,13 +197,9 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 					{ name:'Y-Value 2', values:[ 1,  2,  5,  9] }
 				];
             */
-	const chartColors = resolveChartPalette(opts)
 	// X values come from the first row; each later row is one Y series. Every column comes from the
 	// worksheet layout: a standalone scatter's sheet puts X in column A, and a combo's sheet puts it
-	// in the X row's own column after the label columns. Hard-coding column A pointed a scatter
-	// inside a combo at the category labels.
-	const xValues = dataValues(data[0])
-	const xCol = sheet.valueColumn(data[0]?._dataIndex ?? 0)
+	// in the X row's own column after the label columns.
 	// Legacy single-series colour-vary, and it can never fire: a scatter `data` array is one row of
 	// X values plus one row per Y series, the loop below runs over `data.slice(1)`, so by the time
 	// `data.length === 1` there are no series left to colour. The intent was presumably "one Y
@@ -220,27 +213,10 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 	const sers = data
 		.slice(1)
 		.map((obj) => {
-			// The series index is the Y series' position across the whole chart less one, for the X row
-			// that precedes it. On a standalone scatter that counts the Y series from 0, which is the
-			// index `seriesOptions` is documented against: `data[0]` is the shared X row and is not a
-			// series, so `seriesOptions[0]` styles the FIRST Y series, `data[1]`. In a combo it stays
-			// clear of every other subchart's indices, where a count restarting at 0 gave a bar and a
-			// scatter the same `<c:idx>` and the same colour.
-			const idx = obj._dataIndex - 1
-			const over = opts.seriesOptions?.[idx]
-			const serColor = namedColorOr(over?.color, paletteColor(chartColors, idx), 'seriesOptions color')
-			const yValues = dataValues(obj)
-			const yCol = sheet.valueColumn(obj._dataIndex)
-			// The Y series is cached against the X series' length, so a caller who supplied fewer Y
-			// values than X leaves gaps rather than a short cache.
-			const values =
-				numRefBlock('c:xVal', sheetRangeRef(xCol, 2, xCol, xValues.length + 1), valFmtCode, xValues) +
-				numRefBlock(
-					'c:yVal',
-					sheetRangeRef(yCol, 2, yCol, xValues.length + 1),
-					valFmtCode,
-					xValues.map((_value, i) => yValues[i])
-				)
+			// `seriesOptions[0]` styles the FIRST Y series, `data[1]`: `data[0]` is the shared X row and is
+			// not a series. In a combo the index stays clear of every other subchart's, where a count
+			// restarting at 0 gave a bar and a scatter the same `<c:idx>` and the same colour.
+			const { idx, over, color: serColor, xVal, yVal } = xySeriesRefs(obj, data, opts, sheet, valFmtCode)
 
 			// Scatter data point labels. `chartUuid` tails each point's `c16:uniqueId` and is minted
 			// per build, for the reason {@link customXYRuns} gives about the `a:fld` ids.
@@ -265,7 +241,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: idx })),
 				raw(voidEl('c:order', { val: idx })),
-				raw(strRefBlock(sheetCellRef(yCol, 1), obj.name ?? '')),
+				raw(seriesNameRef(obj, sheet)),
 				raw(scatterSerShapeProps(opts, serColor, idx, over?.lineSize)),
 				raw(serMarker(opts, serColor, serColor)),
 				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` (CT_ScatterSer schema order).
@@ -273,7 +249,7 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				raw(labels),
 				// Error bars come after dLbls and before xVal/yVal in schema order.
 				raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
-				raw(values),
+				raw(xVal + yVal),
 				raw(voidEl('c:smooth', { val: xsdBool(opts.lineSmooth) })),
 			])
 		})

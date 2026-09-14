@@ -14,20 +14,11 @@ import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-interna
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { createLineCap } from '../drawingml/line.js'
-import {
-	categoryRange,
-	dataLabels,
-	dataValues,
-	firstLabelGroup,
-	sheetCellRef,
-	type WorksheetLayout,
-	sheetRangeRef,
-} from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import { isStackedGrouping } from './chart-kind.js'
 import {
-	catRefBlock,
+	catValRefs,
 	chartDataLabels,
 	createDataBorderLine,
 	createSerLinesElement,
@@ -39,14 +30,13 @@ import {
 	makeChartErrorBarsXml,
 	makeCustomDLblXml,
 	makeSeriesDataPointsXml,
-	numRefBlock,
 	paletteColor,
 	type PlotBuilder,
 	resolveChartPalette,
+	seriesNameRef,
 	seriesShapeProps,
 	seriesStroke,
 	serMarker,
-	strRefBlock,
 } from './chart-parts.js'
 
 /** The chart types drawn as a line (a marker per point, an optional smooth) rather than as a body. */
@@ -108,47 +98,6 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 		flags: dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
 		showLeaderLines: voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }),
 	})
-}
-
-/**
- * The `<c:cat>` category reference. Numeric (date) categories and single-level text ones are
- * {@link catRefBlock}; multi-level labels nest a `<c:lvl>` per group, which is a different shape
- * rather than a different spelling of the same one.
- */
-function serCategories(obj: OptsChartDataInternal, opts: ChartOptsInternal): string {
-	const groups = dataLabels(obj)
-	const cats = firstLabelGroup(obj)
-	// A series with no labels of its own states no categories. It used to fall through to the
-	// multi-level arm with an empty group, which wrote `Sheet1!$A$2:$$1` -- a reference that
-	// resolves nowhere. `<c:cat>` is optional in `CT_Ser`; the same arm `plot-pie.ts` takes.
-	if (groups.length === 0 || cats.length === 0) return ''
-	const catRef = categoryRange(cats.length)
-	if (opts.catLabelFormatCode) {
-		// A `catLabelFormatCode` implies numbers, so the cache is a numRef carrying that format.
-		return el('c:cat', null, raw(catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General')))
-	}
-	if (groups.length === 1) return el('c:cat', null, raw(catRefBlock('str', catRef, cats)))
-	const lvls = groups
-		.map((labelsGroup) =>
-			el('c:lvl', null, raw(labelsGroup.map((label, idx) => el('c:pt', { idx }, raw(el('c:v', null, label)))).join('')))
-		)
-		.join('')
-	const cache = el('c:multiLvlStrCache', null, [raw(voidEl('c:ptCount', { val: cats.length })), raw(lvls)])
-	const ref = el('c:multiLvlStrRef', null, [
-		raw(el('c:f', null, sheetRangeRef(1, 2, groups.length, cats.length + 1))),
-		raw(cache),
-	])
-	return el('c:cat', null, raw(ref))
-}
-
-/** The `<c:val>` numeric cache: the series' own sheet column, one point per category. */
-function serValues(obj: OptsChartDataInternal, valFmtCode: string, sheet: WorksheetLayout): string {
-	const valCol = sheet.valueColumn(obj._dataIndex)
-	// The sheet's row count, not this series' own label count: the workbook writes one row per
-	// category of the FIRST series and fills every series column across it, so a series with no
-	// labels of its own would otherwise take a range that runs backwards.
-	const rows = sheet.rowCount
-	return numRefBlock('c:val', sheetRangeRef(valCol, 2, valCol, rows + 1), valFmtCode, dataValues(obj), rows)
 }
 
 /**
@@ -227,7 +176,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			return el('c:ser', null, [
 				raw(voidEl('c:idx', { val: obj._dataIndex })),
 				raw(voidEl('c:order', { val: obj._dataIndex })),
-				raw(strRefBlock(sheetCellRef(sheet.valueColumn(obj._dataIndex), 1), obj.name ?? '')),
+				raw(seriesNameRef(obj, sheet)),
 				raw(serShapeProps(chartType, opts, seriesColor, seriesOverride?.lineSize, obj._dataIndex)),
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar must omit it.
 				isBarLike(chartType) ? raw(voidEl('c:invertIfNegative', { val: 0 })) : null,
@@ -241,8 +190,7 @@ export const makeCatAxisPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 				// and CT_RadarSer has no error bars either.
 				chartType === ChartType.radar ? null : raw(serDataLabels(obj, opts, seriesColor)),
 				chartType === ChartType.radar ? null : raw(makeChartErrorBarsXml(chartType, obj.errorBars, obj)),
-				raw(serCategories(obj, opts)),
-				raw(serValues(obj, valFmtCode, sheet)),
+				raw(catValRefs(obj, opts, valFmtCode, sheet, { multiLevel: true })),
 				chartType === ChartType.line ? raw(voidEl('c:smooth', { val: xsdBool(opts.lineSmooth) })) : null,
 			])
 		})

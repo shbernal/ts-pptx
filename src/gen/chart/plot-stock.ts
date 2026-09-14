@@ -18,24 +18,16 @@ import {
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import {
-	categoryRange,
-	dataValues,
-	firstLabelGroup,
-	sheetCellRef,
-	type WorksheetLayout,
-	sheetRangeRef,
-} from './data-refs.js'
+import type { WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
-	catRefBlock,
+	catValRefs,
 	dLblShowFlags,
 	dimmedTextFill,
 	dimmedTextLine,
-	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
-	strRefBlock,
+	seriesNameRef,
 	type PlotBuilder,
 } from './chart-parts.js'
 import { STOCK_STYLE_SPEC, type StockStyle } from './chart-kind.js'
@@ -45,46 +37,6 @@ export const isVolumeStockStyle = (style: StockStyle | undefined): boolean => !!
 
 /** Minimal `<c:dLbls>` block (all labels off) shared by the stock and volume-bar subcharts. */
 const STOCK_DLBLS = el('c:dLbls', null, [...dLblShowFlags({})])
-
-/** Emit the shared `<c:cat>` + `<c:val>` refs for a stock/volume series (single-level categories). */
-function stockCatVal(
-	obj: OptsChartDataInternal,
-	opts: ChartOptsInternal,
-	valFmtCode: string,
-	sheet: WorksheetLayout
-): string {
-	const cats = firstLabelGroup(obj)
-	const valColRow = sheet.valueColumn(obj._dataIndex)
-	const catRef = categoryRange(cats.length)
-	// Numeric categories (dates) take a `numRef` carrying the source format, so PowerPoint renders
-	// them as dates rather than serial numbers; text ones take a plain `strRef`.
-	const cat = el(
-		'c:cat',
-		null,
-		raw(
-			opts.catLabelFormatCode
-				? catRefBlock('num', catRef, cats, opts.catLabelFormatCode || 'General')
-				: catRefBlock('str', catRef, cats)
-		)
-	)
-	// The value range spans the sheet's own rows, which the first series' categories decide.
-	return (
-		(cats.length ? cat : '') +
-		numRefBlock(
-			'c:val',
-			sheetRangeRef(valColRow, 2, valColRow, sheet.rowCount + 1),
-			valFmtCode,
-			dataValues(obj),
-			sheet.rowCount
-		)
-	)
-}
-
-/** Emit the `<c:tx>` series-name reference for a stock/volume series. */
-function stockSeriesName(obj: OptsChartDataInternal, sheet: WorksheetLayout): string {
-	const nameCol = sheet.valueColumn(obj._dataIndex)
-	return strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')
-}
 
 /** Emit a single stock (line) series: invisible line, optional close-marker, cat/val refs. */
 function makeStockLineSer(
@@ -115,10 +67,10 @@ function makeStockLineSer(
 	return el('c:ser', null, [
 		raw(voidEl('c:idx', { val: obj._dataIndex })),
 		raw(voidEl('c:order', { val: obj._dataIndex })),
-		raw(stockSeriesName(obj, sheet)),
+		raw(seriesNameRef(obj, sheet)),
 		raw(spPr),
 		raw(marker),
-		raw(stockCatVal(obj, opts, valFmtCode, sheet)),
+		raw(catValRefs(obj, opts, valFmtCode, sheet, { multiLevel: false })),
 		raw(voidEl('c:smooth', { val: 0 })),
 	])
 }
@@ -141,7 +93,7 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 		const volumeSer = el('c:ser', null, [
 			raw(voidEl('c:idx', { val: volumeSeries._dataIndex })),
 			raw(voidEl('c:order', { val: volumeSeries._dataIndex })),
-			raw(stockSeriesName(volumeSeries, sheet)),
+			raw(seriesNameRef(volumeSeries, sheet)),
 			raw(
 				el(
 					'c:spPr',
@@ -158,7 +110,7 @@ export const makeStockPlot: PlotBuilder = (_chartType, data, opts, valAxisId, ca
 				)
 			),
 			raw(voidEl('c:invertIfNegative', { val: 0 })),
-			raw(stockCatVal(volumeSeries, opts, valFmtCode, sheet)),
+			raw(catValRefs(volumeSeries, opts, valFmtCode, sheet, { multiLevel: false })),
 		])
 		strXml += el('c:barChart', null, [
 			raw(voidEl('c:barDir', { val: 'col' })),

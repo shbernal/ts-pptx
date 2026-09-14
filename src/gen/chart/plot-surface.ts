@@ -12,54 +12,22 @@
 import { AXIS_ID_SERIES_PRIMARY } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import {
-	categoryRange,
-	dataValues,
-	firstLabelGroup,
-	sheetCellRef,
-	type WorksheetLayout,
-	sheetRangeRef,
-} from './data-refs.js'
+import type { WorksheetLayout } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
-import {
-	catRefBlock,
-	numRefBlock,
-	paletteColor,
-	resolveChartPalette,
-	strRefBlock,
-	type PlotBuilder,
-} from './chart-parts.js'
+import { catValRefs, paletteColor, resolveChartPalette, seriesNameRef, type PlotBuilder } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
 const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
 
-/** Emit the shared `<c:cat>` (strRef) + `<c:val>` (numRef) refs for a surface series. */
-function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string, sheet: WorksheetLayout): string {
-	const cats = firstLabelGroup(obj)
-	const valCol = sheet.valueColumn(obj._dataIndex)
-	// The value range spans the sheet's own rows, which the first series' categories decide; a
-	// series carrying no labels states no categories rather than an empty, reversed range.
-	return (
-		(cats.length ? el('c:cat', null, raw(catRefBlock('str', categoryRange(cats.length), cats))) : '') +
-		numRefBlock(
-			'c:val',
-			sheetRangeRef(valCol, 2, valCol, sheet.rowCount + 1),
-			valFmtCode,
-			dataValues(obj),
-			sheet.rowCount
-		)
-	)
-}
-
 /** Emit a single surface series: name ref, 3-D shape props, and cat/val refs. */
 function makeSurfaceSer(
 	obj: OptsChartDataInternal,
+	opts: ChartOptsInternal,
 	valFmtCode: string,
 	seriesColor: string,
 	sheet: WorksheetLayout
 ): string {
-	const nameCol = sheet.valueColumn(obj._dataIndex)
 	// A surface series carries 3-D shape props; the surface itself is colored by value band, but the
 	// per-series fill still styles the wireframe / legend key.
 	const spPr = el('c:spPr', null, [
@@ -71,9 +39,9 @@ function makeSurfaceSer(
 	return el('c:ser', null, [
 		raw(voidEl('c:idx', { val: obj._dataIndex })),
 		raw(voidEl('c:order', { val: obj._dataIndex })),
-		raw(strRefBlock(sheetCellRef(nameCol, 1), obj.name ?? '')),
+		raw(seriesNameRef(obj, sheet)),
 		raw(spPr),
-		raw(surfaceCatVal(obj, valFmtCode, sheet)),
+		raw(catValRefs(obj, opts, valFmtCode, sheet, { multiLevel: false })),
 	])
 }
 
@@ -86,7 +54,7 @@ export const makeSurfacePlot: PlotBuilder = (_chartType, data, opts, valAxisId, 
 	const tag = isSurface3D(opts) ? 'surface3DChart' : 'surfaceChart'
 	const chartColors = resolveChartPalette(opts)
 	const sers = data
-		.map((obj, idx) => makeSurfaceSer(obj, valFmtCode, paletteColor(chartColors, idx, '4472C4'), sheet))
+		.map((obj, idx) => makeSurfaceSer(obj, opts, valFmtCode, paletteColor(chartColors, idx, '4472C4'), sheet))
 		.join('')
 	return el(`c:${tag}`, null, [
 		raw(voidEl('c:wireframe', { val: xsdBool(opts.surfaceWireframe) })),
