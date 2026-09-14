@@ -441,26 +441,41 @@ function makeDataTableXml(rel: SlideRelChart): string {
 }
 
 /**
+ * A combo chart's subcharts in the order its legend lists their series.
+ *
+ * Read off PowerPoint renders (`test/read/fixtures/authoring/probe-combo-legend-order.mjs`). On one
+ * axis group the legend follows the order the subcharts are given in, which is plotArea order. Once
+ * they sit on different axis groups the bar subcharts come first, whichever axis they are on. How the
+ * other types rank against each other there is not measured, so they keep their given order.
+ */
+function legendOrder(chartOptions: ChartOptsInternal, types: ChartMultiInternal[]): ChartMultiInternal[] {
+	const secondary = types.map((type) => plotsOnSecondaryAxes(resolveSubchartOptions(chartOptions, type.options)))
+	if (secondary.every((onSecondary) => onSecondary === secondary[0])) return types
+	const isBar = (type: ChartMultiInternal): boolean => asChartType(type.type) === ChartType.bar
+	return [...types.filter(isBar), ...types.filter((type) => !isBar(type))]
+}
+
+/**
  * The `<c:legend>`: position, the entries a combo chart deletes, an optional manual placement,
  * and the text properties when any legend font option is set.
  */
 function makeLegendXml(rel: SlideRelChart): string {
-	// For combo charts: suppress the series belonging to subcharts that set `showLegend: false`.
+	// For combo charts: delete the legend entries of the series whose subchart sets `showLegend: false`.
+	// `c:legendEntry/c:idx` is the entry's position in the legend, not the series' `c:idx`: PowerPoint,
+	// deleting the first entry of a legend that lists series 1, 2 and 0, writes idx 0
+	// (`test/read/fixtures/chart-legend-entry.pptx`). A scatter's or bubble's X row is not a series and
+	// holds no entry.
 	let entries = ''
 	if (Array.isArray(rel.opts._type)) {
-		for (const type of rel.opts._type) {
-			if (type.options?.showLegend === false) {
-				// One entry per data row, numbered by the row's position across the chart. That is the
-				// series `<c:idx>` for every family but XY, where the X row is not a series and each Y
-				// series sits one below its row (`seriesIdx`). Whether `legendEntry/c:idx` names the
-				// series index or the entry's position in the legend is not established, so the rows
-				// keep the numbering they have always had.
-				for (const row of type.data) {
-					entries += el('c:legendEntry', null, [
-						raw(voidEl('c:idx', { val: row._dataIndex })),
-						raw(voidEl('c:delete', { val: 1 })),
-					])
-				}
+		let position = 0
+		for (const type of legendOrder(rel.opts, rel.opts._type)) {
+			const seriesCount = isXyChart(asChartType(type.type)) ? Math.max(0, type.data.length - 1) : type.data.length
+			for (let i = 0; i < seriesCount; i++, position++) {
+				if (type.options?.showLegend !== false) continue
+				entries += el('c:legendEntry', null, [
+					raw(voidEl('c:idx', { val: position })),
+					raw(voidEl('c:delete', { val: 1 })),
+				])
 			}
 		}
 	}

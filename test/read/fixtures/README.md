@@ -53,6 +53,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `table-text-inheritance.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `slide-jump-link.pptx` | Microsoft Office PowerPoint    | 16.0000    | 3      |
 | `slide-jump-link-target-deleted.pptx` | Microsoft Office PowerPoint | 16.0000 | 2 |
+| `chart-legend-entry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
@@ -194,6 +195,7 @@ c2756f8f042c92c8a05236e4c426846f4d344c07d51f54665983b786e27a9132  table-merge-en
 b157017fd0af12dd3c03595a8fa5c60037574c8fceb912c61e24da2b2b5a8627  table-text-inheritance.pptx
 1a16c04c8a805f839d37758d40bc557594f496197d6f5b69b2b7af500d3ae6ba  slide-jump-link.pptx
 eb315cc06511f0bb37c0ba17cad7bb077f0e84f4a847271ecc4b8ec4c9873a65  slide-jump-link-target-deleted.pptx
+254c0ac281aaa111bb47ae0c4d2f6fa2158221ee4a55ea204029de5e91b5e799  chart-legend-entry.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
@@ -592,6 +594,16 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `removeSlide` matches the sections and the custom show, and deliberately not the links: it
   removes a link to the slide it removes. Authored via PowerPoint COM on Windows (2026-09-14,
   `authoring/author-slide-jump-link.ps1`).
+- `chart-legend-entry.pptx` — two combo charts, the evidence for what `c:legendEntry/c:idx` counts,
+  cited from `src/gen/chart/chart-xml.ts` and
+  `test/regression/chart/chart-combo-legend-entry.test.js`. Each started as three clustered-column
+  series with `c:idx` 0, 1 and 2, then had series 0 moved into a second chart group: a line on
+  slide 1 (`combo-line-chart`) and an XY scatter on slide 2 (`combo-scatter-chart`). Each legend
+  then listed the series in the order 1, 2, 0, and deleting its first entry, the series with
+  `c:idx` 1, wrote `<c:legendEntry><c:idx val="0"/>`. So the index is the entry's position in the
+  legend, not the series index. Authored via PowerPoint COM on Windows (2026-09-14,
+  `authoring/author-chart-legend-entry.ps1`), with each legend read off PNG exports taken before
+  and after the deletion.
 - `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
   (2018) `p188` comment schema**, read by `modern-comments.test.js`
   (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
@@ -1229,6 +1241,7 @@ fixtures opened clean with no repair prompt:
 - [x] `table-text-inheritance.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored, edits injected, reopened + re-saved clean via COM, no repair prompt)
 - [x] `slide-jump-link.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + saved via COM)
 - [x] `slide-jump-link-target-deleted.pptx` — Windows desktop PowerPoint, 2026-09-14 (saved after the deletion, reopened clean via COM, no repair prompt)
+- [x] `chart-legend-entry.pptx` — Windows desktop PowerPoint, 2026-09-14 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

@@ -1001,6 +1001,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo subchart with `showLegend: false` hides its own legend entries.**
+  - Its deleted entries were numbered by data row, but `c:legendEntry/c:idx` counts positions in the
+    legend: PowerPoint, deleting the first entry of a legend listing series 1, 2 and 0, writes idx
+    0. Row numbers matched positions only by accident. A scatter's X row is not a series, so hiding
+    a scatter placed ahead of a bar chart deleted the bars' entries and left the scatter's. Entries
+    are now numbered by position, counting only a scatter's or bubble's Y series.
+  - Positions follow the legend order read off PowerPoint renders. One axis group lists its
+    subcharts in the order given. Across axis groups a bar subchart comes first. How other chart
+    types rank there is not measured, so they keep their given order.
+  - The ground truth is the new `chart-legend-entry.pptx` fixture, with the order measured by
+    `test/read/fixtures/authoring/probe-combo-legend-order.mjs`.
+
 - **A scatter or bubble chart's X axis shows the number format it was given.**
   - `catAxisLabelFormatCode`, or `valAxisLabelFormatCode` in its place, was written onto the X axis
     with `sourceLinked="1"`. A source-linked axis paints its labels in the format of the cached X
