@@ -495,6 +495,24 @@ export function noteAppliesTo(construct: string, tier: PrintTier): boolean {
 	return true
 }
 
+/** A graphic frame payload with no write-API emitter. */
+export type UnwritableFramePayload = 'chartEx' | 'diagram' | 'unknown'
+
+/**
+ * The note each {@link UnwritableFramePayload} records.
+ *
+ * Here rather than beside the shape mapper that records them, because the printer reads it too
+ * and the printer does not reach into `from-read/`. `graphicFrameCall` picks its note from it. The
+ * template-anchored printer keeps these on a slide it copies whole and drops every other note
+ * recorded there: these say which construct forced the copy, and the rest describe a
+ * transcription that tier never prints.
+ */
+export const UNWRITABLE_FRAME_CONSTRUCTS = {
+	chartEx: 'chartEx.all',
+	diagram: 'diagram.all',
+	unknown: 'graphicFrame.unknown',
+} as const satisfies Record<UnwritableFramePayload, NoteConstruct>
+
 /**
  * A {@link NoteCollector} bound to one slide and shape, so a mapping function can record
  * a loss without knowing where in the deck it sits. Obtained via {@link scopeNotes}.

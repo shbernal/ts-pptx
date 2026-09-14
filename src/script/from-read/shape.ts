@@ -35,7 +35,7 @@ import {
 	type GroupShape,
 	type Picture,
 } from '../../read/api/shapes.js'
-import type { NoteScope } from '../fidelity.js'
+import { UNWRITABLE_FRAME_CONSTRUCTS, type NoteScope, type UnwritableFramePayload } from '../fidelity.js'
 import { isAssetRef, type CallIr, type IrValue } from '../ir.js'
 import {
 	compact,
@@ -437,7 +437,7 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
  * a SmartArt slide was therefore transcribed with a hole where the graphic had been. The two
  * consequences are the same for every member, so the membership has to be too.
  */
-export function unwritableFramePayload(shape: GraphicFrame): 'chartEx' | 'diagram' | 'unknown' | null {
+export function unwritableFramePayload(shape: GraphicFrame): UnwritableFramePayload | null {
 	if (shape.table || shape.chart) return null
 	if (shape.hasChartEx) return 'chartEx'
 	if (shape.hasDiagram) return 'diagram'
@@ -459,7 +459,7 @@ function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
 	switch (unwritableFramePayload(shape)) {
 		case 'chartEx':
 			notes.note(
-				'chartEx.all',
+				UNWRITABLE_FRAME_CONSTRUCTS.chartEx,
 				'dropped',
 				'unwritable',
 				'an extended chart (waterfall, funnel, box-and-whisker, …) has a full reader but no write-API counterpart'
@@ -470,7 +470,7 @@ function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
 			// `graphicFrame.unknown` one below: the loss is the *write* side's, and saying
 			// "not decoded" of a construct whose text the read model now returns would be false.
 			notes.note(
-				'diagram.all',
+				UNWRITABLE_FRAME_CONSTRUCTS.diagram,
 				'dropped',
 				'unwritable',
 				'a SmartArt diagram has a full reader and its text can be edited in place through it (DiagramPoint.text), but no write API authors one from a script, so a converted script cannot describe this frame'
@@ -478,7 +478,7 @@ function graphicFrameCall(shape: GraphicFrame, ctx: MapContext): CallIr | null {
 			return null
 		default:
 			notes.note(
-				'graphicFrame.unknown',
+				UNWRITABLE_FRAME_CONSTRUCTS.unknown,
 				'dropped',
 				'unread',
 				'this graphic frame hosts none of a table, a chart or a SmartArt diagram (an OLE object or an ink annotation), which the read model does not decode'

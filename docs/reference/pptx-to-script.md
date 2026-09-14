@@ -317,8 +317,9 @@ Plus, at 1–2 fixtures each: `diagram.all`,
 `graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
 `shape.empty`, `chart.xLabels`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
 `image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
-`slide.background`, `slide.layout`, `table.cell.fill.picture.geometry`,
-`table.rowAuto`, `text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
+`slide.background`, `slide.layout`, `slide.transitionSound`,
+`table.cell.fill.picture.geometry`, `table.rowAuto`, `text.bullet.schemeToken`, `text.field`,
+`text.paraSpaceZero`.
 
 **A slide holding a graphic frame the write API cannot author is copied, not
 transcribed.** That is the rule, and `slide.carried` is how the converter
@@ -331,7 +332,11 @@ forced the copy.
 
 The standalone tier has no source package to copy from, so it transcribes such a
 slide and genuinely loses the frame. That is why the per-shape notes stay: they
-are what that tier reports, and `slide.carried` is suppressed there.
+are what that tier reports, and `slide.carried` is suppressed there. The
+template-anchored tier reports the reverse. On a slide it copies, it keeps
+`slide.carried` and the frame's own note, and drops every other note the slide
+raised. A placeholder beside the diagram loses its identity only when it is
+transcribed, and a copy keeps it.
 
 **The copy no longer costs a duplicate layout.** It used to. `importSlide`
 brought the copied slide's whole `slideLayout` chain across under fresh
@@ -434,7 +439,7 @@ library wrote could not survive its own converter, and nothing said so.
 that sits half its width further in. `ctr` is what an omitted `@algn` already
 renders as, so noting that one would fire on most PowerPoint-authored shapes
 while describing no loss. No corpus fixture states `in`, so the note reads
-0/49.
+0/50.
 
 **A baked autofit carries its scale, and a bare one is a different state.** A
 `normAutofit` frame maps onto `fit`, but not onto a single spelling. One that
@@ -451,7 +456,7 @@ the frame. Neither case notes. `text.autofit.fontScale` and
 rejects a percentage outside 0–100 and drops the attribute with a warning. So
 a malformed source falls back to bare `'shrink'` with the loss declared,
 rather than passing through a number that would vanish silently. No corpus
-fixture is malformed, so both read 0/49.
+fixture is malformed, so both read 0/50.
 
 **The explicit off for a text decoration is a state, not silence.**
 `u="none"`, `strike="noStrike"` and `cap="none"` carry into the IR as
@@ -483,18 +488,18 @@ fixture, which is the honest headline of that tier:
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `theme.fmtScheme` | 49/49 | the output carries Office's format scheme |
-| `master.txStyles` | 49/49 | placeholder text falls back to built-in defaults |
-| `master.placeholders` | 49/49 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 49/49 | 5 of 13 document properties round-trip |
-| `deck.docPropsDefault` | 49/49 | the write path stamps its own value for each property the source left blank |
-| `master.default` | 49/49 | every presentation carries an unremovable blank `DEFAULT` layout |
-| `master.background` | 48/49 | a `p:bgRef` theme reference is baked to the colour it resolves to |
-| `master.decoration` | 6/49 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |
-| `master.name` | 5/49 | a layout name containing a tab or line break collapses |
-| `master.colorMap` | 4/49 | `p:clrMap` has no setter |
-| `master.multiple` | 1/49 | multi-master decks collapse to one |
-| `master.nameCollision` | 1/49 | layout titles are deduplicated, since a title doubles as a lookup key |
+| `theme.fmtScheme` | 50/50 | the output carries Office's format scheme |
+| `master.txStyles` | 50/50 | placeholder text falls back to built-in defaults |
+| `master.placeholders` | 50/50 | layout placeholder definitions are not reproduced |
+| `deck.docProps` | 50/50 | 5 of 13 document properties round-trip |
+| `deck.docPropsDefault` | 50/50 | the write path stamps its own value for each property the source left blank |
+| `master.default` | 50/50 | every presentation carries an unremovable blank `DEFAULT` layout |
+| `master.background` | 49/50 | a `p:bgRef` theme reference is baked to the fill it resolves to |
+| `master.decoration` | 6/50 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |
+| `master.name` | 5/50 | a layout name containing a tab or line break collapses |
+| `master.colorMap` | 4/50 | `p:clrMap` has no setter |
+| `master.multiple` | 1/50 | multi-master decks collapse to one |
+| `master.nameCollision` | 1/50 | layout titles are deduplicated, since a title doubles as a lookup key |
 
 A **`layout.` prefix** marks the rest: a loss in re-authoring a *layout's* own
 decoration, which the standalone tier rebuilds into that layout's
@@ -506,19 +511,19 @@ layout, and the round trip would let one excuse the same difference on a *slide*
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `layout.text.color.inherited` | 4/49 | an inherited run colour on a decorative text box, resolved and baked in |
-| `layout.group` | 2/49 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
-| `layout.fill.schemeToken` | 1/49 | a token outside the ten the write path maps is baked to hex |
-| `layout.fill.gradient.schemeToken` | 1/49 | the same, for a gradient stop's token |
-| `layout.shape.custGeom.guides` | 1/49 | a freeform's guides and adjust handles, as on a slide |
-| `layout.decoration` | 0/49 | a table on a layout: no `SlideMasterObject` variant at all |
+| `layout.text.color.inherited` | 4/50 | an inherited run colour on a decorative text box, resolved and baked in |
+| `layout.group` | 2/50 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
+| `layout.fill.schemeToken` | 1/50 | a token outside the ten the write path maps is baked to hex |
+| `layout.fill.gradient.schemeToken` | 1/50 | the same, for a gradient stop's token |
+| `layout.shape.custGeom.guides` | 1/50 | a freeform's guides and adjust handles, as on a slide |
+| `layout.decoration` | 0/50 | a table on a layout: no `SlideMasterObject` variant at all |
 
 The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 817
-notes against the template-anchored tier's 448).
+on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 832
+notes against the template-anchored tier's 454).
 
 ### The read path is the binding constraint
 
@@ -537,7 +542,7 @@ an absolute `a:buSzPts` the write API has no unit for, and
 `text.bullet.picture`, where the bytes of an `a:buBlip` are readable but the
 paragraph mapper carries no asset resolver to re-embed them with. Reading the
 colour also opened one write-side gap of its own: `text.bullet.schemeToken`
-(1/49), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
+(1/50), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
 which is baked to a literal hex and stops tracking the theme.
 
 `text.bullet.inherited` is the counter-example to this section's thesis, and it

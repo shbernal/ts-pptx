@@ -340,6 +340,15 @@ describe('standalone printer — cases the fixture corpus does not contain', () 
 			printScript(ir).notes.some((note) => note.construct === 'slide.carried'),
 			'the template-anchored tier still copies the slide'
 		)
+		assertEqual(
+			printScript(ir)
+				.notes.filter((note) => note.slideNumber === 1)
+				.map((note) => note.construct)
+				.sort()
+				.join(),
+			'chartEx.all,slide.carried',
+			'and reports only why it copied it, not what transcribing it would have lost'
+		)
 	})
 
 	test('a SmartArt slide is transcribed here and copied by the other tier', async () => {
@@ -359,6 +368,21 @@ describe('standalone printer — cases the fixture corpus does not contain', () 
 		assert(
 			printScript(ir).notes.some((note) => note.slideNumber === 2 && note.construct === 'slide.carried'),
 			'while the template-anchored tier now copies that slide rather than transcribing it'
+		)
+		// The placeholder beside the diagram loses its identity and baked colour only when it is
+		// transcribed. Copied, it keeps both, so the tier that copies it does not report either.
+		assertEqual(
+			printScript(ir)
+				.notes.filter((note) => note.slideNumber === 2)
+				.map((note) => note.construct)
+				.sort()
+				.join(),
+			'diagram.all,slide.carried',
+			'the template-anchored tier reports only the copy and the construct that forced it'
+		)
+		assert(
+			printed.notes.some((note) => note.slideNumber === 2 && note.construct === 'shape.placeholder'),
+			'while the standalone tier, which transcribes the placeholder, still reports its loss'
 		)
 	})
 })

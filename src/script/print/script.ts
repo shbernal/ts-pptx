@@ -29,7 +29,13 @@
  * with no template at all and pays for it in the note list.
  */
 import type { DeckIr, SlideIr } from '../ir.js'
-import { NoteCollector, noteAppliesTo, scopeNotes } from '../fidelity.js'
+import {
+	NoteCollector,
+	UNWRITABLE_FRAME_CONSTRUCTS,
+	noteAppliesTo,
+	scopeNotes,
+	type FidelityNote,
+} from '../fidelity.js'
 import { commentText, printString, type AssetPrinter } from './literal.js'
 import {
 	assetIdentifiers,
@@ -73,7 +79,10 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 	// Built last: the tier's own notes are only known once the slides have been walked.
 	// Each construct's catalogue entry says which tiers it applies to; the chrome's losses, for one,
 	// are carried by the template rather than lost here.
-	const notes = [...ir.fidelity, ...collector.notes].filter((note) => noteAppliesTo(note.construct, 'template'))
+	const carried = new Set(ir.slides.filter((slide) => slide.source === 'carried').map((slide) => slide.number))
+	const notes = [...ir.fidelity, ...collector.notes].filter(
+		(note) => noteAppliesTo(note.construct, 'template') && !transcriptionOfCarried(note, carried)
+	)
 
 	const lines: string[] = [
 		header(
@@ -140,6 +149,23 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 	)
 
 	return printedScript(lines, ir, assetMode, notes, assets.printed)
+}
+
+/** The notes a slide this tier copies whole still reports: why it was copied, and what forced it. */
+const CARRIED_SLIDE_CONSTRUCTS: ReadonlySet<string> = new Set([
+	'slide.carried',
+	...Object.values(UNWRITABLE_FRAME_CONSTRUCTS),
+])
+
+/**
+ * `true` for a note about transcribing a slide this tier copies instead.
+ *
+ * The IR maps a carried slide's shapes anyway, for the standalone tier, and each records its own
+ * losses. `importSlide` copies the slide whole, so here those losses do not happen, and
+ * `slide.carried` already excuses every difference on it, so the round trip could not tell.
+ */
+function transcriptionOfCarried(note: FidelityNote, carried: ReadonlySet<number>): boolean {
+	return note.slideNumber !== null && carried.has(note.slideNumber) && !CARRIED_SLIDE_CONSTRUCTS.has(note.construct)
 }
 
 /**

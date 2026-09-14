@@ -955,6 +955,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A template-anchored script no longer reports losses on a slide it copies whole.**
+  - `printScript` copies a slide holding an extended chart, a SmartArt diagram or an undecoded
+    frame with `importSlide`, and still listed every note its shapes raised when transcribed:
+    `mixed.pptx` slide 2 reported `shape.placeholder` and `text.color.inherited` for a
+    placeholder the copy keeps as it was. On such a slide it now reports `slide.carried` and
+    the frame's own note (`chartEx.all`, `diagram.all` or `graphicFrame.unknown`) and nothing
+    else. `printStandaloneScript`, which transcribes the slide, reports the same notes as
+    before.
+  - `PrintedScript.notes` and the emitted header shrink to match, so a round-trip check fed
+    from them excludes less.
+
 - **`pptxToScript` keeps a gradient or a pattern background, on a slide and on a layout.**
   - Both were dropped under `slide.background` or `master.background`, with a note saying the
     write API's `background` option could not express them. It can: `BackgroundProps` extends
