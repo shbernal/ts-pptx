@@ -19,28 +19,20 @@ import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import {
 	catRefBlock,
+	chartLang,
 	createChartBorderLine,
 	createDataBorderLine,
 	createLeaderLinesElement,
 	dLblNumFmt,
 	dLblsBlock,
 	dLblShowFlags,
-	labelFontAttrs,
-	labelFontChildren,
+	labelDefRPr,
 	labelTextProps,
 	numRefBlock,
 	paletteColor,
 	resolveChartPalette,
 	seriesNameRef,
 } from './chart-parts.js'
-
-/**
- * The label run properties both `<c:txPr>` spellings share: {@link labelFontAttrs} in the
- * `sz, b, i, u, strike` ordering, over {@link labelFontChildren}'s colour and typeface.
- */
-function labelDefRPr(opts: ChartOptsInternal): string {
-	return el('a:defRPr', labelFontAttrs(opts), labelFontChildren(opts))
-}
 
 /** One `<c:dPt>`: the slice's own fill, its border override, and the shared shadow. */
 function pieDataPoint(
@@ -91,7 +83,7 @@ function pieDataLabel(idx: number, customLbl: string | undefined, opts: ChartOpt
 								null,
 								raw(
 									el('a:r', null, [
-										raw(voidEl('a:rPr', { lang: opts.lang || 'en-US', dirty: 0 })),
+										raw(voidEl('a:rPr', { lang: chartLang(opts), dirty: 0 })),
 										raw(el('a:t', null, customLbl)),
 									])
 								)

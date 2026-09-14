@@ -24,6 +24,7 @@ import {
 	createSerLinesElement,
 	dataLabelDefRPr,
 	dLblNumFmt,
+	dLblPosEl,
 	dLblsBlock,
 	dLblShowFlags,
 	labelTextProps,
@@ -94,7 +95,7 @@ function serDataLabels(obj: OptsChartDataInternal, opts: ChartOptsInternal, seri
 		numFmt: dLblNumFmt(lblFmtCode),
 		spPr: opts.dataLabelBkgrdColors ? el('c:spPr', null, raw(genXmlColorSelection(seriesColor))) : undefined,
 		txPr,
-		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		dLblPos: dLblPosEl(opts),
 		flags: dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
 		showLeaderLines: voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }),
 	})

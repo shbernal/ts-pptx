@@ -35,6 +35,7 @@ import { EMU_PER_POINT } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import {
 	axisCrossing,
+	chartLang,
 	createChartTextFonts,
 	createGridLineElement,
 	DEF_GRIDLINE_COLOR,
@@ -200,7 +201,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	})
 	const txPr = axisTextProps(
 		defRPr,
-		opts.lang || 'en-US',
+		chartLang(opts),
 		mapStated(opts.catAxisLabelRotate, (d) => convertAngleUnits(d, 'catAxisLabelRotate'))
 	)
 
@@ -302,7 +303,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	})
 	const txPr = axisTextProps(
 		defRPr,
-		opts.lang || 'en-US',
+		chartLang(opts),
 		mapStated(opts.valAxisLabelRotate, (d) => convertAngleUnits(d, 'valAxisLabelRotate'))
 	)
 
@@ -377,7 +378,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		fontFace: opts.serAxisLabelFontFace,
 	})
 	// No `serAxisLabelRotate` option exists, so the series axis always takes the auto rotation.
-	const txPr = axisTextProps(defRPr, opts.lang || 'en-US')
+	const txPr = axisTextProps(defRPr, chartLang(opts))
 	const serLabelSkip = positiveIntAttr(opts.serAxisLabelFrequency, 'serAxisLabelFrequency')
 
 	return el('c:serAx', null, [

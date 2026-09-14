@@ -53,6 +53,7 @@ import {
 } from './data-refs.js'
 import { el, raw, voidEl, type XmlChild } from '../oxml/el.js'
 import { type XsdBool, xsdBool } from '../../ooxml/xsd-boolean.js'
+import { OOXML_NS } from '../../ooxml/namespaces.js'
 
 /**
  * The six `c:show*` flags every `<c:dLbls>` carries, in schema order, as `XmlChild`s for the
@@ -150,6 +151,33 @@ export function labelFontChildren(opts: ChartOptsInternal, over?: ChartSeriesOpt
 }
 
 /**
+ * A data label's `<a:defRPr>` in the `sz, b, i, u, strike` ordering: {@link labelFontAttrs} over
+ * {@link labelFontChildren}. The pie's label blocks, both scatter label builders and the per-point
+ * custom label each built it. The other ordering stays {@link dataLabelDefRPr}.
+ * @param opts - the chart's normalized options
+ * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
+ */
+export function labelDefRPr(opts: ChartOptsInternal, over?: ChartSeriesOpts): string {
+	return el('a:defRPr', labelFontAttrs(opts, over), labelFontChildren(opts, over))
+}
+
+/**
+ * One styled data-label run: an `<a:rPr>` carrying the chart's language, the label font and
+ * `dirty="0"`, then the literal text. The scatter custom label and the per-point custom label each
+ * built it. Both font helpers warn at most once per condition, so reading them again here adds no
+ * diagnostic.
+ * @param opts - the chart's normalized options
+ * @param text - the label text, escaped by the builder
+ * @param over - this series' `seriesOptions` entry, whose stated fields win over the chart's
+ */
+export function labelRun(opts: ChartOptsInternal, text: string, over?: ChartSeriesOpts): string {
+	return el('a:r', null, [
+		raw(el('a:rPr', { lang: chartLang(opts), ...labelFontAttrs(opts, over), dirty: 0 }, labelFontChildren(opts, over))),
+		raw(el('a:t', null, text)),
+	])
+}
+
+/**
  * The `<c:txPr>` a data-label block wraps its run properties in: an empty `<a:bodyPr>`, an empty
  * `<a:lstStyle>`, then one `<a:p>` carrying the `<a:pPr>` the caller built.
  *
@@ -165,6 +193,43 @@ export function labelTextProps(defRPr: string): string {
 		raw(voidEl('a:lstStyle', null)),
 		raw(el('a:p', null, raw(el('a:pPr', null, raw(defRPr))))),
 	])
+}
+
+/**
+ * The language a chart's text runs are tagged with: the chart's `lang`, else `en-US`. Nine sites
+ * across the axes, the plots and the chartEx part spelled the fallback.
+ * @param opts - the chart's options, or anything carrying its `lang`
+ */
+export function chartLang(opts: { lang?: string | undefined }): string {
+	return opts.lang || 'en-US'
+}
+
+/**
+ * A data-label block's `<c:dLblPos>`, or `undefined` when the chart states no position. The pie's
+ * two label blocks decide the position differently and do not use it.
+ * @param opts - the chart's normalized options
+ */
+export function dLblPosEl(opts: ChartOptsInternal): string | undefined {
+	return opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined
+}
+
+/**
+ * The 2012 chart extension carrying a data-label block's leader-line toggle, which has no `c:`
+ * equivalent. The bubble plot passes the chart's option; the scatter `XY` labels pass `1`.
+ * @param val - the toggle; the scatter `XY` labels' constant `1` is written as the same attribute
+ */
+export function c15LeaderLinesExt(val: XsdBool | 1): string {
+	return el(
+		'c:extLst',
+		null,
+		raw(
+			el(
+				'c:ext',
+				{ uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}', 'xmlns:c15': OOXML_NS.c15 },
+				raw(voidEl('c15:showLeaderLines', { val }))
+			)
+		)
+	)
 }
 
 /**
@@ -727,7 +792,7 @@ export function chartDataLabels(opts: ChartOptsInternal, leaderLines: boolean): 
 	return dLblsBlock({
 		numFmt: dLblNumFmt(opts.dataLabelFormatCode),
 		txPr: labelTextProps(dataLabelDefRPr(opts)),
-		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		dLblPos: dLblPosEl(opts),
 		flags: dLblShowFlags({ val: xsdBool(opts.showValue), serName: xsdBool(opts.showSerName) }),
 		showLeaderLines: leaderLines ? voidEl('c:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }) : undefined,
 	})
@@ -952,13 +1017,7 @@ export function createLeaderLinesElement(opts: ChartOptsInternal): string {
  * @return {string} a `<c:dLbl>` element
  */
 export function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): string {
-	const lang = opts.lang || 'en-US'
-	const runChildren = labelFontChildren(opts)
-	const fontAttrs = labelFontAttrs(opts)
-	const paragraph = el('a:p', null, [
-		raw(el('a:pPr', null, raw(el('a:defRPr', fontAttrs, runChildren)))),
-		raw(el('a:r', null, [raw(el('a:rPr', { lang, ...fontAttrs, dirty: 0 }, runChildren)), raw(el('a:t', null, text))])),
-	])
+	const paragraph = el('a:p', null, [raw(el('a:pPr', null, raw(labelDefRPr(opts)))), raw(labelRun(opts, text))])
 	const rich = el('c:rich', null, [raw(voidEl('a:bodyPr')), raw(voidEl('a:lstStyle')), raw(paragraph)])
 	return el('c:dLbl', null, [
 		raw(voidEl('c:idx', { val: idx })),

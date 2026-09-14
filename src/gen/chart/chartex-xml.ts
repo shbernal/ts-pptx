@@ -25,7 +25,7 @@ import type { ChartExBinning, ChartExGeography, ChartExStatistics } from '../../
 import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { createChartTextFonts } from './chart-parts.js'
+import { chartLang, createChartTextFonts } from './chart-parts.js'
 import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
 import { seriesHeader, type WorksheetLayout, worksheetLayout } from './data-refs.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
@@ -313,7 +313,7 @@ function makeChartExTitle(rel: SlideRelChart): string {
 				raw(el('a:pPr', null, raw(rPr))),
 				raw(
 					el('a:r', null, [
-						raw(voidEl('a:rPr', { lang: rel.opts.lang || 'en-US' })),
+						raw(voidEl('a:rPr', { lang: chartLang(rel.opts) })),
 						raw(el('a:t', null, rel.opts.title || 'Chart Title')),
 					])
 				),

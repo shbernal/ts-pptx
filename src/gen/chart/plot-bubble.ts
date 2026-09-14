@@ -12,11 +12,12 @@ import { createLineCap } from '../drawingml/line.js'
 import { bubbleSizeColumn, dataSizes, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
-import { OOXML_NS } from '../../ooxml/namespaces.js'
 import {
+	c15LeaderLinesExt,
 	createDataBorderLine,
 	dataLabelDefRPr,
 	dLblNumFmt,
+	dLblPosEl,
 	dLblsBlock,
 	dLblShowFlags,
 	labelTextProps,
@@ -53,25 +54,11 @@ function bubbleSerShapeProps(opts: ChartOptsInternal, serColor: string, serIndex
 function bubbleDataLabels(opts: ChartOptsInternal): string {
 	const defRPr = dataLabelDefRPr(opts)
 	const txPr = labelTextProps(defRPr)
-	// The 2012 chart extension carrying the leader-line toggle; it has no c: equivalent.
-	const extLst = el(
-		'c:extLst',
-		null,
-		raw(
-			el(
-				'c:ext',
-				{
-					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
-					'xmlns:c15': OOXML_NS.c15,
-				},
-				raw(voidEl('c15:showLeaderLines', { val: xsdBool(opts.showLeaderLines) }))
-			)
-		)
-	)
+	const extLst = c15LeaderLinesExt(xsdBool(opts.showLeaderLines))
 	return dLblsBlock({
 		numFmt: dLblNumFmt(opts.dataLabelFormatCode),
 		txPr,
-		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		dLblPos: dLblPosEl(opts),
 		flags: dLblShowFlags({
 			val: xsdBool(opts.showValue),
 			serName: xsdBool(opts.showSerName),

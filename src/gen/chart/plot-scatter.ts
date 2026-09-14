@@ -17,11 +17,14 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { xsdBool } from '../../ooxml/xsd-boolean.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
 import {
+	c15LeaderLinesExt,
 	chartDataLabels,
+	chartLang,
+	dLblPosEl,
 	dLblsBlock,
 	dLblShowFlags,
-	labelFontAttrs,
-	labelFontChildren,
+	labelDefRPr,
+	labelRun,
 	makeChartErrorBarsXml,
 	makeSeriesDataPointsXml,
 	type PlotBuilder,
@@ -53,7 +56,7 @@ const TRANSPARENT_LABEL_SPPR = el('c:spPr', null, [
  * diffs a part. Do not "fix" the nondeterminism here.
  */
 function customXYRuns(obj: OptsChartDataInternal, opts: ChartOptsInternal): string {
-	const lang = opts.lang || 'en-US'
+	const lang = chartLang(opts)
 	const literal = (text: string): string =>
 		el('a:r', null, [raw(voidEl('a:rPr', { lang, baseline: 0, dirty: 0 })), raw(el('a:t', null, text))])
 	const field = (type: 'XVALUE' | 'YVALUE', text: string): string =>
@@ -89,19 +92,8 @@ function scatterCustomLabel(
 		raw(voidEl('a:lstStyle', null)),
 		raw(
 			el('a:p', null, [
-				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts, over), labelFontChildren(opts, over))))),
-				raw(
-					el('a:r', null, [
-						raw(
-							el(
-								'a:rPr',
-								{ lang: opts.lang || 'en-US', ...labelFontAttrs(opts, over), dirty: 0 },
-								labelFontChildren(opts, over)
-							)
-						),
-						raw(el('a:t', null, label)),
-					])
-				),
+				raw(el('a:pPr', null, raw(labelDefRPr(opts, over)))),
+				raw(labelRun(opts, label, over)),
 				// The X/Y values are appended only for a label that is not blank or all spaces,
 				// which is what lets a caller label a subset of the points.
 				opts.dataLabelFormatScatter === 'customXY' && !/^ *$/.test(label) ? raw(customXYRuns(obj, opts)) : null,
@@ -130,7 +122,7 @@ function scatterCustomLabel(
 		{
 			lead: voidEl('c:idx', { val: idx }) + el('c:tx', null, raw(rich)),
 			spPr: TRANSPARENT_LABEL_SPPR,
-			dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+			dLblPos: dLblPosEl(opts),
 			flags: dLblShowFlags({}),
 			// Hard-coded on, unlike the four sites that read `showLeaderLines`. Left as it was: a
 			// moved custom label with no leader line is a different chart, and settling which of the
@@ -149,29 +141,16 @@ function scatterXYLabels(opts: ChartOptsInternal, over?: ChartSeriesOpts): strin
 		raw(voidEl('a:lstStyle', null)),
 		raw(
 			el('a:p', null, [
-				raw(el('a:pPr', null, raw(el('a:defRPr', labelFontAttrs(opts, over), labelFontChildren(opts, over))))),
-				raw(voidEl('a:endParaRPr', { lang: opts.lang || 'en-US' })),
+				raw(el('a:pPr', null, raw(labelDefRPr(opts, over)))),
+				raw(voidEl('a:endParaRPr', { lang: chartLang(opts) })),
 			])
 		),
 	])
-	const extLst = el(
-		'c:extLst',
-		null,
-		raw(
-			el(
-				'c:ext',
-				{
-					uri: '{CE6537A1-D6FC-4f65-9D91-7224C49458BB}',
-					'xmlns:c15': OOXML_NS.c15,
-				},
-				raw(voidEl('c15:showLeaderLines', { val: 1 }))
-			)
-		)
-	)
+	const extLst = c15LeaderLinesExt(1)
 	return dLblsBlock({
 		spPr: TRANSPARENT_LABEL_SPPR,
 		txPr,
-		dLblPos: opts.dataLabelPosition ? voidEl('c:dLblPos', { val: opts.dataLabelPosition }) : undefined,
+		dLblPos: dLblPosEl(opts),
 		flags: dLblShowFlags({
 			val: xsdBool(opts.showLabel),
 			catName: xsdBool(opts.showLabel),
