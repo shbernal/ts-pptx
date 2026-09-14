@@ -4,8 +4,9 @@
  * Builds the embedded `.xlsx` workbook that backs a chart's cached data — the data
  * source PowerPoint opens when a user edits the chart. `createExcelWorksheet` writes
  * the workbook plus the chart part + its `.rels` into the presentation package;
- * `buildEmbeddedWorksheet` / `buildChartRelsXml` are also reused by the read-side
- * injection path (`TsPptx.extractSlides`). Everything here is a pure string/bytes
+ * `buildEmbeddedWorksheet` and `chartPartBodies` are also used by slide extraction
+ * (`TsPptx.extractSlides`), whose chart relationships `appendSlides` rebuilds itself against the
+ * parts it reserves. Everything here is a pure string/bytes
  * builder — no I/O beyond the passed-in ZipWriter, no mutation of the presentation model.
  *
  * The chart's `chart.xml` DrawingML lives in `./chart-xml.ts`; the series↔worksheet-cell
@@ -16,6 +17,7 @@ import { XML_DECL } from '../../constants-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { chartPartNames } from './part-names.js'
 import {
 	CHART_COLOR_STYLE_REL,
 	CHART_STYLE_REL,
@@ -430,16 +432,13 @@ function buildXlsxSheet(data: OptsChartDataInternal[], layout: WorksheetLayout):
 }
 
 /**
- * Build the standalone `.rels` for a chart part: a single `rId1` relationship to
- * the chart's embedded workbook (`Target`). Shared by the package write path and
- * the read-side injection path, which pass different (relative) embedding targets.
+ * Build the standalone `.rels` for a classic chart part: a single `rId1` relationship to the
+ * chart's embedded workbook (`Target`). Package write path only: `appendSlides` builds a chart's
+ * relationships through the package model instead.
  * @param {string} embeddingTarget - the workbook target, relative to the chart part
  * @return {string} the chart part's `.rels` XML
  */
 function buildChartRelsXml(embeddingTarget: string): string {
-	// `voidEl` escapes the Target. The one in-tree caller passes an internally built
-	// `../embeddings/Microsoft_Excel_WorksheetN.xlsx`, so that is a no-op on bytes;
-	// it matters only for the read-side injection path, which supplies its own target.
 	return XML_DECL + relationshipsEl([relationshipEl('rId1', PACKAGE_REL, embeddingTarget)])
 }
 
@@ -462,40 +461,60 @@ function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styl
 	)
 }
 
+/** A chart part's own XML, and a chartEx chart's two sidecars. */
+export interface ChartPartBodies {
+	chartXml: string
+	/** Present exactly for a chartEx chart, which PowerPoint reports as corrupt without both. */
+	chartEx?: { styleXml: string; colorsXml: string }
+}
+
+/**
+ * What a chart's parts contain: `makeXmlChartEx` and the style and colors sidecars for a chartEx
+ * chart, `makeXmlCharts` for a classic one.
+ *
+ * The package writer and slide extraction each made that choice. A chart built as the wrong kind is
+ * what used to put a `<c:chartSpace>` with axes and no plot behind a slide still pointing at it
+ * through `<cx:chart>`.
+ * @param rel - the chart relationship, with its data and options
+ */
+export function chartPartBodies(rel: SlideRelChart): ChartPartBodies {
+	return rel.isChartEx
+		? { chartXml: makeXmlChartEx(rel), chartEx: { styleXml: makeChartExStyleXml(), colorsXml: makeChartExColorsXml() } }
+		: { chartXml: makeXmlCharts(rel) }
+}
+
 /**
  * Create the chart's embedded Excel worksheet and add the chart + workbook parts
- * to `zip` (package write path). The read-side injection path builds the same
- * parts itself from {@link buildEmbeddedWorksheet}, {@link buildChartRelsXml}, and
- * {@link makeXmlCharts}.
+ * to `zip` (package write path). Slide extraction takes the same contents from
+ * {@link buildEmbeddedWorksheet} and {@link chartPartBodies}, and `appendSlides` rebuilds the
+ * chart's relationships itself.
  * @param {SlideRelChart} chartObject - chart object
  * @param {ZipWriter} zip - zip writer the resulting XLSX (and chart parts) are added to
  * @return {Promise} promise of generating the XLSX file
  */
 export async function createExcelWorksheet(chartObject: SlideRelChart, zip: ZipWriter): Promise<string> {
+	const names = chartPartNames(chartObject.globalId, chartObject.isChartEx)
+
 	// 1: Embed the workbook. The xlsx is itself a zip, so STORE it — re-DEFLATING
 	//    already-compressed bytes wastes CPU.
-	zip.add(`ppt/embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`, buildEmbeddedWorksheet(chartObject), {
-		store: true,
-	})
+	zip.add(`ppt/embeddings/${names.workbookName}`, buildEmbeddedWorksheet(chartObject), { store: true })
 
 	// 2: Create the chart part, its rels, and (for chartEx) the required style/color sidecar parts.
-	const embeddingTarget = `../embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`
-	if (chartObject.isChartEx) {
+	const embeddingTarget = `../embeddings/${names.workbookName}`
+	const bodies = chartPartBodies(chartObject)
+	if (bodies.chartEx) {
 		// chartEx charts REQUIRE a chart-style + color-style part or PowerPoint reports the deck as
 		// corrupt (schema-valid but unopenable) — see gen/chart/chartex-style.ts.
-		const colorsName = `colors${chartObject.globalId}.xml`
-		const styleName = `style${chartObject.globalId}.xml`
-		zip.add(`ppt/charts/${colorsName}`, makeChartExColorsXml())
-		zip.add(`ppt/charts/${styleName}`, makeChartExStyleXml())
+		zip.add(`ppt/charts/${names.colorsName}`, bodies.chartEx.colorsXml)
+		zip.add(`ppt/charts/${names.styleName}`, bodies.chartEx.styleXml)
 		zip.add(
 			'ppt/charts/_rels/' + chartObject.fileName + '.rels',
-			buildChartExRelsXml(embeddingTarget, colorsName, styleName)
+			buildChartExRelsXml(embeddingTarget, names.colorsName, names.styleName)
 		)
-		zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlChartEx(chartObject))
 	} else {
 		zip.add('ppt/charts/_rels/' + chartObject.fileName + '.rels', buildChartRelsXml(embeddingTarget))
-		zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlCharts(chartObject))
 	}
+	zip.add(`ppt/charts/${chartObject.fileName}`, bodies.chartXml)
 
 	return ''
 }

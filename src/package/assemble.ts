@@ -19,6 +19,7 @@ import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { getNewRelId } from '../gen/utils.js'
 import { pushMediaRel } from '../gen/define/image-rel.js'
+import { chartPartNames } from '../gen/chart/part-names.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype, dataUriMediaType } from '../media/content-type.js'
 import { TRANSITION_TYPES } from '../ooxml/st-enums.js'
@@ -326,9 +327,9 @@ export async function buildPackageParts(
 				// chartEx charts share the `ppt/charts/` namespace but use the `chartEx{N}.xml` name.
 				// The single shared counter keeps every chart part name globally unique regardless of
 				// prefix, so classic and chartEx parts never collide.
-				const chartBase = rel.isChartEx ? `chartEx${chartId}` : `chart${chartId}`
-				rel.fileName = `${chartBase}.xml`
-				rel.Target = `/ppt/charts/${chartBase}.xml`
+				const { fileName, target } = chartPartNames(chartId, rel.isChartEx)
+				rel.fileName = fileName
+				rel.Target = target
 			}
 		}
 

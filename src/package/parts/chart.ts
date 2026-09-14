@@ -22,6 +22,7 @@ import type {
 	SlideRelChart,
 } from '../../types/internal.js'
 import { createExcelWorksheet } from '../../gen/chart/embed-xlsx.js'
+import { chartPartNames } from '../../gen/chart/part-names.js'
 import type { PartContributor, PartTarget } from './shared.js'
 import {
 	CHART_COLOR_STYLE_CONTENT_TYPE,
@@ -41,10 +42,11 @@ const XLSX_DEFAULT: ContentTypeDefault = { extension: 'xlsx', contentType: XLSX_
  */
 function chartOverrides(rel: SlideRelChart, leadingSpace = false): ContentTypeOverride[] {
 	if (!rel.isChartEx) return [{ partName: rel.Target, contentType: CHART_CONTENT_TYPE, leadingSpace }]
+	const { styleName, colorsName } = chartPartNames(rel.globalId, true)
 	return [
 		{ partName: rel.Target, contentType: CHARTEX_CONTENT_TYPE, leadingSpace },
-		{ partName: `/ppt/charts/style${rel.globalId}.xml`, contentType: CHART_STYLE_CONTENT_TYPE, leadingSpace },
-		{ partName: `/ppt/charts/colors${rel.globalId}.xml`, contentType: CHART_COLOR_STYLE_CONTENT_TYPE, leadingSpace },
+		{ partName: `/ppt/charts/${styleName}`, contentType: CHART_STYLE_CONTENT_TYPE, leadingSpace },
+		{ partName: `/ppt/charts/${colorsName}`, contentType: CHART_COLOR_STYLE_CONTENT_TYPE, leadingSpace },
 	]
 }
 

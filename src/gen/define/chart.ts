@@ -66,6 +66,7 @@ import { normalizeShadowOptions } from '../drawingml/effect.js'
 import { clampRangedInput, lineWidthToEmu, mapStated } from '../../units-internal.js'
 import { isBubbleChart, isStackedGrouping, isXyChart, STOCK_STYLE_SPEC, type StockStyle } from '../chart/chart-kind.js'
 import { dataSizes, dataValues, worksheetLayout } from '../chart/data-refs.js'
+import { chartPartNames } from '../chart/part-names.js'
 
 /**
  * Copy one series into the internal shape the emitters read, without touching the caller's object.
@@ -1161,7 +1162,7 @@ export function addChartDefinition(
 	// `buildPackageParts` (`package/assemble.ts`); this placeholder mirrors the same
 	// Ex-prefix rule so a single-chart deck is already correct.
 	const isChartEx = isChartExType(options._type)
-	const chartBase = isChartEx ? `chartEx${chartId}` : `chart${chartId}`
+	const { fileName, target: chartTarget } = chartPartNames(chartId, isChartEx)
 	target._relsChart.push({
 		rId: getNewRelId(target),
 		data: tmpData,
@@ -1169,8 +1170,8 @@ export function addChartDefinition(
 		type: options._type,
 		globalId: chartId,
 		isChartEx,
-		fileName: `${chartBase}.xml`,
-		Target: `/ppt/charts/${chartBase}.xml`,
+		fileName,
+		Target: chartTarget,
 	})
 
 	target._slideObjects.push(resultObject)
