@@ -11,12 +11,12 @@
 //   2. the text body's `a:lstStyle` level `a:defRPr`
 //   3. the layout → master placeholder chain            (fixture-covered)
 //
-// `TextFrame` is exported, and its constructor is
-// `(txBody, part, themeContext?, placeholder?)`, so a hand-authored `p:txBody`
-// wrapped in a placeholder context drives tiers 1 and 2 straight through the
-// read-model `Run.resolved*` getters — no fixture .pptx required. This mirrors
-// the off-fixture pattern the style-accessor suite already uses. `resolveColorElement`
-// is likewise exported and gets its own direct edge tests (alpha, unresolvable).
+// `TextFrame` is exported, and its constructor is `(txBody, context)`, so a
+// hand-authored `p:txBody` given a placeholder inheritance drives tiers 1 and 2
+// straight through the read-model `Run.resolved*` getters — no fixture .pptx
+// required. This mirrors the off-fixture pattern the style-accessor suite already
+// uses. `resolveColorElement` is likewise exported and gets its own direct edge
+// tests (alpha, unresolvable).
 
 import { DOMParser } from '@xmldom/xmldom'
 import JSZip from 'jszip'
@@ -28,7 +28,7 @@ import { assert, assertEqual } from '../helpers.js'
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 
-/** A minimal FlattenContext: empty colour maps resolve `a:srgbClr` literally, and
+/** A minimal ThemeContext: empty colour maps resolve `a:srgbClr` literally, and
  *  no layout/master roots means the bottom (placeholder-chain) tier finds nothing. */
 function ctx(overrides = {}) {
 	return {
