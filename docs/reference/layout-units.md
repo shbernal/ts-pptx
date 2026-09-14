@@ -1,62 +1,76 @@
 ---
 doc-schema-version: 1
 title: "Layout units"
-summary: "Public slide-layout constants and unit helpers for PowerPoint geometry."
+summary: "The standard slide sizes in inches and EMU, the unit conversion helpers and constants exported from pptx-ts, and how a negative w or h becomes a positive size plus a flip."
 read_when:
-  - Defining custom presentation layouts
-  - Converting inches, points, pixels, or EMUs
-  - Avoiding PowerPoint widescreen size drift
+  - Setting a standard slide size, or checking its exact EMU dimensions
+  - Converting between inches, points, pixels, percentages and EMU
+  - Working out which constant a conversion uses, or why a helper threw coord/out-of-range
+  - Placing an object with a negative w or h
 doc_type: "reference"
 ---
 
 # Layout units
 
-ts-pptx exposes PowerPoint geometry constants and small conversion helpers
-from the root package (`pptx-ts`).
+PowerPoint stores geometry in EMU (English Metric Units), 914400 to the inch. The slide sizes, helpers and constants on this page are exported from `pptx-ts`.
 
 ## Standard layouts
 
-`STANDARD_LAYOUTS` contains the built-in presentation sizes used by
-`pptx.layout`:
+`STANDARD_LAYOUTS` holds the four sizes `pptx.layout` accepts without `defineLayout()`. A new presentation uses `LAYOUT_16x9`.
 
-- `LAYOUT_4x3`: `10 x 7.5 in`
-- `LAYOUT_16x9`: `10 x 5.625 in`
-- `LAYOUT_16x10`: `10 x 6.25 in`
-- `LAYOUT_WIDE`: PowerPoint widescreen, `13.333 x 7.5 in`
+| Name | Inches | EMU |
+| --- | --- | --- |
+| `LAYOUT_16x9` | 10 × 5.625 | 9144000 × 5143500 |
+| `LAYOUT_16x10` | 10 × 6.25 | 9144000 × 5715000 |
+| `LAYOUT_4x3` | 10 × 7.5 | 9144000 × 6858000 |
+| `LAYOUT_WIDE` | 13.333 × 7.5 | 12192000 × 6858000 |
 
-PowerPoint widescreen is stored as `40 / 3 x 7.5 in`, which converts exactly to
-`12192000 x 6858000` EMUs. Prefer the constant over writing rounded decimal
-widths by hand.
+Each entry carries `widthIn`, `heightIn`, `widthEmu` and `heightEmu`. `LAYOUT_WIDE` is 40/3 inches wide, which converts to exactly 12192000 EMU. A width typed as `13.333` converts to 12191695 EMU, so use the preset.
 
 ```ts
-import TsPptx, { STANDARD_LAYOUTS } from "pptx-ts"
+import TsPptx, { STANDARD_LAYOUTS, inchesToEmu } from "pptx-ts"
 
 const pptx = new TsPptx()
+pptx.layout = STANDARD_LAYOUTS.LAYOUT_WIDE // the same as pptx.layout = "LAYOUT_WIDE"
+
 const wide = STANDARD_LAYOUTS.LAYOUT_WIDE
-
-pptx.defineLayout({ name: "POWERPOINT_WIDESCREEN", width: wide.widthIn, height: wide.heightIn })
-pptx.layout = "POWERPOINT_WIDESCREEN"
+inchesToEmu(wide.widthIn) // 12192000, the same as wide.widthEmu
 ```
-
-The built-in `pptx.layout = "LAYOUT_WIDE"` also uses the same exact EMU
-dimensions.
 
 ## Unit helpers
 
-The public helpers are:
+| Helper | From | To | Constant |
+| --- | --- | --- | --- |
+| `inchesToEmu(inches)` | inches | EMU | `EMU_PER_INCH` |
+| `pointsToEmu(points)` | points | EMU | `EMU_PER_POINT` |
+| `pixelsToEmu(pixels, dpi)` | pixels at `dpi` | EMU | `EMU_PER_INCH` |
+| `percentToEmu(percent, axisEmu)` | a percentage of `axisEmu`, `50` for half | EMU | none |
+| `coordToEmu(value, axisEmu)` | a coordinate in any form `x`, `y`, `w` and `h` accept | EMU | the ones above, and `DEFAULT_PX_PER_INCH` for `"px"` |
+| `emuToInches(emu)` | EMU | inches | `EMU_PER_INCH` |
+| `emuToPoints(emu)` | EMU | points | `EMU_PER_POINT` |
+| `emuToPixels(emu, dpi)` | EMU | whole pixels at `dpi` | `EMU_PER_INCH` |
+| `ptToHundredths(pt)` | points | hundredths of a point, the unit of a font size | `HUNDREDTHS_PER_POINT` |
 
-- `inchesToEmu(inches)`
-- `pointsToEmu(points)`
-- `pixelsToEmu(pixels, dpi)`
-- `emuToInches(emu)`
-- `emuToPoints(emu)`
-- `emuToPixels(emu, dpi)`
+- The helpers that return EMU, pixels or hundredths round to a whole number. `emuToInches` and `emuToPoints` do not round.
+- `NaN` or an infinite input throws `InvalidOptionError` with the code `coord/non-finite`.
+- An EMU result outside `MIN_COORDINATE_EMU` to `MAX_COORDINATE_EMU` throws `coord/out-of-range`.
+- A `dpi` of 0 or less throws `coord/not-positive`.
+- `coordToEmu` throws `coord/invalid-format` for a string it cannot parse, such as `"2cm"`. It reads a bare number above 1000 as inches and warns `coord/bare-number-is-inches`.
 
-The public unit constants are:
+## Constants
 
-- `EMU_PER_INCH`: `914400`
-- `EMU_PER_POINT`: `12700`
-- `POINTS_PER_INCH`: `72`
+| Constant | Value | Meaning |
+| --- | --- | --- |
+| `EMU_PER_INCH` | 914400 | EMU in an inch |
+| `EMU_PER_POINT` | 12700 | EMU in a point |
+| `POINTS_PER_INCH` | 72 | points in an inch |
+| `DEFAULT_PX_PER_INCH` | 96 | pixels in an inch for the `"px"` coordinate unit |
+| `HUNDREDTHS_PER_POINT` | 100 | stored units in a point of font size, character spacing or line spacing |
+| `ANGLE_UNITS_PER_DEGREE` | 60000 | stored angle units in a degree |
+| `PERCENT_SCALE` | 100000 | the stored value of 100% |
+| `FIXED_PCT_PER_PERCENT` | 1000 | the stored value of 1% |
+| `MIN_COORDINATE_EMU` | -27273042329600 | the smallest coordinate DrawingML allows |
+| `MAX_COORDINATE_EMU` | 27273042316900 | the largest coordinate DrawingML allows |
 
 ## Positions and sizes
 
