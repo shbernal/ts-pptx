@@ -6,6 +6,15 @@
  */
 import type { SHAPE_NAME } from '../enums.js'
 import type {
+	TEXT_AUTONUM_SCHEMES,
+	TEXT_CAPS_TYPES,
+	TEXT_STRIKE_TYPES,
+	TEXT_TAB_ALIGN_TYPES,
+	TEXT_UNDERLINE_TYPES,
+	TextShapeType,
+	TextVerticalType,
+} from '../ooxml/st-enums.js'
+import type {
 	Color,
 	DataOrPathProps,
 	GeometryPoint,
@@ -16,7 +25,6 @@ import type {
 	TextVertType,
 	VAlign,
 } from './core.js'
-import type { TextShapeType, TextVerticalType } from '../ooxml/st-enums.js'
 import type { ShapeAdjustValue } from './shape.js'
 import type { ObjectNameProps } from './object.js'
 import type { FillOption, HyperlinkProps, ShadowProps, ShapeLineProps } from './style.js'
@@ -57,26 +65,10 @@ export interface TextBulletProps {
 	 */
 	indent?: number
 	/**
-	 * Number type
+	 * Number type: any `ST_TextAutonumberScheme` (`a:buAutoNum/@type`)
 	 * @example 'romanLcParenR' // roman numerals lower-case with paranthesis right
 	 */
-	numberType?:
-		| 'alphaLcParenBoth'
-		| 'alphaLcParenR'
-		| 'alphaLcPeriod'
-		| 'alphaUcParenBoth'
-		| 'alphaUcParenR'
-		| 'alphaUcPeriod'
-		| 'arabicParenBoth'
-		| 'arabicParenR'
-		| 'arabicPeriod'
-		| 'arabicPlain'
-		| 'romanLcParenBoth'
-		| 'romanLcParenR'
-		| 'romanLcPeriod'
-		| 'romanUcParenBoth'
-		| 'romanUcParenR'
-		| 'romanUcPeriod'
+	numberType?: (typeof TEXT_AUTONUM_SCHEMES)[number]
 	/**
 	 * Number bullets start at
 	 * @default 1
@@ -165,7 +157,7 @@ export interface TextBaseProps {
 	 * - PowerPoint: Font > Effects > All Caps / Small Caps
 	 * @default (unset) inherit
 	 */
-	caps?: 'none' | 'small' | 'all'
+	caps?: (typeof TEXT_CAPS_TYPES)[number]
 	/**
 	 * Text color
 	 * - `HexColor` or `ThemeColor`
@@ -260,7 +252,7 @@ export interface TextBaseProps {
 	 * - PowerPoint: Paragraph > Tabs > Tab stop position
 	 * @example [{ position:1 }, { position:3 }] // Set first tab stop to 1 inch, set second tab stop to 3 inches
 	 */
-	tabStops?: Array<{ position: number; alignment?: 'l' | 'r' | 'ctr' | 'dec' }>
+	tabStops?: Array<{ position: number; alignment?: (typeof TEXT_TAB_ALIGN_TYPES)[number] }>
 	/**
 	 * text direction
 	 * `horz` = horizontal
@@ -288,25 +280,7 @@ export interface TextBaseProps {
 	 * @default (unset) inherit
 	 */
 	underline?: {
-		style?:
-			| 'dash'
-			| 'dashHeavy'
-			| 'dashLong'
-			| 'dashLongHeavy'
-			| 'dbl'
-			| 'dotDash'
-			| 'dotDashHeavy'
-			| 'dotDotDash'
-			| 'dotDotDashHeavy'
-			| 'dotted'
-			| 'dottedHeavy'
-			| 'heavy'
-			| 'none'
-			| 'sng'
-			| 'wavy'
-			| 'wavyDbl'
-			| 'wavyHeavy'
-			| 'words'
+		style?: (typeof TEXT_UNDERLINE_TYPES)[number]
 		color?: Color
 	}
 	/**
@@ -550,7 +524,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 *   struck" rather than "unspecified"
 	 * @default (unset) inherit
 	 */
-	strike?: boolean | 'noStrike' | 'sngStrike' | 'dblStrike'
+	strike?: boolean | (typeof TEXT_STRIKE_TYPES)[number]
 	subscript?: boolean
 	superscript?: boolean
 	/**

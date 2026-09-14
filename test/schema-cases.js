@@ -4589,6 +4589,51 @@ export default [
 		},
 	},
 	{
+		// Every token the text emitters and the read-model setters now check against an `ST_` tuple,
+		// written in place. A tuple member the schema does not accept at that position fails here.
+		name: 'every checked text and theme-colour token validates where it is written',
+		fn: async () => {
+			const tokens = await import('../src/ooxml/st-enums.ts')
+			const { Presentation } = await import('../dist/read.js')
+			const pptx = new TsPptx()
+			const slide = pptx.addSlide()
+			slide.addText(
+				[
+					...tokens.TEXT_UNDERLINE_TYPES.map((style) => ({ text: `u ${style} `, options: { underline: { style } } })),
+					...tokens.TEXT_STRIKE_TYPES.map((strike) => ({ text: `${strike} `, options: { strike } })),
+					...tokens.TEXT_CAPS_TYPES.map((caps) => ({ text: `${caps} `, options: { caps } })),
+				],
+				{
+					x: 0.5,
+					y: 0.5,
+					w: 9,
+					h: 2,
+					tabStops: tokens.TEXT_TAB_ALIGN_TYPES.map((alignment, i) => ({ position: i + 1, alignment })),
+				}
+			)
+			slide.addText(
+				tokens.TEXT_AUTONUM_SCHEMES.map((numberType) => ({
+					text: numberType,
+					options: { bullet: { type: 'number', numberType }, breakLine: true },
+				})),
+				{ x: 0.5, y: 2.6, w: 9, h: 2.8 }
+			)
+			tokens.SCHEME_COLOR_VALUES.forEach(() => {
+				pptx
+					.addSlide()
+					.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' }, line: { color: '000000' } })
+			})
+
+			const pres = await Presentation.load(await pptx.toBytes())
+			tokens.SCHEME_COLOR_VALUES.forEach((token, i) => {
+				const shape = /** @type {any} */ (pres.slides[i + 1].shapes[0])
+				shape.fillSchemeColor = token
+				shape.lineSchemeColor = token
+			})
+			await expectNoSchemaErrors(Buffer.from(await pres.save()), 'text-and-scheme-tokens')
+		},
+	},
+	{
 		// Axis units are per axis TYPE, not per axis: `CT_CatAx` and `CT_SerAx` have no slot for
 		// `majorUnit`/`minorUnit` at all, `CT_ValAx` has the numeric pair, and `CT_DateAx` has all
 		// five interleaved. Setting every unit option on a 3-D bar chart puts all three axes in

@@ -26,8 +26,7 @@
  */
 import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
 import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
-import { TEXT_VERTICAL } from '../../ooxml/st-enums.js'
-import type { TextBulletProps } from '../../types/text.js'
+import { TEXT_AUTONUM_SCHEMES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
 import {
@@ -64,27 +63,10 @@ const WRITABLE_VERT: ReadonlySet<string> = new Set<string>(TEXT_VERTICAL)
  * the read model reported both as one tagged string. `BulletDetail.kind` does that now, so
  * the lookup has one job left: telling a scheme the write path can spell from one it cannot.
  *
- * A `Record` over the write union, like `WRITABLE_TYPES` in `transition.ts`, so the compiler
- * rejects a scheme the union lacks and one it gains that is missing here.
+ * Built from the tuple the write API's `numberType` is derived from and its emitter checks, so
+ * the two cannot disagree about a scheme.
  */
-const AUTO_NUMBER_TYPES: Record<NonNullable<TextBulletProps['numberType']>, true> = {
-	alphaLcParenBoth: true,
-	alphaLcParenR: true,
-	alphaLcPeriod: true,
-	alphaUcParenBoth: true,
-	alphaUcParenR: true,
-	alphaUcPeriod: true,
-	arabicParenBoth: true,
-	arabicParenR: true,
-	arabicPeriod: true,
-	arabicPlain: true,
-	romanLcParenBoth: true,
-	romanLcParenR: true,
-	romanLcPeriod: true,
-	romanUcParenBoth: true,
-	romanUcParenR: true,
-	romanUcPeriod: true,
-}
+const AUTO_NUMBER_TYPES: ReadonlySet<string> = new Set(TEXT_AUTONUM_SCHEMES)
 
 /**
  * `Paragraph.bulletDetail` → the write API's `bullet` option.
@@ -117,7 +99,7 @@ function bulletOption(bullet: BulletDetail, notes: NoteScope): IrValue {
 	const style = bulletStyle(bullet, notes)
 
 	if (bullet.kind === 'autoNum') {
-		if (!Object.hasOwn(AUTO_NUMBER_TYPES, bullet.scheme)) {
+		if (!AUTO_NUMBER_TYPES.has(bullet.scheme)) {
 			notes.note(
 				'text.bullet.numberType',
 				'approximated',

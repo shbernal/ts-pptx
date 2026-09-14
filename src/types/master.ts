@@ -4,6 +4,7 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { CHART_NAME } from '../enums.js'
+import type { TEXT_AUTONUM_SCHEMES } from '../ooxml/st-enums.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundOption, Color, HAlign, Margin, PositionProps } from './core.js'
 import type { CommonObjectDescriptor, PlaceholderProps } from './object.js'
@@ -61,7 +62,7 @@ export interface MasterBulletProps {
 	/** Glyph font typeface for the bullet character (`a:buFont`), e.g. `'Arial'` or `'Wingdings'`. */
 	fontFace?: string
 	/** Auto-number scheme (`a:buAutoNum@type`) when `type` is `'number'`, e.g. `'arabicPeriod'`. @default 'arabicPeriod' */
-	numberType?: string
+	numberType?: (typeof TEXT_AUTONUM_SCHEMES)[number]
 	/** Starting value for auto-numbered bullets (`a:buAutoNum@startAt`). @default 1 */
 	numberStartAt?: number
 }

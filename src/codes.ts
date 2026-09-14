@@ -105,6 +105,10 @@ export type DiagnosticCode =
 	| 'text/invalid-column-spacing'
 	| 'text/invalid-indent-level'
 	| 'text/invalid-fit-percentage'
+	| 'text/invalid-strike'
+	| 'text/invalid-caps'
+	| 'text/invalid-underline'
+	| 'text/invalid-tab-alignment'
 	| 'text/char-spacing-out-of-range'
 	| 'text/line-spacing-out-of-range'
 	| 'text/paragraph-margin-out-of-range'
@@ -115,6 +119,7 @@ export type DiagnosticCode =
 	| 'bullet/image-embed-failed'
 	| 'bullet/invalid-character-code'
 	| 'bullet/start-at-out-of-range'
+	| 'bullet/invalid-number-type'
 	// Transitions
 	| 'transition/unknown-type'
 	| 'transition/unknown-variant'
@@ -282,6 +287,8 @@ export type InvalidOptionErrorCode =
 	| 'html/table-has-no-cells'
 	// Colours
 	| 'color/invalid-hex'
+	| 'color/invalid-scheme-token'
+	| 'text/invalid-underline'
 	// Addressing an existing deck (`ts-pptx/read`)
 	| 'slide/index-out-of-range'
 	| 'slide/foreign-target'

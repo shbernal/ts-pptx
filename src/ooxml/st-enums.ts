@@ -32,6 +32,107 @@
  * type a caller is checked against and the tuple the validator checks are one declaration.
  */
 
+/** `ST_TextAutonumberScheme` — the numbering an auto-numbered bullet counts in (`a:buAutoNum/@type`). */
+export const TEXT_AUTONUM_SCHEMES = [
+	'alphaLcParenBoth',
+	'alphaUcParenBoth',
+	'alphaLcParenR',
+	'alphaUcParenR',
+	'alphaLcPeriod',
+	'alphaUcPeriod',
+	'arabicParenBoth',
+	'arabicParenR',
+	'arabicPeriod',
+	'arabicPlain',
+	'romanLcParenBoth',
+	'romanUcParenBoth',
+	'romanLcParenR',
+	'romanUcParenR',
+	'romanLcPeriod',
+	'romanUcPeriod',
+	'circleNumDbPlain',
+	'circleNumWdBlackPlain',
+	'circleNumWdWhitePlain',
+	'arabicDbPeriod',
+	'arabicDbPlain',
+	'ea1ChsPeriod',
+	'ea1ChsPlain',
+	'ea1ChtPeriod',
+	'ea1ChtPlain',
+	'ea1JpnChsDbPeriod',
+	'ea1JpnKorPlain',
+	'ea1JpnKorPeriod',
+	'arabic1Minus',
+	'arabic2Minus',
+	'hebrew2Minus',
+	'thaiAlphaPeriod',
+	'thaiAlphaParenR',
+	'thaiAlphaParenBoth',
+	'thaiNumPeriod',
+	'thaiNumParenR',
+	'thaiNumParenBoth',
+	'hindiAlphaPeriod',
+	'hindiNumPeriod',
+	'hindiNumParenR',
+	'hindiAlpha1Period',
+] as const
+
+/** `ST_TextStrikeType` — a run's strikethrough (`a:rPr/@strike`). */
+export const TEXT_STRIKE_TYPES = ['noStrike', 'sngStrike', 'dblStrike'] as const
+
+/** `ST_TextCapsType` — a run's capitalization (`a:rPr/@cap`). */
+export const TEXT_CAPS_TYPES = ['none', 'small', 'all'] as const
+
+/** `ST_TextUnderlineType` — a run's underline (`a:rPr/@u`). */
+export const TEXT_UNDERLINE_TYPES = [
+	'none',
+	'words',
+	'sng',
+	'dbl',
+	'heavy',
+	'dotted',
+	'dottedHeavy',
+	'dash',
+	'dashHeavy',
+	'dashLong',
+	'dashLongHeavy',
+	'dotDash',
+	'dotDashHeavy',
+	'dotDotDash',
+	'dotDotDashHeavy',
+	'wavy',
+	'wavyHeavy',
+	'wavyDbl',
+] as const
+
+/** `ST_TextTabAlignType` — a tab stop's alignment (`a:tab/@algn`). */
+export const TEXT_TAB_ALIGN_TYPES = ['l', 'ctr', 'r', 'dec'] as const
+
+/**
+ * `ST_SchemeColorVal` — a theme colour reference (`a:schemeClr/@val`). Wider than
+ * {@link THEME_COLOR_SLOTS}: it adds the `bg1`/`tx1`/`bg2`/`tx2` aliases the colour map resolves,
+ * and `phClr`, the colour a theme style-matrix entry is applied in.
+ */
+export const SCHEME_COLOR_VALUES = [
+	'bg1',
+	'tx1',
+	'bg2',
+	'tx2',
+	'accent1',
+	'accent2',
+	'accent3',
+	'accent4',
+	'accent5',
+	'accent6',
+	'hlink',
+	'folHlink',
+	'phClr',
+	'dk1',
+	'lt1',
+	'dk2',
+	'lt2',
+] as const
+
 /**
  * The base slide transitions: the `p:` type elements of `CT_SlideTransition`'s choice, in its
  * declaration order. The writer emits the type as `<p:TYPE/>`, so this is also the list a type is

@@ -21,7 +21,9 @@ import {
 	removeChildrenByQName,
 	setAttr,
 } from '../../oxml/dom.js'
-import { colorValueIf, normalizeHex, setSolidFill, solidFillColor } from '../../oxml/fill.js'
+import { colorValueIf, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../../oxml/fill.js'
+import { checkEnumOrThrow } from '../../../ooxml/check-enum.js'
+import { TEXT_UNDERLINE_TYPES } from '../../../ooxml/st-enums.js'
 import { resolveThemeFont, type ThemeContext } from '../../oxml/theme.js'
 import {
 	resolveColorElement,
@@ -252,12 +254,14 @@ export class Run {
 		return this.#rPrAttrRaw('u')
 	}
 
+	/** @throws {InvalidOptionError} when the token is not an `ST_TextUnderlineType` */
 	set underline(value: string | null) {
 		if (value === null) {
 			this.#removeRPrAttr('u')
 			return
 		}
-		setAttr(this.#getOrAddRPr(), 'u', value)
+		const token = checkEnumOrThrow(value, TEXT_UNDERLINE_TYPES, 'underline', 'text/invalid-underline')
+		setAttr(this.#getOrAddRPr(), 'u', token)
 		this.part.markDirty()
 	}
 
@@ -379,8 +383,9 @@ export class Run {
 		return solidFillColor(this.#rPr(), 'a:schemeClr')
 	}
 
+	/** @throws {InvalidOptionError} when the token is not an `ST_SchemeColorVal` */
 	set schemeColor(value: string | null) {
-		this.#setSolidFill(value === null ? null : { qname: 'a:schemeClr', val: value })
+		this.#setSolidFill(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
 	}
 
 	/**

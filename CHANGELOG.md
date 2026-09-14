@@ -893,6 +893,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Text and paint tokens are checked before they reach a part.**
+  - The writer passed a bullet's `numberType`, a tab stop's `alignment`, and a run's `strike`,
+    `caps` and `underline.style` straight into their attributes, so a token outside the schema
+    wrote a part PowerPoint reports as needing repair, with no warning. Each is now checked
+    against its `ST_` enumeration. An unknown `strike`, `caps`, `underline.style` or tab
+    `alignment` warns (`text/invalid-strike`, `text/invalid-caps`, `text/invalid-underline`,
+    `text/invalid-tab-alignment`) and is left out. An unknown `numberType` warns
+    `bullet/invalid-number-type` and the list counts in `arabicPeriod`, because the element
+    requires a scheme.
+  - The read model's scheme-colour setters (`Shape.fillSchemeColor` and `lineSchemeColor`,
+    `Run.schemeColor`, `TableCell.setFillSchemeColor`, and `setBorder`'s `schemeColor`), along
+    with `Run.underline` and `setBorder`'s `dash`, wrote any string they were given. They now throw
+    `InvalidOptionError` with `color/invalid-scheme-token`, `text/invalid-underline`, or
+    `table/invalid-cell-border` for a dash. A refused `setBorder` leaves the cell's existing
+    border in place.
+  - **Types:** a text bullet's `numberType` now names every `ST_TextAutonumberScheme` value,
+    where it named 16 of the 41. A slide master text style's bullet `numberType` is that union
+    rather than `string`. The underline, strike, caps and tab-alignment unions are derived from
+    the same tuples the writer checks. **Migration:** a master `numberType` has to be one of
+    the schema's scheme names.
+
 - **A caller's bullet code, revision, first slide number or transition could write a part that
   does not parse or does not validate.**
   - A slide master text style's bullet `characterCode` went into `<a:buChar char>` raw, so

@@ -12,6 +12,8 @@
 import { BulletType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import { clampRangedInput } from '../../units-internal.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import { TEXT_AUTONUM_SCHEMES } from '../../ooxml/st-enums.js'
 import { voidEl } from '../oxml/el.js'
 
 /** A bullet `characterCode`: four hex digits naming a code point. */
@@ -51,6 +53,8 @@ export function buCharEl(characterCode: string | undefined, glyph: string, label
 /**
  * `<a:buAutoNum>` for an auto-number scheme, starting at `startAt` when one is stated.
  *
+ * `type` is required on the element, so a scheme `ST_TextAutonumberScheme` does not have warns and
+ * the list counts in `arabicPeriod`, the scheme a numbered bullet takes when none is stated.
  * `startAt` is an `ST_TextBulletStartAtNum`, a whole number from 1 to 32767: a fractional one rounds,
  * one outside the range clamps with a warning, and one that is not a number throws.
  * @param type - the `ST_TextAutonumberScheme` token
@@ -58,6 +62,9 @@ export function buCharEl(characterCode: string | undefined, glyph: string, label
  * @param label - the option the value came from, opening the warning
  */
 export function buAutoNumEl(type: string, startAt: number | undefined, label: string): string {
+	const scheme =
+		checkEnumOrWarn(type, TEXT_AUTONUM_SCHEMES, 'bullet/invalid-number-type', `${label} \`numberType\``) ??
+		'arabicPeriod'
 	const start =
 		startAt === undefined
 			? null
@@ -69,5 +76,5 @@ export function buAutoNumEl(type: string, startAt: number | undefined, label: st
 					`${label} \`numberStartAt\``,
 					'bullet/start-at-not-a-number'
 				)
-	return voidEl('a:buAutoNum', { type, startAt: start })
+	return voidEl('a:buAutoNum', { type: scheme, startAt: start })
 }

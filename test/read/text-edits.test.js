@@ -57,6 +57,36 @@ describe('Run character-property setters', () => {
 		assertEqual(r.schemeColor, 'accent1', 'sets a scheme-colour fill')
 	})
 
+	test('underline and schemeColor refuse a token outside the schema, leaving the run as it was', () => {
+		const r = run(
+			`<a:r><a:rPr u="sng"><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:rPr><a:t>x</a:t></a:r>`
+		)
+		const codeOf = (/** @type {() => void} */ fn) => {
+			try {
+				fn()
+				return null
+			} catch (err) {
+				return /** @type {any} */ (err).code
+			}
+		}
+		assertEqual(
+			codeOf(() => {
+				r.underline = 'wavy-nonsense'
+			}),
+			'text/invalid-underline',
+			'an unknown underline token'
+		)
+		assertEqual(
+			codeOf(() => {
+				r.schemeColor = 'bogus'
+			}),
+			'color/invalid-scheme-token',
+			'an unknown theme colour token'
+		)
+		assertEqual(r.underline, 'sng', 'the underline is unchanged')
+		assertEqual(r.schemeColor, 'accent1', 'the colour is unchanged')
+	})
+
 	test('setting a bool attr null on a run with no rPr is a no-op', () => {
 		const r = run(`<a:r><a:t>x</a:t></a:r>`)
 		r.bold = null // #removeRPrAttr with no rPr → early return

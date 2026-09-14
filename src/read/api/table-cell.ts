@@ -23,7 +23,9 @@ import {
 	removeChildrenByQName,
 	setAttr,
 } from '../oxml/dom.js'
-import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import { FILL_CHOICES, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import { checkEnumOrThrow } from '../../ooxml/check-enum.js'
+import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 import {
 	ANCHOR_VALUES,
 	checkEnum,
@@ -324,6 +326,17 @@ export class TableCell {
 			return
 		}
 
+		// Every value is checked before the cell is touched, so a refused border leaves the old one.
+		const width =
+			border.widthPt !== undefined && border.widthPt !== null
+				? checkLineWidthEmu(border.widthPt * EMU_PER_POINT, 'widthPt', 'table/invalid-cell-border')
+				: null
+		const scheme = !border.noFill && border.schemeColor ? schemeToken(border.schemeColor) : null
+		const hex = !border.noFill && !scheme && border.color ? normalizeHex(border.color) : null
+		const dash = border.dash
+			? checkEnumOrThrow(border.dash, PRESET_LINE_DASHES, 'border dash', 'table/invalid-cell-border')
+			: null
+
 		const tcPr = this.#getOrAddTcPr()
 		// Rebuilt rather than patched in place: a half-edited `a:ln` (say, a new colour left
 		// beside a stale `a:noFill`) is a state neither the reader nor PowerPoint expects, and
@@ -331,28 +344,21 @@ export class TableCell {
 		removeChildrenByQName(tcPr, [qname])
 		const doc = ownerDocumentOf(tcPr)
 		const ln = createElement(doc, qname)
-		if (border.widthPt !== undefined && border.widthPt !== null) {
-			setAttr(
-				ln,
-				'w',
-				String(checkLineWidthEmu(border.widthPt * EMU_PER_POINT, 'widthPt', 'table/invalid-cell-border'))
-			)
-		}
+		if (width !== null) setAttr(ln, 'w', String(width))
 		if (border.noFill) {
 			ln.appendChild(createElement(doc, 'a:noFill'))
-		} else if (border.schemeColor || border.color) {
+		} else if (scheme || hex) {
 			const fill = createElement(doc, 'a:solidFill')
-			const scheme = border.schemeColor
 			const clr = createElement(doc, scheme ? 'a:schemeClr' : 'a:srgbClr')
-			setAttr(clr, 'val', scheme ? scheme : normalizeHex(border.color as string))
+			setAttr(clr, 'val', scheme ?? hex ?? '')
 			fill.appendChild(clr)
 			ln.appendChild(fill)
 		}
 		// `a:prstDash` follows the fill group in CT_LineProperties, so it is appended after.
-		if (border.dash) {
-			const dash = createElement(doc, 'a:prstDash')
-			setAttr(dash, 'val', border.dash)
-			ln.appendChild(dash)
+		if (dash) {
+			const prstDash = createElement(doc, 'a:prstDash')
+			setAttr(prstDash, 'val', dash)
+			ln.appendChild(prstDash)
 		}
 		insertTcPrChild(tcPr, qname, ln)
 		this.part.markDirty()
@@ -377,7 +383,7 @@ export class TableCell {
 	 * driving the colour.
 	 */
 	setFillSchemeColor(token: string | null): void {
-		this.#setFill(token === null ? null : { qname: 'a:schemeClr', val: token })
+		this.#setFill(token === null ? null : { qname: 'a:schemeClr', val: schemeToken(token) })
 	}
 
 	/**

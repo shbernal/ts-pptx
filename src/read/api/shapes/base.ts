@@ -26,7 +26,7 @@ import {
 	type Element,
 } from '../../oxml/dom.js'
 import { composeGroupFrame, type GroupTransform } from './group-transform.js'
-import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../../oxml/fill.js'
+import { FILL_CHOICES, normalizeHex, schemeToken, setSolidFill, solidFillColor } from '../../oxml/fill.js'
 import {
 	resolveInheritedFrame,
 	resolveSolidFillColor,
@@ -443,7 +443,7 @@ export abstract class Shape {
 	}
 
 	set fillSchemeColor(value: string | null) {
-		this.#setFill(value === null ? null : { qname: 'a:schemeClr', val: value })
+		this.#setFill(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
 	}
 
 	/**
@@ -491,7 +491,7 @@ export abstract class Shape {
 	}
 
 	set lineSchemeColor(value: string | null) {
-		this.#setLine(value === null ? null : { qname: 'a:schemeClr', val: value })
+		this.#setLine(value === null ? null : { qname: 'a:schemeClr', val: schemeToken(value) })
 	}
 
 	/** Line/border width in points (`spPr/a:ln/@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */

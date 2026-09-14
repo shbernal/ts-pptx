@@ -315,6 +315,31 @@ describe('structural and border edits refuse numbers the schema cannot hold', ()
 		assertEqual(table.columnCount, 3, 'no column was added')
 	})
 
+	test('setBorder and setFillSchemeColor refuse a dash or theme token outside the schema, changing nothing', async () => {
+		const { presentation, table } = await editable(plainTable)
+		const cell = table.cell(0, 0)
+		cell.setBorder('top', { widthPt: 2, color: 'C00000' })
+		const before = await savedSlide(presentation)
+		assertEqual(
+			codeOfThrow(() => cell.setBorder('top', { widthPt: 1, dash: /** @type {any} */ ('bogusDash') })),
+			'table/invalid-cell-border',
+			'an unknown dash'
+		)
+		assertEqual(
+			codeOfThrow(() => cell.setBorder('top', { widthPt: 1, schemeColor: 'bogus' })),
+			'color/invalid-scheme-token',
+			'an unknown border theme token'
+		)
+		assertEqual(
+			codeOfThrow(() => cell.setFillSchemeColor('bogus')),
+			'color/invalid-scheme-token',
+			'an unknown fill token'
+		)
+		assertEqual(await savedSlide(presentation), before, 'the refused edits left the cell as it was')
+		cell.setBorder('top', { widthPt: 1, schemeColor: 'accent2', dash: 'sysDot' })
+		assert((await savedSlide(presentation)).includes('<a:schemeClr val="accent2"/>'), 'a valid token is written')
+	})
+
 	test('setBorder refuses a width outside ST_LineWidth', async () => {
 		const { table } = await editable(plainTable)
 		const cell = table.cell(0, 0)

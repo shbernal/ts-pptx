@@ -9,6 +9,8 @@
 import { InvalidOptionError } from '../../errors.js'
 import { isHexColor, stripHash } from '../../hex-color.js'
 import { FILL_CHOICES } from '../../ooxml/sequence.js'
+import { checkEnumOrThrow } from '../../ooxml/check-enum.js'
+import { SCHEME_COLOR_VALUES } from '../../ooxml/st-enums.js'
 import {
 	attr,
 	createElement,
@@ -35,6 +37,15 @@ export function normalizeHex(value: string): string {
 			`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`
 		)
 	return hex.toUpperCase()
+}
+
+/**
+ * A theme colour token for `a:schemeClr/@val`, or a thrown error. The scheme-colour counterpart of
+ * {@link normalizeHex}: a read-model setter that writes a token checks it here, against
+ * `ST_SchemeColorVal`, so a misspelled one is refused rather than written into the part.
+ */
+export function schemeToken(value: string): string {
+	return checkEnumOrThrow(value, SCHEME_COLOR_VALUES, 'scheme colour token', 'color/invalid-scheme-token')
 }
 
 /** The `@val` of a colour child (`qname`) under `parent/a:solidFill`, or `null`. */

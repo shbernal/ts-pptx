@@ -57,6 +57,30 @@ describe('Shape fill editing', () => {
 		assertEqual(shape.fillColor, null, 'no explicit srgb fill remains')
 	})
 
+	test('fillSchemeColor and lineSchemeColor refuse a token outside the schema, writing nothing', async () => {
+		const presentation = await openFixture('textbox')
+		const shape = replaceTextShape(presentation)
+		const before = await presentation.save()
+		const refusals = [
+			() => {
+				shape.fillSchemeColor = 'notAToken'
+			},
+			() => {
+				shape.lineSchemeColor = 'notAToken'
+			},
+		]
+		for (const refuse of refusals) {
+			let code = null
+			try {
+				refuse()
+			} catch (err) {
+				code = err.code
+			}
+			assertEqual(code, 'color/invalid-scheme-token', 'the token is refused')
+		}
+		assert(bytesEqual(before, await presentation.save()), 'and nothing reached the part')
+	})
+
 	test('clearing fillColor (= null) removes the solidFill, restoring inheritance', async () => {
 		const { saved, reopened } = await editAndReopen('textbox', (presentation) => {
 			const shape = replaceTextShape(presentation)

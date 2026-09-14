@@ -30,6 +30,8 @@ import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import { TEXT_CAPS_TYPES, TEXT_STRIKE_TYPES, TEXT_TAB_ALIGN_TYPES, TEXT_UNDERLINE_TYPES } from '../../ooxml/st-enums.js'
 import {
 	clampCharSpacingSpc,
 	clampFontSizeSz,
@@ -358,7 +360,16 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 				.map((stop) =>
 					voidEl('a:tab', {
 						pos: inch2Emu(mapStated(stop.position, (position) => position) ?? 1),
-						algn: stop.alignment || 'l',
+						// An alignment outside `ST_TextTabAlignType` warns and is left out, so the stop takes the
+						// schema's own default, `l`.
+						algn: stop.alignment
+							? checkEnumOrWarn(
+									stop.alignment,
+									TEXT_TAB_ALIGN_TYPES,
+									'text/invalid-tab-alignment',
+									'tab stop `alignment`'
+								)
+							: 'l',
 					})
 				)
 				.join('')
@@ -386,8 +397,14 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 	const runPropsTag = isDefault ? 'a:defRPr' : 'a:rPr'
 
 	// BEGIN runProperties (ex: `<a:rPr lang="en-US" sz="1600" b="1" dirty="0">`)
+	// `strike`, `cap` and `u` are enumerated tokens: one outside its `ST_` type warns and is left out
+	// rather than written into the attribute.
 	const underline =
-		typeof opts.underline === 'object' && opts.underline?.style ? opts.underline.style : opts.hyperlink ? 'sng' : null
+		typeof opts.underline === 'object' && opts.underline?.style
+			? checkEnumOrWarn(opts.underline.style, TEXT_UNDERLINE_TYPES, 'text/invalid-underline', 'text `underline.style`')
+			: opts.hyperlink
+				? 'sng'
+				: null
 	const baseline = opts.baseline
 		? Math.round(opts.baseline * 50)
 		: opts.subscript
@@ -406,8 +423,12 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		// "0" arm was unreachable — the emitted value is always "1".
 		b: xsdBoolIfTrue(opts?.bold),
 		i: xsdBoolIfTrue(opts?.italic),
-		strike: opts?.strike ? (typeof opts.strike === 'string' ? opts.strike : 'sngStrike') : null,
-		cap: opts?.caps ? opts.caps : null,
+		strike: opts?.strike
+			? typeof opts.strike === 'string'
+				? checkEnumOrWarn(opts.strike, TEXT_STRIKE_TYPES, 'text/invalid-strike', 'text `strike`')
+				: 'sngStrike'
+			: null,
+		cap: opts?.caps ? checkEnumOrWarn(opts.caps, TEXT_CAPS_TYPES, 'text/invalid-caps', 'text `caps`') : null,
 		u: underline,
 		baseline,
 		spc: opts.charSpacing ? clampCharSpacingSpc(opts.charSpacing) : null,
