@@ -12,7 +12,15 @@ import { readFile } from 'node:fs/promises'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { throws, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
+import {
+	TsPptx,
+	captureDiagnostics,
+	throws,
+	assert,
+	assertEqual,
+	partBodies,
+	assertUnchangedExcept,
+} from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
 import { fixturePath, openFixture } from './corpus.js'
 import { assertNoDanglingRels, resolveSingle } from './opc.js'
@@ -126,6 +134,63 @@ describe('Presentation.removeSlide', () => {
 		deck.removeSlide(1)
 		assert(!deck.opc.part(`/${comment}`), 'the removed slide’s comment part goes with it')
 		assert(deck.opc.part('/ppt/authors.xml'), 'and the deck-wide author registry stays')
+	})
+
+	test('drops a jump link to the removed slide with its relationship, and warns naming the part that held it', async () => {
+		// The removed slide's name is free for the next slide added, so a relationship left pointing at
+		// it would silently retarget the link onto that slide. The relationship cannot go alone:
+		// PowerPoint refuses a deck whose `a:hlinkClick` names an `r:id` the slide does not hold.
+		const pres = new TsPptx()
+		pres.addSlide().addText('one', { x: 1, y: 1, w: 3, h: 1 })
+		pres.addSlide().addText('back', { x: 1, y: 1, w: 3, h: 1, hyperlink: { slide: 1 } })
+		const deck = await Presentation.load(await pres.toBytes())
+		const linking = deck.slides[1].partName
+
+		const { codes, messages } = await captureDiagnostics(() => deck.removeSlide(0))
+		assertEqual(codes.join(), 'slide/removed-link-target', 'one warning')
+		assert(messages[0].includes(linking), 'naming the slide that linked')
+
+		const reopened = await Presentation.load(await deck.save())
+		assertNoDanglingRels(reopened.opc)
+		const slideRels = [...reopened.opc.relationshipsFor(linking)].filter((rel) => rel.type.endsWith('/slide'))
+		assertEqual(slideRels.length, 0, 'the jump link relationship is gone')
+		const xml = new TextDecoder().decode(reopened.opc.part(linking).serialize())
+		assert(!xml.includes('hlinkClick'), 'and so is every link element that named it')
+		assertEqual(reopened.slides[0].shapes[0].text, 'back', 'the text that carried the link stays')
+	})
+
+	test('keeps a relationship to the removed slide that other markup names, and says so', async () => {
+		// A custom show lists slides by `p:sld r:id`. That element cannot be dropped the way a link can,
+		// so its relationship stays rather than leaving the element naming an id the part lacks.
+		const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+		const presXml = await zip.file('ppt/presentation.xml').async('string')
+		const presRels = await zip.file('ppt/_rels/presentation.xml.rels').async('string')
+		const firstSlideRel = /<p:sldId [^>]*r:id="(rId\d+)"/.exec(presXml)[1]
+		const target = new RegExp(
+			`Id="${firstSlideRel}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${firstSlideRel}"`
+		).exec(presRels)
+		const slideTarget = target[1] ?? target[2]
+		zip.file(
+			'ppt/_rels/presentation.xml.rels',
+			presRels.replace(
+				'</Relationships>',
+				`<Relationship Id="rIdShow1" Type="${R_NS}/slide" Target="${slideTarget}"/></Relationships>`
+			)
+		)
+		const withShow = presXml.replace(
+			/<p:defaultTextStyle>|<p:extLst>|<\/p:presentation>/,
+			(next) =>
+				`<p:custShowLst><p:custShow name="Show" id="0"><p:sldLst><p:sld r:id="rIdShow1"/></p:sldLst></p:custShow></p:custShowLst>${next}`
+		)
+		assert(withShow !== presXml, 'the custom show is planted')
+		zip.file('ppt/presentation.xml', withShow)
+		const deck = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+
+		const { codes, messages } = await captureDiagnostics(() => deck.removeSlide(0))
+		assertEqual(codes.join(), 'slide/removed-link-target', 'one warning')
+		assert(messages[0].includes('/ppt/presentation.xml'), 'naming the presentation part')
+		const kept = deck.opc.relationshipsFor('/ppt/presentation.xml').get('rIdShow1')
+		assert(kept, 'the custom show keeps its relationship')
 	})
 
 	test('rejects an out-of-range index', async () => {

@@ -281,7 +281,7 @@ export function copyPart(
 		const alreadyOwned = owned.get(sourcePartName)
 		if (alreadyOwned !== undefined) return alreadyOwned
 	} else {
-		const existing = ctx.registry.get(sourcePartName)
+		const existing = registeredCopy(ctx, sourcePartName)
 		const selectedDest = ctx.selection?.destinations.get(sourcePartName)
 		// Registry hit without a selection plan: plain idempotence. With a plan, a
 		// hit on the *selected* destination means this batch already walked the page
@@ -367,6 +367,18 @@ export function copyPart(
 }
 
 /**
+ * The copy `ctx.registry` names for `sourcePartName`, while that part is still in the destination.
+ *
+ * An entry whose part has gone is not a copy to reuse: returning it would wire the import to a
+ * name that no longer holds anything, or to whatever part was added under it since. Removing a
+ * slide forgets the names it frees, so this is the backstop for bookkeeping that ever misses one.
+ */
+function registeredCopy(ctx: ImportContext, sourcePartName: string): string | undefined {
+	const existing = ctx.registry.get(sourcePartName)
+	return existing !== undefined && copyTarget(ctx).part(existing) ? existing : undefined
+}
+
+/**
  * What a caller decides about one relationship before the shared rule is asked: leave it out
  * (`skip`), carry it exactly as the source wrote it (`keep`), or point it at a destination part of
  * the caller's choosing. `undefined` hands it to the rule.
@@ -428,7 +440,12 @@ export function rebuildRels(ctx: ImportContext, options: RebuildRelsOptions): vo
 			continue
 		}
 		const targetPartName = sourceRels.resolveTarget(rel.id)
-		if (rel.type === SLIDE_REL && linkable && !linkable.has(targetPartName) && !ctx.registry.has(targetPartName)) {
+		if (
+			rel.type === SLIDE_REL &&
+			linkable &&
+			!linkable.has(targetPartName) &&
+			registeredCopy(ctx, targetPartName) === undefined
+		) {
 			throw new InvalidOptionError(
 				'import/unresolved-slide-link',
 				`${ctx.plan?.api ?? 'importSlides'}: source slide ${source.partName} links to ${targetPartName}, which is not among the imported pages`

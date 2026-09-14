@@ -8,8 +8,10 @@
  * that momentarily has no slides does not lose its design.
  */
 
-import { relsPartNameFor } from '../../opc/partnames.js'
+import type { Element } from '@xmldom/xmldom'
 import type { Presentation } from '../presentation.js'
+import { OOXML_NS } from '../../../ooxml/namespaces.js'
+import { descendantsByTag } from '../../oxml/dom.js'
 import { SHARED_PARTS } from '../../../ooxml/rel-types.js'
 
 /**
@@ -26,22 +28,89 @@ const SHARED_CHROME_CONTENT_TYPES: ReadonlySet<string> = new Set(
  * Remove `partName` if it is neither shared chrome nor still referenced by any
  * remaining part, then recurse into the parts it referenced. The pruning a
  * removed slide triggers (notes/media/charts the slide alone used).
+ * @returns every partname removed, `partName` first when it was
  */
-export function pruneIfOrphan(pres: Presentation, partName: string): void {
+export function pruneIfOrphan(pres: Presentation, partName: string): string[] {
 	const part = pres.opc.part(partName)
-	if (!part || SHARED_CHROME_CONTENT_TYPES.has(part.contentType)) return
-	if (isReferenced(pres, partName)) return
+	if (!part || SHARED_CHROME_CONTENT_TYPES.has(part.contentType)) return []
+	if (isReferenced(pres, partName)) return []
 	const rels = pres.opc.relationshipsFor(partName)
 	const childTargets = [...rels].filter((rel) => rel.targetMode !== 'External').map((rel) => rels.resolveTarget(rel.id))
-	pres.opc.removePart(relsPartNameFor(partName))
 	pres.opc.removePart(partName)
-	for (const child of childTargets) pruneIfOrphan(pres, child)
+	const removed = [partName]
+	for (const child of childTargets) removed.push(...pruneIfOrphan(pres, child))
+	return removed
+}
+
+/** A part that still held a relationship to a removed part, and whether it was unlinked. */
+export interface InboundLink {
+	/** The part holding the relationship, or `/` for the package root. */
+	readonly referrer: string
+	/** `true` when the relationship and the link elements naming it were removed; `false` when it was kept. */
+	readonly unlinked: boolean
+}
+
+/**
+ * Unlink what still points at `partName`, a part that has left the package, where that can be done
+ * without leaving markup behind that names a relationship which is gone.
+ *
+ * A relationship left pointing at the removed name dangles, and the next part given that name
+ * silently becomes its target. Removing only the relationship is worse: PowerPoint refuses a
+ * package whose `a:hlinkClick` names an `r:id` the part does not hold. So a relationship is
+ * removed when nothing but click and hover links name it, and those links go with it; the run or
+ * shape carrying them stays. A relationship any other element names (a custom show's `p:sld`, say)
+ * is kept, because that element cannot be dropped the same way.
+ * @returns each part that held such a relationship, in package order
+ */
+export function unlinkInbound(pres: Presentation, partName: string): InboundLink[] {
+	const found: InboundLink[] = []
+	for (const owner of relationshipOwners(pres)) {
+		const rels = pres.opc.relationshipsFor(owner)
+		const inbound = [...rels].filter((rel) => rel.targetMode !== 'External' && rels.resolveTarget(rel.id) === partName)
+		if (inbound.length === 0) continue
+		const part = owner === '/' ? undefined : pres.opc.part(owner)
+		const root = part?.isXmlPart ? part.dom.documentElement : null
+		let unlinked = root !== null
+		for (const rel of inbound) {
+			const references = root ? elementsNamingRel(root, rel.id) : []
+			if (!root || !references.every(isLinkElement)) {
+				unlinked = false
+				continue
+			}
+			for (const element of references) element.parentNode?.removeChild(element)
+			if (references.length > 0) part?.markDirty()
+			rels.remove(rel.id)
+		}
+		found.push({ referrer: owner, unlinked })
+	}
+	return found
+}
+
+/** Link elements that can be dropped with the relationship they name, leaving their run or shape intact. */
+const LINK_ELEMENTS: ReadonlySet<string> = new Set(['hlinkClick', 'hlinkMouseOver'])
+
+function isLinkElement(element: Element): boolean {
+	return element.namespaceURI === OOXML_NS.a && LINK_ELEMENTS.has(element.localName ?? '')
+}
+
+/** Every element under `root`, `root` included, with an attribute in the relationships namespace naming `relId`. */
+function elementsNamingRel(root: Element, relId: string): Element[] {
+	const out: Element[] = []
+	for (const element of [root, ...descendantsByTag(root, '*', '*')]) {
+		for (let i = 0; i < element.attributes.length; i++) {
+			const attribute = element.attributes[i]
+			if (attribute?.namespaceURI === OOXML_NS.r && attribute.value === relId) {
+				out.push(element)
+				break
+			}
+		}
+	}
+	return out
 }
 
 /** Whether any remaining part (or the package root) resolves an internal relationship to `partName`. */
 function isReferenced(pres: Presentation, partName: string): boolean {
-	for (const owner of [...pres.opc.parts.keys(), '/']) {
-		if (owner.endsWith('.rels')) continue
+	for (const owner of relationshipOwners(pres)) {
 		const rels = pres.opc.relationshipsFor(owner)
 		for (const rel of rels) {
 			if (rel.targetMode === 'External') continue
@@ -49,4 +118,9 @@ function isReferenced(pres: Presentation, partName: string): boolean {
 		}
 	}
 	return false
+}
+
+/** Every partname that can own relationships: each part that is not itself a `.rels` part, and the package root. */
+function relationshipOwners(pres: Presentation): string[] {
+	return [...[...pres.opc.parts.keys()].filter((partName) => !partName.endsWith('.rels')), '/']
 }

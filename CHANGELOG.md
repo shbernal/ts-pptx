@@ -893,6 +893,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An import after `removeSlide` could throw, link to a deleted part, or skip its rescale.**
+  - `removeSlide` frees partnames that the next import is given again, and the deck's import
+    memos kept naming them. Re-importing the removed page threw
+    `InternalError import/part-went-missing`. An import after a removal that pruned an image
+    linked to the pruned media part. A rescaled import given a freed slide name was not rescaled.
+    Removing a slide now clears every name it frees from both memos, and a copy-registry entry
+    whose part is gone is never reused.
+  - `removeSlide` also unlinks jump links to the removed slide. Such a relationship used to
+    dangle, and the next slide given the freed name silently became the link's target. Where only
+    `a:hlinkClick` or `a:hlinkMouseOver` elements name it, the relationship and those elements
+    are removed and the text or shape carrying them stays. Removing the relationship alone is
+    not an option, because PowerPoint refuses a deck whose link names an `r:id` the slide does not
+    hold. A relationship other markup names, such as a custom show's `p:sld`, is kept. Both cases
+    warn `slide/removed-link-target`, naming the part that held the reference.
+  - `OpcPackage.removePart` removes the part's `.rels` part too. It was left behind, so a part
+    re-added under the same name came back with the old relationships, and re-adding one of
+    their ids threw `relationship/duplicate-id`. **Migration:** a caller that removed the
+    `.rels` part by hand can drop that call. One that relied on relationships surviving a remove
+    and re-add has to read them before removing the part.
+
 - **A noted loss on an unnamed shape was reported as undeclared by `diffDeckIr`.**
   - The converter scoped a shape's notes by its name and used `null` for a shape with an empty
     `p:cNvPr/@name`, which is how a slide or deck note is scoped. `diffDeckIr` matches such a

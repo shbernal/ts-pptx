@@ -20,7 +20,7 @@
 import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
+import { relativePartName } from '../opc/partnames.js'
 import { attr, createElement, firstChild, getElements, getOrAddChild, numberValue, setAttr } from '../oxml/dom.js'
 import { PRESENTATION_AFTER_SLD_ID_LST } from '../../ooxml/sequence.js'
 import { Slide } from './slide.js'
@@ -65,9 +65,11 @@ import { rebuildClonedPageRels, type ImportContext } from './ops/part-copy.js'
 import { appendSlides as appendSlidesInto } from './ops/append-slides.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { readEmbeddedFontEntries } from './ops/embedded-fonts.js'
-import { pruneIfOrphan } from './ops/prune.js'
+import { pruneIfOrphan, unlinkInbound } from './ops/prune.js'
+import { ImportMemo } from './ops/import-memo.js'
 import { OFFICE_DOCUMENT_REL, PRESENTATION_MAIN_CONTENT_TYPE, SLIDE_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
+import { warn } from '../../diagnostics.js'
 import { presentationRels } from './ops/deck-target.js'
 import {
 	importShape as importShapeInto,
@@ -90,17 +92,11 @@ const MAX_SLIDE_ID = 2147483647
 export class Presentation {
 	#presentationPart: Part | undefined
 	/**
-	 * Per-source copy registry for {@link importSlide}: source `OpcPackage` →
-	 * (source partname → partname allocated in this package). Lets parts shared
-	 * across imports from the same source deck (layout, master, theme, media) be
-	 * copied once and reused on later calls.
+	 * The import memos: the per-source copy registry that lets parts shared across imports from
+	 * one source deck (layout, master, theme, media) be copied once, and the parts a rescale has
+	 * already rewritten. {@link removeSlide} makes them forget the names it frees.
 	 */
-	#importRegistry = new Map<OpcPackage, Map<string, string>>()
-	/**
-	 * Parts whose geometry {@link importSlide}'s `rescale` has already rewritten, so a
-	 * layout/master shared across repeated imports from one source is not scaled twice.
-	 */
-	#rescaledParts = new Set<string>()
+	readonly #imports = new ImportMemo()
 
 	private constructor(readonly opc: OpcPackage) {}
 
@@ -393,10 +389,23 @@ export class Presentation {
 		presPart.markDirty()
 
 		// Drop the slide part and its .rels, then prune the parts it privately owned.
-		this.opc.removePart(relsPartNameFor(partName))
 		this.opc.removePart(partName)
-		for (const target of formerTargets) pruneIfOrphan(this, target)
+		const removed = [partName]
+		for (const target of formerTargets) removed.push(...pruneIfOrphan(this, target))
 
+		// A jump link from another slide still names the removed part, whose name is free for the next
+		// slide added. See `unlinkInbound` for which of those references can be removed.
+		for (const { referrer, unlinked } of unlinkInbound(this, partName)) {
+			warn(
+				'slide/removed-link-target',
+				unlinked
+					? `removeSlide: ${referrer} linked to ${partName}; the link was removed with the slide, and the text or shape that carried it stays`
+					: `removeSlide: ${referrer} references ${partName} from markup that cannot drop the reference, so its relationship still names the removed slide and will resolve to the next part given that name`
+			)
+		}
+
+		// The freed names are handed out again, so no import memo may keep answering for them.
+		this.#imports.forget(removed)
 		return partName
 	}
 
@@ -674,7 +683,7 @@ export class Presentation {
 	 * so like the copy registry it has to outlive the call that fills it.
 	 */
 	get rescaledParts(): Set<string> {
-		return this.#rescaledParts
+		return this.#imports.rescaledParts
 	}
 
 	/**
@@ -686,12 +695,7 @@ export class Presentation {
 	 * in `presentation-imports.ts` call back here rather than carrying it with them.
 	 */
 	importContext(source: OpcPackage): ImportContext {
-		let registry = this.#importRegistry.get(source)
-		if (!registry) {
-			registry = new Map()
-			this.#importRegistry.set(source, registry)
-		}
-		return { dest: this, source, registry }
+		return { dest: this, source, registry: this.#imports.registryFor(source) }
 	}
 
 	/**

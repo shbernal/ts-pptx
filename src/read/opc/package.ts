@@ -136,17 +136,22 @@ export class OpcPackage {
 	}
 
 	/**
-	 * Remove a part and return whether it existed. Drops its `Override` content-type
-	 * registration and any cached relationship set it owned, so a later `save()`
-	 * neither re-emits it nor flushes a stale `.rels` for it. Low-level: it does not
-	 * touch references *to* this part (dangling rels are the caller's concern) nor
-	 * cascade to parts this one referenced — see {@link Presentation.removeSlide}
-	 * for the slide-aware variant that unwires the presentation and prunes orphans.
+	 * Remove a part and return whether it existed. Its `.rels` part goes with it, along with
+	 * its `Override` content-type registration and any cached relationship set it owned, so a
+	 * later `save()` neither re-emits it nor flushes a stale `.rels` for it. A relationship set
+	 * belongs to its part: one left behind would come back as the relationships of the next part
+	 * added under the same name. Low-level: it does not touch references *to* this part
+	 * (dangling rels are the caller's concern) nor cascade to parts this one referenced — see
+	 * {@link Presentation.removeSlide} for the slide-aware variant that unwires the presentation
+	 * and prunes orphans.
 	 */
 	removePart(partName: string): boolean {
 		if (!this.#parts.delete(partName)) return false
+		const relsPartName = relsPartNameFor(partName)
+		this.#parts.delete(relsPartName)
 		this.#partsByContentType = null
 		this.contentTypes.removeOverride(partName)
+		this.contentTypes.removeOverride(relsPartName)
 		// Cache is keyed by owning part; clearing it stops a stale set being flushed.
 		this.#relationshipsCache.delete(partName)
 		return true

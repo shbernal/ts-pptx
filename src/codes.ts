@@ -159,6 +159,7 @@ export type DiagnosticCode =
 	| 'section/duplicate-title'
 	| 'section/invalid-order'
 	| 'slide/section-not-found'
+	| 'slide/removed-link-target'
 	| 'layout/invalid-definition'
 	// SmartArt
 	| 'diagram/drawing-cache-not-updated'

@@ -195,6 +195,24 @@ describe('partname and overlay units', () => {
 		)
 	})
 
+	test('removePart takes the relationships with it, so a part re-added under the name starts with none', async () => {
+		const pkg = await OpcPackage.load(await readFixture('image'))
+		const partName = '/ppt/slides/slide1.xml'
+		const part = pkg.part(partName)
+		const before = [...pkg.relationshipsFor(partName)]
+		assert(before.length > 0, 'the slide has relationships to lose')
+
+		assertEqual(pkg.removePart(partName), true, 'the slide was there to remove')
+		assertEqual(pkg.part(relsPartNameFor(partName)), undefined, 'its .rels part went with it')
+
+		pkg.addPart(partName, part.contentType, part.serialize())
+		assertEqual([...pkg.relationshipsFor(partName)].length, 0, 'the re-added part has no relationships')
+		// The id the old set held is free: a copy re-adding its source's ids must not collide.
+		pkg.relationshipsFor(partName).addWithId(before[0].id, before[0].type, before[0].target)
+		const reloaded = await OpcPackage.load(await pkg.save())
+		assertEqual([...reloaded.relationshipsFor(partName)].length, 1, 'only the relationship added since is saved')
+	})
+
 	test('relsPartNameFor maps package root and nested parts', () => {
 		assertEqual(relsPartNameFor('/'), '/_rels/.rels')
 		assertEqual(relsPartNameFor('/ppt/presentation.xml'), '/ppt/_rels/presentation.xml.rels')
