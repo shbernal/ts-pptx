@@ -213,33 +213,7 @@ covers the one claim that needs *render* evidence specifically.
 
 ## Emitting XML: the `el()` builder
 
-`src/gen/oxml/el.ts` is the write-side element builder (mirror of `src/read/oxml/dom.ts`).
-Prefer it over template-string concatenation in new emitter code: it escapes text and
-attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce invalid XML.
-
-- `el(name, attrs, children, fmt)` always emits a **paired** tag; `voidEl(name, attrs, fmt)`
-  always **self-closes**. Self-closing is chosen by which function you call, never by the
-  child's value: `encodeXmlEntities(undefined)` is `''`, so a value-based rule would
-  silently rewrite `<dc:title></dc:title>` as `<dc:title/>`.
-- `raw(xml)` interpolates already-serialized markup verbatim (child elements, or values
-  that are deliberately not escaped).
-- Nullish attributes and children are dropped, so optional parts inline as
-  `cond ? raw(...) : null`.
-- `fmt` (`openPrefix`/`childPrefix`/`closePrefix`) places whitespace explicitly. Most parts
-  are flat and need no `fmt`; the pretty-printed ones are not always depth-regular, so
-  indentation is described per element rather than derived.
-- Attribute values and text children take **different escapers**, and the difference matters.
-  Attributes go through `encodeXmlAttrValue`, which also emits
-  `&#9;`/`&#10;`/`&#13;` for tab/CR/LF, because XML 1.0 §3.3.3 has a parser
-  normalise those literal characters to a single space inside an attribute
-  value before any consumer sees them. Text children go through
-  `encodeXmlEntities`, where the same characters are content and stay
-  literal. Any emitter that writes an attribute with a template string rather
-  than the builder (there are a few, e.g. `cNvPrOpen`) must call
-  `encodeXmlAttrValue` itself.
-
-Migrating an existing emitter onto it is a byte-preserving refactor. Gate it with
-`pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").
+[Source conventions](development.md#emitting-xml-the-el-builder) in the development guide describes `src/gen/oxml/el.ts`, the builder new emitter code uses.
 
 ## Local validation tools
 

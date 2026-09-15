@@ -1,21 +1,20 @@
 # Contributing
 
-Thanks for your interest in ts-pptx. The README describes what the package does for
-the people who install it. This file is the other half: how the repository is built,
-tested and contributed to.
+Thanks for your interest in ts-pptx. The README describes what the package does for the people who
+install it. This file covers how the repository is built, tested and contributed to.
 
 ## Start here
 
-- **[AGENTS.md](AGENTS.md)**: repository expectations, scope, the API evolution
-  policy, and the OOXML/PowerPoint working rules. Read this first, whether you are a
-  human or an agent.
-- **[docs/contributing/agent-development.md](docs/contributing/agent-development.md)**: how changes are
-  developed and verified in this repo, end to end.
-- **[docs/contributing/testing.md](docs/contributing/testing.md)**: regression, schema, package, demo and
-  coverage commands, plus the fast edit-then-test inner loop (a `tsdown` watcher and a
-  Vitest watcher in two terminals) and single-test invocation.
-- **[docs/contributing/scope-and-policy.md](docs/contributing/scope-and-policy.md)**: what this project aims to
-  support, and what it leaves to a consumer.
+- **[AGENTS.md](AGENTS.md)**: repository expectations, scope, the API evolution policy, and the
+  OOXML and PowerPoint working rules. Read it first, whether you are a human or an agent.
+- **[docs/contributing/development.md](docs/contributing/development.md)**: setup, repository
+  layout, source conventions and the everyday commands.
+- **[docs/contributing/testing.md](docs/contributing/testing.md)**: the test suites and gates, and
+  the [gate matrix](docs/contributing/testing.md#gate-matrix) of what runs where.
+- **[docs/contributing/agent-development.md](docs/contributing/agent-development.md)**: how an
+  agent-assisted change is developed and verified.
+- **[docs/contributing/scope-and-policy.md](docs/contributing/scope-and-policy.md)**: what this
+  project aims to support, and what it leaves to a consumer.
 
 ## Setting up
 
@@ -27,26 +26,42 @@ pnpm run verify        # while iterating
 pnpm run verify:full   # before pushing, and for package or release changes
 ```
 
-Keep source changes in `src/` and tests in `test/`; treat `dist/` as generated output.
-The project site is a fourth tree: markdown content in `docs/`, the theme and components
-that render it in `www/`. `pnpm run docs:dev` serves the lot, see
-[docs/contributing/development.md](docs/contributing/development.md#site-changes).
+The [gate matrix](docs/contributing/testing.md#gate-matrix) shows what each command runs.
+[Repository layout](docs/contributing/development.md#repository-layout) says where source, tests and
+generated output live. The project site keeps its content in `docs/` and its theme and components
+in `www/`. `pnpm run docs:dev` serves it, and
+[Site changes](docs/contributing/development.md#site-changes) covers both trees.
 
-Changes to emitted OOXML need a fixture in `test/schema-cases.js`, which `verify`
-already runs. The schema suite validates through `ooxml-validate`, which fetches and
-caches its oracle binary on first use, so there is nothing to install. Every change to
-emitted OOXML must be grounded in fixtures, schema validation, or PowerPoint
-compatibility evidence, per AGENTS.md.
+A change to emitted OOXML needs a fixture in `test/schema-cases.js` and evidence behind it, per
+AGENTS.md. The [testing guide](docs/contributing/testing.md) covers schema validation.
 
-Changes to the package boundary (exports, entry points, shipped artifacts) should also
-run:
+A change to the package boundary (exports, entry points, shipped artifacts) also needs
+`pnpm run check:package`.
 
-```bash
-pnpm run check:package
-```
+## Git hooks
 
-A `lefthook` pre-commit hook runs oxlint and oxfmt on staged files, and pre-push runs
-lint, format-check and typecheck. Do not bypass hooks.
+`pnpm install` installs the hooks through the `prepare` script (`scripts/install-hooks.mjs`). When
+`core.hooksPath` points outside this repository, the installer skips and says so, and these hooks
+then run only if that hooks path hands control back to them. Do not bypass hooks.
+
+| Hook | Job | What it runs |
+| --- | --- | --- |
+| pre-commit | `oxlint` | `oxlint --fix` on staged `*.{ts,mjs,js}` files, then re-stages the fixes |
+| pre-commit | `oxfmt` | `oxfmt --write` on staged `*.{json,jsonc,yaml,yml,mjs,mts,ts,js}` files except `pnpm-lock.yaml`, then re-stages the result |
+| pre-commit | `charcheck` | `charcheck --staged --max-warnings 0` over the staged content, when the commit touches a `*.{md,vue,ts,mts}` file |
+| commit-msg | `no-ai-attribution` | Rejects a message that carries an agent-attribution trailer or footer |
+| commit-msg | `no-shell-quoting-leak` | Rejects a message holding a leaked here-string delimiter, such as a line that is only `@'` |
+| pre-push | `lint` | `pnpm run lint` |
+| pre-push | `lint-chars` | `pnpm run lint:chars`, over the whole repository |
+| pre-push | `format` | `pnpm run format:check` |
+| pre-push | `typecheck` | `pnpm run typecheck` |
+| pre-push | `typecheck-scripts` | `pnpm run typecheck:scripts` |
+| pre-push | `typecheck-site` | `pnpm run typecheck:site` |
+
+Pre-commit runs its jobs one after another, in the order above. Pre-push runs its jobs in parallel.
+The two commit-msg rules come from [`shbernal/lefthook-rules`](https://github.com/shbernal/lefthook-rules)
+through the `remotes:` block in `lefthook.yml`, and they skip merge and rebase commits. No hook runs
+a test suite.
 
 ## Demos
 
@@ -57,48 +72,69 @@ lint, format-check and typecheck. Do not bypass hooks.
 
 ## Scope
 
-The project is Node-first: it generates and is tested without a browser or any office
-application. Two areas sit outside *active* maintenance, not because they lack merit,
-but because no in-house use case drives them, so the maintainer will generally not pick
-up bugs or feature requests there:
+The project is Node-first: it generates and is tested without a browser or any office application.
+Two areas sit outside active maintenance, because no in-house use case drives them:
 
-- **Live-DOM and browser-layout features**, meaning anything whose answer comes from a
-  *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts as the
-  browser actually chose them. Converting an HTML `<table>` is not in this category
-  (see [HTML tables to slides](docs/html-tables.md)); only real measurement needs a
-  browser.
-- **Third-party office-suite interop quirks** that appear only after a file is
-  round-tripped through another application, for example copy/paste inside WPS Office
-  and then opening in PowerPoint, when the generated package is itself valid OOXML.
-  The supported bar is that output opens cleanly in Microsoft PowerPoint.
+- Live-DOM and browser-layout features, whose answer comes from a rendered page. Converting an HTML
+  `<table>` is not one of them; see [HTML tables to slides](docs/html-tables.md).
+- Third-party office-suite interop quirks that appear only after another application round-trips a
+  file that is itself valid OOXML.
 
-**Contributions in both areas are welcome.** Issues and pull requests are encouraged
-even though the maintainer is not actively developing them.
-[`docs/contributing/scope-and-policy.md`](docs/contributing/scope-and-policy.md) carries the full scope statement and
-suggested testing approaches.
+Issues and pull requests in both areas are welcome.
+[`docs/contributing/scope-and-policy.md`](docs/contributing/scope-and-policy.md) carries the full
+scope statement and suggested testing approaches.
 
 ## Reporting bugs and proposing changes
 
 GitHub issues are the only tracker; there is no local ledger. The
-[new-issue chooser](https://github.com/shbernal/ts-pptx/issues/new/choose) offers two
-forms:
+[new-issue chooser](https://github.com/shbernal/ts-pptx/issues/new/choose) offers three
+forms, from `.github/ISSUE_TEMPLATE/`:
 
 - **Bug or fidelity limit**: wrong output, a repair prompt, a regression, or a
   construct that does not survive a round trip. Bring a minimal repro, a small script
   that produces the offending `.pptx`.
 - **API gap**: a missing accessor, or a property the write side authors that the read
   side cannot see.
+- **Agent-assisted report**: a defect an agent found while using ts-pptx in another project.
+  The library's own error messages link to this form, and it asks which error class and code
+  was thrown.
 
 Neither fits? File a blank issue. A good issue in the wrong shape beats a bad issue in
 the right one. See [errors and warnings](docs/errors-and-warnings.md#which-failures-are-worth-reporting) for
 which failures are worth a report.
 
-Describe a downstream consumer's need **anonymously**. Issues are public, see
-[AGENTS.md](AGENTS.md). For security issues, **do not** open a public issue, see
-[SECURITY.md](SECURITY.md).
+Describe a downstream consumer's need anonymously, as
+[Promoting a downstream need](#promoting-a-downstream-need) sets out. For security issues, do not
+open a public issue; see [SECURITY.md](SECURITY.md).
 
 Breaking changes are acceptable when they make the API clearer or safer. Record them,
 with migration guidance, in [CHANGELOG.md](CHANGELOG.md).
+
+### Promoting a downstream need
+
+Most new work here starts with a downstream consumer hitting a generic PPTX gap: an OOXML
+serialization fix, an API or typing gap, a layout helper written for the third time, media and SVG
+handling, or post-processing that patches generated XML after the fact. Before moving one of those
+into this project:
+
+1. Prove the need with a minimal, consumer-agnostic reproduction.
+2. Reduce the behavior to a minimal ts-pptx fixture.
+3. Add a ts-pptx regression or schema test.
+4. Pack or link the project into the downstream consumer to verify.
+5. Run the consumer's build, render, lint or eval path against the linked project.
+6. Keep only generic code in ts-pptx, and keep project policy downstream.
+
+Report such a gap as a GitHub issue, and describe it anonymously. Issues are public, and the
+consumer is not. State the missing PPTX behavior and how any consumer would reproduce it. Never
+include the consumer's name, file paths, deck or client names, or content.
+
+A report is evidence about generation bugs and missing features. It is not a vote on the package
+target. Repair prompts, invalid OOXML, content types, relationships, chart, table and media
+serialization, and current TypeScript or ESM behavior are all candidates. A request that rests on
+CommonJS, IIFE globals, a direct CDN script tag or a legacy artifact name is not, until the
+documented target changes.
+[What stays in the consumer](docs/contributing/scope-and-policy.md#what-stays-in-the-consumer)
+lists what this package turns down however good the case is.
 
 ### The skill that files the issue for you
 
@@ -149,9 +185,8 @@ re-resolves to whatever is at the head of it when the lockfile is next written.
 
 `dist/` is not committed, so this builds the package on install: your package manager
 clones the repo, installs this package's `devDependencies`, and runs its `prepare`
-script. That makes the install slow (a couple of minutes) and heavier than a registry
-install, and it needs a working Node toolchain. It is meant for trying a fix, not for
-production dependencies.
+script. That makes the install slow and heavier than a registry install, and it needs a
+working Node toolchain. It is meant for trying a fix, not for production dependencies.
 
 Note that `pres.version` reports the version in `package.json` at that commit, so
 several different commits report the same number. The sha in your `package.json` is

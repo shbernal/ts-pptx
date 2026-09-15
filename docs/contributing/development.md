@@ -14,492 +14,299 @@ doc_type: "guide"
 ## Prerequisites
 
 - Node.js `>=24`.
-- Corepack-enabled `pnpm`.
-- A local checkout of this repository.
-
-Install dependencies:
+- `pnpm` through Corepack. The `packageManager` field in `package.json` pins the version.
 
 ```bash
 pnpm install
 ```
 
+`pnpm install` runs `prepare`, which installs the git hooks and builds `dist/` when it is missing.
+[CONTRIBUTING.md](https://github.com/shbernal/ts-pptx/blob/master/CONTRIBUTING.md#git-hooks) lists
+the hooks.
+
 ## Repository layout
 
 - `src/`: TypeScript source.
-- `test/`: regression tests, schema fixtures, and validator helpers.
-- `docs/`: maintained project documentation.
-- `demos/node`: Node.js ESM demo.
-- `www/`: the site's theme and its Vue components, including the demos page.
-- `scripts/`: build, package, demo, and smoke-test automation.
-- `dist/`: generated package runtime and declaration artifacts.
+- `test/`: regression tests, schema fixtures and validator helpers.
+- `dist/`: the built package. Tests import from it, not from `src/`. Do not hand-edit it unless
+  the task asks to refresh release artifacts.
+- `docs/`: documentation content. See [Site changes](#site-changes).
+- `www/`: the site's theme and Vue components, including the demos page.
+- `demos/`: the showcase decks (`demos/showcases`) and the Node streaming demo (`demos/node`).
+- `scripts/`: build, gate, package and demo automation.
+- `skills/`: the `ts-pptx-upstream` skill, which ships in the package. Skills for working on this
+  repository are under `.agents/skills/`.
+- `tools/api-docs/`: TypeDoc with a pinned TypeScript 6. The root compiler is TypeScript 7, which
+  ships no JavaScript compiler API. TypeDoc needs that API, and so does
+  `scripts/raw-xml-ratchet.mjs`, through the `typescript-6` alias in the root devDependencies.
+  Keep both pins. `tools/api-docs/README.md` says when they can go.
 
-Do not hand-edit generated `dist/` outputs unless the task explicitly asks to
-refresh release artifacts.
+Keep source changes in `src/` and tests in `test/`. Leave unrelated uncommitted changes in the
+working tree as you found them, and do not revert changes you did not make.
 
-This repository is developed on case-insensitive filesystems (Windows, default
-macOS). Never introduce a file whose name differs from an existing one only by
-case: for example a generated `INDEX.md` collides with the VitePress home page
-`index.md` and silently overwrites it. The generated `read_when` discovery index
-is named `doc-index.md` for exactly this reason.
+Never add a file whose name differs from an existing one only by case. The repository is developed
+on case-insensitive filesystems, where the second file overwrites the first.
+
+`.gitattributes` stores and checks out every text file with LF line endings, whatever
+`core.autocrlf` says. If `format:check` reports every file on Windows, the checkout has CRLF
+endings. Check the files out again instead of running `format`, which would rewrite all of them.
 
 ## Source conventions
 
-The OOXML generators live under `src/gen/` as a layered tree (mirroring `src/read/`):
-`gen/define/*` normalizes user options onto the slide model, and
-`gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize it to OOXML. (The old
-`src/gen-{xml,objects,charts,tables}.ts` files are now re-export barrels.) These
-modules use two comment conventions so a reader can navigate without scrolling:
+The OOXML generators live under `src/gen/`. `gen/define/*` normalizes user options onto the slide
+model, and `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize the model to OOXML. Two
+comment conventions let a reader find their way around a module:
 
-- **File module map.** Each module opens with a TSDoc block that states its job and,
-  for larger files, lists its regions. Read it first to orient.
-- **Region banners.** File-level sections are marked with a single-line banner:
+- **File module map.** Each module opens with a TSDoc block that states its job. A larger file also
+  lists its regions there.
+- **Region banners.** A file-level section starts with a one-line banner. Its name matches the
+  module-map entry, so grepping `===== <name> =====` finds it:
 
   ```ts
   // ===== Region Name =====
   ```
 
-  The region names match the entries in that file's module-map header, so you can jump
-  to a region by grepping `===== <name> =====`. Use these for coarse file structure
-  (roughly one per group of related functions), not for every function.
-- **Intra-function steps.** Sequential steps *inside* a function stay as `// STEP N:`
-  (e.g. `// STEP 1: …`). Do not use `===== … =====` banners inside a function body.
+  Use one banner per group of related functions, not one per function, and never one inside a
+  function body. Sequential steps inside a function are `// STEP N:` comments.
 
-When adding a new top-level region to one of these files, add both the banner and a
-matching line in the module-map header. Prefer ASCII `=====` banners over box-drawing
-characters. (A few enums, such as `TableStyle` in `enums.ts`, group their members
-with `// ── Name ──` sub-headers; that is an intra-construct grouping, not a file region.)
+When you add a top-level region, add the banner and its module-map line together. Write banners in
+ASCII `=====`, not box-drawing characters. The `// ── Name ──` sub-headers inside some enums, such
+as `TableStyle` in `src/enums.ts`, group members of one construct. They are not file regions.
+
+### Emitting XML: the `el()` builder
+
+`src/gen/oxml/el.ts` is the write-side element builder, the mirror of `src/read/oxml/dom.ts`. Use
+it instead of template strings in new emitter code. It escapes text and attribute values in one
+place, so a forgotten `encodeXmlEntities` cannot produce invalid XML.
+
+- `el(name, attrs, children, fmt)` always emits a paired tag. `voidEl(name, attrs, fmt)` always
+  self-closes. The function you call decides, never the child's value. `encodeXmlEntities(undefined)`
+  is `''`, so a rule based on the value would turn `<dc:title></dc:title>` into `<dc:title/>`.
+- `raw(xml)` inserts markup that is already serialized, or a value that deliberately skips escaping.
+- The builder drops nullish attributes and children, so an optional part inlines as
+  `cond ? raw(...) : null`.
+- `fmt` (`openPrefix`, `childPrefix`, `closePrefix`) places whitespace explicitly. Most parts are
+  flat and need none. The pretty-printed parts are not always depth-regular, so each element states
+  its own indentation.
+- Attribute values and text children use different escapers. Attributes go through
+  `encodeXmlAttrValue`, which also writes tab, LF and CR as `&#9;`, `&#10;` and `&#13;`. XML 1.0
+  §3.3.3 has a parser turn those literal characters into spaces inside an attribute value. Text
+  children go through `encodeXmlEntities`, where the same characters are content and stay literal.
+  An emitter that writes an attribute with a template string, such as `cNvPrOpen`, must call
+  `encodeXmlAttrValue` itself.
+
+Moving an existing emitter onto the builder must not change a byte. Run
+`pnpm run byte-identity:baseline` before the change and `pnpm run byte-identity:check` after each
+step.
 
 ### Trailing `_` marks an escape hatch
 
-A public member whose name ends in `_` (today that is `element_` across the read
-model) is a **deliberate escape hatch onto the internal representation**, not a
-naming accident. The underscore is there to be slightly ugly: it makes hatch usage
-greppable and makes it stand out in review, both in this repo and in consumer code.
+A public member whose name ends in `_` (today that is `element_` across the read model) is a
+deliberate escape hatch onto the internal representation. The underscore makes hatch use easy to
+grep and easy to spot in review, in this repository and in consumer code.
 
-Do not "tidy" such a member to the bare name; doing so silently converts a flagged
-hatch into ordinary-looking API. Every `element_` is paired with a public
-`markDirty()` on the same object, because handing out a live DOM node without the
-obligation that comes with it is how an edit vanishes on save. See the
-"Escape hatches" section of [project target](scope-and-policy.md) for when a new
-hatch is acceptable at all.
+Do not rename such a member to the bare name. That turns a flagged hatch into ordinary-looking API.
+Every `element_` has a public `markDirty()` on the same object, because a live DOM node handed out
+without that obligation is how an edit vanishes on save. The
+[Escape hatches](scope-and-policy.md#escape-hatches) section of the scope policy says when a new
+hatch is acceptable.
 
 ## Common commands
 
-Two aggregate commands cover almost every iteration; reach for the individual
-scripts below only when you want one specific gate:
+`pnpm run` lists every script. The table covers the ones you use while working. The
+[gate matrix](testing.md#gate-matrix) shows what each aggregate, git hook and CI job runs.
 
-```bash
-pnpm run verify       # ~45s — typechecks, the raw-XML ratchet, and the whole test suite
-pnpm run verify:full  # ~65s — the above plus the package boundary suites
-```
+| Command | What it is for |
+| --- | --- |
+| `pnpm run verify` | The per-change check: typechecks, source and docs checks, and every Vitest suite. |
+| `pnpm run verify:full` | Before pushing, and for a package or release change: `verify` plus the site build, the script round trip, and the package and size gates. |
+| `pnpm run check:static` | CI's static job: `lint`, `lint:chars` and `format:check`, then `check:core`. |
+| `pnpm run check:core` | The cheap checks that `verify` and `check:static` share. |
+| `pnpm run check:package` | A package boundary change: `package:lint`, `test:package` and both size gates. |
+| `pnpm run test` | Every Vitest suite. `test:unit`, `test:read` and `test:schema` run one part of it. |
+| `pnpm run watch:dev` and `pnpm run test:watch` | The edit-then-test loop, one per terminal. `watch:dev` rebuilds `dist/` without declarations. |
+| `pnpm run typecheck` | The `src/` TypeScript project. `typecheck:scripts`, `typecheck:test` and `typecheck:site` cover `scripts/`, `test/` and the site. |
+| `pnpm run lint`, `pnpm run lint:chars`, `pnpm run format:check` | The git hooks run these for you. `lint:chars:fix` and `format` apply fixes. |
+| `pnpm run build` | Build `dist/` for its own sake. Gates build it when they need it. |
+| `pnpm run test:browser` | The Playwright lane in Chromium. Run `pnpm exec playwright install chromium` once first. |
+| `pnpm run docs:dev` | Serve the site with hot reload. |
+| `pnpm demos:build` | Build the showcase decks. |
 
-`verify` is the per-change loop; `verify:full` is what to run before pushing or
-when touching the release/package boundary. Both deliberately omit `lint` and
-`format:check`, which the git hooks already own (see [Static checks](#static-checks)).
+The [testing guide](testing.md) covers the single-purpose scripts, such as `coverage:probe`,
+`test:com`, `byte-identity:check` and the freeze commands.
 
-Two more aggregates exist for CI, and are occasionally useful locally:
+Pass a flag straight after the script name: `pnpm run lint --fix`. pnpm forwards a `--` to the tool
+as a literal argument, so `pnpm run lint -- --fix` hands oxlint a `--` followed by `--fix`. oxlint
+and oxfmt drop everything after the `--` without an error, so the command exits 0 and applies no
+fix. If a flag seems to have had no effect, read the command line pnpm echoes.
 
-```bash
-pnpm run check:static   # lint, lint:chars, format:check, then check:core: the typechecks, raw-xml, path-refs, docs and comparison checks
-pnpm run check:package  # package:lint, test:package, bundle-size:check, bundle-tier:check
-```
+## Building and typechecking
 
-`bundle-size:check` freezes what each published entry point and its chunks
-weigh, minified and gzipped, against `scripts/bundle-size-budget.json`. It
-fails only when an entry grows past its budget. It asks for a re-freeze only
-when an entry comes in far enough under to be worth banking. Bytes move on
-every commit, and a gate that failed on every commit would get switched off.
-`pnpm run bundle-size:list` shows the per-chunk breakdown; `pnpm run bundle-size:freeze`
-re-baselines deliberately. Minified, because `dist/` is roughly half doc
-comments and a gate on the raw bytes charges a commit for prose. The number is
-still an upper bound, not a download size. See [Size gates](testing.md#size-gates).
+The aggregates, and every script that reads `dist/`, start with `scripts/ensure-dist.mjs`. It
+rebuilds `dist/` only when `src/`, a build config, `package.json` or the lockfile is newer than the
+output. Do not prefix a command with `pnpm run build &&`.
 
-`bundle-tier:check` answers the other half of the question. It bundles five
-consumer programs against `dist/browser.js` with esbuild, recording the entry
-chunk and every chunk each program can reach. Three build a `new TsPptx()`
-deck, and they are cumulative: a text-only slide, then that plus a shape and an
-image, then one that also charts, tables and embeds media. The other two build
-a `createPresentation` deck with and without the chart family, so the
-difference between them is what that family costs. Because it bundles, a
-bundler can tree-shake it. That makes it the only gate that moves when code
-stops being *reachable* rather than stopping being *shipped*. `pnpm run bundle-tier:list`
-shows the per-chunk breakdown; `pnpm run bundle-tier:freeze` re-baselines
-`scripts/bundle-tier-budget.json`. See [Size gates](testing.md#size-gates).
+A green `build` is not evidence that the types are correct. tsdown's `.d.ts` pass does not
+typecheck, so `const x: number = 'a-string'` still builds. Only `typecheck` catches it. Never
+substitute one for the other.
 
-Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
-pnpm forwards the `--` **literally** to the underlying binary: `pnpm run lint -- --fix`
-runs `oxlint . "--" "--fix"`.
+## TypeScript strictness
 
-With oxlint and oxfmt this fails **silently**, which is worse than how it used
-to fail. Both tools accept the stray `--` and drop it along with everything
-after it. That command lints the whole tree, exits 0, and applies no fixes.
-`pnpm run format:check -- --write` reports the tree clean while never writing
-anything. The previous toolchain at least errored out loudly: `No files matching the pattern "--fix" were found`.
-So the command looks like it worked, while doing something other than what you
-asked. If a flag seems to have had no effect, check the command line pnpm
-echoes.
+Strictness is configured once in `tsconfig.base.json` and applies to all of `src/`. Beyond `strict`
+and `strictNullChecks`, it enables `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`,
+`exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `noImplicitReturns`,
+`noFallthroughCasesInSwitch`, `noImplicitOverride`, `noUnusedLocals` and `noUnusedParameters`. Fix
+a new error with real narrowing or a guard. A `!` assertion and a redundant `as` cast are both lint
+errors (see [Lint policy](#lint-policy)).
 
-`ci.yml` runs on every push to `master` and on every pull request, and
-`publish.yml` pulls in that same workflow through `workflow_call` instead of
-keeping its own transcript of it. A release therefore passes the identical eight
-jobs, which appear in the publish run prefixed `CI gate /`: that path is
-exercised rather than assumed, and it is how v3.0.0 shipped.
+### Absent versus present-but-`undefined`
 
-The `windows-latest` leg of the `package` job is the one worth understanding.
-It exists to cover the Windows-only branches of `run()` in
-`scripts/script-utils.mjs`, which is exactly where this repo's one live
-cross-platform bug lived (`run('node', …)` resolving to `node.cmd`). It has
-been green on every run so far, with no flakiness. It is also the only job that
-can catch that class of bug. So if it ever does turn intermittent, mark it
-`continue-on-error: true` rather than dropping the leg. A noisy signal beats
-none.
+`exactOptionalPropertyTypes` is the one strictness flag that asks a design question rather than
+catching a slip, so the answer is written down here. A `foo?: T` declaration says the key is either
+**missing** or holds a `T`. A key that is present and holds `undefined` is a third state.
 
-Relatedly, `.tmp/*.tsbuildinfo` is deliberately **not** cached in CI, which leaves
-`incremental: true` inert there. Whether an `actions/cache` step would earn its
-keep depends on the size of the cold/warm gap, and under TypeScript 7 that gap is
-small. Measured locally: cold (buildinfo deleted first) 1.9 / 1.5 / 2.8s for
-`typecheck` / `typecheck:scripts` / `typecheck:test`, against warm runs of
-1.2 / 1.4 / 1.6s, about 6.2s versus 4.2s for all three. Two seconds is well below
-what restoring and saving a cache costs, so the default is to leave it alone.
+**Option bags spell "unset" exactly one way: an absent key.** They get stored, spread and
+enumerated: a layout placeholder's options onto a slide's, a column default under a cell's own, a
+combo subchart's overrides onto the chart's. A spread decides on whether the key *exists*, not on
+what it holds. So a normalizer that rejects a value removes it.
 
-Note those numbers are the *native Go* compiler's. Under TypeScript 6 the same
-three gates took roughly 27.7s cold and 9.1s warm, where a cache was at least
-arguable; the upgrade removed most of the reason to want one.
+`src/options-internal.ts` has the two helpers for that. `setOrClear` is for a write-back.
+`pickDefined` is for a literal that projects a key list off a bag that may not state them all. Its
+module header is the long form of this rule. It is the write-side twin of `compact()` in
+`src/script/from-read/values.ts`, which keeps the same invariant on the read side, for the same
+reason: two IRs describing one deck must not compare unequal because one wrote `{ bold: undefined }`
+and the other wrote `{}`.
 
-No script needs to be prefixed with a build. Every gate begins with
-`scripts/ensure-dist.mjs`, which compares source and config mtimes against `dist/`
-and rebuilds only when it is actually stale: a ~0.1s no-op otherwise. Run
-`pnpm run build` directly only when you want the bundle for its own sake.
+**Three kinds of declaration say `| undefined`, and each says why where it is written.**
 
-A green `build` is **not** evidence of type-correctness. tsdown's `.d.ts` pass does
-not typecheck, so a real type error (`const x: number = 'a-string'`) still builds
-successfully and is caught only by `typecheck`. Never substitute one for the other.
-
-The individual gates (`build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
-`test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
-`test:package`, `raw-xml:check`, `bundle-size:check`, `bundle-tier:check`) all still
-exist and are worth running alone when iterating on one specific thing. `pnpm run`
-lists them.
-
-One gate is in neither aggregate: `pnpm run test:browser`, the Playwright lane
-that runs the package in a real Chromium (CI job `browser`). It needs a ~120 MB
-browser download (`pnpm exec playwright install chromium`, once) and putting
-that in the per-change loop would tax every iteration for a surface that changes
-rarely. Run it when you touch `src/runtime/browser.ts`, `src/browser.ts`, the zip
-writer, or anything that could plausibly emit different bytes on a different
-runtime. See [Browser lane](testing.md#browser-lane).
-
-It starts two servers of its own (a `vite preview` for the demo and
-`scripts/browser-harness-server.mjs` for the adapter harness), both on fixed
-ports bound to `127.0.0.1`. Playwright manages their lifetime, so there is
-nothing to start by hand. A stale process holding 4173 or 4174 fails the run
-under `--strictPort`. That is intended: better a failure than silently testing
-the wrong thing.
-
-## Static checks
-
-Three gates keep the source statically sound. All are green and expected to stay
-that way:
-
-```bash
-pnpm run typecheck     # tsc -p tsconfig.json --noEmit
-pnpm run lint          # oxlint .
-pnpm run lint:chars    # charcheck (em dashes in the README, www/ and docs/ prose)
-pnpm run format:check  # oxfmt --check (includes src/**/*.ts)
-```
-
-`lint` is **type-aware**: `.oxlintrc.jsonc` sets `options.typeAware: true`, so the
-rules that need type information (`no-floating-promises`, the `no-unsafe-*` family,
-`no-misused-promises`) really do run. They are executed by `oxlint-tsgolint`, a Go
-typechecker oxlint shells out to: which is why that devDependency exists and why
-its version tracks TypeScript 7 rather than oxlint. The option lives in the config
-rather than behind a `--type-aware` flag so an editor's oxlint integration reaches
-the same verdict as `pnpm run lint`.
-
-### Who runs which gate
-
-`lint` and `format:check` do not normally need to be run by hand. Pre-commit
-runs oxlint `--fix` and oxfmt `--write` over staged files and re-stages the
-result (`stage_fixed: true`). Pre-push re-verifies the whole repo. So running
-`format:check` yourself only buys a check, fix and re-check cycle on files the
-commit hook was going to fix anyway. What no hook covers is **tests** (none run
-any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`,
-`lint:chars`, `format:check`, `typecheck`, `typecheck:scripts` and
-`typecheck:site` only); those are `verify`'s job.
-
-`lint:chars` is owned by the hooks the same way, but it is the one gate that
-runs at two different scopes. Pre-commit scans the *staged content* of the
-files in the commit, which is what makes it accurate about what you are
-actually shipping. Pre-push scans the whole repo, which catches prose that
-reached the branch without passing that hook: a commit made with `--no-verify`,
-one merged in, or a rebase that resurrected a line. Every rule errors, and both
-runs carry `--max-warnings 0`. See [Static checks](#static-checks) above and
-`charcheck.config.js`, which carries the reasoning.
-
-When the gate itself looks wrong, reach for `node node_modules/charcheck/dist/cli.js --report-issue`.
-charcheck's characteristic failure is silence, not an exception. A rule whose
-globs reach no file reports a clean run and exits 0, which looks exactly like a
-scan that passed. That flag prints every rule *as it resolved*, including how
-many files each one matched, so a rule matching zero becomes visible. It reads
-no file's content and exits 0 whatever the tree holds.
-
-The `charcheck-upstream` skill in `.agents/skills/` covers the triage and files
-the report. It ships inside the package, so refresh the copy with `npx skills update charcheck-upstream`
-in the same commit that bumps the pin, and re-apply the local
-`metadata.internal: true` flag afterwards.
-
-That silence is not hypothetical here. `DASH_PATTERN` in `charcheck.config.js`
-ends in `\s*`, and `\s` matches a newline. Until charcheck 0.2.3 that carried
-the match off the end of a hard-wrapped line. When the next line opened with an
-inline code span, the finding was dropped without a word
-(shbernal/charcheck#16). Eleven genuine dashes sat behind a clean run that way,
-and the workaround was to match `[ \t]` instead. 0.2.3 fixed it, the pattern is
-back to `\s*`, and that is why the pin is exact. So when a green scan is the
-evidence for a claim, prove the gate can still fail: put one dash back, watch
-it report, take it out again.
-
-Note that `format`/`format:check` carry an explicit file list while pre-commit's
-oxfmt job uses an extension glob. Every extension in the former is covered by
-the latter today, but the two are maintained separately: if they drift, so does
-the advice above.
-
-There is a third list, and it is a safety net rather than a definition:
-`.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set
-of globs instead of the bare `oxfmt` that would otherwise suffice. Bare oxfmt
-considers a wider set than the explicit list covers. It reaches markdown, CSS,
-HTML and `.vue` single-file components, none of which this repo formats. A
-silently *wider* set is how a tool-written file gets clobbered, so both
-defences stay, and they overlap on purpose.
-
-Three of the four `tsc` projects are `incremental`, with their build state under the
-gitignored `.tmp/` (one `tsBuildInfoFile` each: a shared one would thrash). `typecheck:site`
-is not: it is small, and it is the one project whose inputs are mostly `node_modules`. A warm
-`typecheck` runs in roughly a third of the cold time; a cold incremental run is not
-slower than a non-incremental one, so CI loses nothing.
-
-### Line endings (LF)
-
-All text files are checked in and checked out as **LF**, enforced by
-`.gitattributes` (`* text=auto eol=lf`, with binary asset types marked `binary`).
-oxfmt writes LF and relies on this. Do not depend on your local `core.autocrlf`
-setting: the repo config is self-contained.
-
-On Windows, a working tree that predates the `.gitattributes` can materialize
-files as CRLF. So can a fresh clone with `core.autocrlf=true` and no attributes
-applied. Then `pnpm run format:check` reports every text file as mis-formatted,
-and `pnpm run format --write` rewrites all of them. If that happens, do **not**
-run `format --write`. Re-normalize the working tree to LF instead. The blobs
-are already LF, so this changes line endings and nothing else:
-
-```bash
-git rm -r --cached -q .
-git reset --hard        # re-checks-out every tracked file as LF per .gitattributes
-```
-
-### Two TypeScript versions are installed, on purpose
-
-`tsc` is **TypeScript 7**, the native Go compiler. Two things still hold a pinned
-copy of **TypeScript 6**, and neither is an oversight:
-
-- `tools/api-docs`: a private workspace package holding TypeDoc, its markdown
-  plugin, and `typescript@6.0.3` for TypeDoc to use.
-- `typescript-6` in the root devDependencies: an alias of `typescript@6` that
-  `scripts/raw-xml-ratchet.mjs` imports.
-
-The cause is the same for both. TypeScript 7's npm package ships `bin/tsc` plus
-twenty platform binaries and **no JavaScript compiler API**: no `ts.SyntaxKind`,
-no `ts.createProgram`. Anything that walks a syntax tree therefore cannot run on
-it: TypeDoc dies at import time, and the raw-XML ratchet walks a tree by design.
-Both are dev-only, so leaving them on 6.x costs consumers nothing, and the
-published `.d.ts` output is unaffected.
-
-They are separate pins that unwind separately (`tools/api-docs` frees up when
-TypeDoc supports TypeScript 7, the alias when the ratchet does), so Renovate
-holds each below 7 with its own rule and its own `description`. Note that
-`pnpm.overrides` cannot express this: an override does not bind a peer
-dependency, which is why the TypeDoc copy needs a whole workspace package rather
-than one line of config. `tools/api-docs/README.md` has the full reasoning,
-including what to delete when the day comes.
-
-This is also why `.vscode/settings.json` points `typescript.tsdk` at the
-`tools/api-docs` copy: TypeScript 7 ships no `tsserver.js`, so the editor cannot
-use the root one.
-
-### TypeScript strictness
-
-Strictness is configured once in `tsconfig.base.json` and applies to all of
-`src/`. Beyond `strict: true`, the codebase enables `strictNullChecks`,
-`noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`,
-`exactOptionalPropertyTypes`, `verbatimModuleSyntax`, and the zero-cost
-path/usage knobs (`noImplicitReturns`, `noFallthroughCasesInSwitch`,
-`noImplicitOverride`, `noUnusedLocals`, `noUnusedParameters`). Fix new errors
-with real narrowing or guards: not `!` assertions or `as` casts (both are lint
-errors; see below).
-
-#### Absent versus present-but-`undefined`
-
-`exactOptionalPropertyTypes` is the one strictness flag that asks a design
-question rather than catching a slip, so the answer is written down rather than
-re-derived per site. A `foo?: T` declaration says the key is either **missing**
-or holds a `T`; a key that is present and holds `undefined` is a third state.
-
-**Option bags spell "unset" exactly one way: an absent key.** They get stored,
-spread and enumerated: a layout placeholder's options onto a slide's, a column
-default under a cell's own, a combo subchart's overrides onto the chart's. A
-spread decides on whether the key *exists*, not on what it holds. So a
-normalizer that rejects a value removes it.
-
-`src/options-internal.ts` has the two helpers for that. `setOrClear` is for a
-write-back; `pickDefined` is for a literal that projects a key list off a bag
-that may not state them all. Its module header is the long form of this rule.
-It is the write-side twin of `compact()` in `src/script/from-read/values.ts`, which
-keeps the same invariant on the read side. Same reason, too: two IRs describing one
-deck must not compare unequal because one wrote `{ bold: undefined }` and the other
-wrote `{}`.
-
-**Three kinds of declaration say `| undefined`, and each says why where it is
-written.**
-
-- A property backed by a **class accessor**, such as `Slide.background` or
-  `Slide.transition`, is always *present* on a real slide, and writing
-  `undefined` is how its setter is cleared. There is no absent state to describe.
-- A **read-only argument bag**: a parameter its call sites assemble inline out of
-  values they may not have, such as `relationshipEl`'s `opts` or
-  `genXmlTitle`'s title settings. The reader consults it with `?.` and nothing
-  spreads it, so the two states really are the same to it. `MaybeUndefined<T>`
-  in `src/types/internal.ts` is the mapped type for this, and its doc comment
+- A property backed by a **class accessor**, such as `Slide.background` or `Slide.transition`, is
+  always *present* on a real slide, and writing `undefined` is how its setter is cleared. There is
+  no absent state to describe.
+- A **read-only argument bag**: a parameter its call sites assemble inline out of values they may
+  not have, such as `relationshipEl`'s `opts` or `genXmlTitle`'s title settings. The reader consults
+  it with `?.` and nothing spreads it, so the two states really are the same to it.
+  `MaybeUndefined<T>` in `src/types/internal.ts` is the mapped type for this, and its doc comment
   says when *not* to reach for it.
-- A **measurement record** built in one place and read in one place (`FitRun`,
-  `FitParagraph`), where the builder produces every key on every record.
+- A **measurement record** built in one place and read in one place (`FitRun`, `FitParagraph`),
+  where the builder produces every key on every record.
 
-**One bag deliberately carries both states**, and it is the reason the rule is
-worth keeping everywhere else: `ChartOptsOverrides`, a combo subchart's vetted
-option overrides. `gen/chart/chart-xml.ts` merges it *over* the chart-level
-options, so a present `undefined` suppresses a chart-level value where an absent
-key inherits it. Suppressing is the intent: the subchart supplied an override the
-schema rejects, and the chart-level value is one it never asked for.
-`resolveSubchartOptions` applies that distinction at the merge and drops what is
-left, so the plot builders still receive an ordinary bag.
+**One bag deliberately carries both states**, and it is the reason the rule is worth keeping
+everywhere else: `ChartOptsOverrides`, a combo subchart's vetted option overrides.
+`gen/chart/chart-xml.ts` merges it *over* the chart-level options, so a present `undefined`
+suppresses a chart-level value where an absent key inherits it. Suppressing is the intent: the
+subchart supplied an override the schema rejects, and the chart-level value is one it never asked
+for. `resolveSubchartOptions` applies that distinction at the merge and drops what is left, so the
+plot builders still receive an ordinary bag.
 
 `tsconfig.test.json` sets the flag `false`, because TypeScript rejects it without
 `strictNullChecks` and the test project turns that off (see the comment there).
 
-### Lint policy
+## Lint policy
 
-`src/**/*.ts` runs the type-aware set; `test/` and `scripts/` run a syntax-only
-set. Two guardrail rules are pinned as **errors** to close the compile-time
-escape hatches from the null-safety work:
+- `pnpm run lint` runs oxlint with `--deny-warnings`, so a warning fails the gate.
+- `.oxlintrc.jsonc` sets `options.typeAware`, so the type-aware rules run, through
+  `oxlint-tsgolint`. The option lives in the config rather than a CLI flag so an editor's oxlint
+  integration reaches the same verdict as `pnpm run lint`.
+- `src/` runs the full type-aware set. `scripts/` and `test/` turn it off except for
+  `no-floating-promises` and `no-misused-promises`.
+- `typescript/no-non-null-assertion` bans a bare `!`, and `typescript/no-unnecessary-type-assertion`
+  bans a provably redundant `as`. They are pinned by name as a pair, so the ban on both ways around
+  null safety survives a change to oxlint's presets. A deliberate `unknown as T` cast is not
+  redundant.
+- `eslint/no-console` is an error in `src/`. [Errors and diagnostics](#errors-and-diagnostics) says
+  what to use instead.
+- Every rule turned `off` carries its reason beside it in `.oxlintrc.jsonc`, and the file's header
+  records why the baseline is the `correctness` category plus rules named one by one. Read both
+  before enabling a category.
+- oxfmt is the only formatter. oxlint ships no formatting rules, so there is nothing to disable and
+  no compatibility package to add.
+- `format:run` in `package.json` names the files oxfmt formats. The pre-commit oxfmt job in
+  `lefthook.yml` selects staged files by extension. The two lists are maintained separately, so a
+  file type added to one goes into the other in the same commit.
+- `lint:chars` runs charcheck, which rejects the em dash and the horizontal bar in the prose that
+  `charcheck.config.js` names. `lint:chars:fix` rewrites findings, where you can read the diff
+  first. When the gate itself looks wrong, use the `charcheck-upstream` skill in `.agents/skills/`.
 
-- `typescript/no-non-null-assertion`: bans a bare `!`.
-- `typescript/no-unnecessary-type-assertion`: bans a provably-redundant `as` (an
-  intentional branding/`unknown as T` cast is not redundant and stays).
+## OOXML changes
 
-They are pinned together, and deliberately so: the point is the `!`/`as`
-symmetry, and pinning both by name means it survives any upstream change to the
-preset either one lives in.
+Before changing emitted OOXML, read [OOXML agent context](ooxml.md). It sets the order for looking
+up schema and PowerPoint behavior, and says what counts as evidence for a change. A change to
+emitted XML carries a focused fixture in `test/schema-cases.js`. The [testing guide](testing.md)
+covers schema validation and `pnpm run test:schema`.
 
-A handful of type-aware rules are intentionally relaxed to `off`
-(`require-await`, `no-base-to-string`, `no-redundant-type-constituents`), each
-with an inline rationale in `.oxlintrc.jsonc`. There is no formatting-rule
-conflict to manage: **oxlint ships no formatting rules at all**, so nothing needs
-disabling and no compatibility package belongs in this repo. oxfmt is the sole
-formatter of record.
+## Package boundary changes
 
-### What the baseline is, and what it is not
+The package ships one ESM build. A change to package exports, generated filenames or package
+contents must keep the support contract in [where it runs](../getting-started/runtime.md). Run
+`pnpm run check:package`. When `test:package` fails, [`test:package` fails](#testpackage-fails)
+lists the usual causes.
 
-oxlint's categories are not a drop-in for the old preset pair, and the gap was
-measured rather than guessed. `correctness` alone reports 17 findings on this
-tree. Adding `suspicious` reports 753. Adding `pedantic`, 1509. Those extra
-1492 are not latent bugs nobody noticed. They are a different linter's house
-style, and several contradict decisions this repo has already recorded:
-`suspicious` re-enables `require-await`, `pedantic` wants `eqeqeq` across
-`read/api`. Adopting them would be a style migration wearing a toolchain swap's
-clothes.
+## Demo changes
 
-So the baseline is `correctness`, and parity is reached by **naming rules
-explicitly**. Of the 90 rules previously enabled on `src/**/*.ts`, 57 are
-already in `correctness` and 32 more are turned on by name. Exactly one is
-lost: `no-octal`, which oxlint does not implement. It is lost harmlessly.
-Legacy octal literals are a syntax error in strict mode, every file here is an
-ES module, and modules are always strict, so the parser already forbids what
-the rule forbade.
+The demos are showcases. No gate builds them, and the [testing guide](testing.md) says what covers
+the published package instead.
 
-The swap also **tightens** the gate in one place. `scripts/**` and `test/**` stay
-syntax-only, but `no-floating-promises` and `no-misused-promises` now stay on
-there. Those two were always the pair worth having; under the previous linter
-they could not be enabled without dragging the whole `no-unsafe-*` family along,
-and oxlint lets them stand alone.
+```bash
+pnpm demos:build                        # both showcase decks
+pnpm demos:build quarterly-review       # one, by slug
+pnpm --dir demos/node run demo-stream   # streams a deck over HTTP
+```
 
-One structural difference is worth knowing before editing `.oxlintrc.jsonc`.
-The old flat config scoped every block by `files`, so a file matching no block
-was linted with **zero** rules. That is how `tools/**` and `docs/**` came to be
-unlinted without anyone deciding it. oxlint inverts that: top-level `rules`
-apply to every file that is not ignored. So both trees are named in
-`ignorePatterns`, holding them at the enforcement level they have always had.
-Starting to lint them is a decision worth taking on its own merits, not a side
-effect of changing linters.
+The browser version of the quarterly review deck is the site's demos page, which
+`pnpm run docs:dev` serves.
+[demos/README.md](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md) says what each
+demo is for.
 
-## When a check fails
+## Site changes
 
-Start from the check that failed and the layer it tests. These three are the ones whose
-failures do not explain themselves. User-facing symptoms, such as a deck PowerPoint offers
-to repair, are on [Troubleshooting](../troubleshooting.md).
+One VitePress build publishes the project site at `https://shbernal.github.io/ts-pptx/`: the front
+page, the docs and the demos page. It spans two trees:
 
-### `test:package` fails
+- `docs/` is content: markdown under the frontmatter schema, navigated from `docs.json` and
+  validated by `docs:check`.
+- `www/` is the code that renders it: the VitePress theme, its stylesheet and the Vue components a
+  page mounts. See [www/README.md](https://github.com/shbernal/ts-pptx/blob/master/www/README.md).
 
-`test:package` packs the tarball, installs it with npm and pnpm, and resolves every export
-subpath through the installed `exports` map, the way a consumer does. No suite under `test/`
-does that, because those import from `dist/` by path. [Package boundary
-checks](testing.md#package-boundary-checks) lists what it asserts. The usual causes:
+VitePress looks for a theme only at `<root>/.vitepress/theme`, so `docs/.vitepress/theme/index.ts`
+is a one-line re-export of `www/theme`.
 
-- A public export was renamed or removed. The TypeScript consumer that
-  `scripts/package-smoke.mjs` generates still uses it, and no unit test notices.
-- A new subpath is missing from `files`, from the `exports` map, or from `EXPORT_MATRIX` in
-  `scripts/package-smoke.mjs`.
-- A retired upstream artifact is back in the tarball. The `assertNoFile` calls in
-  `scripts/package-smoke.mjs` name each one.
-- A top-level `await` reached an entry's chunk graph, so `require()` of that entry throws.
+```bash
+pnpm run docs:dev       # hot-reloaded, at http://localhost:5173/ts-pptx/
+pnpm run docs:build     # the build CI publishes, with the docs check before and after it
+pnpm run docs:preview   # serve the built output
+pnpm run typecheck:site # tsc over www/**/*.ts and docs/.vitepress/**
+```
 
-A declaration that does not resolve fails `package:lint` first: it runs publint and
-`@arethetypeswrong/cli` over the packed tarball.
+### Repository-only pages
 
-### `test:schema` fails, or PowerPoint rejects a deck
+`repoOnly` in `docs/docs.json` names `docs/contributing/`. Its pages keep the frontmatter schema and
+the docs gates, but the site does not build them. People read them on GitHub.
 
-The usual causes:
+- A served page links to one by its GitHub URL,
+  `https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/<page>.md`. `docs:check`
+  rejects a relative link, which would be dead on the site.
+- A repository-only page links relatively to any page under `docs/`, and by GitHub URL to a file
+  outside `docs/`. It never links a site route such as `/reading/`, which GitHub cannot resolve.
 
-- The emitted XML is structurally invalid.
-- PowerPoint treats a structure differently from the schema.
-- A change moved package parts or relationships without a matching fixture.
+### Diagrams
 
-To work it:
+A fenced block whose language is `mermaid` renders as a diagram on the site, through
+`www/diagrams/`. GitHub renders the same fence, so a repository-only page can use one too. No gate
+parses a graph. A graph that does not parse shows its parse error in place of the diagram, so look
+at the page under `pnpm run docs:dev` before committing it.
 
-1. Read [OOXML agent context](ooxml.md) before changing the emitter.
-2. Take the diagnostic's `id`, `description`, `partUri` and `xpath` (see [What a validation
-   error carries](testing.md#what-a-validation-error-carries)) to the `ooxml` MCP server's
-   `ooxml_explain`, which answers what was legal at that position.
-3. Add or update a focused fixture in `test/schema-cases.js`, and iterate with
-   `pnpm run test:schema`.
+### The demos page
 
-A deck can pass the schema and still fail in PowerPoint, with `0x80070570` or a dropped
-shape. `pnpm run test:com` opens decks in PowerPoint over COM to catch that. It runs only on
-Windows with PowerPoint installed, and CI does not run it. See [The object model is not a
-render oracle](testing.md#the-object-model-is-not-a-render-oracle).
-
-### `docs:check` fails
-
-`docs:check` runs `docs:api` first, which regenerates `docs/reference/api/` with TypeDoc, then
-`scripts/docs-check.mjs`. The second step reports:
-
-- a missing or empty frontmatter field, or a `doc_type` outside the allowed list;
-- an unbalanced code fence;
-- a `docs.json` navigation entry with no page, or a page in no navigation group;
-- a broken relative link or site route, or a relative link that leaves `docs/`;
-- a relative link from a served page into `docs/contributing/`, which the site does not
-  build. The message prints the GitHub URL to use instead.
-
-`docs/reference/api/` is gitignored and rebuilt on every run, so an edit there is lost. A
-wrong API page comes from the TSDoc in `src/`: fix it there. The check resolves a link's
-path and ignores its `#anchor`, so a heading rename that breaks an anchor passes it.
+- **It is a test fixture.** The Playwright `demo` project drives `/demos`. It is the only place
+  `src/runtime/browser.ts`'s `writeFile` executes, and where the browser-built deck is compared byte
+  for byte with the Node-built one. The specs find elements by ARIA role:
+  `getByRole('group', { name: 'Download' })`, then a button matching `/^Build /`, then
+  `role="status"` or `role="alert"` inside that group. Rearrange the markup freely, but keep those
+  roles.
+- **Nothing typechecks a `.vue` file.** `tsc` does not read single-file components, and this
+  repository has no `vue-tsc`. So the page's logic lives in `www/demos/deck-preview.ts`, which
+  `typecheck:site` reads and `test/regression/www/deck-preview.test.js` covers. The component is
+  markup around it. Logic added to the component escapes both.
 
 ## Errors and diagnostics
 
@@ -588,96 +395,64 @@ default for `''` would put black on a shape whose caller expected the theme's pa
 Emitting nothing would make `''` differ from omission wherever omission means `<a:noFill/>`
 or a stated default.
 
-## OOXML changes
+## When a check fails
 
-Before changing emitted OOXML, read
-[OOXML agent context](ooxml.md).
+Start from the check that failed and the layer it tests. These three are the ones whose
+failures do not explain themselves. User-facing symptoms, such as a deck PowerPoint offers
+to repair, are on [Troubleshooting](../troubleshooting.md).
 
-For serialization changes:
+### `test:package` fails
 
-1. Search the local source and tests first.
-2. Use the configured OOXML MCP server for schema structure, children,
-   attributes, enums, namespaces, and OPC package metadata.
-3. Use the configured Microsoft Learn MCP server for PowerPoint and Open XML
-   SDK behavior.
-4. Add or update a focused fixture in `test/schema-cases.js`.
-5. Run schema validation:
+`test:package` packs the tarball, installs it with npm and pnpm, and resolves every export
+subpath through the installed `exports` map, the way a consumer does. No suite under `test/`
+does that, because those import from `dist/` by path. The [testing guide](testing.md) lists what
+it asserts. The usual causes:
 
-```bash
-pnpm run test:schema
-```
+- A public export was renamed or removed. The TypeScript consumer that
+  `scripts/package-smoke.mjs` generates still uses it, and no unit test notices.
+- A new subpath is missing from `files`, from the `exports` map, or from `EXPORT_MATRIX` in
+  `scripts/package-smoke.mjs`.
+- A retired upstream artifact is back in the tarball. The `assertNoFile` calls in
+  `scripts/package-smoke.mjs` name each one.
+- A top-level `await` reached an entry's chunk graph, so `require()` of that entry throws.
 
-## Package boundary changes
+A declaration that does not resolve fails `package:lint` first: it runs publint and
+`@arethetypeswrong/cli` over the packed tarball.
 
-The package ships one ESM build. Changes to package exports, generated filenames, or
-package contents should preserve the support contract documented in
-[where it runs](../getting-started/runtime.md).
+### `test:schema` fails, or PowerPoint rejects a deck
 
-Package-boundary verification:
+The usual causes:
 
-```bash
-pnpm run check:package
-```
+- The emitted XML is structurally invalid.
+- PowerPoint treats a structure differently from the schema.
+- A change moved package parts or relationships without a matching fixture.
 
-## Demo changes
+To work it:
 
-The demos are showcases, not tests. Nothing under `demos/` gates a commit, and no
-verification aggregate runs them: the published-package contract is covered by
-`check:package` alone (see [Package boundary changes](#package-boundary-changes)).
+1. Read [OOXML agent context](ooxml.md) before changing the emitter.
+2. Take the diagnostic's `id`, `description`, `partUri` and `xpath` to the `ooxml` MCP server's
+   `ooxml_explain`, which answers what was legal at that position. The
+   [testing guide](testing.md) describes what a validation error carries.
+3. Add or update a focused fixture in `test/schema-cases.js`, and iterate with
+   `pnpm run test:schema`.
 
-Build the two showcase decks:
+A deck can pass the schema and still fail in PowerPoint, with `0x80070570` or a dropped
+shape. `pnpm run test:com` opens decks in PowerPoint over COM to catch that. It runs only on
+Windows with PowerPoint installed, and CI does not run it. The [testing guide](testing.md)
+covers what counts as render evidence.
 
-```bash
-pnpm demos:build                    # both
-pnpm demos:build quarterly-review   # one, by slug
-```
+### `docs:check` fails
 
-The streaming demo runs from its own directory, and the browser story is a page of the
-site rather than a workspace of its own:
+`docs:check` runs `docs:api` first, which regenerates `docs/reference/api/` with TypeDoc, then
+`scripts/docs-check.mjs`. The second step reports:
 
-```bash
-pnpm --dir demos/node run demo-stream   # streams a deck over HTTP
-pnpm run docs:dev                       # the site, including /demos — the same deck in a browser
-```
+- a missing or empty frontmatter field, or a `doc_type` outside the allowed list;
+- an unbalanced code fence;
+- a `docs.json` navigation entry with no page, or a page in no navigation group;
+- a broken relative link or site route, or a relative link that leaves `docs/`;
+- a relative link from a served page into `docs/contributing/`, which the site does not
+  build. The message prints the GitHub URL to use instead.
 
-See [demos/README.md](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md)
-for what each one is for.
-
-## Site changes
-
-The project site is one VitePress build covering everything at
-`https://shbernal.github.io/ts-pptx/`: the front page, the docs, and the demos page. It
-is split across two trees on purpose:
-
-- **`docs/`** is content. Markdown under the frontmatter schema, navigated from
-  `docs.json`, validated by `docs:check`. The directories `docs.json` lists under
-  `repoOnly` (`docs/contributing/`) are validated the same way but read on GitHub: the site
-  does not build them, and a served page links into them by GitHub URL.
-- **`www/`** is the code that renders it: the VitePress theme, its stylesheet, and the Vue
-  components a page mounts. See
-  [www/README.md](https://github.com/shbernal/ts-pptx/blob/master/www/README.md).
-
-VitePress only looks for a theme at `<root>/.vitepress/theme`, so
-`docs/.vitepress/theme/index.ts` is a one-line re-export of `www/theme`. That shim is the
-whole cost of keeping an application out of the docs tree.
-
-```bash
-pnpm run docs:dev       # hot-reloaded, at http://localhost:5173/ts-pptx/
-pnpm run docs:build     # what CI publishes; runs docs:check on both sides of the build
-pnpm run docs:preview   # serve the built output, which is what the browser lane drives
-pnpm run typecheck:site # tsc over www/**/*.ts and docs/.vitepress/**
-```
-
-Two things to know before changing the demos page:
-
-- **It is a test fixture.** The Playwright `demo` project drives `/demos`: it is the only
-  place `src/runtime/browser.ts`'s `writeFile` executes, and where the browser-built deck
-  is compared byte for byte against the Node-built one. The specs bind by ARIA role
-  (`getByRole('group', { name: 'Download' })`, then a button matching `/^Build /`, then
-  `role="status"` / `role="alert"` inside that group). Rearrange the markup freely; keep
-  those roles.
-- **`.vue` files are typechecked by nothing.** `tsc` does not read single-file components
-  and this repo carries no `vue-tsc`. So the page's logic lives in
-  `www/demos/deck-preview.ts` (which `typecheck:site` reads and
-  `test/regression/www/deck-preview.test.js` covers) and the component is markup around
-  it. Adding logic to the SFC quietly moves it outside both.
+`docs/reference/api/` is gitignored and rebuilt on every run, so an edit there is lost. A
+wrong API page comes from the TSDoc in `src/`: fix it there. The check resolves a link's
+path and ignores its `#anchor`, so a heading rename that breaks an anchor passes it.

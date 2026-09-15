@@ -58,30 +58,7 @@ yet. See [Where it runs](../getting-started/runtime.md).
 
 ## Promoting a downstream need
 
-Most new work here starts with a downstream consumer hitting a generic PPTX gap.
-An OOXML serialization fix. An API or typing gap. A layout primitive written for
-the third time. Media and SVG handling. Post-processing that patches generated XML
-after the fact. Before moving one of those into this project:
-
-1. Prove the need with a minimal, consumer-agnostic reproduction.
-2. Reduce the behavior to a minimal ts-pptx fixture.
-3. Add a ts-pptx regression or schema test.
-4. Pack or link the project into the downstream consumer to verify.
-5. Run the consumer's build/render/lint/eval path against the linked project.
-6. Keep only generic code in ts-pptx; keep project policy downstream.
-
-Report such a gap as a GitHub issue and describe it **anonymously**: the missing
-PPTX behavior and how *any* consumer would reproduce it, never the consumer's
-name, file paths, deck or client names, or content.
-
-A report is evidence about generation bugs and missing features. It is not a vote
-on the package target. Repair prompts, invalid OOXML, content types, relationships,
-chart and table and media serialization, current TypeScript or ESM behavior: all
-candidates. Anything resting on CommonJS, IIFE globals, a direct CDN script tag, or
-a legacy artifact name is not, and stays that way until the documented target
-changes.
-[Scope and design policy → What stays in the consumer](scope-and-policy.md#what-stays-in-the-consumer)
-lists what this package turns down no matter how good the case is.
+The checklist and the anonymity rule are in [CONTRIBUTING.md](https://github.com/shbernal/ts-pptx/blob/master/CONTRIBUTING.md#promoting-a-downstream-need).
 
 ## Communication expectations
 

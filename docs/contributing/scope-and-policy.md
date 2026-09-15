@@ -42,7 +42,7 @@ the line holds even when the code looks perfectly generic. Don't raise them.
 
 What this package owes such a consumer is sound building blocks. The composition on top of them
 belongs to the consumer. A generic PPTX gap uncovered while building one *is* in scope, though. See
-[Agent development guide → Promoting a downstream need](agent-development.md#promoting-a-downstream-need)
+[Promoting a downstream need](https://github.com/shbernal/ts-pptx/blob/master/CONTRIBUTING.md#promoting-a-downstream-need)
 for how it moves across.
 
 ## Out of active scope (contributions welcome)
