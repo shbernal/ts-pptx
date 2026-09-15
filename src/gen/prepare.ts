@@ -7,7 +7,7 @@
  *   - `package/assemble.ts` — the normal `write`/`stream`/`writeFile` path, building a
  *     complete `.pptx`.
  *   - `PresentationCore.extractSlides()` — serializes slide bodies only, for splicing into
- *     an already-loaded deck via `Presentation.appendSlides()` (`ts-pptx/read`).
+ *     an already-loaded deck via `Presentation.appendSlides()` (`pptx-ts/read`).
  *
  * The second used to reimplement the first inline, kept in step by a comment that said
  * "exactly as ... does". Nothing failed when they drifted: `extractSlides` would simply emit

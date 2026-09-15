@@ -11,7 +11,7 @@
  * This module is the entry point for that model: the `Shape` base and the four leaf kinds live in
  * `./shapes/`, and only the dispatch that turns an element into a proxy — plus `GroupShape`, which
  * recurses back through it — is here. Everything the read API surfaces is re-exported below, so
- * `ts-pptx/read` and its consumers keep importing shapes from one place.
+ * `pptx-ts/read` and its consumers keep importing shapes from one place.
  */
 import { ELEMENT_NODE, OOXML_NS, firstChild, getElements, getOrAddChild, type Element } from '../oxml/dom.js'
 import { GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type PaintSurface } from './shapes/oxml.js'
@@ -31,7 +31,7 @@ export { Picture } from './shapes/picture.js'
 export { Connector } from './shapes/connector.js'
 export { GraphicFrame } from './shapes/graphic-frame.js'
 
-// Re-exported so `ts-pptx/read` keeps surfacing the gradient types from here even
+// Re-exported so `pptx-ts/read` keeps surfacing the gradient types from here even
 // though their definitions moved to ./gradient.js (shared with the slide-background reader).
 export type { GradientStop, GradientFill } from './gradient.js'
 export type { PictureFill, PictureFillTile, FillRect } from './picture-fill.js'

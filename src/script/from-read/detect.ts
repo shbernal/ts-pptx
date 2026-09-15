@@ -92,7 +92,7 @@ export function isAudioVideo(element: unknown): boolean {
  *
  * An equation lives in `m:oMath` inside an `a14:m` run, which contributes nothing to
  * `TextFrame.text`, so an equation-only shape reads as an empty text frame. The write API
- * *can* author one (`TextProps.math`, plus the `ts-pptx/math` subpath for LaTeX/MathML
+ * *can* author one (`TextProps.math`, plus the `pptx-ts/math` subpath for LaTeX/MathML
  * input), which makes this a read-side gap rather than a hard limit.
  */
 export function hasEquation(element: unknown): boolean {

@@ -497,8 +497,8 @@ export class TableCell {
 	 *
 	 * {@link hasOwnFill} is not this question: it is `true` for *any* `EG_FillProperties`
 	 * child, so on its own it cannot separate a suppressed fill from a gradient or an image
-	 * one — and every colour accessor ({@link resolvedFill}, `fillColor`,
-	 * {@link fillSchemeColor}) reports `null` for a no-fill cell exactly as it does for a
+	 * one — and every colour accessor ({@link resolvedFill}, {@link fillSchemeColor})
+	 * reports `null` for a no-fill cell exactly as it does for a
 	 * cell that inherits its shading from the table style. Deriving it as "has a fill of its
 	 * own, and no accessor recognises it" instead of reading it has two failure modes: it
 	 * folds `a:grpFill` in with `a:noFill`, and its meaning changes silently the day a

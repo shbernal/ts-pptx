@@ -102,9 +102,8 @@ export interface InnerShadow {
 
 /**
  * A shape's glow effect (`spPr/a:effectLst/a:glow`) — a coloured halo — resolved
- * against the slide theme. The write-side text glow (`glow: { size, color,
- * opacity }`) emits the same element, so {@link radiusPt} (`@rad` ÷ 12700) and the
- * colour round-trip.
+ * against the slide theme. The write-side `glow` option is a text glow: it writes
+ * `a:glow` into each run's `a:rPr/a:effectLst`, which this does not read.
  */
 export interface Glow {
 	/**
@@ -158,7 +157,7 @@ export interface SoftEdge {
  * A shape's pattern fill (`spPr/a:pattFill`) — a two-colour preset hatch.
  *
  * Re-exported from `../pattern-fill.js`, which is where the decode lives now that slides,
- * shapes and tables all read the same element. The name stays here so `ts-pptx/read`'s
+ * shapes and tables all read the same element. The name stays here so `pptx-ts/read`'s
  * export surface is unchanged.
  */
 export type { PatternFill } from '../pattern-fill.js'

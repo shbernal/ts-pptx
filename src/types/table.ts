@@ -23,7 +23,7 @@ import type { TextBaseProps, TextFitShrinkProps, TextProps, TextPropsOptions } f
  * Deliberately *not* `lib.dom`'s `Element`. `lib.dom`'s types are built for a browser, and a
  * non-browser DOM's element type — happy-dom's, jsdom's — declares its own members and does
  * not satisfy them, so demanding `Element` would reject from TypeScript exactly the
- * implementations `ts-pptx/html` exists to accept. Requiring the three members the conversion
+ * implementations `pptx-ts/html` exists to accept. Requiring the three members the conversion
  * actually calls keeps a mistyped argument an error while letting every real DOM through.
  */
 export interface TableToSlidesElement {
@@ -81,7 +81,7 @@ export interface TableToSlidesProps extends TableProps {
 	 * - adjusts how many lines are used before slides wrap
 	 * - range: -1.0 to 1.0
 	 * @default 0.0
-	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
+	 * @example 0.5 // each line is priced taller, so fewer lines fit on a slide before the table pages
 	 */
 	autoPageLineWeight?: number
 	/**
@@ -188,14 +188,6 @@ export interface TableCellProps extends TextBaseProps {
 	 */
 	autoPageCharWeight?: number
 	/**
-	 * Auto-paging line weight
-	 * - adjusts how many lines are used before slides wrap
-	 * - range: -1.0 to 1.0
-	 * @default 0.0
-	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
-	 */
-	autoPageLineWeight?: number
-	/**
 	 * The cell's four edge borders (`a:tcPr/a:lnT|lnR|lnB|lnL`).
 	 * - a single `BorderProps` is broadcast to all four sides
 	 * - an array is read in **TRBL** order (`[top, right, bottom, left]`)
@@ -274,8 +266,8 @@ export interface TableCellProps extends TextBaseProps {
 	horzOverflow?: TextHorzOverflowType
 	hyperlink?: HyperlinkProps
 	/**
-	 * Cell margin (inches)
-	 * @default 0
+	 * Cell margin (inches), in `[top, right, bottom, left]` order
+	 * @default [0.05, 0.1, 0.05, 0.1]
 	 */
 	margin?: Margin
 	/**
@@ -289,8 +281,9 @@ export interface TableCellProps extends TextBaseProps {
 	 *   autofit (`normAutofit`) inside table cells, so there is no font-scale flag to
 	 *   set; the size itself is lowered, which both PowerPoint and LibreOffice render
 	 *   identically with no edit/resize.
-	 * - Requires the cell font registered via {@link TsPptx.registerFontMetrics};
-	 *   without metrics it is a no-op (the cell keeps its authored size) and warns once.
+	 * - Requires the cell font registered via {@link TsPptx.registerFontMetrics}. With no
+	 *   metrics registered at all it is a silent no-op (the cell keeps its authored size); once
+	 *   any face is registered, an unregistered face is estimated and warns once per write.
 	 * - Only triggers when the cell's row has a **fixed** height that the text exceeds.
 	 *   With auto-height rows (no `rowH`/`h`), the row simply grows, so nothing shrinks.
 	 * - Only `'shrink'` is acted on for cells. `'resize'` and the object form are ignored
@@ -331,7 +324,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * - adjusts how many lines are used before slides wrap
 	 * - range: -1.0 to 1.0
 	 * @default 0.0
-	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
+	 * @example 0.5 // each line is priced taller, so fewer lines fit on a slide before the table pages
 	 */
 	autoPageLineWeight?: number
 	/**
@@ -511,7 +504,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * `headerRow`, `columns[i]`, the table-level {@link border} / {@link fill}, or per-cell
 	 * options. See `docs/tables.md` → "Apply a built-in table style".
 	 *
-	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1
+	 * @example tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1 // import { TableStyle } from 'pptx-ts'
 	 */
 	tableStyle?: TableStyle
 	/**
@@ -554,8 +547,9 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * band, put shared header typography (bold/white/centered, **no fill**) in `headerRow`
 	 * and let each `columns[i].fill` supply that column's fill.
 	 *
-	 * Column index counts each cell's `colspan` (default 1) within a row, so merged cells
-	 * map to the correct column; it does not track `rowspan`s inherited from earlier rows.
+	 * Column index is the grid column a cell starts in, counting each cell's `colspan`
+	 * (default 1) and the `rowspan`s carried down from earlier rows, so merged cells map to
+	 * the correct column.
 	 *
 	 * There is deliberately no built-in "group bracket" annotation. Label a span of columns
 	 * by composing existing primitives: `addShape('rightBrace', …)` (or `'bracePair'`) plus

@@ -1,4 +1,4 @@
-// Phase 4 OPC-mutation tests: adding a picture (new media part + content-type
+// OPC-mutation tests: adding a picture (new media part + content-type
 // registration + image relationship) through the read model.
 //
 // Contract under test: Slide.addPicture(bytes, ...) creates a /ppt/media part,

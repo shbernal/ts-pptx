@@ -3,7 +3,7 @@
  * slide, with its slide-absolute box and the handful of text/fill properties a
  * layout audit asks about.
  *
- * It is a **projection over `ts-pptx/read`**, not a second reader. `read` gives a
+ * It is a **projection over `pptx-ts/read`**, not a second reader. `read` gives a
  * navigable, mutable model of a package and answers questions in the shape of the
  * OOXML tree; this answers one flat question — "what is on the slides, and where"
  * — in the shape a linter, an overlap check, or a diffing tool wants. The two used
@@ -20,7 +20,7 @@
  * - **A `p:graphicFrame` is a box, not its contents.** A table, chart or SmartArt
  *   graphic is reported as one element with its box, its kind, and the text a
  *   reader sees on the slide, but its structure is not flattened: no per-run
- *   formatting, no cells, no series. Walk `ts-pptx/read` for what is inside one.
+ *   formatting, no cells, no series. Walk `pptx-ts/read` for what is inside one.
  *
  * @module
  */
@@ -228,7 +228,7 @@ export const DEFAULT_INSPECT_SLIDE_SIZE: PptxSlideSize = Object.freeze({
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Load a `.pptx` as an {@link OpcPackage} — the same package model `ts-pptx/read`
+ * Load a `.pptx` as an {@link OpcPackage} — the same package model `pptx-ts/read`
  * uses, so a caller that starts here can hand the result straight to
  * `Presentation.fromPackage()` without re-reading the bytes.
  *

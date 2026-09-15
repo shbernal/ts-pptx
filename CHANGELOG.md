@@ -917,6 +917,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`TableCellProps.autoPageLineWeight` is gone.** The auto-pager reads a line weight only from
+  the table's options, so a value set on a cell typechecked and changed nothing.
+  `autoPageCharWeight` stays on cells, where the pager does read it. **Migration:** set
+  `autoPageLineWeight` on the table's options instead. No output changes.
+
 - **`masterSlide` is gone from the presentation and from `PresentationProps`.** It was typed as
   a `Slide` and had none of a slide's methods: `pptx.masterSlide.addText(...)` threw a
   `TypeError`, and `addGroup`, `addModel3d`, the zooms and `groupObjects` were not there at all.

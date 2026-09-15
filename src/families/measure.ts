@@ -2,10 +2,10 @@
  * ts-pptx: the measurement construct family
  *
  * The three presentation methods that measure without authoring anything: `measureText`,
- * `overflowsBox` and `tableLayout`. They are the only reason `measure/fit.ts` and
- * `measure/table-fit.ts` are reachable from a deck that never asks for a measurement.
+ * `overflowsBox` and `tableLayout`. They measure through `measure/fit.ts` and
+ * `measure/table-fit.ts`, which the core reaches anyway through the export-time bake below.
  *
- * Only one of the three is a second spelling of something the `ts-pptx/measure` subpath also
+ * Only one of the three is a second spelling of something the `pptx-ts/measure` subpath also
  * exports, and even that one differs where it matters: the subpath's `measureText` takes a
  * `FontMetricsRegistry`, this binds the presentation's own. `overflowsBox` and `tableLayout` have
  * no subpath equivalent at all -- the first composes two of the subpath's primitives, and the

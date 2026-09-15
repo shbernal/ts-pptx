@@ -4,8 +4,8 @@
  * `c:spPr/a:ln`.
  *
  * Each of the three decoded the width, the dash preset, the solid colour and an explicit no-line
- * on its own, the drift {@link import('./gradient.js').readGradientFill} and
- * {@link import('./pattern-fill.js').readPatternFill} are shared to prevent.
+ * on its own, the drift `readGradientFill` and
+ * `readPatternFill` are shared to prevent.
  */
 import { attr, firstChild, firstChildElement, numberValue, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'

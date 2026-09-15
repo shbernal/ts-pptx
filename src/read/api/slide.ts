@@ -454,7 +454,7 @@ export class Slide implements ShapeHost {
 	 * position (EMU), timestamp, and its author resolved through the deck-wide
 	 * {@link Presentation.commentAuthors} registry (`@authorId` → name/initials). These
 	 * are the comments the writer authors via `slide.addComment(...)`; the 2018 modern
-	 * comment parts (`p188:cm`) are a separate schema, preserved but not decoded.
+	 * comment parts (`p188:cm`) are a separate schema, read by {@link modernComments}.
 	 */
 	get comments(): Comment[] {
 		return readSlideComments(this.presentation.opc, this.part, this.presentation.commentAuthors)
@@ -494,8 +494,8 @@ export class Slide implements ShapeHost {
 	 * Colour tokens resolve against this slide's theme; an image background's
 	 * `r:embed` resolves to an absolute part name through the *owning* part's
 	 * relationships (the layout's rels for a layout-inherited image, etc.). Solid,
-	 * gradient, and image backgrounds are the three the writer authors and so
-	 * round-trip faithfully; `pattern`/`themeRef` are read-only for imported decks.
+	 * gradient, pattern and image backgrounds are the ones the writer authors and so
+	 * round-trip faithfully; `themeRef` is read-only for imported decks.
 	 */
 	get background(): SlideBackground | null {
 		const opc = this.presentation.opc
@@ -520,8 +520,8 @@ export class Slide implements ShapeHost {
 	/**
 	 * The slide's own slide-number placeholder (`p:sp` with `p:ph type="sldNum"`,
 	 * carrying an `<a:fld type="slidenum">`), or `null` when the slide shows no slide
-	 * number of its own. This is the concrete shape the writer emits for
-	 * `pptx.setSlideNumber(...)` on a slide's layout; its geometry and run formatting
+	 * number of its own. This is the concrete shape the writer emits for a slide given
+	 * `slide.slideNumber`, or added to a master defined with `slideNumber`; its geometry and run formatting
 	 * read off the returned {@link AutoShape} the same as any placeholder.
 	 *
 	 * Scoped to the slide's *own* shape tree — a slide number inherited purely from

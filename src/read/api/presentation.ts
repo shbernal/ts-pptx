@@ -229,7 +229,8 @@ export class Presentation {
 	 * The deck-wide **legacy** comment-author registry (`p:cmAuthorLst` in
 	 * `ppt/commentAuthors.xml`), `[]` when the deck has no comments. Each slide's
 	 * {@link Slide.comments} resolves its `@authorId` against this list. The 2018
-	 * modern comment authors (`ppt/authors.xml`) are a separate part, not decoded here.
+	 * modern comment authors (`ppt/authors.xml`) are a separate part, read by
+	 * {@link modernCommentAuthors}.
 	 */
 	get commentAuthors(): CommentAuthor[] {
 		return readCommentAuthors(this.opc, this.presentationPart.partName)
@@ -434,10 +435,10 @@ export class Presentation {
 	 * master/layout with its theme references left symbolic, so it re-brands to the
 	 * destination palette — see {@link ImportSlideOptions}.
 	 *
-	 * v1 limitations: by default the source slide size must equal this
-	 * presentation's — pass `{ rescale: 'fit' | 'stretch' }` to rescale the imported
-	 * geometry onto this deck's canvas instead (geometry only, not fonts/line
-	 * widths). Source notes are dropped unless you pass `{ importNotes: true }`.
+	 * By default the source slide size must equal this presentation's. Pass
+	 * `{ rescale: 'fit' | 'stretch' }` to rescale the imported geometry onto this
+	 * deck's canvas instead (geometry only, not fonts or line widths). Source notes
+	 * are dropped unless you pass `{ importNotes: true }`.
 	 *
 	 * A jump link on the page must land on a page an earlier import from the same source already
 	 * brought across, the rule {@link importSlides} applies to a batch: a link to any other page
@@ -535,8 +536,9 @@ export class Presentation {
 	 * `options.embedFonts` and table styles via `options.tableStyles`. By default a
 	 * grafted master is appended after the deck's existing masters; `options.primary`
 	 * moves the grafted masters to the front so the deck presents as their theme (see
-	 * {@link ImportSlideMastersOptions}). The v1 limitation mirroring
-	 * {@link importSlide} is that geometry is not rescaled.
+	 * {@link ImportSlideMastersOptions}). Geometry is never rescaled: unlike
+	 * {@link importSlide}, {@link importSlides} and {@link importShape}, this method
+	 * takes no `rescale` option.
 	 */
 	importSlideMasters(source: Presentation, options: ImportSlideMastersOptions = {}): ImportedSlideMaster[] {
 		return importSlideMastersInto(this, source, options)

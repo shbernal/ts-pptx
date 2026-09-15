@@ -784,9 +784,9 @@ defineRegressionSuite('Group shapes', [
 		},
 	},
 	{
-		// `objectName` is stored attribute-escaped, so an unescaped lookup key never matches a name
-		// containing `&`, `<`, `>`, `"`, `'`, a tab or a newline. groupObjects() therefore threw
-		// "no top-level object on this slide has that objectName" for objects plainly on the slide.
+		// `objectName` is stored raw and escaped once, on emission. A lookup against an escaped copy
+		// never matches a name containing `&`, `<`, `>`, `"`, `'`, a tab or a newline, and groupObjects()
+		// threw "no top-level object on this slide has that objectName" for objects plainly on the slide.
 		name: 'groupObjects resolves names containing XML metacharacters',
 		fn: async () => {
 			const { zip } = await build((p) => {

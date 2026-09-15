@@ -2,7 +2,7 @@
  * Read-model proxies for a deck's shared *chrome* — the slide masters, slide
  * layouts, and themes reachable through the presentation → master → layout → theme
  * graph but owned by no single slide. A slide's concrete content is modeled by
- * {@link import('./slide.js').Slide}; this module models the property tiers a slide
+ * `Slide`; this module models the property tiers a slide
  * *inherits* from: the theme's colour scheme and font scheme, the master's colour
  * map, and each master/layout placeholder's own geometry.
  *
@@ -46,7 +46,7 @@ import { COLOR_MAP_TOKENS, THEME_COLOR_SLOTS, type ColorMapToken, type ThemeColo
  * The twelve theme colour slots and the twelve colour-map tokens that point at them, plus
  * the tuples this module iterates. Both are schema vocabulary shared with the write half
  * (`gen/slide/master.ts` emits the identity map, `script/from-read` recognises it), so they
- * are declared in `ooxml/st-enums.ts` and re-exported here to keep `ts-pptx/read`'s surface
+ * are declared in `ooxml/st-enums.ts` and re-exported here to keep `pptx-ts/read`'s surface
  * unchanged.
  */
 export type { ThemeColorSlot, ColorMapToken }

@@ -2,9 +2,9 @@
  * The contract a shape proxy needs from the part that owns its shape tree.
  *
  * Three parts carry a `p:cSld/p:spTree`, and each one's shapes are the same five
- * elements resolved against the same tiers: a {@link import('../slide.js').Slide},
- * a {@link import('../chrome.js').SlideLayout}, and a
- * {@link import('../chrome.js').SlideMaster}. A shape proxy therefore holds a
+ * elements resolved against the same tiers: a `Slide`,
+ * a `SlideLayout`, and a
+ * `SlideMaster`. A shape proxy therefore holds a
  * back-reference to its *host* rather than to a slide specifically — it needs the
  * owning part (to mark dirty and to build text frames against), that part's
  * relationships (image embeds, hyperlinks, chart parts), the deck's package (to

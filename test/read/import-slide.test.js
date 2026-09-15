@@ -1,4 +1,4 @@
-// Phase 4 cross-package slide-import tests for `ts-pptx/read`.
+// Cross-package slide-import tests for `pptx-ts/read`.
 //
 // Contract under test: Presentation.importSlide(source, index) appends a copy of
 // a slide from a *different* open package, bringing its layout → master → theme

@@ -3,10 +3,10 @@
  * that would rebuild it.
  *
  * **Why this is its own subsystem.** It depends on both halves of the library: it reads a
- * deck through `ts-pptx/read` and targets the write API's option types. That rules out
+ * deck through `pptx-ts/read` and targets the write API's option types. That rules out
  * living inside either. `src/read/` in particular is documented as isomorphic — bytes in,
  * bytes out, no `node:fs` — and a converter whose output is *source text* rather than a
- * package would quietly break that guarantee for everyone importing `ts-pptx/read`.
+ * package would quietly break that guarantee for everyone importing `pptx-ts/read`.
  *
  * **What it is not.** This is not a lossless round-trip. Some of a deck cannot be
  * expressed through the public write API, and some of it cannot even be seen through the

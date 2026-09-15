@@ -5,8 +5,8 @@
  * the same contract `entry-errors.ts` states for the other half of the `codes.ts` vocabulary.
  *
  * This module exists for the same reason that one does, and closes the same gap on the other
- * half: a consumer of `ts-pptx/read`, `ts-pptx/measure`, `ts-pptx/script`, `ts-pptx/inspect`,
- * `ts-pptx/html`, `ts-pptx/math` or `ts-pptx/zip` gets `console.warn` output from those paths
+ * half: a consumer of `pptx-ts/read`, `pptx-ts/measure`, `pptx-ts/script`, `pptx-ts/inspect`,
+ * `pptx-ts/html`, `pptx-ts/math` or `pptx-ts/zip` gets `console.warn` output from those paths
  * — a chart point cache out of range, a picture the reader cannot resolve, a table span the
  * pager refuses — with no supported way to intercept it, because the handler was published
  * only by the three authoring entries. Bundling happens to put `diagnostics.js` in a shared

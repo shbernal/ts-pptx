@@ -1,9 +1,9 @@
-// Phase 2 read-model tests for `ts-pptx/read` (src/read/api/).
+// Read-model tests for `pptx-ts/read` (src/read/api/).
 //
 // Contract under test: Presentation.load(buf) exposes a navigable, typed view
 // of the deck — slides in order, shapes from the spTree by kind, geometry in
 // EMU, and text frame → paragraphs → runs with character formatting — all read
-// from the live DOM. No mutation here (that is Phase 3).
+// from the live DOM. No mutation here; the edit tests cover setters.
 
 import { describe, test } from 'vitest'
 import { Presentation, isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../dist/read.js'

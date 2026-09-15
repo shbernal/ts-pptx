@@ -602,8 +602,7 @@ describe('deck IR — slide transitions', () => {
 	})
 
 	test('a modern PowerPoint effect is dropped with a note rather than silently emitted', async () => {
-		// Restricted to p14 because p15/p159 are not in the read DOM's prefix registry and so
-		// cannot be authored through the setter; they take the same code path, keyed on the same
+		// Restricted to p14: p15 and p159 effects take the same code path, keyed on the same
 		// namespace check.
 		const modern = distinctEffects('p14')
 		assert(modern.length > 0, 'the oracle should list p14 effects')

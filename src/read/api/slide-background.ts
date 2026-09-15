@@ -49,9 +49,9 @@ export type BackgroundFill =
 
 /**
  * A slide's effective background (`p:cSld/p:bg`), as a discriminated union on
- * `type`. Every variant carries {@link BackgroundSource}. `solid`/`gradient`/`image`
- * are what the writer authors and round-trip faithfully; `pattern`/`themeRef` are
- * read-only (imported decks) and `none` is an explicit `a:noFill`. A `themeRef`
+ * `type`. Every variant carries {@link BackgroundSource}. `solid`/`gradient`/`pattern`/`image`
+ * are what the writer authors and round-trip faithfully; `themeRef` is read-only
+ * (imported decks) and `none` is an explicit `a:noFill`. A `themeRef`
  * keeps its raw `idx` for fidelity and also exposes `resolvedFill` — the concrete
  * fill that `idx` resolves to through the slide theme's `fmtScheme` (`null` when the
  * theme/entry cannot be resolved).
@@ -132,7 +132,7 @@ function resolveThemeRefFill(
  * relationships) resolves an image background's `r:embed` to an absolute part name.
  *
  * `themeRels` is the theme part's own relationships, used only for a `themeRef`'s
- * {@link SlideBackground.resolvedFill}: that fill comes out of the theme part, so an
+ * `resolvedFill`: that fill comes out of the theme part, so an
  * image entry's `r:embed` is scoped to the theme, not to `rels`.
  */
 export function readSlideBackground(

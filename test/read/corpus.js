@@ -110,7 +110,7 @@ const irCache = new Map()
  *
  * Loading and converting the whole corpus costs ~590 ms, and the four `script-*.test.js`
  * files did it eighteen times between them — the conversion is ~96 % of what each of those
- * loops spends, since printing over an IR already in hand is ~20 ms for all 44.
+ * loops spends, since printing over an IR already in hand takes a few tens of ms for the whole corpus.
  *
  * **The returned IR is shared, so treat it as frozen.** `canonicalDeckIr` builds its own
  * structure and the printers only read, so the existing callers are safe; a test that needs

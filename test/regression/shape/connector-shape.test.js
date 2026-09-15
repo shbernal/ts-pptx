@@ -133,9 +133,8 @@ defineRegressionSuite('Connector shapes', [
 		},
 	},
 	{
-		// A bound shape whose objectName carries XML metacharacters. This works today (the connector
-		// escapes its own key before storing it) and must keep working once the escaping moves into
-		// the shared resolver and `_startCxn.name` holds the caller's raw string.
+		// A bound shape whose objectName carries XML metacharacters. `_startCxn.name` holds the caller's
+		// raw string, and the shared resolver compares it with the raw name the shape stores.
 		name: 'startShape/endShape bind to names containing XML metacharacters',
 		fn: async () => {
 			const warnings = []

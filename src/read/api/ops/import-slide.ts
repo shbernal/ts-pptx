@@ -298,13 +298,13 @@ function destinationLayoutPartName(dest: Presentation): string {
 	if (!masterPartName)
 		throw new InvalidOptionError(
 			'import/destination-missing-master',
-			'importSlide preserve mode requires a slide master in the destination deck'
+			"importSlide with theme 'preserve' or 'restyle' requires a slide master in the destination deck"
 		)
 	const [layoutPartName] = layoutPartNamesOf(dest, masterPartName)
 	if (!layoutPartName)
 		throw new InvalidOptionError(
 			'import/destination-missing-layout',
-			'importSlide preserve mode requires a slide layout in the destination deck'
+			"importSlide with theme 'preserve' or 'restyle' requires a slide layout in the destination deck"
 		)
 	return layoutPartName
 }

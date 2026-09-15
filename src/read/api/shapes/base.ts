@@ -678,8 +678,8 @@ export abstract class Shape {
 
 	/**
 	 * The shape's glow halo (`spPr/a:effectLst/a:glow`), resolved against the host's
-	 * theme, or `null` when the shape has no glow. Same element the write-side text
-	 * glow emits, so its {@link Glow.radiusPt} and colour round-trip.
+	 * theme, or `null` when the shape has no glow. The write-side `glow` option is a
+	 * text glow in run properties, so it does not read back here.
 	 */
 	get glow(): Glow | null {
 		return readGlow(this.#effectLst(), this.host.themeContext())

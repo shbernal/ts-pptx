@@ -12,7 +12,7 @@
 //     from the same mapper, so a mapper that never reads the theme's colour scheme produces an
 //     output that also lacks it, and the diff is clean. Those checks read the fixture through
 //     `ts-pptx/read` and compare the IR against *that*, never against the converter — the same
-//     rule Phase 3's chart-arity bug earned.
+//     rule the chart-arity bug earned.
 //  3. **Two manufactured decks**, because the fixture corpus contains neither a slide-owned
 //     background nor an extended chart, so the mutations that delete each survived against every
 //     fixture. Both are authored through the write API here rather than waited on as fixtures.

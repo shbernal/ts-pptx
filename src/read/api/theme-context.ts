@@ -147,7 +147,7 @@ export function resolveSlideColorContext(opc: OpcPackage, parts: SlideThemeParts
  * not from a slide layout/master placeholder chain, so `layoutRoot`/`masterRoot`
  * are deliberately left absent. Instead the notesMaster's `p:notesStyle` is carried
  * as `notesStyle`, and the notes body `TextFrame` is built with a placeholder
- * context (see {@link import('./notes.js').NotesPlaceholder}) so a body run's
+ * context (see `NotesPlaceholder`) so a body run's
  * effective size/face/bold (and inherited colour) resolve against it — the notes
  * analogue of the slide placeholder chain. The maps are empty when the
  * notesMaster/theme chain is incomplete, in which case tokens stay unresolved.
@@ -173,7 +173,7 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
 /**
  * The colour context a *slide master*'s own getters resolve against: the master's
  * `p:clrMap` plus its theme's `clrScheme`/`fmtScheme`/`fontScheme` (walked master →
- * theme). Backs the text frames of {@link import('./chrome.js').SlideMaster}'s
+ * theme). Backs the text frames of `SlideMaster`'s
  * placeholders — a master placeholder run's own `schemeClr` resolves to a literal
  * hex the same way a slide run's does. `masterRoot` is carried so an inherited
  * placeholder value still resolves against the master's own text styles. The maps
@@ -197,7 +197,7 @@ export function resolveMasterColorContext(opc: OpcPackage, masterPartName: strin
  * `p:clrMap` — the layout's usual `a:masterClrMapping` means "inherit the master
  * map". `clrScheme`/`fmtScheme`/`fontScheme` come from the master's theme, and both
  * `layoutRoot`/`masterRoot` are carried for inherited-placeholder resolution. Backs
- * the text frames of {@link import('./chrome.js').SlideLayout}'s placeholders.
+ * the text frames of `SlideLayout`'s placeholders.
  */
 export function resolveLayoutColorContext(opc: OpcPackage, layoutPartName: string): ThemeContext {
 	const masterPartName = resolveSingleRel(opc, layoutPartName, SLIDE_MASTER_REL)
@@ -559,7 +559,7 @@ export function resolveSolidFillColor(container: Element | null, ctx: ColorConte
 /**
  * Resolve the fill colour a shape inherits from its `p:style` `a:fillRef`
  * (style-matrix fill) to a literal hex through `ctx`. Used as the fallback for
- * {@link import('./shapes.js').Shape.resolvedFill} when the shape carries no
+ * `Shape.resolvedFill` when the shape carries no
  * explicit `spPr` fill choice. `null` when there is no `fillRef`, it cannot be
  * resolved, or the indexed style entry is not a solid fill (a gradient style fill
  * has no single colour — read it through `gradientStops` instead).
@@ -574,7 +574,7 @@ export function resolveStyleFillColor(shape: Element, ctx: ThemeContext): Resolv
 /**
  * Resolve the line colour a shape inherits from its `p:style` `a:lnRef`
  * (style-matrix line) to a literal hex through `ctx`. Used as the fallback for
- * {@link import('./shapes.js').Shape.resolvedLine} when the shape's `spPr/a:ln` states
+ * `Shape.resolvedLine` when the shape's `spPr/a:ln` states
  * no fill of its own. `null` when there is no `lnRef` or it cannot be resolved.
  */
 export function resolveStyleLineColor(shape: Element, ctx: ThemeContext): ResolvedColor | null {

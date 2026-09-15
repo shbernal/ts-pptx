@@ -35,9 +35,9 @@ const BOTH_TIERS = ['template', 'standalone'] as const
  * A loss only the standalone printer has, because the template-anchored one keeps the construct in
  * its template.
  *
- * Document properties are the plain case: the read half notes that only five of the twelve have
- * write-API setters, which matters for a script that rebuilds the deck, but the template-anchored
- * tier never authors them. They ride in the template, all twelve. The chrome is the same story on
+ * Document properties are the plain case: the read half notes the ones with no write-API setter,
+ * which matters for a script that rebuilds the deck, but the template-anchored tier never authors
+ * them. They ride in the template, every one. The chrome is the same story on
  * a larger scale: the theme's format scheme, the master's text styles and colour map, the layouts'
  * decoration, names and placeholder definitions are genuine losses for a script that rebuilds the
  * design, and untouched by one whose template *is* the design. A caveat that does not apply to the

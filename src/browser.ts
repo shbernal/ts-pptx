@@ -31,7 +31,7 @@ export class TsPptx extends PresentationCore {
 	 * Reproduces a rendered HTML `<table>` as a PowerPoint table — including column widths,
 	 * style, etc. — creating one or more slides as needed. Resolves `eleId` against the global
 	 * `document`, so it exists only on the browser/standalone build; the same conversion is
-	 * available anywhere there is a DOM as the free `tableToSlides` on `ts-pptx/html`, which
+	 * available anywhere there is a DOM as the free `tableToSlides` on `pptx-ts/html`, which
 	 * also takes the element directly. The in-memory `slide.addTable(rows, opts)` path remains
 	 * the platform-agnostic way to build a table from data you already hold.
 	 *

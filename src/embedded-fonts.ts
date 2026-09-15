@@ -1,7 +1,8 @@
 /**
  * Shared model + serializer for PresentationML embedded fonts, used by both the
  * write side (author-side `pptx.embedFont`, `gen/pres/presentation.ts`) and the read side
- * (`importSlide({ embedFonts: true })`, `src/read/api/ops/embedded-fonts.ts`).
+ * (the `embedFonts` carry in `importSlide`, `importSlides`, `importSlideMasters` and
+ * `appendSlides`, `src/read/api/ops/embedded-fonts.ts`).
  *
  * Embedded fonts are three coordinated pieces (ECMA-376 transitional):
  *  1. binary font parts `/ppt/fonts/fontN.fntdata` — the **raw** TTF/OTF bytes

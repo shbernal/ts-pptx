@@ -1,4 +1,4 @@
-// Phase 4 structural-edit tests: adding and removing shapes via the slide DOM.
+// Structural-edit tests: adding and removing shapes via the slide DOM.
 //
 // Contract under test: Slide.addTextBox(...) appends a schema-valid p:sp with a
 // slide-unique drawing id; Shape.delete() detaches a shape. Both mutate only

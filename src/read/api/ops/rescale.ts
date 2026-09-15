@@ -27,10 +27,10 @@ export interface RescaleTransform {
 	dy: number
 }
 
-/** Build the EMU transform mapping source-canvas coordinates onto the target canvas (see {@link ImportSlideOptions.rescale}). */
 /** How an import's rescale maps the source canvas onto the destination's. */
 export type RescaleMode = 'fit' | 'stretch'
 
+/** Build the EMU transform mapping source-canvas coordinates onto the target canvas (see {@link ImportSlideOptions.rescale}). */
 export function computeRescale(source: SlideSize, target: SlideSize, mode: RescaleMode): RescaleTransform {
 	if (mode === 'stretch') {
 		return { sx: target.widthEmu / source.widthEmu, sy: target.heightEmu / source.heightEmu, dx: 0, dy: 0 }

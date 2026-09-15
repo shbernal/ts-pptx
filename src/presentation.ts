@@ -501,7 +501,7 @@ export default class PresentationCore {
 	 * WITHOUT producing a `.pptx` package. Runs the same media-encode, placeholder
 	 * backfill, and measured-fit passes `write()` uses, then serializes each slide
 	 * body and resolves its image media to decoded bytes — so a loaded deck can
-	 * splice the slides in via `Presentation.appendSlides()` (see `ts-pptx/read`)
+	 * splice the slides in via `Presentation.appendSlides()` (see `pptx-ts/read`)
 	 * while keeping its own masters/layouts/theme byte-identical.
 	 *
 	 * Returns the deck's slide size (EMU, for the destination size check) and one
@@ -545,12 +545,13 @@ export default class PresentationCore {
 	}
 
 	/**
-	 * Register a font's metrics so `fit:'shrink'` text boxes are measured and a real
-	 * `fontScale` is baked at export time (text renders pre-shrunk in headless
-	 * renderers and on plain file-open, with no manual edit/resize).
+	 * Register a font's metrics so `fit:'shrink'` and `fit:'resize'` text is measured at
+	 * export time: `'shrink'` bakes a real `fontScale` and `'resize'` a real box height, so
+	 * the text renders fitted in headless renderers and on plain file-open, with no manual
+	 * edit/resize.
 	 *
-	 * Without registered metrics, `fit:'shrink'` keeps its current behavior (a bare
-	 * `<a:normAutofit/>` that only PowerPoint recomputes on edit). Register the same
+	 * Without registered metrics, both write the bare flag (`<a:normAutofit/>` or
+	 * `<a:spAutoFit/>`) that only PowerPoint recomputes on edit. Register the same
 	 * face once per weight/style you use; bold/italic advances differ.
 	 *
 	 * **Font collections** (`.ttc`/`.otc`, how MS Gothic, Yu Gothic, SimSun, Microsoft
@@ -559,7 +560,7 @@ export default class PresentationCore {
 	 * you meant; a `face` that names no font in the collection throws rather than falling
 	 * back to the first, since measuring the wrong member is invisible downstream. Pass
 	 * `font` when the deck-side name differs from the name inside the file, and use
-	 * `listFontFaces` from `ts-pptx/measure` to see what a file holds.
+	 * `listFontFaces` from `pptx-ts/measure` to see what a file holds.
 	 * @param {string} face - font family name as used in `fontFace` (e.g. 'Aptos')
 	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF/TTC
 	 *   bytes. A string is always a path or URL here; base64 text is `embedFont`'s `data`, not this.

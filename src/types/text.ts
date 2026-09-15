@@ -382,8 +382,11 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * - `'resize'` computes the height the text needs and bakes it into the shape's
 	 *   `a:ext/@cy` (adjusting `a:off/@y` per vertical anchor), the marker being
 	 *   `<a:spAutoFit/>`.
-	 * Without registered metrics they fall back to the bare flag (`<a:normAutofit/>` /
-	 * `<a:spAutoFit/>`, which only PowerPoint recomputes on edit) and warn once.
+	 * With no metrics registered at all they fall back to the bare flag (`<a:normAutofit/>` /
+	 * `<a:spAutoFit/>`, which only PowerPoint recomputes on edit), with no warning. Once any face
+	 * is registered, a named face without metrics is measured with a conservative estimate
+	 * (`measure/heuristic-metrics`), and a run with no face keeps the bare flag
+	 * (`measure/shrink-unmeasured`, `measure/resize-unmeasured`); each code warns once per write.
 	 *
 	 * **Note** Bare `'shrink'`/`'resize'` (no metrics) only take effect after editing
 	 * text / resizing the shape; PowerPoint calculates the result then. The object form

@@ -13,7 +13,7 @@
  *
  * **Coverage.** This file used to be excluded from the report, on the grounds that only the
  * browser entry imported it and the `dist/browser*.js` globs therefore swallowed it. Both
- * halves of that are stale: `ts-pptx/html` imports it too, so tsdown emits it as its own
+ * halves of that are stale: `pptx-ts/html` imports it too, so tsdown emits it as its own
  * `dist/html-dom-*.js` chunk, and those globs are gone from `vitest.config.ts` entirely. It
  * is covered code now — against happy-dom by the Node suite
  * (test/regression/html/html-to-slides-node.test.js) and, for the measured width basis that no
@@ -64,7 +64,7 @@ type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 /**
  * What `tableToSlides` needs a presentation to be: somewhere to put slides, and a layout to
  * size them against. Structural on purpose — stating the two members rather than naming the
- * class is what lets the free function on `ts-pptx/html` take any presentation instance
+ * class is what lets the free function on `pptx-ts/html` take any presentation instance
  * (Node, browser, or standalone) without the entry importing one.
  */
 export type TableToSlidesHost = {

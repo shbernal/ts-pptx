@@ -87,8 +87,8 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	}
 	const preset = connectorPresetFor(type, bends)
 
-	// Optional shape binding (<a:stCxn>/<a:endCxn>). The target id is resolved at serialize time
-	// (it equals the shape's slide-object index + 2); here we just capture the name + site index.
+	// Optional shape binding (<a:stCxn>/<a:endCxn>). The target id is resolved at serialize time,
+	// through the slide's shape-id allocator; here we just capture the name + site index.
 	// The site index must be a non-negative integer — a bad idx makes PowerPoint repair the connector.
 	const resolveCxn = (
 		shapeName: string | undefined,
@@ -109,8 +109,8 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 				`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`
 			)
 		}
-		// Stored as the caller spelled it: `resolveObjectNameToId` escapes its own lookup key at
-		// serialize time (see its docblock), so escaping here too would look up `Q&amp;amp;A`.
+		// Stored as the caller spelled it: `resolveObjectNameToId` compares raw names, and a name is
+		// escaped only when `cNvPrOpen` writes it (see its docblock).
 		return { name: shapeName, idx: site }
 	}
 	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')

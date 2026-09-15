@@ -5,8 +5,8 @@
  * `a:pattFill` is a preset hatch name plus two wrapped colours, and decoding it is three
  * lines — which is exactly why it had been open-coded in each place that needed it. Sharing
  * it is what keeps the three from drifting into different answers for the same element, the
- * same reason {@link import('./gradient.js').readGradientFill} and
- * {@link import('./picture-fill.js').readPictureFill} are shared.
+ * same reason `readGradientFill` and
+ * `readPictureFill` are shared.
  */
 import { attr, firstChild, firstChildElement, type Element } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'

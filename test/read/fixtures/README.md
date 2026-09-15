@@ -411,7 +411,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the
   other fixtures miss: connectors (`p:cxnSp`), nested groups (`p:grpSp`),
   plus tables, a chart (`c:chart`), and SmartArt/diagram (`dgm:`) graphic
-  frames. The Phase 2 read-model coverage deck for shape enumeration and
+  frames. The read-model coverage deck for shape enumeration and
   group traversal. Slide 2 is also the SmartArt oracle for `Diagram`
   (`test/read/diagram.test.js`): a PowerPoint-authored `hList1` whose data model
   holds 46 points, of which 11 are nodes carrying run-split text, the rest being
@@ -1194,8 +1194,8 @@ new deck sits outside the net (the test fails if the two disagree on the deck se
 
 ## Manual PowerPoint check
 
-Per the Phase 1 plan (Step 5), the saved round-trip output of each fixture must
-be opened once in PowerPoint to confirm there is no repair prompt. Generate the
+The saved round-trip output of each fixture must be opened once in PowerPoint to
+confirm there is no repair prompt. Generate the
 outputs with `pnpm run test:read:emit` (writes `.tmp/roundtrip/*.roundtrip.pptx`),
 then open each in PowerPoint. Record the PowerPoint surface used here.
 
@@ -1206,7 +1206,7 @@ fixtures opened clean with no repair prompt:
 - [x] `textbox.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `image.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `table.pptx` — PowerPoint for the web, 2026-06-13
-- [ ] `mixed.pptx` — not yet performed (added 2026-06-13 for Phase 2)
+- [ ] `mixed.pptx` — not yet performed (added 2026-06-13 for the read model)
 - [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
@@ -1244,11 +1244,10 @@ fixtures opened clean with no repair prompt:
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
-"PowerPoint found a problem… Repair" banner. A web pass is sufficient to unblock
-Phase 1 (where `save()` marks nothing dirty, so part bodies are byte-identical
-and only the zip envelope changes), but the desktop check is still outstanding
-and becomes important in Phase 3, when dirty parts are reserialized by xmldom
-and the emitted XML actually differs:
+"PowerPoint found a problem… Repair" banner. A web pass covers a `save()` that
+marks nothing dirty, where part bodies are byte-identical and only the zip
+envelope changes. The desktop check matters once dirty parts are reserialized by
+xmldom and the emitted XML actually differs, and it is still outstanding for:
 
 - [ ] `empty.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `textbox.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
