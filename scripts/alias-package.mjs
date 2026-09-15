@@ -38,7 +38,7 @@
 //     trusted publisher for a package that does not exist, because the setting lives on
 //     the package's settings page (npm/cli#8544), so such a name needs one manual
 //     `npm publish` to bring it into being before OIDC can take over. Both names this
-//     repo publishes are long past that point; `docs/contributing/releasing.md` has the runbook.
+//     repo publishes are long past that point.
 //
 // Usage:
 //   node scripts/alias-package.mjs                    stage into .tmp/alias-package

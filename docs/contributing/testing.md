@@ -644,8 +644,8 @@ markdown links only, so this gate resolves the backticked paths.
   of some file's path, because comments write `gen/oxml/el.ts` without `src/`. A `.js` token
   also resolves against its `.ts` source.
 - Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) and `CHANGELOG.md` are skipped.
-  `docs/contributing/releasing.md` names `dist/pptxgen.*` files the package does not ship, and
-  those must never resolve. A changelog records the tree as it stood.
+  `docs/comparison-syntax.md` names upstream `dist/pptxgen.*` files the package does not ship,
+  and those must never resolve. A changelog records the tree as it stood.
 - Anything else meant not to resolve goes in `ALLOWLIST` in `scripts/path-refs.mjs` with its
   reason. An entry that stops matching fails the gate.
 

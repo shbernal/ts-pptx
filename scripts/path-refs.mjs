@@ -45,8 +45,8 @@
  * ## What is not checked
  *
  * - `dist/`, `coverage/`, `.tmp/` and demo `output/` — build artifacts.
- *   `docs/contributing/releasing.md` in particular lists `dist/pptxgen.*` files *on purpose*, as the negative space of
- *   what this package refuses to ship; those must never resolve.
+ *   `docs/comparison-syntax.md` in particular names upstream `dist/pptxgen.*` files *on purpose*, as paths a
+ *   migrating reader's code may still load; those must never resolve.
  * - Generated trees *inside* the scanned roots, which are skipped as sources as well as
  *   as targets — see `SKIP_PATHS`.
  * - `CHANGELOG.md` — a release log describes the tree as it stood at the time, so a
