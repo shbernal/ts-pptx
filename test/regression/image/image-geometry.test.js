@@ -96,14 +96,12 @@ describe('image geometry', () => {
 		assertEqual(size('<svg\n\twidth=\'200\'\theight="100"/>'), expected, 'other whitespace and quotes')
 		const frame = pictureFrame(
 			await slideXml((p) =>
-				p
-					.addSlide()
-					.addImage({
-						svg: '<svg xmlns="http://www.w3.org/2000/svg" stroke-width="2" width="200" height="100"/>',
-						x: 0,
-						y: 0,
-						w: 2,
-					})
+				p.addSlide().addImage({
+					svg: '<svg xmlns="http://www.w3.org/2000/svg" stroke-width="2" width="200" height="100"/>',
+					x: 0,
+					y: 0,
+					w: 2,
+				})
 			)
 		)
 		assertEqual(frame.cy, EMU_PER_INCH, 'a 2:1 SVG at 2in is 1in tall')

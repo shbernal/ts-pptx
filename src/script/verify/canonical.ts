@@ -139,7 +139,7 @@ export function canonicalDeckIr(ir: DeckIr): CanonicalDeck {
 	const digests = assetDigests(ir.assets)
 	return {
 		slideSize: ir.slideSize,
-		props: canonicalValue(ir.props as IrValue, digests),
+		props: canonicalValue(ir.props, digests),
 		chrome: {
 			theme: canonicalValue(ir.chrome.theme as IrValue, digests),
 			masters: ir.chrome.masters.map((master) => canonicalValue(master.props, digests)),

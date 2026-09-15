@@ -1,4 +1,5 @@
 <script setup>
+// oxlint-disable-next-line import/named -- `vitepress` resolves to its Node entry here; the site build aliases it to the client, which exports `useData`.
 import { useData } from 'vitepress'
 import { onMounted, ref, watch } from 'vue'
 import { decodeGraph } from './fence.ts'

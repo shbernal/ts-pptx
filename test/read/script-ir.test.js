@@ -953,14 +953,12 @@ describe('deck IR — text links, freeform text and fields', () => {
 	test('a run linked to another slide carries its number, and a link a run cannot spell is noted', async () => {
 		// A slide jump was dropped with a comment saying the deck walk handled it, which it did not.
 		const { buf, presentation } = await authorRead((pres) => {
-			pres
-				.addSlide()
-				.addText([{ text: 'go to two', options: { hyperlink: { slide: 2, tooltip: 'Two' } } }], {
-					x: 1,
-					y: 1,
-					w: 3,
-					h: 1,
-				})
+			pres.addSlide().addText([{ text: 'go to two', options: { hyperlink: { slide: 2, tooltip: 'Two' } } }], {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+			})
 			pres.addSlide().addText('two', { x: 1, y: 1, w: 3, h: 1 })
 		})
 		const run = readModelToIr(presentation).slides[0].calls[0].args[0][0]
