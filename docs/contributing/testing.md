@@ -766,7 +766,7 @@ It is not in `verify`, because it spawns seven validations per fixture and asser
 | Oracle | Run by | Proves | Blind to | In CI |
 | --- | --- | --- | --- | --- |
 | Schema validator | `test:schema`, and schema cases across `test` | Modelled markup conforms at `Microsoft365` and relationships resolve | `mc:Choice` content, unmodelled extensions, whether PowerPoint opens or paints the deck | yes, `test` |
-| Byte identity | `byte-identity:check`; `cross-runtime-bytes.spec.mjs` in `test:browser` | A refactor changed no emitted byte; the browser builds the same bytes as Node | Parts no showcase deck emits, such as zoom frames and OLE objects; whether the bytes are right | only the browser comparison, in `browser` |
+| Byte identity | `byte-identity:check`; `cross-runtime-bytes.spec.mjs` in `test:browser` | A refactor changed no emitted byte; the browser builds the same bytes as Node | Parts no showcase or gate deck emits, such as OLE objects; whether the bytes are right | only the browser comparison, in `browser` |
 | COM read-back | `test:com` | PowerPoint opens the deck without a repair prompt, and resolves actions, connector sites and OLE `ProgID`s | What is painted; markup PowerPoint regenerates on open | no |
 | PNG export from PowerPoint | the `model3d` and preset-geometry legs of `test:com`, or `Slide.Export` by hand | What PowerPoint paints | Markup PowerPoint regenerates on open, such as the SmartArt drawing cache | no |
 | LibreOffice render | `test:lo` | Stored content is painted by an independent renderer, and which strings it draws | Layout fidelity; differences only a raster shows, such as `a:buClr` | yes, `render-oracle` |
@@ -1180,22 +1180,23 @@ Two gates touch showcase code without asserting on the decks:
   the deck the page builds has the right bytes. Nothing checks how the page looks or that its
   preview is a good likeness. The preview is drawn by `pptx-html` against the published
   `@shbernal/ts-pptx`, and this repository's gates make no claim about it.
-- The byte-identity harness builds every deck in `demos/showcases/lib/showcases.mjs` and diffs
-  the parts they emit. A showcase that throws stops the harness.
+- The byte-identity harness builds every deck in `demos/showcases/lib/showcases.mjs`, then the
+  gate decks in `scripts/gate-decks/index.mjs`, and diffs the parts they emit. A showcase that
+  throws stops the harness.
 
 The harness corpus is only what those decks emit, so a pass is evidence only about the parts they
 reach. Before trusting a pass, confirm the part you touched is in `.tmp/byte-identity/baseline/`.
 Charts, tables, 3D models and the theme inside a chart's embedded workbook are in it, because the
-harness recurses into each `.xlsx`. Zoom frames and OLE objects are not, so a refactor of
-`gen/slide/objects/zoom.ts` or `ole.ts` passes without being looked at. Earn that evidence
-another way:
+harness recurses into each `.xlsx`. Slide, section and summary zoom frames are in it through
+`scripts/gate-decks/shape-matrix.mjs`. OLE objects are not, so a refactor of
+`gen/slide/objects/ole.ts` passes without being looked at. Earn that evidence another way:
 
-1. Build a probe deck that exercises the construct.
+1. Build a probe deck that calls `addOleObject`.
 2. Capture its slide XML before and after the change.
-3. Diff with the per-build GUIDs (`zmPr@id`) normalized.
+3. Diff the two, with any id that differs between builds normalized.
 4. Make the probe fail on a deliberate one-attribute change first.
 
-For OLE, `test:com` also opens the deck in PowerPoint and reads each `ProgID` back.
+`test:com` also opens an OLE deck in PowerPoint and reads each `ProgID` back.
 
 The published package is covered without the demos. `test:package` imports every export subpath
 from an installed tarball and forces the `browser` condition. `package:lint` checks type
