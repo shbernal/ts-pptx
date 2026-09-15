@@ -28,7 +28,8 @@
  * 2. **Media.** It is the only asynchronous step, and the sync XML pass reads the `rel.data` it
  *    populates.
  * 3. **Bake measured fit last**, because it measures the text step 1 may have just added and
- *    writes the `fontScale` the sync XML pass then reads.
+ *    writes the `fontScale` the sync XML pass then reads. The caller undoes it once that pass is
+ *    done, so the next write measures from the authored values.
  *
  * The functions take different target sets on purpose: media lives on layouts and the master as
  * well as on slides, while placeholder backfill and measured fit apply only to slides.
@@ -102,7 +103,8 @@ export function backfillPlaceholders(slides: PresSlideInternal[]): void {
  * Step 3: bake measured text fit.
  * @param {PresSlideInternal[]} slides - the slides to prepare
  * @param {FontMetricsRegistry} fontMetrics - registered font metrics; an empty registry skips the fit bake
+ * @returns the step that restores the authored values; call it once the slide XML is built
  */
-export function bakeMeasuredFit(slides: PresSlideInternal[], fontMetrics: FontMetricsRegistry): void {
-	applyMeasuredFit(slides, fontMetrics)
+export function bakeMeasuredFit(slides: PresSlideInternal[], fontMetrics: FontMetricsRegistry): () => void {
+	return applyMeasuredFit(slides, fontMetrics)
 }

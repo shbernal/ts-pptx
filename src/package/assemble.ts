@@ -334,72 +334,77 @@ export async function buildPackageParts(
 		}
 
 		// A: Bake a real fontScale onto `fit:'shrink'` text boxes when font metrics are registered,
-		// before the sync XML pass reads them. Shared with `extractSlides` (see `gen/prepare.ts`).
-		bakeMeasuredFit(pres.slides, source.fontMetrics)
+		// before the sync XML pass reads them. Shared with `extractSlides` (see `gen/prepare.ts`). The
+		// bake writes into the stored slide model, so it is undone once B to D, which run with no
+		// `await` between them, have read it, and the next write measures from the authored values.
+		const restoreAuthoredFit = bakeMeasuredFit(pres.slides, source.fontMetrics)
+		try {
+			// B: Add all required files. fflate keys on full slash-paths and emits no
+			// directory entries, so there is no folder scaffolding to set up (and no
+			// stray empty-directory entries to guard against on minimal decks).
+			const hasCustomProps = source.customProperties.length > 0
+			zip.add(
+				'[Content_Types].xml',
+				makeXmlContTypes({
+					slides: pres.slides,
+					slideLayouts: pres.slideLayouts,
+					masterSlide: pres.masterSlide,
+					hasCustomProps,
+					embeddedFonts: pres.embeddedFonts,
+					contributions: collectContentTypes(contributors, pres),
+				})
+			)
+			zip.add('_rels/.rels', makeXmlRootRels(hasCustomProps))
+			zip.add('docProps/app.xml', makeXmlApp(pres.slides, pres.company))
+			zip.add('docProps/core.xml', makeXmlCore(pres.title, pres.subject, pres.author, pres.revision))
+			if (hasCustomProps) {
+				zip.add('docProps/custom.xml', makeXmlCustomProperties(source.customProperties))
+			}
+			zip.add(relsPath(PRESENTATION_PATH), makeXmlPresentationRels(pres.slides, pres.embeddedFonts))
+			// Embedded font parts (raw whole faces). Fonts are already compact binary, so STORE
+			// (no DEFLATE) like already-compressed media. Part index matches the rels Target above.
+			for (const face of flattenEmbeddedFaces(pres.embeddedFonts, 1)) {
+				zip.add(fontPath(face.partIndex), face.bytes, { store: true })
+			}
+			// One theme, written twice: theme2.xml is a separate part so notesMaster1.xml.rels resolves.
+			const themeXml = makeXmlTheme(pres)
+			zip.add('ppt/theme/theme1.xml', themeXml)
+			zip.add('ppt/theme/theme2.xml', themeXml)
+			zip.add(PRESENTATION_PATH, makeXmlPresentation(pres))
+			zip.add('ppt/presProps.xml', makeXmlPresProps())
+			zip.add('ppt/tableStyles.xml', makeXmlTableStyles())
+			zip.add('ppt/viewProps.xml', makeXmlViewProps())
 
-		// B: Add all required files. fflate keys on full slash-paths and emits no
-		// directory entries, so there is no folder scaffolding to set up (and no
-		// stray empty-directory entries to guard against on minimal decks).
-		const hasCustomProps = source.customProperties.length > 0
-		zip.add(
-			'[Content_Types].xml',
-			makeXmlContTypes({
-				slides: pres.slides,
-				slideLayouts: pres.slideLayouts,
-				masterSlide: pres.masterSlide,
-				hasCustomProps,
-				embeddedFonts: pres.embeddedFonts,
-				contributions: collectContentTypes(contributors, pres),
+			// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
+			pres.slideLayouts.forEach((layout, idx) => {
+				zip.add(slideLayoutPath(idx + 1), makeXmlLayout(layout, source.renderers))
+				zip.add(relsPath(slideLayoutPath(idx + 1)), makeXmlSlideLayoutRel(idx + 1, pres.slideLayouts))
 			})
-		)
-		zip.add('_rels/.rels', makeXmlRootRels(hasCustomProps))
-		zip.add('docProps/app.xml', makeXmlApp(pres.slides, pres.company))
-		zip.add('docProps/core.xml', makeXmlCore(pres.title, pres.subject, pres.author, pres.revision))
-		if (hasCustomProps) {
-			zip.add('docProps/custom.xml', makeXmlCustomProperties(source.customProperties))
-		}
-		zip.add(relsPath(PRESENTATION_PATH), makeXmlPresentationRels(pres.slides, pres.embeddedFonts))
-		// Embedded font parts (raw whole faces). Fonts are already compact binary, so STORE
-		// (no DEFLATE) like already-compressed media. Part index matches the rels Target above.
-		for (const face of flattenEmbeddedFaces(pres.embeddedFonts, 1)) {
-			zip.add(fontPath(face.partIndex), face.bytes, { store: true })
-		}
-		// One theme, written twice: theme2.xml is a separate part so notesMaster1.xml.rels resolves.
-		const themeXml = makeXmlTheme(pres)
-		zip.add('ppt/theme/theme1.xml', themeXml)
-		zip.add('ppt/theme/theme2.xml', themeXml)
-		zip.add(PRESENTATION_PATH, makeXmlPresentation(pres))
-		zip.add('ppt/presProps.xml', makeXmlPresProps())
-		zip.add('ppt/tableStyles.xml', makeXmlTableStyles())
-		zip.add('ppt/viewProps.xml', makeXmlViewProps())
-
-		// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
-		pres.slideLayouts.forEach((layout, idx) => {
-			zip.add(slideLayoutPath(idx + 1), makeXmlLayout(layout, source.renderers))
-			zip.add(relsPath(slideLayoutPath(idx + 1)), makeXmlSlideLayoutRel(idx + 1, pres.slideLayouts))
-		})
-		pres.slides.forEach((slide, idx) => {
-			zip.add(slidePath(idx + 1), makeXmlSlide(slide, source.renderers, transitionSoundRIds.get(slide)))
-			zip.add(relsPath(slidePath(idx + 1)), makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
-			contributors.forEach((contributor) => contributor.parts?.withEachSlide?.(slide, idx + 1, zip))
-		})
-		zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
-		zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
-		contributors.forEach((contributor) => contributor.parts?.afterMaster?.(pres, zip))
-
-		// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
-		// the media pass, which is the interleaving the zip has always had.
-		const writtenMediaPaths = new Set<string>()
-		const addTargetRelParts = (target: PartTarget): void => {
-			contributors.forEach((contributor) => {
-				const pending = contributor.parts?.fromTargetRels?.(target, zip)
-				if (pending) partPromises.push(...pending)
+			pres.slides.forEach((slide, idx) => {
+				zip.add(slidePath(idx + 1), makeXmlSlide(slide, source.renderers, transitionSoundRIds.get(slide)))
+				zip.add(relsPath(slidePath(idx + 1)), makeXmlSlideRel(pres.slides, pres.slideLayouts, idx + 1))
+				contributors.forEach((contributor) => contributor.parts?.withEachSlide?.(slide, idx + 1, zip))
 			})
-			createMediaParts(target, zip, writtenMediaPaths)
+			zip.add(SLIDE_MASTER_PATH, makeXmlMaster(pres.masterSlide, pres.slideLayouts, source.renderers))
+			zip.add(relsPath(SLIDE_MASTER_PATH), makeXmlMasterRel(pres.masterSlide, pres.slideLayouts))
+			contributors.forEach((contributor) => contributor.parts?.afterMaster?.(pres, zip))
+
+			// D: Create all Rels (images, media, chart data). Per target the contributors go first, then
+			// the media pass, which is the interleaving the zip has always had.
+			const writtenMediaPaths = new Set<string>()
+			const addTargetRelParts = (target: PartTarget): void => {
+				contributors.forEach((contributor) => {
+					const pending = contributor.parts?.fromTargetRels?.(target, zip)
+					if (pending) partPromises.push(...pending)
+				})
+				createMediaParts(target, zip, writtenMediaPaths)
+			}
+			pres.slideLayouts.forEach(addTargetRelParts)
+			pres.slides.forEach(addTargetRelParts)
+			addTargetRelParts(pres.masterSlide)
+		} finally {
+			restoreAuthoredFit()
 		}
-		pres.slideLayouts.forEach(addTargetRelParts)
-		pres.slides.forEach(addTargetRelParts)
-		addTargetRelParts(pres.masterSlide)
 
 		// E: Wait for the contributed async parts (if any), then snapshot the accumulated
 		// parts in emission order. Zipping is deferred to `zipPackageParts`.

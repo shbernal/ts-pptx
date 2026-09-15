@@ -212,24 +212,30 @@ export async function extractSlides(
 	// Only slides here: this emits no layout or master parts.
 	backfillPlaceholders(deckSlides)
 	await encodeMediaForTargets(deckSlides, source.runtime, onMediaError)
-	bakeMeasuredFit(deckSlides, source.fontMetrics)
+	const restoreAuthoredFit = bakeMeasuredFit(deckSlides, source.fontMetrics)
 
-	// STEP 3: Serialize each slide body and resolve what it references.
-	const slides: ExtractedSlide[] = deckSlides.map((slide) => {
-		const relByRid = new Map(slide._relsMedia.map((rel) => [rel.rId, rel] as const))
-		const avMedia = avMediaOf(slide, relByRid)
-		const notes = notesOf(slide)
-		return {
-			xml: makeXmlSlide(slide, source.renderers),
-			media: imageMediaOf(slide, new Set(avMedia.map((item) => item.previewRid))),
-			hyperlinks: hyperlinksOf(slide),
-			charts: source.extract.charts?.(slide) ?? [],
-			slideLinks: slideLinksOf(slide),
-			avMedia,
-			onlineMedia: onlineMediaOf(slide, relByRid),
-			...(notes ? { notes } : {}),
-		}
-	})
+	// STEP 3: Serialize each slide body and resolve what it references. The fit bake is undone once
+	// every body is built, as on a write.
+	let slides: ExtractedSlide[]
+	try {
+		slides = deckSlides.map((slide) => {
+			const relByRid = new Map(slide._relsMedia.map((rel) => [rel.rId, rel] as const))
+			const avMedia = avMediaOf(slide, relByRid)
+			const notes = notesOf(slide)
+			return {
+				xml: makeXmlSlide(slide, source.renderers),
+				media: imageMediaOf(slide, new Set(avMedia.map((item) => item.previewRid))),
+				hyperlinks: hyperlinksOf(slide),
+				charts: source.extract.charts?.(slide) ?? [],
+				slideLinks: slideLinksOf(slide),
+				avMedia,
+				onlineMedia: onlineMediaOf(slide, relByRid),
+				...(notes ? { notes } : {}),
+			}
+		})
+	} finally {
+		restoreAuthoredFit()
+	}
 
 	// Presentation-level embedded fonts (pptx.embedFont) ride alongside the slides
 	// so appendSlides can carry them into the destination deck; same model the

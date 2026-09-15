@@ -132,7 +132,7 @@ The model reports the gap rather than absorbing it. `collectUncoveredCodepoints`
 - for `'resize'`, rewrites `options.h`, and `options.y` when it moves, as `"<emu>emu"` strings. The emitter keeps `<a:spAutoFit/>`;
 - collects the faces it could not measure, the faces it estimated and the uncovered code points across all slides, and warns once per code at the end.
 
-The emitters read only the rewritten options. The rewrite lands on the stored slide model, so a second write finds baked values: a text box's object-form `fit` is skipped, and a resized box or a shrunk cell measures again from its new size and comes out the same.
+The emitters read only the rewritten options, and the rewrite lands on the stored slide model. So `applyMeasuredFit` returns the step that puts every authored value back, absent keys included, and both callers run it in a `finally` once the synchronous XML build has read the model. A second write measures from the authored values, so metrics registered between two writes reach every shape. `test/regression/text/measured-fit-integration.test.js` pins it.
 
 The rule is that a layout-time prediction must never disagree with what the export then bakes. `measureText` and the pass share `buildFitParagraphs`, `makeRegistryResolver` and `measureLayout`, and `test/regression/text/measure-text-api.test.js` asserts that `measureText`'s height equals `solveResize`'s for the same input. The one case where they differ, a deck with no registered face, is stated in the guide under [Measure text before export](../../text-fit.md#measure-text-before-export), and `test/regression/text/measured-fit-integration.test.js` pins it.
 

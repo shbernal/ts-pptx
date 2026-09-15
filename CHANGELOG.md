@@ -1024,6 +1024,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read the source path back out of `descr` now reads an empty string. Set `altText` to describe
   the picture.
 
+- **A second write measures text fit from the authored values.** The export-time fit pass wrote
+  its result into the stored slide model: a text box's `fit: 'shrink'` became the object form, a
+  resized box kept its new `h` and `y`, and a shrunk cell kept its smaller font size. A second
+  `write()` skipped the object form and measured the rest from the first write's result, so font
+  metrics registered between two writes never reached those shapes. The pass now puts the authored
+  values back once the XML is built.
+
 - **`Shape.delete()` removes the animations of what it deletes, and unbinds connectors from it.**
   A build animation kept its `spid` naming the deleted shape, or a shape inside a deleted group,
   and PowerPoint refused the saved deck with 0x80070570. A connector attached to a deleted shape

@@ -201,4 +201,41 @@ describe("measured fit: fit:'resize' integration", () => {
 		const delta = 3 * EMU_PER_IN - cy // positive (box shrank)
 		expect(offY).toBeCloseTo(2 * EMU_PER_IN + delta / 2, -2) // top moved down by half the shrink
 	})
+
+	test('a second write measures from the authored values, so metrics registered in between reach it', async () => {
+		// The pass rewrites the stored slide model for the length of one write. Left baked, the second
+		// write skipped the text box's object-form `fit` and measured the resized box and the shrunk cell
+		// from the first write's result, so a face registered between the writes never reached them.
+		const LATER = 'LaterFace'
+		const build = (pres) => {
+			const slide = pres.addSlide()
+			slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: LATER, fontSize: 18, fit: 'shrink' })
+			slide.addText(OVERFLOW, { x: 5, y: 1, w: 3, h: 1, fontFace: LATER, fontSize: 18, fit: 'resize' })
+			slide.addTable([[{ text: OVERFLOW, options: { fontFace: LATER, fontSize: 18, fit: 'shrink' } }]], {
+				x: 1,
+				y: 3.5,
+				w: 3,
+				h: 0.7,
+				colW: [3],
+			})
+		}
+
+		const pres = new TsPptx()
+		await pres.registerFontMetrics(FACE, FACE_FILE)
+		build(pres)
+		// LATER has no metrics yet, so this write estimates it.
+		const estimated = await slide1Xml(pres)
+		await pres.registerFontMetrics(LATER, FACE_FILE)
+		const second = await slide1Xml(pres)
+
+		const fresh = new TsPptx()
+		await fresh.registerFontMetrics(FACE, FACE_FILE)
+		await fresh.registerFontMetrics(LATER, FACE_FILE)
+		build(fresh)
+		const expected = await slide1Xml(fresh)
+
+		// The estimate has to differ from the measured result, or the comparison below proves nothing.
+		expect(estimated).not.toBe(expected)
+		expect(second).toBe(expected)
+	})
 })

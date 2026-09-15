@@ -7,7 +7,8 @@
  * `fontScale` PowerPoint would have baked and rewrites `options.fit` to the
  * explicit object form (`{ type:'shrink', fontScale }`) so `genXmlNormAutofit`
  * emits `<a:normAutofit fontScale=…/>`. Without metrics it leaves the bare flag
- * untouched (current behavior) and warns once. See `docs/contributing/design/text-fit.md`.
+ * untouched (current behavior) and warns once. The rewrite lasts one write: the pass hands back
+ * the step that puts the authored values back. See `docs/contributing/design/text-fit.md`.
  */
 
 import { SlideObjectType } from '../enums.js'
@@ -206,9 +207,20 @@ export function requireBoxHeight(hIn: unknown, call: string): void {
  * Safe to call with an empty registry (no-op). Warns once if any opted-in box could
  * not be measured (missing metrics), and once if one held code points its registered
  * face has no glyph for, so neither kind of overflow is silently ignored.
+ *
+ * Every rewrite lands on the stored slide model, because that is what the emitters read.
+ * The returned function puts each authored value back; call it once the XML is built. Left
+ * baked, a second write found a text box's object-form `fit` and skipped it, and measured a
+ * resized box or a shrunk cell from this write's result, so metrics registered in between
+ * never reached those shapes.
+ * @returns the step that restores every value this pass rewrote
  */
-export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetricsRegistry): void {
-	if (registry.size === 0) return
+export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetricsRegistry): () => void {
+	const restores: Array<() => void> = []
+	const restore = (): void => {
+		for (const undo of restores.splice(0).reverse()) undo()
+	}
+	if (registry.size === 0) return restore
 
 	// A deck that registered *some* metrics has opted into measured fit, so a named
 	// face we have no exact metrics for falls back to the conservative heuristic rather
@@ -277,7 +289,10 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			const outcome = solveShrink(paragraphs, box, resolve)
 			if (outcome.kind === 'shrink') {
 				const f = outcome.result.fontScalePct / 100
-				if (f < 1) scaleCellFontSizes(cell, eff, f)
+				if (f < 1) {
+					restores.push(restorer(cell, 'options'), restorer(cell, 'text'))
+					scaleCellFontSizes(cell, eff, f)
+				}
 			} else if (outcome.kind === 'unmeasurable') {
 				collectUnmeasured(paragraphs, unmeasuredShrink)
 			}
@@ -320,6 +335,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 				// omits the attribute for an absent one.
 				const shrink: TextFitShrinkProps = { type: 'shrink', fontScale: fontScalePct }
 				if (lnSpcReductionPct) shrink.lnSpcReduction = lnSpcReductionPct
+				restores.push(restorer(options, 'fit'))
 				options.fit = shrink
 			} else if (outcome.kind === 'unmeasurable') {
 				collectUnmeasured(paragraphs, unmeasuredShrink)
@@ -336,6 +352,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 				// moves up by the anchor's share of the height delta (0 / half / full for t / ctr / b).
 				const oldYEmu = getSmartParseNumber(opts.y, 'Y', layout)
 				const shiftEmu = Math.round((newHeightEmu - oldHeightEmu) * anchorTopShareOfDelta(opts))
+				restores.push(restorer(opts, 'h'), restorer(opts, 'y'))
 				opts.h = `${newHeightEmu}emu`
 				if (shiftEmu !== 0) opts.y = `${oldYEmu - shiftEmu}emu`
 			} else {
@@ -381,5 +398,19 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 				'no exact metrics registered. Fit is approximate (may shrink/grow more than necessary). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) for an exact fit.'
 		)
+	}
+	return restore
+}
+
+/**
+ * The step that puts `target[key]` back as it stands now, an absent key included, so a restored
+ * option bag is the authored one rather than one holding an `undefined` the caller never wrote.
+ */
+function restorer<T extends object>(target: T, key: keyof T): () => void {
+	const had = Object.hasOwn(target, key)
+	const value = target[key]
+	return () => {
+		if (had) target[key] = value
+		else delete (target as Record<PropertyKey, unknown>)[key]
 	}
 }
