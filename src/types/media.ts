@@ -91,9 +91,10 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	points?: GeometryPoint[]
 	/**
-	 * Rounded rectangle corner radius (inches) when `shape: 'roundRect'`
-	 * - values: 0.0 to 1.0
-	 * @default 0
+	 * Corner radius (inches) of the clip `shape`, for `'roundRect'` and the other rounded presets
+	 * - resolved against the shorter side of the box and written as the preset's corner guide
+	 * - not clamped: a radius past half the shorter side is written as given, and PowerPoint draws the corner at its limit
+	 * - omitted, the preset keeps its own radius
 	 */
 	rectRadius?: number
 	/**

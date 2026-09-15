@@ -76,6 +76,11 @@ export function genXmlImageCropRect(crop: ImageCrop, label: string, where: strin
  * `<a:stretch><a:fillRect/></a:stretch>` — the blipFill child that scales the source to the
  * shape's box, which every picture-bearing emitter writes and none parameterizes.
  *
+ * After an `<a:srcRect/>`, it completes the canonical picture fill ECMA-376 gives
+ * (§L.4.8.4.3). A picture's placement is split across two elements: the source rectangle and
+ * this directive, which carry `sizing` and `crop`, sit in `p:blipFill`, while the clip
+ * geometry (`shape`, `points`, `rounding`) sits in `p:spPr`.
+ *
  * Here rather than in `image.ts` for the same bundling reason the crop is: `fill.ts` reaches
  * it from every shape, table and chart emitter, and must not pull the image-format tables in.
  */

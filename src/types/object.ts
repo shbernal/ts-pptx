@@ -28,8 +28,10 @@ export interface PlaceholderProps
 	 */
 	shape?: SHAPE_NAME
 	/**
-	 * Rounded rectangle corner radius (inches) when `shape: 'roundRect'`
-	 * - range: 0.0 to slide height/2
+	 * Corner radius (inches) of the placeholder's `shape`, for `'roundRect'` and the other rounded presets
+	 * - resolved against the shorter side of the placeholder and written as the preset's corner guide
+	 * - not clamped: a radius past half the shorter side is written as given, and PowerPoint draws the corner at its limit
+	 * - omitted, the preset keeps its own radius
 	 */
 	rectRadius?: number
 }
