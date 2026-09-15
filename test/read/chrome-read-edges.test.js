@@ -15,7 +15,7 @@
 // Why chrome.ts branch coverage stops around 64%
 // ---------------------------------------------------------------------------
 // It is the lowest branch number on the read side, and that is deliberate — see
-// docs/contributing/testing.md "Branches that are not worth covering". Every branch still
+// docs/contributing/testing.md "Deciding whether a red branch needs a test". Every branch still
 // uncovered here is the false arm of a guard that a schema-valid package cannot
 // take. Four groups, all verified against the ECMA-376 content models:
 //

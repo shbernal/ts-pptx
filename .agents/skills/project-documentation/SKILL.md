@@ -59,6 +59,12 @@ Node's own ESM interop, and a browser reaching it through a bundler or an ESM CD
 Separate current behavior, planned behavior, and TODOs. Do not invent behavior
 to make a page feel complete.
 
+A finding that PowerPoint never paints a construct goes in the page the feature's own
+workflow sends a contributor to, not in an issue: nobody reads the tracker before
+writing an emitter. The custom table style case lives in `docs/tables.md` ("Apply a
+built-in table style"). How the render evidence was obtained belongs in
+`docs/contributing/testing.md` ("Check rendering with pixels, not COM properties").
+
 ## Repository-Only Pages
 
 `docs/contributing/` holds pages for people working on the repository. `repoOnly` in

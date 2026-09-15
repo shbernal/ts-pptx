@@ -9,7 +9,7 @@ import {
 import { resetDiagnosticState } from '../../../dist/node.js'
 
 // Guards `test/setup-globals.js`, which is what makes `isolate: false` safe rather than
-// merely fast (vitest.config.ts, and docs/contributing/testing.md "One module registry per worker").
+// merely fast (vitest.config.ts, and docs/contributing/testing.md "Test files share module state").
 //
 // With one module registry per worker, a diagnostic handler left installed by one test is
 // still installed for every test that runs after it — including tests in other files,

@@ -1,797 +1,330 @@
 ---
 doc-schema-version: 1
 title: "Testing guide"
-summary: "Regression, schema, package, demo, and manual verification commands."
+summary: "The gate matrix, git hooks and CI jobs, the test suites, coverage, schema validation, and the oracles behind a PowerPoint claim."
 read_when:
   - Choosing verification commands
+  - Adding or changing a gate, a git hook or a CI job
   - Updating test scripts or package smoke checks
   - Changing emitted OOXML or package exports
   - Deciding whether an uncovered branch is worth a test
+  - Deciding what evidence a rendering or compatibility claim needs
 doc_type: "guide"
 ---
 
 # Testing guide
 
-Use `pnpm` for repository scripts. The package declares Node.js `>=24`.
+This page records which gate runs where, what each suite and oracle proves, and how to run
+them. Use `pnpm` for repository scripts. The package declares Node.js `>=24`.
 
-## Standard validation
+## Gate matrix
 
-For source changes, run one of the two aggregates rather than composing a set by
-hand:
+Each cell comes from `package.json`, `lefthook.yml` or a workflow under `.github/workflows/`.
+`node scripts/run-steps.mjs --list <aggregate>` prints what an aggregate runs.
 
-```bash
-pnpm run verify       # per-change loop: check:core (typechecks, ratchets, docs and comparison checks), all suites
-pnpm run verify:full  # before pushing, and at the package boundary: adds the site build and package suites
-```
+| Gate | `verify` | `verify:full` | `check:static` | pre-commit | pre-push | CI job | Run when |
+| --- | :-: | :-: | :-: | :-: | :-: | --- | --- |
+| `typecheck` | ✓ | ✓ | ✓ | | ✓ | `static` | every change, through `verify` |
+| `typecheck:scripts` | ✓ | ✓ | ✓ | | ✓ | `static` | every change, through `verify` |
+| `typecheck:test` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `typecheck:site` | ✓ | ✓ | ✓ | | ✓ | `static` | every change, through `verify` |
+| `raw-xml:check` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `ooxml-literals:check` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `path-refs:check` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `docs:api` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `docs:check` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `comparison:check` | ✓ | ✓ | ✓ | | | `static` | every change, through `verify` |
+| `test` | ✓ | ✓ | | | | `test` (Node 26.x) | every change, through `verify` |
+| `test:coverage` | | | | | | `test` (Node 24.x) | once before a commit; `coverage:probe` while editing |
+| `docs:build` | | ✓ | | | | `docs.yml` `build`, and `browser` | before pushing; site, navigation or generated-docs changes |
+| `script:roundtrip:all` | | ✓ | | | | `test` (Node 24.x) | before pushing a `src/script/` or `src/read/` change |
+| `package:lint` | | ✓ | | | | `package` | before pushing; exports, entry points or shipped files change |
+| `test:package` | | ✓ | | | | `package` | before pushing; exports, entry points or shipped files change |
+| `bundle-size:check` | | ✓ | | | | `package` | before pushing; an import moves or a dependency arrives |
+| `bundle-tier:check` | | ✓ | | | | `package` | before pushing; an import moves or a dependency arrives |
+| `lint` | | | ✓ | staged, fixes | ✓ | `static` | the hooks run it |
+| `lint:chars` | | | ✓ | staged | ✓ | `static` | the hooks run it |
+| `format:check` | | | ✓ | staged, writes | ✓ | `static` | the hooks run it |
+| `test:browser` | | | | | | `browser` | `src/runtime/browser.ts`, `src/browser.ts`, the zip writer, or code whose bytes could differ by runtime |
+| `coverage:gate` | | | | | | `coverage` | after `test:coverage` and `test:browser`; otherwise leave it to CI |
+| `test:oracles` | | | | | | `font-oracles` | an autofit or CJK case, the fit model or the metrics sidecar changes |
+| `test:lo` | | | | | | `render-oracle` | SmartArt text, or a construct in `scripts/libreoffice-render-smoke.mjs` |
+| `test:com` | | | | | | none | markup PowerPoint could reject, drop or leave unpainted; needs Windows and PowerPoint |
+| `byte-identity:check` | | | | | | none | after each edit of a behaviour-preserving `src/gen/` refactor |
+| `schema:versions` | | | | | | none | after an `ooxml-validate` bump |
 
-They are defined in `package.json` and described in
-[development](development.md#common-commands). Neither runs `lint` or
-`format:check`: the git hooks own those.
+Reading the matrix:
 
-Both are assembled by `scripts/run-steps.mjs`. It expands a list of script
-names into the leaf commands they ultimately run, and executes those in one
-process tree. `package.json` stays the single definition of what each step
-*is*. What the runner removes is the package-manager relaunch between steps, a
-flat ~0.7–1.3s each. `verify` used to spend ~13s of its runtime just starting
-pnpm, 13 times over. It prints a per-step breakdown on success, so the cost of
-a gate is visible where it is paid:
+- `test` is `vitest run` over every `test/**/*.test.js` file: the regression, read, schema,
+  script and font-oracle suites. `test:unit`, `test:read` and `test:schema` run parts of it.
+- `test:coverage` is `test` plus the `vitest.config.ts` coverage thresholds. The Node 24.x leg
+  of the `test` job runs it in place of `test`.
+- The pre-commit cells run on staged files only. oxlint and oxfmt re-stage what they fix.
+  charcheck reads the staged content and fixes nothing.
+- A commit-msg hook also runs `no-ai-attribution` and `no-shell-quoting-leak` from
+  `shbernal/lefthook-rules`.
+- `package` runs `check:package` on `ubuntu-latest` and `windows-latest`, and `font-oracles`
+  runs on `windows-latest`. Every other job runs on `ubuntu-latest`.
+- `docs:build` reaches the `browser` job because `test:browser` builds the site before
+  Playwright starts.
 
-```bash
-node scripts/run-steps.mjs --list verify       # show the expansion, run nothing
-```
-
-Composites overlap. `verify:full` is `verify` plus `docs:build`, and both reach
-`docs:api`. An exact command repeat inside one invocation is skipped, and the
-skip is logged. Every step in these gates is a check or a regenerator, so a
-second consecutive run cannot report anything the first did not. The log line
-is there for the day a step starts mutating another's inputs: that is the
-moment the skip becomes wrong, and it will be visible.
-
-### What is in the loop tier, and why
-
-`verify` holds everything cheap plus the tests; the site build sits in
-`verify:full`. Measured on a 12-core / 15.6 GB Linux box:
-
-| Step | Wall | Peak RSS |
-| --- | --- | --- |
-| `ensure-dist` (no-op) | 0.1s | 33 MB |
-| four `typecheck*` steps | 1.1s total | ≤210 MB |
-| `raw-xml:check` | 1.0s | 144 MB |
-| `path-refs:check` | 0.2s | 20 MB |
-| `docs:check` (`docs:api` + validation) | 3.5–6.6s | 680 MB |
-| `test` (`vitest run`) | ~39s | ~3.4 GB |
-| **`verify` total** | **~44s** | **~3.8 GB** |
-| `docs:build`: `verify:full` only | 26.6s | 1119 MB |
-
-`docs:build` left the loop because 19.7s of it is `vitepress build`, a
-production static-site build that catches site-build breakage and nothing about
-the library. Docs themselves are still validated every iteration by
-`docs:check`. CI did not lose the build either: `docs.yml` runs `docs:build` on
-every pull request, so having it in `check:static` as well meant building the
-site twice per PR.
-
-### Suite cost and the worker ceiling
-
-Vitest sizes its fork pool from the CPU (`availableParallelism() - 1`). That made
-the suite's footprint a property of the developer's machine rather than of this
-repo, and the wrong property: cores decide how fast it *could* run, memory
-decides whether the host survives it. A faster CPU made the spike bigger, never
-the run safer. On a 12-core box with a browser and an editor already resident,
-that is enough to drive the machine into swap.
-
-With validator batching in place, peak RSS is close to linear in the pool size:
-
-| `maxWorkers` | Wall | Peak RSS |
-| --- | --- | --- |
-| 4 | 78.7s | 1.66 GB |
-| 6 | 69.0s | 2.27 GB |
-| 8 | 63.8s | 2.68 GB |
-| 11 (CPU default) | 48.4s | 3.40 GB |
-
-That is `BASE_MB + PER_WORKER_MB × workers` to within ~50 MB across all four
-points, so `vitest.config.ts` solves for the pool directly from the memory free
-at startup instead of guessing or pinning a timid constant. On an idle machine it
-lands on the CPU bound and gives up nothing; under pressure it scales itself down
-rather than pushing the host into swap. It never resolves below 1.
-
-The budget reads `MemAvailable` from `/proc/meminfo` where the kernel publishes
-it, falling back to `os.freemem()` elsewhere. The distinction matters on Linux:
-`os.freemem()` is `MemFree`, which excludes reclaimable page cache and badly
-understates what is available, measured here, 9.1 GB free against 12.4 GB
-available. On Windows and macOS `os.freemem()` is already the right quantity.
-
-Set `VITEST_MAX_WORKERS` to pin the pool explicitly: useful in CI, where a
-predictable cost beats an adaptive one, and when bisecting a concurrency-
-dependent failure. An explicit pin is taken as given and is not clamped. No
-workflow sets it today; the hosted runners are small enough that the CPU bound
-binds well below the memory budget.
-
-### One module registry per worker (`isolate: false`)
-
-Vitest isolates each test file in a fresh module registry by default. This suite
-turns that off, because `dist/` is over 1 MB of JavaScript (`text-*.js` alone is
-610 KB) and 235 files were each re-evaluating it. Measured across three paired
-runs at `VITEST_MAX_WORKERS=4`:
-
-| | `import` phase | Wall |
-| --- | --- | --- |
-| `isolate: true` | 136.0s / 114.5s / 84.8s | 192.9s / 154.2s / 109.4s |
-| `isolate: false` | 34.4s / 30.6s / 22.0s | 102.1s / 96.4s / 85.4s |
-
-The absolute numbers move with machine load: those runs were interleaved on a
-busy box, which is why the wall column overlaps and the import column does not.
-The 3.5–4x on `import` is the reliable figure, and it carries 22–37% of wall
-clock with it.
-
-Two further wins come from module state that now survives a file boundary:
-`test/validator.js`'s batch queue joins requests across files rather than
-spawning a .NET validator per file, and `test/read/corpus.js`'s `irFor` memo
-stops being rebuilt per file.
-
-**What replaces the guarantee.** Isolation made cross-file state leakage
-impossible, not merely absent, and that is worth something specific. Two things
-stand in for it:
-
-- `test/setup-globals.js` resets `setDiagnosticHandler` after every test. It is
-  the one process-global the library owns, and a handler left installed would
-  otherwise swallow (or throw on) a diagnostic belonging to a test in another
-  directory, minutes later, which reads as a bug in the victim.
-- `sequence.shuffle.files` randomizes file order, so a suite that acquires an
-  order dependence fails on it rather than hiding behind a stable order. Vitest
-  prints the seed; reproduce a failure with `--sequence.seed=<n>`. Tests *within*
-  a file stay in source order deliberately: `captureDiagnostics()` and the
-  warn-capturing schema fixtures rest on that.
-
-If you add module-level mutable state to a test helper, it is now shared with
-every other file in that worker. That is usually what you want (both wins above
-are exactly this), but state that carries a test's *intent* rather than a cache
-does not belong there.
-
-For documentation-only changes, no automated test is required unless the docs
-change package, build, or testing claims.
-
-## Fast inner loop (edit → test)
-
-The suite imports from `dist/`, **not** `src/`. A full `pnpm run build` (8 entry
-bundles + `.d.ts`) is far too slow to sit in a one-assertion edit loop. For the
-inner loop, run a `tsdown` watcher and a Vitest watcher in **two terminals**:
+### Aggregates
 
 ```bash
-# terminal 1 — rebuild dist/ on every src/ edit (fast: no .d.ts)
-pnpm run watch:dev
-
-# terminal 2 — rerun tests on every dist/ (or test) change, no rebuild of its own
-pnpm run test:watch
+pnpm run verify         # per change
+pnpm run verify:full    # before pushing, and for package or release changes
+pnpm run check:static   # what CI's static job runs
+pnpm run check:package  # what CI's package job runs
 ```
 
-`watch:dev` uses `tsdown.dev.config.ts`, which drops the most expensive build
-step (`.d.ts` emit) while still emitting every Node-side entry the suites import.
-`test:watch` is a bare `vitest --watch`: it does no build of its own, because in
-this loop `watch:dev` is what keeps `dist/` current.
+- `check:core` is the one list of cheap checks: the four typechecks, `raw-xml:check`,
+  `ooxml-literals:check`, `path-refs:check`, `docs:api`, `docs:check` and `comparison:check`.
+  `docs:api` regenerates the API reference, so `docs:check` validates current pages.
+- `verify` is `ensure-dist`, `check:core` and `test`. `check:static` is `lint`, `lint:chars`,
+  `format:check` and `check:core`.
+- Add a cheap check to `check:core`, not to an aggregate. `test/scripts/gate-parsers.test.js`
+  fails when a check reaches `verify` without reaching `check:static`, because CI runs the
+  static checks only through `check:static`.
+- `verify:full` is `verify` plus `docs:build`, `script:roundtrip:all`, `package:lint`,
+  `test:package`, `bundle-size:check` and `bundle-tier:check`. Those build the production site,
+  run the read corpus through both printers, or pack and install the tarball, so they stay out
+  of the per-change loop.
+- `check:package` is the four package gates, which `verify:full` also runs.
+- `verify` takes under a minute on a workstation, and `verify:full` one to two minutes.
+- Neither `verify` nor `verify:full` runs `lint`, `lint:chars` or `format:check`. The git hooks
+  run those.
 
-> **If you run only the Vitest watcher**, `src/**` edits appear to have no effect
->: you are testing the last-built `dist/`. Start `watch:dev` alongside it. The
-> one-shot scripts do not have this problem: they all begin with
-> `scripts/ensure-dist.mjs`, which rebuilds a stale `dist/` before running.
+`scripts/run-steps.mjs` assembles every aggregate. It expands script names into the commands
+they run and executes them in one process tree, so no step pays a package-manager start.
+`package.json` stays the only definition of each step. Add a step to a name list there, and
+never inline its command, because an inlined command is a second copy that drifts. The runner
+skips a command already run in the same invocation and logs the skip. On success it prints a
+per-step breakdown.
+
+```bash
+node scripts/run-steps.mjs --list verify   # print the expansion, run nothing
+```
+
+Every one-shot script starts with `scripts/ensure-dist.mjs`, which rebuilds `dist/` only when a
+source or build config is newer than it.
+
+### Git hooks
+
+`lefthook.yml` defines the hooks, and `prepare` installs them through
+`scripts/install-hooks.mjs`.
+
+| Hook | Runs | Scope |
+| --- | --- | --- |
+| pre-commit | oxlint `--fix`, then oxfmt `--write`, then charcheck `--staged --max-warnings 0`, in that order | staged files |
+| commit-msg | `no-ai-attribution` and `no-shell-quoting-leak`, from `shbernal/lefthook-rules` at tag `v1` | the message |
+| pre-push | `lint`, `lint:chars`, `format:check`, `typecheck`, `typecheck:scripts` and `typecheck:site`, in parallel | the whole repository |
+
+No hook runs a test, `typecheck:test`, `docs:check` or `docs:build`. `verify` runs the first
+three and `verify:full` the last.
+
+Pre-push repeats `lint:chars` over the whole repository because pre-commit sees one commit. The
+repeat catches prose that arrived through `--no-verify`, a merge or a rebase.
+
+### CI workflows
+
+```mermaid
+flowchart LR
+  subgraph ci["ci.yml: pull requests, pushes to master, workflow_call"]
+    static["static<br/>check:static"]
+    test["test, Node 24.x and 26.x<br/>24.x: test:coverage, script:roundtrip:all<br/>26.x: test"]
+    fonts["font-oracles, windows-latest<br/>test:oracles"]
+    render["render-oracle<br/>test:lo"]
+    browser["browser<br/>test:browser"]
+    coverage["coverage<br/>coverage:gate"]
+    package["package, ubuntu-latest and windows-latest<br/>check:package"]
+    test -- "coverage-node" --> coverage
+    browser -- "coverage-browser, with its dist/" --> coverage
+  end
+  subgraph docs["docs.yml: pull requests, pushes to master"]
+    build["build<br/>docs:build"] --> deploy["deploy<br/>master only"]
+  end
+  subgraph publish["publish.yml: release published, workflow_dispatch"]
+    gate["gate<br/>runs ci.yml"] --> pub["publish<br/>build, npm publish"]
+  end
+```
+
+- `ci.yml` has seven jobs. `test` and `package` are matrices, so a run has nine legs.
+- Only the Node 24.x leg of `test` collects coverage and runs the script round trip, because
+  neither result depends on the Node version.
+- The `test` job fetches the OOXML oracle (`pnpm exec ooxml-validate --version`) before any
+  suite starts, from a cache keyed on the lockfile. A failed download then fails the job with
+  its own error instead of inside a suite.
+- `coverage` needs `test` and `browser`. It downloads the Node report and the browser job's raw
+  coverage together with the `dist/` that job ran, then runs `coverage:gate`.
+- `docs.yml` builds the site on every pull request and deploys it from `master`. `check:static`
+  validates the docs sources without building the site, so a fault only the built site shows
+  fails in `docs.yml` or `browser`, not in `static`.
+
+### What gates a release
+
+`publish.yml` runs when a GitHub Release is published, or on `workflow_dispatch`. Its `gate` job
+calls `ci.yml` through `workflow_call`, and the `publish` job needs `gate`. A release therefore
+passes every `ci.yml` leg, listed under `CI gate /` in the run. `docs.yml` is not part of that
+gate. The `publish` job then checks that the tag is `v` plus the `package.json` version and that
+at least one of the two package names lacks that version, builds, and publishes. The
+`release-publish` skill in `.agents/skills/` has the release procedure.
+
+### Oracles that must not skip in CI
+
+A machine-dependent oracle skips when its tool is missing, so a workstation without the tool
+can still run `verify`. In CI a skip is a green leg that checked nothing, so each job that runs
+such an oracle sets a variable that makes the missing tool a failure. Keep these variables when
+editing a job.
+
+| Variable | Set in | Effect |
+| --- | --- | --- |
+| `FONT_ORACLES=required`, `FONT_ORACLES_GENUINE` | `test`, `font-oracles` | a face with no source fails the suite; see [Font oracles](#font-oracles) |
+| `TSPPTX_RENDER_ORACLE=required` | `render-oracle` | `test:lo` fails when LibreOffice or `pdftotext` is absent |
+| `TSPPTX_COM_SMOKE=required` | no job | `test:com` fails off Windows or without PowerPoint |
+| `CI` | every job | the read suites fail instead of skipping when the OOXML oracle cannot be fetched |
+
+### The Windows leg
+
+- `package` runs `check:package` on `windows-latest`. It is the only CI run of the Windows
+  branches of `run()` in `scripts/script-utils.mjs`, which spawn `.cmd` shims. If the leg turns
+  intermittent, mark it `continue-on-error: true` rather than removing it.
+- `font-oracles` runs on `windows-latest` to read the fonts the runner has installed. It runs
+  three test files.
+- Every other job runs on Linux. CI does not see a Windows-only break outside the package
+  scripts and font resolution.
+
+## Fast inner loop
+
+The suites import from `dist/`, not `src/`. A full `pnpm run build` is too slow for a
+one-assertion edit loop, so run two watchers in two terminals:
+
+```bash
+pnpm run watch:dev    # terminal 1: rebuild dist/ on every src/ edit, without .d.ts
+pnpm run test:watch   # terminal 2: rerun test/regression on every change, with no build of its own
+```
+
+`watch:dev` uses `tsdown.dev.config.ts`, which skips `.d.ts` emit and still emits every
+Node-side entry the suites import. `test:watch` watches `test/regression` and builds nothing, so
+it tests whatever `dist/` the watcher last wrote.
+
+> **Run `watch:dev` beside `test:watch`.** Without it a `src/**` edit appears to have no
+> effect, because the tests run the last-built `dist/`. The one-shot scripts start with
+> `scripts/ensure-dist.mjs` and do not have this problem.
 
 ### Running a single test
 
-Once `dist/` is current (a `watch:dev` running, or after `pnpm run build`), drive
-Vitest directly: these skip the build, so mind the stale-`dist/` caveat:
+Once `dist/` is current, drive Vitest directly. These commands skip the build.
 
 ```bash
 pnpm exec vitest run test/regression/api/object-identity.test.js   # one file
-pnpm exec vitest run test/regression -t "content type default"  # by test name
+pnpm exec vitest run test/regression -t "content type default"     # by test name
 ```
 
-You can also add `.only` to a `test(...)`/`describe(...)` while iterating. Bare
-`pnpm exec vitest` does **not** rebuild: if you edited `src/**` without a running
-watcher, rebuild first or you are testing stale code. Going through a package
-script (`pnpm run test:unit`, etc.) avoids this entirely.
+`.only` on a `test(...)` or `describe(...)` works while iterating. A package script such as
+`pnpm run test:unit` rebuilds a stale `dist/` first.
 
-## Regression suite layout
+## Test suites
 
-Regression tests live in `test/regression/` and are organized by behavior, not
-by historical bug number. File names should describe the contract being tested,
-such as `object-identity.test.js`, `content-type-defaults.test.js`, or
-`slide-master-placeholders.test.js`.
+`pnpm test` is `vitest run` with no target list. Vitest discovers every `test/**/*.test.js`
+file, so a new file runs with no list to edit. It excludes `test/browser/**`, which belongs to
+Playwright.
 
-They are grouped into one directory per subject: `chart/`, `table/`, `text/`, `image/`,
-`shape/`, `master-layout/`, `color-fill/`, `media/`, `slide-content/`, `html/`, `package/`,
-and `api/` for the cross-cutting rest. The grouping follows the filename prefix, so a new
-file's home is normally obvious from its name; when a file could sit in two groups, put it
-with the subsystem whose *emission* it asserts on. Nothing in the tooling keys on the
-directory (Vitest globs the tree), so a file can be moved between groups freely.
+A documentation-only change needs no test, unless it changes a claim about the package, the
+build or the tests.
 
-Paths inside a suite are relative to its group directory: `../../helpers.js`,
-`../../../dist/node.js`, `../../read/fixtures/…`.
+### How the test worker pool is sized
 
-Each regression file calls `defineRegressionSuite(suiteName, cases)` from
-`test/helpers.js`. It takes exactly two arguments. There used to be a
-three-argument form, whose middle argument recorded legacy provenance: `legacy bug-21`,
-`upstream-issue-1451`. That string was destructured out and then discarded. It
-reached no reporter, and no reader who was not already looking at the call
-site. Those tags now live inside the suite name itself, as in `'Table margins [legacy bug-14]'`,
-where the reporter prints them. A second positional argument is an error now,
-not something quietly ignored.
+`vitest.config.ts` sets `maxWorkers` from the memory available at startup as well as from the
+CPU count. On an idle machine the CPU bound wins. Under memory pressure the pool shrinks instead
+of pushing the host into swap. It never drops below one worker.
 
-A case is `{ name, fn }`, and `fn` is handed to Vitest directly rather than wrapped, so a
-failure's stack starts at the case rather than at `helpers.js`. Modifiers a case could not
-otherwise reach from inside a plain array are spelled as fields: `skipIf`, `runIf`, `skip`,
-`only`, `todo`, `fails`, `concurrent`, and `timeout`. Be careful with `concurrent`: the
-diagnostic handler `captureDiagnostics()` installs is process-global, and its safety rests on
-cases within a file running serially.
+- `VITEST_MAX_WORKERS` pins the pool, for example to bisect a failure that depends on
+  concurrency. The pin is taken as given. No workflow sets it.
+- To shrink the suite's memory, lower `maxWorkers`. `maxConcurrency` only interleaves tests
+  inside a worker, and the OOXML validator keeps one process per worker whatever it says.
 
-Prefer public API deck generation plus focused package/XML assertions:
+The memory model and its constants are in the header of `vitest.config.ts`.
+
+### Test files share module state
+
+The suite runs with `isolate: false`, so each worker keeps one module registry across test
+files instead of re-evaluating `dist/` for every file. A module-level variable in a test helper
+is shared with every file in that worker. A cache belongs there. State that carries one test's
+intent does not.
+
+Two mechanisms replace the guarantee isolation gave:
+
+- `test/setup-globals.js` resets `setDiagnosticHandler`, the one process-global the library
+  owns, after every test. `test/regression/api/global-state-reset.test.js` guards the reset.
+- `sequence.shuffle.files` randomizes file order, so an order dependence fails instead of
+  hiding. Vitest prints the seed, and `--sequence.seed=<n>` reproduces a run. Tests inside a
+  file keep source order, which `captureDiagnostics()` and the warn-capturing schema fixtures
+  rely on.
+
+### Regression suite layout
+
+Regression tests live in `test/regression/`, one directory per subject: `chart/`, `table/`,
+`text/`, `image/`, `shape/`, `master-layout/`, `color-fill/`, `media/`, `slide-content/`,
+`html/`, `package/`, and `api/` for the cross-cutting rest. `html/` includes
+`test/regression/html/html-to-slides-node.test.js`, which runs `tableToSlides` against
+happy-dom.
+
+- Name a file after the contract it tests, such as `object-identity.test.js` or
+  `slide-master-placeholders.test.js`, never after a bug number.
+- When a file could sit in two directories, put it with the subsystem whose emission it
+  asserts on. No tooling keys on the directory, so a file can move freely.
+- Paths inside a suite are relative to its directory, for example `../../helpers.js` and
+  `../../../dist/node.js`.
+- Every Vitest file is `*.test.js`. The Playwright specs in `test/browser/` are `*.spec.mjs`.
+
+Each regression file calls `defineRegressionSuite(suiteName, cases)` from `test/helpers.js`,
+with exactly two arguments. Put legacy provenance in the suite name, as in
+`'Table margins [legacy bug-14]'`, where the reporter prints it.
+
+A case is `{ name, fn }`, and `fn` goes to Vitest unwrapped, so a failure's stack starts at the
+case. The fields `skipIf`, `runIf`, `skip`, `only`, `todo`, `fails`, `concurrent` and `timeout`
+carry Vitest's modifiers. Avoid `concurrent`, because the handler `captureDiagnostics()`
+installs is process-global and assumes the cases in a file run serially.
+
+Prefer public API deck generation plus focused package and XML assertions:
 
 - Use `build()` to create a presentation and inspect the generated package.
-- Use `readEntry()` for specific package parts such as `ppt/slides/slide1.xml`.
-- Use helper assertions such as `assertContentTypeDefault()`,
-  `assertContentTypeOverride()`, `assertXmlOrder()`, and
-  `assertNonVisualDrawingProperty()` when they match the behavior under test.
-- Keep raw XML substring or regex assertions local and narrowly targeted when a
-  helper would hide the OOXML detail being tested.
-
-Add a regression test when a public API call must keep producing a specific
-package part, relationship, OOXML element, attribute, or absence of generated
-parts. Name the file after the behavior, and include bug or upstream issue
-context in the suite metadata or test name only when it helps future triage.
-
-### File extensions
-
-Every Vitest file is `*.test.js`. The package is `"type": "module"`, so `.js`
-is already ESM and needs no `.mjs` to say so. A subset used to carry `.mjs`,
-marking tests that drive built entry points with Vitest's `describe`/`test` API
-rather than the shared `defineRegressionSuite()` harness. The suffix did
-nothing: Vitest resolved and ran both identically. So the distinction cost a
-paragraph of explanation and bought nothing a reader could rely on. Which
-harness a file uses is visible in the file.
-
-The one exception is the browser lane: `test/browser/*.spec.mjs` are **Playwright** specs, not
-Vitest ones, and are matched by name in `playwright.config.ts` (and excluded from Vitest's
-`include`). There the different extension marks a genuinely different runner.
-
-## Coverage gate
-
-Coverage is enforced by thresholds in `vitest.config.ts`:
-
-```bash
-pnpm run test:coverage
-```
-
-The suite executes the **built** package (tests import from `dist/`), so v8
-collects coverage on the bundled `dist/**` output and remaps line/branch data
-back to `src/` via the sourcemaps `tsdown` emits. Instrumenting `src/**` instead
-would report only ~8%, because almost nothing under `src/` is executed directly.
-
-Thresholds (statements / branches / functions / lines) are pinned a notch below
-the current measured numbers so an accidental regression fails CI without the
-gate being flaky. **Ratchet them upward as coverage improves; never loosen them
-to make a red build pass.**
-
-The four numbers in `vitest.config.ts` are the **Node suite's floor**. The gate
-the repo is judged on is the merged one below.
-
-### Merged coverage
-
-```bash
-pnpm run test:coverage    # the Node suite  -> coverage/coverage-final.json
-pnpm run test:browser     # the browser lane -> .tmp/browser-coverage/
-pnpm run coverage:gate    # merge both, then check scripts/coverage-gates.json
-```
-
-The Node suite cannot execute `src/runtime/browser.ts` (it needs `fetch`,
-`FileReader` and a canvas), but that file is in its denominator, correctly, since
-nothing of this repo's own is excluded from the report any more. A denominator
-with no collector for part of it understates the truth: dropping the exclusion
-took functions 98.33 → 97.35 while tested-ness went *up*. The fix is to give that
-part a collector, not to hide it again and not to move the gate.
-
-`scripts/coverage-merge.mjs` does that, on one rule:
-
-> **The Node report defines the shape. The browser lane contributes hits.**
-
-Both sides remap V8 coverage with the same `ast-v8-to-istanbul` version Vitest
-itself uses, pinned as a devDependency for exactly that reason. The browser
-side's file coverage is then projected onto the Node report's own statement,
-function and branch maps, by source location. So the merged denominator is
-*identical* to the Node report's, and the merged percentage is directly
-comparable to it. Only the numerator can move, and only upward.
-
-About 1% of browser locations do not line up, because `dist/node.js` and the
-`dist/*.js` chunks the browser loads are different bundles of the same source and
-a few mappings resolve a column differently. Those hits are dropped, not
-relocated: the count prints on every run, and past 5% the run fails instead,
-because at that point the two lanes are looking at different builds.
-
-### The point of slack, as a gate
-
-`scripts/coverage-gate.mjs` checks the merged report against
-`scripts/coverage-gates.json` and fails two ways:
-
-| Failure | Meaning | Fix |
-|---|---|---|
-| below the notch | coverage regressed past the gate | cover it, or explain what changed |
-| inside the point of slack | still above the notch, but by less than 1.00 | coverage has to come back up |
-
-Both inputs are validated before any number is compared, and a malformed one
-fails the gate. Each axis needs a finite threshold and a numeric `pct`, and
-`minimumSlack` has to be finite. Every comparison is a `<`, and `x < undefined`
-is false, so a misspelled axis key or a missing `minimumSlack` used to pass that
-axis at any coverage. Istanbul writes `'Unknown'` for an axis with nothing in
-it, which crashed the gate rather than naming the problem.
-
-The second one is the rule every threshold in this repo was already set by (a
-notch always sits at least a full point below its measured number) and it used
-to live only in prose. Prose does not fail a build, so when the exclusion drop
-took `functions` to 0.35 of slack and `lines` to 0.67, an acceptance criterion of
-"thresholds still pass" was satisfied by a state the doctrine forbids. One was
-noticed; the other sat in a stale comment. Encoding it means that cannot recur.
-
-The rule is held against the merged report, **not** against
-`vitest.config.ts`'s numbers, and that is deliberate. Demand a point of slack
-on a report whose denominator includes code its collector cannot reach, and
-there are only two ways to comply: lower the notch, or re-hide the file. Both
-are what the doctrine exists to prevent.
-
-In CI this is the `coverage` job, which runs after `test` and `browser` and
-consumes their artifacts (including the browser job's `dist/`, so the merge reads
-the exact bundles the browser ran).
-
-Reading the report has one trap. A line shown **red in the dist report may
-already be covered** by a `src/`-importing unit test. Take the HTML-table
-helpers `htmlBorderToProps` and `resolveHtmlColWidth`. In the bundle they are
-reached only through the browser-only path, which is fenced with `v8 ignore`,
-so the dist bundle never executes them, even though `src/`-level unit tests do.
-Before adding a case for a red line, check whether an existing `src/`-importing
-test already exercises it. The gate cannot credit a redundant test.
-
-### Branches that are not worth covering
-
-The read model parses OOXML defensively. Almost every element lookup is written
-`const x = firstChild(parent, 'a:foo'); return x ? … : null`, whether or not
-the schema lets `a:foo` be absent. That style is right, because a reader should
-not throw on a deck PowerPoint accepts. It does mean a chunk of the branch
-count is guards against input no valid package can contain, and those branches
-are **deliberately left uncovered**.
-
-Coverage exists to show that behaviour is pinned. A test that hand-builds a
-`p:sp` with no `p:nvSpPr`, or a theme part with no root element, pins nothing.
-Such a file is not a deck. No user can produce one, and the assertion would
-only restate the guard. It moves the number without adding a guarantee, and
-leaves behind a fixture somebody has to maintain. Prefer honest coverage plus a
-written reason over a green metric.
-
-So before writing a test for a red branch, ask which of these it is:
-
-- **Schema-impossible**: the child, attribute, or root is `minOccurs="1"` (check
-  with `ooxml_children` / `ooxml_attributes`), or the relationship is required for
-  the package to resolve. Leave it. Do not add a `v8 ignore` fence either: the
-  fence is for code the bundle genuinely cannot reach, not for code that a valid
-  input merely never reaches.
-- **Unreachable by construction**: a re-check of something the caller already
-  established (a `p:ph` looked up again on a shape that was filtered *for* having
-  one). Leave it, and consider whether the guard is telling you the type could be
-  narrower.
-- **Schema-legal but unrepresented in the fixtures**: the input is a deck
-  PowerPoint could write, and no committed fixture happens to be shaped that way.
-  **Cover this one.** Either promote a fixture from a real-world deck or synthesize the
-  XML, following the approach in `test/read/slide-background-edges.test.js`
-  (splice the variant into an authored deck, so the rest of the package is real).
-
-`src/read/api/chrome.ts` is the worked example: it sits near 64% branches while
-its statements, functions, and lines are at or near 100%. The header comment in
-`test/read/chrome-read-edges.test.js` enumerates every remaining branch and the
-content model that makes it impossible. The two that turned out to be legal input
-(`p:sldLayoutIdLst` and `p:txBody`, both `minOccurs="0"`) are asserted at the foot
-of that file: each patched into an authored master and run past the schema
-validator, so "the input is legal" is checked rather than asserted. Extend that
-note rather than re-deriving it if the number ever comes up again.
-
-### Reading a red number on the write side
-
-The section above is about the read model, where the dominant question is whether
-an input is even possible. The emitters fail differently: their input is whatever
-a caller passes to the public builder, and every `src/gen/**` file sits behind one
-or more *doors* (`addTable`, `addChart`, the `pptx-ts/measure` subpath) that
-normalize before the emitter runs. So the write-side question is not "can this
-input exist?" but **"which door reaches this, and is that door in scope?"**
-
-Ask these in order before writing a case for a red emitter branch:
-
-- **Is the file low on _statements_, not just branches?** That is a different
-  signal, and a stronger one. A branch gap means arms are unexercised; a statement
-  gap means a whole input shape or a whole outcome has never run. Both of the big
-  finds in this area were statement gaps. `gen/define/hyperlinks.ts` sat at 48%
-  statements because nothing anywhere put a hyperlink on a *table cell*.
-  `gen/define/zoom.ts` and `comment.ts` were low because every existing fixture fed
-  them *valid* input, so the entire refusal half of each definer had never executed:
-  the guards that drop an unresolvable target with a warning. Estimate the phase
-  from the statement number. The branch percentage will understate it.
-- **On a small pure emitter, low statements means a caller never arrives.** The
-  first question there is "which caller is supposed to reach this and doesn't?",
-  not "which test am I missing?". `gen/drawingml/line.ts` at 65% statements looked
-  untested and was in fact *unreachable*: four `define/` rebuilds dropped `cap`,
-  `pattern` and `image` off the caller's object, so a documented public option was
-  ignored library-wide and `line: { type: 'pattern' }` threw. The tell was a
-  literal zero execution count on an arm a fixture demonstrably exercised.
-- **A branch dead from one door can be live from another.** `text-fit.ts`'s newline
-  handling and its `lineSpacingPct` / `spaceBefore` / `spaceAfter` defaults are
-  genuinely unreachable from a deck. `buildFitParagraphs` pre-splits every `\n` and
-  always fills those fields. They are fully reachable from `pptx-ts/measure`, though,
-  a published subpath that exists precisely so a consumer can hand-build
-  `FitParagraph[]`. Covering it *there* took the file to 100%. Same shape in
-  `normalizeRuns`, unreachable from `addTable` (which normalizes) and reachable
-  from `tableLayout()` (which does not). Enumerate the doors before calling an arm
-  dead.
-- **…and then check whether the other door is in scope.** The mirror case:
-  `gen/table/autopage.ts`'s scalar-`colW` arms, `?? 0` fallbacks and no-rows guards
-  are reachable only from `tableToSlides`, the browser-only path excluded from the
-  report, while `addTable` resolves and defaults all of it first. Those really are
-  dead. Both questions, not just the first one.
-- **Is it a dev-only debug dump?** `verbose` is a documented `TableProps` option
-  whose trace does `.toFixed()` arithmetic on props that may legitimately be
-  percentage strings, and no test set it: seven uncovered functions and ~50
-  uncovered statements in one file. Worth a case, because a dump that throws on a
-  documented option is a real bug, but the test pins *"the trace survives its
-  inputs"* and must say so in its header. It is not a substitute for the engine
-  branches underneath.
-- **Is the red arm dead code you could delete instead?** Two functions in
-  `gen/drawingml/color.ts` were callable only from the browser path, and measured on
-  the Node chunk anyway. Moving them into their sole caller (`gen/table/html-dom.ts`,
-  already coverage-excluded) removed the false signal with no fence and no test.
-  Thirteen `x = x || !x ? x : <default>` ternaries in `gen/define/chart.ts` were
-  identity assignments whose alternative no value of `x` can reach. Deleting them
-  removed thirteen permanently-red branches and changed no emitted byte. Deleting a
-  false signal beats fencing it, and beats testing it. Gate any such `src` edit on
-  `byte-identity:baseline` / `byte-identity:check` (see AGENTS.md).
-
-Two traps specific to this side, both of which have cost real time:
-
-**A branch counter records that an operand was _evaluated_, not that it was
-true.** The second arm of `!border.width || isNaN(border.width)` *looks*
-unreachable. `NaN` is falsy, so the first arm should always catch it. It is not
-unreachable: any truthy width reaches the second operand and marks it. Two arms
-were written up as "unreachable by construction" on that reasoning before a
-probe showed both green. This applies to every `!x || isNaN(x)` and `!x || x.length`
-shape in the repo. Probe before classifying.
-
-**The src-import trap above applies to emitters too, and is easy to misread as
-a gap.** `gen/slide/comments.ts` sits near 64% branches, and it is not
-untested. `comments-xml.test.js` exercises every one of its red arms with stub
-slides. It imports from `src/`, so it can never move a `dist` number. That is
-the third instance in the repo, after `html-dom.ts`'s helpers and
-`zoom-links.test.js`. Check the import path of the tests that already name a
-file before calling its number a gap.
-
-Finally, **re-measure. Do not reason from whatever is in `coverage/`.** A run
-started with `--coverage.reportsDirectory` both writes to that directory *and*
-cleans it. So a narrow probe left behind, or a later full run wiping
-`coverage/probe`, can leave a stale `coverage-final.json` reporting *fewer*
-covered branches than a three-file probe does. A subset beating the full run is
-the tell. Recorded per-file numbers drift the same way: two files here were
-logged at 73 and 47 missed branches, and were actually at 83 and 23 when the
-work started.
-
-## Path-citation gate
-
-```bash
-pnpm run path-refs:check  # part of verify and check:static
-pnpm run path-refs:list   # every citation found, resolved or not
-```
-
-This repo cites files in backticks rather than as markdown links. A doc says
-"see `test/regression/shape/group-shapes.test.js`". A source comment names the
-module that owns the other half of a decision. Those citations are usually the
-*evidence* for the claim beside them, and nothing checked them.
-`docs-check.mjs` validates markdown links, a backticked path is not a link, and
-most of these live in `src/` and `test/`, where a docs gate never looks. Seven
-had rotted by the time anyone looked, two of them still describing the upstream
-demo layout this project replaced.
-
-A citation is a backticked token containing a `/` and ending in a source
-extension. The `/` is what keeps bare `package.json` out. It resolves against
-the repo root, against the citing file's directory, or as a suffix of some
-file's path. That loose third rule exists because comments legitimately write
-`gen/oxml/el.ts` without the `src/` prefix. A `.js` token also resolves against
-its `.ts` source, since ESM specifiers name the emitted file.
-
-Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) is skipped: `docs/contributing/releasing.md`
-lists `dist/pptxgen.*` files *on purpose*, as the negative space of what this package
-refuses to ship, and those must never resolve. `CHANGELOG.md` is skipped entirely: a
-release log describes the tree as it stood, so a moved path there is a correct historical
-record. Everything else deliberately unresolvable goes in `ALLOWLIST` in
-`scripts/path-refs.mjs` with its reason, and an entry that stops firing is itself
-reported: a stale exemption is the same disease the gate exists to catch.
-
-## Raw-XML ratchet
-
-```bash
-pnpm run raw-xml:check   # part of verify and check:static
-pnpm run raw-xml:list    # every occurrence, with line numbers
-pnpm run raw-xml:freeze  # rewrite the budget from source
-```
-
-`src/gen/oxml/el.ts` exists to end hand-concatenated OOXML: its header names
-escaping, attribute-order and child-sequence bugs as the motivation. Most of
-`src/gen/` now builds through it; the chart emitters do not, so "no raw XML
-anywhere" cannot be turned on. `scripts/raw-xml-budget.json` therefore freezes a
-per-file count of XML tag delimiters (`<ns:name`, `</ns:name`) appearing in string
-and template literals under `src/`. A file may go down or vanish; it may never go
-up, and a file absent from the budget must be at zero.
-
-The check also fails when a count goes **down**: re-freeze in the same commit, so
-the budget never accumulates slack it could later hide a regression behind.
-
-Two exemptions. First, `src/gen/oxml/` itself, because emitting those
-delimiters is its job. Second, a literal handed straight to `warn`,
-`notes.note`, or `new *Error`: a diagnostic that names the element it is about
-is prose, and prose forced to dodge a gate gets written worse. The scan walks
-the TypeScript AST rather than the file text, so an `<a:bodyPr>` in a doc
-comment was never a finding to begin with.
-
-This is a ratchet, not a correctness check: it says nothing about whether the XML
-is right, only that the amount built by hand is not growing. Correctness is
-[schema validation](#ooxml-schema-validation)'s job, and byte-stability during a
-migration is the byte-identity harness's.
-
-## OOXML schema validation
-
-Validation goes through [`ooxml-validate`](https://github.com/shbernal/ooxml-validate),
-a shared oracle around Microsoft's `OpenXmlValidator`. There is nothing to install: the
-package fetches its binary from GitHub Releases the first time something asks it to
-validate, verifies the download's checksum and build provenance, and caches it under
-`~/.cache/ooxml-validate/<version>/`. `test/validator.js` is a thin adapter over it.
-
-That package is also what `ts-xlsx` validates against. The two repos each used to carry
-their own validator pinned to a different Open XML SDK version, so they enforced
-different rule sets while appearing to enforce the same one. The consequence worth
-remembering here: the SDK version is pinned *there*, not in this repo. A bump arrives
-as an `ooxml-validate` release and moves both repos' baselines at once, which is why
-that repo carries its own fixture corpus and a committed diagnostic snapshot.
-
-Run schema fixtures:
-
-```bash
-pnpm run test:schema
-```
-
-Use this path for emitted OOXML changes. Add or update focused fixtures in
-`test/schema-cases.js` (a flat fixture data module: not a Vitest suite despite
-living under `test/`; the runner `test/schema-validation.test.js` consumes it).
-
-Most fixtures run **concurrently** (`describe.concurrent`), which took the suite
-from ~50s to ~10s and is what lets `verify` include it. Three consequences worth
-knowing:
-
-- Validator processes no longer scale with `maxConcurrency`. They used to: each
-  concurrent fixture spawned its own validator, so the real ceiling was
-  workers × `maxConcurrency` and the memory cost of the suite was set by the
-  host's core count. Requests are batched now (see below) and each worker holds at
-  most one validator child. `maxConcurrency` still governs in-process
-  interleaving; it is no longer the knob to reach for on memory pressure:
-  `maxWorkers` is, and it sizes itself.
-- `testTimeout` is raised well above Vitest's 5s default: under concurrency a
-  fixture's wall-clock time mostly measures how long it queued for CPU, not how
-  long it worked.
-- A handful of fixtures assert on emitted warnings by swapping `console.warn` for
-  a collector and restoring it in a `finally`. That is only sound with exclusive
-  access to the process, so `test/schema-validation.test.js` routes them to a
-  **sequential** sibling suite. Under `describe.concurrent` a neighbour's restore
-  lands inside another fixture's capture window and its warnings vanish: a
-  failure that points at the deck under test while nothing about that deck is
-  wrong. Fixtures are detected by source inspection plus an explicit
-  `exclusive: true` opt-out, so a newly added warn-capturing fixture is
-  quarantined without anyone having to remember.
-
-A file-level `beforeAll` validates one minimal deck serially before the
-concurrent fixtures start. The oracle is a .NET single-file app that
-self-extracts on first run, and firing many processes at a cold extract
-directory can race; it also gets the one-time download out of the way before
-anything concurrent begins.
-
-### Validator batching
-
-The oracle accepts many packages per invocation. The binary is a ~110 MB
-self-contained .NET single-file app: a run costs ~0.3–0.4s of startup plus only
-milliseconds per additional deck, at a flat RSS regardless of file count. One deck
-per process therefore paid that startup and that memory roughly 500 times per suite.
-
-`ooxml-validate` batches for us: requests accumulate while an invocation is in
-flight and go out together when it returns. This is self-tuning (batches grow under
-load, one timer tick when idle) and bounds each worker to a single validator child.
-That property is the one to protect: if the suite's memory ever starts scaling with
-core count again, this is what broke. Measured on the full suite after the migration:
-~20s wall, ~5.0 GB peak across the whole process tree, and **7** concurrent oracle
-children, the same child count as before it.
-
-The report contract is explicit: **every input file comes back with its own `valid`
-flag**, clean ones included. Nothing infers cleanliness from absence, here or in the
-package. The batcher correlates results by path, never by position, because the
-oracle orders the report itself.
-
-If a batch invocation fails, the batch is retried one deck per process so the
-error lands on the request that caused it instead of failing 32 neighbours
-indistinguishably. Set `OOXML_VALIDATE_NO_BATCH=1` to bypass batching entirely
-and pin a failure to a single fixture by hand.
-
-### The schema tier proves it can still fail
-
-Every fixture in `test/schema-cases.js` asserts **zero** errors. So no fixture
-can tell "this deck is valid" apart from "the validator reported nothing".
-Suppose `validateBuf` started returning `[]` unconditionally. A keying bug in the
-batcher would do it, so would a spawn failure the report parse swallows, or an
-output-shape change on an `ooxml-validate` bump. The entire tier would go green while
-proving nothing, and no other step in `verify` would notice.
-
-Two cases at the end of that file close the hole from both sides, and they are the
-only ones there that expect a non-zero count:
-
-- one perturbs a freshly built deck with an undeclared attribute on `<p:sp>` and
-  requires exactly one `Sch_UndeclaredAttribute` at the expected part and XPath.
-  That perturbation is the same one `scripts/ooxml-version-probe.mjs` leans on, a
-  core error reported identically at every conformance target, so the case cannot
-  start passing merely because `FILE_FORMAT` moved;
-- one feeds bytes that are not an OPC package and requires a `PackageOpenError` row.
-  A harness that reports a file it could not read as a file with nothing wrong with
-  it is the worst failure available to it, and this is the case that says so out
-  loud. It used to carry more weight still: batching read "absent from the output"
-  as "clean", and that inference was safe only for as long as unreadable files kept
-  being reported. The report contract is explicit now, so there is no absence left
-  to interpret.
-
-Both were confirmed to fail with `validateBuf` stubbed to return `[]`. Both assert
-on `id` and `xpath`, never on `description`, so an upstream rewording of the
-prose cannot break them.
-
-### What a validation error carries
-
-The oracle emits five fields per diagnostic, and a failure message should use all of
-them (`formatSchemaErrors` in `test/schema-cases.js` does):
-
-| Field | Notes |
-| --- | --- |
-| `description` | The prose. Upstream's to reword, so never assert on it. |
-| `type` | `Schema` and `Semantic` are both observed here; `Package` is the package-level case, and `MarkupCompatibility` completes the set. |
-| `id` | A stable machine code: `Sch_UndeclaredAttribute`, `Sem_InvalidRelationshipId`, `PackageOpenError`. Assert on this. |
-| `partUri` | The part, for example `/ppt/slides/slide1.xml`. |
-| `xpath` | The offending element, for example `/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]`. |
-
-Semantic errors do come through, not just schema ones, so a dangling `r:id` is
-caught here rather than only by PowerPoint.
-
-`partUri` and `xpath` are both `null` on a package-level failure, where the file is
-not a readable package at all and there is no element to point at. Neither can be
-printed without a guard.
-
-### The conformance target is pinned
-
-Everything validates at **`Microsoft365`**, pinned by `ooxml-validate` as
-`FILE_FORMAT`, re-exported from `test/validator.js` and passed explicitly on every
-invocation.
-
-This is worth stating because two upstream defaults disagree: the Open XML SDK's
-`new OpenXmlValidator()` defaults to `Office2007`, while the wrapper this project
-used before defaulted to `Microsoft365`. Passing nothing left the conformance bar
-owned by whichever dependency happened to be pinned, where a bump could have moved
-it without a line changing here.
-
-`Microsoft365` is also the strongest available setting, not merely the newest. The
-per-version schemas differ in how much markup they **model**, not in what they
-accept: an older version skips markup it has never heard of rather than rejecting
-it. Two consequences:
-
-- Error count is monotonically non-decreasing in version, so validating below
-  `Microsoft365` can only lose coverage.
-- **Version-clean does not mean version-compatible.** A chartEx (Office 2016) deck
-  reports zero errors at `Office2007` because that schema set cannot see the
-  markup. Do not read a clean low-version run as "opens in Office 2007": the
-  validator cannot answer that question, and `mc:Choice Requires=` decisions must
-  still be made against `[MS-PPTX]` and real PowerPoint.
-
-### The validator does not descend into `mc:Choice`
-
-**Nothing inside an `<mc:Choice>` is validated at all: only the `<mc:Fallback>`
-branch is.** This is not a version-coverage effect, and raising `FILE_FORMAT` does
-not help. Measured at `Microsoft365` against a deck containing an `am3d:model3d`
-graphic frame, one mutation at a time:
-
-| Mutation | Errors |
-| --- | --- |
-| bogus attribute on a `<p:sp>` outside the `mc:AlternateContent` | 1 |
-| bogus attribute on `<p:blipFill>` **inside `mc:Fallback`** | 1 |
-| bogus attribute on `<p:xfrm>` inside `mc:Choice` (plain DrawingML!) | **0** |
-| bogus attribute on `<am3d:model3d>` | **0** |
-| unknown child element inside `<am3d:model3d>` | **0** |
-| `<am3d:camera>` moved out of document order | **0** |
-| non-numeric `<am3d:perspective fov="wide"/>` | **0** |
-| `<am3d:model3d>` with its **required** `r:embed` deleted | **0** |
-
-The SDK does model `am3d` (Office2019+); it simply never reaches it. Since the
-`mc:Choice` branch is skipped wholesale, this applies equally to the **zoom**
-(`p:graphicFrame` in the 2016 zoom namespaces) and **OLE** (`p:oleObj`) emitters:
-their real payloads are unvalidated too, and only their fallback pictures are checked.
-
-So for any construct that lives in an `mc:Choice`, a green `test:schema` run says
-nothing about it. Cover it the way `model3d` is covered:
-
-1. diff the emitted subtree byte-for-byte against a PowerPoint-authored fixture
-   (`test/read/model3d-roundtrip.test.js`), and
-2. run `pnpm run test:com`, which opens the deck in the real application.
-
-And for anything that *renders*, the COM read-back is not sufficient either: see
-the desktop-check section below.
-
-### Version coverage probe
-
-```bash
-pnpm run schema:versions              # built-in fixtures
-pnpm run schema:versions --file d.pptx  # any deck
-```
-
-Validates across all seven accepted versions and prints the coverage profile:
-
-```
-fixture                              O2007 O2010 O2013 O2016 O2019 O2021  M365
-base (plain text slide)                  0     0     0     0     0     0     0
-classic bar chart (2007 feature)         0     0     0     0     0     0     0
-chartEx pareto (2016 feature)            0     0     0     4     4     4     4
-core-construct corruption (control)      1     1     1     1     1     1     1
-```
-
-Two uses. One is re-verifying monotonicity after a validator bump: the script exits
-non-zero if any row *decreases*, which would break the premise the pin rests on. The
-other is dating a known divergence to the schema generation that introduced it. Row 3
-locates chartEx at Office2016, and those 4 errors are the tolerated `cx:axisId`
-divergence documented in `test/schema-cases.js`.
-
-The last row is a control: a deliberately corrupted `<p:sp>` attribute that every
-schema generation catches. Without it an all-zero table is indistinguishable from a
-validator that silently stopped running.
-
-Not part of `verify`: seven validator spawns per fixture, and it asserts nothing
-about emitted markup that `test:schema` does not already assert at `Microsoft365`.
-
-## Read/round-trip suite (`pptx-ts/read`)
-
-The lossless read/edit subsystem (`src/read/`) has its own harness:
+- Use `readEntry()` for one package part, such as `ppt/slides/slide1.xml`.
+- Use `assertContentTypeDefault()`, `assertContentTypeOverride()`, `assertXmlOrder()` and
+  `assertNonVisualDrawingProperty()` when they match the behaviour under test.
+- Keep a raw XML substring or regex assertion local and narrow when a helper would hide the
+  OOXML detail being tested.
+
+Add a regression test when a public API call must keep producing a specific package part,
+relationship, element or attribute, or must keep a part absent.
+
+### Read/round-trip suite (`pptx-ts/read`)
 
 ```bash
 pnpm run test:read
 ```
 
-It runs `test/read/roundtrip.test.js` against real, PowerPoint-authored decks
-in `test/read/fixtures/` (provenance in that directory's README): part-set
-stability, per-part byte-identity for untouched parts, lazy-parse guarantees,
-save idempotence, content-type/relationship resolution, the dirty
-(mutate-and-reserialize) path, and schema validity. The schema cases require
-the OOXML validator above. When it is missing they skip locally, with an unmissable
-notice on stderr, because a green run that quietly skipped a few hundred schema
-assertions must not read as a complete one. Under `CI` they **fail hard**, where
-installing the validator is part of the job.
-The gate is `validatorAvailable()` in `test/validator.js`.
+`test/read/roundtrip.test.js` runs its contracts against every `.pptx` in `test/read/fixtures/`,
+enumerated by `fixtureNames` in `test/read/corpus.js`, so a deck added there is round-tripped on
+the next run. The contracts are part-set stability, byte identity for untouched parts, lazy
+parsing, save idempotence, content-type and relationship resolution, the mutate-and-reserialize
+path, and schema validity. The fixtures are PowerPoint-authored, with provenance in that
+directory's README.
 
-Every contract there runs against **every** `.pptx` in the corpus, via
-`fixtureNames` from `test/read/corpus.js`, so a deck added to `test/read/fixtures/` is
-round-tripped on the next run with no list to edit.
+The schema contract asserts that a round trip adds no validator errors, not that the output is
+clean. `bar-chart-data-labels.pptx` carries three Microsoft365 errors as PowerPoint wrote it, all
+in chart extension markup the SDK does not model (see
+[What the validator cannot see](#what-the-validator-cannot-see)). Comparing verdicts keeps that
+deck in the corpus, and an empty verdict before a round trip still demands an empty verdict
+after it.
 
-The schema case asserts that a round-trip introduces **no new** validator errors,
-rather than that the output is clean. For every deck in the corpus but one, those are
-the same claim. One deck is why the weaker form exists.
-`bar-chart-data-labels.pptx` carries three Microsoft365 errors *as committed*, all in
-PowerPoint's own chart `c:extLst`: an undeclared `uri` on `c:ext`, a
-`chart:dataDisplayOptions16` where the SDK schema models only `dispNaAsBlank`, and a
-2012-namespace `chart:leaderLines` under `c:dLbls`. The SDK does not model
-those extension namespaces and PowerPoint wrote them anyway, so this is the same
-class of blind spot as "The validator does not descend into `mc:Choice`" below.
-Comparing verdicts keeps the assertion honest without excluding the fixture or
-implying the library caused it, and it stays strictly stronger than the old form
-everywhere else: an empty verdict before still demands an empty verdict after.
+When the OOXML oracle cannot be fetched, the schema cases skip locally with a notice on stderr
+and fail under `CI`. `validatorInstalled` in `test/validator.js` carries that policy.
 
-Beside the round trip, these files pin the read model and its edits. The ones marked
-*authored* build their decks with `test/read/authored.js`: they author a feature with the
-write API, load the bytes through `pptx-ts/read`, and assert the decoded model. The write
-path and the read path are separate code, so a bug in one cannot hide a bug in the other.
+The files below pin the read model and its edits. Files marked *authored* build their decks
+with `test/read/authored.js`. They author a feature with the write API, load the bytes through
+`pptx-ts/read`, and assert the decoded model. The write path and the read path are separate
+code, so a bug in one cannot hide a bug in the other.
 
 | File | What it pins |
 | --- | --- |
@@ -818,56 +351,46 @@ path and the read path are separate code, so a bug in one cannot hide a bug in t
 | `test/read/shape-effect-reads.test.js` (*authored*) | Shadow, glow, reflection, soft edge, pattern fill and line-end reads, plus authored inner shadow and pattern fill |
 | `test/read/slide-read-edges.test.js` (*authored*) | Picture format sniffing, `Slide.background`, `TextFrame.autofit`, `Slide.slideNumberPlaceholder` |
 
-Schema validity does not prove PowerPoint opens a deck without a repair prompt, and
-desktop PowerPoint checks reserialized XML more strictly than PowerPoint for the web.
-Two scripts write decks for a manual open. Neither asserts anything.
+Schema validity does not prove PowerPoint opens a deck without a repair prompt. Two scripts
+write decks for a manual open, and neither asserts anything.
 
 | Script | Writes | For checking that |
 | --- | --- | --- |
 | `pnpm run test:read:emit` | Each fixture after an unmodified load and save, to `.tmp/roundtrip/` | The round-trip output opens clean |
 | `pnpm run test:read:emit:edits` | One edited deck per editing capability (added text box, added picture, deleted shape, cloned slide, edited table cells, imported slides), to `.tmp/read-edits/` | Reserialized and added parts open clean and render as intended |
 
-The two manual PowerPoint checklists, with their current status, are in
-`test/read/fixtures/README.md`.
-
-Changes under `src/read/` should run this suite; new read/edit capabilities
-should extend it (and grow the fixture set) alongside the code.
+The manual PowerPoint checklists and their status are in `test/read/fixtures/README.md`. A
+change under `src/read/` runs this suite, and a new read or edit capability extends the suite
+and its fixtures.
 
 ### Working against real-world decks
 
-The committed fixtures are construct-targeted and minimal by design. To probe
-OOXML structures or reproduce read/round-trip behaviour against decks that are
-messier and larger, point the measurement harnesses at a directory of your own
-with `--dir` (`script:roundtrip` and `read:census` both take it, absolute paths
-included).
+The committed fixtures are construct-targeted and minimal by design. To probe OOXML structures
+or reproduce read and round-trip behaviour against larger, messier decks, point the measurement
+harnesses at a directory of your own with `--dir`. `script:roundtrip` and `read:census` both
+take it, absolute paths included.
 
-Keep that directory **outside the repo**. Real decks are routinely large,
-copyrighted, or client-confidential, and the working tree is the one place they
-should not sit: a gitignore rule is a single edit away from not protecting them.
-If you do want one in-repo, `.tmp/` is already ignored, but it is output
-scratch, so treat anything you leave there as disposable.
+Keep that directory outside the repository. Real decks are routinely large, copyrighted or
+client-confidential, and a gitignore rule is one edit away from not protecting them. `.tmp/` is
+ignored, but it is output scratch, so treat anything left there as disposable.
 
-The automated suites must only point at `test/read/fixtures/`, since no other
-checkout or CI run will have your decks. When one of them proves a good minimal,
-license-clean regression case, **promote** it: copy it into
-`test/read/fixtures/`, and add it to that directory's provenance table + SHA-256
-list and purpose notes. There is no harness to wire it into: `fixtureNames`
-enumerates the directory, so the round-trip contracts pick it up on the next
-run. The `mixed.pptx` fixture arrived this way, to cover connectors, nested
-groups, charts, and SmartArt that the vendored fixtures lacked.
+The automated suites point only at `test/read/fixtures/`, since no other checkout or CI run has
+your decks. When a deck makes a good minimal, license-clean regression case, promote it. Copy it
+into `test/read/fixtures/` and add it to that directory's provenance table, SHA-256 list and
+purpose notes. `fixtureNames` enumerates the directory, so the round-trip contracts pick it up
+on the next run.
 
-Fixtures authored here with desktop PowerPoint COM keep their recipe in
-`test/read/fixtures/authoring/` (see that directory's README). Land the recipe there
-rather than leaving it in `.tmp/`, which is gitignored: otherwise the fixture becomes
-unreproducible on the next clean checkout. The same directory holds the scripts that
-derive the committed `*.oracle.json` / `*.cases.json` sidecars; each regenerates its
-sidecar byte-for-byte after an oxfmt pass, which is how you check that a recipe still
-matches what it claims to produce.
+A fixture authored here with desktop PowerPoint COM keeps its recipe in
+`test/read/fixtures/authoring/` (see that directory's README). Land the recipe there, not in the
+gitignored `.tmp/`, or the fixture cannot be reproduced from a clean checkout. The same
+directory holds the scripts that derive the committed `*.oracle.json` and `*.cases.json`
+sidecars. Each regenerates its sidecar byte for byte after an oxfmt pass, which is how you check
+that a recipe still produces what it claims.
 
 ## Converter and read-coverage harnesses
 
-Four runnable measurement tools back the `pptx-ts/script` subsystem. Run them
-directly to iterate or to point them at your own decks.
+Four runnable measurement tools back the `pptx-ts/script` subsystem. Run them directly to
+iterate, or to point them at your own decks.
 
 ```bash
 pnpm run script:roundtrip                          # deck → script → run it → deck → diff the two IRs
@@ -879,232 +402,507 @@ pnpm run read:census                               # QNames present in a deck th
 pnpm run read:append-ceiling                       # what survives fromTemplate + appendSlides
 ```
 
-All four take `--json`, so a test can assert on them rather than re-derive the
-numbers. All but `append-ceiling` take `--dir`, so a corpus of your own decks can be measured
-in place. Beyond that they diverge. `script:roundtrip` and `read:census` add
-`--fixture`. `read:census` adds `--all`, to include layouts, masters, theme and notes.
-`script:census` adds `--names <count>`, to name the decks behind the long tail. And
-`append-ceiling` takes `--template <path>` instead.
+All four take `--json`, so a test can assert on them rather than re-derive the numbers. All but
+`append-ceiling` take `--dir`, so a corpus of your own decks can be measured in place.
+`script:roundtrip` and `read:census` add `--fixture`. `read:census` adds `--all`, to include
+layouts, masters, theme and notes. `script:census` adds `--names <count>`, to name the decks
+behind the long tail. `append-ceiling` takes `--template <path>` instead.
 
-The corpus is whatever `corpusDecks` in `scripts/script-utils.mjs` returns: every `.pptx`
-in `test/read/fixtures/`, sorted. It skips other extensions, so the directory's 56 `.pptx`
-fixtures are measured and `template.potx` is not. `test/read/corpus.js` enumerates through
-the same function and fails collection below 40 decks.
+The corpus is whatever `corpusDecks` in `scripts/script-utils.mjs` returns: every `.pptx` in
+`test/read/fixtures/`, sorted. `template.potx` is skipped. `test/read/corpus.js` enumerates
+through the same function and fails collection below 40 decks.
 
 ### The round trip
 
 `script:roundtrip` runs source → IR₁ → script → run it → output → IR₂ for every deck, then
 `diffDeckIr(canonicalDeckIr(IR₁), canonicalDeckIr(IR₂), printed.notes)`. It fails on any
 undeclared difference and on any deck whose script does not run. It is the only copy of the
-whole-corpus round trip, so **`pnpm run verify` does not run it.** `verify:full` and CI run
-both printers through `script:roundtrip:all`. Run that before pushing a change to
-`src/script/`.
+whole-corpus round trip, and `verify` does not run it. `verify:full` and CI run both printers
+through `script:roundtrip:all`. Run that before pushing a change to `src/script/`.
 
-- Each script is written into a fresh directory under `.tmp/`, not the OS temp directory.
-  The script imports the package by its published name, and Node resolves that
-  self-reference only beneath the package root.
+- Each script is written into a fresh directory under `.tmp/`, not the OS temp directory. The
+  script imports the package by its published name, and Node resolves that self-reference only
+  beneath the package root.
 - `--tier b`, the default, writes the source deck beside the script as `template.pptx`.
-  `--tier a` writes no template, so a standalone script that still needs one fails here
-  instead of passing on the file it is meant to replace.
-- The comparison is a projection of the IR, not the package bytes. Shape ids and
-  relationship ids are regenerated, so a byte comparison would fail every deck.
-  `canonicalDeckIr` drops only values whose explicit spelling is the OOXML default
-  (`IMPLIED_DEFAULTS` in `src/script/verify/canonical.ts`, each entry citing its default),
-  and replaces asset names with content digests. Line width stays in, because `a:ln/@w`
-  defaults to a hairline and the write path to 1 pt.
-- A note excuses a difference only inside its scope. A shape-scoped note matches the
-  `fields` of its `NOTE_CONSTRUCTS` entry as a suffix of the difference's path within that
-  shape's call. A slide- or deck-scoped note matches them from the root of the diff.
-- An `added` difference passes only when a note covers it or its path is in
-  `WRITER_DEFAULTS` in `src/script/verify/diff.ts`. That table lists the defaults the write
-  path states where the source inherited a value the reader cannot resolve. `--verbose`
-  prints them by field.
-- `RoundTripReport.unmatchedNotes` is not a defect signal. Most notes name constructs that
-  are absent from both IRs.
+  `--tier a` writes no template, so a standalone script that still needs one fails here instead
+  of passing on the file it is meant to replace.
+- The comparison is a projection of the IR, not the package bytes. Shape ids and relationship
+  ids are regenerated, so a byte comparison would fail every deck. `canonicalDeckIr` drops only
+  values whose explicit spelling is the OOXML default (`IMPLIED_DEFAULTS` in
+  `src/script/verify/canonical.ts`, each entry citing its default), and replaces asset names
+  with content digests. Line width stays in, because `a:ln/@w` defaults to a hairline and the
+  write path to 1 pt.
+- A note excuses a difference only inside its scope. A shape-scoped note matches the `fields`
+  of its `NOTE_CONSTRUCTS` entry as a suffix of the difference's path within that shape's call.
+  A slide- or deck-scoped note matches them from the root of the diff.
+- An `added` difference passes only when a note covers it or its path is in `WRITER_DEFAULTS`
+  in `src/script/verify/diff.ts`. That table lists the defaults the write path states where the
+  source inherited a value the reader cannot resolve. `--verbose` prints them by field.
+- `RoundTripReport.unmatchedNotes` is not a defect signal. Most notes name constructs that are
+  absent from both IRs.
 
 A clean run detects asymmetry, not loss in general. The guide's
 [What a clean run does not prove](../reference/pptx-to-script.md#what-a-clean-run-does-not-prove)
-states the limits. `test/read/script-roundtrip.test.js` and
-`test/read/script-standalone.test.js` hold what the round trip rests on and cannot establish
-itself: the diff fails when an IR is perturbed, a note excuses only its own field, the
-canonicaliser is an equivalence, and the standalone chrome matches `pptx-ts/read`'s own
-accessors rather than the converter's output.
+states the limits. `test/read/script-roundtrip.test.js` and `test/read/script-standalone.test.js`
+hold what the round trip rests on and cannot establish itself: the diff fails when an IR is
+perturbed, a note excuses only its own field, the canonicaliser is an equivalence, and the
+standalone chrome matches `pptx-ts/read`'s own accessors rather than the converter's output.
 
-`read:census` measures the other half. It under-reports by construction (it counts element
-names appearing in comments and error strings as read), so a listed element is a real gap
-while an absent one is not proof of coverage.
+`read:census` measures the other half. It under-reports by construction, because it counts
+element names that appear in comments and error strings as read. A listed element is a real
+gap, and an absent one is not proof of coverage.
 
 ### The note census
 
-`script:census` prints both printers' notes for every deck without running the scripts,
-and counts the fixtures that raise each construct at least once. It gates nothing. The round
-trip cannot tell a note that excuses a difference from one that never fires, so these counts
-drift as reader gaps close and fixtures land. They are published in the guide's
-[Known losses](../reference/pptx-to-script.md#known-losses) tables, together with the corpus
-size and the per-deck note totals. Rerun the census after closing a reader gap, retiring a
-note or landing a fixture, and update those tables in the same commit. On the fixture corpus
-the counts measure coverage. `--dir` over a folder of real decks measures frequency.
+`script:census` prints both printers' notes for every deck without running the scripts, and
+counts the fixtures that raise each construct at least once. It gates nothing. The round trip
+cannot tell a note that excuses a difference from one that never fires, so these counts drift
+as reader gaps close and fixtures land. They are published in the guide's
+[Known losses](../reference/pptx-to-script.md#known-losses) tables, with the corpus size and the
+per-deck note totals. Rerun the census after closing a reader gap, retiring a note or landing a
+fixture, and update those tables in the same commit. On the fixture corpus the counts measure
+coverage. `--dir` over a folder of real decks measures frequency.
 
-## Full test command
+## Coverage gate
 
-```bash
-pnpm test
+```mermaid
+flowchart LR
+  nodeRun["pnpm run test:coverage<br/>Node suite, vitest.config.ts thresholds"] --> nodeOut["coverage/coverage-final.json"]
+  browserRun["pnpm run test:browser<br/>Playwright in Chromium"] --> browserOut[".tmp/browser-coverage/<br/>and the dist/ it ran"]
+  nodeOut --> merge["coverage:merge<br/>scripts/coverage-merge.mjs"]
+  browserOut --> merge
+  merge --> merged["coverage/merged/coverage-summary.json"]
+  merged --> gate["scripts/coverage-gate.mjs<br/>against scripts/coverage-gates.json"]
 ```
 
-This is `vitest run` with no target list, so it runs **every** suite Vitest
-discovers under `test/`: regression, read, schema, and tooling. There is no
-maintained list of suite paths to keep in sync; adding a `test/**/*.test.js`
-file is enough to get it run.
-
-## Package boundary checks
-
 ```bash
-pnpm run check:package   # package:lint + test:package
+pnpm run test:coverage   # the Node suite, with its own floor
+pnpm run test:browser    # the browser tests, which write raw V8 coverage
+pnpm run coverage:gate   # merge both, then check scripts/coverage-gates.json
 ```
 
-`package:lint` runs package export and type validation. `test:package` does the rest,
-and it does a lot. It packs the package with pnpm, then installs that tarball with both
-npm and pnpm. It verifies the ESM entries and declarations are present and that the old
-generated artifacts are absent. It runs an ESM import smoke test, checks the package
-carries no CJS export condition, checks that `require()` still loads every subpath
-through Node's ESM interop, and typechecks a minimal TypeScript consumer.
+The suites import `dist/`, so v8 instruments the bundled `dist/**` output and remaps it to
+`src/` through the sourcemaps tsdown emits. Instrumenting `src/**` would report almost nothing,
+because almost nothing under `src/` executes directly.
 
-`cjs-contract.cjs` carries both directions of the CommonJS story and reuses
-`EXPORT_MATRIX` to do it, so a new subpath is covered by adding the one row the
-matrix already needs. The negative half asserts no `require` export condition
-and no legacy `main`/`module` field. The positive half `require()`s every
-subpath and checks its default and named exports, because `require("pptx-ts")`
-is documented as working and only this fixture would notice it stopping. The
-way it stops is worth knowing: a top-level await anywhere in an entry's chunk
-graph makes `require()` of that entry throw, and nothing under `test/` would
-fail, since those suites import.
+The four thresholds in `vitest.config.ts` are the Node suite's floor. They sit below the
+measured numbers, so an accidental regression fails without the gate flaking. Raise them as
+coverage improves, and never lower one to make a build pass. In CI the floor fails the Node
+24.x leg of `test`, and the merged gate runs in the `coverage` job.
 
-The TypeScript consumer fixture is generated inline by `scripts/package-smoke.mjs`
-(`type-smoke.ts`). It is the only consumer of the public API that is not in
-`test/`, so it does not move when the API does: a rename or a removed overload
-in `src/` will not fail any unit test but *will* fail `test:package`. When you
-change a public export, grep that fixture.
+### Merged coverage
 
-There is deliberately no separate `pnpm pack --dry-run` check. `package:lint`
-already packs the tarball for real and then runs publint and
-`@arethetypeswrong/cli` over it, so a dry-run that only asserted "pack exits 0"
-added a build and a pack invocation for no signal. Do not re-add one.
+The Node suite cannot execute `src/runtime/browser.ts`, which needs `fetch`, `FileReader` and a
+canvas. That file still counts in the Node report's denominator, because nothing of this
+repository's own is excluded from coverage. The browser tests give it a collector, and
+`scripts/coverage-merge.mjs` folds their hits in on one rule:
 
-Packing goes through `packPackage()` in `scripts/script-utils.mjs`, which passes
-`--config.ignore-scripts=true` to skip the `prepack` rebuild: the callers have
-already ensured `dist/` is current. Note the spelling: pnpm 11 rejects a plain
-`--ignore-scripts` on `pack` and honours only the `--config.` form. pnpm 12.3.4
-accepts both, so the `--config.` form stays as the one that works on either.
+> **The Node report defines the shape. The browser tests contribute hits.**
 
-### Running scripts that spawn subprocesses
+- Both sides remap V8 coverage with the `ast-v8-to-istanbul` version Vitest uses, pinned as a
+  devDependency for that reason.
+- The merge projects browser hits onto the Node report's statement, function and branch maps
+  by source location. The merged denominator is identical to the Node report's, so only the
+  numerator moves.
+- Browser locations that match no Node location are dropped and counted on every run. Past 5%
+  the merge fails, because the two sides are then measuring different builds.
 
-Every script subprocess goes through `run()` in `scripts/script-utils.mjs`. It
-deliberately avoids a shell where it can, because Windows cannot exec the `.cmd` and
-`.ps1` shims that package managers and `node_modules/.bin` entries ship as. A bare
-name fails with `ENOENT`. Appending `.cmd` fails with `EINVAL`, since Node
->=18.20/20.12 refuses to exec batch files without a shell, per the CVE-2024-27980
-hardening.
+### Coverage must clear its threshold by one point
 
-So `run()` resolves a bin one of three ways:
+The slack of an axis is its merged percentage minus its threshold in
+`scripts/coverage-gates.json`. `minimumSlack` there is 1, so every axis must clear its threshold
+by at least one point, the point of slack. `scripts/coverage-gate.mjs` fails two ways:
 
-- **A local devDependency bin**: resolved to its JS entry via the declaring
-  package's `bin` field and run on `process.execPath`. Bin name to package name
-  is not derivable (`attw` lives in `@arethetypeswrong/cli`), so the mapping is
-  the explicit `localBinPackages` table. **Add new local bins there**, otherwise
-  they fall through to the shell path and emit Node 24's `DEP0190` warning.
-- **An external package manager** (`pnpm`, `npm`): `.cmd` plus `shell: true`,
-  passed as a single pre-quoted command line, since `DEP0190` deprecates an args
-  array alongside `shell: true`.
-- **An absolute path** (e.g. `process.execPath`): spawned directly.
+| Failure | Meaning | Fix |
+|---|---|---|
+| below the notch | coverage regressed past the gate | cover it, or explain what changed |
+| inside the point of slack | still above the notch, but by less than 1.00 | coverage has to come back up |
 
-### Which of these CI runs on Windows
+A malformed input fails the gate before any number is compared. Each axis needs a finite
+threshold and a numeric `pct`, and `minimumSlack` must be finite.
 
-`ci.yml`'s `package` job has an OS matrix and runs `check:package` on both
-`ubuntu-latest` and `windows-latest`, so the `run()` behaviour above (the part
-of the repo that is Windows-specific by design) is exercised on the platform it
-exists for. The `static`, `test` and `browser` jobs remain Linux-only: they are
-platform-independent, and the validator installer is a bash script.
+The rule holds against the merged report, not against `vitest.config.ts`. The Node report
+counts code no Node run can reach. Demanding slack there would leave two ways to comply,
+lowering the notch or hiding the file again, and the rule exists to prevent both.
 
-A second job runs on `windows-latest`, `font-oracles`, but it is there for the
-runner's fonts rather than for its platform (see [Font oracles](#font-oracles)).
-It does exercise the Windows font-resolution path in `test/read/font-oracle.js`,
-which nothing else does, but it runs three test files and proves nothing about
-the rest of the suite on Windows.
-
-That narrows, but does not remove, the gap: a Windows-only break outside the
-package scripts is still invisible to CI.
-
-That leg does execute, and is green on every CI run to date: including the
-`workflow_call` gate inside `publish.yml`, so the Windows path is exercised on
-every release rather than merely configured.
-
-## Size gates
+### Probing coverage while editing
 
 ```bash
-pnpm run bundle-size:check   # what each published entry ships, an upper bound
-pnpm run bundle-tier:check   # what a real program downloads, after tree-shaking
+pnpm run coverage:probe test/read/chart.test.js   # named files only, thresholds zeroed
 ```
 
-Both run in `verify:full` and `check:package`. The figures a consumer reads are on
-[Smaller bundles](../bundle-size.md).
+`coverage:probe` instruments the same `dist/` bundle over the files you name and writes to
+`coverage/probe/`, so it never overwrites the full run's report. `coverage-final.json` holds the
+per-line data and `coverage-summary.json` the per-file rollup, in the same shapes the full run
+writes.
 
-### What the package ships
+Read a probe in one direction only. A line it reports as covered is covered. A line it reports
+as uncovered is only unreached by the files you named, so confirm against `test:coverage` before
+deleting or rewriting a test.
 
-`scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point `package.json`
-publishes and the chunks each one pulls in, minified and then gzipped. Per entry rather than
-for the package as a whole, because the question a consumer asks is what importing one
-subpath costs; a shared chunk counts once for every entry that reaches it.
+Re-measure before reasoning from a number. A figure recorded earlier, or a report left in
+`coverage/` by another run, can be stale.
 
-Minified, because `dist/` ships unminified and is close to half doc comments by weight, none
-of which survives a consumer's build. A gate on the raw bytes tracked how much the code was
-documented, and reported a commit that removed code and explained the change as a regression.
+### Deciding whether a red branch needs a test
 
-It is an upper bound rather than a download size, because a consumer's bundler also
-tree-shakes across the closure and this deliberately does not. What it catches is the step
-change: a dependency reaching the browser entry, or a chunk split going wrong.
+Coverage shows that behaviour is pinned. A test that feeds an input no caller can produce pins
+nothing, moves the number, and leaves a fixture to maintain. Prefer honest coverage with a
+written reason over a green metric. Before writing a case for a red branch, answer these in
+order:
 
-`pnpm run bundle-size:list` prints the per-chunk breakdown. The budget lives in
-`scripts/bundle-size-budget.json` and moves only through `pnpm run bundle-size:freeze`.
+1. **Does an existing test already run it?** A test that imports from `src/` executes the code
+   but cannot move a `dist/` number. Check the import path of the tests that name the file.
+2. **Which entry path reaches it?** On the read side, ask whether a package PowerPoint could
+   write contains the input. On the write side, list every public entry that reaches the
+   emitter, such as `addTable`, `addChart`, `tableLayout()` and the `pptx-ts/measure` subpath.
+   An arm dead from one entry can be live from another, because some entries normalize input
+   and others do not.
+3. **Is that path in scope?** Cover the branch from an in-scope entry that reaches it. Leave it
+   when only an out-of-scope path does.
+4. **Can the branch go?** An identity assignment, or a function only another module's path can
+   call, is a false signal. Delete it rather than test or fence it, and gate that `src/` edit on
+   `byte-identity:baseline` and `byte-identity:check`.
 
-### What a program downloads
+The answers put a branch in one of three classes:
 
-`scripts/bundle-tier-size.mjs` bundles five consumer programs against `dist/browser.js` with
-esbuild (minified, gzipped, code-split) and freezes the two figures each one produces in
-`scripts/bundle-tier-budget.json`. `initial` is the entry chunk plus every chunk reachable from
-it by an `import` statement. `total` is every chunk the program can reach, which matters
-because font metrics load `opentype.js` through a dynamic import that runs only when a font is
-first registered. Charging a program for a chunk it may never fetch is as wrong as hiding one
-it might, so there is no single figure.
+| Class | How to recognize it | What to do |
+| --- | --- | --- |
+| Schema-impossible | The child, attribute or root is `minOccurs="1"` (check with `ooxml_children` or `ooxml_attributes`), or the relationship is required for the package to resolve | Leave it red. Do not fence it with `v8 ignore`, which is for code the bundle cannot reach |
+| Unreachable by construction | The caller already established the condition, or no public entry supplies the input | Leave it red, and list it with its reason in the header of the test file that covers the module |
+| Schema-legal but unrepresented | A deck PowerPoint could write, or an in-scope entry, supplies the input and no test does | Cover it. Promote a real deck, or splice the variant into an authored deck as `test/read/slide-background-edges.test.js` does |
 
-The programs come in two shapes, on purpose. The three `new TsPptx()` programs are cumulative:
-`text` writes one slide with one text box, `text-shape-image` adds a shape and a base64 image,
-and `full` adds a chart, a table and an embedded video. The two `composed` programs are one
-program with and without one family, so their difference is what that family costs. They are
-real programs rather than the smallest call the types accept, because a synthetic minimum
-measures the type checker.
+Three checks prevent a wrong classification:
 
-Each program runs against `dist/` before it is weighed. esbuild resolves modules and does not
-care whether `slide.addChart` exists, so a renamed method would leave every program
-bundleable, drop the family it reached out of the graph, and make the number go down, which
-looks like a win. Running the program first turns that into a failure.
+- **Probe before classifying.** A branch counter records that an operand was evaluated, not that
+  it was true. The second operand of `!x || isNaN(x)` is reached by any truthy `x`.
+- **Read a statement gap as a missing caller.** Low statements on a file means a whole input
+  shape or outcome never ran. On a small emitter, find the caller that should reach it before
+  writing a test.
+- **Cover a documented debug option.** A `verbose` trace that throws on a documented option is
+  a bug. Say in the test header that the case pins the trace, not the engine underneath.
 
-`pnpm run bundle-tier:list` prints the per-chunk breakdown, and `pnpm run bundle-tier:freeze`
-re-baselines. The regression only this gate can see, a static import that puts a family back
-on the core path, is described under
-[The rule that keeps the tiers real](architecture.md#the-rule-that-keeps-the-tiers-real).
+`test/read/chrome-read-edges.test.js` and `test/read/import-slide-preserve.test.js` are the
+worked examples. Their headers list every remaining arm with the content model that rules it
+out.
 
-### Why both gates exist
+## Raw-XML ratchet
 
-They answer different questions, and their numbers will not agree.
+```bash
+pnpm run raw-xml:check   # in verify and check:static
+pnpm run raw-xml:list    # every occurrence, with line numbers
+pnpm run raw-xml:freeze  # rewrite the budget from source
+```
 
-The entry-point gate never bundles, so it cannot see reachability. Making a family unreachable
-for a program that never calls into it deletes no byte from `dist/`, and that gate does not
-move. The tier gate bundles, so a bundler shakes it, and it is the only gate that moves when
-code stops being reachable rather than stops being shipped.
+`src/gen/oxml/el.ts` builds OOXML without hand concatenation, which prevents escaping,
+attribute-order and child-sequence bugs. The chart emitters still build strings, so a flat ban
+is not possible. `scripts/raw-xml-budget.json` freezes a per-file count of XML tag delimiters
+(`<ns:name`, `</ns:name`) in string and template literals under `src/`. A count may not rise,
+and a file absent from the budget must be at zero.
 
-The reverse holds too. A chunk that grows, or a dependency that arrives on the browser entry,
-shows up in the entry-point gate whether or not a measured program reaches it. A change that
-improves one and leaves the other flat is usually working as intended.
+The check also fails when a count falls. Re-freeze in the same commit, so the budget never
+holds slack a later regression could hide behind. Re-freeze only once you know which change
+moved the count.
+
+The scan walks the TypeScript AST, so a doc comment is never a finding. It exempts:
+
+- `src/gen/oxml/` itself, whose job is emitting those delimiters;
+- a declaration marked `@raw-xml-asset`, for XML captured verbatim from Office;
+- a literal handed straight to `warn`, `notes.note` or `new *Error`, because a diagnostic that
+  names an element is prose.
+
+The ratchet says nothing about whether the XML is correct. That is the job of
+[schema validation](#ooxml-schema-validation).
+
+## OOXML literal gate
+
+```bash
+pnpm run ooxml-literals:check                # in verify and check:static
+node scripts/ooxml-literal-gate.mjs --list   # every literal outside src/ooxml/, with line numbers
+```
+
+A schema URI (`http://schemas.`) or vendor content type (`application/vnd.`) in `src/` belongs
+in `src/ooxml/`, so a writer's copy and a reader's copy of a format fact cannot drift apart. The
+gate fails on such a literal outside `src/ooxml/` unless `scripts/ooxml-literal-allowlist.json`
+names it in that file with a reason. A fact that exactly one module reads or writes can stay
+beside that module, with an entry. An entry whose literal is gone from its file fails too. The
+gate reuses the raw-XML ratchet's AST scan and exemptions.
+
+## Path-citation gate
+
+```bash
+pnpm run path-refs:check  # in verify and check:static
+pnpm run path-refs:list   # every citation found, resolved or not
+```
+
+This repository cites files in backticks rather than as links, in docs and in source comments,
+and a citation is usually the evidence for the claim beside it. `docs-check.mjs` validates
+markdown links only, so this gate resolves the backticked paths.
+
+- A citation is a backticked token that contains a `/` and ends in a source extension. The `/`
+  keeps bare `package.json` out.
+- It resolves against the repository root, against the citing file's directory, or as a suffix
+  of some file's path, because comments write `gen/oxml/el.ts` without `src/`. A `.js` token
+  also resolves against its `.ts` source.
+- Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) and `CHANGELOG.md` are skipped.
+  `docs/contributing/releasing.md` names `dist/pptxgen.*` files the package does not ship, and
+  those must never resolve. A changelog records the tree as it stood.
+- Anything else meant not to resolve goes in `ALLOWLIST` in `scripts/path-refs.mjs` with its
+  reason. An entry that stops matching fails the gate.
+
+## OOXML schema validation
+
+**An OOXML change needs a schema fixture.** Add or update a focused fixture in
+`test/schema-cases.js` and run the schema suite. `verify` already runs it, so run it alone to
+iterate on a fixture:
+
+```bash
+pnpm run test:schema
+```
+
+`test/schema-cases.js` is a fixture data module. `test/schema-validation.test.js` is the runner
+that consumes it.
+
+Validation goes through [`ooxml-validate`](https://github.com/shbernal/ooxml-validate), a shared
+oracle around Microsoft's `OpenXmlValidator` that `ts-xlsx` also uses. Nothing needs installing.
+The package fetches its binary from GitHub Releases on first use, verifies the checksum and
+build provenance, and caches it under `~/.cache/ooxml-validate/<version>/`. The Open XML SDK
+version is pinned in that package, so an SDK bump arrives as an `ooxml-validate` release.
+`test/validator.js` is a thin adapter over it. Batching and the process queue live in the
+package.
+
+How the schema suite runs:
+
+- Most fixtures run under `describe.concurrent`. `testTimeout` is well above Vitest's default,
+  because a concurrent fixture's wall time mostly measures queueing.
+- A fixture that swaps `console.warn` for a collector needs the process to itself, so the
+  runner moves it to a sequential suite. It detects one by source inspection, or by an
+  explicit `exclusive: true`, so a new warn-capturing fixture is quarantined automatically.
+- A file-level `beforeAll` validates one minimal deck before the concurrent fixtures start. It
+  fetches the binary once and keeps parallel processes off a cold self-extract directory. It
+  throws when the oracle cannot be obtained, because the suite would then prove nothing.
+
+### What the validator cannot see
+
+| Construct | What the validator does | How it is covered |
+| --- | --- | --- |
+| Modelled markup | Reports schema and semantic errors (`Sch_*`, `Sem_*`), so a dangling `r:id` is caught here | `test:schema`, and the schema cases in `test:read` |
+| A file that is not a readable package | Reports a `PackageOpenError` row | the non-package case in `test/schema-cases.js` |
+| Content inside `mc:Choice` | Validates only the `mc:Fallback` branch. The payloads of 3D models (`am3d:model3d`), zoom frames and OLE objects (`p:oleObj`) go unvalidated, including a deleted required attribute | a byte diff against a PowerPoint-authored fixture (`test/read/model3d-roundtrip.test.js`), and `test:com` |
+| Version gating | An older schema set skips markup it does not model instead of rejecting it, so a clean run at a lower version does not mean that Office version opens the deck | the `Microsoft365` pin; decide `mc:Choice Requires=` against `[MS-PPTX]` and PowerPoint; `schema:versions` dates a divergence |
+| Markup PowerPoint writes that the SDK does not model | Reports it as errors, as in the chart `c:extLst` of `bar-chart-data-labels.pptx` and the chartEx `cx:axisId` divergence | the read round trip compares verdicts before and after; `test/schema-cases.js` documents the tolerated `cx:axisId` errors |
+| Errors PowerPoint raises on open | Cannot see a package PowerPoint reports as corrupt (`0x80070570`) or opens with a shape dropped | `test:com`, and a manual open of `test:read:emit` output |
+| Whether markup is painted | Cannot see it | PNG export and `test:lo`; see [Which oracle proves what](#which-oracle-proves-what) |
+
+### The schema tier proves it can still fail
+
+Every fixture in `test/schema-cases.js` asserts zero errors, so no fixture alone can tell a
+valid deck from a validator that reports nothing. Two cases at the end of that file expect
+errors, and they are the only ones that do:
+
+- One adds an undeclared attribute to a `<p:sp>` in a freshly built deck and requires exactly
+  one `Sch_UndeclaredAttribute` at the expected part and XPath. Every conformance target reports
+  that error, so a change of `FILE_FORMAT` cannot make the case pass.
+- One feeds bytes that are not an OPC package and requires a `PackageOpenError` row.
+
+Both fail when `validateBuf` is stubbed to return `[]`. Both assert on `id` and `xpath`, never on
+`description`, so an upstream rewording cannot break them.
+
+### What a validation error carries
+
+The oracle emits five fields per diagnostic, and a failure message should use all of them
+(`formatSchemaErrors` in `test/schema-cases.js` does):
+
+| Field | Notes |
+| --- | --- |
+| `description` | The prose. Upstream's to reword, so never assert on it. |
+| `type` | `Schema` and `Semantic` are both observed here; `Package` is the package-level case, and `MarkupCompatibility` completes the set. |
+| `id` | A stable machine code: `Sch_UndeclaredAttribute`, `Sem_InvalidRelationshipId`, `PackageOpenError`. Assert on this. |
+| `partUri` | The part, for example `/ppt/slides/slide1.xml`. |
+| `xpath` | The offending element, for example `/p:sld[1]/p:cSld[1]/p:spTree[1]/p:sp[1]`. |
+
+`partUri` and `xpath` are both `null` on a package-level failure, where there is no part to
+point at. Guard both before printing them.
+
+### The conformance target is pinned
+
+Everything validates at `Microsoft365`. `ooxml-validate` pins it as `FILE_FORMAT`,
+`test/validator.js` re-exports it, and every call passes it explicitly, so a dependency bump
+cannot move the bar without a line changing here. The Open XML SDK's own default is
+`Office2007`.
+
+`Microsoft365` is the strongest setting, not only the newest. The per-version schemas differ in
+how much markup they model, not in what they accept, so the error count never falls as the
+version rises. Validating below `Microsoft365` can only lose coverage.
+
+### Version coverage probe
+
+```bash
+pnpm run schema:versions              # built-in fixtures
+pnpm run schema:versions --file d.pptx  # any deck
+```
+
+It validates across all seven accepted versions and prints the coverage profile:
+
+```
+fixture                              O2007 O2010 O2013 O2016 O2019 O2021  M365
+base (plain text slide)                  0     0     0     0     0     0     0
+classic bar chart (2007 feature)         0     0     0     0     0     0     0
+chartEx pareto (2016 feature)            0     0     0     4     4     4     4
+core-construct corruption (control)      1     1     1     1     1     1     1
+```
+
+- After a validator bump, it re-checks that no row decreases, and exits non-zero if one does.
+  The `Microsoft365` pin rests on that property.
+- It dates a known divergence to the schema generation that introduced it. The chartEx row
+  starts at Office2016, and its 4 errors are the tolerated `cx:axisId` divergence.
+- The last row is a control that every generation catches. Without it an all-zero table cannot
+  be told apart from a validator that stopped running.
+
+It is not in `verify`, because it spawns seven validations per fixture and asserts nothing
+`test:schema` does not already assert at `Microsoft365`.
+
+## Which oracle proves what
+
+| Oracle | Run by | Proves | Blind to | In CI |
+| --- | --- | --- | --- | --- |
+| Schema validator | `test:schema`, and schema cases across `test` | Modelled markup conforms at `Microsoft365` and relationships resolve | `mc:Choice` content, unmodelled extensions, whether PowerPoint opens or paints the deck | yes, `test` |
+| Byte identity | `byte-identity:check`; `cross-runtime-bytes.spec.mjs` in `test:browser` | A refactor changed no emitted byte; the browser builds the same bytes as Node | Parts no showcase deck emits, such as zoom frames and OLE objects; whether the bytes are right | only the browser comparison, in `browser` |
+| COM read-back | `test:com` | PowerPoint opens the deck without a repair prompt, and resolves actions, connector sites and OLE `ProgID`s | What is painted; markup PowerPoint regenerates on open | no |
+| PNG export from PowerPoint | the `model3d` and preset-geometry legs of `test:com`, or `Slide.Export` by hand | What PowerPoint paints | Markup PowerPoint regenerates on open, such as the SmartArt drawing cache | no |
+| LibreOffice render | `test:lo` | Stored content is painted by an independent renderer, and which strings it draws | Layout fidelity; differences only a raster shows, such as `a:buClr` | yes, `render-oracle` |
+| Font oracles | `test:oracles`, and `test` | The fit model stays conservative against PowerPoint's baked values; the metrics sidecar matches the real fonts | Faces outside the six measured ones | yes, `test` and `font-oracles` |
+| Manual check | opening a deck in PowerPoint or another application | Repair prompts and visible behaviour a person can judge | Anything nobody looked at; nothing is recorded | no |
+
+### PowerPoint desktop check (`test:com`)
+
+```bash
+pnpm run test:com                    # the generated decks
+pnpm run test:com --keep             # and keep the generated .pptx files
+pnpm run test:com --file deck.pptx   # the corruption-open check on an existing deck
+```
+
+`test:com` drives desktop PowerPoint over COM through `cscript`. It catches what schema
+validation cannot: a package PowerPoint reports as corrupt (`0x80070570`), and schema-valid
+markup PowerPoint drops or ignores. It builds five decks from `dist/` and reads their state
+back:
+
+| Deck | Asserts |
+| --- | --- |
+| navigation | each action button's `hlinkClick` resolves to the expected `PpActionType` |
+| custom geometry | a connector binds to the intended `a:cxnLst` connection site |
+| OLE | each embedded object survives the open, read back as `OLEFormat.ProgID` |
+| 3D model | the model resolves, and the exported slide shows it drawn, neither blank nor the magenta fallback |
+| preset geometry | an out-of-range adjustment guide paints the same as the in-range bound, and a third in-range value paints differently |
+
+The script skips off Windows or without a COM-registered PowerPoint, and
+`TSPPTX_COM_SMOKE=required` makes that skip a failure. No CI job runs it. The
+`powerpoint-desktop-smoke` skill covers running it and bisecting a deck PowerPoint rejects.
+
+Run it after changing markup inside `mc:Choice`, actions, connectors, OLE objects, 3D models or
+adjustment guides, and before a release that changed emitted OOXML.
+
+### Check rendering with pixels, not COM properties
+
+The COM object model reports the resolved model, which is what the file says as PowerPoint
+parsed it. The renderer can disagree. When PowerPoint does not implement a construct, the
+property reads back correctly and nothing paints. A question of the form "does PowerPoint honour
+this construct?" therefore needs an exported slide.
+
+```powershell
+$slide.Export("$PWD\slide1.png", "PNG")   # then compare pixels, not properties
+```
+
+- **Compare a rendered pair.** Hold everything constant except one variable, such as the same
+  deck under a built-in style GUID and under a custom one.
+- **Give a picture fallback a colour nothing else paints.** The `model3d` leg of `test:com`
+  sets the preview to solid magenta. Magenta in the frame means PowerPoint fell back to the
+  picture, and a blank frame means the payload never rasterized. A pass needs neither.
+- **Give every pixel equality a pair that must differ**, so a run that rendered nothing fails.
+
+A COM read-back is the right tool for package health, such as a corrupt deck or an action that
+resolves to the wrong `PpActionType`. It is the wrong tool for whether a construct is painted.
+Custom table styles are the recorded case: see
+[tables.md → Apply a built-in table style](../tables.md#apply-a-built-in-table-style).
+
+#### Reading OLE objects back
+
+The `ole` leg of `test:com` checks package health, which is a question the object model does
+answer. PowerPoint does not report a `p:oleObj` it rejects as a corrupt file. It drops the whole
+`p:graphicFrame`, and the slide opens with no shape where the object was. Schema validation
+cannot see that, so the leg opens a generated OLE deck and reads each shape's
+`OLEFormat.ProgID` back against `EXPECTED_OLE_PROGID` in `scripts/com/contract.mjs`.
+
+A COM check that reads OLE objects must open the deck with a window. A windowless PowerPoint
+does not instantiate embedded objects, so `Shapes` comes back without them, even for a deck
+PowerPoint authored itself, and that looks the same as PowerPoint having dropped them.
+`vbsOpenHeader()` in `scripts/com/vbs.mjs` takes a `withWindow` flag for this.
+
+#### "PowerPoint will never paint this" needs render evidence
+
+The claim that a construct is valid OOXML, emittable, and never painted by PowerPoint stops the
+next person re-attempting it, so it is worth making. Make it only on render evidence. Schema
+reasoning does not establish it, because correct markup is the premise. A COM read-back does not
+establish it either. Export a slide and compare pixels, ideally as a rendered pair.
+
+Keep it apart from two neighbouring claims. A construct *out of this project's scope* is a
+decision about the project and can change with the target. Markup that is *invalid* is a defect
+to fix. A construct PowerPoint does not paint is a property of PowerPoint.
+
+### LibreOffice render check (`test:lo`)
+
+```bash
+pnpm run test:lo
+```
+
+PowerPoint's pixels are not evidence for markup PowerPoint regenerates on open. SmartArt is the
+case. A deck stores every drawn string twice, as data-model nodes in `ppt/diagrams/data1.xml`
+and in the drawing cache in `ppt/diagrams/drawing1.xml`. PowerPoint rebuilds the cache on open,
+so a deck with a stale cache and a deck with a correct one render identically in PowerPoint and
+look identical to `test:com`. LibreOffice has no SmartArt layout engine and paints the cache
+alone, so it tells the two apart.
+
+`scripts/libreoffice-render-smoke.mjs` converts each deck with `soffice --convert-to pdf` and
+reads the painted strings back with `pdftotext`. `CASES` holds the SmartArt cases, and `PAIRS`
+holds constructs rendered against a control. Its rules:
+
+- **Read text through PDF, not PNG.** PDF export runs LibreOffice's drawing layer, so a string
+  in the PDF was painted. PNG export writes the first slide only and ignores a `PageRange`
+  option.
+- **Keep the `stale` case.** It edits the data model alone and asserts LibreOffice keeps painting
+  the old string. A run that stopped rendering or extracting fails there instead of passing
+  empty.
+- **Assert the untouched neighbours.** Each SmartArt case checks that the sibling nodes it did
+  not edit still paint intact, so a string written into the wrong node fails.
+- **Add a new construct to `PAIRS`, differentially.** A pair renders the construct and an
+  otherwise identical control, and asserts the two extractions differ while both paint a
+  canary. That keeps the case portable across the xpdf and poppler builds of `pdftotext`, and
+  stops a blank render from passing. Make a new case fail on purpose before trusting it.
+
+A candidate is any construct whose only evidence is the right bytes in a part, such as one no
+showcase deck emits. `a:buBlip`, `a:prstTxWarp` and `numCol` with `spcCol` are pairs. `rtl="1"`
+and `altLang` do not change the extracted text, and `a:buClr` changes only the raster, so this
+oracle cannot see them. The header of `PAIRS` records that probe.
+
+LibreOffice's fidelity is its own. The check proves that content is drawn and what it says,
+never that a slide looks right.
+
+A missing tool is a skip. `TSPPTX_SOFFICE` and `TSPPTX_PDFTOTEXT` point the script at either
+binary, and a set variable that names nothing is an error. CI's `render-oracle` job installs
+`libreoffice-impress` and `poppler-utils` with apt and sets `TSPPTX_RENDER_ORACLE=required`. On
+Windows neither tool needs admin rights. `pdftotext` ships with Git for Windows, and the
+`powerpoint-fixture-authoring` skill has the LibreOffice extract recipe.
+
+### Manual visual checks
+
+1. Build a small deck with `pnpm demos:build`, or write one with `test:read:emit` or
+   `test:read:emit:edits`.
+2. Open it in Microsoft PowerPoint.
+3. When the change affects cross-app compatibility, check the import in Keynote, LibreOffice
+   Impress or Google Slides.
+4. For browser download behaviour, use the site's `/demos` page (`pnpm run docs:dev`).
+
+Showcase decks land in `demos/showcases/output/` and Node demo decks in `demos/node/output/`.
+Git ignores both.
 
 ## Font oracles
 
@@ -1124,9 +922,9 @@ authored decks. The model and its constants are described in
 
 ### Fixture decks
 
-The five decks are in `test/read/fixtures/`. Desktop PowerPoint baked every fit value when
-the authoring recipe saved the deck. `test/read/fixtures/README.md` records their provenance,
-hashes and case ids.
+The five decks are in `test/read/fixtures/`. Desktop PowerPoint baked every fit value when the
+authoring recipe saved the deck. `test/read/fixtures/README.md` records their provenance, hashes
+and case ids.
 
 | Deck | Cases | Pins |
 | --- | --- | --- |
@@ -1136,8 +934,8 @@ hashes and case ids.
 | `autofit-edge.pptx` | 11 | long unbreakable words, trailing spaces, empty paragraphs, tabs, whitespace-only runs, mixed sizes, one right-to-left box and one CJK box |
 | `autofit-cjk-wrap.pptx` | 11 | where PowerPoint breaks East Asian lines: one `spAutoFit` box per case, in Malgun Gothic at 18 pt |
 
-The first four use Aptos, Aptos SemiBold, Calibri, Tahoma and Arial. The suites read them
-through the derived `autofit-calibration.json`. `autofit-cjk-wrap.pptx` is read directly.
+The first four use Aptos, Aptos SemiBold, Calibri, Tahoma and Arial. The suites read them through
+the derived `autofit-calibration.json`. `autofit-cjk-wrap.pptx` is read directly.
 
 ### Regenerating the calibration data
 
@@ -1164,15 +962,15 @@ Both suites need the faces PowerPoint measured with: Aptos, Aptos SemiBold, Aria
 Tahoma and Malgun Gothic. None of them can be committed. `test/read/font-oracle.js` takes each
 face from one of two sources:
 
-- The installed font. On Windows it reads the font registry under both `HKLM` and `HKCU`. That
-  is the map GDI resolves family names through, and the only one that sees the per-user Aptos
+- The installed font. On Windows it reads the font registry under both `HKLM` and `HKCU`. That is
+  the map GDI resolves family names through, and the only one that sees the per-user Aptos
   Microsoft 365 installs under `%LOCALAPPDATA%`. Elsewhere it runs `fc-match` and rejects a
   substituted family, so Carlito cannot stand in for Calibri.
 - `test/read/fixtures/autofit-font-metrics.json` otherwise. Per face, it records the raw `hmtx`
   advance of every code point the committed cases measure, and the code points the face lacks.
   A code point missing from it throws, naming the face and the character.
-  `test/read/fixtures/authoring/build-font-metrics.mjs` writes it and refuses to write a
-  partial file.
+  `test/read/fixtures/authoring/build-font-metrics.mjs` writes it and refuses to write a partial
+  file.
 
 `test/read/font-metrics-sidecar.test.js` re-derives every sidecar entry from the installed font
 wherever one resolves, and fails on any difference.
@@ -1184,8 +982,7 @@ wherever one resolves, and fails on any difference.
 | A workstation with Microsoft 365 | installed fonts | The same check for Aptos and Aptos SemiBold, which no runner carries. `pnpm run test:oracles` reports which faces it verified. |
 
 `test:oracles` starts with `scripts/font-oracle-probe.mjs`, which prints the face-by-face
-resolution table, writes it to the job summary on CI, and fails when a declared family is
-absent.
+resolution table, writes it to the job summary on CI, and fails when a declared family is absent.
 
 Three environment variables keep a run that resolves nothing from passing:
 
@@ -1195,42 +992,29 @@ Three environment variables keep a run that resolves nothing from passing:
 | `FONT_ORACLES_GENUINE=A,B,C` | These families must resolve to an installed file. `font-oracles` names Arial, Calibri, Tahoma and Malgun Gothic, so an image that drops one fails the leg instead of falling back to the sidecar. |
 | `FONT_ORACLES_SIDECAR_ONLY=1` | The suites ignore installed fonts and measure from the sidecar, the path every Linux runner takes. The sidecar check still reads the installed fonts. |
 
-Adding or editing an autofit or CJK case makes the sidecar stale, and the suites fail naming
-the face and the character. Regenerate it with `pnpm run font-metrics:build` and reformat it,
-as with every other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
+Adding or editing an autofit or CJK case makes the sidecar stale, and the suites fail naming the
+face and the character. Regenerate it with `pnpm run font-metrics:build` and reformat it, as with
+every other committed sidecar: `pnpm exec oxfmt --write "test/read/fixtures/*.json"`.
 
-## Browser lane
-
-```bash
-pnpm run test:browser   # build the site (docs:build), then Playwright
-```
-
-Everything above this section runs under Node. `dist/browser.js` and its runtime
-adapter (`src/runtime/browser.ts`) cannot: they call `fetch`, `FileReader`,
-`<canvas>`, `URL.createObjectURL` and click a synthetic `<a download>`. This lane
-is the only thing that executes them: all four adapter functions, not just the
-download path.
-
-It is **not** part of `verify` or `verify:full`, deliberately: it needs a
-~120 MB Chromium download, and putting that in the per-change loop would tax
-every iteration for a surface that changes rarely. Install the browser once:
+## Browser tests (`test:browser`)
 
 ```bash
-pnpm exec playwright install chromium
+pnpm exec playwright install chromium   # once
+pnpm run test:browser                   # ensure-dist, docs:build, then Playwright
 ```
 
-Config is `playwright.config.ts` (root); specs are `test/browser/*.spec.mjs`.
-Vitest excludes `test/browser/**` by directory, so the two harnesses never
-collect each other's files. In CI it is the `browser` job in `ci.yml`.
+`dist/browser.js` and its runtime adapter (`src/runtime/browser.ts`) call `fetch`, `FileReader`,
+`<canvas>` and `URL.createObjectURL`, and click a synthetic `<a download>`. No Node suite can run
+them. These tests run all four adapter functions in Chromium. They are in neither `verify`
+aggregate, because they need a Chromium download and the surface changes rarely. CI runs them in
+the `browser` job.
 
-> **Drive the lane through `pnpm run test:browser`, not `pnpm exec playwright
-> test`.** Only the package script runs `scripts/ensure-dist.mjs`, so the bare
-> invocation serves Chromium whatever `dist/` was last built. That is the same
-> stale-`dist/` trap as the Vitest inner loop above, with a sharper edge: the
-> bare form is what you reach for when **sensitivity-checking** a new assertion,
-> and a sabotaged `src/` that never got bundled leaves every spec green. A
-> sensitivity check that cannot fail is indistinguishable from one that passed,
-> and this has cost real time twice. Rebuild first, or go through the script.
+`playwright.config.ts` holds the configuration, and the specs are `test/browser/*.spec.mjs`.
+Vitest excludes `test/browser/**` by directory, so neither runner collects the other's files.
+
+> **Run them through `pnpm run test:browser`, not `pnpm exec playwright test`.** Only the package
+> script rebuilds a stale `dist/`. A sensitivity check that sabotages `src/` and runs the bare
+> command tests the old bundle and stays green.
 
 ### Three fixtures, three Playwright projects
 
@@ -1242,23 +1026,17 @@ They answer different questions, and none can answer another's:
 | `runtime-adapter` | `test/browser/harness/index.html` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
 | `html-table` | `test/browser/harness/table.html`, same server | `tableToSlides` reading a **non-zero `offsetWidth`** (the one width basis no Node DOM can produce) and the end-to-end conversions that basis feeds |
 
-Each project matches its specs by filename prefix (`deck-*`/`cross-runtime-*`,
-`adapter-*`, `table-*`), and none of them matches by exclusion. That is deliberate:
-`demo` was once spelled as "everything except `adapter-*`", which silently meant
-"everything not yet invented", the next prefix added would have run a second time
-against the demo's `baseURL` and failed for reasons unrelated to what it tests.
+Each project matches its specs by filename prefix (`deck-*` and `cross-runtime-*`, `adapter-*`,
+`table-*`). None matches by exclusion, because an exclusion would also match every prefix added
+later. Adding a prefix is an edit to `playwright.config.ts`.
 
-The demo deck (`quarterly-review`) draws every asset it shows, so it never asks
-the runtime to load one: which is why it cannot cover three of the four adapter
-functions, and why the harness exists. The harness serves the repo with its real
-layout and loads `dist/browser.js` over a plain `<script type="module">`, so what
-runs is the file that ships rather than a re-bundling of it. A `node:*` import
-reaching the browser entry would fail the page outright.
-
-That is not hypothetical: building the harness is what surfaced `opentype.js`
-being a *dynamic* bare import inside the measure/fit chunk. Bundling had always
-hidden it; an unbundled consumer needs it in an import map, and now
-[the docs say so](../getting-started/runtime.md#using-the-browser-entry-without-a-bundler).
+The demo deck draws every asset it shows, so it never calls the adapter's loaders, and the
+harness covers them. The harness serves the repository with its real layout and loads
+`dist/browser.js` through a plain `<script type="module">`, so the shipped file runs with no
+bundler in the path. A `node:*` import reaching the browser entry fails the page. An unbundled
+consumer needs `opentype.js` in an import map, as
+[the runtime guide](../getting-started/runtime.md#using-the-browser-entry-without-a-bundler)
+documents.
 
 | Spec | Project | Claim |
 |---|---|---|
@@ -1268,347 +1046,234 @@ hidden it; an unbundled consumer needs it in an import map, and now
 | `adapter-fonts.spec.mjs` | runtime-adapter | `loadFontData`: a font fetched over HTTP bakes the same `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk; a 404 rejects with `font/fetch-failed` |
 | `adapter-coverage.spec.mjs` | runtime-adapter | all four adapter functions ran, and `dist/browser.js`'s executed share stayed above its floor |
 | `table-widths.spec.mjs` | html-table | `tableToSlides` against a table a browser laid out: the **measured** arm of `pickColWidthBasis` drives the emitted grid, `data-pptx-width` still wins outright (including divided across a `colspan`), and Node falls back to the CSS basis on the same markup, a *different* proportion, not a coarser one, because the two bases measure different boxes |
-| `table-autopage.spec.mjs` | html-table | a table too tall for one slide pages with **one row budget on every page**, carries every row across exactly once, and (the assertion no other lane can make) reaches the *same* pagination in Chromium as on a DOM that renders nothing |
+| `table-autopage.spec.mjs` | html-table | a table too tall for one slide pages with **one row budget on every page**, carries every row across exactly once, and reaches the *same* pagination in Chromium as on a DOM that renders nothing |
 
-`table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. A report
-had been dismissed as out of scope (`gitbrent/PptxGenJS#1200`, `tableToSlides`
-auto-paging overflow), on the invitation that someone build the headless repro. This
-spec is that repro. It reproduced, and the bug it found was **DOM-free**: the pager
-dropped one row's cell margins at every page break, so a continuation slide accepted a
-row it had no room for. The browser's
-contribution was the cross-runtime assertion. It proved the report was never about a
-rendered page, and moved it out of the browser bucket rather than deeper into it. The
-fix is in `src/gen/table/autopage.ts`, and the regression guarding it is DOM-free too
-(`test/regression/table/table-autopage-continuation-budget.test.js`). One triage rule
-came out of it: ask what the browser actually supplies to a code path before accepting a
-report as a layout report. It is stated with the scope line in
-[project target](scope-and-policy.md).
+Before accepting a report as a layout report, ask what the browser actually supplies to the code
+path. `table-autopage.spec.mjs` is the example. Its cross-runtime assertion shows that the
+pagination does not depend on a rendered page, and the regression behind it is guarded without a
+DOM in `test/regression/table/table-autopage-continuation-budget.test.js`.
 
-The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
-and are built **twice** (once in Chromium, once in Node) from that one
-definition. Writing them out on both sides would mean a divergence in the fixture
-reading as a divergence in the runtime.
+The adapter specs build their decks from `test/browser/harness/decks.mjs`, once in Chromium and
+once in Node, from one definition. Two copies would make a divergence in the fixture read as a
+divergence in the runtime.
 
-`cross-runtime-bytes` is the one worth the lane. The site's demos page imports the same
-showcase module `pnpm demos:build quarterly-review` runs, and `src/zip.ts` pins
-`FIXED_MTIME`, so the two packages are directly comparable: one diff asserts that
-every serializer, the zip writer, part ordering and relationship numbering are
-runtime-invariant. A runtime-dependent code path anywhere in `src/gen/` surfaces
-here as a named part.
+`cross-runtime-bytes.spec.mjs` compares the deck the site's demos page builds with the one
+`pnpm demos:build quarterly-review` builds from the same showcase module. `src/zip.ts` pins
+`FIXED_MTIME`, so one diff shows that every serializer, the zip writer, part ordering and
+relationship numbering are runtime-invariant. A runtime-dependent code path anywhere in
+`src/gen/` surfaces as a named part.
 
-That comparison is the byte-identity gate's, not a second one: both go through
-`scripts/pptx-parts.mjs` (same explode, same normalizers, same diff). Keep it that
-way. Two hand-rolled comparisons would drift, and they would drift silently: one
-gate tolerating a difference the other still calls a regression, with nothing to
-say which was right. The three normalized values are the same three as ever:
-`core.xml` timestamps and the two `Math.random` GUIDs (`p14:section` ids,
-`c16:uniqueId`).
+That diff goes through `scripts/pptx-parts.mjs`, with the same explode, normalizers and diff as
+the byte-identity harness. Keep one comparison. Two would drift silently, with one accepting a
+difference the other rejects. The normalized values are `core.xml` timestamps and the two
+`Math.random` GUIDs (`p14:section` ids, `c16:uniqueId`).
 
-### Where the coverage number for this lane lives
+### Coverage from the browser tests
 
-Two places, answering two questions.
+- `adapter-coverage.spec.mjs` asserts on Chromium's V8 coverage of `dist/browser.js` across every
+  harness scenario. Every adapter function must be entered, which catches a function losing its
+  only test. The file's executed share must stay above `MIN_EXECUTED_PCT`, which catches a
+  function still entered whose arms are not. A merged percentage can express neither. The spec
+  names the arms that keep the share below 100, both unreachable in a working browser.
+- Every spec in the `runtime-adapter` and `html-table` projects writes raw V8 coverage to
+  `.tmp/browser-coverage/` through the auto-use fixture in `test/browser/fixtures.mjs`, so a new
+  spec contributes by existing. `scripts/coverage-merge.mjs` folds it into the Node report; see
+  [Merged coverage](#merged-coverage).
 
-**Per function, in the lane itself.** `adapter-coverage.spec.mjs` asserts on
-Chromium's own V8 block coverage of the `dist/browser.js` script, collected across
-every harness scenario. Two assertions, red for different reasons: every adapter
-function was entered, and the file's executed share stayed above a floor (measured
-92.74%, floor 90). The first catches a function losing its only test; the second
-catches a function that is still entered but whose interesting arms are not. A
-merged percentage can express neither, which is why this stays.
+### What the browser tests do not cover
 
-What keeps it off 100 is named in that spec: the missing-2d-context arm and
-`FileReader.onerror`. Both are unreachable in a working browser: getting to them
-means stubbing a DOM constructor, which asserts about the stub. `tableToSlides`
-used to be on that list as well; it is covered now, by the `html-table` project,
-which does not and should not move this number: the measurement here is of the
-*adapter* harness page, whose DOM has no table in it.
+- **Live-DOM layout fidelity.** `html-table` asserts that a real `offsetWidth` is taken and
+  honoured proportionally. `table-autopage.spec.mjs` asserts that pages of identical rows get
+  identical row budgets. Neither asserts that Chromium's numbers are the right numbers, that an
+  estimated row height matches what PowerPoint draws, or that another engine agrees. Layout
+  fidelity has no oracle and is out of active scope ([project target](scope-and-policy.md)). A
+  `.pptx` a browser builds differently from Node is a defect. A layout difference between two
+  browsers is not.
+- **Engines other than Chromium.** See the next section.
 
-**As a percentage, in the merged report**: see [Merged coverage](#merged-coverage).
-Every spec in the `runtime-adapter` and `html-table` projects contributes its raw
-V8 coverage to `.tmp/browser-coverage/` (the fixture in `test/browser/fixtures.mjs`,
-auto-use, so a new spec contributes by existing), and `scripts/coverage-merge.mjs`
-folds it into the Node report.
+### Which browsers the tests run
 
-What this lane does **not** cover, and must not be read as covering:
-
-- **Live-DOM layout fidelity.** The `html-table` project does depend on a rendered
-  page, and the distinction between what it proves and what it does not is the
-  whole point. It asserts that a real `offsetWidth` is *taken and honoured*: that
-  the measured arm of `pickColWidthBasis` runs and the emitted grid is proportional
-  to it. It asserts nothing about whether Chromium's numbers are the right numbers,
-  or whether another engine would produce them. The auto-paging spec draws the same
-  line vertically: it asserts that pages of identical rows get identical row budgets
-  (arithmetic the pager owes itself), never that an estimated row height is the
-  height PowerPoint will draw. That second claim is layout
-  fidelity, it has no oracle, and it remains out of active scope
-  ([project target](scope-and-policy.md)). *Runtime support* and *layout fidelity*
-  are separate claims and must stay separate: a layout difference between two
-  browsers is not a defect in this package; a `.pptx` a browser builds differently
-  from Node is.
-- **Engines other than Chromium.** A deliberate decision, recorded under
-  [Which browsers the lane runs](#which-browsers-the-lane-runs).
-  (`adapter-coverage.spec.mjs` is Chromium-only by construction: `page.coverage` is a
-  CDP feature, which is a consequence of that decision, not a reason for it.)
-
-### Which browsers the lane runs
-
-Chromium, and only Chromium. This is a decision, not an oversight, and it is recorded here
-so it does not get reopened every time CI time is discussed.
-
-The adapter uses `fetch`, `FileReader`, `<canvas>`, object URLs and `<a download>`. None of
-those is a part of the platform where engines are known to disagree, and no divergence has
-been reported against this package or observed while building the lane. A Firefox and
-WebKit matrix would triple the job to keep answering a question nobody has asked.
-
-Add an engine when there is something concrete to add it for: a reported difference, or a
-new adapter function that touches an API with a real cross-engine history.
+Chromium only, by decision. The adapter uses `fetch`, `FileReader`, `<canvas>`, object URLs and
+`<a download>`, where engines are not known to disagree, and no divergence has been reported
+against this package. A Firefox and WebKit matrix would triple the job to answer a question
+nobody has asked. Add an engine for a reported difference, or for a new adapter function that
+touches an API with a real cross-engine history. `adapter-coverage.spec.mjs` is Chromium-only
+because `page.coverage` is a CDP feature, which follows from this decision.
 
 ### The one expected difference between the runtimes
 
 `createSvgPngPreview` is the one adapter function where Node and the browser are meant to
 disagree. Node has no rasterizer, so it writes a fixed placeholder into the PNG fallback
-relationship, where a browser draws the artwork on a `<canvas>`. The lane asserts the exact
-shape of that difference, one changed part and a real PNG on the browser side, so it cannot
-quietly turn into a different one.
+relationship, where a browser draws the artwork on a `<canvas>`. The tests assert the exact shape
+of that difference, one changed part and a real PNG on the browser side, so it cannot turn into a
+different one unnoticed.
 
 ### Why `pptx-ts/math` stays Node-only
 
-`src/math.ts` loads its two optional peers, `temml` and `mathml2omml`, through
-`node:module`'s `createRequire`. That is what keeps `latexToOmml()` and `mathmlToOmml()`
-synchronous. A browser has no `createRequire`, and its replacement, a dynamic `import()`,
-would make both functions async: a breaking change to a published API, paid by every
-existing caller, for a use case nobody has raised. If a browser consumer does turn up, the
-answer is an additional `/math/async` subpath, not a change to this one.
+`src/math.ts` loads its two optional peers, `temml` and `mathml2omml`, through `node:module`'s
+`createRequire`, which keeps `latexToOmml()` and `mathmlToOmml()` synchronous. A browser has no
+`createRequire`, and its replacement, a dynamic `import()`, would make both functions async. That
+is a breaking change to a published API for a use case nobody has raised. If a browser consumer
+turns up, add a `/math/async` subpath instead of changing this one.
 
-The other `node:*` imports in `dist/` are the Node build's own, and a lazy
-`import('node:fs/promises')` in the zip code. A bundler warns about that one, but it sits on
-the branch that reads a package from a file path, which the write path never runs.
+The other `node:*` imports in `dist/` are the Node build's own, plus a lazy
+`import('node:fs/promises')` in the zip code. A bundler warns about that one, but it sits on the
+branch that reads a package from a file path, which the write path never runs.
 
-## Demos are not tests
+## What the demos verify
 
-The showcase decks have no test role. There is no demo smoke command, no
-verification aggregate builds one, and a broken showcase fails nothing.
+The showcase decks verify nothing. No aggregate builds them, and a broken showcase fails no
+check.
 
-`demos/` itself is now entirely that: clone the repo, run a script, get a `.pptx`.
-Nothing under it is a fixture for anything.
+Two gates touch showcase code without asserting on the decks:
 
-The exception is on the **site**, not in `demos/`. The `/demos` page (`www/demos/`)
-is the browser lane's `demo` fixture, so CI builds the site to run it. It is a
-fixture, not a showcase-with-assertions: nothing checks how the page *looks*, or
-that the preview it renders is a good likeness, only that the deck it builds is
-the right bytes. What it *shows* is drawn by a separate library (`pptx-html`)
-against the published `@shbernal/ts-pptx` (this package's scoped alias), and this
-repo's gates make no claim about it. The byte-identity harness likewise *builds* the
-showcase decks without asserting anything about them. A showcase that throws simply takes
-the harness down with it.
+- The site's `/demos` page (`www/demos/`) is the `demo` Playwright fixture. The tests check that
+  the deck the page builds has the right bytes. Nothing checks how the page looks or that its
+  preview is a good likeness. The preview is drawn by `pptx-html` against the published
+  `@shbernal/ts-pptx`, and this repository's gates make no claim about it.
+- The byte-identity harness builds every deck in `demos/showcases/lib/showcases.mjs` and diffs
+  the parts they emit. A showcase that throws stops the harness.
 
-That is also why the harness's corpus is exactly what those decks happen to emit,
-and why a PASS is evidence only about the parts they reach. Two constructs the
-library authors are known to be outside it: **zoom** frames and **OLE** objects,
-neither of which any showcase creates. A refactor touching
-`gen/slide/objects/zoom.ts` or `ole.ts` therefore gets a green gate for free, and has
-to earn its evidence some other way. Build a probe deck that exercises the construct,
-capture its slide XML before and after, and diff with the per-build GUIDs (`zmPr@id`)
-normalized. Make the probe fail on a deliberate one-attribute change first. `test:com`
-covers OLE from the other direction: it opens the deck in PowerPoint and reads each
-`progId` back. Charts, tables and 3D models
-*are* in the corpus, as is the theme inside a chart's embedded workbook, since the
-harness recurses into each `.xlsx`.
+The harness corpus is only what those decks emit, so a pass is evidence only about the parts they
+reach. Before trusting a pass, confirm the part you touched is in `.tmp/byte-identity/baseline/`.
+Charts, tables, 3D models and the theme inside a chart's embedded workbook are in it, because the
+harness recurses into each `.xlsx`. Zoom frames and OLE objects are not, so a refactor of
+`gen/slide/objects/zoom.ts` or `ole.ts` passes without being looked at. Earn that evidence
+another way:
 
-The test role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
-from `demos/node` and ran `vite build`. Three checks now cover both of its signals,
-and cover them more precisely. `test:package` imports all ten export subpaths out of
-an installed tarball and forces the `browser` condition. `package:lint` validates
-types resolution with attw. The browser lane puts a real bundler (Vite/Rolldown) in
-front of the package and then *runs what it emitted*. That closes a gap this section
-used to record as accepted: nothing proved Rollup or esbuild could resolve and
-tree-shake the runtime entry.
+1. Build a probe deck that exercises the construct.
+2. Capture its slide XML before and after the change.
+3. Diff with the per-build GUIDs (`zmPr@id`) normalized.
+4. Make the probe fail on a deliberate one-attribute change first.
+
+For OLE, `test:com` also opens the deck in PowerPoint and reads each `ProgID` back.
+
+The published package is covered without the demos. `test:package` imports every export subpath
+from an installed tarball and forces the `browser` condition. `package:lint` checks type
+resolution with attw. `test:browser` puts Vite in front of the package and runs what it emitted.
+
+## Package boundary checks
+
+```bash
+pnpm run check:package   # package:lint, test:package, bundle-size:check, bundle-tier:check
+```
+
+- `package:lint` packs the tarball and runs publint and `@arethetypeswrong/cli` over it.
+- `test:package` packs the package with pnpm and installs the tarball with both npm and pnpm. It
+  checks that the ESM entries and declarations are present and retired artifacts absent, runs an
+  ESM import smoke test, checks there is no CJS export condition, `require()`s every subpath
+  through Node's ESM interop, and typechecks a minimal TypeScript consumer.
+- The two size gates are under [Size gates](#size-gates).
+
+Do not add a separate `pnpm pack --dry-run` check. `package:lint` already packs for real, so a
+dry run adds a build and a pack for no signal.
+
+`scripts/package-smoke.mjs` generates `cjs-contract.cjs`, which covers both directions of the
+CommonJS contract from `EXPORT_MATRIX`, so a new subpath needs only its matrix row. It asserts
+there is no `require` export condition and no legacy `main` or `module` field. It also
+`require()`s every subpath and checks its default and named exports, because
+`require("pptx-ts")` is documented as working. A top-level `await` anywhere in an entry's chunk
+graph makes `require()` of that entry throw, and no suite under `test/` notices, since those
+suites import.
+
+The TypeScript consumer, `type-smoke.ts`, is generated by the same script. It is the only
+consumer of the public API outside `test/`, so a renamed export or a removed overload fails no
+unit test but fails `test:package`. When you change a public export, grep that fixture.
 
 ### Bundling the package for Node
 
-Both conditions are answered now. The `node` entry's half is `bundleForNode()` in
-`scripts/package-smoke.mjs`, which esbuild-bundles the *installed tarball* with
-`platform: 'node'` and then runs what it emitted. It is not redundant with the
-export matrix next to it, because the two use different resolvers asking different
-questions:
+`bundleForNode()` in `scripts/package-smoke.mjs` bundles the installed tarball with esbuild under
+`platform: 'node'` and runs the result. It is not redundant with the export matrix, because the
+two use different resolvers:
 
-| | resolves | when |
+| | resolves with | when |
 |---|---|---|
-| export matrix | `node`'s own resolver | at call time, off disk |
-| bundler step | esbuild's, walking `exports` under `platform: 'node'` | at build time, statically |
+| export matrix | Node's own resolver | at call time, off disk |
+| bundler step | esbuild, walking `exports` under `platform: 'node'` | at build time, statically |
 
-A package can be perfectly importable and still be unbundlable: a dynamic bare
-import is the canonical case, because Node just finds it and a bundler must
-resolve it. That is not hypothetical: it is exactly what the browser harness hit
-with `opentype.js`, and nothing had asked the same question of the `node` entry.
+A package can import cleanly and still fail to bundle. A dynamic bare import is the usual cause,
+because Node finds it at run time and a bundler must resolve it statically.
 
-Three assertions, each red for a different reason. It builds with **no warnings**, and
-a warning is a failure here: allow one by name if it ever must be, never mute the
-channel. **Nothing but a Node builtin stayed external.** And the emitted bundle **runs
-and writes a real `.pptx`**. All three run against the npm fixture *and* the pnpm one,
-since pnpm's symlinked store is a different shape for a bundler to walk.
+Three assertions run against both the npm install and the pnpm install, since pnpm's symlinked
+store is a different shape for a bundler to walk:
 
-Two things worth knowing before editing it:
+- The build has no warnings. Allow one by name if one must be allowed, and never mute the channel.
+- Nothing but a Node builtin stays external. Builtins are tested with `isBuiltin`, not by a
+  `node:` prefix, because `fflate` imports `createRequire` from bare `module`.
+- The bundle runs and writes a real `.pptx`.
 
-- **Builtins are tested with `isBuiltin`, not a `node:` prefix.** The prefix is a
-  convention, not the rule: `fflate` imports `createRequire` from bare `module`,
-  which a prefix test reads as an unresolvable specifier. That was this check's
-  first finding, against itself.
-- **The bundled subpath list is derived from `EXPORT_MATRIX`**, minus `/browser`
-  (the browser lane owns that condition). Adding a subpath there gets it bundled;
-  there is no second list to keep in sync.
+The bundled subpaths come from `EXPORT_MATRIX` minus `/browser`, which the browser tests own. A
+subpath added to the matrix is bundled with no second list to update.
 
-## Manual visual checks
+## Size gates
 
-Automated tests prove package shape and generated XML structure. Manual visual
-checks are still useful for user-visible PowerPoint behavior:
-
-1. Generate a small deck with `pnpm demos:build` or from the Node demo.
-2. Open it in Microsoft PowerPoint when available.
-3. Check import behavior in Keynote, LibreOffice Impress, or Google Slides when
-   the change affects cross-app compatibility.
-4. For browser download behavior, prefer the site's `/demos` page (`pnpm run docs:dev`).
-
-Node demo decks are written to `demos/node/output/`, which is ignored by git.
-Re-running a demo command replaces the previous deck with the same name.
-
-### The object model is not a render oracle
-
-For a question of the form *"does PowerPoint honour this construct?"*, reading the
-answer back out of the COM object model does not answer it. The object model reports
-the **resolved model**: what the file says, as PowerPoint parsed it. The renderer is
-free to disagree, and when a construct is unimplemented it does exactly that: the
-property round-trips perfectly and nothing paints.
-
-This is not hypothetical. Custom table styles were designed, implemented, shipped and
-then removed, and a COM read-back agreed with them the whole way. `Table.Style.Name`,
-`Table.Style.Id`, `Cell().Shape.Fill.ForeColor.RGB` and `Cell().Borders()` all reported
-the custom style's own values. The decks render completely unstyled, a black hairline
-grid on white. The read-back was accurate and useless.
-
-Export the slide and read pixels instead:
-
-```powershell
-$slide.Export("$PWD\slide1.png", "PNG")   # then compare pixels, not properties
+```bash
+pnpm run bundle-size:check   # what each published entry ships, an upper bound
+pnpm run bundle-tier:check   # what a real program downloads, after tree-shaking
 ```
 
-A rendered pair beats a rendered single: hold everything constant but the one variable
-(the same deck under a built-in GUID vs. a custom one; a PowerPoint-authored fixture
-with one identifier rewritten, bytes otherwise identical). That is what turns "it looks
-wrong" into "the gallery is consulted and the package part is not."
+Both run in `verify:full` and `check:package`. The figures a consumer reads are on
+[Smaller bundles](../bundle-size.md).
 
-Applies to `pnpm run test:com` too, which asserts on shape state read back over COM. It
-is the right tool for *package* health (a deck PowerPoint reports as corrupt, an
-`hlinkClick` that resolves to the wrong `PpActionType`) and the wrong tool for whether
-a construct is painted. See [tables.md → Apply a built-in table style](../tables.md#apply-a-built-in-table-style) for the
-custom-table-style case.
+Both are ratchets. `--freeze` writes a small headroom above the measurement into the budget file.
+The check fails when a figure exceeds its budget, and prints a reminder to re-freeze when a
+figure comes in well under it, so a real saving gets banked. Re-freeze only once you know which
+change moved the number.
 
-A second, sharper demonstration came from the 3D-model work, and it is why the
-`model3d` leg of `test:com` exports a PNG rather than stopping at the read-back. Take a
-working model deck and replace the `.glb` payload with garbage, changing nothing else.
-PowerPoint opens it without complaint, enumerates the shape as `Shape.Type = 30`
-(`msoShape3DModel`), and reports `Model3DFormat.CameraPositionZ = 2.2630334`: the exact
-value the good deck reports. The exported slide contains **zero** drawn pixels. Every
-property the object model exposes was correct about a slide that renders nothing.
+### What the package ships
 
-That leg therefore asserts on pixels, with the preview picture deliberately set to solid
-magenta so the two distinct failures separate cleanly: magenta in the frame means
-PowerPoint fell back to the picture, and a blank frame means the payload never
-rasterized. Both absent is the only passing state.
+`scripts/bundle-size-ratchet.mjs` freezes a budget for every entry point `package.json` publishes
+and the chunks each one pulls in, minified and then gzipped. It measures per entry, because a
+consumer asks what importing one subpath costs, and a shared chunk counts once for every entry
+that reaches it.
 
-#### Reading OLE objects back
+It measures minified bytes, because `dist/` ships unminified and is close to half doc comments by
+weight, none of which survives a consumer's build. A gate on raw bytes would charge a commit for
+prose.
 
-The `ole` leg of `test:com` checks package health, which is a question the object model
-does answer. PowerPoint does not report a `p:oleObj` it rejects as a corrupt file. It drops
-the whole `p:graphicFrame`, and the slide opens with no shape where the object was. Schema
-validation cannot see that, so the leg opens a generated OLE deck and reads each shape's
-`OLEFormat.ProgID` back against `EXPECTED_OLE_PROGID` in `scripts/com/contract.mjs`.
+It is an upper bound rather than a download size, because a consumer's bundler also tree-shakes
+across the closure and this gate does not. It catches the step change, such as a dependency
+reaching the browser entry or a chunk split going wrong.
 
-A COM check that reads OLE objects must open the deck with a window. A windowless
-PowerPoint does not instantiate embedded objects, so `Shapes` comes back without them, even
-for a deck PowerPoint authored itself, and that looks the same as PowerPoint having dropped
-them. `vbsOpenHeader()` in `scripts/com/vbs.mjs` takes a `withWindow` flag for this.
+`pnpm run bundle-size:list` prints the per-chunk breakdown. The budget lives in
+`scripts/bundle-size-budget.json` and moves only through `pnpm run bundle-size:freeze`.
 
-#### "PowerPoint will never paint this" is a claim that needs render evidence
+### What a program downloads
 
-The claim *this construct is valid OOXML, we can emit it, and PowerPoint does not
-implement it, so the markup can never affect the render* is worth making: it is what
-stops the next person re-attempting the construct. But it may only be made on **render
-evidence**. Schema reasoning does not establish it (the markup being correct is the
-premise, not the finding), and a COM read-back does not either, for the reason this whole
-section exists. Export a slide and compare pixels, ideally as a rendered pair, or the
-claim is unproven.
+`scripts/bundle-tier-size.mjs` bundles five consumer programs against `dist/browser.js` with
+esbuild (minified, gzipped, code-split) and freezes two figures for each in
+`scripts/bundle-tier-budget.json`. `initial` is the entry chunk plus every chunk reachable from it
+by an `import` statement. `total` is every chunk the program can reach, which matters because
+font metrics load `opentype.js` through a dynamic import that runs only when a font is first
+registered. Charging a program for a chunk it may never fetch is as wrong as hiding one it might,
+so there is no single figure.
 
-Keep it apart from its two neighbours: the construct being *out of this project's scope*
-is a decision about us and can be revisited when the target changes; the markup being
-*invalid* is a defect we can fix. This one is a property of PowerPoint, and nothing we
-do here moves it.
+The programs come in two shapes. The three `new TsPptx()` programs are cumulative: `text` writes
+one slide with one text box, `text-shape-image` adds a shape and a base64 image, and `full` adds a
+chart, a table and an embedded video. The two `composed` programs are one `createPresentation`
+program with and without the chart family, so their difference is what that family costs. They
+are real programs rather than the smallest call the types accept, because a synthetic minimum
+measures the type checker.
 
-#### Where such a finding has to live
+Each program runs against `dist/` before it is weighed. esbuild resolves modules without checking
+that `slide.addChart` exists, so a renamed method would leave every program bundleable, drop the
+family out of the graph, and make the number fall. Running the program first turns that into a
+failure.
 
-A finding of that shape has to end up in front of whoever is about to re-attempt the
-construct, and nobody reads an issue tracker before writing an emitter. So it does not
-go in a tracker: distil it into the doc that the feature's own workflow already sends
-them to ([tables.md → Apply a built-in table style](../tables.md#apply-a-built-in-table-style) for the custom-table-style
-case) and put any reusable *method* note (how the render evidence was obtained) here in
-this section. An issue that merely records the negative result is filed and forgotten;
-a paragraph in the feature's own doc is read at exactly the moment it matters.
+`pnpm run bundle-tier:list` prints the per-chunk breakdown, and `pnpm run bundle-tier:freeze`
+re-baselines. The regression only this gate can see, a static import that puts a family back on
+the core path, is described under
+[The rule that keeps the tiers real](architecture.md#the-rule-that-keeps-the-tiers-real).
 
-### A second render oracle, for what PowerPoint recomputes
+### Why both gates exist
 
-The section above says the object model is not a render oracle, and answers it by
-exporting pixels from PowerPoint. That answer runs out in one specific place: when
-PowerPoint *regenerates* the thing under test on open. Then PowerPoint's own pixels are
-not evidence either, because they are painted from what PowerPoint recomputed rather
-than from what the package holds.
+They answer different questions, and their numbers will not agree.
 
-SmartArt is the case. A deck stores every drawn string twice: as authored nodes in
-`ppt/diagrams/data1.xml`, which PowerPoint reads, and as a copy of every drawn string in
-`ppt/diagrams/drawing1.xml`, the fallback drawing cache that every renderer without a
-SmartArt layout engine paints. `DiagramPoint.text` writes both. PowerPoint rebuilds the
-cache from the data model as it opens the file, so a deck whose cache was never written
-and a deck whose cache was written correctly render identically in PowerPoint, and
-`pnpm run test:com` cannot tell them apart. The only evidence left is the bytes of the
-part, which is real but is evidence about a part, not about a pixel.
+The entry-point gate never bundles, so it cannot see reachability. Making a family unreachable
+for a program that never calls it deletes no byte from `dist/`, and that gate does not move. The
+tier gate bundles, so a bundler shakes it, and it is the only gate that moves when code stops
+being reachable rather than stops being shipped.
 
-`pnpm run test:lo` closes that gap. LibreOffice has no SmartArt layout engine, so it
-paints the cache and nothing else, which makes it the one renderer available here that
-disagrees with PowerPoint in exactly the direction needed. The script converts each deck
-with `soffice --convert-to pdf` and reads the painted strings back with `pdftotext`.
-
-Four things about it are deliberate:
-
-- **PDF, not PNG.** PDF export runs through LibreOffice's drawing layer, the same code
-  path as the screen render, so a string in the PDF is a string that was painted, and it
-  comes back as text rather than as something to OCR. PNG export is not an option anyway:
-  LibreOffice writes the **first slide only** and ignores a `PageRange` filter option, so
-  a multi-slide fixture is unreachable that way.
-- **The `stale` case is load-bearing.** It edits the data model alone, through the
-  `textFrame` escape hatch, and asserts LibreOffice keeps painting the *old* string. That
-  is the sensitivity check: a run that stopped rendering, or stopped extracting text,
-  fails there instead of passing empty. Confirm it can still fail by pointing the
-  `mirrored` case at `textFrame` and watching both go red.
-- **Untouched neighbours are asserted too.** Every case checks that the ten sibling nodes
-  it did not edit are still painted intact. Without that, a mirror that wrote the right
-  string into the *wrong* point would pass on its own sentinel.
-- **A missing tool is a SKIP, never a failure.** This is a machine-dependent check in the
-  same tier as `test:com`. `TSPPTX_SOFFICE` and `TSPPTX_PDFTOTEXT` point it at either
-  binary, and a variable that is set but names nothing is an error rather than a silent
-  fallback to whatever the search finds next.
-
-Neither tool needs admin on Windows. LibreOffice installs as an administrative extract
-into `%LOCALAPPDATA%\Programs\LibreOffice` (the `powerpoint-fixture-authoring` skill
-has the recipe), and `pdftotext` already ships inside Git for Windows. LibreOffice was
-already used here as an independent *measurement* oracle, reading its recomputed
-`spAutoFit` sizes back over UNO in
-`test/read/fixtures/authoring/measure-lo.py`; this is the same second opinion applied to
-what gets drawn.
-
-The scope is wider than SmartArt. Any construct whose evidence today is "the right bytes
-are in the part" is a candidate, which is most of the byte-identity gate's known blind
-spots. Adding one is a new entry in the `CASES` table in
-`scripts/libreoffice-render-smoke.mjs`, with its own sensitivity check, because a case
-that cannot be made to fail proves nothing.
-
-One limit worth stating plainly: LibreOffice's fidelity is its own. This is an oracle for
-whether content is drawn and what it says, never for whether a slide looks right.
+The reverse holds too. A chunk that grows, or a dependency that arrives on the browser entry,
+shows up in the entry-point gate whether or not a measured program reaches it. A change that
+improves one and leaves the other flat is usually working as intended.

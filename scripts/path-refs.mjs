@@ -155,10 +155,6 @@ const GENERATED_FILES = new Set(['docs/doc-index.md'])
  */
 const ALLOWLIST = [
 	{
-		where: 'docs/contributing/testing.md:scripts/demo-smoke.mjs',
-		why: 'names the deleted script whose job this section explains taking over',
-	},
-	{
 		where: 'src/ooxml/rel-types.ts:gen/oxml/schema-uris.ts',
 		why: 'names one of the two pre-merge copies, to explain why this module exists',
 	},

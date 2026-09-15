@@ -14,7 +14,7 @@
 // This file (with import-shape.test.js for the two `flattenShape`-only passes and
 // import-slide-restyle.test.js for `remapLiteralColors`) is where theme.ts's
 // branches are pinned. Every arm still uncovered is the arm a schema-valid package
-// cannot take — see docs/contributing/testing.md "Branches that are not worth covering", and
+// cannot take — see docs/contributing/testing.md "Deciding whether a red branch needs a test", and
 // chrome-read-edges.test.js for the same treatment of chrome.ts. Four groups, each
 // verified against the ECMA-376 content models rather than assumed:
 //

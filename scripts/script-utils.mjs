@@ -1,3 +1,26 @@
+// Shared helpers for the scripts under `scripts/`: the repo root, the fixture corpus, CLI
+// parsing, and starting subprocesses.
+//
+// Start a subprocess through `run`, `runNodeBin` or `collect`, not through `spawn` directly.
+// On Windows that is a rule. The package managers and every `node_modules/.bin` entry are `.cmd`
+// shims there. A bare name fails with ENOENT. Appending `.cmd` fails with EINVAL, because Node
+// refuses to exec a batch file without a shell. A shell given an args array draws Node 24's
+// DEP0190 deprecation. So:
+//
+//   - Run an installed package's command with `runNodeBin`. It runs the file the package's `bin`
+//     field names on the current node binary, which is the file the shim would have run.
+//   - Calling a package's bin by name through `run` works only when `runBinPackages` maps that
+//     name to its package. Add the entry, or use `runNodeBin`.
+//   - Run a package manager through `run`. `WINDOWS_CMD_SHIMS` names them, and `run` hands the
+//     shell one pre-quoted command line.
+//   - Spawn anything else by absolute path, or by the name of a real executable such as `git`.
+//   - Use `collect` for a tool whose exit status the caller reports rather than throws on.
+//
+// Never pass `shell: true` with an args array, and never append `.cmd` by hand. The
+// `windows-latest` leg of CI's `package` job is the only CI run of these Windows branches.
+//
+// The `pnpm pack` helpers live in `pack-utils.mjs`.
+
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'

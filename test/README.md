@@ -24,7 +24,7 @@ tooling keys on the directory names.
 | `test/read/*.test.js` | Vitest `describe`/`test` | `src/read/**` lossless read + edit round-trip |
 | `test/schema-cases.js` (+ `schema-validation.test.js`) | fixture data module | OOXML schema validation of emitted parts |
 | `test/scripts/*.test.js` | Vitest | the `scripts/` gates and shared helpers — the parsing and exemption logic whose failure mode is a gate that silently stops counting (see [scripts/README.md](../scripts/README.md)) |
-| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/contributing/testing.md](../docs/contributing/testing.md#browser-lane) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, Node↔browser byte identity, and `tableToSlides` against a table a browser laid out |
+| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/contributing/testing.md](../docs/contributing/testing.md#browser-tests-testbrowser) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, Node↔browser byte identity, and `tableToSlides` against a table a browser laid out |
 | `test/browser/harness/*` | served to the page, not run by a harness | the two fixtures the specs drive: `index.html` for an unbundled load of the shipped `dist/browser.js` (plus the deck definitions both runtimes build from), and `table.html` for a rendered `<table>` with a real `offsetWidth` |
 
 `test/browser/` is the one directory `pnpm test` does not run: Vitest excludes it
@@ -41,7 +41,7 @@ helper had been re-derived in seven to twenty-six files, with the drift that alw
 | Module | What it holds |
 |---|---|
 | `test/helpers.js` | `build()`, `readEntry()`, the `assert*` family, the XML/content-type probes, `captureDiagnostics()`, `defineRegressionSuite()`, `bytesEqual`, `throws`, and `PNG_1X1` — the 1x1 transparent PNG that had six different names |
-| `test/validator.js` | the OOXML schema validator: `validatorAvailable()`, `validateBuf()`, and the batching that keeps one CLI child per worker |
+| `test/validator.js` | the OOXML schema validator: `validatorAvailable()`, `validateBuf()`, a thin adapter over `ooxml-validate`, which does the batching |
 | `test/read/corpus.js` | the read fixture corpus — `FIXTURES`, `fixturePath()`, `readFixture()`, `openFixture()`, `SNAPSHOTS`, `SCRATCH`, `REPO`, the enumerated `fixtureNames` (with the floor that stops an empty corpus passing silently), and the memoized `irFor()` / uncached `freshIr()` |
 | `test/read/authored.js` | the write→read fidelity harness: `authorRead()`, the `first*` locators, `schemaErrors()` |
 | `test/read/opc.js` | relationship-graph checks over a loaded package: `resolveSingle()`, `assertNoDanglingRels()` |
@@ -113,4 +113,4 @@ test.
    provenance inside the suite name — `defineRegressionSuite('Table margins [legacy bug-14]', …)` —
    which is where a reporter will show it.
 3. Prefer public-API deck generation + focused package/XML assertions. See
-   [docs/contributing/testing.md § Regression Suite Layout](../docs/contributing/testing.md#regression-suite-layout).
+   [docs/contributing/testing.md § Regression suite layout](../docs/contributing/testing.md#regression-suite-layout).

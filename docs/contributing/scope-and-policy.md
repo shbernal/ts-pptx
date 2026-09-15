@@ -50,7 +50,7 @@ for how it moves across.
 The project is Node-first. The generator runs and is tested with no office application near it,
 and the Node suite carries nearly all of its evidence. The browser is still a supported runtime
 with its own CI lane; see
-[the browser lane](testing.md#browser-lane).
+[Browser tests](testing.md#browser-tests-testbrowser).
 
 Two areas sit outside what the maintainer actively develops, because no in-house use case drives
 them. Neither is rejected on merit. Reports there tend to wait, pull requests are welcome, and the

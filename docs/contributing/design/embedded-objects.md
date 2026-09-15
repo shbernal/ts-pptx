@@ -200,12 +200,12 @@ DEFLATE pass.
 - `test/schema-cases.js` builds both objects and asserts parts, relationship types, content types,
   attributes and the de-duplication counts. Schema validation reaches only the `mc:Fallback` branch, so it
   says nothing about `p:oleObj` or `am3d:model3d` inside `mc:Choice`. See
-  [the validator does not descend into `mc:Choice`](../testing.md#the-validator-does-not-descend-into-mcchoice).
+  [What the validator cannot see](../testing.md#what-the-validator-cannot-see).
 - Option refusals and warnings are pinned in `test/regression/api/definition-reality-checks.test.js`,
   `test/regression/api/non-finite-numbers.test.js`, `test/regression/image/image-source-resolution.test.js`
   and `test/regression/shape/authored-frame.test.js`.
 - `pnpm run test:com` opens both in PowerPoint. The `ole` leg reads each `progId` back, and the `model3d` leg
   reads the camera back and exports the slide to PNG. See
-  [the object model is not a render oracle](../testing.md#the-object-model-is-not-a-render-oracle).
+  [Check rendering with pixels, not COM properties](../testing.md#check-rendering-with-pixels-not-com-properties).
 - No showcase deck builds an OLE object, so the byte-identity harness passes an OLE refactor without looking at
-  it. See [demos are not tests](../testing.md#demos-are-not-tests).
+  it. See [What the demos verify](../testing.md#what-the-demos-verify).

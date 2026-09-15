@@ -196,7 +196,7 @@ Wire the test to the fixture, through the read harness for read accessors or a
 `test/schema-cases.js` comparison for write-side oracles. Implement last.
 
 The testing guide's
-[The object model is not a render oracle](testing.md#the-object-model-is-not-a-render-oracle)
+[Check rendering with pixels, not COM properties](testing.md#check-rendering-with-pixels-not-com-properties)
 covers the one claim that needs *render* evidence specifically.
 
 ## What not to do

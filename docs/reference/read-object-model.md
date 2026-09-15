@@ -526,5 +526,5 @@ for (const node of diagram.nodes) node.point.text = node.point.text.toUpperCase(
 - A point that resolves to no drawn paragraph still gets the data-model edit, and a `diagram/drawing-cache-not-updated` warning says the cache is stale.
 - A point with no `dgm:t` is left unchanged, with a `diagram/point-has-no-text-body` warning. A layout with no room for an edge label stores that label this way, and PowerPoint strips text put on it at the next save.
 - An edit through `DiagramPoint.textFrame` changes the data model only, and the drawing cache keeps the old text. Use `textFrame` for per-run formatting, and `text` for an edit other renderers show.
-- `pnpm run test:lo` renders both cases in LibreOffice, which paints only the cache. See [the second render oracle](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#a-second-render-oracle-for-what-powerpoint-recomputes).
+- `pnpm run test:lo` renders both cases in LibreOffice, which paints only the cache. See [LibreOffice render check](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#libreoffice-render-check-testlo).
 - The library does not author a diagram from nothing. The layout part is a program PowerPoint's layout engine runs, and the tree of `pres` points it generates cannot be derived from the user's content.

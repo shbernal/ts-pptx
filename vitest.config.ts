@@ -11,8 +11,8 @@ import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/con
 // memory decides whether the host survives it. A faster CPU made the spike
 // bigger, never the run safer.
 //
-// Measured on the batched suite (see docs/contributing/testing.md "Suite cost and the worker
-// ceiling"), peak RSS is close to linear in the pool size:
+// Measured on the batched suite (see docs/contributing/testing.md "How the test worker pool is
+// sized"), peak RSS is close to linear in the pool size:
 //
 //     4 workers 1.66 GB   6 workers 2.27 GB   8 workers 2.68 GB   11 workers 3.40 GB
 //
@@ -94,7 +94,7 @@ const maxWorkers = resolveMaxWorkers()
 // `branches` trails the other three by design. The read model guards every
 // element lookup (`x ? … : null`) whether or not the schema lets `x` be absent,
 // so a standing share of the branch count is unreachable on any valid package —
-// see docs/contributing/testing.md "Branches that are not worth covering" for which of those
+// see docs/contributing/testing.md "Deciding whether a red branch needs a test" for which of those
 // to leave alone and which are real input worth a test. Two files carry that
 // reasoning in full, per remaining arm: test/read/chrome-read-edges.test.js for
 // src/read/api/chrome.ts, and test/read/import-slide-preserve.test.js for
