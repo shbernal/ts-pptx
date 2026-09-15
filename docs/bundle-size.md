@@ -40,18 +40,18 @@ registered.
 
 | Program | initial | total |
 | --- | --- | --- |
-| `createPresentation()`, one text box | 59.4 kB | 138.2 kB |
-| `createPresentation({ use: [charts] })`, plus a chart | 80.5 kB | 159.3 kB |
-| `new TsPptx()`, one text box | 98.7 kB | 177.4 kB |
-| `new TsPptx()`, plus a shape and an image | 98.9 kB | 177.6 kB |
-| `new TsPptx()`, plus a chart, a table and a video | 99.0 kB | 177.7 kB |
+| `createPresentation()`, one text box | 59.4 KiB | 138.2 KiB |
+| `createPresentation({ use: [charts] })`, plus a chart | 80.5 KiB | 159.3 KiB |
+| `new TsPptx()`, one text box | 98.7 KiB | 177.4 KiB |
+| `new TsPptx()`, plus a shape and an image | 98.9 KiB | 177.6 KiB |
+| `new TsPptx()`, plus a chart, a table and a video | 99.0 KiB | 177.7 KiB |
 
-A text-only program downloads 59.4 kB composed against 98.7 kB through the class, so composing saves
-39.3 kB before the first line runs. The chart family costs 21.1 kB to the program that asks for it and
-nothing to one that does not. The three `TsPptx` rows sit within 0.3 kB of each other, because the
+A text-only program downloads 59.4 KiB composed against 98.7 KiB through the class, so composing saves
+39.3 KiB before the first line runs. The chart family costs 21.1 KiB to the program that asks for it and
+nothing to one that does not. The three `TsPptx` rows sit within 0.3 KiB of each other, because the
 class carries every family whatever the program calls.
 
-The [comparison page](comparison.md) reports 98.6 kB for a hello world. That is a separate
+The [comparison page](comparison.md) reports 98.6 KiB for a hello world. That is a separate
 measurement, of a different program, taken with the rest of the comparison on its snapshot date. The
 figures here come from the repository's size gate and follow the current build; the
 [testing guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#size-gates)

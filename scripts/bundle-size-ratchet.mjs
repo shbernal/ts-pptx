@@ -26,9 +26,9 @@
  * minifies before serving. Gating on the unminified bytes therefore charges a commit for
  * prose and credits it for deletions of prose, and that is not a hypothetical: over the
  * twenty-three commits from v3.7.0 to 147951de, the "state it once" refactors *removed*
- * 14.5 kB of code from the browser closure while adding 26.9 kB of comments explaining the
- * consolidations, and the gate booked the net as a 10.2 kB regression that all but failed
- * the entry. Read closure, same window: +25.3 kB of comments against +7.8 kB of code. A
+ * 14.5 KiB of code from the browser closure while adding 26.9 KiB of comments explaining the
+ * consolidations, and the gate booked the net as a 10.2 KiB regression that all but failed
+ * the entry. Read closure, same window: +25.3 KiB of comments against +7.8 KiB of code. A
  * gate whose sign can be opposite to the truth is worse than no gate, because a re-freeze
  * looks like the answer every time.
  *
@@ -36,7 +36,7 @@
  * consumer's bundler tree-shakes across the closure, which this deliberately does not, so
  * the figure stays an upper bound — but it is now within sight of a download rather than
  * three times it, and it moves only when code moves. That also buys sensitivity for free:
- * a 1 kB regression is 1.5% of the minified reader entry against 0.5% of the raw one, so
+ * a 1 KiB regression is 1.5% of the minified reader entry against 0.5% of the raw one, so
  * it lands well inside {@link HEADROOM_PCT} instead of hiding under it.
  *
  * **How it differs from the raw-xml ratchet**, whose mechanics this otherwise copies.

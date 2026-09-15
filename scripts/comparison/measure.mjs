@@ -388,7 +388,7 @@ function cell(/** @type {any} */ value) {
 }
 
 /** @param {number} bytes */
-const kb = (bytes) => (bytes / 1024).toFixed(0) + ' kB'
+const kb = (bytes) => (bytes / 1024).toFixed(0) + ' KiB'
 
 /**
  * The per-subject families that are not the coverage table, one line each.

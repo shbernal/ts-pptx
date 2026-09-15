@@ -114,8 +114,8 @@ describe('closureOf', () => {
 // The other direction the measurement can be wrong in, and the one that actually bit: not
 // missing bytes, but counting bytes no consumer receives. `dist/` ships unminified and is
 // roughly half doc comments, so a gate on the raw bytes charges a commit for prose. Over
-// v3.7.0..147951de it booked the "state it once" refactors as a 10.2 kB regression on the
-// browser entry while the code in that closure had *shrunk* by 14.5 kB.
+// v3.7.0..147951de it booked the "state it once" refactors as a 10.2 KiB regression on the
+// browser entry while the code in that closure had *shrunk* by 14.5 KiB.
 describe('shippedBytes', () => {
 	const dirs = []
 	const emit = (text) => {

@@ -23,21 +23,22 @@ export const SLACK_PCT = 15
 /**
  * ...and this far under in absolute terms, which is what keeps the small entries usable.
  *
- * `--freeze` rounds the budget up to a whole kB, and on a 5 kB entry that rounding alone is
- * larger than {@link SLACK_PCT} of it: `zip.js` froze at 6 kB, measured 5 kB, and was
+ * `--freeze` rounds the budget up to a whole KiB, and on a 5 KiB entry that rounding alone is
+ * larger than {@link SLACK_PCT} of it: `zip.js` froze at 6 KiB, measured 5 KiB, and was
  * immediately 16% under — a nag no re-freeze could clear, because the next freeze rounds to the
- * same 6 kB. A percentage of a tiny number is noise; asking for a re-freeze over 1 kB is asking
+ * same 6 KiB. A percentage of a tiny number is noise; asking for a re-freeze over 1 KiB is asking
  * for a gate to be switched off.
  */
 export const SLACK_MIN_BYTES = 2048
 
 /**
- * A byte count as the gates print it.
+ * A byte count as the gates print it, in kibibytes: the figure is divided by 1024, so it carries
+ * the binary unit rather than `kB`.
  * @param {number} bytes
  * @returns {string}
  */
 export function kb(bytes) {
-	return (bytes / 1024).toFixed(1) + ' kB'
+	return (bytes / 1024).toFixed(1) + ' KiB'
 }
 
 /**
@@ -57,7 +58,7 @@ export function verdictFor(bytes, budget) {
 
 /**
  * The budget a measurement freezes to: {@link HEADROOM_PCT} above it, rounded up to a whole
- * kB so the file reads as a decision someone made rather than a build artifact copied in.
+ * KiB so the file reads as a decision someone made rather than a build artifact copied in.
  * @param {number} bytes
  * @returns {number}
  */

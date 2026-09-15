@@ -22,7 +22,7 @@ describe('verdictFor', () => {
 	})
 
 	// Both conditions have to hold, which is what keeps the nag off the small figures: a
-	// percentage of a tiny number is noise, and `--freeze` rounds up to a whole kB anyway.
+	// percentage of a tiny number is noise, and `--freeze` rounds up to a whole KiB anyway.
 	test('a win is only worth banking when it clears both the percentage and the floor', () => {
 		const budget = 100 * 1024
 		expect(verdictFor(budget * (1 - SLACK_PCT / 100) - 1, budget)).toBe('under')
@@ -34,7 +34,7 @@ describe('verdictFor', () => {
 })
 
 describe('frozenBudget', () => {
-	test('leaves headroom above the measurement and rounds to a whole kB', () => {
+	test('leaves headroom above the measurement and rounds to a whole KiB', () => {
 		expect(frozenBudget(100 * 1024)).toBe(Math.ceil(100 * (1 + HEADROOM_PCT / 100)) * 1024)
 		expect(frozenBudget(1)).toBe(1024)
 	})

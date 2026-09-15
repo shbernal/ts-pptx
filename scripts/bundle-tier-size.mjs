@@ -38,7 +38,7 @@
  * only shake what the chunk boundary lets it, so a chunking change is a size lever that
  * moves nothing in `src/` and would be invisible to a `src/`-based measurement. It is not
  * costing anything: measured when this gate was written, the same text program came to
- * 139.2 kB gzip from `dist/` against 139.8 kB from `src/`, dependencies external on both
+ * 139.2 KiB gzip from `dist/` against 139.8 KiB from `src/`, dependencies external on both
  * sides, so tsdown's chunking is if anything a shade cheaper than the flat graph. Only the
  * gap is the claim — the absolutes have moved since, and the rows the gate prints are the
  * current ones. It is here for the day the gap stops falling `dist/`'s way.
@@ -299,8 +299,8 @@ export async function measureTier(tier) {
  *
  * The entry chunk alone is not that figure, and reporting it as one is a trap the gate walked
  * into: the moment a module inside the library defers something with a dynamic import, esbuild
- * splits the shared code out of the entry chunk, and a row that had been reporting ~98 kB
- * reported 0.9 kB for the same program with the same download. Nothing got cheaper; the
+ * splits the shared code out of the entry chunk, and a row that had been reporting ~98 KiB
+ * reported 0.9 KiB for the same program with the same download. Nothing got cheaper; the
  * measurement stopped counting the part that was still being fetched first.
  * @param {import('esbuild').Metafile} metafile
  * @param {string} entryChunk - the entry chunk's base name
