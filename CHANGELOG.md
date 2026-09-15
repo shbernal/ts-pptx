@@ -1024,6 +1024,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptxToScript` keeps a picture's clip.** A picture cropped to a preset shape, or clipped to a
+  freeform, converted to a plain rectangle with no note to say so, though `addImage` takes both.
+  The converter now prints `shape`, with its adjust values, for a preset other than `rect`, and
+  `points` for a freeform, scaled onto the picture's box as a freeform shape's path is. A freeform
+  clip raises `shape.custGeom.guides`, as a freeform shape does, for the guides and connection
+  sites PowerPoint writes beside the path.
+
 - **A picture with no `altText` writes an empty `descr`.** It wrote the image's `path` as given, a
   full local path or a URL, or `preencoded.png` for a `data` image. A screen reader read that
   aloud, and a local path put the author's directory layout into the deck. PowerPoint writes an

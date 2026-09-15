@@ -194,6 +194,48 @@ describe('deck IR — geometry', () => {
 		// Twice the viewport over the same box means every coordinate maps to half the width.
 		assertEqual(spanOf(call), Math.round(spanOf(baseline) / 2), 'doubling a:path/@w should halve the emitted span')
 	})
+
+	test('a picture carries its clip: points for a freeform, shape for a preset, neither for a rect', async () => {
+		// picture-custgeom.pptx is PowerPoint's own output for pictures intersected with a freeform
+		// and a picture cropped to an oval. addImage writes both clips, and neither used to print, so
+		// every clipped picture came back a rectangle with no note.
+		const source = await Presentation.load(await readFixture('picture-custgeom.pptx'))
+		const ir = await irFor('picture-custgeom.pptx')
+		const optionsOf = (name) => {
+			const call = allCalls(ir).find((candidate) => candidate.sourceName === name)
+			assert(call, `${name} emits a call`)
+			assertEqual(call.method, 'addImage', `${name} is still an image`)
+			return call.args[0]
+		}
+
+		for (const name of ['pic-clip-lines', 'pic-clip-curve']) {
+			const origin = source.slides[0].shapes.find((shape) => shape.name === name)
+			const [path] = origin.customGeometry.paths
+			const frame = origin.absoluteFrame
+			const expected = path.commands
+				.filter((command) => 'x' in command)
+				.map((command) => Math.round((command.x * frame.width) / path.w))
+			const options = optionsOf(name)
+			const actual = options.points
+				.filter((point) => point.x !== undefined)
+				.map((point) => Number(String(point.x).replace('emu', '')))
+			assertEqual(actual.join(','), expected.join(','), `${name}: clip path x coordinates`)
+			assertEqual(options.shape, undefined, `${name}: a freeform clip prints no preset`)
+		}
+
+		assertEqual(optionsOf('pic-preset-oval').shape, 'ellipse', 'a preset crop prints its preset')
+		assertEqual(optionsOf('pic-preset-oval').points, undefined, 'and no path')
+		const plain = optionsOf('pic-plain')
+		assert(
+			!('shape' in plain) && !('points' in plain),
+			'a rect picture prints neither: addImage writes rect by default'
+		)
+		assertEqual(
+			ir.fidelity.filter((note) => note.construct === 'shape.custGeom.guides').length,
+			2,
+			'each freeform clip reports the guides and connection sites PowerPoint wrote beside its path'
+		)
+	})
 })
 
 describe('deck IR — connectors', () => {

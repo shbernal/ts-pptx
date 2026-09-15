@@ -156,7 +156,7 @@ The counts come from `pnpm run script:census`, run in a clone of the repository 
 
 A count is the number of fixtures that raise the note at least once. Each fixture targets a few constructs, so a count shows what the corpus exercises, not how often a construct occurs in real decks. The table lists only constructs some fixture raises. [`knownNoteConstructs()`](api/script/functions/knownNoteConstructs.md) returns the full catalogue.
 
-The Output column says where the note fires. A construct that fires in both outputs has the same count in each. A construct under the `layout.` prefix is the slide construct of the same name, raised while re-authoring a layout's shapes. Across the corpus the standalone output raises 913 notes and the template-anchored output 486, which is 3 to 14 more per deck.
+The Output column says where the note fires. A construct that fires in both outputs has the same count in each. A construct under the `layout.` prefix is the slide construct of the same name, raised while re-authoring a layout's shapes. Across the corpus the standalone output raises 915 notes and the template-anchored output 488, which is 3 to 14 more per deck.
 
 | Construct | Output | Cause | What happens | Fixtures |
 | --- | --- | --- | --- | --- |
@@ -183,7 +183,7 @@ The Output column says where the note fires. A construct that fires in both outp
 | `image.svg` | Both | unsupported | An SVG picture keeps its vector part. The write path generates a new raster fallback in place of the source's | 1/57 |
 | `line.arrowSize` | Both | unwritable | Arrowheads render at the default width and length | 1/57 |
 | `line.schemeToken` | Both | unwritable | An outline colour outside the ten mapped scheme tokens is baked to hex | 1/57 |
-| `shape.custGeom.guides` | Both | unread | A freeform keeps its path and loses its guides, adjust handles and connection sites | 1/57 |
+| `shape.custGeom.guides` | Both | unread | A freeform, or a picture clipped to one, keeps its path and loses its guides, adjust handles and connection sites | 2/57 |
 | `slide.background` | Both | unwritable | A slide background taken from the theme (`p:bgRef`) is baked to the fill it resolves to | 1/57 |
 | `table.cell.fill.picture.geometry` | Both | unwritable | A cell's picture fill keeps its image. Its tiling, destination inset, DPI and rotate-with-shape setting do not carry | 1/57 |
 | `table.rowAuto` | Both | unsupported | Auto-height rows get an even share of the table height instead of fitting their content | 1/57 |
@@ -227,6 +227,7 @@ These constructs carry in both outputs and raise no note.
 | A table cell with a fill of its own | `fill` on the cell. A styled cell with no fill of its own is left to `tableStyle` |
 | A picture fill on a shape or cell | `fill: { type: 'image', image: { data, crop }, transparency }` |
 | A picture's crop | `crop` on `addImage` |
+| A picture cropped to a preset shape | `shape` and `shapeAdjust` on `addImage` |
 | An outline's cap (`a:ln/@cap`) | `line.cap` |
 | A transition's type, speed, duration, advance and sound | `slide.transition` |
 | Position and size | `"<n>emu"` strings |

@@ -127,12 +127,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 	}
 
 	if (custom) {
-		notes.note(
-			'shape.custGeom.guides',
-			'dropped',
-			'unread',
-			'custGeom guides, adjust handles and connection sites (a:gdLst / a:ahLst / a:cxnLst) have no accessor, so only the path outline carries'
-		)
+		noteCustGeomGuides(notes)
 		const points = customGeometryPoints(box, custom)
 		// A freeform holding text is an `addText` with the same points: this arm used to return
 		// `addShape` before the text arm below, so a freeform's text was discarded.
@@ -181,6 +176,33 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 	return { method: 'addShape', args: [preset, options ?? {}], ...nameOf(shape) }
 }
 
+/** The note for what a `custGeom` holds beside its path, shared by a freeform shape and a picture clipped to one. */
+function noteCustGeomGuides(notes: NoteScope): void {
+	notes.note(
+		'shape.custGeom.guides',
+		'dropped',
+		'unread',
+		'custGeom guides, adjust handles and connection sites (a:gdLst / a:ahLst / a:cxnLst) have no accessor, so only the path outline carries'
+	)
+}
+
+/**
+ * A picture's clip as `addImage` spells it: `points` for a freeform, `shape` and `shapeAdjust` for
+ * a preset.
+ *
+ * PowerPoint writes `rect` for a picture that has not been cropped to a shape, and `addImage` writes
+ * `rect` when it is given no `shape`, so a `rect` is left off rather than printed on every picture.
+ */
+function pictureClipOptions(shape: Picture, box: ShapeBox, notes: NoteScope): Record<string, IrValue | undefined> {
+	const custom = shape.customGeometry
+	if (custom) {
+		noteCustGeomGuides(notes)
+		return { points: customGeometryPoints(box, custom) }
+	}
+	const preset = shape.presetGeometry
+	return preset === null || preset === 'rect' ? {} : { shape: preset, ...adjustOptions(shape) }
+}
+
 /**
  * Preset-geometry adjust handles (`a:avLst`) as `shapeAdjust`.
  *
@@ -189,7 +211,7 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
  * as a `0.0–1.0` fraction. Anything that is not a plain `val` is a computed guide, which
  * has no write-API expression, so it is skipped rather than mis-scaled.
  */
-function adjustOptions(shape: AutoShape): Record<string, IrValue | undefined> {
+function adjustOptions(shape: AutoShape | Picture): Record<string, IrValue | undefined> {
 	const values = shape.adjustValues
 	const guides: IrValue[] = []
 	for (const name of Object.keys(values).sort()) {
@@ -334,6 +356,7 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 		...positionOptions(box),
 		...transformOptions(shape),
 		...identityOptions(shape),
+		...pictureClipOptions(shape, box, notes),
 		// `ImageBaseProps.shadow` takes the same `ShadowProps` every other shape does; a picture's
 		// shadow was read and never mapped.
 		shadow: shadowOption(shape, notes),
