@@ -97,6 +97,16 @@ export function encodeSlideMediaRels(
 					try {
 						data = toMediaDataUri(await runtime.loadMedia(rel), rel.type)
 					} catch (ex) {
+						// An OLE object's or a 3D model's payload is another application's file, and a PNG
+						// written into its `.xlsx`, `.docx` or `.glb` part is a part PowerPoint cannot open.
+						const embeddedPayload = Boolean(rel.oleRelType || rel.model3dRelType)
+						if (embeddedPayload) {
+							throw new MediaError(
+								'media/load-failed',
+								`Failed to load the embedded payload "${rel.path}" during export; a placeholder picture cannot stand in for an OLE object or a 3D model.`,
+								{ cause: ex }
+							)
+						}
 						if (onMediaError === 'placeholder') {
 							warn(
 								'media/load-failed',

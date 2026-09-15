@@ -1006,6 +1006,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`pptx-ts/inspect` keeps a paragraph boundary as a word boundary.** An element's `text` joined
+  every run with nothing between paragraphs, so two paragraphs reading "first" and "second" came
+  out as `firstsecond`, and `wordCount` counted one word. Paragraphs are now separated by a space.
+
+- **`slide.objects` leaves speaker notes out.** After `addNotes()` it listed an entry with an
+  empty `objectName` that `groupObjects()` refuses, though every listed name is meant to resolve.
+
+- **`measureText` and `registerFontMetrics` refuse the two inputs they ignored.** A `fontSize`
+  that is not a positive number throws `font/size-not-positive`, where it fell back to the
+  default size. An empty face name throws `font/missing-typeface`, from `registerFontMetrics` and
+  from `FontMetricsRegistry.set`, where it registered metrics under a key nothing resolves to.
+
+- **A missing OLE or 3D model payload rejects the export under `onMediaError: 'placeholder'` too.**
+  The placeholder is a picture, and it was written into the `.xlsx`, `.docx` or `.glb` part, which
+  PowerPoint cannot open. It now throws `MediaError` `media/load-failed` under either policy.
+  **Downstream impact:** a best-effort export whose embedded payload cannot be read now fails
+  instead of producing a deck with a broken object.
+
 - **`mathmlToOmml` throws `math/invalid-mathml` on input that is not MathML.** The converter
   returned the string `'undefined'` for an empty string or text with no `<math>` element, and
   that string went into the slide as if it were an equation. **Downstream impact:** a caller

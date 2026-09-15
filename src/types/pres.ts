@@ -22,7 +22,9 @@ export interface WriteBaseProps {
 	 * - `'placeholder'`: substitute a broken-image placeholder, emit a `media/load-failed`
 	 *   diagnostic (see `setDiagnosticHandler`), and
 	 *   continue. Useful for best-effort/batch jobs where one missing asset should not abort
-	 *   the whole deck.
+	 *   the whole deck. An OLE object's or a 3D model's payload still rejects the export: the
+	 *   placeholder is a picture, and written into a `.xlsx` or `.glb` part it is a part
+	 *   PowerPoint cannot open.
 	 *
 	 * An SVG that loads but cannot be rasterized into the PNG fallback written beside it (in a
 	 * browser, one that does not decode or has no intrinsic size) is reported as

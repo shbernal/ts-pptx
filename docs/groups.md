@@ -236,6 +236,7 @@ Each entry is a `SlideObjectInfo`:
 - A name read from `slide.objects` resolves when you pass it back, including names that contain `&`, `<` or quotes.
 - `canGroup` speaks for the object alone. A call can still throw for a name that matches nothing, or more than one object.
 - Each read returns a fresh snapshot. Changing it does nothing to the slide.
+- Speaker notes are not listed. They belong to the notes page rather than to the slide's stack, and nothing can group them.
 
 ## Target a shape inside a group
 

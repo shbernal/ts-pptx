@@ -501,6 +501,28 @@ defineRegressionSuite('PPTX inspection primitives', [
 		},
 	},
 	{
+		// Runs were joined across paragraph boundaries with nothing between them, so the last word of
+		// one paragraph and the first of the next became one word, and the count came out short.
+		name: 'inspect keeps a paragraph boundary as a word boundary',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText([{ text: 'first', options: { breakLine: true } }, { text: 'second' }], {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 1,
+					objectName: 'two-paragraphs',
+				})
+			})
+
+			const [slide] = (await inspectPptx(buf)).slides
+			const element = slide.elements.find((el) => el.name === 'two-paragraphs')
+			assertEqual(element.paragraphs.length, 2, 'breakLine ends the paragraph')
+			assertEqual(element.text, 'first second', 'the two paragraphs stay two words')
+			assertEqual(slide.wordCount, 2, 'and the word count counts both')
+		},
+	},
+	{
 		// inspect and `ts-pptx/read` share one package model, so they agree on what a
 		// package is. A zip holding slide XML but no `[Content_Types].xml` is not one.
 		name: 'a zip that is not an OPC package is rejected',

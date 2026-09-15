@@ -12,7 +12,7 @@
  * overflow). See `docs/contributing/design/text-fit.md` ("Font metrics provider").
  */
 
-import { MediaError, UnsupportedFeatureError } from '../errors.js'
+import { InvalidOptionError, MediaError, UnsupportedFeatureError } from '../errors.js'
 import { extractFontFace, resolveFontFace } from './font-collection.js'
 import type { FitParagraph, MetricsResolver } from './text-fit.js'
 
@@ -197,6 +197,13 @@ export class FontMetricsRegistry {
 	}
 
 	set(face: string, metrics: FontMetrics, opts?: { bold?: boolean; italic?: boolean }): void {
+		// An empty name registers under a key no `fontFace` resolves to, so the metrics would sit unused.
+		if (typeof face !== 'string' || face.trim() === '') {
+			throw new InvalidOptionError(
+				'font/missing-typeface',
+				`registerFontMetrics: \`face\` must be the non-empty family name your fontFace options use, got ${JSON.stringify(face)}.`
+			)
+		}
 		this.map.set(this.key(face, !!opts?.bold, !!opts?.italic), metrics)
 	}
 

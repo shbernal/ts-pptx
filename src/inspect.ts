@@ -413,7 +413,9 @@ function toElement(entry: HarvestedShape, zIndex: number, slidePath: string): Pp
 	const textRuns = paragraphs.flatMap((paragraph) => paragraph.runs)
 	// A graphic frame has no text body of its own; its text comes from the structure
 	// it hosts, and arrives as a plain string with no runs behind it.
-	const runText = textRuns.map((run) => run.text).join('')
+	// Paragraphs are joined by a line break, so the last word of one and the first of the next stay
+	// two words once the whitespace collapses below.
+	const runText = paragraphs.map((paragraph) => paragraph.runs.map((run) => run.text).join('')).join('\n')
 	const raw = shape.shapeType === 'graphicFrame' ? graphicFrameText(shape) : runText
 	// Deliberately not `TextFrame.text`: this is one whitespace-collapsed line for
 	// matching and word-counting, not the frame's text with its line structure.

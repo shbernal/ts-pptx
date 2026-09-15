@@ -114,6 +114,13 @@ export function measureText(
 	const inset = opts.insetIn ?? 0
 	requireFiniteInches(opts.wIn, 'wIn', 'measureText')
 	requireFiniteInches(inset, 'insetIn', 'measureText')
+	// A size that is not a positive number fell back to the default size, and the measurement read as
+	// the caller's own.
+	if (opts.fontSize !== undefined && !(Number.isFinite(opts.fontSize) && opts.fontSize > 0))
+		throw new InvalidOptionError(
+			'font/size-not-positive',
+			`measureText: \`fontSize\` must be a positive number of points, got ${String(opts.fontSize)}.`
+		)
 	if (!(opts.wIn > 2 * inset))
 		throw new InvalidOptionError(
 			'coord/not-positive',

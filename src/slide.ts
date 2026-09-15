@@ -34,6 +34,7 @@ import type {
 import { emuToInches } from './units.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { isGroupableObject } from './gen/define/group.js'
+import { renderedSlideObjects } from './gen/slide/shape-ids.js'
 import {
 	familyMethodUnavailable,
 	SLIDE_METHOD_FAMILIES,
@@ -274,7 +275,9 @@ export default class SlideBuilder {
 	 * Building it costs a walk of a list a slide-sized deck keeps in the dozens.
 	 */
 	public get objects(): readonly SlideObjectInfo[] {
-		return this._slideObjects.map(toSlideObjectInfo)
+		// Only what draws on the slide. Speaker notes and the other list members that render nothing
+		// have no name `groupObjects()` accepts.
+		return renderedSlideObjects(this._slideObjects).map(toSlideObjectInfo)
 	}
 
 	/** Slide width in inches (resolved from the active presentation layout). */

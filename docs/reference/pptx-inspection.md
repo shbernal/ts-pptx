@@ -84,7 +84,7 @@ Explicit means set on the element itself, with nothing resolved from the layout,
 | `flipH`, `flipV` | `boolean` | none | Effective flips after group composition | Never |
 | `parentZIndex` | `number \| null` | none | `zIndex` of the enclosing group | `null` at slide level |
 | `childZIndices` | `number[]` | none | `zIndex` of each direct child, in document order | Empty unless `kind` is `'group'` |
-| `text` | `string` | none | The runs joined, whitespace collapsed to one trimmed line; for a graphic frame, see [Graphic frames](#graphic-frames) | Empty with no text frame (pictures, connectors, groups) or no run text |
+| `text` | `string` | none | The runs joined, with a space between paragraphs, whitespace collapsed to one trimmed line; for a graphic frame, see [Graphic frames](#graphic-frames) | Empty with no text frame (pictures, connectors, groups) or no run text |
 | `textWrap` | `string \| null` | none | Explicit `a:bodyPr/@wrap`, such as `square` or `none` | `null` with no text frame or no `a:bodyPr`, or when the attribute is unset |
 | `autofit` | `PptxAutofitMode \| null` | none | Explicit `a:bodyPr` autofit child: `'none'`, `'normAutofit'` or `'spAutoFit'` | `null` with no text frame or no `a:bodyPr` |
 | `autofitFontScale` | `number \| null` | percent | `a:normAutofit/@fontScale`, such as `62.5` | `null` unless the frame has `a:normAutofit` with a baked scale |

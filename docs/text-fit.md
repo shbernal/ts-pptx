@@ -272,6 +272,8 @@ const m = measureText(registry, 'Quarterly results', { wIn: 2.8, fontSize: 24, f
 | bytes that are not a font the parser reads | throws `MediaError` | `font/parse-failed` |
 | a `font` index outside the file | throws `InvalidOptionError` | `font/collection-index-out-of-range` |
 | a `font` name, or a collection's `face`, that names no font in the file | throws `InvalidOptionError` | `font/collection-face-not-found` |
+| a `face` that is empty or not a string | throws `InvalidOptionError` | `font/missing-typeface` |
+| a `measureText` `fontSize` that is not a positive number | throws `InvalidOptionError` | `font/size-not-positive` |
 | fitted text with no `fontFace`, in a deck with a registered face | warns, bare flag | `measure/shrink-unmeasured`, `measure/resize-unmeasured` |
 | a `fontFace` with no metrics, in a deck with a registered face | warns, measured with average widths | `measure/heuristic-metrics` |
 | a character the registered face has no glyph for | warns, measured with the missing-glyph width | `measure/uncovered-codepoints` |

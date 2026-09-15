@@ -1016,6 +1016,17 @@ defineRegressionSuite('Group shapes', [
 		},
 	},
 	{
+		// `addNotes` stores its text beside the slide's objects, and it was listed as an object with an
+		// empty name that `groupObjects()` refuses, against the promise that every listed name resolves.
+		name: 'slide.objects leaves speaker notes out',
+		fn: async () => {
+			const s = new TsPptx().addSlide()
+			s.addNotes('remember the chart')
+			s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Box' })
+			assertEqual(s.objects.map((o) => o.objectName).join(','), 'Box', 'expected only the shape')
+		},
+	},
+	{
 		// A group's box is the bounding box of its children, taken over the frames they are drawn in.
 		// A text child with no `w` is drawn 75% of the slide wide, and an image with a `sizing` box is
 		// drawn at that box. The bounds pass read the first as zero wide and the second at its own

@@ -43,6 +43,23 @@ describe('media load failure policy', () => {
 		const bytes = await deckWithMissingImage().toBytes({ onMediaError: 'placeholder' })
 		assert(bytes.length > 0, 'toBytes placeholder mode must produce a non-empty package')
 	})
+
+	// The placeholder is a picture. Written into an OLE object's `.xlsx` part or a model's `.glb`, it
+	// is a part PowerPoint cannot open, so a payload that fails to load rejects under either policy.
+	for (const { kind, add } of [
+		{ kind: 'OLE object', add: (slide) => slide.addOleObject({ path: '/definitely/does/not/exist/book.xlsx' }) },
+		{ kind: '3D model', add: (slide) => slide.addModel3d({ path: '/definitely/does/not/exist/model.glb' }) },
+	]) {
+		test(`onMediaError:'placeholder' still rejects for a missing ${kind} payload`, async () => {
+			const pptx = new TsPptx()
+			add(pptx.addSlide())
+			await assertRejects(
+				() => pptx.write({ outputType: 'nodebuffer', onMediaError: 'placeholder' }),
+				/embedded payload/,
+				`placeholder export with a missing ${kind} payload`
+			)
+		})
+	}
 })
 
 // Node has no rasterizer, so every SVG's PNG fallback is the placeholder: that is its normal output,

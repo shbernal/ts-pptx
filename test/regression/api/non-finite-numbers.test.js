@@ -5,6 +5,7 @@
 // naming the option, dropped the value without a word, or wrote `NaN` into the part.
 
 import { describe, test } from 'vitest'
+import { FontMetricsRegistry } from '../../../dist/measure.js'
 import { TsPptx, assert, assertEqual, build, captureDiagnostics, readEntry } from '../../helpers.js'
 
 const BOX = { x: 1, y: 1, w: 4, h: 1 }
@@ -155,6 +156,26 @@ describe('non-finite and out-of-range numbers on the write side', () => {
 			'coord/not-positive',
 			'insets that leave no width'
 		)
+		// A size that is not a positive number fell back to the default size, silently.
+		assertEqual(
+			thrownCode(() => measure({ wIn: 2, fontSize: NaN })),
+			'font/size-not-positive',
+			'a NaN font size'
+		)
+		assertEqual(
+			thrownCode(() => measure({ wIn: 2, fontSize: 0 })),
+			'font/size-not-positive',
+			'a zero font size'
+		)
+		// An empty face registered metrics under a key no `fontFace` resolves to.
+		const registry = new FontMetricsRegistry()
+		for (const face of ['', '   ']) {
+			assertEqual(
+				thrownCode(() => registry.set(face, /** @type {any} */ ({}))),
+				'font/missing-typeface',
+				`face ${JSON.stringify(face)}`
+			)
+		}
 
 		const measured = measure({ wIn: 3 })
 		assert(measured.measurable, 'a box with width still measures')

@@ -127,7 +127,7 @@ Throws happen inside the `addOleObject()` call, as `InvalidOptionError`. A file 
 | `w` or `h` is 0 | warns, and the zero is kept | `frame/zero-extent` |
 | `cover.data` has no base64 header | warns, and the gray placeholder is embedded | `preview-image/missing-base64-header` |
 | `path` or `cover.path` fails to load (when written) | throws `MediaError` | `media/load-failed` |
-| the same, with `onMediaError: 'placeholder'` | warns, and a broken-image PNG is written in place of the file | `media/load-failed` |
+| the same, with `onMediaError: 'placeholder'` | still throws `MediaError`, because a placeholder picture cannot stand in for the payload | `media/load-failed` |
 | `objectName` is only whitespace, longer than 255 characters, or holds control characters | warns | `object-name/empty`, `object-name/too-long`, `object-name/control-characters` |
 
 [Errors and warnings](errors-and-warnings.md) covers the error classes and how to route warnings.
