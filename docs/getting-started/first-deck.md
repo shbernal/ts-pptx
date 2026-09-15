@@ -264,6 +264,6 @@ Run it with `node deck.mts` and open `quarterly-summary.pptx`.
 | Make text fit its box | [Text that fits](../text-fit.md) |
 | Draw lines that stay attached to shapes | [Connectors](../connectors.md) |
 | Open an existing deck and edit it | [Read and edit a deck](../reading/read-and-edit.md) |
-| Turn a deck into a script | [PPTX to script](../reference/pptx-to-script.md) |
+| Turn a deck into a script | [Deck to script](../reference/pptx-to-script.md) |
 | Ship a smaller browser bundle | [Smaller bundles](../bundle-size.md) |
 | Look up every option | [API reference](../reference/api/index.md) |

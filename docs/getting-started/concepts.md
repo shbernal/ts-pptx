@@ -133,4 +133,4 @@ what each costs.
 - `pptx-ts/inspect`: `inspectPptx` reports what a package holds without building the full model. See
   [Inspect a package](../reference/pptx-inspection.md).
 - `pptx-ts/script`: `readModelToIr` and `printScript` turn a deck into the TypeScript that rebuilds
-  it. See [PPTX to script](../reference/pptx-to-script.md).
+  it. See [Deck to script](../reference/pptx-to-script.md).

@@ -29,7 +29,7 @@ flowchart LR
 - **Read and edit.** Open a deck you already have, change it, save it. Parts you did not touch
   come out byte for byte as they went in. See [Read and edit a deck](../reading/read-and-edit.md).
 - **Convert.** Turn a deck into the TypeScript that would rebuild it, with a note for everything
-  the conversion could not carry. See [PPTX to script](../reference/pptx-to-script.md).
+  the conversion could not carry. See [Deck to script](../reference/pptx-to-script.md).
 
 ## When to reach for it
 

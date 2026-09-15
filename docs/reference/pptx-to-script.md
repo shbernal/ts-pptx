@@ -1,695 +1,323 @@
 ---
 doc-schema-version: 1
-title: "PPTX to script"
-summary: "Turn an existing .pptx into runnable TypeScript that rebuilds it through the public write API, with a declared, machine-checked list of what it drops."
+title: "Deck to script"
+summary: "Turn an existing .pptx into a TypeScript module that rebuilds it through the write API, choose between the template-anchored and standalone outputs, and read the fidelity notes that list what the conversion lost."
 read_when:
   - Converting an existing deck into editable ts-pptx source
-  - Choosing between the template-anchored and standalone output tiers
-  - Interpreting a conversion's fidelity notes
-  - Changing the deck IR, either printer, or the round-trip check
+  - Choosing between the template-anchored and standalone outputs
+  - Reading the fidelity notes a conversion returns
+  - Checking whether a construct survives conversion
 doc_type: "guide"
 ---
 
-# Turning a deck back into source (`pptx-ts/script`)
+# Deck to script
 
-The `pptx-ts/script` subpath reads an existing `.pptx` through `pptx-ts/read`
-and emits **TypeScript source** that rebuilds an equivalent deck through this
-library's public write API. The deck stops being an opaque binary and becomes
-something you can diff, parameterize, and regenerate.
+## What it does
 
-It is **lossy by construction and by agreement**. This library does not cover
-every OOXML construct, and (measured, not assumed) the *read* side is the
-tighter of the two constraints. So the deliverable is never "a perfect copy".
-It is a faithful script plus an honest account of what it dropped, and that
-account is data rather than log output: see [Fidelity notes](#fidelity-notes).
+`pptx-ts/script` reads a `.pptx` through `pptx-ts/read` and prints a TypeScript module that rebuilds the deck through the write API. With the module you get a list of fidelity notes, one for each construct the rebuilt deck does not carry.
 
 ```ts
-import { copyFile, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { Presentation } from 'pptx-ts/read'
-import { readModelToIr, printScript } from 'pptx-ts/script'
+import { printScript, readModelToIr } from 'pptx-ts/script'
 
 const deck = await Presentation.load(await readFile('source.pptx'))
 const { code, assets, notes } = printScript(readModelToIr(deck))
 
+await mkdir('out/assets', { recursive: true })
 await writeFile('out/deck.ts', code)
 for (const [name, bytes] of assets) await writeFile(`out/assets/${name}`, bytes)
-
-// Template-anchored output expects the source deck beside the script, unmodified.
+// The template-anchored script loads the unmodified source deck from beside itself.
 await copyFile('source.pptx', 'out/template.pptx')
 
-console.log(`${notes.length} declared loss(es)`)
+for (const note of notes) console.log(note.slideNumber, note.construct, note.detail)
 ```
 
-Then `node out/deck.ts` writes `out/output.pptx`. `code` is a runnable ESM
-TypeScript module (it uses top-level `await`), and Node runs it directly by type
-stripping: no build step and no extra dependency. Every path inside the script
-resolves against the script's own location rather than the working directory.
+Run the printed module to write the deck:
 
-`printStandaloneScript` is the same call with no `copyFile` step.
-
-## The two tiers
-
-The same IR is printed by two printers. They differ in exactly one thing: where
-the deck's **chrome** (its masters, layouts and theme) comes from.
-
-| | `printScript` (template-anchored | `printStandaloneScript`) standalone |
-|---|---|---|
-| Chrome | the original, byte for byte | re-authored from what the read model exposes |
-| Ships | the script + the source deck as a binary asset | the script alone |
-| Entry | `Presentation.fromTemplate` + `appendSlides` | `new TsPptx()` + `defineSlideMaster` |
-| Editable | slide bodies | everything |
-| Charts, `chartEx`, table styles, `docProps` | carried across untouched | transcribed, or lost |
-
-Pick the template-anchored tier when the output has to *look* like the source
-and you can ship the source deck alongside the script. Pick standalone when the
-script must stand on its own, and accept that the deck wears a different suit.
-
-### Template-anchored output
-
-The template **is the source deck, unmodified**. No strip step is needed:
-`Presentation.fromTemplate` already removes every slide while leaving masters,
-layouts, theme and document properties byte-identical, so only slide content is
-ever regenerated.
-
-```ts
-const deck = await Presentation.fromTemplate(here('./template.pptx'))
-
-function generator(): TsPptx {
-	const pptx = new TsPptx()
-	pptx.defineLayout({ name: 'source', width: 13.333333, height: 7.5 })
-	pptx.layout = 'source'
-	return pptx
-}
-
-const gen1 = generator()
-const slide1 = gen1.addSlide()
-slide1.addText([{ text: 'Q3 Results', options: { bold: true } }], { x: '2068830emu', /* … */ })
-
-await deck.appendSlides(gen1, { layout: 'Titelfolie' })
-await writeFile(here('./output.pptx'), await deck.save())
+```sh
+node out/deck.ts
 ```
 
-Slides are emitted in source order and every operation appends, so `p:sldIdLst`
-comes out right with no position arithmetic. Contiguous slides sharing a layout
-share one generator, because `appendSlides` binds one layout per call.
+It writes `out/output.pptx`. Node runs the `.ts` file directly by stripping its types, so there is no build step. The module uses top-level `await` and imports `pptx-ts`, so run it where that package resolves, such as inside your project. Every path in the script resolves against the script's own location, not the working directory.
 
-Binding is by layout **name** where that is unambiguous, since a name
-survives being re-pointed at a different template. A deck whose layouts
-repeat a name falls back to gallery position, because `appendSlides` throws
-on an ambiguous name rather than picking one. A carried slide used to force
-that fallback on every batch in the script; it no longer does (see [what actually gets lost](#what-actually-gets-lost)
-below).
+For a script that needs no template, call `printStandaloneScript` in place of `printScript` and skip the `copyFile` line.
 
-### Standalone output
+## Two outputs
 
-```ts
-const pptx = new TsPptx()
-pptx.defineLayout({ name: 'source', width: 13.333333, height: 7.5 })
-pptx.layout = 'source'
-pptx.theme = { headFontFace: 'Calibri Light', bodyFontFace: 'Calibri', colorScheme: { /* 12 slots */ } }
-pptx.author = 'Thomas Singer'
-pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titelfolie' })
+Both printers take the same `DeckIr`. They differ in where the deck's masters, layouts and theme come from.
 
-const slide1 = pptx.addSlide({ masterTitle: 'Titelfolie' })
-slide1.addText(/* … */)
+| | Template-anchored | Standalone |
+| --- | --- | --- |
+| Printer | [`printScript`](api/script/functions/printScript.md) | [`printStandaloneScript`](api/script/functions/printStandaloneScript.md) |
+| Masters, layouts and theme | The source deck's, unchanged. `Presentation.fromTemplate` removes only its slides | Re-authored as `pptx.theme` and one `defineSlideMaster` call per source layout |
+| Ships beside the script | The unmodified source deck as `template.pptx`, and the media files the slides use | The media files the slides and layouts use, or nothing with `assets: 'inline'` |
+| Entry calls | `Presentation.fromTemplate()`, then `deck.appendSlides()` for each run of slides that share a layout | `new TsPptx()`, then `pptx.addSlide({ masterTitle })` for each slide |
+| Editable in the script | Slide content | Slide content, theme colours and fonts, and layouts |
+| Charts | Rebuilt with `addChart` from the chart's cached values | Same |
+| chartEx charts, SmartArt and undecoded graphic frames | The slide is copied from the source with `deck.importSlide()` | The slide is transcribed and the frame is dropped |
+| Table styles | The source `a:tableStyleId` GUID, printed as `tableStyle` | Same |
+| Document properties | All kept | Title, author, subject, revision and company. The rest are dropped |
 
-await pptx.writeFile({ fileName: here('./output.pptx') })
+Use the template-anchored output when the rebuilt deck has to look like the source and you can ship the source deck with the script. Use the standalone output when the script has to run with nothing but the package.
+
+## How it works
+
+```mermaid
+flowchart TD
+  pptx[".pptx file"] --> load["Presentation.load() from pptx-ts/read"]
+  load --> map["readModelToIr()"]
+  map --> ir["DeckIr: slides, chrome, assets, fidelity notes"]
+  ir --> tpl["printScript()"]
+  ir --> std["printStandaloneScript()"]
+  tpl --> out["PrintedScript: code, assets, notes"]
+  std --> out
 ```
 
-One `defineSlideMaster` per source layout, carrying **a title and a
-background and nothing else**. That thinness is a write-path constraint, not
-a shortcut. `addPlaceholdersToSlideLayouts` seeds every slide with each
-layout placeholder the slide did not populate, as an empty text shape. This
-converter authors every source shape as concrete absolute-positioned content
-and binds none of them to a placeholder. So re-declaring a layout's
-placeholders would add one ghost shape per placeholder to every slide: five
-to eight per slide on the `mixed` fixture, a deck of ordinary complexity. The
-title still earns its place: it is the key `addSlide({ masterTitle })`
-matches on, so the output keeps a layout gallery a reader recognises.
-
-## Why there are two tiers: the chrome cliff
-
-Slide *bodies* map near one-to-one from the read model onto write-API option
-objects. Slide *chrome* does not, and four constructs are the reason. Each is
-free in the template-anchored tier and unreachable in the standalone one, and
-**no amount of printer work moves them**: two are unreachable from *both*
-directions at once:
-
-- **`a:fmtScheme`**: the three fill, three line and three effect style lists a
-  shape's `<p:style>` indexes into. Nothing on the read path exposes it and
-  nothing on the write path sets it; the write path emits a hardcoded Office
-  one. So a shape whose outline comes from the theme line matrix keeps its
-  colour but not its width, dash or effect.
-- **`p:txStyles`**: the master's per-level default size, face, colour, indent
-  and bullet for each of the nine list levels. No read accessor, although
-  `SlideMasterProps.textStyles` could author them if they could be seen.
-- **A master's own decoration**: the shapes a *master* carries. Structural
-  rather than a reading gap: `defineSlideMaster` creates a layout under the one
-  shared master, so a master's shape tree has no write-side counterpart at all.
-- **`p:clrMap`**: readable, with no write-API setter.
-
-Multi-master decks add a fifth: a generated deck has a single shared master, so
-a source deck with several has no structural counterpart and collapses.
-
-A **layout's** decoration used to head that list. It no longer does.
-`SlideLayout.shapes` decodes it, and the converter transcribes each shape
-into that layout's `defineSlideMaster({ objects })` array. It goes through
-the same mapper the slides go through, so a band or a wordmark on a layout is
-decided by the code that decides one on a slide. What is left is narrow, and
-named per shape under the `layout.` prefix. A table has no variant in that
-union. A group is flattened into its children, because the union has no
-`group` either.
-
-This asymmetry is why the template-anchored tier shipped first. It rides
-primitives that already existed and were already tested, and it makes those five
-losses disappear rather than manage them.
-
-## The pipeline
-
-```
-read model  →  DeckIr  →  printed text
-```
-
-Never read model → text directly. `readModelToIr(presentation)` owns every
-semantic decision; a printer only knows how a value is spelled. That is what
-makes the mapping testable without a printer and keeps "how a number is
-formatted" from changing what a deck means.
-
-`DeckIr` is `{ slideSize, props, chrome, slides, assets, fidelity }` and is
-serializable: no DOM, no read-model object references. A slide is
-`{ number, source, layout, hidden, name?, background?, notesText?, transition?, calls }`,
-where each call is `{ method, args }` and `args` are literal write-API option
-objects. Media cannot be a literal, so it is an `AssetRef` (`{ $asset }`)
-resolved against `assets`; the *printer*, not the IR, decides between a file
-beside the script and an inline `data:` URI.
-
-`DeckIr.chrome` is read by the standalone printer only: for the
-template-anchored one the source deck *is* the chrome.
+[`readModelToIr()`](api/script/functions/readModelToIr.md) makes every mapping decision and returns a [`DeckIr`](api/script/interfaces/DeckIr.md). The IR is plain data, which `JSON.stringify` and `structuredClone` both round-trip. Each slide holds its content as write-API method names with literal option objects. Media bytes sit in `DeckIr.assets`, and an option refers to them as `{ $asset: name }`. A printer only spells out those values, and both printers share the code that prints a slide. So the two outputs print the same slide bodies from one IR, and you can inspect or change the IR before you print it.
 
 ### Geometry is EMU-exact
 
-Every `Coord`-typed option accepts a raw `"<n>emu"` string, so geometry is
-printed verbatim and reaches `a:off`/`a:ext` unrounded. Four options are typed
-in inches instead and are printed at **six decimal places**: `colW`, `rowH`,
-`margin`, and `defineLayout`'s `width`/`height`.
-
-Six is a proven minimum, not a preference. Inches round-trip EMU exactly at
-full double precision, and the loss appears only if the printed decimal is
-truncated. A six-decimal round shifts a value by at most 0.4572 EMU, inside
-the half-EMU bound that makes `Math.round` return the original. At five
-decimals the bound is 4.572 EMU, and the round trip fails for most values. So
-rounding below six to suppress cosmetic `0.5000000001` noise would be a real
-geometry loss.
-
-`defineLayout` is the strictest of the four: `appendSlides` compares the two
-decks' EMU sizes for *equality*, so imprecision there throws rather than drifts.
+Positions and sizes print as `"<n>emu"` strings, which every `Coord` option accepts, so they reach the output unrounded. Four options take inches only: `colW`, `rowH`, `margin`, and the `width` and `height` of `defineLayout`. The converter prints those to six decimal places, which convert back to the source EMU value. The template-anchored script relies on this, because `appendSlides` throws when the generated slide size differs from the template's.
 
 ### Transitions are filtered against a closed vocabulary
 
-A slide's show transition is transcribed in both tiers, as a property assignment
-rather than a call: `slide.transition = { type: 'push', speed: 'slow',
-durationMs: 1250, variant: { dir: 'd' } }`. Speed bucket, exact `p14:dur`
-duration, `advClick`/`advTm` advance behaviour and the type-specific variant
-attributes all carry across; each is omitted from the emitted literal when the
-source left it at its OOXML default.
+A slide's transition prints as an assignment such as `slide.transition = { type: 'push', speed: 'slow', durationMs: 1250, variant: { dir: 'd' } }`. `speed` is always printed. Duration, advance on click, advance time, the type's own attributes and the sound appear only when the source sets them.
 
-The one judgement is the **type**. `TransitionInfo.type` is an open string.
-The read model also decodes PowerPoint's modern effects, Morph, Vortex,
-Ripple and the rest, and tells them apart by *namespace*. The write API's
-`TransitionType` is a closed union of the 21 base ECMA-376 names. So the
-converter admits only `p`-namespaced names it can spell, and files a
-`slide.transition` note for the rest. The alternative is a printed script
-that does not compile, on exactly the decks a converter is most likely to
-meet. PowerPoint's own probed effect table (captured in
-`test/read/fixtures/slide-transition.oracle.json`) lists 21 base effects and
-21 modern ones, and the base 21 match the write union exactly.
+The write API names the 21 base ECMA-376 transitions. The converter keeps a transition only when its element is in the `p` namespace and has one of those names. PowerPoint's newer effects, such as Morph and Vortex in the `p14`, `p15` and `p159` namespaces, are dropped with a `slide.transition` note, and the slide advances with no effect.
 
-Transition **sounds** map in both OOXML forms: the stop-previous `p:endSnd`, and
-an embedded start sound whose WAV is resolved through the slide's own `r:embed`
-and carried as an asset like any image. The second survives the standalone tier
-only: see [Read the printer's notes](#read-the-printers-notes-not-the-irs).
+A stop-previous sound (`p:endSnd`) carries in both outputs. An embedded start sound carries in the standalone output only. The template-anchored output drops it with a `slide.transitionSound` note.
 
-### Theme colours are not uniformly flattened
+### Theme colours
 
-The write path accepts 10 scheme tokens (`tx1 tx2 bg1 bg2 accent1`–`accent6`)
-where `ST_SchemeColorVal` has 17. In the template-anchored tier the destination
-theme is the source theme by construction, so those 10 pass straight through as
-`schemeClr`: equivalent *and* still theme-responsive. The other 7 (`dk1 lt1 dk2
-lt2 hlink folHlink phClr`) are silently repainted `000000` by the write path, so
-the converter resolves them to hex against the theme and files a note. The
-standalone tier flattens accordingly.
+The write path accepts ten scheme colour tokens: `tx1`, `tx2`, `bg1`, `bg2` and `accent1` to `accent6`. A colour stated as one of them prints as that token and resolves against the output deck's theme. In the template-anchored output that theme is the source theme. In the standalone output it is the re-authored `pptx.theme`.
+
+The other seven tokens (`dk1`, `lt1`, `dk2`, `lt2`, `hlink`, `folHlink` and `phClr`) print as the hex value they resolve to in the source, with a `*.schemeToken` note. Those colours stop following the theme.
+
+## What the standalone output cannot rebuild
+
+The template-anchored output reuses the source deck's masters, layouts and theme, so it keeps every row below. The standalone output rebuilds them through the write API. Each row lacks a read accessor, a write option, or both.
+
+| Construct | Read accessor | Write option | Template-anchored output | Standalone output | Note |
+| --- | --- | --- | --- | --- | --- |
+| Theme format scheme (`a:fmtScheme`) | None | None. The write path emits Office's | Kept | Office's format scheme | `theme.fmtScheme` |
+| Master text styles (`p:txStyles`) | None | `SlideMasterProps.textStyles` | Kept | Built-in defaults | `master.txStyles` |
+| Shapes on a slide master | `SlideMaster.shapes` | None. `defineSlideMaster` creates a layout | Kept | Dropped | `master.decoration` |
+| Colour map (`p:clrMap`) | `SlideMaster.colorMap` | None. The write path emits the identity map | Kept | Identity map | `master.colorMap` |
+| More than one slide master | `Presentation.masters()` | One shared master | Kept | One master, with the first master's theme and colour map | `master.multiple` |
+| Layout placeholders | `SlideLayout.placeholders` | `defineSlideMaster({ objects })`, left unused | Kept | Dropped | `master.placeholders` |
+| Shapes on a layout | `SlideLayout.shapes` | `defineSlideMaster({ objects })` | Kept | Re-authored. A group becomes loose shapes and a table is dropped | `layout.*` |
+| Layout background taken from the theme (`p:bgRef`) | The resolved fill | A colour or an image | Kept | The resolved fill, baked in | `master.background` |
+| Layout names | `Presentation.layouts()` | `defineSlideMaster({ title })` | Kept | A repeated name gets a suffix. A tab or line break becomes a space | `master.nameCollision`, `master.name` |
+| Document properties | `Presentation.coreProperties`, `Presentation.appProperties` | Title, author, subject, revision and company | Kept | Those five. A property the source left blank gets the library's value | `deck.docProps`, `deck.docPropsDefault` |
+| Blank `DEFAULT` layout | Not applicable | Added by every `new TsPptx()` | Not added | Added ahead of the source layouts | `master.default` |
+
+The standalone output leaves layout placeholders out on purpose. The write path gives every slide an empty shape for each layout placeholder the slide does not fill. The converter writes every source shape as positioned content, never into a placeholder, so declaring the placeholders would add empty shapes to every slide.
 
 ## Fidelity notes
 
-Every construct that cannot survive becomes a `FidelityNote` on the IR rather
-than a warning to a log. A warning is prose that nothing consumes, and a missing
-one looks exactly like a clean run. Notes as data invert that:
-
-- an **undeclared** loss fails the round-trip check, because nothing excluded it;
-- a **declared** loss that actually survives is a stale note, and the check can
-  say so.
+Each construct an output does not carry becomes a [`FidelityNote`](api/script/interfaces/FidelityNote.md) in [`PrintedScript.notes`](api/script/interfaces/PrintedScript.md). The printed module repeats the list in a comment block at its top, grouped by deck and by slide.
 
 ```ts
 interface FidelityNote {
-	slideNumber: number | null // 1-based source slide, null for a deck-level loss
-	shapeName: string | null // p:cNvPr/@name, so the note points at a call in the script
-	construct: string // stable dotted key — 'line.width', 'text.tabStops'
-	disposition: 'dropped' | 'flattened' | 'approximated'
-	cause: 'unread' | 'unwritable' | 'unsupported'
-	detail: string // why, in a sentence
+  slideNumber: number | null // 1-based source slide, or null for a deck-level loss
+  shapeName: string | null // the source shape's p:cNvPr/@name, '' when it has none, null when the loss is not about one shape
+  construct: string // stable dotted key, such as 'line.width'
+  disposition: 'dropped' | 'flattened' | 'approximated'
+  cause: 'unread' | 'unwritable' | 'unsupported'
+  detail: string // one sentence for a human
 }
 ```
 
-`construct` is an identifier rather than a sentence, because the round-trip
-check matches it mechanically against a field path. `cause` is what makes a
-note **actionable**. `unread` and `unwritable` are gaps in a specific
-subsystem, and could be closed. `unsupported` is a property of OOXML or of
-the chosen tier, and will not yield to more converter work.
+| Value | Meaning |
+| --- | --- |
+| `dropped` | Nothing in the output carries the construct |
+| `flattened` | A value survives and the structure around it does not, such as a placeholder rebuilt as a plain shape |
+| `approximated` | The structure survives with a different value, such as a chart rebuilt from its cached points |
+| `unread` | `pptx-ts/read` has no accessor for the construct, so the converter never sees it |
+| `unwritable` | The read model reports the construct and the write API has no option for it |
+| `unsupported` | Both APIs handle the construct, and this output cannot carry it |
 
-### Read the printer's notes, not the IR's
+A note that repeats the same slide, shape, construct and text is recorded once.
 
-`PrintedScript.notes` is **not** `DeckIr.fidelity`. A tier both suppresses and
-adds:
+### Which notes apply to each output
 
-- *Suppressed:* all thirteen document properties ride in the template, so the IR's
-  `deck.docProps` note does not describe a template-anchored output. A caveat
-  that does not apply teaches the reader to skim the ones that do.
-- *Added:* a slide's own name (`p:cSld@name`) reads fine and would survive a byte
-  copy, but has no public write-API setter, so it dies in both tiers and nowhere
-  else in the library.
-- *Added, template-anchored only:* a transition's **embedded start sound**
-  (`slide.transitionSound`). The standalone tier writes a real package and
-  keeps it. The append path this tier rides never runs the pass that
-  registers a transition's audio part, so the sound is dropped. Silently, and
-  without a dangling reference, which is the safe half of the failure and
-  still a loss. The stop-previous form (`p:endSnd`) needs no part and
-  survives in both tiers.
+Read `PrintedScript.notes`, not `DeckIr.fidelity`. The IR holds every note the converter recorded. Each printer filters that list and adds notes of its own:
 
-The applicable set is reproduced as a comment block at the top of the emitted
-script, so the artifact carries its own caveats, and it is the set a round-trip
-check must exclude from its diff.
+- The note catalogue marks each construct as applying to both outputs, to the standalone output only, or to the template-anchored output only. The master, theme and document-property notes and every construct under the `layout.` prefix apply to the standalone output only, because the template-anchored output keeps those parts of the source.
+- `slide.carried` applies to the template-anchored output only. On a slide it copies, that output keeps `slide.carried` and the note for the frame that forced the copy (`chartEx.all`, `diagram.all` or `graphicFrame.unknown`). It drops the slide's other notes, because the copy keeps what they describe.
+- Both printers add `slide.name` for a slide with its own name, which has no write-API setter.
+- The template-anchored printer adds `slide.layout` when the slide's layout name is not unique, and `slide.transitionSound` for an embedded start sound.
+- The standalone printer adds `slide.layout` when a slide's layout produced no master, `master.default` for the extra layout, and `deck.docPropsDefault` for properties the write path stamps.
 
-## What actually gets lost
+Pass `PrintedScript.notes` to [`diffDeckIr()`](api/script/functions/diffDeckIr.md) when you [verify a conversion](#verifying-a-conversion).
 
-Measured across the 56-fixture corpus by `pnpm run script:census`, which is
-what keeps the numbers below honest. A closed reader gap or a new fixture
-moves them without failing anything. The count is how many fixtures raise the
-note at least once, not how many notes fired. The corpus is
-construct-targeted, so this measures **coverage, not frequency**. It says
-what a converter meets, not what a real deck is mostly made of.
+## Known losses
 
-Both tiers, in corpus order:
+The counts come from `pnpm run script:census`, run in a clone of the repository over `test/read/fixtures/`. That directory holds 56 `.pptx` fixtures, and all 56 convert. The census reads `.pptx` files only, so it skips the `template.potx` beside them.
 
-| construct | fixtures | cause | what it costs |
-|---|---|---|---|
-| `text.color.inherited` | 39/56 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
-| `shape.placeholder` | 10/56 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
-| `shape.frameInherited` | 9/56 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen: it stops tracking layout edits |
-| `line.width` | 10/56 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
-| `slide.animation` | 7/56 | unread | build animation has no structural reader |
-| `chart.workbook` | 4/56 | unsupported | a chart is rebuilt from its cached plot values, so its embedded workbook is regenerated: the numbers match, the source sheet's formulas, extra columns and formatting do not survive |
-| `slide.carried` | 3/56 | unwritable | template-anchored only: the slide holds a graphic frame with no write-API emitter, so it is copied from the source rather than transcribed |
-| `media.audioVideo` | 2/56 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
-| `text.equation` | 2/56 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
+A count is the number of fixtures that raise the note at least once. Each fixture targets a few constructs, so a count shows what the corpus exercises, not how often a construct occurs in real decks. The table lists only constructs some fixture raises. [`knownNoteConstructs()`](api/script/functions/knownNoteConstructs.md) returns the full catalogue.
 
-Plus, at 1–2 fixtures each: `diagram.all`,
-`graphicFrame.unknown`, `group.childSpace`, `group.transform`, `image.recolor`,
-`shape.empty`, `chart.combo`, `chart.xLabels`, `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
-`image.svg`, `line.arrowSize`, `line.schemeToken`, `shape.custGeom.guides`,
-`slide.background`, `slide.layout`, `slide.transitionSound`, `table.style`,
-`table.cell.fill.picture.geometry`, `table.rowAuto`, `text.bullet.schemeToken`, `text.field`,
-`text.hyperlink.underline`,
-`text.paraSpaceZero`.
+The Output column says where the note fires. A construct that fires in both outputs has the same count in each. A construct under the `layout.` prefix is the slide construct of the same name, raised while re-authoring a layout's shapes. Across the corpus the standalone output raises 906 notes and the template-anchored output 486, which is 3 to 14 more per deck.
 
-**A slide holding a graphic frame the write API cannot author is copied, not
-transcribed.** That is the rule, and `slide.carried` is how the converter
-says it applied. Three frame payloads qualify today: an extended chart, a
-SmartArt diagram, and a frame the reader does not decode at all. The list is
-not the point. Any frame that produces no call has the same consequence,
-because a script that silently omits it would claim to describe a slide it
-does not. The per-shape note beside `slide.carried` says which construct
-forced the copy.
+| Construct | Output | Cause | What happens | Fixtures |
+| --- | --- | --- | --- | --- |
+| `text.color.inherited` | Both | unsupported | A run with no colour of its own gets its inherited colour baked in, because the write path paints an uncoloured run black. It stops following theme changes | 39/56 |
+| `line.width` | Both | unread | An outline taken from the theme line style (`p:style/a:lnRef`) keeps its colour and loses its width and dash | 10/56 |
+| `shape.placeholder` | Both | unsupported | A placeholder becomes a plain shape with its inherited geometry and styling baked in | 10/56 |
+| `shape.frameInherited` | Both | unsupported | A shape positioned by its layout or master gets that position baked in, and stops following edits to the layout or master | 9/56 |
+| `slide.animation` | Both | unread | Build animations are dropped and every shape lands static | 7/56 |
+| `chart.workbook` | Both | unsupported | The chart is rebuilt from its cached values. The plotted numbers match, and the workbook's formulas, extra columns and formatting are gone | 4/56 |
+| `diagram.all` | Both | unwritable | No write API builds SmartArt. The template-anchored output copies the slide, and the standalone output drops the diagram | 2/56 |
+| `group.childSpace` | Both | unsupported | The children of a group that scales them are printed pre-scaled, so resizing the group no longer rescales them | 2/56 |
+| `group.transform` | Both | unsupported | A group's rotation and flips are baked into its children. They render the same and no longer rotate with the group | 2/56 |
+| `image.recolor` | Both | unwritable | Duotone, colour change and greyscale recolouring are dropped | 2/56 |
+| `media.audioVideo` | Both | unread | Embedded audio or video becomes a still image of its poster frame | 2/56 |
+| `shape.empty` | Both | unsupported | A shape with no text and no geometry of its own, such as an unfilled placeholder, is omitted | 2/56 |
+| `text.equation` | Both | unread | An OMML equation is dropped from its shape | 2/56 |
+| `text.hyperlink.underline` | Both | unwritable | A link that states no underline comes back stating `u="sng"`. It looks the same | 2/56 |
+| `chart.combo` | Both | unsupported | A combo chart becomes a single bar chart | 1/56 |
+| `chart.xLabels` | Both | unwritable | A scatter or bubble chart plotted against text X labels plots at the same positions, and the labels are gone | 1/56 |
+| `connector.binding` | Both | unsupported | A connector no longer follows the shapes it was attached to | 1/56 |
+| `fill.gradient.path` | Both | unwritable | A `rect` path gradient becomes radial | 1/56 |
+| `fill.schemeToken` | Both | unwritable | A fill colour outside the ten mapped scheme tokens is baked to hex | 1/56 |
+| `graphicFrame.unknown` | Both | unread | A graphic frame the reader does not decode, such as a 3D model, an OLE object or ink, is dropped. The template-anchored output copies the slide | 1/56 |
+| `image.svg` | Both | unsupported | An SVG picture keeps its vector part. The write path generates a new raster fallback in place of the source's | 1/56 |
+| `line.arrowSize` | Both | unwritable | Arrowheads render at the default width and length | 1/56 |
+| `line.schemeToken` | Both | unwritable | An outline colour outside the ten mapped scheme tokens is baked to hex | 1/56 |
+| `shape.custGeom.guides` | Both | unread | A freeform keeps its path and loses its guides, adjust handles and connection sites | 1/56 |
+| `slide.background` | Both | unwritable | A slide background taken from the theme (`p:bgRef`) is baked to the fill it resolves to | 1/56 |
+| `table.cell.fill.picture.geometry` | Both | unwritable | A cell's picture fill keeps its image. Its tiling, destination inset, DPI and rotate-with-shape setting do not carry | 1/56 |
+| `table.rowAuto` | Both | unsupported | Auto-height rows get an even share of the table height instead of fitting their content | 1/56 |
+| `table.style` | Both | unsupported | A table with no style ID takes the output deck's default table style | 1/56 |
+| `text.bullet.schemeToken` | Both | unwritable | A bullet colour outside the ten mapped scheme tokens is baked to hex | 1/56 |
+| `text.field` | Both | unread | The text of a slide number, date or footer field is dropped | 1/56 |
+| `text.paraSpaceZero` | Both | unwritable | An explicit zero space before or after a paragraph is dropped, so the list style's spacing comes back | 1/56 |
+| `slide.carried` | Template-anchored | unwritable | A slide holding a frame the write API cannot author is copied from the source. It renders the same, and the script does not describe its contents | 3/56 |
+| `slide.layout` | Template-anchored | unsupported | Several source layouts share the slide's layout name, so the slide binds to a gallery position | 1/56 |
+| `slide.transitionSound` | Template-anchored | unsupported | An embedded transition start sound is dropped | 1/56 |
+| `deck.docProps` | Standalone | unwritable | Keywords, description, category, content status and last-modified-by are dropped | 56/56 |
+| `deck.docPropsDefault` | Standalone | unwritable | A title, author, subject, revision or company the source left blank gets the library's value | 56/56 |
+| `master.default` | Standalone | unsupported | The layout gallery gains a blank `DEFAULT` layout ahead of the source layouts | 56/56 |
+| `master.placeholders` | Standalone | unsupported | Layout placeholder definitions are not reproduced | 56/56 |
+| `master.txStyles` | Standalone | unread | Placeholder text falls back to built-in size, face, colour, indent and bullet per list level | 56/56 |
+| `theme.fmtScheme` | Standalone | unread | The theme's fill, line and effect style lists become Office's | 56/56 |
+| `master.background` | Standalone | unwritable | A layout background taken from the theme is baked to the fill it resolves to | 55/56 |
+| `master.decoration` | Standalone | unwritable | Shapes on a slide master are dropped | 6/56 |
+| `master.name` | Standalone | unwritable | A tab or line break in a layout name becomes a space | 5/56 |
+| `layout.text.color.inherited` | Standalone | unsupported | As `text.color.inherited`, on a layout shape | 4/56 |
+| `master.colorMap` | Standalone | unwritable | A remapped colour map becomes the identity map, so scheme colours resolve to different hex values | 4/56 |
+| `layout.group` | Standalone | unwritable | A group on a layout becomes loose shapes in the same positions | 2/56 |
+| `layout.fill.gradient.schemeToken` | Standalone | unwritable | A gradient stop colour on a layout shape, outside the ten mapped tokens, is baked to hex | 1/56 |
+| `layout.fill.schemeToken` | Standalone | unwritable | As `fill.schemeToken`, on a layout shape | 1/56 |
+| `layout.shape.custGeom.guides` | Standalone | unread | As `shape.custGeom.guides`, on a layout shape | 1/56 |
+| `master.multiple` | Standalone | unsupported | Several slide masters collapse into one, with the first master's theme and colour map | 1/56 |
+| `master.nameCollision` | Standalone | unsupported | A repeated layout name gets a suffix, such as `Title Slide (2)` | 1/56 |
 
-The standalone tier has no source package to copy from, so it transcribes such a
-slide and genuinely loses the frame. That is why the per-shape notes stay: they
-are what that tier reports, and `slide.carried` is suppressed there. The
-template-anchored tier reports the reverse. On a slide it copies, it keeps
-`slide.carried` and the frame's own note, and drops every other note the slide
-raised. A placeholder beside the diagram loses its identity only when it is
-transcribed, and a copy keeps it.
+### Carried without a note
 
-**The copy no longer costs a duplicate layout.** It used to. `importSlide`
-brought the copied slide's whole `slideLayout` chain across under fresh
-partnames, and could not tell that the template it was importing *into* was
-the same file. So the output gained one layout-gallery entry per carried
-slide. Nothing bound to it, and the deck rendered identically. But it showed
-up in PowerPoint's layout picker, and it duplicated a layout *name*. That
-made `appendSlides({ layout })` ambiguous, and demoted every batch in the
-script from a name to a gallery position. `importSlide` now binds to chrome
-the destination already holds (see [Copy slides between decks](../reading/copy-between-decks.md#reuse-chrome-the-deck-already-has)),
-and since this tier's template is the source file itself, the whole chain is
-already there. The `slide.carriedChrome` note and the positional fallback it
-forced are both gone; a repeated layout name in a multi-master deck still
-falls back to a position, which is the case the fallback was for.
+These constructs carry in both outputs and raise no note.
 
-**`diagram.all` and `graphicFrame.unknown` are different losses, and used to be
-one note.** A SmartArt frame has a full reader, and its text can now be edited in
-place through it (`DiagramPoint.text`, see
-[Read object model](./read-object-model.md#smartart)). What a converted script
-loses is the *authoring* leg: no write API builds a diagram from scratch, which
-makes it `unwritable` alongside `chartEx.all` rather than `unread`.
-`graphicFrame.unknown` keeps its original meaning and its original cause, and
-names only the frames that really are undecoded: the corpus raises it on
-`model3d.pptx` alone.
+| Source construct | What the script writes |
+| --- | --- |
+| A paragraph with no bullet element of its own | `bullet: 'inherit'` |
+| Paragraph left margin and first-line indent (`a:pPr/@marL`, `@indent`) | `paraMarginLeft` and `paraIndent`, in points, or `'inherit'` |
+| Numbering start, bullet font, bullet size percentage and bullet colour | `numberStartAt`, `fontFace`, `size` and `color` inside `bullet` |
+| An explicit off: `u="none"`, `strike="noStrike"`, `cap="none"` | `underline: { style: 'none' }`, `strike: 'noStrike'`, `caps: 'none'` |
+| Superscript and subscript | `baseline` |
+| A baked autofit scale (`a:normAutofit/@fontScale`, `@lnSpcReduction`) | `fit: { type: 'shrink', fontScale, lnSpcReduction }`. A bare `<a:normAutofit/>` is `fit: 'shrink'` |
+| A table cell with a fill of its own | `fill` on the cell. A styled cell with no fill of its own is left to `tableStyle` |
+| A picture fill on a shape or cell | `fill: { type: 'image', image: { data, crop }, transparency }` |
+| A picture's crop | `crop` on `addImage` |
+| An outline's cap (`a:ln/@cap`) | `line.cap` |
+| A transition's type, speed, duration, advance and sound | `slide.transition` |
+| Position and size | `"<n>emu"` strings |
+| Shapes on a layout, standalone output | `defineSlideMaster({ objects })` |
 
-**An inherited bullet is not a loss.** It used to be the largest one here, at
-34/44: the top of this table, and 305 of the standalone tier's notes on its
-own. A paragraph with no bullet child of its own inherits whatever the
-layout's or master's list style says, and the write API had no way to state
-that. Omitting `bullet` emitted an explicit `<a:buNone/>` plus `marL="0" indent="0"`,
-which *overrides* the list style rather than deferring to it. That is a
-different fact even where the inherited style has no bullet, because a later
-edit to the master then stops arriving, and a visible change where it did
-have one, along with an inherited hanging indent flattened to zero in the
-same stroke. `bullet: 'inherit'` is the spelling for the third state,
-emitting neither a bullet child nor `a:buNone` nor the margins, so
-`Paragraph.bulletDetail` returning `null` (no bullet child) maps onto it and
-`{ kind: 'none' }` (a stated `a:buNone`) still maps onto `false`. The
-distinction always survived the read leg; it died on the write leg, which
-made this a missing option rather than an unreadable construct. Neither state
-notes now, and `layout.text.bullet.inherited` closes with it.
+A crop with a negative inset, or with opposite insets that add up to 100% or more, has no `crop` spelling and raises `image.crop` or `fill.picture.geometry`. An autofit percentage outside 0 to 100 raises `text.autofit.fontScale` or `text.autofit.lnSpcReduction`.
 
-**A paragraph's own margins are not a loss either, and they were the other
-half of the same element.** `text.indent` read 5/44 and was the largest note
-left on `a:pPr` once the bullet one closed. `a:pPr/@marL` and `@indent` had
-no write option at all, so whichever `bullet` state a paragraph mapped onto
-decided them. A drawn bullet re-hung the first line by the writer's own 27pt
-default, whatever the source said. `bullet: false` flattened both to zero.
-`paraMarginLeft` and `paraIndent` state them now, in points, with `'inherit'`
-for the paragraph that states neither: which a bulleted paragraph needs,
-since omitting the option is what writes the default. That is the third state
-again, one attribute over from `bullet: 'inherit'`, and the reader did not
-move here either: `Paragraph.marginLeftPt` and `Paragraph.indentPt` already
-separated a stated margin from an absent one. The note sat empty in the round
-trip's exclusion table, because neither IR carried the field and the check
-was comparing two models that were both missing it. Closing it is what makes
-the margins *verified* rather than merely declared.
+### Reader gaps
 
-**A styled cell's own fill is not a loss.** It used to be. The note read at 7
-fixtures. `resolvedFill` answers "what colour is this cell" by folding the
-cell's own fill together with the colour it merely inherits from the style's
-header and banding rules, and writing that back would turn every banded cell
-into an explicitly filled one. `TableCell.hasOwnFill` separates the two. A
-cell whose `a:tcPr` carries an `EG_FillProperties` child emits that fill. A
-cell with none is left to the style GUID, which reproduces the banding
-exactly rather than approximately. Neither case records a note, and the bare
-`table.cell.fill` key is retired rather than merely unfired: its `.gradient`,
-`.gradient.path`, `.picture` and `.picture.geometry` children are separate
-constructs and stay.
+`pptx-ts/read` has no accessor for these, so neither output can carry them. Their notes have the cause `unread`:
 
-**Picture fills carry, and so does their source crop; the rest of the
-geometry does not.** An image-filled *surface* (a shape's `p:spPr/a:blipFill`
-or a cell's `a:tcPr/a:blipFill`) is re-embedded through the same asset
-resolver an `addImage` uses, so the bytes and the blip's `a:alphaModFix`
-opacity survive. Its `a:srcRect` does too, as `ShapeFillProps.image.crop`,
-with one limit worth stating. That option takes percentage insets from 0 to
-100. So a *negative* inset, which is how a `contain`-style fill bleeds its
-source past the surface, and a pair summing to 100% or more, are left
-uncarried rather than turned into a script that throws when it is run.
-
-Everything else around the blip does not carry at all. The write path emits
-every picture fill as a stretched blip at a fixed `dpi="0" rotWithShape="1"`,
-with only its `<a:srcRect>` under the caller's control. So a tiled fill comes
-back stretched, and a destination inset comes back whole. That is
-`fill.picture.geometry` / `table.cell.fill.picture.geometry`, `approximated`
-and `unwritable`, and it is recorded only when the source actually uses one
-of them, one fixture does, the PowerPoint-authored tiled cell in
-`table-cell-image-fill.pptx`.
-
-**An outline's `@cap` carries; its `@algn` does not.** `a:ln/@cap` is mapped
-onto `ShapeLineProps.cap` (`flat`/`sq`/`rnd` → `flat`/`square`/`round`) and
-records no note, because both legs exist: the write API authors the attribute
-and `AutoShape.lineCap` reads it back. It is not cosmetic. On a thick dashed
-rule the cap extends every dash by the stroke width, and decides whether each
-draws as a rectangle or a lozenge. So before the mapping existed, a deck this
-library wrote could not survive its own converter, and nothing said so.
-`@algn` is the case where only one leg exists: readable through
-`AutoShape.lineAlign`, with no write option for it, so `line.align` is
-`dropped`/`unwritable`. It is recorded only for `algn="in"`, the inset stroke
-that sits half its width further in. `ctr` is what an omitted `@algn` already
-renders as, so noting that one would fire on most PowerPoint-authored shapes
-while describing no loss. No corpus fixture states `in`, so the note reads
-0/56.
-
-**A baked autofit carries its scale, and a bare one is a different state.** A
-`normAutofit` frame maps onto `fit`, but not onto a single spelling. One that
-bakes `a:normAutofit/@fontScale` or `@lnSpcReduction` emits the object form
-`fit: { type: 'shrink', fontScale, lnSpcReduction }`. One with neither
-attribute emits `fit: 'shrink'`, which is what writes a bare
-`<a:normAutofit/>`. Collapsing the two would not be a rounding. ECMA-376
-§21.1.2.1.3 defaults each attribute to 100%/0% only when it is *omitted*, and
-PowerPoint recomputes an unbaked scale on edit while drawing a baked one
-exactly as written. A deck baked at `fontScale="40000"` would come back
-painting its text two and a half times too large, until someone clicked into
-the frame. Neither case notes. `text.autofit.fontScale` and
-`text.autofit.lnSpcReduction` are the one arm that does. The write path
-rejects a percentage outside 0–100 and drops the attribute with a warning. So
-a malformed source falls back to bare `'shrink'` with the loss declared,
-rather than passing through a number that would vanish silently. No corpus
-fixture is malformed, so both read 0/56.
-
-**The explicit off for a text decoration is a state, not silence.**
-`u="none"`, `strike="noStrike"` and `cap="none"` carry into the IR as
-`underline: { style: 'none' }`, `strike: 'noStrike'` and `caps: 'none'`; only
-an *absent* attribute maps to an absent option. Each is a member of its own
-enumeration (ECMA-376 §20.1.10.81, §20.1.10.78, `ST_TextCapsType`) and would
-be redundant with omission if omission were the only way to be off. It is
-not, because run properties resolve down the `a:lstStyle` → placeholder →
-layout → master chain. A run that would take `u="sng"` from its list style
-and states `u="none"` is not underlined. The same run with the attribute
-dropped is. So the loss was invisible on a deck with no inherited decoration,
-and a wrong answer on one that has any. It was undeclared either way:
-`canonicalDeckIr` did not carry the field, so `diffDeckIr` compared two
-models that were both missing it. Neither state notes. Two
-PowerPoint-authored fixtures state these tokens: `mixed.pptx` and
-`table.pptx` carry 132 runs stating `u="none"` and `strike="noStrike"`, and
-100 of those also state `cap="none"`.
-
-`fill.picture` and `table.cell.fill.picture` are what remain for a fill that
-cannot carry its bytes at all. Neither fires on the corpus. The cases are a
-blip embedding no part, meaning an external or linked image; a part missing
-from the package; and an SVG, which `addImage` accepts but a *fill* does not,
-so emitting one would produce a script that runs, warns, and paints nothing.
-Those surfaces come out unfilled, as they did before, with the note saying
-which case it was.
-
-**Standalone only**: the chrome cliff, quantified. Six notes fire on *every*
-fixture, which is the honest headline of that tier:
-
-| construct | fixtures | what it costs |
-|---|---|---|
-| `theme.fmtScheme` | 56/56 | the output carries Office's format scheme |
-| `master.txStyles` | 56/56 | placeholder text falls back to built-in defaults |
-| `master.placeholders` | 56/56 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 56/56 | 5 of 13 document properties round-trip |
-| `deck.docPropsDefault` | 56/56 | the write path stamps its own value for each property the source left blank |
-| `master.default` | 56/56 | every presentation carries an unremovable blank `DEFAULT` layout |
-| `master.background` | 55/56 | a `p:bgRef` theme reference is baked to the fill it resolves to |
-| `master.decoration` | 6/56 | the shapes a *master* carries: `defineSlideMaster` creates a layout, so there is nowhere to put them |
-| `master.name` | 5/56 | a layout name containing a tab or line break collapses |
-| `master.colorMap` | 4/56 | `p:clrMap` has no setter |
-| `master.multiple` | 1/56 | multi-master decks collapse to one |
-| `master.nameCollision` | 1/56 | layout titles are deduplicated, since a title doubles as a lookup key |
-
-A **`layout.` prefix** marks the rest: a loss in re-authoring a *layout's* own
-decoration, which the standalone tier rebuilds into that layout's
-`defineSlideMaster({ objects })`. The vocabulary after the prefix is the slide
-one, because the shape mapper is shared: `layout.line.width` is `line.width`
-seen from the chrome. The prefix is not cosmetic: without it a themed outline on
-a layout would be reported by the template-anchored tier, which rebuilds no
-layout, and the round trip would let one excuse the same difference on a *slide*.
-
-| construct | fixtures | what it costs |
-|---|---|---|
-| `layout.text.color.inherited` | 4/56 | an inherited run colour on a decorative text box, resolved and baked in |
-| `layout.group` | 2/56 | a group on a layout becomes loose objects: they land unmoved, but stop being one selectable object |
-| `layout.fill.schemeToken` | 1/56 | a token outside the ten the write path maps is baked to hex |
-| `layout.fill.gradient.schemeToken` | 1/56 | the same, for a gradient stop's token |
-| `layout.shape.custGeom.guides` | 1/56 | a freeform's guides and adjust handles, as on a slide |
-| `layout.decoration` | 0/56 | a table on a layout: no `SlideMasterObject` variant at all |
-
-The two remaining rolled-up chrome notes are `master.decoration` and
-`master.placeholders`, one each, naming the counts. A twelve-layout deck
-emitting one note per layout would put twelve near-identical paragraphs at the
-top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 3 to 14 notes, not fifty (across the corpus: 906
-notes against the template-anchored tier's 486).
-
-### The read path is the binding constraint
-
-Worth stating plainly, because it is the opposite of what it looks like from the
-write side. Constructs are lost purely because **nothing reads them**, while the
-write API can already express them today: tab stops, preset text warp, and
-custGeom guides, adjust handles and connection sites. `pnpm run read:census`
-measures that surface directly.
-
-The bullet half of that list is now closed. `Paragraph.bulletDetail` reads
-`a:buAutoNum/@startAt` and a bullet's own `a:buFont` / `a:buSzPct` / `a:buClr`,
-so `text.bullet.numberStartAt` and `text.bullet.style` are gone rather than
-merely unmapped: the converter emits `numberStartAt`, `fontFace`, `size` and
-`color` instead of noting their absence. What remains is `text.bullet.sizePt`,
-an absolute `a:buSzPts` the write API has no unit for, and
-`text.bullet.picture`, where the bytes of an `a:buBlip` are readable but the
-paragraph mapper carries no asset resolver to re-embed them with. Reading the
-colour also opened one write-side gap of its own: `text.bullet.schemeToken`
-(1/56), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
-which is baked to a literal hex and stops tracking the theme.
-
-`text.bullet.inherited` is the counter-example to this section's thesis, and it
-was the biggest note on the corpus, so it is worth being precise about why. It
-was filed `unread`, and that was true of the wrong thing: what nothing reads is
-the inherited *value*, since `a:lvl1pPr` list styles are still undecoded. But
-reproducing an inherited bullet never required reading it: it required not
-overwriting it, and `Paragraph.bulletDetail` already separated "no bullet child"
-(`null`) from "a stated `a:buNone`" (`{ kind: 'none' }`). The whole loss was a
-missing *write* spelling, and `bullet: 'inherit'` closed it without the reader
-moving at all. A note's `cause` records the gap its author could see; it is a
-hypothesis about where the fix lives, not a finding.
-
-`text.indent` was filed the same way and closed the same way, one attribute over:
-which is the part worth generalizing. It read `unwritable` rather than
-`unread`, so its hypothesis was right about *which* leg, but the loss it
-described stopped at "hanging indents flatten to the level default" when the
-element also carried a margin that no bullet state could leave alone. Both notes
-were on the same `a:pPr`, both were closed by naming a third state on the write
-side, and neither needed a line of reader work. Where one note on an element
-turns out to be a missing write spelling, its neighbours are worth re-reading
-before they are believed.
-
-Layout decoration is the largest case of the same pattern, and it closed
-completely. It was `unread`, on the strength of the read model documenting a
-template's non-placeholder content as outside its scope. `SlideLayout.shapes`
-decodes it now, and the guess about the *write* side turned out to be wrong: the
-`objects` union covers a plain rect, line, image, chart and text box, but it
-also covers any preset via `{ shape: { type } }` (which includes `custGeom`)
-and its `ShapeProps` carries fill, line, shadow, rotation and adjust handles. So
-what looked like a write-side ceiling was mostly reachable, and re-tagging the
-existing slide mapper's output was the whole of the work. What genuinely does
-not fit is a table (no variant) and a group (no variant, so it is flattened into
-children that land unmoved). A connector has no variant either and is re-authored
-as a `line` preset, which paints the identical stroke and, unlike the slide-side
-`addConnector`, keeps its rotation.
-
-A **master's** decoration stayed lost, and moved from `unread` to `unwritable`
-rather than closing: `defineSlideMaster` creates a layout, so a master's shape
-tree has no counterpart to receive them at all. Closing a reader gap does not
-always close the loss; sometimes it only tells you which half was actually
-holding it, and sometimes, as here, the half everyone assumed was holding it
-was not.
+- The theme's format scheme (`a:fmtScheme`), and with it the width and dash of an outline taken from the theme
+- Master text styles (`p:txStyles`)
+- Build animations
+- The media part of embedded audio and video
+- OMML equations and text fields
+- Freeform guides, adjust handles and connection sites
+- Graphic frames other than tables, charts and SmartArt
 
 ## Verifying a conversion
 
-```sh
-pnpm run script:roundtrip                          # template-anchored, whole corpus
-pnpm run script:roundtrip -- --tier a              # standalone
-pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
-pnpm run script:roundtrip -- --dir ~/decks         # your own decks, any path
-pnpm run script:roundtrip -- --json
+[`diffDeckIr()`](api/script/functions/diffDeckIr.md) checks a conversion. Convert the source, run the printed script, convert the output, and compare the two IRs with the printed notes as the exclusion list.
 
-pnpm run script:census                             # counts, not differences
-pnpm run script:census -- --names 3 --dir ~/decks
+```mermaid
+flowchart TD
+  source["Source .pptx"] --> ir1["readModelToIr(): IR 1"]
+  ir1 --> print["printScript() or printStandaloneScript()"]
+  print --> script["Script, assets and notes"]
+  script --> run["Run the script"]
+  run --> output["Output .pptx"]
+  output --> ir2["readModelToIr(): IR 2"]
+  ir1 --> diff["diffDeckIr(canonicalDeckIr(IR 1), canonicalDeckIr(IR 2), notes)"]
+  ir2 --> diff
+  script -. "notes: excluded differences" .-> diff
+  diff --> report["report.undeclared: differences no note covers"]
 ```
 
-The harness runs `source → IR₁ → script → execute it → output → IR₂`, then
-diffs the two IRs using the printer's fidelity notes as the exclusion list. A
-difference no note predicted is a defect.
+```ts
+import { readFile } from 'node:fs/promises'
+import { Presentation } from 'pptx-ts/read'
+import { canonicalDeckIr, diffDeckIr, printScript, readModelToIr } from 'pptx-ts/script'
 
-The comparison is a **projection diff, not byte identity**. The output package
-can never be byte-identical (regenerated shape ids, fresh rel ids) so
-comparing packages would report a total mismatch for every deck and measure
-nothing. `canonicalDeckIr` removes what is noise rather than loss: a value
-spelled out that means what its absence means (`bold: false`, `wrap: true`, the
-default `a:bodyPr` insets), and asset identity by content digest instead of
-generated filename. Every rule cites the OOXML default that makes it an
-equivalence, because a rule that merely shortens the report hides a defect
-permanently.
+const ir = readModelToIr(await Presentation.load(await readFile('source.pptx')))
+const printed = printScript(ir)
+// Write printed.code and its assets, then run the script, as in the first example.
 
-`--tier a` deliberately does **not** lay a template down, so a standalone script
-that still needed one fails here rather than passing on the very file it is
-meant to replace.
+const rebuilt = readModelToIr(await Presentation.load(await readFile('out/output.pptx')))
+const report = diffDeckIr(canonicalDeckIr(ir), canonicalDeckIr(rebuilt), printed.notes)
+for (const difference of report.undeclared) {
+  console.log(difference.slideNumber, difference.shapeName, difference.path, difference.expected, difference.actual)
+}
+```
 
-`script:census` answers the question the round trip cannot: *how much* is lost
-and by which construct. To the harness a note that excuses a difference and a
-note that never fires look identical, so the counts above can drift silently
-while every gate stays green. The census prints both tiers without running the
-scripts, so it is fast, and `--dir` accepts a corpus of real decks to trade the
-coverage reading for a frequency-weighted one.
+[`canonicalDeckIr()`](api/script/functions/canonicalDeckIr.md) removes values that mean the same as their absence in OOXML, such as `bold: false`, and compares media by content. `report.added` lists values the write path states where the source inherited one. `diffDeckIr` accepts a fixed set of those write-path defaults and reports any other as undeclared.
+
+A difference no note covers is a converter defect. In a clone of the repository, `pnpm run script:roundtrip -- --dir <path>` runs the check over a folder of decks. The [testing guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md#converter-and-read-coverage-harnesses) lists its options.
 
 ### What a clean run does not prove
 
-Stated here because "0 undeclared differences across the whole corpus" reads like proof
-of correctness and is not:
-
-- **It detects asymmetry only.** Both IRs come from the same reader through the
-  same mapper, so a construct the read path cannot see is missing from both and
-  compares equal. A converter that simply never emits `flipH` yields an output
-  that also lacks it. `pnpm run read:census` is what measures that surface.
-- **The converter need not be injective.** Two source constructs mapping onto one
-  call compare equal.
-- Mutation testing puts a number on that. Of twelve deliberately planted
-  converter defects, the template-anchored round trip catches six and the
-  standalone one seven; every survivor is a *symmetric* defect, and they are
-  covered instead by direct IR expectations written from `src/types/*.ts` rather
-  than from the converter.
-
-Pair it with `pnpm run read:census` and the IR unit tests. All three are in
-`pnpm run verify`.
+Both IRs come from the same reader. A construct the reader does not see is missing from both and compares equal. Two source constructs that map to the same call also compare equal. A clean report means nothing the converter can see was lost, not that nothing was lost.
 
 ## Options
 
-Both printers share `assets` (`'file'`, the default, written beside the script;
-or `'inline'`, one self-contained file at roughly 4/3 the byte size),
-`assetDir`, `outputPath`, and `packageName` (defaults to this package's own
-published name; override it to point a generated script at a local build or a
-fork). `printScript` adds `templatePath`, which is where the emitted script
-expects the source deck.
+Both printers take the first four options. See [`CommonPrintOptions`](api/script/interfaces/CommonPrintOptions.md) and [`PrintScriptOptions`](api/script/interfaces/PrintScriptOptions.md).
 
-Every path in an emitted script resolves against the script's own location
-rather than the working directory.
+| Option | Default | Effect |
+| --- | --- | --- |
+| `outputPath` | `'./output.pptx'` | Where the script writes the deck |
+| `assets` | `'file'` | `'file'` returns media bytes in `PrintedScript.assets` for you to write. `'inline'` embeds them in the script as `data:` URIs, at about 4/3 the byte size, and returns an empty map |
+| `assetDir` | `'./assets'` | Where the script reads media files from when `assets` is `'file'` |
+| `packageName` | `'pptx-ts'` | The import specifier the script uses. Point it at a local build or a fork |
+| `templatePath` | `'./template.pptx'` | `printScript` only. Where the script loads the unmodified source deck from |
 
-## Deliberately not built
+The script resolves every path against its own location.
 
-- **Carrying an embedded transition sound onto a template.** The gap is in the
-  append path rather than in this converter: `extractSlides` does not surface a
-  transition's audio part, so `appendSlides` has nothing to reserve or wire, and
-  the emitter finds no relationship id and writes no `p:sndAc`. Closing it means
-  an `ExtractedSlide` descriptor and a rel-wiring branch alongside the ones for
-  charts and A/V: at which point `slide.transitionSound` stops being a
-  template-anchored note.
-- **`p15`/`p159` transitions cannot be exercised end to end.** They are dropped
-  correctly, by the same namespace check as the 19 `p14` effects, but neither
-  prefix is in the read DOM's registry, so no test can author one to prove it.
-- **What the reader still does not decode** remains the binding constraint: the
-  converter cannot print what it cannot see:
-  `lnRef` width/dash, `a:fillToRect`, `effectRef`, custGeom
-  `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles`. Every
-  one of them raises the ceiling both tiers build against. The bullet entries are
-  gone from this list because `bulletDetail` closed them, and master/layout
-  decoration because `SlideMaster.shapes` / `SlideLayout.shapes` did: a layout's
-  is now re-authored, and a master's is blocked on the write side instead.
-- **A table on a layout, and `defineSlideMaster({ objects })` in general.** The
-  union has no `table` variant and no `group` variant. A group is flattened into
-  children that land unmoved, so it costs an editing affordance rather than a
-  pixel; a table is dropped outright. Both are write-side gaps now, not reading
-  ones. Neither fires on the corpus, and the write API cannot author either onto
-  a layout, so the table arm is proved against a `p:graphicFrame` relocated into
-  a layout part.
-- **A frequency-weighted corpus.** `test/read/fixtures/` is construct-targeted
-  (one feature per deck), so every count on this page is a coverage argument and
-  not a frequency one. Point `--dir` at real decks to get the other kind.
+## Known limitations
+
+- The template-anchored output drops an embedded transition start sound, because the append path does not register the audio part.
+- The standalone output drops a table on a layout (`layout.decoration`) and turns a group on a layout into loose shapes (`layout.group`).
+- A slide master's own shapes have no write-side target (`master.decoration`).
+- Connectors print as straight connectors with no note, because the reader does not report the bends a connector preset implies.
+- The package has no command-line converter. Call the functions from your own script.
+- The published counts measure the construct-targeted corpus. Run `pnpm run script:census -- --dir <path>` in a clone to count notes on your own decks.
 
 ## See also
 
-- [Read object model](read-object-model.md): the read model this builds on.
-- [Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md): where `src/script/` sits and why.
-- [Testing Guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/testing.md): the verification commands.
+- [Build on a template](../reading/build-on-a-template.md): `fromTemplate` and `appendSlides`, which the template-anchored script calls.
+- [Copy slides between decks](../reading/copy-between-decks.md): `importSlide`, which copies the slides the converter cannot transcribe.
+- [Read and edit a deck](../reading/read-and-edit.md): the read model the converter starts from.
+- [Read object model](read-object-model.md): every accessor the converter reads.
+- API reference: [`script`](api/script/README.md), [`readModelToIr`](api/script/functions/readModelToIr.md), [`printScript`](api/script/functions/printScript.md), [`printStandaloneScript`](api/script/functions/printStandaloneScript.md), [`diffDeckIr`](api/script/functions/diffDeckIr.md), [`canonicalDeckIr`](api/script/functions/canonicalDeckIr.md), [`FidelityNote`](api/script/interfaces/FidelityNote.md), [`PrintedScript`](api/script/interfaces/PrintedScript.md).
+- [Architecture](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/architecture.md): how `src/script/` is built and why.

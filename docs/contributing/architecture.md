@@ -232,13 +232,23 @@ how the OOXML gets built stays on this side of that line.
   from what the read model exposes, including that layout's own decoration,
   re-tagged through the same mapper the slides use.
 
-  The split is not a preference. A theme's `a:fmtScheme` and a master's
-  `p:txStyles` are unreachable from *both* directions, and a master's own
-  decoration has no write-side counterpart, because `defineSlideMaster` creates a
-  layout. So a rebuilt design can only ever be an approximation, while a reused
-  one is exact. Each printer therefore returns the note set that applies to
-  **its** output, suppressing what its tier rescues and adding what its tier
-  costs. That set, not `DeckIr.fidelity`, is what a round-trip check excludes.
+  The split follows from the chrome constructs that one side of the library or both
+  cannot reach, which the guide tabulates in
+  [What the standalone output cannot rebuild](../reference/pptx-to-script.md#what-the-standalone-output-cannot-rebuild).
+  Each printer returns the notes that apply to **its** output. `NOTE_CONSTRUCTS` in
+  `src/script/fidelity.ts` tags every construct with the printers it describes, and
+  `noteAppliesTo` filters on that tag. An entry without a tag does not type-check, so a
+  new chrome construct cannot reach the template-anchored list by omission. On a slide
+  it copies, `printScript` also drops the transcription notes the IR recorded and keeps
+  `slide.carried` with the frame's own note. That printed set, not `DeckIr.fidelity`, is
+  what a round-trip check excludes.
+
+  The layout walk reuses the slide shape mapper, so a loss on a layout shape would record
+  the slide construct of the same name. `layoutShapeScope` prefixes it with `layout.`.
+  Without the prefix the template-anchored printer, which rebuilds no layout, would
+  report it, and `diffDeckIr` would let a layout note excuse the same difference on a
+  slide, because a layout note carries no slide number and shape names repeat between a
+  layout and its slides.
 
   It is its own subsystem for two reasons. It depends on **both** halves, the
   read model and the write option types, so it fits inside neither. And
@@ -248,7 +258,28 @@ how the OOXML gets built stays on this side of that line.
   becomes a `FidelityNote` on the IR, which lets a round-trip check exclude
   exactly the declared losses and treat every other difference as a defect.
 
-  `verify/` is that check. `canonicalDeckIr` reduces an IR to the form a
+  Four mapping rules carry reasoning the guide states only as behaviour:
+
+  - Inch-typed options (`colW`, `rowH`, `margin`, `defineLayout`'s size) print at
+    `INCH_DECIMALS` in `src/script/units.ts`, which is six. Rounding to six decimals moves a
+    value by at most 0.4572 EMU, under the half EMU that `Math.round` recovers. Five
+    decimals allow 4.572 EMU and lose most values. `appendSlides` compares slide sizes for
+    equality, so an imprecise `defineLayout` throws.
+  - `from-read/transition.ts` admits a transition only when its namespace is `p` and its
+    name is in `TRANSITION_TYPES`. The 21 modern effect names are disjoint from the 21 base
+    names today, so a name check alone would pass the corpus. The namespace check is what
+    stops a `p14:fade` printing as `<p:fade/>` with no note, and
+    `test/read/script-ir.test.js` authors that case.
+  - The standalone printer emits no layout placeholders. `addPlaceholdersToSlideLayouts`
+    (`src/gen/define/placeholder.ts`) gives every slide an empty shape for each layout
+    placeholder the slide does not fill, and the mapper writes every source shape as
+    positioned content, so declaring them would add empty shapes to every slide.
+  - `printScript` binds a batch by layout name when the name is unique and by gallery
+    position otherwise, because `appendSlides` throws on an ambiguous name. Contiguous
+    slides that share a layout share one generator, because `appendSlides` binds one layout
+    per call.
+
+  `verify/` holds the round-trip check. `canonicalDeckIr` reduces an IR to the form a
   comparison can use, dropping only values whose explicit and absent spellings
   are the same OOXML default. `diffDeckIr` compares the source deck's IR against
   the IR of the deck a generated script produced, with the printer's notes as the
@@ -256,13 +287,11 @@ how the OOXML gets built stays on this side of that line.
   never be byte-identical: fresh rel ids, regenerated shape ids. A byte
   comparison would fail for every deck and measure nothing.
 
-  Its reach is bounded in two ways worth knowing before you trust a clean run.
-  Both IRs come from the same reader, so a construct the read path cannot see is
-  absent from both. And the converter need not be injective, so two source
-  constructs that map to the same call compare equal. It detects *asymmetry*.
-  `pnpm run read:census` and the IR unit tests cover the rest. The
-  consumer-facing guide, covering both tiers, the measured loss list and how to
-  read a fidelity note, is [PPTX to script](../reference/pptx-to-script.md).
+  It detects asymmetry only. The guide states what that leaves out in
+  [What a clean run does not prove](../reference/pptx-to-script.md#what-a-clean-run-does-not-prove),
+  and `pnpm run read:census` and the IR unit tests cover it. The user guide, covering both
+  outputs, the measured loss list and how to read a fidelity note, is
+  [Deck to script](../reference/pptx-to-script.md).
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 

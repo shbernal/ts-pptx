@@ -869,30 +869,14 @@ matches what it claims to produce.
 Four runnable measurement tools back the `pptx-ts/script` subsystem. Run them
 directly to iterate or to point them at your own decks.
 
-`script:roundtrip` is the exception among them in one way worth stating: it is
-not merely a report but the **only** place the whole-corpus round trip runs.
-`test/read/script-roundtrip.test.js` and `test/read/script-standalone.test.js`
-each carried a byte-equivalent copy of it (same corpus, same `diffDeckIr`, same
-fidelity notes as the exclusion list, same failure condition), so `verify:full`
-paid for the identical 44-deck × 2-tier subprocess sweep twice, about 35 s of it.
-The script kept the job because it is the more capable copy (`--fixture`,
-`--dir`, `--verbose`, `--json`, and a per-deck table instead of one joined
-failure string). What stayed in those two suites is what the round trip *rests on*
-and cannot itself establish. That the diff fails when perturbed. That a note excuses
-only its own field. That the canonicaliser is an equivalence. And, in the standalone
-file, the chrome expectations read against `pptx-ts/read`'s own accessors rather than
-against the converter.
-
-The practical consequence: **`pnpm run verify` no longer runs the corpus round
-trip.** `verify:full` and CI do, via `script:roundtrip:all`. Run that before
-pushing a change to `src/script/`.
-
 ```bash
-pnpm run script:roundtrip                     # deck → script → run it → deck → diff the two IRs
-pnpm run script:roundtrip -- --tier a         # the standalone printer instead of template-anchored
-pnpm run script:census                        # how many decks raise each fidelity note, per tier
-pnpm run read:census                          # QNames present in a deck that no read accessor names
-pnpm run read:append-ceiling                  # what survives fromTemplate + appendSlides
+pnpm run script:roundtrip                          # deck → script → run it → deck → diff the two IRs
+pnpm run script:roundtrip -- --tier a              # the standalone printer instead of template-anchored
+pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
+pnpm run script:census                             # how many decks raise each fidelity note, per printer
+pnpm run script:census -- --names 3 --dir ~/decks
+pnpm run read:census                               # QNames present in a deck that no read accessor names
+pnpm run read:append-ceiling                       # what survives fromTemplate + appendSlides
 ```
 
 All four take `--json`, so a test can assert on them rather than re-derive the
@@ -902,19 +886,64 @@ in place. Beyond that they diverge. `script:roundtrip` and `read:census` add
 `script:census` adds `--names <count>`, to name the decks behind the long tail. And
 `append-ceiling` takes `--template <path>` instead.
 
-`script:roundtrip` gates on **undeclared** differences: the printer's fidelity
-notes are the exclusion list, so a difference no note predicted is a defect.
-Read a clean run precisely, both IRs come from the same reader, so it detects
-*asymmetry* and not loss in general. `read:census` is what measures the other
-half, and it under-reports by construction (it counts element names appearing in
-comments and error strings as read), so a listed element is a real gap while an
-absent one is not proof of coverage.
+The corpus is whatever `corpusDecks` in `scripts/script-utils.mjs` returns: every `.pptx`
+in `test/read/fixtures/`, sorted. It skips other extensions, so the directory's 56 `.pptx`
+fixtures are measured and `template.potx` is not. `test/read/corpus.js` enumerates through
+the same function and fails collection below 40 decks.
 
-`script:census` gates on nothing: it counts. The round trip cannot tell a note
-that excuses a difference from one that never fires, so the per-construct numbers
-the reference publishes drift silently as reader gaps close and fixtures land;
-this is what re-measures them. Full contract in
-[PPTX To Script](../reference/pptx-to-script.md).
+### The round trip
+
+`script:roundtrip` runs source → IR₁ → script → run it → output → IR₂ for every deck, then
+`diffDeckIr(canonicalDeckIr(IR₁), canonicalDeckIr(IR₂), printed.notes)`. It fails on any
+undeclared difference and on any deck whose script does not run. It is the only copy of the
+whole-corpus round trip, so **`pnpm run verify` does not run it.** `verify:full` and CI run
+both printers through `script:roundtrip:all`. Run that before pushing a change to
+`src/script/`.
+
+- Each script is written into a fresh directory under `.tmp/`, not the OS temp directory.
+  The script imports the package by its published name, and Node resolves that
+  self-reference only beneath the package root.
+- `--tier b`, the default, writes the source deck beside the script as `template.pptx`.
+  `--tier a` writes no template, so a standalone script that still needs one fails here
+  instead of passing on the file it is meant to replace.
+- The comparison is a projection of the IR, not the package bytes. Shape ids and
+  relationship ids are regenerated, so a byte comparison would fail every deck.
+  `canonicalDeckIr` drops only values whose explicit spelling is the OOXML default
+  (`IMPLIED_DEFAULTS` in `src/script/verify/canonical.ts`, each entry citing its default),
+  and replaces asset names with content digests. Line width stays in, because `a:ln/@w`
+  defaults to a hairline and the write path to 1 pt.
+- A note excuses a difference only inside its scope. A shape-scoped note matches the
+  `fields` of its `NOTE_CONSTRUCTS` entry as a suffix of the difference's path within that
+  shape's call. A slide- or deck-scoped note matches them from the root of the diff.
+- An `added` difference passes only when a note covers it or its path is in
+  `WRITER_DEFAULTS` in `src/script/verify/diff.ts`. That table lists the defaults the write
+  path states where the source inherited a value the reader cannot resolve. `--verbose`
+  prints them by field.
+- `RoundTripReport.unmatchedNotes` is not a defect signal. Most notes name constructs that
+  are absent from both IRs.
+
+A clean run detects asymmetry, not loss in general. The guide's
+[What a clean run does not prove](../reference/pptx-to-script.md#what-a-clean-run-does-not-prove)
+states the limits. `test/read/script-roundtrip.test.js` and
+`test/read/script-standalone.test.js` hold what the round trip rests on and cannot establish
+itself: the diff fails when an IR is perturbed, a note excuses only its own field, the
+canonicaliser is an equivalence, and the standalone chrome matches `pptx-ts/read`'s own
+accessors rather than the converter's output.
+
+`read:census` measures the other half. It under-reports by construction (it counts element
+names appearing in comments and error strings as read), so a listed element is a real gap
+while an absent one is not proof of coverage.
+
+### The note census
+
+`script:census` prints both printers' notes for every deck without running the scripts,
+and counts the fixtures that raise each construct at least once. It gates nothing. The round
+trip cannot tell a note that excuses a difference from one that never fires, so these counts
+drift as reader gaps close and fixtures land. They are published in the guide's
+[Known losses](../reference/pptx-to-script.md#known-losses) tables, together with the corpus
+size and the per-deck note totals. Rerun the census after closing a reader gap, retiring a
+note or landing a fixture, and update those tables in the same commit. On the fixture corpus
+the counts measure coverage. `--dir` over a folder of real decks measures frequency.
 
 ## Full test command
 

@@ -115,7 +115,7 @@ To copy a slide that the template file itself holds, open the file twice. Use `f
 
 `pptx.defineSlideMaster()` builds a master in code from the options it takes. `fromTemplate` keeps the template's master, layout and theme parts as the file stores them, including anything those options cannot express.
 
-The template-anchored tier of [`pptx-ts/script`](../reference/pptx-to-script.md) prints scripts that follow this path. They open the source deck with `fromTemplate` and add the slides with `appendSlides`.
+The template-anchored output of [`pptx-ts/script`](../reference/pptx-to-script.md#two-outputs) prints scripts that follow this path. They open the source deck with `fromTemplate` and add the slides with `appendSlides`.
 
 ## Invalid input
 
@@ -144,6 +144,6 @@ The template-anchored tier of [`pptx-ts/script`](../reference/pptx-to-script.md)
 - [Copy slides between decks](copy-between-decks.md)
 - [Embedded fonts](../embedded-fonts.md)
 - [Layout units](../reference/layout-units.md)
-- [Turning a deck back into source](../reference/pptx-to-script.md)
+- [Deck to script](../reference/pptx-to-script.md)
 - [Errors and warnings](../errors-and-warnings.md)
 - API reference: [`Presentation.fromTemplate`](../reference/api/read/classes/Presentation.md#fromtemplate), [`Presentation.layouts`](../reference/api/read/classes/Presentation.md#layouts), [`Presentation.appendSlides`](../reference/api/read/classes/Presentation.md#appendslides), [`AppendSlidesOptions`](../reference/api/read/interfaces/AppendSlidesOptions.md), [`FromTemplateOptions`](../reference/api/read/interfaces/FromTemplateOptions.md), [`LayoutHandle`](../reference/api/read/interfaces/LayoutHandle.md)
