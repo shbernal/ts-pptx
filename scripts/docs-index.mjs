@@ -6,8 +6,8 @@
 // collects each page carrying a non-empty `read_when`, and emits a generated `docs/doc-index.md`
 // grouping every page under its scenario hints.
 //
-// Generated pages without `read_when` (e.g. the typedoc `reference/api/` tree) are skipped by
-// construction. Repository-only pages are skipped too: the index is a page of the site, and its
+// The typedoc `reference/api/` tree is skipped apart from its landing page, and so is any page
+// without `read_when`. Repository-only pages are skipped too: the index is a page of the site, and its
 // relative links to pages the site does not build would be dead links; `docs:list` lists them. The output is a generated artifact (gitignored, like `reference/api/` and
 // `public/llms*.txt`); regenerate it with `pnpm run docs:index`. It is validated by
 // `scripts/docs-check.mjs` (frontmatter + links), which runs after generation in `docs:build`.
@@ -38,6 +38,8 @@ Options:
 })
 
 const OUTPUT_NAME = 'doc-index.md'
+/** The docs-relative directory `docs:api` generates the TypeDoc reference into. */
+const GENERATED_API_DIR = 'reference/api'
 
 const HEADER = [
 	'---',
@@ -70,6 +72,9 @@ const repoOnly = readRepoOnlyDirs(docsDir)
 const entries = []
 for (const rel of walkDocs(docsDir, OUTPUT_NAME)) {
 	if (isRepoOnly(rel, repoOnly)) continue
+	// `docs:api` gives every generated page the same generic hints, so listing them would bury the
+	// guides under several hundred identical entries. The landing page stands for the tree.
+	if (rel.startsWith(`${GENERATED_API_DIR}/`) && rel !== `${GENERATED_API_DIR}/index.md`) continue
 	const { data } = parseFrontmatter(path.join(docsDir, rel))
 	const hints = compactStrings(data.read_when)
 	if (hints.length === 0) continue // generated/api pages and any page without hints

@@ -19,12 +19,14 @@ import {
 	canonicalBase,
 	compactStrings,
 	githubBlobBase,
+	githubHeadingSlug,
 	isRepoOnly,
 	pageForRoute,
 	parseFrontmatter,
 	readRepoOnlyDirs,
 	repoOnlyDirs,
 	requireDocsDir,
+	siteHeadingSlug,
 	walkDocs,
 } from './docs-frontmatter.mjs'
 import { ROOT, isMain, parseCliOrExit, runCli } from './script-utils.mjs'
@@ -128,6 +130,74 @@ function isExternal(target) {
 function isInside(root, target) {
 	const rel = path.relative(root, target)
 	return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
+}
+
+/**
+ * The text a heading's inline markdown renders to: a link or image is its label, a code span its
+ * content, and HTML tags and emphasis markers are dropped outside code.
+ * @param {string} raw the heading line after its `#` marks
+ * @returns {string}
+ */
+function headingText(raw) {
+	return raw
+		.replace(/\s*\{#[^}]+\}\s*$/, '')
+		.split(/(`[^`]*`)/)
+		.map((part) =>
+			part.startsWith('`') && part.endsWith('`') && part.length > 1
+				? part.slice(1, -1)
+				: part
+						.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+						.replace(/<[^>]+>/g, '')
+						.replace(/(\*\*|__|\*|_)(.*?)\1/g, '$2')
+						.replace(/\\(.)/g, '$1')
+		)
+		.join('')
+		.trim()
+}
+
+/**
+ * Every anchor a page defines, under both slug schemes: its headings outside code fences and
+ * frontmatter, numbered `-1`, `-2` on a repeat as both generators do, plus `{#id}` and
+ * `<a id>`/`<a name>` targets. Exported for the test.
+ * @param {string} filePath
+ * @returns {{site: Set<string>, github: Set<string>}}
+ */
+export function pageAnchors(filePath) {
+	const site = new Set()
+	const github = new Set()
+	/** @type {Map<string, number>} */
+	const siteSeen = new Map()
+	/** @type {Map<string, number>} */
+	const githubSeen = new Map()
+	/** @param {Set<string>} set @param {Map<string, number>} seen @param {string} slug */
+	const add = (set, seen, slug) => {
+		const count = seen.get(slug) ?? 0
+		set.add(count ? `${slug}-${count}` : slug)
+		seen.set(slug, count + 1)
+	}
+	const body = readFileSync(filePath, 'utf8').replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')
+	let fence = ''
+	for (const line of body.split(/\r?\n/)) {
+		const marker = line.match(/^\s*(`{3,}|~{3,})/)?.[1]
+		if (marker) {
+			if (!fence) fence = marker[0] ?? ''
+			else if (marker[0] === fence) fence = ''
+			continue
+		}
+		if (fence) continue
+		for (const match of line.matchAll(/<a\s+(?:id|name)="([^"]+)"/g)) {
+			site.add(match[1] ?? '')
+			github.add(match[1] ?? '')
+		}
+		const heading = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/)?.[1]
+		if (!heading) continue
+		const text = headingText(heading)
+		const explicit = heading.match(/\{#([^}]+)\}\s*$/)?.[1]
+		if (explicit) site.add(explicit)
+		else add(site, siteSeen, siteHeadingSlug(text))
+		add(github, githubSeen, githubHeadingSlug(text))
+	}
+	return { site, github }
 }
 
 /**
@@ -237,20 +307,39 @@ export function checkDocsJson(docsDir, relPaths) {
  * @param {string} docsDir the docs tree root
  * @param {string} rel the page, relative to `docsDir`
  * @param {Set<string>} routes every route the site serves
- * @param {{repoOnly?: string[], blobBase?: string}} [options] the repository-only directories, and
- *   the GitHub blob URL prefix a served page links them by
+ * @param {{repoOnly?: string[], blobBase?: string, anchors?: Map<string, {site: Set<string>, github: Set<string>}>}} [options]
+ *   the repository-only directories, the GitHub blob URL prefix a served page links them by, and a
+ *   cache of each linked page's anchors to share across calls
  * @returns {string[]}
  */
-export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '' } = {}) {
+export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '', anchors = new Map() } = {}) {
 	const filePath = path.join(docsDir, rel)
 	const text = readFileSync(filePath, 'utf8')
 	const errors = []
 	const docsRoot = path.resolve(docsDir)
 	const fromRepoOnly = isRepoOnly(rel, repoOnly)
+	// A page is read where the page linking it is read, so that page decides the slug scheme: the
+	// site's for a served page, GitHub's for a repository-only one.
+	const scheme = fromRepoOnly ? 'github' : 'site'
+	/** @param {string} file @param {string} fragment @returns {boolean} */
+	const namesNoHeading = (file, fragment) => {
+		let defined = anchors.get(file)
+		if (!defined) {
+			defined = pageAnchors(file)
+			anchors.set(file, defined)
+		}
+		return fragment !== '' && !defined[scheme].has(decodeURIComponent(fragment))
+	}
 
 	for (const match of text.matchAll(MARKDOWN_LINK_RE)) {
 		const target = (match[1] ?? '').trim()
-		if (!target || target.startsWith('#') || isExternal(target)) continue
+		if (!target || isExternal(target)) continue
+		const fragment = target.includes('#') ? target.slice(target.indexOf('#') + 1) : ''
+
+		if (target.startsWith('#')) {
+			if (namesNoHeading(filePath, fragment)) errors.push(`${rel}: anchor \`${target}\` names no heading on this page`)
+			continue
+		}
 
 		const targetPath = target.split('#', 1)[0]?.split('?', 1)[0] ?? ''
 		if (targetPath.startsWith('/')) {
@@ -260,6 +349,14 @@ export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '' 
 				)
 			} else if (!routes.has(normalizeRoute(targetPath))) {
 				errors.push(`${rel}: broken docs route \`${target}\``)
+			} else if (fragment) {
+				const bare = normalizeRoute(targetPath).slice(1)
+				const page = [path.join(docsRoot, `${bare}.md`), path.join(docsRoot, bare, 'index.md')].find((file) =>
+					existsSync(file)
+				)
+				if (page && namesNoHeading(page, fragment)) {
+					errors.push(`${rel}: route \`${target}\` names no heading \`#${fragment}\` on that page`)
+				}
 			}
 			continue
 		}
@@ -278,9 +375,12 @@ export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '' 
 			)
 		} else if (!existsSync(resolved)) {
 			errors.push(`${rel}: broken relative link \`${target}\``)
-		} else if (!fromRepoOnly) {
+		} else {
 			const targetRel = path.relative(docsRoot, resolved).split(path.sep).join('/')
-			if (isRepoOnly(targetRel, repoOnly)) {
+			if (namesNoHeading(resolved, fragment) && (fromRepoOnly || !isRepoOnly(targetRel, repoOnly))) {
+				errors.push(`${rel}: link \`${target}\` names no heading \`#${fragment}\` in ${targetRel}`)
+			}
+			if (!fromRepoOnly && isRepoOnly(targetRel, repoOnly)) {
 				const anchor = target.slice(targetPath.length)
 				errors.push(
 					`${rel}: relative link \`${target}\` points at a repository-only page, which the site does not build; use \`${blobBase}${path.basename(docsRoot)}/${targetRel}${anchor}\``
@@ -431,11 +531,14 @@ function main(argv) {
 		for (const route of routesFor(rel)) routes.add(route)
 	}
 
+	// One cache for the whole tree: the generated reference is linked hundreds of times, and each of
+	// its pages is read for headings once.
+	const anchors = new Map()
 	for (const rel of relPaths) {
 		errors.push(
 			...checkFrontmatter(docsDir, rel),
 			...checkCodeFences(docsDir, rel),
-			...checkLinks(docsDir, rel, routes, { repoOnly, blobBase: blobBase ?? '' })
+			...checkLinks(docsDir, rel, routes, { repoOnly, blobBase: blobBase ?? '', anchors })
 		)
 	}
 

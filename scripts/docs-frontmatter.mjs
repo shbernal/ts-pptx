@@ -290,3 +290,42 @@ export function pageForRoute(route) {
 	if (route === '') return 'index.html'
 	return route.endsWith('/') ? `${route}index.html` : `${route}.html`
 }
+
+// Built from code points, so the file holds no raw control or combining characters.
+const CONTROL_CHARACTERS = new RegExp(`[${String.fromCodePoint(0)}-${String.fromCodePoint(0x1f)}]`, 'g')
+const COMBINING_MARKS = new RegExp(`[${String.fromCodePoint(0x300)}-${String.fromCodePoint(0x36f)}]`, 'g')
+const TYPOGRAPHIC_QUOTES = new RegExp(`[${String.fromCodePoint(0x201c, 0x201d, 0x2018, 0x2019)}]`, 'g')
+
+/**
+ * A heading's anchor as the site generates it: VitePress's default `slugify` from
+ * `@mdit-vue/shared`. Whitespace, ASCII punctuation and typographic quotes collapse to one
+ * hyphen, so "`check:core` runs" becomes `check-core-runs` and `element_` becomes `element`.
+ * @param {string} text the heading's plain text
+ * @returns {string}
+ */
+export function siteHeadingSlug(text) {
+	return text
+		.normalize('NFKD')
+		.replace(COMBINING_MARKS, '')
+		.replace(CONTROL_CHARACTERS, '')
+		.replace(TYPOGRAPHIC_QUOTES, '-')
+		.replace(/[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'<>,.?/]+/g, '-')
+		.replace(/-{2,}/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.replace(/^(\d)/, '_$1')
+		.toLowerCase()
+}
+
+/**
+ * A heading's anchor as GitHub generates it, which is where a repository-only page is read.
+ * Punctuation is dropped rather than turned into a hyphen, so "`check:core` runs" becomes
+ * `checkcore-runs`, and each space is its own hyphen.
+ * @param {string} text the heading's plain text
+ * @returns {string}
+ */
+export function githubHeadingSlug(text) {
+	return text
+		.toLowerCase()
+		.replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '')
+		.replace(/ /g, '-')
+}

@@ -78,12 +78,63 @@ describe('what is not a route, and so not this gate’s business', () => {
 		expect(check('![shot](./images/shot.png) and [raw](../package.json)')).toEqual([])
 	})
 
-	test('an anchor on the page itself', () => {
-		expect(check('See [below](#details).')).toEqual([])
+	test('an anchor on the page itself that names one of its headings', () => {
+		expect(check('## Details\n\nSee [below](#details).')).toEqual([])
 	})
 
 	test('a mail or protocol-relative target', () => {
 		expect(check('[mail](mailto:x@example.com) and [cdn](//example.com/a.md)')).toEqual([])
+	})
+})
+
+// VitePress checks that a linked page exists, not that the heading a link names is still on it, so
+// a renamed heading left every link to its old anchor dead with the build green.
+describe('anchors', () => {
+	beforeAll(() => {
+		writeFileSync(
+			path.join(docsDir, 'guide', 'anchors.md'),
+			'---\ntitle: "x"\n# a YAML comment is not a heading\n---\n\n# Anchors\n\n## `check:core` runs\n\n## Repeat\n\n## Repeat\n\n```md\n## Inside a fence\n```\n'
+		)
+	})
+
+	test('a link to a heading that exists passes, and one to a heading that does not is an error', () => {
+		expect(check('See [top](./guide/anchors.md#anchors).')).toEqual([])
+		const errors = check('See [gone](./guide/anchors.md#renamed).')
+		expect(errors).toHaveLength(1)
+		expect(errors[0]).toMatch(/names no heading/)
+	})
+
+	test('an anchor on the page itself must name one of its headings', () => {
+		expect(check('## Details\n\nSee [nowhere](#nope).')).toHaveLength(1)
+	})
+
+	test('a served page is read on the site, so its links use VitePress slugs', () => {
+		expect(check('See [runs](./guide/anchors.md#check-core-runs).')).toEqual([])
+		expect(check('See [runs](./guide/anchors.md#checkcore-runs).')).toHaveLength(1)
+	})
+
+	test('a site route with an anchor is checked against the page it serves', () => {
+		const served = new Set([...routes, '/guide/anchors'])
+		writeFileSync(path.join(docsDir, 'page.md'), 'See [runs](/guide/anchors#check-core-runs).')
+		expect(checkLinks(docsDir, 'page.md', served)).toEqual([])
+		writeFileSync(path.join(docsDir, 'page.md'), 'See [runs](/guide/anchors#nope).')
+		expect(checkLinks(docsDir, 'page.md', served)).toHaveLength(1)
+	})
+
+	test('a repeated heading takes a numbered anchor, and fences and frontmatter define none', () => {
+		expect(check('See [second](./guide/anchors.md#repeat-1).')).toEqual([])
+		expect(check('See [fenced](./guide/anchors.md#inside-a-fence).')).toHaveLength(1)
+		expect(check('See [yaml](./guide/anchors.md#a-yaml-comment-is-not-a-heading).')).toHaveLength(1)
+	})
+
+	test('a repository-only page is read on GitHub, so its links use GitHub slugs', () => {
+		mkdirSync(path.join(docsDir, 'contributing'), { recursive: true })
+		const rel = 'contributing/anchors-reader.md'
+		const options = { repoOnly: ['contributing'], blobBase: 'https://github.com/o/r/blob/master/' }
+		writeFileSync(path.join(docsDir, rel), 'See [runs](../guide/anchors.md#checkcore-runs).')
+		expect(checkLinks(docsDir, rel, routes, options)).toEqual([])
+		writeFileSync(path.join(docsDir, rel), 'See [runs](../guide/anchors.md#check-core-runs).')
+		expect(checkLinks(docsDir, rel, routes, options)).toHaveLength(1)
 	})
 })
 

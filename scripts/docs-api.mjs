@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { siteHeadingSlug } from './docs-frontmatter.mjs'
 import { ROOT, parseCliOrExit, repoRel, runNodeBin } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
@@ -247,9 +248,25 @@ writeFileSync(
 	'utf8'
 )
 
+// TypeDoc's own root `README.md` is a flat list of module names, and every member page's
+// breadcrumb links it. The breadcrumbs are pointed at the landing page written above instead, and
+// the flat list is removed, so no page leads a reader to the list the landing page replaces.
+const typedocRootReadme = path.join(outDir, 'README.md')
 for (const filePath of walkMarkdown(outDir)) {
+	if (filePath === typedocRootReadme) continue
 	const markdown = readFileSync(filePath, 'utf8')
-	const body = markdown.startsWith('---\n') ? markdown.replace(/^---\n[\s\S]*?\n---\n+/, '') : markdown
+	const withoutFrontmatter = markdown.startsWith('---\n') ? markdown.replace(/^---\n[\s\S]*?\n---\n+/, '') : markdown
+	/** @param {string} target @returns {string} */
+	const fromHere = (target) => path.relative(path.dirname(filePath), target).split(path.sep).join('/')
+	const body = withoutFrontmatter
+		.replaceAll(`](${fromHere(typedocRootReadme)})`, `](${fromHere(path.join(outDir, 'index.md'))})`)
+		// TypeDoc names a member's anchor after the member (`#element_`), while the site slugs the
+		// heading it renders (`element\_` becomes `element`). A link keeps working only with the
+		// site's spelling, so every in-reference anchor is put through the same slug.
+		.replace(/\]\(([^)\s#]*)#([^)\s]+)\)/g, (link, target, anchor) =>
+			/^[a-z][a-z0-9+.-]*:/i.test(target) ? link : `](${target}#${siteHeadingSlug(decodeURIComponent(anchor))})`
+		)
 	const safeBody = escapeVueUnsafeHtml(body.trimStart())
 	writeFileSync(filePath, `${frontmatterFor(filePath, safeBody)}${safeBody}`, 'utf8')
 }
+rmSync(typedocRootReadme, { force: true })
