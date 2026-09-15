@@ -53,10 +53,11 @@ import {
 	SPPR_LN_AFTER,
 	type PaintSurface,
 } from './oxml.js'
-import { readBox, rotationDegrees, transformFlipH, transformFlipV } from './geometry.js'
+import { readBox, readGeometryPath, rotationDegrees, transformFlipH, transformFlipV } from './geometry.js'
 import type {
 	AbsoluteFrame,
 	AbsoluteFrameFailure,
+	CustomGeometry,
 	Glow,
 	InnerShadow,
 	LineEnd,
@@ -564,6 +565,27 @@ export abstract class Shape {
 		const props = this.properties()
 		const prstGeom = props && firstChild(props, 'a:prstGeom')
 		return prstGeom ? attr(prstGeom, 'prst') : null
+	}
+
+	/**
+	 * Custom freeform geometry (`spPr/a:custGeom/a:pathLst`), or `null` when the
+	 * shape uses preset geometry / none. The faithful, multi-path counterpart of
+	 * {@link presetGeometry}: each `a:path` keeps its own path-unit viewport
+	 * (`w`/`h`) and ordered {@link GeometryCommand}s. Coordinates are raw path-unit
+	 * integers, not EMU — pair the path `w`/`h` with the shape's box size to map
+	 * them into slide space.
+	 *
+	 * Not an auto-shape-only property either: a picture clipped to a freeform (what
+	 * PowerPoint writes when Merge Shapes intersects a picture with a shape, and what
+	 * `addImage({ points })` writes) carries its clip here. A group reads `null`.
+	 */
+	get customGeometry(): CustomGeometry | null {
+		const props = this.properties()
+		const custGeom = props && firstChild(props, 'a:custGeom')
+		if (!custGeom) return null
+		const pathLst = firstChild(custGeom, 'a:pathLst')
+		const paths = pathLst ? getElements(pathLst, 'a:path').map((p) => readGeometryPath(p)) : []
+		return { paths }
 	}
 
 	/**

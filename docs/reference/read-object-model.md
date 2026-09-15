@@ -344,7 +344,7 @@ Every read value that carries a colour carries a [`ColorRef`](api/read/interface
 
 ### Custom geometry
 
-[`AutoShape.customGeometry`](api/read/classes/AutoShape.md#customgeometry) reads `a:custGeom/a:pathLst`, and is `null` for a shape with preset geometry or none. The other shape classes do not have this getter.
+[`customGeometry`](api/read/classes/Shape.md#customgeometry) reads `a:custGeom/a:pathLst`, and is `null` for a shape with preset geometry or none. Every shape class has it, as with `presetGeometry`: a picture clipped to a freeform reads its clip path, and a group reads `null`.
 
 - It returns one entry per `a:path`, each with `w`, `h`, `fill`, `stroke` and its [`GeometryCommand`](api/read/type-aliases/GeometryCommand.md) list in document order. An absent attribute reads its schema default: `w` and `h` of `0`, `fill` of `'norm'`, `stroke` of `true`.
 - Coordinates are path units from `0` to `w` and `0` to `h`, not EMU. Scale them against the path's `w` and `h` and the shape's box.

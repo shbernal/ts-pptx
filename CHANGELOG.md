@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`customGeometry` reads the freeform a picture is clipped to.**
+  - The getter moved from `AutoShape` to `Shape`, beside `presetGeometry`. A picture clipped to a
+    freeform carries the path in its `p:spPr/a:custGeom`. PowerPoint writes that when Merge Shapes
+    intersects a picture with a shape, and `addImage({ points })` writes it too, but only an auto
+    shape could read it back. A group reads `null`.
+  - The ground truth is the new `picture-custgeom.pptx` fixture, authored in desktop PowerPoint.
+
 - **A pattern fill reports each colour's theme token, and `pptxToScript` keeps it.**
   - A pattern fill's `foreground` and `background` report the `a:schemeClr` token of `a:fgClr`
     and `a:bgClr` as `scheme`, beside the resolved colour. They carried only the resolved hex,

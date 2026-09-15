@@ -199,6 +199,7 @@ eb315cc06511f0bb37c0ba17cad7bb077f0e84f4a847271ecc4b8ec4c9873a65  slide-jump-lin
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
+b8f5d1f8c794ec8afca15d35bfb13317b34d15827124c6e6e54323caeac146d2  picture-custgeom.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -691,6 +692,24 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     schema-legal repeatable `a:path` for non-PowerPoint sources.
   - `preset-rect` — `<a:prstGeom prst="rect">` (no `a:custGeom`); the negative
     control that must read `customGeometry === null`.
+- `picture-custgeom.pptx`: a one-slide deck of PowerPoint-authored pictures clipped to
+  freeforms, for `customGeometry` on a `p:pic`, read by `picture-custgeom.test.js`.
+  Authored via desktop PowerPoint COM on Windows (2026-09-15;
+  `authoring/author-picture-custgeom.ps1`) by selecting a picture, then a `BuildFreeform`
+  shape, and running `CommandBars.ExecuteMso("ShapesIntersect")`. PowerPoint keeps the
+  result a picture (`Shape.Type` 13), writes the freeform into its `p:spPr` as
+  `a:custGeom` with guides and connection sites beside the one `a:path`, and trims the
+  blip to the clip's bounds with an `a:srcRect`. Opens clean with no repair.
+  - `pic-clip-lines`: `a:ext cx="2794000" cy="2222500"`; one `a:path w="2794000"
+    h="2222500"` with `moveTo (0,0)`, `lnTo (2794000,0)`, `lnTo (1397000,2222500)`,
+    `close`.
+  - `pic-clip-curve`: `a:ext cx="2794000" cy="2066402"`; one `a:path` of the same size.
+    PowerPoint re-expresses the intersected outline from mid-curve: `moveTo
+    (1492250,2652)`, a `cubicBezTo`, three `lnTo`, a second `cubicBezTo` whose second
+    control point sits above the frame at `(889000,-29098)`, then `close`.
+  - `pic-preset-oval`: cropped with `Shape.AutoShapeType = msoShapeOval`, which writes
+    `<a:prstGeom prst="ellipse">` and no `a:custGeom`; a negative control.
+  - `pic-plain`: `<a:prstGeom prst="rect">`, the untouched-picture negative control.
 - `template.potx` — a genuine PowerPoint-authored **`.potx` template** package
   (the only non-`.pptx` fixture here). Authored on Windows desktop PowerPoint COM
   (2026-06-24) via `SaveAs(..., 26)` (`ppSaveAsOpenXMLTemplate`; note `27` is the

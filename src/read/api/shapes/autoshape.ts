@@ -2,12 +2,10 @@
  * An auto shape, text box, or placeholder (`p:sp`) — the only shape kind that holds text.
  */
 
-import { attr, firstChild, getElements } from '../../oxml/dom.js'
+import { attr, firstChild } from '../../oxml/dom.js'
 import { resolveStyleFontRef, type PlaceholderRef } from '../theme-context.js'
 import { TextFrame } from '../text.js'
 import { Shape } from './base.js'
-import { readGeometryPath } from './geometry.js'
-import type { CustomGeometry } from './types.js'
 import { nvPrOf } from '../../oxml/slide-dom.js'
 
 /** An auto shape, text box, or placeholder (`p:sp`). The only kind that holds text. */
@@ -38,22 +36,5 @@ export class AutoShape extends Shape {
 		const nvPr = nvPrOf(this.element)
 		const ph = nvPr && firstChild(nvPr, 'p:ph')
 		return ph ? { type: attr(ph, 'type'), idx: attr(ph, 'idx') ?? '0' } : null
-	}
-
-	/**
-	 * Custom freeform geometry (`spPr/a:custGeom/a:pathLst`), or `null` when the
-	 * shape uses preset geometry / none. The faithful, multi-path counterpart of
-	 * {@link presetGeometry}: each `a:path` keeps its own path-unit viewport
-	 * (`w`/`h`) and ordered {@link GeometryCommand}s. Coordinates are raw path-unit
-	 * integers, not EMU — pair the path `w`/`h` with the shape's box size to map
-	 * them into slide space.
-	 */
-	get customGeometry(): CustomGeometry | null {
-		const props = this.properties()
-		const custGeom = props && firstChild(props, 'a:custGeom')
-		if (!custGeom) return null
-		const pathLst = firstChild(custGeom, 'a:pathLst')
-		const paths = pathLst ? getElements(pathLst, 'a:path').map((p) => readGeometryPath(p)) : []
-		return { paths }
 	}
 }
