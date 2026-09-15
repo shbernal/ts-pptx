@@ -274,7 +274,7 @@ export function checkLinks(docsDir, rel, routes, { repoOnly = [], blobBase = '' 
 		// is what let it reach the Docs workflow. Repo files outside docs/ get an absolute blob URL.
 		if (!isInside(docsRoot, resolved)) {
 			errors.push(
-				`${rel}: relative link \`${target}\` points outside docs/; VitePress has no route for it — use the absolute URL`
+				`${rel}: relative link \`${target}\` points outside docs/, where VitePress has no route for it; use the absolute URL`
 			)
 		} else if (!existsSync(resolved)) {
 			errors.push(`${rel}: broken relative link \`${target}\``)
@@ -393,7 +393,7 @@ function checkScriptsTable() {
 	return walk('')
 		.filter((rel) => !documented.has(rel))
 		.sort()
-		.map((rel) => `scripts/README.md: no table row for \`${rel}\` — say what it does and what runs it`)
+		.map((rel) => `scripts/README.md: no table row for \`${rel}\`; say what it does and what runs it`)
 }
 
 /** @param {string[]} argv */

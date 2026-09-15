@@ -55,7 +55,7 @@ function titleFromMarkdown(markdown, filePath) {
 			.replaceAll(/\\([^A-Za-z0-9])/g, '$1')
 			.trim()
 	const basename = path.basename(filePath, '.md')
-	return basename === 'index' ? 'Public API Reference' : basename
+	return basename === 'index' ? 'API reference' : basename
 }
 
 /**
@@ -65,7 +65,7 @@ function titleFromMarkdown(markdown, filePath) {
  */
 function frontmatterFor(filePath, markdown) {
 	const rel = path.relative(outDir, filePath).split(path.sep).join('/')
-	const title = rel === 'index.md' ? 'Public API Reference' : titleFromMarkdown(markdown, filePath)
+	const title = rel === 'index.md' ? 'API reference' : titleFromMarkdown(markdown, filePath)
 	const summary =
 		rel === 'index.md'
 			? 'Generated TypeDoc reference for the public TsPptx package exports.'
@@ -241,14 +241,9 @@ if (problems.length > 0) {
 
 writeFileSync(
 	path.join(outDir, 'index.md'),
-	[
-		'# Public API Reference',
-		'',
-		'Each entry point, by the specifier you import it from.',
-		'',
-		...landingEntries,
-		'',
-	].join('\n'),
+	['# API reference', '', 'Each entry point, by the specifier you import it from.', '', ...landingEntries, ''].join(
+		'\n'
+	),
 	'utf8'
 )
 

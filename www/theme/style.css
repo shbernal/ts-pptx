@@ -43,6 +43,12 @@
 	text-align: center;
 }
 
+/* Three quarters of the laid-out width keeps a 16px label at 12px. A graph wider than that
+   floor scrolls inside the container rather than shrinking further. */
+.mermaid-diagram svg {
+	min-width: calc(var(--mermaid-natural-width, 0px) * 0.75);
+}
+
 .mermaid-diagram__failure {
 	border-left: 3px solid var(--vp-c-brand-1);
 	padding-left: 0.75rem;

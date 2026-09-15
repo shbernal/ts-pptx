@@ -21,7 +21,7 @@ Tasks are in the reading guides: [read and edit a deck](../reading/read-and-edit
 
 ```mermaid
 classDiagram
-  direction LR
+  direction TB
   Presentation "1" --> "*" Slide : slides
   Slide "1" --> "*" Shape : shapes
   Shape <|-- AutoShape
@@ -502,7 +502,7 @@ A diagram stores each string twice. The data part (`dgm:dataModel`) is what Powe
 [`DiagramPoint.drawnShape`](api/read/classes/DiagramPoint.md#drawnshape) links a point to its drawn text, and [`Diagram.drawingPart`](api/read/classes/Diagram.md#drawingpart) is the drawing part. The link runs through a `pres` point:
 
 ```mermaid
-flowchart LR
+flowchart TB
   A["dgm:pt, the authored point"] -- "presOf connection" --> B["dgm:pt of type pres"]
   B -- "dsp:sp modelId" --> C["dsp:sp in the drawing part"]
   C -- "paragraph at destOrd" --> D["the point's drawn text"]

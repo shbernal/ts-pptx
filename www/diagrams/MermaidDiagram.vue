@@ -13,10 +13,16 @@ const props = defineProps({
 const { isDark } = useData()
 const svg = ref('')
 const error = ref('')
+const naturalWidth = ref('')
 
 async function draw() {
 	try {
 		svg.value = await renderMermaid(decodeGraph(props.graph), isDark.value)
+		// Mermaid sizes its SVG to `width="100%"`, so a wide graph shrinks to the column until
+		// its labels cannot be read, and the container's horizontal scroll never engages. The
+		// width the graph was laid out at gives the stylesheet a floor to scroll against.
+		const viewBoxWidth = Number(svg.value.match(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+)/)?.[1])
+		naturalWidth.value = viewBoxWidth > 0 ? `${Math.round(viewBoxWidth)}px` : ''
 		error.value = ''
 	} catch (caught) {
 		svg.value = ''
@@ -33,7 +39,7 @@ onMounted(() => {
 </script>
 
 <template>
-	<div class="mermaid-diagram">
+	<div class="mermaid-diagram" :style="naturalWidth ? { '--mermaid-natural-width': naturalWidth } : undefined">
 		<div v-if="svg" v-html="svg" />
 		<p v-else-if="error" role="alert" class="mermaid-diagram__failure">
 			The diagram could not be drawn: {{ error }}

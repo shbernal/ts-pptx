@@ -103,7 +103,8 @@ map the two bare specifiers it imports:
 ```
 
 `opentype.js` is imported only when a font is first registered, so a page that never calls
-`registerFontMetrics` or `embedFont` will not notice a missing entry for it until it does.
+`registerFontMetrics` will not notice a missing entry for it until it does. `embedFont` reads no
+font tables and does not import it.
 
 ## Deno, Bun and edge workers
 

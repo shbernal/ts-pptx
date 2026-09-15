@@ -12,8 +12,6 @@ doc_type: "guide"
 
 # Deck to script
 
-## What it does
-
 `pptx-ts/script` reads a `.pptx` through `pptx-ts/read` and prints a TypeScript module that rebuilds the deck through the write API. With the module you get a list of fidelity notes, one for each construct the rebuilt deck does not carry.
 
 ```ts
