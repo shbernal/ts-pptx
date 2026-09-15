@@ -82,6 +82,20 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 		assertEqual((pres.match(/<p:bold /g) || []).length, 1, 'bold face not duplicated')
 	})
 
+	// PowerPoint drops p:embeddedFontLst and every font part from a deck without
+	// embedTrueTypeFonts when it saves, so carried fonts lasted one save without it.
+	test('marks the destination as embedding fonts', async () => {
+		const target = await openFixture('empty')
+		const presentationXml = async (/** @type {Uint8Array} */ bytes) =>
+			(await entries(bytes)).file('ppt/presentation.xml').async('string')
+		assert(!/embedTrueTypeFonts/.test(await presentationXml(await target.save())), 'precondition: no flag')
+		target.importSlide(await openFixture('embedded-fonts'), 0, { embedFonts: true })
+		assert(
+			/<p:presentation\b[^>]*\bembedTrueTypeFonts="1"/.test(await presentationXml(await target.save())),
+			'embedTrueTypeFonts set on p:presentation'
+		)
+	})
+
 	test('default (flag off) carries no fonts — unchanged behaviour', async () => {
 		const target = await openFixture('empty')
 		const source = await openFixture('embedded-fonts')
@@ -91,6 +105,7 @@ describe('Presentation.importSlide({ embedFonts })', () => {
 		assert(!Object.keys(zip.files).some((n) => /fntdata/.test(n)), 'no font parts without embedFonts')
 		const pres = await zip.file('ppt/presentation.xml').async('string')
 		assert(!/embeddedFontLst/.test(pres), 'no embeddedFontLst without embedFonts')
+		assert(!/embedTrueTypeFonts/.test(pres), 'no embedTrueTypeFonts without embedFonts')
 	})
 
 	test.skipIf(!validatorInstalled)('a deck with carried embedded fonts stays schema-valid', async () => {
@@ -151,5 +166,28 @@ describe('an embedded font face whose r:id names no relationship', () => {
 		assertEqual(thrown.code, 'package/part-missing', `${name} names the missing font part`)
 		assertEqual(thrown.name, 'PackageReadError', `${name} raises it as a package error`)
 		assert(bytesEqual(before, await target.save()), `${name} changed no byte of the deck`)
+	})
+})
+
+describe('an embedded font entry with no faces', () => {
+	test('is not carried, and leaves the destination unmarked', async () => {
+		const zip = await JSZip.loadAsync(await readFixture('embedded-fonts.pptx'))
+		const presentation = await zip.file('ppt/presentation.xml').async('string')
+		const faceless = presentation.replace(/<p:(regular|bold|italic|boldItalic) r:id="[^"]*"\/>/g, '')
+		assert(
+			faceless !== presentation && /<p:embeddedFont><p:font /.test(faceless),
+			'precondition: an entry with only p:font'
+		)
+		zip.file('ppt/presentation.xml', faceless)
+		const source = await Presentation.load(await zip.generateAsync({ type: 'uint8array' }))
+
+		const target = await openFixture('empty')
+		target.importSlide(source, 0, { embedFonts: true })
+		const pres = await (await entries(await target.save())).file('ppt/presentation.xml').async('string')
+		assert(
+			!/embeddedFont/.test(pres),
+			`no embedded font list; got ${/<p:embeddedFontLst>.*?<\/p:embeddedFontLst>/.exec(pres)?.[0]}`
+		)
+		assert(!/embedTrueTypeFonts/.test(pres), 'embedTrueTypeFonts not set')
 	})
 })

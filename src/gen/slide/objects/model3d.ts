@@ -4,7 +4,7 @@
  * Emits a `model3d` slide object as an `<mc:AlternateContent>`. The `mc:Choice` carries the real
  * `<p:graphicFrame>` in the 2017 `am3d` namespace, rendered live by PowerPoint 2019+; the
  * `mc:Fallback` carries a plain preview picture, which is what every other consumer — older
- * PowerPoint, thumbnails, PDF export — actually draws. See `gen/define/model3d.ts`.
+ * PowerPoint, applications without a 3D renderer — actually draws. See `gen/define/model3d.ts`.
  *
  * Every constant below is transcribed from a PowerPoint-authored deck
  * (`test/read/fixtures/model3d.pptx`, `Shapes.Add3DModel`), including the lighting rig, which came

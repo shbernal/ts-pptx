@@ -1017,6 +1017,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`Shape.delete()` removes the animations of what it deletes, and unbinds connectors from it.**
+  A build animation kept its `spid` naming the deleted shape, or a shape inside a deleted group,
+  and PowerPoint refused the saved deck with 0x80070570. A connector attached to a deleted shape
+  kept a binding to an id no longer on the slide: PowerPoint kept it through its own save, and a
+  shape later given that id would have inherited the connector. The builds are removed, and the
+  connector keeps its line with that end unattached.
+
+- **Chained `afterPrevious` effects play one after another.** Each sub-step was delayed by the
+  duration of the effect added just before it, but PowerPoint counts every sub-step's delay from
+  the click, so a third effect in a chain started while the second was still running, and one
+  after a longer `withPrevious` effect started before that effect ended. A sub-step now starts
+  when the one before it ends, as PowerPoint writes it. **Downstream impact:** a slide with two
+  `afterPrevious` effects in a row, or one after a `withPrevious` effect longer than the effect
+  it joined, plays for longer.
+
+- **Fonts carried by an import or `appendSlides` survive PowerPoint's next save.** The carry left
+  `embedTrueTypeFonts` off on a destination that had never embedded a font, and PowerPoint drops
+  every embedded font from such a deck when it saves. The carry now sets it. A source font entry
+  with no faces is no longer copied as an empty `p:embeddedFont`.
+
 - **`pptx-ts/inspect` keeps a paragraph boundary as a word boundary.** An element's `text` joined
   every run with nothing between paragraphs, so two paragraphs reading "first" and "second" came
   out as `firstsecond`, and `wordCount` counted one word. Paragraphs are now separated by a space.

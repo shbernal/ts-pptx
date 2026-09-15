@@ -100,7 +100,7 @@ has a comment, then the fonts. `buildPackageParts` flattens the same list for th
 | --- | --- |
 | `readEmbeddedFontEntries(deck)` | reads `p:embeddedFontLst` once, resolving each face's `r:id`; a face whose id names no internal relationship gets `partName: null`, an entry with no `typeface` and a slot with no `r:id` are left out |
 | `checkEmbeddedFontsCopyable(source, api)` | the dry run: throws `package/part-missing` when a face's part is `null` or absent from the source package, reading only the source |
-| `carryEmbeddedFonts(dest, source, ctx)` | turns the source entries into incoming fonts whose `createPart` copies the part through `copyPart` |
+| `carryEmbeddedFonts(dest, source, ctx)` | turns the source entries into incoming fonts whose `createPart` copies the part through `copyPart`, leaving out an entry with no faces |
 | `carryGeneratedEmbeddedFonts(dest, fonts)` | turns a generator's `EmbeddedFont[]` into incoming fonts whose `createPart` reserves a `/ppt/fonts/font1.fntdata`-style name and adds the bytes |
 | `mergeEmbeddedFontEntries(dest, entries)` | the shared merge |
 | `Presentation.embeddedFonts` (`src/read/api/presentation.ts`) | the public getter over `readEmbeddedFontEntries`, dropping faces with no part |
@@ -117,9 +117,11 @@ entries. The merge core:
    its content type from the Default and gets no Override.
 5. Adds a `font` relationship from `presentation.xml` and inserts `p:<slot>` in schema order through
    `EMBEDDED_FONT_ENTRY_AFTER`.
-6. Marks `presentation.xml` dirty when it added a face.
+6. When it added a face, sets `embedTrueTypeFonts="1"` on the destination's `p:presentation` and marks
+   `presentation.xml` dirty.
 
-The merge does not touch `embedTrueTypeFonts` or `saveSubsetFonts` on the destination.
+PowerPoint drops `p:embeddedFontLst` and every font part from a deck without `embedTrueTypeFonts` when
+it saves, so a carry that left the flag off lasted one save. The merge does not touch `saveSubsetFonts`.
 
 `copyPart` records each copied part in the per-source registry, so repeated imports from one source
 copy each font part once.

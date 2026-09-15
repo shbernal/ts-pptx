@@ -122,6 +122,7 @@ await writeFile('deck-merged.pptx', await deck.save())
 - When the deck already has an entry for the `typeface`, that entry keeps its own attributes, and only the missing faces are added to it.
 - The import checks that every font file the source lists is in the source package before it changes anything. A missing one throws, and the deck is left byte-identical.
 - `appendSlides` carries the fonts of the `TsPptx` you pass it, with the same merge rules.
+- A carry that adds a face sets `embedTrueTypeFonts="1"` on the deck. PowerPoint removes every embedded font from a deck without it the next time it saves.
 
 ## Register font metrics separately for text fit
 
@@ -166,7 +167,6 @@ await pptx.registerFontMetrics('Silkscreen', bytes)
 - The typeface name and the style are not read from the file. A wrong `typeface` or `style` is not detected.
 - An import copies the source deck's whole font list, not only the faces its slides use.
 - `importShape` and `importShapes` do not carry fonts.
-- An import or `appendSlides` adds fonts without setting `embedTrueTypeFonts` on the destination deck. A deck built with `embedFont` has it set, but a template that never embedded a font does not.
 - An open deck gains fonts only through the imports and `appendSlides`. No method adds a font file directly or removes one.
 
 ## Reading it back

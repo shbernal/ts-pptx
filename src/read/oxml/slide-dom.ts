@@ -175,6 +175,33 @@ export function reassignDrawingIds(
 	return { next, map }
 }
 
+/** Every drawing id (`p:cNvPr/@id`) in `root`'s subtree: the shape itself, or a group and everything in it. */
+export function drawingIdsIn(root: Element): Set<number> {
+	const ids = new Set<number>()
+	for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
+		const id = numberValue(attr(cNvPr, 'id'))
+		if (id !== null) ids.add(id)
+	}
+	return ids
+}
+
+/**
+ * Drop every connector binding (`a:stCxn`/`a:endCxn`) under `root` that names one of `ids`. The
+ * connector keeps its geometry and that end lands unbound, as in {@link reassignDrawingIds}.
+ *
+ * For shapes being removed: PowerPoint keeps a binding to a missing id through its own save, and
+ * its object model fails reading the shape the connector claims to be attached to.
+ */
+export function unbindConnectors(root: Element, ids: ReadonlySet<number>): void {
+	for (const local of ['stCxn', 'endCxn']) {
+		// Copied out first: removing a binding from a live collection skips the one after it.
+		for (const binding of Array.from(root.getElementsByTagNameNS(OOXML_NS.a, local))) {
+			const id = numberValue(attr(binding, 'id'))
+			if (id !== null && ids.has(id)) binding.parentNode?.removeChild(binding)
+		}
+	}
+}
+
 /** Collect `node` and all its descendant elements (document order) into `out`. */
 export function collectElements(node: Element, out: Element[]): void {
 	out.push(node)

@@ -6,7 +6,9 @@
 // parts byte-identical, and keep the package schema-valid.
 
 import { readFile } from 'node:fs/promises'
+import JSZip from 'jszip'
 import { describe, test } from 'vitest'
+import TsPptx, { ShapeType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { throws, bytesEqual, assert, assertEqual, partBodies, assertUnchangedExcept } from '../helpers.js'
 import { validateBuf, validatorInstalled } from '../validator.js'
@@ -88,6 +90,58 @@ describe('Shape.delete', () => {
 		const shapes = reopened.slides[0].shapes
 		assertEqual(shapes.length, before - 1, 'shape count shrank by one')
 		assert(!shapes.some((shape) => shape.name === 'replaceText'), 'deleted shape is gone')
+	})
+
+	// A build left naming a shape that is not on the slide makes PowerPoint refuse the deck
+	// (0x80070570), which is what deleting an animated shape used to save.
+	test('removes the build animations that target the deleted shape', async () => {
+		const presentation = await openFixture('slide-animation-rich')
+		const slide = presentation.slides[0]
+		assertEqual(slide.animationSpids().join(','), '2,3,4,5', 'precondition: four animated shapes')
+		const target = slide.shapeByIdDeep(3)
+		assert(target, 'precondition: shape 3 exists')
+		target.delete()
+
+		const reopened = (await Presentation.load(await presentation.save())).slides[0]
+		assertEqual(reopened.animationSpids().join(','), '2,4,5', 'no build names the deleted shape')
+		assertEqual(reopened.shapes.length, 3, 'the other animated shapes stay')
+	})
+
+	// PowerPoint keeps a binding to a missing id through its own save, and a shape later given
+	// that id would inherit the connector.
+	test('unbinds a connector from the deleted shape and keeps its other end', async () => {
+		const pptx = new TsPptx()
+		const s = pptx.addSlide()
+		s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'A' })
+		s.addShape(ShapeType.rect, { x: 6, y: 3, w: 2, h: 1, objectName: 'B' })
+		s.addConnector({ x1: 3, y1: 1.5, x2: 6, y2: 3.5, startShape: 'A', startShapeIdx: 3, endShape: 'B', endShapeIdx: 1 })
+		const presentation = await Presentation.load(await pptx.write({ outputType: 'uint8array' }))
+		const slideXmlOf = async (/** @type {Uint8Array} */ bytes) =>
+			(await JSZip.loadAsync(bytes)).file('ppt/slides/slide1.xml').async('string')
+		assert(/<a:stCxn\b/.test(await slideXmlOf(await presentation.save())), 'precondition: the start is bound')
+
+		presentation.slides[0].shapeByName('A')?.delete()
+		const xml = await slideXmlOf(await presentation.save())
+		assert(!/<a:stCxn\b/.test(xml), 'the binding to the deleted shape is gone')
+		assert(/<a:endCxn id="\d+" idx="1"\/>/.test(xml), 'the binding to the shape that stays is kept')
+		assert(/<p:cxnSp>/.test(xml), 'the connector stays')
+	})
+
+	test('deleting a group removes the animations of the shapes inside it', async () => {
+		const pptx = new TsPptx()
+		const s = pptx.addSlide()
+		s.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'Inside' } }], { objectName: 'Outer' })
+		s.addShape(ShapeType.rect, { x: 6, y: 3, w: 2, h: 1, objectName: 'Outside' })
+		s.addAnimation({ preset: 'fadeIn', objectName: 'Inside' })
+		s.addAnimation({ preset: 'fadeIn', objectName: 'Outside' })
+		const presentation = await Presentation.load(await pptx.write({ outputType: 'uint8array' }))
+		const slide = presentation.slides[0]
+		const outsideId = slide.shapeByName('Outside')?.id
+		assertEqual(slide.animationSpids().length, 2, 'precondition: one build inside the group, one outside')
+
+		slide.shapeByName('Outer')?.delete()
+		const reopened = (await Presentation.load(await presentation.save())).slides[0]
+		assertEqual(reopened.animationSpids().join(','), String(outsideId), 'only the build outside the group is left')
 	})
 })
 

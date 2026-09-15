@@ -69,6 +69,8 @@ import type {
 } from './types.js'
 import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
 import { checkFiniteEmu, checkPositiveEmu } from '../coords.js'
+import { drawingIdsIn, unbindConnectors } from '../../oxml/slide-dom.js'
+import { pruneSpids } from '../animation.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -863,12 +865,22 @@ export abstract class Shape {
 	/**
 	 * Remove this shape from its parent (the host's shape tree, or an enclosing
 	 * group) and mark the owning host's part dirty. The proxy is dead afterwards.
+	 *
+	 * The build animations targeting the shape, or any shape inside a deleted group, go with it,
+	 * and a connector attached to one of them keeps its geometry with that end unbound. PowerPoint
+	 * refuses a deck whose animation names a shape that is not on the slide.
 	 */
 	delete(): void {
 		const parent = this.element.parentNode
 		if (!parent)
 			throw new InternalError('oxml/node-has-no-parent', 'Shape is not attached to a parent and cannot be deleted')
+		const ids = drawingIdsIn(this.element)
+		const root = this.element.ownerDocument?.documentElement
 		parent.removeChild(this.element)
+		if (root) {
+			pruneSpids(root, ids)
+			unbindConnectors(root, ids)
+		}
 		this.markDirty()
 	}
 

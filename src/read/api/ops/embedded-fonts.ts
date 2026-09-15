@@ -152,7 +152,11 @@ export function carryEmbeddedFonts(dest: Presentation, source: Presentation, ctx
 			partName === null ? [] : [{ slot, createPart: () => copyPart(ctx, partName) }]
 		),
 	}))
-	mergeEmbeddedFontEntries(dest, incoming)
+	// An entry with no faces carries nothing, and copied it would be an empty `p:embeddedFont`.
+	mergeEmbeddedFontEntries(
+		dest,
+		incoming.filter((font) => font.faces.length > 0)
+	)
 }
 
 /**
@@ -198,7 +202,8 @@ export function carryGeneratedEmbeddedFonts(dest: Presentation, fonts: EmbeddedF
  * added face the `fntdata` Default is ensured, the binary part is created via the face's
  * `createPart` thunk, a `font` rel is added to presentation.xml, and the `p:<slot>` element
  * is inserted in schema child order. The list is created at CT_Presentation index 7 when
- * the deck has none yet. No-op for empty input.
+ * the deck has none yet, and a merge that adds a face sets `embedTrueTypeFonts`, without which
+ * PowerPoint drops every embedded font on its next save. No-op for empty input.
  */
 function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedFont[]): void {
 	if (entries.length === 0) return
@@ -251,5 +256,9 @@ function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedF
 		}
 	}
 
-	if (copiedAny) presPart.markDirty()
+	if (copiedAny) {
+		// PowerPoint drops every embedded font from a deck without this flag when it saves.
+		setAttr(presRoot, 'embedTrueTypeFonts', '1')
+		presPart.markDirty()
+	}
 }

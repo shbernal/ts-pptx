@@ -144,13 +144,13 @@ export function addModel3dDefinition(target: PresSlideInternal, opt: Model3dProp
 	})
 
 	// STEP 4: Register the preview picture. Unlike OLE's silent placeholder, say so out loud — a
-	// missing preview is invisible in PowerPoint (which draws the live model over it) and shows up
-	// only in thumbnails, PDF export, and older viewers, i.e. long after the deck was checked.
+	// missing preview is invisible in PowerPoint, which draws the live model on screen, in exports
+	// and in print, and shows up only in another application, i.e. long after the deck was checked.
 	if (!opt.preview?.path && !opt.preview?.data) {
 		warn(
 			'model3d/preview-missing',
 			'addModel3d(): no `preview` image supplied, so a gray placeholder is embedded. PowerPoint 2019+ ' +
-				'draws the live model over it, but thumbnails, PDF export and older viewers show the placeholder.'
+				'draws the live model, but older PowerPoint and applications without a 3D renderer show the placeholder.'
 		)
 	}
 	const previewRid = registerPreviewImage(target, opt.preview, 'addModel3d `preview`')

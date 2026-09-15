@@ -96,7 +96,7 @@ Effects play in the order they were added, and `trigger` decides how they group:
 
 - `onClick` starts a new click step. The first effect on a slide always starts one.
 - `withPrevious` starts at the same moment as the effect added before it.
-- `afterPrevious` starts once the effect added before it has run for its duration.
+- `afterPrevious` starts once the effect added before it has finished, and every effect that started with that one.
 
 ```ts
 slide.addAnimation({ preset: "fadeIn", objectName: "title" })                               // first click

@@ -5,11 +5,12 @@
  * 2019+. It is emitted as a `<p:graphicFrame>` in the 2017 `am3d` namespace, wrapped in
  * `<mc:AlternateContent>` with a picture fallback — the same structural shape as a zoom.
  *
- * PREVIEW IMAGE: everything that is not PowerPoint 2019+ — including PowerPoint's own
- * `mc:Fallback` path, thumbnails, and PDF export — draws the preview picture, never the model.
- * ts-pptx is Node-first and cannot rasterize a 3D scene, so it emits a neutral gray
- * **placeholder** when `preview` is omitted. Supply one for any deck meant to read correctly
- * outside PowerPoint. This is the same bargain `addOleObject()`'s `cover` makes.
+ * PREVIEW IMAGE: PowerPoint 2019+ draws the live model on screen, in a slide exported as a
+ * picture, in a PDF export and in print. Everything else — PowerPoint 2016 and earlier, and
+ * applications with no 3D renderer, such as LibreOffice — draws the preview picture in the
+ * `mc:Fallback` branch. ts-pptx is Node-first and cannot rasterize a 3D scene, so it emits a
+ * neutral gray **placeholder** when `preview` is omitted. Supply one for any deck meant to read
+ * correctly outside PowerPoint. This is the same bargain `addOleObject()`'s `cover` makes.
  *
  * CAMERA: PowerPoint derives its camera from the model's bounding box; ts-pptx does not parse
  * glTF, so it emits a fixed default framed for a model roughly 2 units across. See
@@ -78,8 +79,8 @@ interface Model3dBaseProps extends PositionProps, ObjectNameProps {
 	 * Picture of the model shown wherever the live 3D view is unavailable — a raster image `path`
 	 * (Node/local) or base64 `data:` URI.
 	 * - the library cannot render a 3D scene, so when this is omitted a neutral gray placeholder is
-	 *   embedded; PowerPoint 2019+ draws the live model over it, but every other consumer — and
-	 *   PowerPoint's own `mc:Fallback` path, thumbnails, and PDF export — shows exactly what is here
+	 *   embedded; PowerPoint 2019+ draws the live model on screen, in exports and in print, but older
+	 *   PowerPoint and applications without a 3D renderer show exactly what is here
 	 * - supply a real render whenever the deck is meant to read correctly outside PowerPoint
 	 * @example { path: 'assets/engine-render.png' }
 	 */

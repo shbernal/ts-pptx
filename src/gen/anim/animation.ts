@@ -284,35 +284,40 @@ type ResolvedAnimation = { anim: AnimationProps; spid: number }
 /**
  * Assemble the `mainSeq` from preset effects. Effects are grouped into click
  * steps: an `onClick` effect opens a new click group; `afterPrevious` opens a new
- * sub-step (delayed by the previous effect's duration) within it; `withPrevious`
+ * sub-step within it, starting when the sub-step before it ends; `withPrevious`
  * joins the current sub-step. This reproduces PowerPoint's interactive build tree.
+ *
+ * A sub-step's delay counts from the click, not from the sub-step before it, and that sub-step
+ * ends with its longest effect: PowerPoint writes 0, 500, 1250 and 3250 ms for effects of 500,
+ * 750 and 1000 ms, a 2000 ms `withPrevious` beside the third, then a fourth.
  */
 export function buildAnimationSeq(animations: ResolvedAnimation[], next: () => number): string {
 	interface SubGroup {
 		delay: number
+		/** The longest effect's duration, which is when the next `afterPrevious` sub-step starts. */
+		longest: number
 		effects: ResolvedAnimation[]
 	}
 	interface ClickGroup {
 		subs: SubGroup[]
 	}
 	const groups: ClickGroup[] = []
-	let prevDuration = 0
 	for (const entry of animations) {
 		const meta = ANIM_PRESETS[entry.anim.preset]
 		if (!meta) continue
 		const trigger = entry.anim.trigger ?? 'onClick'
 		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
-		if (trigger === 'onClick' || groups.length === 0) {
-			groups.push({ subs: [{ delay: 0, effects: [entry] }] })
+		const subs = groups[groups.length - 1]?.subs
+		const lastSub = subs?.[subs.length - 1]
+		if (trigger === 'onClick' || !subs || !lastSub) {
+			groups.push({ subs: [{ delay: 0, longest: duration, effects: [entry] }] })
 		} else if (trigger === 'afterPrevious') {
-			groups[groups.length - 1]?.subs.push({ delay: prevDuration, effects: [entry] })
+			subs.push({ delay: lastSub.delay + lastSub.longest, longest: duration, effects: [entry] })
 		} else {
 			// withPrevious — join the current sub-step
-			const subs = groups[groups.length - 1]?.subs
-			const lastSub = subs?.[subs.length - 1]
-			if (lastSub) lastSub.effects.push(entry)
+			lastSub.effects.push(entry)
+			lastSub.longest = Math.max(lastSub.longest, duration)
 		}
-		prevDuration = duration
 	}
 
 	const emitEffect = (entry: ResolvedAnimation): string => {

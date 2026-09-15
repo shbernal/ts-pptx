@@ -141,6 +141,7 @@ slide.shapeByName('Old caption')?.delete()
 - `addPicture` recognises PNG, JPEG, GIF, BMP, TIFF and WebP from the bytes. For any other format, pass `extension` and `contentType`.
 - A new shape gets a drawing id one above the highest on the slide, and goes in front of the other shapes.
 - `shape.delete()` removes the shape from its slide or group, and the object is unusable afterwards. A deleted picture's relationship and media part stay in the package.
+- The animations of a deleted shape, or of a shape inside a deleted group, are removed with it. A connector attached to one keeps its line, and that end is left unattached.
 
 ## Read and write speaker notes
 

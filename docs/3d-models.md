@@ -62,10 +62,9 @@ flowchart LR
 
 | Reader | Branch it draws |
 | --- | --- |
-| PowerPoint 2019 and later, on screen | `mc:Choice`, the model |
-| PowerPoint 2019 and later, exporting a slide to a picture | `mc:Choice`, the model |
+| PowerPoint 2019 and later: on screen, a slide exported as a picture, a PDF export, a printout | `mc:Choice`, the model |
 | PowerPoint 2016 and earlier | `mc:Fallback`, the preview |
-| any other application | `mc:Fallback`, the preview |
+| any other application, such as LibreOffice | `mc:Fallback`, the preview |
 
 The library has no 3D renderer, so pass the preview as `preview`, by `path` or as base64 `data` with a header:
 
@@ -73,7 +72,7 @@ The library has no 3D renderer, so pass the preview as `preview`, by `path` or a
 slide.addModel3d({ path: 'engine.glb', preview: { path: 'engine-render.png' } })
 ```
 
-- With no `preview`, a 32 by 32 gray PNG is embedded and `model3d/preview-missing` warns. PowerPoint draws the model on screen, so the placeholder shows only where the fallback is read.
+- With no `preview`, a 32 by 32 gray PNG is embedded and `model3d/preview-missing` warns. PowerPoint 2019 and later draws the model on screen, in exports and in print, so the placeholder shows only where the fallback is read.
 - A `preview.data` with no base64 header warns `preview-image/missing-base64-header`, and the gray PNG is embedded instead.
 - The preview is stretched to the model's frame. Give it the frame's aspect ratio.
 - The preview is stored once, however many branches refer to it.

@@ -133,6 +133,30 @@ defineRegressionSuite('Preset build animations (write)', [
 		},
 	},
 	{
+		// A sub-step's delay counts from the click, and the sub-step before it ends with its
+		// longest effect. 0, 500, 1250 and 3250 are the delays desktop PowerPoint wrote for the
+		// same five effects authored over COM; each sub-step used to wait only for the effect
+		// added just before it (0, 500, 750, 2000), so the chain overlapped.
+		name: 'an afterPrevious sub-step starts when the sub-step before it ends',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				for (const nm of ['s1', 's2', 's3', 's4', 's5']) s.addText(nm, { x: 1, y: 1, w: 1, h: 1, objectName: nm })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 0, trigger: 'onClick', durationMs: 500 })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 1, trigger: 'afterPrevious', durationMs: 750 })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 2, trigger: 'afterPrevious', durationMs: 1000 })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 3, trigger: 'withPrevious', durationMs: 2000 })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 4, trigger: 'afterPrevious', durationMs: 250 })
+			})
+			// Sub-step nodes are the only `p:cTn` with exactly `id` and `fill` and a numeric start
+			// delay: a click step's is `indefinite`, and an effect's carries a `presetID`.
+			const delays = [...xml.matchAll(/<p:cTn id="\d+" fill="hold"><p:stCondLst><p:cond delay="(\d+)"\/>/g)].map((m) =>
+				Number(m[1])
+			)
+			assert(JSON.stringify(delays) === '[0,500,1250,3250]', `sub-step delays; got ${JSON.stringify(delays)}`)
+		},
+	},
+	{
 		name: 'emits the basic single fade-on-click mainSeq byte-for-byte',
 		fn: async () => {
 			const oracle = await readOracle('slide-animation-basic')

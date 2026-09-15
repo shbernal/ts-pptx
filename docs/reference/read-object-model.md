@@ -247,7 +247,7 @@ const drawMasterShapes = slide.showMasterSp && (slide.layout?.showMasterSp ?? tr
 - Only an `AutoShape` with a `p:txBody` has a [`textFrame`](api/read/classes/Shape.md#textframe). [`hasTextFrame`](api/read/classes/Shape.md#hastextframe) is `false` for every other shape, and setting [`text`](api/read/classes/Shape.md#text) on one throws `shape/no-text-frame`.
 - [`presetGeometry`](api/read/classes/Shape.md#presetgeometry) reads `a:prstGeom/@prst` on pictures and connectors as well as auto shapes. A group reads `null`. [`adjustValues`](api/read/classes/Shape.md#adjustvalues) maps each adjust guide name to its formula.
 - [`hidden`](api/read/classes/Shape.md#hidden) reads `p:cNvPr/@hidden`. [`description`](api/read/classes/Shape.md#description) is the alt text, and setting `''` removes it. [`title`](api/read/classes/Shape.md#title) and [`isDecorative`](api/read/classes/Shape.md#isdecorative) are read-only.
-- [`delete()`](api/read/classes/Shape.md#delete) removes the shape from its tree or group and marks the host part dirty.
+- [`delete()`](api/read/classes/Shape.md#delete) removes the shape from its tree or group and marks the host part dirty. It also removes the build animations of every shape it removes, and drops each connector binding (`a:stCxn`, `a:endCxn`) that named one.
 
 ### Geometry
 

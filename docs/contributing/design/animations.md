@@ -77,8 +77,11 @@ flowchart TD
 ```
 
 `buildAnimationSeq` (`src/gen/anim/animation.ts`) groups effects the way PowerPoint does: `onClick`
-opens a click step, `afterPrevious` opens a sub-step delayed by the previous effect's duration, and
-`withPrevious` joins the current sub-step. `buildBldList` writes one `p:bldP` per animated shape.
+opens a click step, `afterPrevious` opens a sub-step, and `withPrevious` joins the current sub-step.
+A sub-step's delay counts from the click: it is the previous sub-step's delay plus that sub-step's
+longest effect. PowerPoint wrote 0, 500, 1250 and 3250 ms for a 500 ms click effect, 750 and 1000 ms
+`afterPrevious` effects with a 2000 ms `withPrevious` beside the second, then one more
+`afterPrevious`, and it plays the delays a file carries as they are. `buildBldList` writes one `p:bldP` per animated shape.
 Each preset in `ANIM_PRESETS` is a template keyed by preset name, carrying its `presetID`, class,
 subtype and default duration, and parameterized only by `spid` and duration. Adding a preset means
 authoring a PowerPoint fixture and capturing its template, not a new code path.
@@ -92,7 +95,7 @@ by `objectName` or by `shapeIndex` among the slide's drawn top-level objects.
 | --- | --- | --- |
 | enumerate | collects every `spid` from `p:spTgt` and `p:bldP` | `Slide.animationSpids()` (internal) |
 | remap | rewrites `spid`s through an old-to-new map | `carryShapeAnimations`; `Slide.remapAnimationSpids` (internal) |
-| prune | removes a shape's `p:bldP` and the effects targeting it, then empty wrappers | `carryShapeAnimations`; `Slide.pruneAnimationSpids` (internal) |
+| prune | removes a shape's `p:bldP` and the effects targeting it, then empty wrappers | `carryShapeAnimations`; `Shape.delete()`, for every id in the deleted subtree; `Slide.pruneAnimationSpids` (internal) |
 | flatten | removes the whole `p:timing` when it holds build animations, keeping a media-only timing | `Slide.flattenAnimations()` |
 | carry | copies a lifted shape's click steps and `p:bldP` into the destination timing, creating it if absent, pruning effects on shapes not carried, remapping ids and renumbering `p:cTn` ids past the destination's highest | `importShape`/`importShapes` with `carryAnimation` (`src/read/api/presentation-imports.ts`) |
 
