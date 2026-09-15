@@ -30,6 +30,7 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - PowerPoint: [right-click on an image] > "Edit Alt Text..."
+	 * - omitted, the picture's `descr` is empty, as PowerPoint writes it; the source path or URL is never used
 	 */
 	altText?: string
 	/**

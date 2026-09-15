@@ -205,6 +205,32 @@ defineRegressionSuite('Object identity [legacy bug-21]', [
 		},
 	},
 	{
+		// With no `altText`, a picture's `descr` used to be its source: the `path` as given, a local
+		// path or a URL, and `preencoded.png` for a `data` image. A screen reader reads `descr` aloud.
+		// PowerPoint writes an empty one for an inserted picture with no alt text.
+		name: 'an image with no altText writes an empty descr, never its source',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addImage({
+					path: 'test/read/fixtures/media/poster.png',
+					x: 0.4,
+					y: 0.4,
+					w: 1,
+					h: 1,
+					objectName: 'bare:path',
+				})
+				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 2, y: 0.4, w: 1, h: 1, objectName: 'bare:data' })
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertNonVisualDrawingProperty(xml, { name: 'bare:path', descr: '' }, 'path image')
+			assertNonVisualDrawingProperty(xml, { name: 'bare:data', descr: '' }, 'data image')
+			assert(!xml.includes('poster.png'), 'the source path is not written into the slide')
+			assert(!xml.includes('preencoded'), 'no stand-in name is written for a data image')
+		},
+	},
+	{
 		// fork-addtext-objectname-double-escape: Slide.addText(string, opts) wraps the bare string as
 		// `[{ text, options }]`, reusing `options` as both the shape-level opts and the lone run's
 		// opts. Escaping objectName inside the per-run pass (as well as the shape-level pass) encoded

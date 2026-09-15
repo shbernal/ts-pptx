@@ -55,7 +55,10 @@ export function renderImageObject(ctx: RenderContext): string {
 	strSlideXml += cNvPrEl(
 		shapeId,
 		imgOpts.objectName,
-		imgOpts.altText || slideItemObj.image || '',
+		// No alt text is an empty `descr`, as PowerPoint writes for an inserted picture. The source path
+		// or URL used to stand in: a screen reader read it aloud, and a local path put the author's
+		// directory layout into the deck.
+		imgOpts.altText || '',
 		cNvPrHyperlink(imgLink),
 		{ closePrefix: '    ' }
 	)

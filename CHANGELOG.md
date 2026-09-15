@@ -1017,6 +1017,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A picture with no `altText` writes an empty `descr`.** It wrote the image's `path` as given, a
+  full local path or a URL, or `preencoded.png` for a `data` image. A screen reader read that
+  aloud, and a local path put the author's directory layout into the deck. PowerPoint writes an
+  empty `descr` for an inserted picture with no alt text. **Downstream impact:** a consumer that
+  read the source path back out of `descr` now reads an empty string. Set `altText` to describe
+  the picture.
+
 - **`Shape.delete()` removes the animations of what it deletes, and unbinds connectors from it.**
   A build animation kept its `spid` naming the deleted shape, or a shape inside a deleted group,
   and PowerPoint refused the saved deck with 0x80070570. A connector attached to a deleted shape

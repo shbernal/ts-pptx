@@ -17,17 +17,6 @@
 const OVERFLOW = 'The quick brown fox jumps over the lazy dog. '.repeat(6).trim()
 
 /**
- * Every image deck pins its alt text, and has to.
- *
- * `addImage` defaults `descr` to the image *source* — which is a filesystem path on Node
- * and a URL in the browser, because that is the input the two runtimes take. So the
- * default makes the emitted XML differ for a reason that has nothing to do with the
- * loaders: the library faithfully recorded two different strings a caller handed it.
- * Pinning it removes the only confound and leaves the comparison about the bytes.
- */
-const ALT_TEXT = 'harness fixture'
-
-/**
  * @typedef {object} HarnessAssets
  * @property {string} png a real raster image
  * @property {string} svg a real SVG with an intrinsic size
@@ -60,7 +49,7 @@ export const DECKS = {
 	 */
 	async raster(pres, assets) {
 		const slide = pres.addSlide()
-		slide.addImage({ path: assets.png, x: 1, y: 1, altText: ALT_TEXT })
+		slide.addImage({ path: assets.png, x: 1, y: 1 })
 	},
 
 	/**
@@ -72,7 +61,7 @@ export const DECKS = {
 	 */
 	async svg(pres, assets) {
 		const slide = pres.addSlide()
-		slide.addImage({ path: assets.svg, x: 1, y: 1, w: 2, h: 2, altText: ALT_TEXT })
+		slide.addImage({ path: assets.svg, x: 1, y: 1, w: 2, h: 2 })
 	},
 
 	/**
