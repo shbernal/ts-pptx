@@ -112,6 +112,7 @@ slide.addAnimation({ preset: "fadeOut", objectName: "title" })                  
 | `type` is not one of the transition types | warns; the slide is written with no transition | `transition/unknown-type` |
 | a `variant` key the transition does not take | warns; that key is left out | `transition/unknown-variant` |
 | an animation with neither `objectName` nor `shapeIndex` | warns; the effect is dropped | `animation/target-missing` |
+| a `preset` that is not one of the listed presets, from JavaScript | warns; the effect is dropped | `animation/unknown-preset` |
 | `objectName` names nothing on the slide | warns; the effect is dropped | `animation/target-not-found` |
 | `shapeIndex` is past the last shape | warns; the effect is dropped | `animation/target-index-out-of-range` |
 | reading side: `durationMs` or `advanceAfterMs` is not a finite number from 0 | throws `InvalidOptionError` | `transition/invalid-time` |

@@ -150,7 +150,7 @@ MathML instead.
 | LaTeX temml cannot parse, such as `\frac{` or an unknown command | throws | `InvalidOptionError` `math/invalid-latex` |
 | `temml` or `mathml2omml` is not installed | throws on the first call | `UnsupportedFeatureError` `math/missing-optional-peer` |
 | An empty LaTeX string | returns an empty equation, no error | none |
-| A string that is not MathML, passed to `mathmlToOmml` | not checked: returns the string `'undefined'`, which is not OMML | none |
+| A string with no `<math>` element, or MathML that converts to no equation, passed to `mathmlToOmml` | throws | `InvalidOptionError` `math/invalid-mathml` |
 
 ## Limits
 

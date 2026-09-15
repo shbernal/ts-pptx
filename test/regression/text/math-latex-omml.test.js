@@ -28,7 +28,7 @@ function assertWellFormed(omml, label) {
 	return doc
 }
 
-// One formula per requested corpus family (plan Step 3).
+// One formula per requested corpus family.
 const CORPUS = {
 	fraction: 'x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}',
 	nestedRadical: '\\sqrt{1+\\sqrt{1+x}}',
@@ -192,5 +192,19 @@ describe('math/mathmlToOmml', () => {
 		expect(omml.endsWith('</m:oMath>')).toBe(true)
 		expect(/xmlns/.test(omml)).toBe(false)
 		assertWellFormed(omml, 'mathml a+b')
+	})
+
+	test('refuses input that is not MathML instead of returning the string "undefined"', () => {
+		// mathml2omml converts anything it is handed, and for non-MathML it returns `'undefined'`,
+		// which went into the slide as if it were OMML.
+		for (const input of ['', 'x + y', '<mrow><mi>a</mi></mrow>']) {
+			let caught
+			try {
+				mathmlToOmml(input)
+			} catch (error) {
+				caught = error
+			}
+			expect(caught?.code, JSON.stringify(input)).toBe('math/invalid-mathml')
+		}
 	})
 })

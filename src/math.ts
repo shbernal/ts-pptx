@@ -197,10 +197,25 @@ function markAccentedMovers(mathml: string): string {
  *
  * @param mathml - a MathML string (e.g. `<math>…</math>`)
  * @returns OMML `<m:oMath>…</m:oMath>`
+ * @throws {InvalidOptionError} `math/invalid-mathml` when the input has no `<math>` element, or
+ *   does not convert to an equation. The converter returns the string `'undefined'` for such input.
  */
 export function mathmlToOmml(mathml: string): string {
 	const mml2omml = loadMml2omml()
-	return stripOMathNamespaces(mml2omml(mathml).trim())
+	if (typeof mathml !== 'string' || !/<(?:[\w-]+:)?math[\s>]/.test(mathml)) {
+		const got = typeof mathml === 'string' ? JSON.stringify(mathml.slice(0, 40)) : typeof mathml
+		throw new InvalidOptionError(
+			'math/invalid-mathml',
+			`mathmlToOmml: expected MathML with a <math> element, got ${got}`
+		)
+	}
+	const omml = stripOMathNamespaces(String(mml2omml(mathml)).trim())
+	// The root element's name, read rather than matched as a tag: this checks the converter's output
+	// and builds nothing.
+	if (/^<([\w:]+)/.exec(omml)?.[1] !== 'm:oMath') {
+		throw new InvalidOptionError('math/invalid-mathml', 'mathmlToOmml: the MathML did not convert to an OMML equation')
+	}
+	return omml
 }
 
 export interface LatexToOmmlOptions {

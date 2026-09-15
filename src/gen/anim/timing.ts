@@ -11,7 +11,7 @@ import type { AnimationProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { collectSlideShapeIds } from '../slide/shape-ids.js'
-import { buildAnimationSeq, buildBldList, resolveAnimationSpid } from './animation.js'
+import { buildAnimationSeq, buildBldList, hasKnownAnimationPreset, resolveAnimationSpid } from './animation.js'
 
 /**
  * Build the slide-level `<p:timing>` tree that makes embedded media loop.
@@ -37,6 +37,7 @@ export function slideTimingToXml(slide: PresSlideInternal): string {
 	// children as well as top-level objects, so `objectName` addresses any shape on the slide.
 	const shapeIds = collectSlideShapeIds(slide._slideObjects)
 	const animations = (slide._animations ?? [])
+		.filter((anim) => hasKnownAnimationPreset(anim))
 		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, slide._slideObjects, anim) }))
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 

@@ -1006,6 +1006,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`mathmlToOmml` throws `math/invalid-mathml` on input that is not MathML.** The converter
+  returned the string `'undefined'` for an empty string or text with no `<math>` element, and
+  that string went into the slide as if it were an equation. **Downstream impact:** a caller
+  that passed unchecked input now gets an `InvalidOptionError`, as `latexToOmml` already threw
+  `math/invalid-latex`.
+
+- **A string `border` on a table or a cell warns `table/invalid-border` and is ignored.** It threw
+  a raw `TypeError` from inside the row normalization, before the warning that names the
+  problem could run.
+
+- **`addModel3d` refuses a `meterPerModelUnit` that rounds to 0.** The ratio is stored in
+  millionths, so a positive value under 0.0000005 passed the check and was written as `n="0"`,
+  which scales the model to nothing. It now throws `model3d/invalid-scale`.
+
+- **An animation with an unknown `preset` warns `animation/unknown-preset`.** A misspelled preset
+  from JavaScript was dropped with no diagnostic, while every other dropped effect warns.
+
 - **A combo subchart with `showLegend: false` hides its own legend entries.**
   - Its deleted entries were numbered by data row, but `c:legendEntry/c:idx` counts positions in the
     legend: PowerPoint, deleting the first entry of a legend listing series 1, 2 and 0, writes idx

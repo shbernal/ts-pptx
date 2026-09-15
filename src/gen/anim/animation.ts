@@ -19,9 +19,9 @@ import { renderedSlideObjects, resolveObjectNameToId } from '../slide/shape-ids.
  *
  * `objectName` resolves through `shapeIds`, which covers group children: they are `<p:cNvPr>`-named
  * on the slide and animate like any other shape, but are not in `_slideObjects`, so the old lookup
- * there dropped every animation targeting one. The name goes in raw — `resolveObjectNameToId` owns
- * matching it against the attribute-escaped form the slide object stores — so the warning below
- * quotes the same spelling the caller passed.
+ * there dropped every animation targeting one. The name goes in raw, and `resolveObjectNameToId`
+ * compares it with the raw name the slide object stores, so the warning below quotes the same
+ * spelling the caller passed.
  *
  * `shapeIndex` is a 0-based index into the top-level objects that RENDER, which is the same
  * sequence `collectSlideShapeIds` allocates along; group children take ids past that range. It
@@ -65,6 +65,22 @@ export function resolveAnimationSpid(
 		`addAnimation: the "${anim.preset}" effect names no target (pass shapeIndex or objectName), so it was dropped.`
 	)
 	return null
+}
+
+/**
+ * Whether the effect names a preset this module has a template for. The `preset` type admits only
+ * those, but a JavaScript caller can pass any string, so an unknown one warns and the effect is
+ * dropped before its target is resolved, like an effect whose target cannot be found.
+ * @param anim - the animation to check
+ * @returns `true` when the preset can be written
+ */
+export function hasKnownAnimationPreset(anim: AnimationProps): boolean {
+	if (Object.hasOwn(ANIM_PRESETS, anim.preset)) return true
+	warn(
+		'animation/unknown-preset',
+		`addAnimation: "${String(anim.preset)}" is not a preset this library writes (${Object.keys(ANIM_PRESETS).join(', ')}), so the effect was dropped.`
+	)
+	return false
 }
 
 interface AnimPresetMeta {

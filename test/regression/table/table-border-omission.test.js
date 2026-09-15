@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
+import { defineRegressionSuite, build, captureDiagnostics, readEntry, assert } from '../../helpers.js'
 import { TableStyle } from '../../../dist/node.js'
 
 const SLIDE_XML = 'ppt/slides/slide1.xml'
@@ -99,6 +99,24 @@ defineRegressionSuite('Table border tuple null sides [upstream-23]', [
 			// two interior verticals stay absent rather than being spelled out as no-fill.
 			assert((xml.match(/<a:ln[LRTB]/g) ?? []).length === 6, `expected six perimeter edges; got: ${xml.slice(0, 900)}`)
 			assert(!/<a:noFill\/>/.test(xml), `no edge should be an explicit no-fill; got: ${xml.slice(0, 900)}`)
+		},
+	},
+	{
+		// The row normalization completes a border by indexing into it, so a string there threw a raw
+		// `TypeError` before the `table/invalid-border` check could name the problem.
+		name: 'a string border on a cell or on the table warns and is ignored instead of throwing',
+		fn: async () => {
+			const { codes } = await captureDiagnostics(() =>
+				build((p) => {
+					const slide = p.addSlide()
+					slide.addTable([[{ text: 'cell', options: { border: 'FF0000' } }]], { x: 1, y: 1, w: 4 })
+					slide.addTable([['table']], { x: 1, y: 3, w: 4, border: 'FF0000' })
+				})
+			)
+			assert(
+				codes.filter((code) => code === 'table/invalid-border').length === 2,
+				`expected one table/invalid-border per string border; got: ${codes.join(', ')}`
+			)
 		},
 	},
 ])

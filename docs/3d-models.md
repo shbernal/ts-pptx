@@ -94,8 +94,8 @@ Set `meterPerModelUnit` to 1 divided by the model's largest bounding-box dimensi
 
 The default camera sits 2.26 m from the centre of the scene. A 240-unit model left at `0.5` is 120 m across, so the camera is inside it and the slide shows a wall of shading.
 
-- The value is stored to six decimal places. `1 / 240` is written as 0.004167, and a value below 0.0000005 is written as 0.
-- A value that is not a finite number above 0 throws `model3d/invalid-scale`.
+- The value is stored to six decimal places. `1 / 240` is written as 0.004167.
+- A value that is not a finite number above 0 throws `model3d/invalid-scale`, and so does a value below 0.0000005, which would be stored as 0.
 
 ## Set the camera
 
@@ -142,7 +142,7 @@ Throws happen inside the `addModel3d()` call, as `InvalidOptionError`. A file th
 | neither `data` nor `path` is set | throws | `model3d/missing-source` |
 | a `pos`, `lookAt` or `up` component is missing or not a finite number | throws | `model3d/invalid-camera` |
 | `fov` is not a finite number above 0 and below 180 | throws | `model3d/invalid-fov` |
-| `meterPerModelUnit` is not a finite number above 0 | throws | `model3d/invalid-scale` |
+| `meterPerModelUnit` is not a finite number above 0, or is below 0.0000005 | throws | `model3d/invalid-scale` |
 | `x`, `y`, `w` or `h` is not a finite number | throws | `coord/non-finite` |
 | `w` or `h` is 0 | warns, and the zero is kept | `frame/zero-extent` |
 | no `preview` | warns, and the gray placeholder is embedded | `model3d/preview-missing` |

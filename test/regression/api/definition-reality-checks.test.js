@@ -102,7 +102,8 @@ defineRegressionSuite('Definition reality-checks', [
 				assertRejects(() => slide().addModel3d({ data: glb, camera: { fov } }), 'model3d/invalid-fov')
 			}
 			// A non-positive metres-per-unit inverts or collapses the whole scene.
-			for (const scale of [Number.NaN, 0, -1, Number.POSITIVE_INFINITY]) {
+			// A positive value under half a millionth is stored as `n="0"`, the same collapse.
+			for (const scale of [Number.NaN, 0, -1, Number.POSITIVE_INFINITY, 0.0000001]) {
 				assertRejects(() => slide().addModel3d({ data: glb, meterPerModelUnit: scale }), 'model3d/invalid-scale')
 			}
 		},

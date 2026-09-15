@@ -85,6 +85,15 @@ function resolveCamera(
 			`addModel3d(): meterPerModelUnit must be a finite number greater than 0, got ${String(scale)}.`
 		)
 	}
+	// The ratio is stored in millionths, so a positive value under half a millionth would be written
+	// as `n="0"` and scale the model to nothing.
+	const meterPerModelUnitN = Math.round(scale * AM3D_RATIO_DEN)
+	if (meterPerModelUnitN === 0) {
+		throw new InvalidOptionError(
+			'model3d/invalid-scale',
+			`addModel3d(): meterPerModelUnit ${String(scale)} rounds to 0 at the six decimal places the file stores; use at least 0.0000005.`
+		)
+	}
 	const up = toAm3dUnits(camera?.up, DEFAULT_CAMERA.up, 'up')
 	return {
 		pos: toAm3dUnits(camera?.pos, DEFAULT_CAMERA.pos, 'pos'),

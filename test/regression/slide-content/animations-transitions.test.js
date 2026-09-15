@@ -236,6 +236,27 @@ defineRegressionSuite('Preset build animations (write)', [
 		},
 	},
 	{
+		// The `preset` type admits only the known presets, but JavaScript can pass any string. The
+		// emitter has no template for an unknown one, so the effect drops, and it must say so.
+		name: 'drops an unknown preset with a warning, before resolving its target',
+		fn: async () => {
+			const codes = []
+			setDiagnosticHandler((d) => codes.push(d.code))
+			let xml
+			try {
+				xml = await slideXml((p) => {
+					const s = p.addSlide()
+					s.addText('only', { x: 1, y: 1, w: 1, h: 1, objectName: 'only' })
+					s.addAnimation({ preset: 'fadeInn', objectName: 'only' })
+				})
+			} finally {
+				setDiagnosticHandler(null)
+			}
+			assert(codes.includes('animation/unknown-preset'), 'expected animation/unknown-preset; got: ' + codes.join(', '))
+			assert(timingOf(xml) === null, 'the dropped effect emits no <p:timing> tree, and so no orphan p:bldP')
+		},
+	},
+	{
 		// `_slideObjects` holds four member types that draw nothing — notes, table cells,
 		// hyperlink definitions and `online` — and both the id allocator and `shapeIndex` used to
 		// count them. So `addNotes` before the first shape gave every shape an id one higher than

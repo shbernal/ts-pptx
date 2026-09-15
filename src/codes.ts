@@ -40,6 +40,7 @@ export type DiagnosticCode =
 	| 'animation/target-index-out-of-range'
 	| 'animation/target-not-found'
 	| 'animation/target-missing'
+	| 'animation/unknown-preset'
 	// Charts
 	| 'chart/invalid-axis-time-unit'
 	| 'chart/non-finite-value'
@@ -263,7 +264,7 @@ export type InvalidOptionErrorCode =
 	| 'ole/missing-source'
 	| 'ole/invalid-image-size'
 	| 'zoom/invalid-transition-duration'
-	// Editing a slide transition (`ts-pptx/read`)
+	// Editing a slide transition (`pptx-ts/read`)
 	| 'transition/invalid-time'
 	| 'transition/sound-unsupported'
 	// 3D models
@@ -276,7 +277,7 @@ export type InvalidOptionErrorCode =
 	// Tables
 	| 'table/rows-not-an-array'
 	| 'table/rows-not-nested'
-	// Editing a table in an existing deck (`ts-pptx/read`). Each names an attribute value
+	// Editing a table in an existing deck (`pptx-ts/read`). Each names an attribute value
 	// outside its schema enum, or a measurement that cannot be written — conditions the read
 	// path throws on rather than drops, because a caller editing one attribute would
 	// otherwise be left looking at an unchanged deck with nothing to explain it.
@@ -306,7 +307,7 @@ export type InvalidOptionErrorCode =
 	| 'color/invalid-hex'
 	| 'color/invalid-scheme-token'
 	| 'text/invalid-underline'
-	// Addressing an existing deck (`ts-pptx/read`)
+	// Addressing an existing deck (`pptx-ts/read`)
 	| 'slide/index-out-of-range'
 	| 'slide/foreign-target'
 	| 'slide/id-space-exhausted'
@@ -330,7 +331,7 @@ export type InvalidOptionErrorCode =
 	| 'image/fit-needs-extent'
 	// Text
 	| 'font/size-not-positive'
-	// Printing a deck back out as a script (`ts-pptx/script`). Both name an inconsistency in the
+	// Printing a deck back out as a script (`pptx-ts/script`). Both name an inconsistency in the
 	// `DeckIr` handed to the printer — unreachable from an IR the library built itself, but the
 	// IR is a public type a caller may construct or edit.
 	| 'script/unresolved-asset-reference'
@@ -360,6 +361,7 @@ export type InvalidOptionErrorCode =
 	| 'master/missing-title'
 	// Math (LaTeX)
 	| 'math/invalid-latex'
+	| 'math/invalid-mathml'
 	// Zip / package I/O
 	| 'zip/unsupported-input'
 	| 'zip/unsupported-output'

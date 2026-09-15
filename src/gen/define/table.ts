@@ -191,6 +191,11 @@ function normalizeTableRows(srcRows: TableRow[], opt: TablePropsInternal): Table
 				// skipped there and the edges stay absent: direct formatting beats the style, and
 				// filling in four no-fills erased the very thing the caller selected the style for
 				// (#23). Author `border: { type: 'none' }` to erase a styled table's grid anyway.
+				// A cell `border` that is neither a `BorderProps` nor a tuple is dropped, as the table's is.
+				if (newCellOptions.border != null && typeof newCellOptions.border !== 'object') {
+					warn('table/invalid-border', "addTable cell `border` option must be an object. Ex: `{border: {type:'none'}}`")
+					delete newCellOptions.border
+				}
 				const authoredBorder = newCellOptions.border || opt.border
 				if (authoredBorder) newCellOptions.border = authoredBorder
 				else if (opt.tableStyle) delete newCellOptions.border
@@ -431,6 +436,12 @@ export function addTableDefinition(
 
 	// STEP 2: Transform `tableRows` into well-formatted TableCellInternal's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
+	// A table `border` that is neither a `BorderProps` nor a tuple is dropped first: the row
+	// normalization completes whatever border a cell inherits by indexing into it.
+	if (opt.border != null && typeof opt.border !== 'object') {
+		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
+		delete opt.border
+	}
 	const arrRows = normalizeTableRows(srcRows, opt)
 
 	// STEP 3: Set options
@@ -450,10 +461,7 @@ export function addTableDefinition(
 	if (!tableHasHyperlink(arrRows)) {
 		if (!opt.color) opt.color = DEF_FONT_COLOR // table option > inherit from Slide > default to black
 	}
-	if (typeof opt.border === 'string') {
-		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
-		delete opt.border
-	} else if (Array.isArray(opt.border)) {
+	if (Array.isArray(opt.border)) {
 		// A HOLE stays a hole. The cell path has always been explicit that a `null` side is
 		// *omitted* rather than erased — it keeps inheriting from the built-in style — and this
 		// filled it with `{ type: 'none' }`, so the identical sparse tuple meant "inherit" on a
