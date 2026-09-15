@@ -1263,7 +1263,7 @@ failure.
 `pnpm run bundle-tier:list` prints the per-chunk breakdown, and `pnpm run bundle-tier:freeze`
 re-baselines. The regression only this gate can see, a static import that puts a family back on
 the core path, is described under
-[The rule that keeps the tiers real](architecture.md#the-rule-that-keeps-the-tiers-real).
+[Core files must not import a family](architecture.md#core-files-must-not-import-a-family).
 
 ### Why both gates exist
 

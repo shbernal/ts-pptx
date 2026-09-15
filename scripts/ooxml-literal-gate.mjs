@@ -3,7 +3,7 @@
  * OOXML literal gate — a schema URI or content type outside `src/ooxml/` has to say why it is there.
  *
  * `src/ooxml/` exists because a private copy of a format fact on each side of the library gives no
- * compile-time signal when the two copies diverge (`docs/contributing/architecture.md`, Boundaries). Moving the
+ * compile-time signal when the two copies diverge (`docs/contributing/architecture.md`, "src/ooxml/"). Moving the
  * copies there does not keep them there: nothing stops the next emitter from spelling a URI inline
  * again, and a writer's copy and a reader's copy drifting apart is a silent round-trip failure.
  *
