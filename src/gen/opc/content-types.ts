@@ -41,7 +41,7 @@ import {
 /**
  * Some Override entries have always been emitted with a leading space. It is insignificant
  * whitespace, but it is in the bytes this library has shipped for years, so it is reproduced
- * verbatim rather than normalized (see AGENTS.md "Verification": whitespace diffs are a STOP).
+ * verbatim rather than normalized (see AGENTS.md "Byte identity": whitespace diffs are a STOP).
  */
 const LEADING_SPACE = { openPrefix: ' ' }
 

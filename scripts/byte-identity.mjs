@@ -2,7 +2,7 @@
 /**
  * Byte-identity gate for write-side refactors.
  *
- * AGENTS.md: "OOXML is fixture-gated; no changing emitted bytes as cleanup."
+ * AGENTS.md ("Byte identity"): "Any other byte change is a real regression. Do not accept one as cleanup."
  * This proves a behavior-preserving refactor of the `src/gen/` emitters does not
  * change a single emitted byte, by generating every showcase deck, exploding each
  * one (recursing into its embedded .xlsx parts, which are their own OPC packages),

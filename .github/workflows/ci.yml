@@ -14,15 +14,15 @@ permissions:
   contents: read
 
 jobs:
-  # Lint, formatting and the three typechecks are node-version-independent: they
+  # Lint, formatting and the typechecks are node-version-independent: they
   # read the same sources and the same tsconfig on every leg, so running them per
   # matrix entry was pure duplication. One run, newest supported Node.
   #
   # `check:static` carries `docs:check`, which validates the docs *sources*: frontmatter,
-  # code fences, nav entries and internal links. It does NOT carry `docs:build` — that
-  # was tried and deliberately removed (AGENTS.md records why), so the VitePress build
-  # and the `--dist` pass over the generated llms URLs belong to docs.yml, which is also
-  # what uploads the Pages artifact. A link that only the built site can see therefore
+  # code fences, nav entries and internal links. It does not carry `docs:build`, because
+  # docs.yml builds the site on every pull request and carrying it here as well built it
+  # twice. The VitePress build and the `--dist` pass over the generated llms URLs belong
+  # to docs.yml, which is also what uploads the Pages artifact. A link that only the built site can see therefore
   # still fails the deploy rather than the change; that is the accepted trade.
   static:
     name: Static checks

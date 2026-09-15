@@ -7,8 +7,9 @@ generating a corpus of decks and comparing every part against a frozen baseline.
 original corpus was the showcase decks (`demos/showcases/`), and AGENTS.md is explicit
 about the limit that imposes:
 
-> The corpus is only what those decks emit, so before trusting a PASS, confirm the part
-> you touched is in it — an emitter no showcase reaches is unproven, not proven unchanged.
+> The corpus is only what the harness's decks emit, so before trusting a PASS, confirm the
+> part you touched is in `.tmp/byte-identity/baseline/`. An emitter no deck reaches is
+> unproven, not proven unchanged.
 
 The showcases are presentation decks. They reach three chart types (bar, doughnut, line)
 because those are the three a business-review deck wants, and no arrangement of a
