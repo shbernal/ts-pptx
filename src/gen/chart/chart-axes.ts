@@ -9,8 +9,8 @@
  *
  * Sub-blocks are shared where they can be shared *exactly*: {@link axisLineSpPr} covers
  * `<c:spPr>` and {@link axisTextProps} the whole `<c:txPr>`. Both used to take indentation
- * arguments, which is what had kept them copied rather than shared; the emitters are flat now
- * (`docs/contributing/chart-whitespace-flatten.md`), so they take only what they are about.
+ * arguments, which is what had kept them copied rather than shared; the emitters are flat now,
+ * so they take only what they are about.
  */
 
 import { asChartType, ChartType } from '../../enums.js'

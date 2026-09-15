@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "OOXML agent context"
-summary: "Repo-local OOXML and Microsoft documentation lookup workflow for emitted package changes, what counts as evidence for one, and when to wait for a genuine PowerPoint fixture instead of guessing."
+summary: "Where to look up OOXML and PowerPoint behavior, in what order, how emitters build XML, what counts as evidence for a change, and when to wait for a genuine PowerPoint fixture instead of guessing."
 read_when:
   - Changing emitted OOXML
   - Researching PowerPoint or Open XML compatibility
@@ -14,222 +14,180 @@ doc_type: "reference"
 
 # OOXML agent context
 
-This repository has project-scoped Codex MCP configuration in `.codex/config.toml`.
-Codex loads it only when the project is trusted. In a running Codex session, use
-`/mcp` to confirm the active servers.
+Read this before changing emitted OOXML. It sets where to look a question up, how new emitter code
+builds XML, what counts as evidence, and when to stop and wait for a PowerPoint-authored fixture.
 
-## Configured MCP servers
+## Lookup order
 
-### `ooxml`
+1. **Local evidence.** Search `src/`, `test/` and the [testing guide](testing.md) before changing
+   behavior.
+2. **The `ooxml` MCP**, for schema structure. After a validation failure, `ooxml_explain` on the
+   diagnostic is usually the fastest next step.
+3. **The `microsoft_learn` MCP**, for everything the schema graph does not answer. Always try it
+   before web search.
+4. **Web search**, last: community findings, third-party library behavior, and anything newer than
+   both servers.
 
-Package: [`mcp-server-ooxml`](https://www.npmjs.com/package/mcp-server-ooxml),
-run locally over stdio (`npx -y mcp-server-ooxml`). Needs Node 24+.
+When two sources disagree, prefer PowerPoint and Open XML SDK behavior, because the bar is a
+`.pptx` that PowerPoint opens cleanly. Record the difference in a code comment or a test name only
+when it changes the implementation.
 
-Purpose: ECMA-376 / Office Open XML **schema** lookup. The XSDs are ingested
-into a SQLite graph that ships inside the package, so there is no account, no
-network round-trip and no first-run download beyond the tarball, and the same
-question returns the same answer every time. Treat it as the normative structure
-layer, then verify behavior with generated fixtures and the OOXML validator.
+`.mcp.json` configures both servers for Claude Code, and `.codex/config.toml` for Codex, which
+loads it only in a trusted project. `/mcp` lists what loaded in a running session.
 
-Available tools:
+## The `ooxml` MCP
 
-- Schema lookup: `ooxml_element`, `ooxml_type`, `ooxml_children`,
-  `ooxml_attributes`, `ooxml_values`, `ooxml_enum`, `ooxml_namespace`.
-- Profiles: `ooxml_diff_profiles`, which reports what Transitional adds back
-  over Strict for one name.
-- Validator follow-up: `ooxml_explain`. Hand it the `id`, `description`,
-  `xpath` and `partUri` of an `ooxml-validate` diagnostic and it answers what
-  *would* have been legal at that position. It consumes validator output; it
-  does not validate.
-- Name search: `ooxml_search`, a case-insensitive **substring match on symbol
-  names**. It is not semantic and not full-text; "how do I make text bold" finds
-  nothing.
+[`mcp-server-ooxml`](https://www.npmjs.com/package/mcp-server-ooxml) runs locally over stdio
+(`npx -y mcp-server-ooxml`) and needs Node 24+. It serves the ECMA-376 XSDs, Transitional and
+Strict, as a SQLite graph shipped inside the package. There is no account and no network call after
+the first download, and the same question returns the same answer every time.
 
-Use it when you need to answer questions such as:
+It answers:
 
-- Which children are legal under a PresentationML or DrawingML element, and in
-  what order?
-- Which attributes and enum values are valid, and what pattern must a value
-  match?
-- Which namespace URI goes with a prefix, and which profile is a document in?
-- The validator complained at this xpath: what was legal there?
+- which children are legal under an element, and in what order (`ooxml_children`,
+  `ooxml_element`, `ooxml_type`);
+- which attributes, values, enums and patterns are valid (`ooxml_attributes`, `ooxml_values`,
+  `ooxml_enum`);
+- which namespace URI goes with a prefix (`ooxml_namespace`);
+- what Transitional adds over Strict for one name, and so whether a construct survives in Strict
+  (`ooxml_diff_profiles`);
+- what was legal at the position an `ooxml-validate` diagnostic names. Hand `ooxml_explain` the
+  diagnostic's `id`, `description`, `xpath` and `partUri`. It explains validator output and does
+  not validate.
 
-**What it does not have.** No specification prose, no PDFs, no semantic search,
-and no OPC part / content-type / relationship catalogue. It serves the schema
-graph and nothing else, so "which ECMA-376 section describes this serialization
-rule" and "which content type belongs to this `.pptx` part" fall through to
-`microsoft_learn` and then to web search. That boundary is deliberate rather than a
-gap. When a question genuinely needs the prose, ooxml.dev is the hosted service
-that indexes it.
+`ooxml_search` is a case-insensitive substring match on symbol names. It is not semantic and not
+full-text, so "how do I make text bold" finds nothing.
 
-The server is pre-1.0 and its tool surface may change without a deprecation
-period; a break is announced in its
+It has no specification prose, no OPC part, content-type or relationship catalogue, no
+Microsoft-proprietary detail, and no Annex D geometry (see
+[Preset shape geometry](#preset-shape-geometry)). Those questions go to `microsoft_learn`.
+ooxml.dev is the hosted service that indexes the specification prose. The server is pre-1.0, and a
+change to its tools is announced in its
 [changelog](https://github.com/shbernal/ooxml-ai-tooling/blob/main/CHANGELOG.md).
-`/mcp` lists what actually loaded in the running session.
 
-### `microsoft_learn`
+## The `microsoft_learn` MCP
 
-Endpoint: `https://learn.microsoft.com/api/mcp`
+`https://learn.microsoft.com/api/mcp` serves official Microsoft documentation. Use it for:
 
-Purpose: official Microsoft documentation retrieval. Use this for Microsoft Open
-Specifications and implementation behavior, especially when PowerPoint accepts,
-repairs, extends, or rejects OOXML in ways that are not obvious from the schema.
+- the Open Specifications, such as [MS-OE376], [MS-PPTX] and [MS-OI29500];
+- built-in GUIDs and other proprietary enumerations;
+- how PowerPoint accepts, repairs, extends or rejects OOXML, across versions;
+- the Open XML SDK, and how it validates or models a part;
+- OPC parts, content types and relationship types, and whether a namespace, extension URI or
+  relationship type is Microsoft-specific.
 
-Available tools:
+Search with `microsoft_docs_search`, then fetch a returned page with `microsoft_docs_fetch`.
+`microsoft_code_sample_search` finds official code samples.
 
-- `microsoft_docs_search`: search Microsoft Learn and official Microsoft docs.
-- `microsoft_docs_fetch`: fetch a full Microsoft documentation page as markdown.
-- `microsoft_code_sample_search`: search official Microsoft code samples.
+## Preset shape geometry
 
-Use it when you need to answer questions such as:
+The per-shape adjust guide names and geometry formulas live in the ECMA-376 Annex D electronic
+addenda (`OfficeOpenXML-DrawingMLGeometries.zip` inside the Part 1 ZIP), not in any XSD, so the
+`ooxml` MCP cannot answer "round2SameRect adj1 adj2".
 
-- What does `[MS-PPTX]` say about a PowerPoint extension element?
-- What does `[MS-OI29500]` say about Office implementation behavior?
-- How does the Open XML SDK validate or model a package part?
-- Is a namespace, extension URI, or relationship type Microsoft-specific?
+- For guide names, use `docs/preset-shape-adj-guides.tsv`: every preset that takes adjust values,
+  mapped to its guide names. It is sourced from Annex D and cross-checked against LibreOffice
+  `oox-drawingml-adj-names` and ONLYOFFICE `OOXMLShapes/`.
+- For full formulas (`avLst` defaults, `gdLst`, paths), use
+  [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes),
+  one `.cpp` file per shape with its `avLst` and `gdLst` inline, and
+  [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx)
+  for handle constraints.
 
-## Known MCP gap: Annex D preset shape geometry definitions
+### Do not clamp adjust values
 
-The `ooxml` MCP serves the ECMA-376 **XSD schema graph**, Transitional and Strict. It does
-**not** carry the Annex D electronic addenda (`OfficeOpenXML-DrawingMLGeometries.zip` inside
-the Part 1 ZIP), which is where the per-shape adjust-value guide names and geometry formulas
-live, and none of that is in any XSD. Searching the MCP for things like "round2SameRect adj1 adj2"
-returns nothing useful, and `ooxml_search` matches symbol names anyway.
+`genXmlPresetGeom` writes any finite adjust value as given. It refuses only a non-finite value and
+a `rectRadius` with no side to divide by, which would write `val NaN` or `val Infinity`, a token
+outside the formula grammar.
 
-**For preset-shape adj guide names**, use the local reference file:
-
-- `docs/preset-shape-adj-guides.tsv`: complete shape → adj guide name mapping for all
-  preset shapes that take adjust values. Sourced from ECMA-376 Annex D, cross-checked
-  against LibreOffice `oox-drawingml-adj-names` and ONLYOFFICE `OOXMLShapes/` implementations.
-
-**For full geometry formulas** (avLst defaults, gdLst, path construction), the best external
-fallbacks are:
-
-- [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes): each shape has its own `.cpp` file with the full avLst and gdLst inline as XML strings.
-- [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx): adj handle constraints.
-
-### An out-of-range adj value does not need clamping, and this library does not clamp one
-
-Do not go looking for the per-preset **range** table to clamp against. The bounds live in each
-preset's own `ahXY` / `ahPolar` handle definitions, many of them formulas over the shape's width
-and height rather than constants, and no schema check can see a violation either: `a:gd/@fmla` is
-`xsd:string`, so `val 266667` on a `roundRect` whose handle stops at 50000 validates clean.
-
-The reason not to build that table is not the cost. An out-of-range guide is **inert**, verified
-against desktop PowerPoint rather than reasoned about:
-
-- PowerPoint stores it verbatim. It opens the package with no repair prompt, `Shape.Adjustments`
-  reads back the out-of-range figure (a `roundRect` `adj` of 266667 comes back as `2.66667`), and
-  a re-save writes the same `<a:gd fmla="val 266667"/>` out again.
-- The preset's own guide formula pins it at render time. Exported to PNG, `roundRect` at `adj`
-  50000, 60000 and 266667 rasterize to identical bytes, as do `blockArc` at `adj3` 50000 and
-  5000000, while two *in*-range values of the same guide do not, which is what shows the
-  comparison can see a geometry change at all.
-
-So clamping would only discard what the caller wrote, in exchange for a picture that was already
-identical. `genXmlPresetGeom` emits any finite adjustment as written and refuses only the values
-PowerPoint cannot evaluate: a non-finite one, and a `rectRadius` with no side to divide by, both
-of which would write `val NaN` / `val Infinity`, a token outside the formula grammar rather than a
-number outside a range. The `prstgeom` leg of `pnpm run test:com` is that evidence kept runnable,
-sensitivity pair included.
-
-## Retrieval workflow
-
-1. Start with local evidence. Search `src/`, `test/`, `README.md`, and
-   `docs/contributing/testing.md` before changing behavior.
-2. Use `ooxml` for normative structure: schema order, child elements,
-   attributes, value spaces and enums, namespaces, and Transitional-vs-Strict
-   differences. After a validation failure, `ooxml_explain` on the diagnostic is
-   usually the fastest next step.
-3. Use `microsoft_learn` for PowerPoint-specific behavior, Microsoft extension
-   namespaces, Open XML SDK behavior, Office compatibility notes, and the OPC
-   part / content-type / relationship questions the `ooxml` MCP no longer
-   answers.
-4. If the two sources disagree, document the difference in the code comment or
-   test name only when it affects the implementation. Prefer PowerPoint and
-   Open XML SDK behavior for this library's generated `.pptx` compatibility.
-5. Validate with a minimal generated fixture. For serialization changes, add or
-   update a focused case in `test/schema-cases.js` and run
-   `pnpm run test:schema`. When the only valid oracle is genuine PowerPoint
-   output and no such fixture exists yet, stop rather than guess: see
-   [Evidence and fixtures](#evidence-and-fixtures).
-
-## Evidence and fixtures
-
-Two rules ground a change here. One says what counts as evidence. The other says
-what to do when the only evidence that *would* count does not exist yet.
-
-### Evidence requirements
-
-Do not start implementing without at least one current-project evidence path:
-
-- a minimal ts-pptx reproduction;
-- generated `.pptx` output;
-- extracted package XML path and observed problem;
-- `pnpm run test:schema` result or a planned fixture;
-- PowerPoint repair/open result when available;
-- Open XML SDK or Microsoft documentation reference when PowerPoint behavior is
-  not obvious from schema alone.
-
-For emitted OOXML changes, the implementation should carry a focused fixture in
-`test/schema-cases.js` and a `pnpm run test:schema` run when practical.
-
-### Fixture-gated work, and why guessing fails
-
-Some work can only be judged against XML PowerPoint itself wrote. A read accessor
-checked against real Office XML. A write path whose target is "whatever PowerPoint
-authors" for preset IDs, part wiring, namespaces, inheritance. If that fixture does
-not exist yet, do not substitute one. Hand-typed XML, synthetic XML, and write→read
-round trips all agree with whatever the code already does, which is exactly the
-question being asked.
-
-So stop. The fixture is a blocking precondition, not a follow-up. Open a GitHub
-issue naming the exact construct the oracle has to contain, and leave the feature
-unimplemented until it lands.
-
-Then author it with the `powerpoint-fixture-authoring` skill and verify it with that
-skill's own
-`.agents/skills/powerpoint-fixture-authoring/scripts/verify-powerpoint-fixture.ps1`
-(there are no `.ps1` files under `scripts/`). Record provenance and SHA-256 in
-[test/read/fixtures/README.md](https://github.com/shbernal/ts-pptx/blob/master/test/read/fixtures/README.md).
-Wire the test to the fixture, through the read harness for read accessors or a
-`test/schema-cases.js` comparison for write-side oracles. Implement last.
-
-The testing guide's
-[Check rendering with pixels, not COM properties](testing.md#check-rendering-with-pixels-not-com-properties)
-covers the one claim that needs *render* evidence specifically.
-
-## What not to do
-
-- Do not commit full OOXML standards PDFs, large copied spec excerpts, or bulk
-  extracted standard text.
-- Do not rely on schema validity alone for user-visible compatibility. Some
-  PowerPoint "needs repair" failures are implementation constraints caught by
-  Open XML SDK validation or by opening the deck in PowerPoint.
-- Do not introduce ad hoc XML ordering rules without either a local fixture, a
-  PowerPoint-authored comparison, or a referenced standard/source note.
-- Do not treat Microsoft extension namespaces as ECMA-defined without checking
-  the Microsoft documentation.
+Do not build a per-preset range table to clamp against. PowerPoint stores an out-of-range guide
+verbatim, opens the deck without a repair prompt, and pins the value at render time through the
+preset's own guide formulas: `roundRect` at `adj` 50000, 60000 and 266667 exports identical PNGs,
+while two in-range values do not. Clamping would only discard what the caller wrote. The bounds sit
+in each preset's handle definitions, often as formulas over width and height, and `a:gd/@fmla` is
+`xsd:string`, so no schema check sees a violation. The `prstgeom` leg of `pnpm run test:com` keeps
+that evidence runnable, with its sensitivity pair.
 
 ## Emitting XML: the `el()` builder
 
-[Source conventions](development.md#emitting-xml-the-el-builder) in the development guide describes `src/gen/oxml/el.ts`, the builder new emitter code uses.
+`src/gen/oxml/el.ts` is the write-side element builder, the mirror of `src/read/oxml/dom.ts`. Use
+it instead of template strings in new emitter code. It escapes text and attribute values in one
+place, so a forgotten `encodeXmlEntities` cannot produce invalid XML.
 
-## Local validation tools
+- `el(name, attrs, children, fmt)` always emits a paired tag. `voidEl(name, attrs, fmt)` always
+  self-closes. The function you call decides, never the child's value. `encodeXmlEntities(undefined)`
+  is `''`, so a rule based on the value would turn `<dc:title></dc:title>` into `<dc:title/>`.
+- `raw(xml)` inserts markup that is already serialized, or a value that deliberately skips escaping.
+- The builder drops nullish attributes and children, so an optional part inlines as
+  `cond ? raw(...) : null`.
+- `fmt` (`openPrefix`, `childPrefix`, `closePrefix`) places whitespace explicitly. Most parts are
+  flat and need none. The pretty-printed parts are not always depth-regular, so each element states
+  its own indentation.
+- Attribute values and text children use different escapers. Attributes go through
+  `encodeXmlAttrValue`, which also writes tab, LF and CR as `&#9;`, `&#10;` and `&#13;`, because XML
+  1.0 §3.3.3 has a parser turn those literal characters into spaces inside an attribute value. Text
+  children go through `encodeXmlEntities`, where the same characters are content and stay literal.
+  An emitter that writes an attribute with a template string, such as `cNvPrOpen`, must call
+  `encodeXmlAttrValue` itself.
 
-- Validation runs through `ooxml-validate`, which fetches and caches its oracle
-  binary on first use. Nothing to install.
-- Run OOXML fixtures with `pnpm run test:schema`.
-- Run the normal regression suite with `pnpm run test:unit`.
-- Run the full default test command with `pnpm test` when both regression and
-  schema validation are relevant.
+Moving an existing emitter onto the builder must not change a byte. Run
+`pnpm run byte-identity:baseline` before the change and `pnpm run byte-identity:check` after each
+step. `raw-xml:check` counts the hand-built tags left in `src/`, and the count may fall but never
+rise.
 
-Useful local files:
+## Evidence and fixtures
 
-- `test/schema-cases.js`
-- `test/schema-validation.test.js`
-- `test/validator.js`
-- `src/gen/` (OOXML generators: `define/*` normalize, `slide|drawingml|chart|pres|opc|anim|table/*` serialize)
-- `src/gen/oxml/el.ts` (XML element builder used by the emitters)
-- `scripts/byte-identity.mjs` (byte-identity gate for emitter refactors)
-- `scripts/raw-xml-ratchet.mjs` (ratchet: hand-built XML may shrink, never grow)
+Do not start implementing without at least one evidence path from this checkout:
+
+- a minimal ts-pptx reproduction;
+- generated `.pptx` output;
+- an extracted package XML path and the observed problem;
+- a `pnpm run test:schema` result, or a planned fixture;
+- a PowerPoint repair or open result, when available;
+- an Open XML SDK or Microsoft documentation reference, when PowerPoint behavior is not obvious
+  from the schema.
+
+An emitted OOXML change carries a focused fixture in `test/schema-cases.js`.
+[OOXML schema validation](testing.md#ooxml-schema-validation) covers running it.
+
+### Fixture-gated work waits for the fixture
+
+Some work can only be judged against XML PowerPoint itself wrote: a read accessor checked against
+real Office XML, or a write path whose target is whatever PowerPoint authors for preset ids, part
+wiring, namespaces or inheritance. Hand-typed XML, synthetic XML and write-then-read round trips all
+agree with whatever the code already does, which is exactly the question being asked.
+
+So when that fixture does not exist, stop. Open a GitHub issue naming the exact construct the
+fixture has to contain, and leave the feature unimplemented until it lands. Then:
+
+1. Author the fixture with the `powerpoint-fixture-authoring` skill, and verify it with
+   `.agents/skills/powerpoint-fixture-authoring/scripts/verify-powerpoint-fixture.ps1`.
+2. Record provenance and SHA-256 in
+   [test/read/fixtures/README.md](https://github.com/shbernal/ts-pptx/blob/master/test/read/fixtures/README.md).
+3. Wire the test to the fixture: through the read harness for a read accessor, or a
+   `test/schema-cases.js` comparison for a write-side oracle.
+4. Implement last.
+
+A claim about whether PowerPoint paints a construct needs render evidence:
+[Check rendering with pixels, not COM properties](testing.md#check-rendering-with-pixels-not-com-properties).
+
+## What not to do
+
+- Do not commit OOXML standards PDFs, large copied specification excerpts, or bulk extracted
+  standard text.
+- Do not rely on schema validity alone for compatibility. Some PowerPoint repair prompts come from
+  implementation constraints that only the Open XML SDK validator or PowerPoint itself catches.
+- Do not introduce an XML ordering rule without a local fixture, a PowerPoint-authored comparison,
+  or a referenced standard.
+- Do not treat a Microsoft extension namespace as ECMA-defined without checking the Microsoft
+  documentation.
+
+## Local files
+
+- `test/schema-cases.js` holds the schema fixtures, `test/schema-validation.test.js` runs them, and
+  `test/validator.js` adapts `ooxml-validate`, which fetches and caches its oracle binary on first
+  use.
+- `src/gen/` holds the generators: `define/*` normalizes options, and
+  `slide|drawingml|chart|pres|opc|anim|table/*` serialize.
+- `scripts/byte-identity.mjs` is the byte-identity gate for emitter refactors.
+- `scripts/raw-xml-ratchet.mjs` keeps the count of hand-built XML from rising.

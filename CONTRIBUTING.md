@@ -11,8 +11,6 @@ install it. This file covers how the repository is built, tested and contributed
   layout, source conventions and the everyday commands.
 - **[docs/contributing/testing.md](docs/contributing/testing.md)**: the test suites and gates, and
   the [gate matrix](docs/contributing/testing.md#gate-matrix) of what runs where.
-- **[docs/contributing/agent-development.md](docs/contributing/agent-development.md)**: how an
-  agent-assisted change is developed and verified.
 - **[docs/contributing/scope-and-policy.md](docs/contributing/scope-and-policy.md)**: what this
   project aims to support, and what it leaves to a consumer.
 

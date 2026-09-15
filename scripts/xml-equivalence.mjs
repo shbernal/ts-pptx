@@ -3,10 +3,10 @@
  *
  * AGENTS.md: "Whitespace-only byte diffs are a STOP, not a known divergence" — because
  * waving a diff through on the grounds that it *looks* like whitespace is the same
- * reasoning that would wave through a content change. This module exists so that the one
- * deliberate exception (flattening `src/gen/chart/`, see `docs/contributing/chart-whitespace-flatten.md`)
- * is settled by a program rather than by reading a diff. The STOP stays; what changes is
- * that there is now a way to discharge it that a human cannot get tired and do wrong.
+ * reasoning that would wave through a content change. This module exists so that a change
+ * planned as whitespace-only is settled by a program rather than by reading a diff
+ * (`docs/contributing/testing.md`, "Proving a change is whitespace-only"). The STOP stays;
+ * what changes is that there is a way to discharge it that a human cannot get tired and do wrong.
  *
  * It is deliberately *stricter* than an XML-canonicalisation or DOM comparison, in four
  * ways that each correspond to a bug the emitters have actually been able to produce:

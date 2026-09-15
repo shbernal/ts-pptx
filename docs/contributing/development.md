@@ -73,31 +73,8 @@ When you add a top-level region, add the banner and its module-map line together
 ASCII `=====`, not box-drawing characters. The `// ── Name ──` sub-headers inside some enums, such
 as `TableStyle` in `src/enums.ts`, group members of one construct. They are not file regions.
 
-### Emitting XML: the `el()` builder
-
-`src/gen/oxml/el.ts` is the write-side element builder, the mirror of `src/read/oxml/dom.ts`. Use
-it instead of template strings in new emitter code. It escapes text and attribute values in one
-place, so a forgotten `encodeXmlEntities` cannot produce invalid XML.
-
-- `el(name, attrs, children, fmt)` always emits a paired tag. `voidEl(name, attrs, fmt)` always
-  self-closes. The function you call decides, never the child's value. `encodeXmlEntities(undefined)`
-  is `''`, so a rule based on the value would turn `<dc:title></dc:title>` into `<dc:title/>`.
-- `raw(xml)` inserts markup that is already serialized, or a value that deliberately skips escaping.
-- The builder drops nullish attributes and children, so an optional part inlines as
-  `cond ? raw(...) : null`.
-- `fmt` (`openPrefix`, `childPrefix`, `closePrefix`) places whitespace explicitly. Most parts are
-  flat and need none. The pretty-printed parts are not always depth-regular, so each element states
-  its own indentation.
-- Attribute values and text children use different escapers. Attributes go through
-  `encodeXmlAttrValue`, which also writes tab, LF and CR as `&#9;`, `&#10;` and `&#13;`. XML 1.0
-  §3.3.3 has a parser turn those literal characters into spaces inside an attribute value. Text
-  children go through `encodeXmlEntities`, where the same characters are content and stay literal.
-  An emitter that writes an attribute with a template string, such as `cNvPrOpen`, must call
-  `encodeXmlAttrValue` itself.
-
-Moving an existing emitter onto the builder must not change a byte. Run
-`pnpm run byte-identity:baseline` before the change and `pnpm run byte-identity:check` after each
-step.
+New emitter code builds XML with `el()` from `src/gen/oxml/el.ts`, not template strings.
+[Emitting XML: the `el()` builder](ooxml.md#emitting-xml-the-el-builder) has its rules.
 
 ### Trailing `_` marks an escape hatch
 

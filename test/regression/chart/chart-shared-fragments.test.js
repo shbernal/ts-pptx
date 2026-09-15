@@ -23,8 +23,8 @@ import { chartXml } from './chart-parts.js'
 // or not at all.
 //
 // A second such pin used to live here — bubble's `<c:f>` carrying no indentation where every
-// other numeric-reference block had four spaces. The chart emitters are flat now
-// (docs/contributing/chart-whitespace-flatten.md), so that difference no longer exists to pin.
+// other numeric-reference block had four spaces. The chart emitters are flat now, so that
+// difference no longer exists to pin.
 
 const XY = [
 	{ name: 'X', labels: ['a', 'b', 'c'], values: [1, 2, 3] },
@@ -118,8 +118,8 @@ defineRegressionSuite('Shared chart fragments', [
 		name: 'every numeric-reference block emits the same shape, scatter and bubble alike',
 		fn: async () => {
 			// This case used to pin four different indentations, one of which was bubble's y-block
-			// having none where the other three had four spaces. All four are flat now
-			// (docs/contributing/chart-whitespace-flatten.md), so what is left to pin is the part that was
+			// having none where the other three had four spaces. All four are flat now,
+			// so what is left to pin is the part that was
 			// always the point: one builder, one shape, and the right formula in each block.
 			const scatter = await chartFor(ChartType.scatter, XY)
 			assertIncludes(valBlock(scatter, 'c:xVal'), '<c:numRef><c:f>Sheet1!$A$2:$A$4</c:f>', 'scatter x-block')
@@ -168,8 +168,7 @@ defineRegressionSuite('Shared chart fragments', [
 			// The rest of the block is the same on both, which is why they share a builder. The
 			// run is pinned as one contiguous string because the ORDER is `CT_DLbls`'s and is not
 			// negotiable: a flag in the wrong place is a repair prompt, not a wrong-looking chart.
-			// (It used to pin the indentation too; that is gone, see
-			// docs/contributing/chart-whitespace-flatten.md.)
+			// (It used to pin the indentation too; the chart emitters are flat now.)
 			for (const xml of [line, scatter]) {
 				assertIncludes(
 					xml,

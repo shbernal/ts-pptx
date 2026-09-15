@@ -33,7 +33,7 @@ await pptx.writeFile({ fileName: 'avatar.pptx' })
 | `shape` | `SHAPE_NAME` | `'rect'` | Clip to a PowerPoint preset such as `'roundRect'` or `'hexagon'`. Wins over `rounding`. |
 | `rounding` | `boolean` | `false` | Clip to an ellipse. |
 | `rectRadius` | `number`, inches | the preset's own radius | Corner radius for `'roundRect'` and the other rounded presets. |
-| `shapeAdjust` | `ShapeAdjustValue` or an array | none | The preset's adjustment handles, each value a 0 to 1 fraction. |
+| `shapeAdjust` | `ShapeAdjustValue` or an array | none | The preset's adjustment handles, each value a 0 to 1 fraction. A value past a handle's limit is written as given, and PowerPoint draws the shape at that limit. |
 | `sizing` | `{ type, x?, y?, w?, h? }` | none | How the source fills the box: `cover`, `contain`, `crop` or `stretch`. |
 | `crop` | `{ l?, t?, r?, b? }` | none | Percent trimmed off each edge of the source. Wins over `sizing`. |
 | `line` | `ShapeLineProps` | none | Outline drawn along the clip. |

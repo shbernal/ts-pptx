@@ -32,8 +32,3 @@ The documentation for working on the repository is read on GitHub:
   evidence for a change.
 - [Release workflow](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/releasing.md):
   publishing the package and its scoped alias.
-- [Agent development guide](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/agent-development.md):
-  expectations for agent-assisted changes and their verification.
-- [Chart whitespace flatten](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/chart-whitespace-flatten.md):
-  the one recorded whitespace-only byte change to the chart emitters, and how it was proved
-  harmless.

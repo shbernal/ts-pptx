@@ -580,11 +580,11 @@ export function genXmlTitle(opts: MaybeUndefined<ChartPropsTitle>, chartX?: Coor
 	// emitted bytes, and `el()` writes exactly one space before an attribute by design, so the
 	// two run-property tags below stay hand-written. Dropping the padding would be the real fix —
 	// no XML consumer can see it — but that is an output change, and a whitespace-only diff is a
-	// stop rather than a cleanup. The chart flatten did NOT take it: that space is inside a tag
-	// rather than between elements, which is a different claim needing different evidence, and
-	// `prove-whitespace` freezes intra-tag whitespace so it stays visible. See
-	// `docs/contributing/chart-whitespace-flatten.md`. Two other sites in this directory are in the same
-	// position; the ratchet header lists them.
+	// stop rather than a cleanup. Flattening the chart emitters did NOT take it: that space is
+	// inside a tag rather than between elements, which is a different claim needing different
+	// evidence, and `prove-whitespace` freezes intra-tag whitespace so it stays visible
+	// (`docs/contributing/testing.md`, "Proving a change is whitespace-only"). Two other sites in
+	// this directory are in the same position; the ratchet header lists them.
 	// An empty `sizeAttr` spells one state and only one: the caller stated no size, which the
 	// axis-title path still reaches (`catAxisTitleFontSize` and its two siblings are optional).
 	// A stated `0` is a stated value, so it clamps and warns like every other size rather than

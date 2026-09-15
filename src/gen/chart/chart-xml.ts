@@ -161,9 +161,9 @@ function makePlotAreaLayoutXml(rel: SlideRelChart): string {
 	if (!layout) return voidEl('c:layout')
 	const manualLayout = el('c:manualLayout', null, [
 		// Every space here sits before `/>`, INSIDE the tag rather than between elements, so
-		// it is out of scope for the flatten (docs/contributing/chart-whitespace-flatten.md) and stays.
-		// `prove-whitespace` freezes intra-tag whitespace, and reported these when the
-		// codemod first took them — which is the whole reason it looks at them.
+		// flattening the chart emitters did not take it, and it stays. `prove-whitespace` freezes
+		// intra-tag whitespace, and reported these when the flattening codemod first took them,
+		// which is the whole reason it looks at them.
 		raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
 		raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
 		raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),

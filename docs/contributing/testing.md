@@ -773,6 +773,55 @@ It is not in `verify`, because it spawns seven validations per fixture and asser
 | Font oracles | `test:oracles`, and `test` | The fit model stays conservative against PowerPoint's baked values; the metrics sidecar matches the real fonts | Faces outside the six measured ones | yes, `test` and `font-oracles` |
 | Manual check | opening a deck in PowerPoint or another application | Repair prompts and visible behaviour a person can judge | Anything nobody looked at; nothing is recorded | no |
 
+### Byte identity (`byte-identity:check`)
+
+```bash
+pnpm run byte-identity:baseline   # before the refactor, on a committed src/gen/
+pnpm run byte-identity:check      # after each edit
+```
+
+`scripts/byte-identity.mjs` builds every showcase deck and every gate deck listed in
+`scripts/gate-decks/index.mjs`, explodes each package, recursing into embedded `.xlsx` parts, and
+diffs every part against `.tmp/byte-identity/baseline/`. It normalizes `core.xml` timestamps,
+`p14:section` ids and `c16:uniqueId`, and nothing else. `baseline` refuses to run on an uncommitted
+`src/gen/`, because a baseline frozen after the edit cannot fail. A pass says nothing about a part
+the decks never emit, so confirm the part you touched is in the baseline first.
+
+#### Proving a change is whitespace-only
+
+A whitespace-only byte diff fails `check`, and it stays a failure. Judging a diff to be formatting
+is the same act that would wave through a content change. For a change planned from the start to
+alter only whitespace between elements, such as flattening an emitter's indentation, a program
+makes that judgement instead:
+
+```bash
+node scripts/byte-identity.mjs prove-whitespace          # after the change, against the baseline
+node scripts/byte-identity.mjs prove-whitespace --show   # print every relaxed position
+```
+
+It passes only when every changed part differs in whitespace-only text where whitespace cannot be
+content. `scripts/xml-equivalence.mjs` does the comparison, and it is stricter than XML
+canonicalization:
+
+- It compares raw text, so `&amp;` and `&#38;` differ.
+- Attribute order, quote characters and self-closing form (`<x/>` against `<x></x>`) count.
+- Whitespace inside a tag, such as the space in `<c:xMode val="edge" />`, is frozen.
+- Text in an element with no element children, in mixed content, or in an element on the module's
+  text-bearing list, is frozen.
+- An added, removed or unreadable part fails.
+
+The procedure:
+
+1. Freeze the baseline before the change.
+2. Make the whitespace change and nothing else. An attribute reorder or an escaping change is a
+   separate change, gated on `check`.
+3. Run `prove-whitespace`. A failure means the change did more than whitespace.
+4. Put its PASS line in the commit message, so each use is on record.
+
+Never run it because `check` went red on a change meant to preserve bytes. `check` is the gate for
+every other refactor. `test/scripts/xml-equivalence.test.js` holds the changes the prover must
+reject.
+
 ### PowerPoint desktop check (`test:com`)
 
 ```bash

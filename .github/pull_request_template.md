@@ -40,8 +40,7 @@
       [docs/contributing/ooxml.md](../docs/contributing/ooxml.md#evidence-and-fixtures).
 - [ ] **Breaking changes only:** [CHANGELOG.md](../CHANGELOG.md) records the
       change and its migration guidance.
-- [ ] I read [AGENTS.md](../AGENTS.md) and
-      [docs/contributing/agent-development.md](../docs/contributing/agent-development.md), which are the
+- [ ] I read [CONTRIBUTING.md](../CONTRIBUTING.md) and [AGENTS.md](../AGENTS.md), which are the
       authoritative contributor docs.
 
 ## Notes for the reviewer

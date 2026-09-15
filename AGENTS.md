@@ -85,21 +85,15 @@ the triage rules.
 
 ### MCP tool selection
 
-Work through these sources in order. `docs/contributing/ooxml.md` describes each server.
+Look OOXML questions up in this order. "Lookup order" in `docs/contributing/ooxml.md` says
+what each source answers and what it lacks.
 
-1. **The `ooxml` MCP** answers from the ECMA-376 schema graph and nothing else. Use it for
-   elements, types, legal children in order, attributes, value spaces and enums, namespaces,
-   and whether a construct survives in Strict. Hand an `ooxml-validate` diagnostic to
-   `ooxml_explain`. `ooxml_search` is a substring match on names, not a semantic search. The
-   server has no specification prose, no OPC part, content-type or relationship catalogue,
-   and no Microsoft-proprietary detail.
-2. **The `microsoft_learn` MCP** covers the Microsoft Open Specifications ([MS-OE376],
-   [MS-PPTX]), built-in GUIDs and other proprietary enumerations, PowerPoint behavior across
-   versions, and the Open XML SDK. When the `ooxml` MCP has no complete answer, always try
-   this server before web search. Search with `microsoft_docs_search`, then fetch a returned
-   page with `microsoft_docs_fetch`.
-3. **Web search** comes only after both MCPs, for community findings, third-party library
-   behavior and anything newer than the MCPs.
+1. **The `ooxml` MCP**, for schema structure: elements, legal children in order, attributes,
+   enums, namespaces, and whether a construct survives in Strict. Hand an `ooxml-validate`
+   diagnostic to `ooxml_explain`.
+2. **The `microsoft_learn` MCP**, for the Microsoft Open Specifications, proprietary GUIDs and
+   enumerations, PowerPoint behavior and the Open XML SDK. Always try it before web search.
+3. **Web search**, only after both.
 
 ## Tracking work
 
@@ -220,9 +214,9 @@ converter harnesses.
   identity, leave it on template strings and list it as an exception. Do not migrate it with
   an accepted diff.
 - The one way past that STOP is a program, never a reading. `node scripts/byte-identity.mjs
-  prove-whitespace` is not a looser `check`, and running it because `check` went red is a
-  misuse. A second use adds a section to `docs/contributing/chart-whitespace-flatten.md`
-  first.
+  prove-whitespace` is for a change planned as whitespace-only before it was made. It is not
+  a looser `check`, and running it because `check` went red is a misuse. "Proving a change is
+  whitespace-only" in `docs/contributing/testing.md` has the procedure.
 - Do not count a demo build as verification. Nothing under `demos/` is a gate.
 
 ### Other targeted checks

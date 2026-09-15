@@ -94,14 +94,3 @@ That rule is why the write path and the read path get different hatches:
 
 When a request for a wider write-side hatch has a real need behind it, the answer is a typed,
 validated feature, not a wider hatch.
-
-## Maintenance posture
-
-The repository should make sense to a maintainer or an agent starting from a clean checkout. OOXML
-changes are testable through regression tests, schema fixtures and package-level smoke tests, and
-the evidence, commands and research paths are written down:
-
-- package support: `docs/getting-started/runtime.md`;
-- development commands: `docs/contributing/development.md`;
-- verification commands: `docs/contributing/testing.md`;
-- OOXML lookup and what counts as evidence: `docs/contributing/ooxml.md`.

@@ -23,9 +23,9 @@
  * diff to be "just formatting" is the same act that would wave through a content change;
  * this subcommand replaces the judgement with a program (`xml-equivalence.mjs`), which
  * compares raw text, attribute order, quote characters and self-closing forms and relaxes
- * whitespace only where it provably cannot be content. It exists for one recorded change —
- * the `src/gen/chart/` flatten, `docs/contributing/chart-whitespace-flatten.md` — and a second use
- * wants its own entry in that doc. `check` remains the gate for every other refactor.
+ * whitespace only where it provably cannot be content. It is for a change planned as
+ * whitespace-only before it was made; `docs/contributing/testing.md` ("Proving a change is
+ * whitespace-only") has the procedure. `check` remains the gate for every other refactor.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -50,7 +50,7 @@ const USAGE = `Byte-identity gate for write-side refactors.
 
 Freeze a baseline BEFORE the refactor, then \`check\` after each step.
 
-\`prove-whitespace\` is for one recorded, deliberate reformat (docs/contributing/chart-whitespace-flatten.md),
+\`prove-whitespace\` is for a change planned as whitespace-only (docs/contributing/testing.md),
 not for getting past a red \`check\`.
 
 Options:
