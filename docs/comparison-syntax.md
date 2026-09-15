@@ -17,11 +17,11 @@ doc_type: "guide"
 # Porting from PptxGenJS
 
 ts-pptx descends from pptxgenjs, so much of a pptxgenjs script carries across as it is: of
-the 10 intents both libraries build in the comparison corpus, 8 are called with identical
+the 10 intents both libraries build in the comparison corpus, 7 are called with identical
 code. This page is the rest: the calls that change, what changes around them, and then
 every intent and program in the corpus as code in both libraries.
 
-Measured on 2026-09-06: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-15: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm.
 
 ## The calls that change
@@ -35,6 +35,7 @@ same code.
 | `const PNG_1PX_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAA…'` | `const PNG_1PX_BARE = 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcS…'` | Raster image, Full deck |
 | `pres.addSlide().addImage({ data: PNG_1PX_URL, x: 1, y: 1, w: 2, h: 2 })` | `pres.addSlide().addImage({ data: PNG_1PX_BARE, x: 1, y: 1, w: 2, h: 2 })` | Raster image |
 | `pres.addSlide().addChart(BAR_DATA, { type: 'bar', x: 1, y: 1, w: 6, h: 4 })` | `pres.addSlide().addChart('bar', BAR_DATA, { x: 1, y: 1, w: 6, h: 4 })` | Bar chart |
+| `pres.addSlide({ masterTitle: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })` | `pres.addSlide({ masterName: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })` | User-defined slide master |
 | `const findings = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Findings' })` | `const findings = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Findings' })` | Text deck |
 | `const next = pres.addSlide({ masterTitle: 'NARRATIVE', sectionTitle: 'Next steps' })` | `const next = pres.addSlide({ masterName: 'NARRATIVE', sectionTitle: 'Next steps' })` | Text deck |
 | `border: { type: 'solid', width: 1, color: 'D9D9D9' },` | `border: { type: 'solid', pt: 1, color: 'D9D9D9' },` | Table deck |
@@ -182,7 +183,17 @@ pres.addSlide().addText('docs', { x: 1, y: 1, w: 4, h: 1, hyperlink: { url: 'htt
 
 `<p:ph` in `ppt/slides/slide1.xml`. ts-pptx: emitted. pptxgenjs: emitted.
 
-Both libraries, called identically:
+**ts-pptx**
+
+```js
+pres.defineSlideMaster({
+	title: 'PROBE_MASTER',
+	objects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 } } }],
+})
+pres.addSlide({ masterTitle: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })
+```
+
+**pptxgenjs**
 
 ```js
 pres.defineSlideMaster({

@@ -204,7 +204,7 @@ export const PROBES = [
 					title: 'PROBE_MASTER',
 					objects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 } } }],
 				})
-				pres.addSlide({ masterName: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })
+				pres.addSlide({ masterTitle: 'PROBE_MASTER' }).addText('probe', { placeholder: 'title' })
 			},
 			pptxgenjs: (pres) => {
 				pres.defineSlideMaster({
