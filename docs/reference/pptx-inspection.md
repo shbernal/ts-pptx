@@ -74,7 +74,7 @@ Explicit means set on the element itself, with nothing resolved from the layout,
 
 | Field | Type | Unit | Holds | `null` or empty when |
 | --- | --- | --- | --- | --- |
-| `id` | `string \| number` | none | `p:cNvPr/@id` | Never; `zIndex + 1` stands in when the attribute is missing |
+| `id` | `number` | none | `p:cNvPr/@id` | Never; `zIndex + 1` stands in when the attribute is missing |
 | `name` | `string` | none | `p:cNvPr/@name` | Never; the kind and `zIndex + 1` stand in when unset, as in `shape 4` |
 | `kind` | `PptxSlideElementKind` | none | `'group'` for `p:grpSp`, `'graphicFrame'` for `p:graphicFrame`, `'text'` for a `p:sp` with text, `'image'` for `p:pic`, `'shape'` for the rest (a `p:sp` without text, `p:cxnSp`) | Never |
 | `graphicKind` | `PptxGraphicKind \| null` | none | What a graphic frame hosts; see [Graphic frames](#graphic-frames) | `null` unless `kind` is `'graphicFrame'` |

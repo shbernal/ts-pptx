@@ -198,7 +198,7 @@ tableToSlides(pptx, 'report', {
 ## Limits
 
 - Column proportions follow the browser's layout only where `offsetWidth` is available.
-- `colW`, `autoPage` and `autoPageHeaderRows` have no effect here. The conversion computes its own widths, always pages, and repeats every `<thead>` row.
+- `colW`, `autoPage` and `autoPageHeaderRows` are not options of `tableToSlides`. The conversion computes its own widths, always pages, and repeats every `<thead>` row.
 - Font sizes and padding in `em`, `%` or keywords are dropped.
 - Without a browser, `text-transform` does not reach cell text.
 - Reproducing how a browser laid out the rest of a page is outside what this project actively develops: see [the scope page](https://github.com/shbernal/ts-pptx/blob/master/docs/contributing/scope-and-policy.md#out-of-active-scope-contributions-welcome).

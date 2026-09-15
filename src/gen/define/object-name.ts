@@ -51,7 +51,9 @@ export function nextObjectNameIdx(target: PresSlideInternal, type: SlideObjectTy
  *
  * They are all 1-based now, which is the base PowerPoint itself uses: it names an inserted
  * rectangle `Rectangle 1`, and nothing it authors is ever suffixed `0`. There is no base
- * parameter left to pass, so a new definer cannot pick the other convention by accident.
+ * parameter left to pass, so a new definer cannot pick the other convention by accident. The one
+ * name outside this counter is the slide-number placeholder, which the slide emitter writes as
+ * `Slide Number Placeholder 0`.
  *
  * The index is taken unconditionally — including when the caller supplied a name — so an object's
  * index is its ordinal among its kind. See {@link nextObjectNameIdx}.

@@ -298,7 +298,7 @@ interface OleObjectBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Payload file extension, used to name the embedded part and to pick the content type,
 	 * relationship type, and default `progId`.
-	 * - inferred from `data`'s MIME, else `path`'s extension, else `progId`
+	 * - inferred from the MIME type of a `data:` URI in `data`, else `path`'s extension, else `progId`
 	 * - anything that is not a known Office package extension (`xlsx`/`xlsm`/`docx`/`docm`/`pptx`/`pptm`)
 	 *   is embedded as a generic OLE blob part named `.bin`
 	 * @example 'xlsx'

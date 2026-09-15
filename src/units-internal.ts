@@ -405,9 +405,8 @@ export function mapStated<T extends number | string, R>(
  * `docs/contributing/development.md` ("Warn or throw?") describes: a finite value has a nearest legal
  * neighbour, so the deck still comes out recognisable and the move is a warning; a value that
  * is not a number at all has no neighbour, so the request is discarded and that throws.
- * Rejecting a finite out-of-range value and emitting nothing is neither, and was how five
- * options behaved before they were routed through here: it discards the request and reports
- * it as a warning, which is the combination the rule exists to rule out.
+ * Rejecting a finite out-of-range value and emitting nothing is neither: it discards the request
+ * and reports it as a warning, which is the combination the rule exists to rule out.
  *
  * Most of what passes through here is a percentage, which is why the throw names one by
  * default; `nonFiniteCode` is for the callers whose option is not one, such as a shadow's

@@ -188,7 +188,6 @@ async function compose() {
 	for (const kase of CASES) {
 		tableToSlides(pptx, tableOf(kase.html), {
 			...PLACE,
-			autoPage: false,
 			addText: { text: [{ text: kase.name }], options: TITLE },
 			...kase.opts,
 		})
@@ -201,7 +200,6 @@ async function compose() {
 		y: 0.5,
 		w: 12,
 		fontSize: 14,
-		autoPage: true,
 		autoPageRepeatHeader: true,
 		autoPageSlideStartY: 0.5,
 		masterTitle: 'GATE',

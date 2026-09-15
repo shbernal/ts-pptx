@@ -57,7 +57,9 @@ let handler: DiagnosticHandler = consoleHandler
  * of free functions in `gen/**` with no presentation in scope, and threading a handler through
  * every signature would be a far larger and worse change than the problem warrants. The practical
  * consequence is that a process building several decks concurrently cannot attribute a diagnostic
- * to one of them; if that matters, correlate on `code` or set the handler around each build.
+ * to one of them. If that matters, correlate on `code`, or build the decks one at a time with the
+ * handler set around each build: a handler set around concurrent builds sees all of their
+ * diagnostics.
  *
  * A throwing handler propagates out of whatever library call emitted the diagnostic, which is the
  * supported way to make a specific condition fatal:

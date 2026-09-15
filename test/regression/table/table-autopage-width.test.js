@@ -133,8 +133,8 @@ defineRegressionSuite('Table autoPage width arithmetic', [
 			const layout = { name: 'test', width: 9144000, height: 5143500 }
 			// An empty array is a caller stating no columns, so the table falls through to the
 			// usable slide width -- exactly where `colW: undefined` lands.
-			const stated = getSlidesForTableRows(rows, { colW: [], autoPage: true, fontSize: 12 }, layout, null)
-			const unstated = getSlidesForTableRows(rows, { autoPage: true, fontSize: 12 }, layout, null)
+			const stated = getSlidesForTableRows(rows, { colW: [], fontSize: 12 }, layout, null)
+			const unstated = getSlidesForTableRows(rows, { fontSize: 12 }, layout, null)
 			assertEqual(stated.length, 1, 'one page for one row')
 			assertEqual(stated[0].rows.length, unstated[0].rows.length, 'an empty colW must page exactly as an absent one')
 		},

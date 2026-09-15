@@ -296,9 +296,6 @@ export function addTextDefinition(
 	// default identity is its declared name (falling back to its type, then its idx). Placeholders
 	// are `placeholder`-typed objects and so take their name index from their own bucket; naming
 	// them `Text N` off the text-box bucket would collide with the slide's real text boxes.
-	// A placeholder's default identity is its declared name (falling back to its type, then its
-	// idx), so it does not take the `Text N` default — but it still takes an index from its own
-	// bucket, which is what keeps a slide's real text boxes from colliding with it.
 	const placeholderName = isPlaceholder
 		? String(
 				newObject.options.placeholder ||

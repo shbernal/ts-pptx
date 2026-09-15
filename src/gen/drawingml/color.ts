@@ -50,7 +50,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		colorStr = DEF_FONT_COLOR
 	}
 	// An empty string reaches here only from a slot that *requires* a colour — a gradient
-	// stop, a duotone half, a `buClr`. There is no "inherit" state to fall back to, so this
+	// stop, a duotone half. There is no "inherit" state to fall back to, so this
 	// is the one place `''` still paints: it is reported under its own code, with a message
 	// that names the real problem rather than `"" is not a valid scheme color`.
 	if (colorStr === '') {

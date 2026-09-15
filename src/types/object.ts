@@ -36,9 +36,9 @@ export interface PlaceholderProps
 export interface ObjectNameProps {
 	/**
 	 * Object name
-	 * - used instead of default "Object N" name
+	 * - used instead of the default name for the object's kind: `Text 1`, `Shape 2`, `Image 1` and so
+	 *   on, numbered per kind (see `docs/reference/object-names.md`)
 	 * - PowerPoint: Home > Arrange > Selection Pane...
-	 * @default 'Object 1'
 	 * @example 'Antenna Design 9'
 	 */
 	objectName?: string

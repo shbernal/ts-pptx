@@ -160,11 +160,12 @@ async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 	let readFile: (typeof import('node:fs/promises'))['readFile']
 	try {
 		;({ readFile } = await import('node:fs/promises'))
-	} catch {
+	} catch (cause) {
 		throw new UnsupportedFeatureError(
 			'zip/filesystem-unavailable',
 			`Cannot read zip from path "${filePath}": filesystem access requires Node. ` +
-				'Pass a Uint8Array/ArrayBuffer/Blob for an in-memory archive.'
+				'Pass a Uint8Array/ArrayBuffer/Blob for an in-memory archive.',
+			{ cause }
 		)
 	}
 	try {

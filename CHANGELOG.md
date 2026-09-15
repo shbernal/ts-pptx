@@ -252,6 +252,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking: `PptxSlideElement.id` is typed `number`.** It was `string | number`, but inspection
+  only ever produced a number: the shape's `p:cNvPr/@id`, or `zIndex + 1` when the attribute is
+  missing. **Migration:** drop any branch on a string id; code that treated it as a number is
+  unaffected.
+
 - **Breaking: every read value that carries a colour carries one `ColorRef`, under `colorRef`.**
   - One field name meant different things on different types. `color` was the raw `a:srgbClr` on
     a gradient stop, a recolour colour and a bullet, and the resolved hex on a shadow, a glow and
@@ -916,6 +921,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an `<a:prstDash>` alongside its `<a:noFill/>` and swallowing it would move bytes.
 
 ### Removed
+
+- **`TableToSlidesProps` no longer offers `colW`, `autoPage` or `autoPageHeaderRows`.** The
+  conversion overwrote `colW` with the widths it computes from the HTML, always paged, and repeated
+  every `<thead>` row, so each option typechecked and did nothing. **Migration:** drop them; size
+  columns with `data-pptx-width` or CSS widths, and put the rows to repeat in `<thead>`. No output
+  changes.
 
 - **`TableCellProps.autoPageLineWeight` is gone.** The auto-pager reads a line weight only from
   the table's options, so a value set on a cell typechecked and changed nothing.

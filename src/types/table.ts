@@ -40,9 +40,11 @@ export interface TableToSlidesDocument {
 	getElementById: (elementId: string) => TableToSlidesElement | null
 }
 
-export interface TableToSlidesProps extends TableProps {
-	// _masterSlide?: SlideLayout
-
+/**
+ * Options for `tableToSlides`. The conversion computes its own column widths, always pages, and
+ * repeats every `<thead>` row, so `colW`, `autoPage` and `autoPageHeaderRows` are not options here.
+ */
+export interface TableToSlidesProps extends Omit<TableProps, 'autoPage' | 'colW' | 'autoPageHeaderRows'> {
 	/**
 	 * Add an image to slide(s) created during autopaging
 	 * - `image` prop requires either `path` or `data`
@@ -62,12 +64,6 @@ export interface TableToSlidesProps extends TableProps {
 	 * Add a text object to slide(s) created during autopaging
 	 */
 	addText?: { text: TextProps[]; options: TextPropsOptions }
-	/**
-	 * Whether to enable auto-paging
-	 * - auto-paging creates new slides as content overflows a slide
-	 * @default true
-	 */
-	autoPage?: boolean
 	/**
 	 * Auto-paging character weight
 	 * - adjusts how many characters are used before lines wrap
@@ -94,10 +90,6 @@ export interface TableToSlidesProps extends TableProps {
 	 * @default (top margin of Slide)
 	 */
 	autoPageSlideStartY?: number
-	/**
-	 * Column widths (inches)
-	 */
-	colW?: number | number[]
 	/**
 	 * Document to resolve a table *id* against.
 	 * - only consulted when the table is identified by string id; passing the element itself

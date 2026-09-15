@@ -202,6 +202,8 @@ export type TableRowInternal = TableCellInternal[]
 /** {@link TablePropsInternal}, for the auto-pager's own option bag. */
 export interface TableToSlidesPropsInternal extends TableToSlidesProps {
 	_arrObjTabHeadRows?: TableRow[]
+	/** The widths the conversion computes, handed to the pager. Not a caller option. */
+	colW?: number | number[]
 }
 
 /**

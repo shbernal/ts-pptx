@@ -126,7 +126,8 @@ export interface PptxBodyInsets {
 }
 
 export interface PptxSlideElement {
-	id: string | number
+	/** `p:cNvPr/@id`, or `zIndex + 1` when the attribute is missing. */
+	id: number
 	name: string
 	kind: PptxSlideElementKind
 	/**

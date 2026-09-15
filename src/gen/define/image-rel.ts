@@ -128,8 +128,8 @@ export function pushMediaRel(target: PresSlideInternal, source: MediaRelSource):
  * Push an image media rel onto `target`, reusing an identical source's package part.
  *
  * Three definers need it — an image *fill* on a shape or text box (`registerImageFillMedia`), an
- * `addImage()` raster (`addImageDefinition`), and the cached preview raster a Zoom tile or OLE
- * object is drawn from (`registerPreviewImage`). See {@link MediaRelSource.dedupe} for the match.
+ * `addImage()` raster (`addImageDefinition`), and the cached preview raster a Zoom tile, an OLE
+ * object or a 3D model is drawn from (`registerPreviewImage`). See {@link MediaRelSource.dedupe} for the match.
  * @param target - slide (or layout/master) the rel is registered on
  * @param source - the resolved image source: a `path`, a base64 `data` payload, or both
  * @param relId - the relationship id already allocated for this use

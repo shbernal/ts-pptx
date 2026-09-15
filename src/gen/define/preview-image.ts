@@ -2,9 +2,9 @@
  * ts-pptx: preview/cover image registration.
  *
  * Several objects are drawn from a cached raster the library cannot render itself — a Zoom tile's
- * thumbnail of its target slide, an OLE object's picture of the embedded document. Each registers
- * that raster as an ordinary slide image rel and references it by rId. Shared here so the two
- * definers agree on the placeholder fallback and on extension sniffing; the rel itself goes through
+ * thumbnail of its target slide, an OLE object's picture of the embedded document, a 3D model's
+ * preview. Each registers that raster as an ordinary slide image rel and references it by rId.
+ * Shared here so the definers agree on the placeholder fallback and on extension sniffing; the rel itself goes through
  * `registerImageMediaRel`, the same call `addImage` and image fills use.
  */
 import { warn } from '../../diagnostics.js'
