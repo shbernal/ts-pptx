@@ -1028,7 +1028,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
 ## Autofit calibration oracle (`docs/contributing/testing.md`)
 
 Four desktop-PowerPoint-authored decks that pin **how PowerPoint itself computes
-text autofit** — the fixture-gated precondition for measured-fit solvers
+text autofit**, which the measured-fit solvers are calibrated against
 (`docs/contributing/design/text-fit.md`). Like the authoring
 oracles above, these are **inspection only — not loaded by `test:read`**. PowerPoint
 baked every fit value here (`fontScale`/`lnSpcReduction` for shrink, `ext.cy`/`off.y`
@@ -1059,9 +1059,8 @@ font none of the others use.
 Authored on Windows desktop PowerPoint, **2026-08-24**, by
 `authoring/author-cjk-wrap.ps1`; opens clean via COM with no repair prompt. One
 slide, eleven `spAutoFit` text boxes of identical width, each named after its case
-id, all in **Malgun Gothic** at 18 pt — a Windows-standard plain `.ttf` (the metrics
-parser cannot open a `.ttc`, which rules out MS Gothic, Yu Gothic and SimSun) that
-covers Han, Kana, Hangul and the fullwidth forms in one face.
+id, all in **Malgun Gothic** at 18 pt, a Windows-standard `.ttf` that covers Han,
+Kana, Hangul and the fullwidth forms in one face.
 
 What it settles: Han, Kana, fullwidth Latin, halfwidth Katakana and Plane 2
 ideographs break **per character**; **Hangul does not** — the same box that lays out
@@ -1134,8 +1133,8 @@ Font slugs: `aptos`, `aptossemibold`, `calibri`, `tahoma`, `arial`.
   against the pinned box; `msoAutoSizeShapeToFitText` (resize) writes `<a:spAutoFit>`
   + the fitted `ext.cy`. Setting `AutoSize` on an un-pinned (already grown) box, or
   leaving it as the only step, yields a bare `<a:normAutofit/>` no-op.
-- **Substitution guard (corrected).** The plan's "assert `latin@typeface` equals
-  the requested face" is **insufficient**: PowerPoint preserves the requested face
+- **Substitution guard.** Asserting that `latin@typeface` equals the requested face
+  is **insufficient**: PowerPoint preserves the requested face
   name (and a known panose) in the XML even when the font is absent and substituted
   only at render. The real guard is a host-side **font-presence** check at authoring
   time (`System.Drawing.Font(name).Name == name` / the Fonts registry), run as a
@@ -1148,32 +1147,10 @@ Font slugs: `aptos`, `aptossemibold`, `calibri`, `tahoma`, `arial`.
   per-case PP-vs-LO delta *varies* with content (not a constant rounding offset),
   confirming LibreOffice recomputes independently rather than echoing the stored cy.
 
-### Findings (these directly parameterize the solver)
+### Findings
 
-Measured over `{Aptos, Aptos SemiBold, Calibri, Tahoma, Arial}`:
-
-1. **Single-spacing line pitch ≈ 1.2117 × fontSize, and font-INDEPENDENT.** Across
-   all five families the per-line `cy` delta is byte-identical at each size (ratio
-   1.2117 at 12/18/32 pt). The per-font axis is **advance width**, not line height
-   (e.g. "Hamburgefontsiv" @18pt: Calibri 141.4pt … Aptos SemiBold 153.3pt). This
-   contradicts the plan's prose assumption that single spacing is font-metric-derived
-   — the oracle shows both engines use a font-independent ~1.21× line pitch here.
-2. **PowerPoint vs LibreOffice line height agree to ≤ 519 EMU (≈ 0.041 pt)** across
-   all 90 Deck-1 cases — the cross-engine divergence the solver must bound is
-   negligible for this font set.
-3. **`fontScale` lives on a 2.5% grid**; the overflow ladder + per-font core
-   surfaced `{85, 77.5, 70, 62.5, 55, 40}%` (more steps exist between/below).
-4. **`lnSpcReduction` ramps `0 → 10% → 20%` and caps at 20%**, applied *before*
-   driving `fontScale` to its floor (light overflow gets 10%, heavier the 20% cap).
-5. **Vertical anchor does not change `fontScale`** (t/ctr/b all baked the same).
-6. **On `spAutoFit` growth, `off.y` shifts by 0 / half / full of the height delta**
-   for anchor `t` / `ctr` / `b` (grows down / both ways / up).
-7. **Edge behaviour:** leading/trailing whitespace **counts** toward line width; an
-   empty paragraph contributes a full line; a whitespace-only line does not collapse;
-   mixed run sizes make the line height follow the **max** run; an unbreakable long
-   token character-wraps when `wrap=square` and grows the box width when `wrap=none`.
-   CJK and RTL boxes are authored but **documented as unsupported** (recorded gaps,
-   not calibration targets).
+What these decks settle, and which solver constant or rule each finding sets, is the
+table under "Findings behind the constants" in `docs/contributing/design/text-fit.md`.
 
 ## Inspect surface snapshot (`inspect-surface.snapshot.json`)
 

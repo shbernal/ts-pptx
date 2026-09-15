@@ -20,11 +20,12 @@ import type { FontMetrics } from './font-metrics.js'
  * Calibrated from `autofit-calibration.json` (Deck 1, `autofit-line-metrics`):
  * the per-line `cy` delta is a **font-independent** 1.2117× at 12/18/32 pt across
  * {Aptos, Aptos SemiBold, Calibri, Tahoma, Arial}, and PowerPoint vs LibreOffice
- * agree to ≤ 0.041 pt. See `test/read/fixtures/README.md` → "Findings" #1–#2.
+ * agree to ≤ 0.041 pt. See "Findings behind the constants" in
+ * `docs/contributing/design/text-fit.md`.
  */
 export const SINGLE_LINE_PITCH = 1.2117
 
-/** PowerPoint's `fontScale` search grid: discrete 2.5% steps (Findings #3). */
+/** PowerPoint's `fontScale` search grid: discrete 2.5% steps (`docs/contributing/design/text-fit.md`). */
 export const FONT_SCALE_STEP_PCT = 2.5
 
 /** Floor for the shrink search (see `docs/contributing/design/text-fit.md` → Wrap simulator and solvers). */
@@ -231,8 +232,9 @@ interface LineLayout {
  * laid-out line width. `maxLineWidthPt` tracks the running line width and records
  * it whenever a line completes (a wrap or the final line), so callers can measure
  * the actual text extent, not just the box width. Trailing whitespace counts
- * toward width (Findings #7), which slightly over-reports — the conservative
- * direction, consistent with the wrap model erring wide.
+ * toward width, as PowerPoint counts it, which slightly over-reports — the
+ * conservative direction, consistent with the wrap model erring wide. The
+ * PowerPoint behaviour this follows is tabled in `docs/contributing/design/text-fit.md`.
  */
 function countLines(tokens: Token[], innerWidthPt: number): LineLayout {
 	let lines = 1
@@ -247,7 +249,7 @@ function countLines(tokens: Token[], innerWidthPt: number): LineLayout {
 			lines++
 			lineW = 0
 		} else if (tok.kind === 'space') {
-			// Trailing whitespace counts toward line width (Findings #7); if it
+			// Trailing whitespace counts toward line width, as in PowerPoint; if it
 			// overflows, the line wraps and the space is consumed at the break.
 			if (lineW + tok.w > innerWidthPt && lineW > 0) {
 				finishLine()
@@ -265,7 +267,7 @@ function countLines(tokens: Token[], innerWidthPt: number): LineLayout {
 				lineW += tok.w
 			}
 		} else {
-			// Over-long unbreakable word → character-wrap (Findings #7).
+			// Over-long unbreakable word → character-wrap, as PowerPoint does at wrap=square.
 			if (lineW > 0) {
 				finishLine()
 				lines++
@@ -286,7 +288,7 @@ function countLines(tokens: Token[], innerWidthPt: number): LineLayout {
 	return { lines, maxLineWidthPt }
 }
 
-/** Max run size in a paragraph (line height follows the tallest run — Findings #7). */
+/** Max run size in a paragraph (PowerPoint's line height follows the tallest run). */
 function maxRunSizePt(para: FitParagraph): number {
 	let max = 0
 	for (const run of para.runs) if (run.sizePt > max) max = run.sizePt
@@ -393,10 +395,10 @@ export function solveResize(paragraphs: FitParagraph[], box: FitBox, resolve: Me
  * Width and height both re-measured per scale. Conservative: because the model
  * over-estimates, the returned scale is ≤ PowerPoint's and the text never overflows.
  *
- * `lnSpcReduction` is left at 0 in P1 — dropping `fontScale` alone is provably
+ * `lnSpcReduction` is left at 0 — dropping `fontScale` alone is provably
  * conservative (PowerPoint trades line-spacing reduction to keep the font *larger*,
- * so a reduction-free fit is always ≤ PowerPoint's scale). The calibration data for
- * the reduction ramp (Findings #4) is recorded for a future refinement.
+ * so a reduction-free fit is always ≤ PowerPoint's scale). The reduction ramp
+ * PowerPoint applies is recorded in `docs/contributing/design/text-fit.md`.
  */
 export function solveShrink(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
 	const width = layoutWidthPt(box)
