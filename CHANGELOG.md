@@ -1031,6 +1031,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics registered between two writes never reached those shapes. The pass now puts the authored
   values back once the XML is built.
 
+- **A printed deck script type-checks.** Node strips types before it runs a script, so two errors
+  went unseen until an editor or `tsc` opened one. A table's source style GUID was printed as a
+  string `TableProps.tableStyle` refused, because it was typed `TableStyle`. A table cell and the
+  runs in its `text` carried options the emitter writes and `TableCellProps` did not declare.
+  `tableStyle` now also takes any `{GUID}` string, and `TableCellProps` declares `strike`,
+  `baseline`, `indentLevel`, `lineSpacing`, `lineSpacingMultiple`, `paraSpaceBefore` and
+  `paraSpaceAfter`. Only a built-in style GUID renders in PowerPoint, as before.
+
 - **`Shape.delete()` removes the animations of what it deletes, and unbinds connectors from it.**
   A build animation kept its `spid` naming the deleted shape, or a shape inside a deleted group,
   and PowerPoint refused the saved deck with 0x80070570. A connector attached to a deleted shape

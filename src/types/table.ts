@@ -172,6 +172,26 @@ export interface TableCell3DProps {
 }
 export interface TableCellProps extends TextBaseProps {
 	/**
+	 * Strikethrough, as {@link TextPropsOptions.strike} takes it on a text run. On a cell it applies
+	 * to every run that states none; on a run inside a cell's `text`, to that run.
+	 */
+	strike?: NonNullable<TextPropsOptions['strike']>
+	/**
+	 * Baseline shift, as {@link TextPropsOptions.baseline} takes it on a text run: above zero raises
+	 * the text, below zero lowers it. On a cell it applies to every run that states none.
+	 */
+	baseline?: NonNullable<TextPropsOptions['baseline']>
+	/** Outline level of the paragraph a run starts, as {@link TextPropsOptions.indentLevel}. */
+	indentLevel?: NonNullable<TextPropsOptions['indentLevel']>
+	/** Line spacing in points, as {@link TextPropsOptions.lineSpacing}. */
+	lineSpacing?: NonNullable<TextPropsOptions['lineSpacing']>
+	/** Line spacing as a multiple of single spacing, as {@link TextPropsOptions.lineSpacingMultiple}. */
+	lineSpacingMultiple?: NonNullable<TextPropsOptions['lineSpacingMultiple']>
+	/** Space before the paragraph in points, as {@link TextPropsOptions.paraSpaceBefore}. */
+	paraSpaceBefore?: NonNullable<TextPropsOptions['paraSpaceBefore']>
+	/** Space after the paragraph in points, as {@link TextPropsOptions.paraSpaceAfter}. */
+	paraSpaceAfter?: NonNullable<TextPropsOptions['paraSpaceAfter']>
+	/**
 	 * Auto-paging character weight
 	 * - adjusts how many characters are used before lines wrap
 	 * - range: -1.0 to 1.0
@@ -483,8 +503,9 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	rtl?: boolean
 	/**
-	 * Built-in table style to apply, as a `TableStyle` member.
-	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
+	 * Table style to apply: a built-in style as a `TableStyle` member, or any other style GUID in
+	 * braces, such as the id a table read back from a deck names.
+	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with that GUID.
 	 * Style flags (`hasHeader`, `hasFooter`, `hasBandedRows`, etc.) select which
 	 * regions of the chosen style are activated; they have no visible effect without
 	 * a `tableStyle` set.
@@ -498,7 +519,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 *
 	 * @example tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1 // import { TableStyle } from 'pptx-ts'
 	 */
-	tableStyle?: TableStyle
+	tableStyle?: TableStyle | `{${string}}`
 	/**
 	 * Inline styling for the header (first) row, applied as direct per-cell formatting.
 	 *

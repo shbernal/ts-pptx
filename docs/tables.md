@@ -56,7 +56,7 @@ Table options (`TableProps`):
 | `margin` | `Margin` | `[0.05, 0.1, 0.05, 0.1]` | Cell insets in inches, top, right, bottom, left. |
 | `fontSize` | `number` | `12` | Text size in points. |
 | `color` | `Color` | `'000000'`, or the theme text colour when a cell has a hyperlink | Text colour. |
-| `tableStyle` | `TableStyle` | none | A built-in PowerPoint table style. |
+| `tableStyle` | `TableStyle`, or a `{GUID}` string | none | A table style. Only PowerPoint's built-in styles render. |
 | `hasHeader`, `hasFooter` | `boolean` | `false` | Turn on the style's first-row and last-row regions. |
 | `hasBandedRows`, `hasBandedColumns` | `boolean` | `false` | Turn on the style's banding. |
 | `hasFirstColumn`, `hasLastColumn` | `boolean` | `false` | Turn on the style's first-column and last-column regions. |
