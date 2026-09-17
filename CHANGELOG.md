@@ -259,6 +259,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The three chart time-unit options are typed as the enum they accept.** `catAxisBaseTimeUnit`,
+  `catAxisMajorTimeUnit` and `catAxisMinorTimeUnit` were typed `string`, so a typo reached the
+  runtime check and an editor offered nothing. They now take `TimeUnit` (`'days'`, `'months'`,
+  `'years'`), which is re-exported beside the other `ST_` unions the chart bag takes. The runtime
+  is unchanged and still forgives case, so a JavaScript caller passing `'Days'` is unaffected.
+  **Downstream impact:** a TypeScript caller who passed an arbitrary `string`, or a capitalised
+  spelling, now gets a compile error. Pass one of the three lower-case literals.
+
 - **The API reference has its own sidebar.**
   - Under `/reference/api/`, the site sidebar lists every entry point as a collapsed group, and
     each group splits its members by kind (classes, interfaces, functions, and so on), in the

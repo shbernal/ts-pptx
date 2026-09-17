@@ -25,7 +25,7 @@ import type {
 	MaybeUndefined,
 	OptsChartDataInternal,
 } from '../../types/internal.js'
-import { TIME_UNITS } from '../../ooxml/st-enums.js'
+import { TIME_UNITS, type TimeUnit } from '../../ooxml/st-enums.js'
 import { warn } from '../../diagnostics.js'
 import { alphaEl, createColorElement, namedColorOr } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
@@ -308,16 +308,21 @@ export type PlotBuilder = (
  * builder twice gave a different answer the second time, and it put validation somewhere nobody
  * would look for it.
  *
+ * The parameter stays `string` although the three options are typed {@link TimeUnit}. The type
+ * advertises the canonical spelling at the call site; this is where a value that never met a type
+ * arrives -- a JavaScript caller, a JSON config, a value read back off a deck -- so it keeps
+ * checking, and keeps forgiving case. The narrower option type is not permission to drop either.
  * @param value - the caller's time unit, or `undefined`
  * @param optionName - the option as the caller spells it, for the warning
  */
-export function validTimeUnit(value: string | undefined, optionName: string): string | undefined {
+export function validTimeUnit(value: string | undefined, optionName: string): TimeUnit | undefined {
 	if (!value) return undefined
-	if (typeof value !== 'string' || !(TIME_UNITS as readonly string[]).includes(value.toLowerCase())) {
+	const lowered = typeof value === 'string' ? value.toLowerCase() : ''
+	if (!(TIME_UNITS as readonly string[]).includes(lowered)) {
 		warn('chart/invalid-axis-time-unit', `"${optionName}" must be one of: ${TIME_UNITS.join(', ')}.`)
 		return undefined
 	}
-	return value.toLowerCase()
+	return lowered as TimeUnit
 }
 
 /**

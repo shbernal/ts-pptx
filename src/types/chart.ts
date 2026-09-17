@@ -23,6 +23,7 @@ import type {
 	RadarStyleAlias,
 	TickLabelPosition,
 	TickMark,
+	TimeUnit,
 } from '../ooxml/st-enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
@@ -30,7 +31,7 @@ import type { BorderProps, FillOption, ShadowProps, StrokeProps } from './style.
 import type { TextBaseProps } from './text.js'
 
 /**
- * The seven `ST_` unions the chart option bag takes directly, re-exported so a caller can name
+ * The eight `ST_` unions the chart option bag takes directly, re-exported so a caller can name
  * the type their option is checked against -- a narrowed union that cannot be imported is one a
  * caller can satisfy but not annotate. Same reason and same shape as the `RadarStyle` re-export
  * below.
@@ -43,6 +44,7 @@ export type {
 	DisplayBlanksAs,
 	LegendPosition,
 	LineDataSymbol,
+	TimeUnit,
 } from '../ooxml/st-enums.js'
 
 /**
@@ -409,7 +411,16 @@ export interface ChartPropsAxisCat {
 	 * Multi-Chart prop: array of cat axes
 	 */
 	catAxes?: ChartPropsAxisCat[]
-	catAxisBaseTimeUnit?: string
+	/**
+	 * The unit a date axis counts from in (`c:baseTimeUnit/@val`, `ST_TimeUnit`).
+	 *
+	 * The canonical spelling is lower-case, and the check forgives case at run time, so `'Days'`
+	 * is taken as `days`. The type names the canonical three so the call site offers them; do not
+	 * read the narrower type as permission to drop the tolerance, which a JavaScript caller with
+	 * no types still relies on. Anything else warns `chart/invalid-axis-time-unit` and leaves the
+	 * element off, because a garbage unit makes PowerPoint render nothing at all.
+	 */
+	catAxisBaseTimeUnit?: TimeUnit
 	catAxisCrossesAt?: number | 'autoZero'
 	catAxisHidden?: boolean
 	catAxisLabelColor?: string
@@ -472,7 +483,16 @@ export interface ChartPropsAxisCat {
 	 */
 	catAxisLineStyle?: 'solid' | 'dash' | 'dot'
 	catAxisMajorTickMark?: ChartAxisTickMark
-	catAxisMajorTimeUnit?: string
+	/**
+	 * The unit a date axis counts major tick marks in (`c:majorTimeUnit/@val`, `ST_TimeUnit`).
+	 *
+	 * The canonical spelling is lower-case, and the check forgives case at run time, so `'Days'`
+	 * is taken as `days`. The type names the canonical three so the call site offers them; do not
+	 * read the narrower type as permission to drop the tolerance, which a JavaScript caller with
+	 * no types still relies on. Anything else warns `chart/invalid-axis-time-unit` and leaves the
+	 * element off, because a garbage unit makes PowerPoint render nothing at all.
+	 */
+	catAxisMajorTimeUnit?: TimeUnit
 	/**
 	 * Spacing between major tick marks on a date axis or a scatter's X axis (`c:majorUnit`,
 	 * `ST_AxisUnit`).
@@ -482,7 +502,16 @@ export interface ChartPropsAxisCat {
 	/** Axis maximum (`c:max`). A value that is not a finite number throws. */
 	catAxisMaxVal?: number
 	catAxisMinorTickMark?: ChartAxisTickMark
-	catAxisMinorTimeUnit?: string
+	/**
+	 * The unit a date axis counts minor tick marks in (`c:minorTimeUnit/@val`, `ST_TimeUnit`).
+	 *
+	 * The canonical spelling is lower-case, and the check forgives case at run time, so `'Days'`
+	 * is taken as `days`. The type names the canonical three so the call site offers them; do not
+	 * read the narrower type as permission to drop the tolerance, which a JavaScript caller with
+	 * no types still relies on. Anything else warns `chart/invalid-axis-time-unit` and leaves the
+	 * element off, because a garbage unit makes PowerPoint render nothing at all.
+	 */
+	catAxisMinorTimeUnit?: TimeUnit
 	/** Spacing between minor tick marks; the same rule as {@link ChartPropsAxisCat.catAxisMajorUnit}. */
 	catAxisMinorUnit?: number
 	/** Axis minimum (`c:min`). A value that is not a finite number throws. */
