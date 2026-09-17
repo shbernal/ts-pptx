@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A solid background keeps its theme colour as a token, and `pptxToScript` says when it cannot.**
+  The background mapper read the resolved colour and only the resolved colour, so a slide or layout
+  painted with a theme token came out as the literal that token happened to resolve to and stopped
+  following the theme -- silently, where every other surface that bakes a token records it. It goes
+  through the shared colour ladder now: a writable token stays a token, and an unwritable one is
+  baked and noted under the new `slide.background.schemeToken` and `master.background.schemeToken`
+  constructs.
+
 - **A shape reports its own click hyperlink, and `pptxToScript` keeps it.** `a:hlinkClick` hangs in
   two places: on a run's `a:rPr`, linking a span of text, and on a shape's `p:cNvPr`, linking the
   whole shape. Only the run's had a reader, so a shape PowerPoint's Insert > Link had linked read

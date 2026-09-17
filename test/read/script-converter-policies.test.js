@@ -430,6 +430,37 @@ describe('a percentage keeps the precision the source wrote', () => {
 		assertEqual(rewritten, 1, 'the background alpha is rewritten')
 		assertEqual(nearlyOpaque.slides[0].background?.transparency, 0.4, 'and 0.4% is stated, not dropped')
 	})
+
+	test("a solid background's scheme token is kept as a token", async () => {
+		// The background mapper read the *resolved* colour and only that, so a background painted
+		// with a theme token came out as the literal it happened to resolve to and stopped
+		// following the theme. Every other surface goes through the shared colour ladder; this one
+		// kept its own reading, which had no step for a token at all.
+		const { buf, presentation } = await authorRead((pres) => {
+			pres.addSlide().background = { color: 'accent1' }
+		})
+		assertEqual(
+			readModelToIr(presentation).slides[0].background?.color,
+			'accent1',
+			'a writable token survives as a token'
+		)
+
+		// The other arm of the ladder: a token the write path cannot name is baked, and said so.
+		const unwritable = await irWithSlideXml(buf, (xml) => xml.replaceAll('val="accent1"', 'val="hlink"'))
+		assertEqual(unwritable.slides[0].background?.color, '0563C1', 'an unwritable token bakes to what it resolves to')
+		assert(
+			unwritable.fidelity.some((note) => note.construct === 'slide.background.schemeToken'),
+			`and the bake is noted; got ${JSON.stringify(unwritable.fidelity.map((note) => note.construct))}`
+		)
+	})
+
+	test('a literal background colour is still a literal', async () => {
+		// The guard: the ladder's first step must not swallow a background that names no token.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().background = { color: 'C0392B' }
+		})
+		assertEqual(readModelToIr(presentation).slides[0].background?.color, 'C0392B', 'the literal is carried as written')
+	})
 })
 
 describe('an `xsd:boolean` attribute is parsed, not compared to `1`', () => {

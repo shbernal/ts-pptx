@@ -114,4 +114,22 @@ describe('pptxToScript keeps a shape hyperlink', () => {
 			`all three forms are writable, so nothing is noted; got ${JSON.stringify(ir.fidelity.map((n) => n.construct))}`
 		)
 	})
+
+	test("a media shape's ppaction://media is not reported as a lost link", async () => {
+		// PowerPoint puts `<a:hlinkClick r:id="" action="ppaction://media"/>` on an audio or video
+		// picture's `p:cNvPr`. It is structural, not something anyone linked: the media emitter
+		// writes it itself and `addMedia` writes it again. Reading it as a hyperlink made every
+		// media deck report a dropped link it never had.
+		const pres = new TsPptx()
+		pres.addSlide().addMedia({ type: 'video', data: 'video/mp4;base64,AAAA', x: 1, y: 1, w: 3, h: 2 })
+		const presentation = await Presentation.load(await pres.toBytes())
+		const shape = allShapes(presentation).find((candidate) => candidate.hyperlink !== null)
+		assertEqual(shape?.hyperlink?.action, 'ppaction://media', 'the read model still reports the element')
+		const ir = readModelToIr(presentation)
+		assertEqual(
+			ir.fidelity.filter((note) => note.construct === 'shape.hyperlink').length,
+			0,
+			`but the converter notes no lost link; got ${JSON.stringify(ir.fidelity.map((n) => n.construct))}`
+		)
+	})
 })

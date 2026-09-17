@@ -362,9 +362,18 @@ const SHAPE_LINK: LinkSite = {
 	loss: 'the shape is emitted without it and clicking it does nothing',
 }
 
+/**
+ * The `@action` PowerPoint puts on an audio or video picture's `p:cNvPr`. It is structural rather
+ * than a link anyone set -- the media emitter writes it itself (`gen/slide/objects/media.ts`), and
+ * `addMedia` writes it again -- so it is not a hyperlink to carry and not a loss to note.
+ */
+const MEDIA_ACTION = 'ppaction://media'
+
 /** A shape's own click hyperlink, as `addShape`/`addText`/`addImage` take it. */
 export function shapeHyperlinkOption(shape: AnyShape, ctx: MapContext): IrValue | undefined {
-	return linkOption(shape.hyperlink, ctx, { ...SHAPE_LINK, takesAction: true })
+	const link = shape.hyperlink
+	if (link?.action === MEDIA_ACTION) return undefined
+	return linkOption(link, ctx, { ...SHAPE_LINK, takesAction: true })
 }
 
 /**

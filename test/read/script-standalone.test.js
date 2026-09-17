@@ -23,11 +23,14 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import JSZip from 'jszip'
 import { describe, expect, test } from 'vitest'
-import TsPptx, { ChartType } from '../../dist/node.js'
+import TsPptx, { ChartType, SchemeColor } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { canonicalDeckIr, diffDeckIr, printScript, printStandaloneScript, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
 import { REPO, SCRATCH, SNAPSHOTS, fixtureNames, irFor, readFixture } from './corpus.js'
+
+/** The `schemeClr` tokens the write path can carry as tokens (`SchemeColor`), for the ladder below. */
+const WRITABLE_SCHEME_TOKENS = new Set(/** @type {string[]} */ (Object.values(SchemeColor)))
 
 const run = promisify(execFile)
 
@@ -170,11 +173,16 @@ describe('standalone printer — the chrome IR, read against the deck rather tha
 			const background = layouts[index].background ?? presentation.masters()[0].background
 			if (background?.type === 'solid' && background.colorRef.resolved) {
 				const emitted = /** @type {Record<string, string> | undefined} */ (master.props.background)
-				assertEqual(
-					emitted?.color,
-					background.colorRef.resolved.effectiveHex.replace(/^#/, '').toUpperCase(),
-					`master ${index} background`
-				)
+				// The shared colour ladder: a token the write path can name is kept as a token, so the
+				// copy keeps tracking its theme, and only a colour that has no token is baked to hex.
+				// This used to assert the resolved hex unconditionally, which was the mapper reading
+				// the resolved colour and nothing else.
+				const token = background.colorRef.scheme
+				const expected =
+					token !== null && WRITABLE_SCHEME_TOKENS.has(token)
+						? token
+						: background.colorRef.resolved.effectiveHex.replace(/^#/, '').toUpperCase()
+				assertEqual(emitted?.color, expected, `master ${index} background`)
 			}
 		})
 	})

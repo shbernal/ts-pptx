@@ -24,12 +24,12 @@
  */
 
 import type { BackgroundFill, SlideBackground } from '../../read/api/slide-background.js'
-import type { ResolvedColor } from '../../read/api/theme-context.js'
+import type { ColorRef, ResolvedColor } from '../../read/api/theme-context.js'
 import type { AssetResolver } from './context.js'
 import type { BackgroundIr } from '../ir.js'
 import type { NoteScope } from '../fidelity.js'
 import { gradientStops, patternOption, type BackgroundSurface } from './surface-fill.js'
-import { alphaToTransparency, literalColor } from './values.js'
+import { alphaToTransparency, colorOption } from './values.js'
 
 /** How one tier names itself in the note it records when a background cannot be carried. */
 interface BackgroundTier {
@@ -110,7 +110,7 @@ function fillIr(
 		case 'none':
 			return undefined
 		case 'solid':
-			return fill.colorRef.resolved ? solidIr(fill.colorRef.resolved) : undefined
+			return solidIr(fill.colorRef, notes, tier)
 		case 'image': {
 			const asset = fill.partName === null ? null : assets.assetFor(fill.partName)
 			return asset ? { data: asset } : undefined
@@ -126,10 +126,24 @@ function fillIr(
 	}
 }
 
-/** A solid colour, with the transparency its `a:alpha` states. */
-function solidIr(color: ResolvedColor): BackgroundIr {
-	const transparency = alphaToTransparency(color.alpha)
-	return transparency === undefined
-		? { color: literalColor(color.effectiveHex) }
-		: { color: literalColor(color.effectiveHex), transparency }
+/**
+ * A solid colour, with the transparency its `a:alpha` states.
+ *
+ * Through the shared colour ladder, not the resolved hex alone. This read the resolved colour
+ * and only the resolved colour, so a background painted with a theme token came out as the
+ * literal that token happened to resolve to and stopped following the theme -- silently, where
+ * every other surface that bakes a token says so. A writable token is kept as a token; an
+ * unwritable one is baked and noted, under this tier's own `…schemeToken` construct.
+ */
+function solidIr(colorRef: ColorRef, notes: NoteScope, tier: BackgroundTier): BackgroundIr | undefined {
+	const resolved: ResolvedColor | null = colorRef.resolved
+	const color = colorOption(
+		{ scheme: colorRef.scheme, ownHex: colorRef.srgb, resolvedHex: resolved?.effectiveHex ?? null },
+		notes,
+		`${tier.construct}.schemeToken`,
+		'background'
+	)
+	if (color === undefined) return undefined
+	const transparency = alphaToTransparency(resolved?.alpha)
+	return transparency === undefined ? { color } : { color, transparency }
 }
