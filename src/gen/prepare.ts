@@ -54,18 +54,35 @@ import { isHyperlinkRel } from './utils.js'
  * link to slide 3 can be authored before slide 3 is added. Both serializing callers check here,
  * before anything is built. Otherwise the link is written as a relationship to a part the package
  * never has.
+ *
+ * A layout and the master carry objects too, and an object given to `defineSlideLayout({ objects })`
+ * or `defineSlideMaster({ objects })` takes the same `hyperlink: { slide }`. This used to read the
+ * slides' relationships only, so a layout's number went unchecked and a link past the last slide
+ * reached the package from there. `extractSlides` emits no layout or master part and so passes
+ * neither, the same way it passes only slides to the three preparation steps below.
  * @param slides - every slide in the deck, in order
+ * @param layouts - every slide layout, in order; omitted when no layout part is written
+ * @param master - the deck's slide master; omitted when no master part is written
  */
-export function requireSlideLinksInDeck(slides: readonly PresSlideInternal[]): void {
-	for (const slide of slides) {
-		for (const rel of slide._rels) {
+export function requireSlideLinksInDeck(
+	slides: readonly PresSlideInternal[],
+	layouts: readonly SlideLayoutInternal[] = [],
+	master?: SlideMasterInternal
+): void {
+	const sources: Array<{ label: string; part: { _rels: PresSlideInternal['_rels'] } }> = [
+		...slides.map((slide) => ({ label: `Slide ${slide._slideNum}`, part: slide })),
+		...layouts.map((layout, idx) => ({ label: `Slide layout ${idx + 1}`, part: layout })),
+		...(master ? [{ label: 'The slide master', part: master }] : []),
+	]
+	for (const { label, part } of sources) {
+		for (const rel of part._rels) {
 			if (!isHyperlinkRel(rel) || rel.data !== 'slide') continue
 			// Negated so a target that is not a number at all passes on to the internal assertion
 			// `extractSlides` makes, rather than being blamed on the caller here.
 			if (!(Number(rel.Target) > slides.length)) continue
 			throw new InvalidOptionError(
 				'slide/link-past-last-slide',
-				`Slide ${slide._slideNum} links to slide ${String(rel.Target)}, but the deck has ${slides.length} slide${slides.length === 1 ? '' : 's'}.`
+				`${label} links to slide ${String(rel.Target)}, but the deck has ${slides.length} slide${slides.length === 1 ? '' : 's'}.`
 			)
 		}
 	}

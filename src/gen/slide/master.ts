@@ -23,7 +23,7 @@ import { SLIDE_LAYOUT_REL, THEME_REL } from '../../ooxml/rel-types.js'
 import { DEFAULT_COLOR_MAP } from '../../ooxml/st-enums.js'
 import { textAlignToken } from '../../ooxml/text-align.js'
 import { xsdBoolIfTrue } from '../../ooxml/xsd-boolean.js'
-import { slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
+import { SLIDE_MASTER_PATH, slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
@@ -371,5 +371,5 @@ export function makeXmlMasterRel(masterSlide: SlideMasterInternal, slideLayouts:
 		type: THEME_REL,
 	})
 
-	return slideObjectRelationsToXml(masterSlide, defaultRels)
+	return slideObjectRelationsToXml(masterSlide, defaultRels, SLIDE_MASTER_PATH)
 }

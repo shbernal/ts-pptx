@@ -39,6 +39,7 @@ import { resolveImageExtent } from './objects/image-extent.js'
 import { findLayoutPlaceholder } from '../define/layout-placeholder.js'
 import { collectSlideShapeIds, shapeIdCount } from './shape-ids.js'
 import { InternalError } from '../../errors.js'
+import { slidePath, targetBetweenPptSubparts } from '../opc/part-paths.js'
 import {
 	AUDIO_REL,
 	CHART_REL,
@@ -655,13 +656,20 @@ export function defaultRelIdStart(slide: PresSlideInternal | SlideLayoutInternal
  * Transforms slide relations to XML string.
  * Extra relations that are not dynamic can be passed using the 2nd arg (e.g. theme relation in master file).
  * These relations are numbered from {@link defaultRelIdStart}.
+ * `selfPath` is the emitting part's own path, and it is required because a relationship target
+ * resolves against the part that states it. An internal slide link used to be written
+ * `slide${n}.xml` whatever the part, which is right from `ppt/slides/` and names nothing from
+ * `ppt/slideLayouts/` or `ppt/slideMasters/` — so a `hyperlink: { slide }` on an object given to
+ * `defineSlideMaster({ objects })` wrote a dangling relationship.
  * @param {PresSlideInternal | SlideLayoutInternal | SlideMasterInternal} slide - slide, layout or master whose relations are being transformed
  * @param {{ target: string; type: string }[]} defaultRels - array of default relations
+ * @param {string} selfPath - the emitting part's own path, e.g. `ppt/slideLayouts/slideLayout2.xml`
  * @return {string} XML
  */
 export function slideObjectRelationsToXml(
 	slide: PresSlideInternal | SlideLayoutInternal | SlideMasterInternal,
-	defaultRels: Array<{ target: string; type: string }>
+	defaultRels: Array<{ target: string; type: string }>,
+	selfPath: string
 ): string {
 	const rels: string[] = []
 
@@ -687,7 +695,7 @@ export function slideObjectRelationsToXml(
 	slide._rels.forEach((rel: SlideRel) => {
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
-				rels.push(relationshipEl(rel.rId, SLIDE_REL, `slide${rel.Target}.xml`))
+				rels.push(relationshipEl(rel.rId, SLIDE_REL, targetBetweenPptSubparts(selfPath, slidePath(Number(rel.Target)))))
 			} else {
 				rels.push(externalHyperlinkRel(rel.rId, rel.Target))
 			}

@@ -1039,6 +1039,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A slide link on a layout or master object resolves, and is bounds-checked.** A relationship
+  target resolves against the part that states it, and the internal slide link was spelled
+  `slide2.xml` whatever the part, by a function that serves slides, layouts and the master alike.
+  From `ppt/slideLayouts/` that named `ppt/slideLayouts/slide2.xml`, a part no package has, so a
+  `hyperlink: { slide }` on an object given to `defineSlideMaster({ objects })` wrote a dangling
+  relationship the schema validator reports. The target is now derived from the emitting part's
+  own path: two parts in one directory name each other bare, as PowerPoint writes it, and
+  anything else traverses. The check that refuses a link past the last slide read the slides'
+  relationships only, so a layout's number went unchecked as well; it now reads the layouts' and
+  the master's too, and names the part in its message.
+
 - **A `data:` URI whose `base64` token is not lower-case decodes.** The check the definers run
   before embedding inline bytes lower-cased the value before looking for the header, and the
   decoder beside it searched for a lower-case `base64,` only. RFC 2397 does not case that token,

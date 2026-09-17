@@ -91,3 +91,22 @@ export function targetFromPresentation(path: string): string {
 export function targetFromPptSubpart(path: string): string {
 	return `../${targetFromPresentation(path)}`
 }
+
+/**
+ * `path` as a relationship target stated by the part at `fromPath`, where both live one level
+ * below `ppt/`.
+ *
+ * Two parts in the same directory name each other bare, and anything else traverses. That is
+ * PowerPoint's own convention: in an authored deck a slide's rels reach another slide as
+ * `slide3.xml` and its layout as `../slideLayouts/slideLayout7.xml`.
+ *
+ * It exists because the slide-link target used to be spelled `slide${n}.xml` unconditionally, by
+ * a function that also serves layouts and the master. A relationship target resolves against the
+ * part that states it, so from `ppt/slideLayouts/` that named `ppt/slideLayouts/slide1.xml` — a
+ * part no package has. Deriving the target from the emitting part's own path means the question
+ * is asked once, by the only code that can answer it.
+ */
+export function targetBetweenPptSubparts(fromPath: string, path: string): string {
+	const dir = fromPath.slice(0, fromPath.lastIndexOf('/') + 1)
+	return path.startsWith(dir) ? path.slice(dir.length) : targetFromPptSubpart(path)
+}

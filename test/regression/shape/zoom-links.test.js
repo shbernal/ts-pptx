@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
+import { slidePath } from '../../../src/gen/opc/part-paths.ts'
 import { composeFamilies } from '../../../src/families/shared.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
 
@@ -119,7 +120,8 @@ describe('Zoom relationships', () => {
 	test('a data:"slide" rel emits a .../slide relationship to slideN.xml', () => {
 		const rels = slideObjectRelationsToXml(
 			mkSlide([], { _rels: [{ type: SlideObjectType.hyperlink, data: 'slide', rId: 3, Target: '2' }] }),
-			[]
+			[],
+			slidePath(1)
 		)
 		expect(rels).toContain(
 			'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slide2.xml"'

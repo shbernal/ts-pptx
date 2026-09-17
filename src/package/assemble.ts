@@ -271,7 +271,8 @@ export async function buildPackageParts(
 	const zip = new ZipWriter()
 
 	// A link to a slide the deck does not have is refused before anything is registered or built.
-	requireSlideLinksInDeck(pres.slides)
+	// Layouts and the master carry objects too, and their links are checked with the slides'.
+	requireSlideLinksInDeck(pres.slides, pres.slideLayouts, pres.masterSlide)
 
 	// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
 	const transitionSoundRIds = registerTransitionSounds(pres.slides)

@@ -415,6 +415,50 @@ defineRegressionSuite('Hyperlink relationship registration', [
 		},
 	},
 	{
+		// A relationship target resolves against the part that states it. The slide-link target was
+		// spelled `slide${n}.xml` whatever the part, by a function that also serves layouts and the
+		// master, so from `ppt/slideLayouts/` it named `ppt/slideLayouts/slide1.xml` -- a part no
+		// package has. The bounds check below read the slides' relationships only, so a layout's
+		// number reached the package unchecked as well.
+		name: 'a slide link on a layout object resolves to the slide part, and is bounds-checked',
+		fn: async () => {
+			const author = (p, slide) => {
+				p.defineSlideMaster({
+					title: 'linking',
+					objects: [{ text: { text: 'go', options: { x: 1, y: 1, w: 2, h: 1, hyperlink: { slide } } } }],
+				})
+				p.addSlide()
+				p.addSlide()
+			}
+
+			const { zip } = await build((p) => author(p, 2))
+			const layoutRels = listEntries(zip).filter((name) => name.startsWith('ppt/slideLayouts/_rels/'))
+			const targets = []
+			for (const name of layoutRels)
+				for (const rel of relationships(await readEntry(zip, name)))
+					if (rel.type === 'slide') targets.push({ name, target: rel.target })
+			assertEqual(targets.length, 1, `one slide link from a layout: ${JSON.stringify(targets)}`)
+			assertEqual(targets[0].target, '../slides/slide2.xml', 'the target traverses out of ppt/slideLayouts/')
+			assert(listEntries(zip).includes('ppt/slides/slide2.xml'), 'and it names a part the package actually has')
+
+			// A slide names a sibling slide bare, which is what PowerPoint writes. Same rule, different
+			// part: the target is derived from the emitting part's own directory.
+			const { zip: plain } = await build((p) => {
+				p.addSlide().addText('next', { x: 1, y: 1, w: 2, h: 1, hyperlink: { slide: 2 } })
+				p.addSlide()
+			})
+			const slideRels = relationships(await readEntry(plain, relsPath(1)))
+			assert(
+				slideRels.some((r) => r.type === 'slide' && r.target === 'slide2.xml'),
+				`a slide still names its sibling bare: ${JSON.stringify(slideRels)}`
+			)
+
+			const error = await failedBuild((p) => author(p, 9))
+			assertEqual(error?.code, 'slide/link-past-last-slide', 'a layout link past the last slide is refused')
+			assertIncludes(error?.message ?? '', 'Slide layout', 'and the message names the layout, not a slide')
+		},
+	},
+	{
 		// An image refused `action` alone, which a shape accepted and the picture emitter already writes.
 		name: 'an action-only image hyperlink is written on the picture, with no relationship',
 		fn: async () => {

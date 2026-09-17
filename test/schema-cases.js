@@ -1255,6 +1255,24 @@ export default [
 		},
 	},
 	{
+		// A `hyperlink: { slide }` on an object given to `defineSlideMaster({ objects })`. The target
+		// was spelled `slide${n}.xml` whatever the emitting part, so from `ppt/slideLayouts/` it
+		// resolved to `/ppt/slideLayouts/slide2.xml` and the validator reported "Specified part does
+		// not exist in the package". Nothing covered a slide link authored anywhere but a slide.
+		name: 'slide link on a layout object',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'linking',
+					objects: [{ text: { text: 'go', options: { x: 1, y: 1, w: 2, h: 1, hyperlink: { slide: 2 } } } }],
+				})
+				p.addSlide()
+				p.addSlide()
+			})
+			await expectNoSchemaErrors(buf, 'slide-link-on-layout-object')
+		},
+	},
+	{
 		// An action-only hyperlink on a picture: a relationship-less `<a:hlinkClick action>` in the
 		// picture's `<p:cNvPr>`, the element an action button carries.
 		name: 'action-only image hyperlink',

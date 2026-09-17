@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../../src/gen/slide/object.ts'
+import { slidePath } from '../../../src/gen/opc/part-paths.ts'
 import { composeFamilies } from '../../../src/families/shared.ts'
 import { ALL_CONSTRUCT_FAMILIES } from '../../../src/entry-families.ts'
 
@@ -378,7 +379,9 @@ describe('groups', () => {
 })
 
 describe('relationships', () => {
-	const rels = (extra, defaults = []) => slideObjectRelationsToXml(mkSlide([], extra), defaults)
+	// `selfPath` decides how a slide link is spelled; these cases emit a slide's own rels.
+	const rels = (extra, defaults = [], selfPath = slidePath(1)) =>
+		slideObjectRelationsToXml(mkSlide([], extra), defaults, selfPath)
 
 	test('an online-video pair shares one Target: ECMA video first, MS media second', () => {
 		const target = 'https://y.t/?v=1&t=2'

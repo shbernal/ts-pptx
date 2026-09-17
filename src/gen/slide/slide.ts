@@ -15,7 +15,7 @@ import type { RendererTable } from './objects/shared.js'
 import { InternalError } from '../../errors.js'
 import { PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { COMMENTS_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../ooxml/rel-types.js'
-import { commentPath, notesSlidePath, slideLayoutPath, targetFromPptSubpart } from '../opc/part-paths.js'
+import { commentPath, notesSlidePath, slideLayoutPath, slidePath, targetFromPptSubpart } from '../opc/part-paths.js'
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
@@ -58,12 +58,16 @@ export function makeXmlSlideLayoutRel(layoutNumber: number, slideLayouts: SlideL
 			'slide/rel-index-out-of-range',
 			`makeXmlSlideLayoutRel: no slide layout at index ${layoutNumber - 1}`
 		)
-	return slideObjectRelationsToXml(slideLayout, [
-		{
-			target: '../slideMasters/slideMaster1.xml',
-			type: SLIDE_MASTER_REL,
-		},
-	])
+	return slideObjectRelationsToXml(
+		slideLayout,
+		[
+			{
+				target: '../slideMasters/slideMaster1.xml',
+				type: SLIDE_MASTER_REL,
+			},
+		],
+		slideLayoutPath(layoutNumber)
+	)
 }
 
 /**
@@ -99,7 +103,7 @@ export function makeXmlSlideRel(
 			type: COMMENTS_REL,
 		})
 	}
-	return slideObjectRelationsToXml(slide, defaultRels)
+	return slideObjectRelationsToXml(slide, defaultRels, slidePath(slideNumber))
 }
 
 /**
