@@ -14,7 +14,7 @@
  * `pptx-ts/read` and its consumers keep importing shapes from one place.
  */
 import { ELEMENT_NODE, OOXML_NS, firstChild, getElements, getOrAddChild, type Element } from '../oxml/dom.js'
-import { GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type PaintSurface } from './shapes/oxml.js'
+import { GROUP_AFTER_GRPSPPR, GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type PaintSurface } from './shapes/oxml.js'
 import { readBox } from './shapes/geometry.js'
 import type { ChildFrame } from './shapes/types.js'
 import { Shape } from './shapes/base.js'
@@ -85,7 +85,7 @@ export class GroupShape extends Shape {
 	}
 
 	#getOrAddGrpSpPr(): Element {
-		return getOrAddChild(this.element, 'p:grpSpPr', ['p:sp', 'p:grpSp', 'p:pic', 'p:cxnSp', 'p:graphicFrame'])
+		return getOrAddChild(this.element, 'p:grpSpPr', GROUP_AFTER_GRPSPPR)
 	}
 
 	/**

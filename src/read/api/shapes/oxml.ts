@@ -22,6 +22,7 @@ import {
 import { SHAPE_AFTER_SPPR, SPPR_AFTER_XFRM } from '../../../ooxml/sequence.js'
 
 export {
+	GROUP_AFTER_GRPSPPR,
 	GRPSPPR_AFTER_XFRM,
 	GRPSPPR_FILL_AFTER,
 	LN_FILL_AFTER,

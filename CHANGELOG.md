@@ -1039,6 +1039,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`p:grpSpPr` lands in schema order in every legal group.** The successor list it is inserted
+  before was written out by hand and named five of `CT_GroupShape`'s seven children, missing
+  `p:contentPart` (ink) and `p:extLst`. A group whose only children were one of those got its
+  `p:grpSpPr` appended *after* them, which is schema-invalid. The list is now sliced from a declared
+  `CT_GroupShape` sequence, as every other successor list in that module already is, and the type
+  joins the table the emitter's child order is checked against. Only a malformed source reaches
+  that branch, since the schema makes `p:grpSpPr` required.
+
 - **A zoom with no frame is told what is missing, not shown its own default.** A zoom is the one
   framed object with no default size, so a caller who stated no `w`/`h` was warned `frame/zero-extent`
   with "w is 0 and h is 0" -- the library's default quoted back as though they had written it. The

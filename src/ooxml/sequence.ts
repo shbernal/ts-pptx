@@ -96,6 +96,22 @@ const SP_SEQUENCE: readonly SequenceStep[] = ['p:nvSpPr', 'p:spPr', 'p:style', '
 const GRPSPPR_SEQUENCE: readonly SequenceStep[] = ['a:xfrm', FILL_CHOICES, EFFECT_CHOICES, 'a:scene3d', 'a:extLst']
 
 /**
+ * `CT_GroupShape` (`p:grpSp`, and `p:spTree`, which is the same type), in declaration order.
+ *
+ * The drawable children are one repeated choice, so they share a slot: everything that may follow
+ * `p:grpSpPr` follows it whichever of them is present. `p:contentPart` (ink) and `p:extLst` are in
+ * that tail and were missing from the hand-written list this replaces, so a group whose only
+ * children were ink or an extension list had `p:grpSpPr` appended *after* them, which is invalid.
+ * @see ECMA-376 Part 1 §19.3.1.22
+ */
+const GROUP_SHAPE_SEQUENCE: readonly SequenceStep[] = [
+	'p:nvGrpSpPr',
+	'p:grpSpPr',
+	['p:sp', 'p:grpSp', 'p:graphicFrame', 'p:cxnSp', 'p:pic', 'p:contentPart'],
+	'p:extLst',
+]
+
+/**
  * `CT_LineProperties` (`a:ln`), in declaration order.
  * @see ECMA-376 Part 1 §20.1.2.2.24
  */
@@ -173,6 +189,13 @@ export const SPPR_SP3D_AFTER = successorsOf(SPPR_SEQUENCE, 'a:sp3d')
 export const GRPSPPR_AFTER_XFRM = successorsOf(GRPSPPR_SEQUENCE, 'a:xfrm')
 /** Successors of a fill choice inside `p:grpSpPr`. */
 export const GRPSPPR_FILL_AFTER = successorsOf(GRPSPPR_SEQUENCE, 'a:solidFill')
+
+/**
+ * Successors of `p:grpSpPr` within `p:grpSp` — every drawable child, plus `p:contentPart` and
+ * `p:extLst`. Derived rather than written out, which is the whole point of this module: the
+ * literal it replaces named five of the seven.
+ */
+export const GROUP_AFTER_GRPSPPR = successorsOf(GROUP_SHAPE_SEQUENCE, 'p:grpSpPr')
 
 /**
  * Successors of `p:spPr` within `p:sp`, and equally within `p:pic` / `p:cxnSp` — see
@@ -343,6 +366,8 @@ export const CHILD_SEQUENCES: Readonly<Record<string, readonly SequenceStep[]>> 
 	'a:spPr': SPPR_SEQUENCE,
 	'cx:spPr': SPPR_SEQUENCE,
 	'p:grpSpPr': GRPSPPR_SEQUENCE,
+	'p:grpSp': GROUP_SHAPE_SEQUENCE,
+	'p:spTree': GROUP_SHAPE_SEQUENCE,
 	'p:sp': SP_SEQUENCE,
 	'a:ln': LN_SEQUENCE,
 	'a:rPr': RPR_SEQUENCE,
