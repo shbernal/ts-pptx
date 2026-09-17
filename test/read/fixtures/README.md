@@ -57,6 +57,7 @@ are stored byte-for-byte as saved by PowerPoint.
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `smartart-families.pptx` | Microsoft Office PowerPoint  | 16.0000    | 4      |
+| `smartart-hyperlink.pptx` | Microsoft Office PowerPoint | 16.0000   | 1      |
 | `tags.pptx`            | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
@@ -163,6 +164,7 @@ cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-sty
 85692cee1389f1c9ee79e253ef4d8636e136bf6c501cddb99d1171c33edc5a08  table-cell-horzoverflow.pptx
 9fb63bf437c6be154c7e791538fa7a71f1ef3bbd1ce959a33f610d3e65e259c1  table-styles.pptx
 5da5cfe0594970bc5029f1bbb1778d1b2a11894b0e178bdd476626d3acc20c25  smartart-families.pptx
+ab30899b00edc9bfaffa9b40f762a5a9ee70c9ca8a5f08aa799007fe5030cb69  smartart-hyperlink.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -369,6 +371,19 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `DiagramPoint.text` in `test/read/diagram.test.js`; the mapping those rest on is
   documented for consumers in `docs/reference/read-object-model.md`, and the findings below are the
   measurement it came from.
+- `smartart-hyperlink.pptx` — one `cycle2` diagram whose first node's text carries a
+  hyperlink (`linked-node` -> `https://example.invalid/smartart-node`), beside an unlinked
+  `plain-node`. It exists because a diagram's text lives in two parts and **each holds its own
+  relationships**: the data part's `a:hlinkClick` names a relationship of
+  `ppt/diagrams/_rels/data1.xml.rels`, and the copy PowerPoint rebuilds into the drawing cache
+  names one of `ppt/diagrams/_rels/drawing1.xml.rels`. Reading the cached text without them
+  reported a raw `@r:id` and a null url, where the same run read through the point's own
+  `textFrame` resolved, so this is the deck where the two readings can be compared.
+
+  `TextRange2` has no hyperlink surface, so the link was injected into the data part and the
+  deck handed back to PowerPoint, which rebuilt the cache with a link of its own. That round
+  trip is the evidence the construct is one PowerPoint writes, not one only we can spell.
+  Authored 2026-09-18 (`authoring/author-smartart-hyperlink.ps1`).
 
   **Findings.** Measured over all four families here plus `mixed.pptx`'s `hList1` — 90
   authored points, no exceptions:

@@ -173,7 +173,14 @@ class DrawingIndex {
 	constructor(
 		root: Element | null,
 		private readonly drawingPart: Part | null,
-		private readonly themeContext: ThemeContext
+		private readonly themeContext: ThemeContext,
+		/**
+		 * The drawing part's own relationships, so a hyperlink in the cached text resolves to a url
+		 * rather than reporting a raw `@r:id`. It used to be read without them, so the same run
+		 * answered differently depending on which of the two paths reached it: through the point's
+		 * own `textFrame` it resolved, through `drawnShape.textFrame` it did not.
+		 */
+		private readonly drawingRelationships: Relationships | null
 	) {
 		const cxnLst = root && firstChild(root, 'dgm:cxnLst')
 		for (const cxn of cxnLst ? getElements(cxnLst, 'dgm:cxn') : []) {
@@ -233,12 +240,10 @@ class DrawingIndex {
 							part: this.drawingPart,
 							modelId: arm.destId,
 							paragraphIndex: arm.destinationOrder,
-							// The drawing part's relationships are not read, so a hyperlink in the cached
-							// text reports its raw `@r:id`.
 							textFrame: new TextFrame(txBody, {
 								part: this.drawingPart,
 								ctx: this.themeContext,
-								rels: null,
+								rels: this.drawingRelationships,
 								inherit: null,
 							}),
 							element_: sp,
@@ -701,7 +706,13 @@ export class Diagram {
 	 * memo costs a consumer who mutates the drawing part's shape tree by hand.
 	 */
 	#drawingIndex(): DrawingIndex {
-		return (this.#drawing ??= new DrawingIndex(this.#root(), this.drawingPart, this.themeContext))
+		const drawing = this.drawingPart
+		return (this.#drawing ??= new DrawingIndex(
+			this.#root(),
+			drawing,
+			this.themeContext,
+			drawing ? this.opc.relationshipsFor(drawing.partName) : null
+		))
 	}
 
 	#relPart(qname: string): Part | null {

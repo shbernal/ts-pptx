@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   baked and noted under the new `slide.background.schemeToken` and `master.background.schemeToken`
   constructs.
 
+- **A hyperlink in a SmartArt drawing cache resolves to its url.** A diagram stores its text twice,
+  in `ppt/diagrams/data{N}.xml` and in the drawing cache PowerPoint rebuilds beside it, and each
+  part holds its own relationships. `DiagramPoint.drawnShape.textFrame` was built with none, so a
+  linked run reported a raw `@r:id` and a null url there while the same run read through the
+  point's own `textFrame` resolved. The drawing part's relationships are passed in, and the two
+  readings now agree. The ground truth is the new `smartart-hyperlink.pptx`, whose cache PowerPoint
+  itself rebuilt with the link.
+
 - **A shape reports its own click hyperlink, and `pptxToScript` keeps it.** `a:hlinkClick` hangs in
   two places: on a run's `a:rPr`, linking a span of text, and on a shape's `p:cNvPr`, linking the
   whole shape. Only the run's had a reader, so a shape PowerPoint's Insert > Link had linked read

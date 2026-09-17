@@ -629,3 +629,54 @@ describe('Slide.text — diagram contribution', () => {
 		)
 	})
 })
+
+describe('a hyperlink in the drawing cache resolves (smartart-hyperlink.pptx)', () => {
+	/** The one diagram of the linked-node fixture. */
+	async function linkedDiagram() {
+		const presentation = await openFixture('smartart-hyperlink')
+		for (const shape of presentation.slides[0].shapes) {
+			if (isGraphicFrame(shape) && shape.diagram) return shape.diagram
+		}
+		throw new Error('slide 1 holds no diagram')
+	}
+
+	/** Every run of `frame` that carries a link, as `text -> url (relId)`. */
+	const linkedRuns = (frame) =>
+		(frame?.paragraphs.flatMap((paragraph) => paragraph.runs) ?? [])
+			.filter((run) => run.hyperlink)
+			.map((run) => `${run.text} -> ${run.hyperlink.url} (${run.hyperlink.relId})`)
+
+	test('the two readings of one linked run agree', async () => {
+		// A diagram stores its text twice, in the data part and in the drawing cache, and the two
+		// parts hold their own relationships. The drawn text used to be read with none, so the
+		// same run reported a resolved url through the point's own `textFrame` and a raw `@r:id`
+		// with a null url through `drawnShape.textFrame`. The fixture is PowerPoint's own output:
+		// it was handed a link in the data part and rebuilt the cache with a link of its own,
+		// backed by `ppt/diagrams/_rels/drawing1.xml.rels`.
+		const diagram = await linkedDiagram()
+		const linked = diagram.points.find((point) => linkedRuns(point.textFrame).length > 0)
+		assert(linked, 'the fixture has a point whose own text frame reports a link')
+
+		const own = linkedRuns(linked.textFrame)
+		const drawn = linkedRuns(linked.drawnShape?.textFrame)
+		assertEqual(own.length, 1, 'one linked run in the data part')
+		assertEqual(drawn.length, 1, 'and one in the drawing cache')
+		assertEqual(drawn[0], own[0], 'and the two readings agree, url and all')
+		assert(own[0].includes('https://example.invalid/smartart-node'), `the url resolves; got ${own[0]}`)
+	})
+
+	test('an unlinked run reports no link, from either reading', async () => {
+		const diagram = await linkedDiagram()
+		for (const point of diagram.points) {
+			for (const frame of [point.textFrame, point.drawnShape?.textFrame]) {
+				for (const paragraph of frame?.paragraphs ?? []) {
+					for (const run of paragraph.runs) {
+						if (run.text.includes('plain-node')) {
+							assertEqual(run.hyperlink, null, 'the unlinked node carries no link')
+						}
+					}
+				}
+			}
+		}
+	})
+})
