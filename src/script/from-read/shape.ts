@@ -49,7 +49,7 @@ import {
 	type ShapeBox,
 } from './values.js'
 import { hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
-import { noteUnreadText, textFrameOptions, textRuns } from './text.js'
+import { noteUnreadText, shapeHyperlinkOption, textFrameOptions, textRuns } from './text.js'
 import type { TextFrame } from '../../read/api/text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
@@ -124,6 +124,10 @@ function autoShapeCall(shape: AutoShape, ctx: MapContext): CallIr | null {
 		...transformOptions(shape),
 		...styleOptions(shape, ctx),
 		...identityOptions(shape),
+		// The shape's own `p:cNvPr/a:hlinkClick`, distinct from a run's. Both `addShape` and
+		// `addText` take it, and neither used to receive it: a linked shape converted to an
+		// unlinked one.
+		hyperlink: shapeHyperlinkOption(shape, ctx),
 	}
 
 	if (custom) {
@@ -360,6 +364,8 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 		// `ImageBaseProps.shadow` takes the same `ShadowProps` every other shape does; a picture's
 		// shadow was read and never mapped.
 		shadow: shadowOption(shape, notes),
+		// `addImage` takes a `hyperlink` too, and a linked picture lost its link the same way.
+		hyperlink: shapeHyperlinkOption(shape, ctx),
 		// Nor was its border, though `ImageBaseProps.line` takes the same `ShapeLineProps` and the
 		// read side has always reported a picture's own `p:spPr/a:ln`. It goes through the shared
 		// `lineOption`, so a picture's outline takes the same colour ladder and the same loss notes

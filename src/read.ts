@@ -111,6 +111,7 @@ export {
 	type ChildFrame,
 	type Recolor,
 } from './read/api/shapes.js'
+export { type Hyperlink } from './read/api/hyperlink.js'
 export {
 	TextFrame,
 	Paragraph,
@@ -120,7 +121,6 @@ export {
 	type BulletDetail,
 	type BulletStyle,
 	type InheritedRunProps,
-	type RunHyperlink,
 	type LineSpacing,
 	type TextContext,
 	type TextInheritance,

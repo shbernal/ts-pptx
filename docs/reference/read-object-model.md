@@ -405,8 +405,11 @@ A run's own getters and its resolved getters answer different questions:
 
 ### Hyperlinks
 
-- [`Run.hyperlink`](api/read/classes/Run.md#hyperlink) reads `a:hlinkClick` into a [`RunHyperlink`](api/read/interfaces/RunHyperlink.md), and is `null` when the run has no link.
-- `relId` resolves through the relationships of the part that holds the text. An external target fills `url`. An internal target, such as a slide jump, fills `targetPartName`.
+`a:hlinkClick` hangs in two places, and both are read into a [`Hyperlink`](api/read/interfaces/Hyperlink.md).
+
+- [`Run.hyperlink`](api/read/classes/Run.md#hyperlink) reads the link on a span of text (`a:rPr/a:hlinkClick`), and is `null` when the run has no link.
+- [`Shape.hyperlink`](api/read/classes/Shape.md#hyperlink) reads the link on the whole shape (`p:cNvPr/a:hlinkClick`), which is what Insert > Link puts on a picture or an action button. The two are independent: a shape whose text is linked carries no shape-level link, and the reverse.
+- `relId` resolves through the relationships of the part that holds the shape or the text. An external target fills `url`. An internal target, such as a slide jump, fills `targetPartName`. An action-only link, such as a slide-show navigation button, has neither and reports its `action`.
 - Runs in shapes, table cells, speaker notes and SmartArt points all resolve their links.
 - Text in a SmartArt drawing cache is read without relationships, so its links report `relId`, `action` and `tooltip` only.
 - An empty `action` or `tooltip` attribute reads `null`.

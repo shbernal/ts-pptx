@@ -7,6 +7,7 @@
  */
 import type { Part } from '../../opc/part.js'
 import type { Relationships } from '../../opc/relationships.js'
+import { type Hyperlink, readHyperlink } from '../hyperlink.js'
 import {
 	attr,
 	boolValue,
@@ -88,25 +89,6 @@ export interface InheritedRunProps {
 	face(): string | null
 	bold(): boolean | null
 	italic(): boolean | null
-}
-
-/**
- * A run's click hyperlink (`a:rPr/a:hlinkClick`): a link on a span of text. A URL
- * link carries an external {@link url}; a slide jump carries the internal
- * {@link targetPartName} (the linked slide's part) alongside its `hlinksldjump`
- * {@link action}. `tooltip` and `relId` are surfaced when present.
- */
-export interface RunHyperlink {
-	/** External URL target (its `@r:id` resolves to a `TargetMode="External"` rel), or `null` for an internal/action-only link. */
-	url: string | null
-	/** Absolute partname of an internal target (e.g. the slide a jump points at), or `null`. */
-	targetPartName: string | null
-	/** Navigation action token (`@action`, e.g. `ppaction://hlinksldjump`), or `null` when absent/empty. */
-	action: string | null
-	/** Tooltip text (`@tooltip`), or `null` when absent/empty. */
-	tooltip: string | null
-	/** The relationship id (`@r:id`) backing the link, or `null` when the link is action-only. */
-	relId: string | null
 }
 
 /**
@@ -319,27 +301,13 @@ export class Run {
 	/**
 	 * The run's click hyperlink (`a:rPr/a:hlinkClick`), or `null` when the run
 	 * carries none. A URL link resolves its `@r:id` to the external target
-	 * ({@link RunHyperlink.url}); a slide jump resolves it to the linked slide's
-	 * partname ({@link RunHyperlink.targetPartName}). When the run is read without
+	 * ({@link Hyperlink.url}); a slide jump resolves it to the linked slide's
+	 * partname ({@link Hyperlink.targetPartName}). When the run is read without
 	 * its part's relationships (see {@link TextContext.rels}), only the raw
 	 * `@r:id`/`@action`/`@tooltip` are reported (the target stays `null`).
 	 */
-	get hyperlink(): RunHyperlink | null {
-		const rPr = this.#rPr()
-		const hlink = rPr && firstChild(rPr, 'a:hlinkClick')
-		if (!hlink) return null
-		const relId = attr(hlink, 'r:id') || null
-		const action = attr(hlink, 'action') || null
-		const tooltip = attr(hlink, 'tooltip') || null
-		let url: string | null = null
-		let targetPartName: string | null = null
-		const rels = this.context.rels
-		if (relId && rels) {
-			const rel = rels.get(relId)
-			if (rel?.targetMode === 'External') url = rel.target
-			else if (rel) targetPartName = rels.resolveTarget(relId)
-		}
-		return { url, targetPartName, action, tooltip, relId }
+	get hyperlink(): Hyperlink | null {
+		return readHyperlink(this.#rPr(), this.context.rels)
 	}
 
 	/** Latin typeface name (`a:rPr/a:latin/@typeface`), or `null` when unset. */

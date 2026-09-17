@@ -39,6 +39,7 @@ import { readGradientFill, readGradientStops, type GradientFill, type GradientSt
 import { readPictureFill, type PictureFill } from '../picture-fill.js'
 import { readPatternFill } from '../pattern-fill.js'
 import { readLineBasics, type LineBasics } from '../line.js'
+import { type Hyperlink, readHyperlink } from '../hyperlink.js'
 import { readGlow, readInnerShadow, readOuterShadow, readReflection, readSoftEdge } from './effects.js'
 import { TextFrame } from '../text.js'
 import type { ShapeHost } from './host.js'
@@ -129,6 +130,22 @@ export abstract class Shape {
 	get name(): string {
 		const cNvPr = nonVisualCNvPr(this.element)
 		return (cNvPr && attr(cNvPr, 'name')) ?? ''
+	}
+
+	/**
+	 * The shape's own click hyperlink (`p:cNvPr/a:hlinkClick`), or `null` when it carries none.
+	 *
+	 * This is the link PowerPoint's Insert > Link puts on a whole shape, as opposed to the one a
+	 * {@link Run} carries on a span of text. It is the same element, read the same way, and it had
+	 * no reader at all -- so a linked shape read back as an ordinary one and a replica lost the
+	 * link with nothing to say so. `addShape`, `addText` and `addImage` all take `hyperlink`.
+	 *
+	 * A URL link resolves its `@r:id` to the external target; a slide jump resolves it to the
+	 * linked slide's partname and reports `ppaction://hlinksldjump` as its `action`. An
+	 * action-only link (a slide-show navigation button) has no `@r:id` and resolves to neither.
+	 */
+	get hyperlink(): Hyperlink | null {
+		return readHyperlink(nonVisualCNvPr(this.element), this.host.relationships)
 	}
 
 	/**

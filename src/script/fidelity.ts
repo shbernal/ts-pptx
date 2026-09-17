@@ -231,6 +231,8 @@ export const NOTE_CONSTRUCTS = {
 	// A shape nothing places is dropped whole, so every difference on it is the loss.
 	'shape.frameUnresolved': { fields: ['*'], tiers: BOTH_TIERS },
 	'shape.hidden': { fields: ['*'], tiers: BOTH_TIERS },
+	// A shape link the shape-level `hyperlink` cannot spell is left off, so the difference lands there.
+	'shape.hyperlink': { fields: ['hyperlink'], tiers: BOTH_TIERS },
 	'shape.placeholder': { fields: ['placeholder'], tiers: BOTH_TIERS },
 	'slide.animation': { fields: [], tiers: BOTH_TIERS },
 	// Slide-scoped, so anchored at the root. The diff compares the slide's `background` as one

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A shape reports its own click hyperlink, and `pptxToScript` keeps it.** `a:hlinkClick` hangs in
+  two places: on a run's `a:rPr`, linking a span of text, and on a shape's `p:cNvPr`, linking the
+  whole shape. Only the run's had a reader, so a shape PowerPoint's Insert > Link had linked read
+  back as an ordinary one, and a replica lost the link with nothing to say so -- although
+  `addShape`, `addText` and `addImage` all take `hyperlink`. `Shape.hyperlink` reads it, and both
+  sites now go through one reader. The converter prints the url, slide-jump and show-jump forms,
+  and notes anything else under the new `shape.hyperlink` construct.
+
 - **`pptxToScript` keeps a picture's border, and `addImage({ line })` writes one.** Two halves of
   one loss. `ImageBaseProps.line` is documented with two worked examples and the picture emitter
   reads it, but the definer's option allow-list named every other option that emitter reads and not
@@ -277,6 +285,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer needs one.
 
 ### Changed
+
+- **`RunHyperlink` is now `Hyperlink`.** The interface describes `a:hlinkClick`, which is not
+  run-specific: a shape carries the same element, with the same fields and the same relationship
+  resolution. **Downstream impact:** a consumer importing `RunHyperlink` from `pptx-ts/read`
+  imports `Hyperlink` instead. Nothing about the shape of the value changes.
 
 - **The three chart time-unit options are typed as the enum they accept.** `catAxisBaseTimeUnit`,
   `catAxisMajorTimeUnit` and `catAxisMinorTimeUnit` were typed `string`, so a typo reached the

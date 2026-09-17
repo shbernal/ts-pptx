@@ -25,6 +25,8 @@
  * renders correctly, in preference to staying faithful in the IR and wrong on the slide.
  */
 import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
+import type { Hyperlink } from '../../read/api/hyperlink.js'
+import type { AnyShape } from '../../read/api/shapes.js'
 import { BODY_INSET_DEFAULTS_PT } from '../../ooxml/body-insets.js'
 import { TEXT_AUTONUM_SCHEMES, TEXT_VERTICAL } from '../../ooxml/st-enums.js'
 import { HALIGN_BY_TEXT_ALIGN } from '../../ooxml/text-align.js'
@@ -318,17 +320,71 @@ const SLIDE_JUMP = 'ppaction://hlinksldjump'
  * so the text kept its link formatting and went nowhere.
  */
 function hyperlinkOption(run: Run, ctx: MapContext): IrValue | undefined {
-	const link = run.hyperlink
+	return linkOption(run.hyperlink, ctx, RUN_LINK)
+}
+
+/** The show-jump actions `HyperlinkProps.action` spells, by the `@action` each one is written as. */
+const SHOW_JUMP_ACTIONS: ReadonlyMap<string, string> = new Map(
+	['firstslide', 'previousslide', 'nextslide', 'lastslide', 'lastslideviewed', 'endshow'].map((jump) => [
+		`ppaction://hlinkshowjump?jump=${jump}`,
+		jump,
+	])
+)
+
+/** What {@link linkOption} can spell where the link hangs, and how to describe a loss there. */
+interface LinkSite {
+	/** The fidelity note's construct key. */
+	construct: 'text.hyperlink' | 'shape.hyperlink'
+	/** Whether this site's option takes `action`; only a shape's does. */
+	takesAction: boolean
+	/** Names the thing that carries the link, opening the note. */
+	subject: string
+	/** What the option can spell, for the note. */
+	spells: string
+	/** What is lost, closing the note. */
+	loss: string
+}
+
+const RUN_LINK: LinkSite = {
+	construct: 'text.hyperlink',
+	takesAction: false,
+	subject: "this run's hyperlink",
+	spells:
+		"all a run's hyperlink option spells (a show jump, a custom show, another file, or a slide jump from a layout's shape)",
+	loss: 'the text keeps its formatting and links nowhere',
+}
+
+const SHAPE_LINK: LinkSite = {
+	construct: 'shape.hyperlink',
+	takesAction: false,
+	subject: "this shape's hyperlink",
+	spells: "all a shape's hyperlink option spells (a custom show, another file, or a slide jump from a layout's shape)",
+	loss: 'the shape is emitted without it and clicking it does nothing',
+}
+
+/** A shape's own click hyperlink, as `addShape`/`addText`/`addImage` take it. */
+export function shapeHyperlinkOption(shape: AnyShape, ctx: MapContext): IrValue | undefined {
+	return linkOption(shape.hyperlink, ctx, { ...SHAPE_LINK, takesAction: true })
+}
+
+/**
+ * One reading of a click hyperlink for both sites that carry one. A run and a shape take the same
+ * `HyperlinkProps` apart from `action`, which only a shape's is written as, so the difference is a
+ * flag rather than a second copy of the mapping.
+ */
+function linkOption(link: Hyperlink | null, ctx: MapContext, site: LinkSite): IrValue | undefined {
 	if (!link) return undefined
 	const tooltip = link.tooltip ?? undefined
 	if (link.url) return compact({ url: link.url, tooltip })
 	const slide = link.action === SLIDE_JUMP && link.targetPartName ? ctx.slideNumberOf(link.targetPartName) : null
 	if (slide !== null) return compact({ slide, tooltip })
+	const jump = link.action === null ? undefined : SHOW_JUMP_ACTIONS.get(link.action)
+	if (site.takesAction && jump !== undefined) return compact({ action: jump, tooltip })
 	ctx.notes.note(
-		'text.hyperlink',
+		site.construct,
 		'dropped',
 		'unwritable',
-		`this run's hyperlink (${link.action ?? 'an internal target'}) is neither a URL nor a jump to another slide of the deck, which is all a run's hyperlink option spells (a show jump, a custom show, another file, or a slide jump from a layout's shape), so the text keeps its formatting and links nowhere`
+		`${site.subject} (${link.action ?? 'an internal target'}) is neither a URL nor a jump to another slide of the deck, which is ${site.spells}, so ${site.loss}`
 	)
 	return undefined
 }
