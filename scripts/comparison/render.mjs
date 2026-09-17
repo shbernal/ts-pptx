@@ -1131,9 +1131,10 @@ function sectionHygiene(snapshot) {
 	if (typeof ours?.install?.bytes === 'number' && ours.install.bytes > upstream?.install?.bytes)
 		lines.push(
 			...para(
-				'ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. Its ' +
-					'`dist/` ships unminified, and a large share of that weight is documentation comments ' +
-					'that no consumer build keeps, which is why the bundled figures below are much closer ' +
+				'ts-pptx installs larger than pptxgenjs despite carrying fewer dependencies. The largest ' +
+					'share of that weight is source maps: `dist/` ships a `.js.map` beside every module, and ' +
+					'each one embeds the original TypeScript. The unminified `.js` is the next largest share. ' +
+					'No consumer build keeps either, which is why the bundled figures below are much closer ' +
 					'together than the installed ones.'
 			)
 		)
