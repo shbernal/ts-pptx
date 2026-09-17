@@ -35,6 +35,7 @@ import { EMU_PER_INCH } from '../../units.js'
 import {
 	attr,
 	boolAttr,
+	concatDrawingMLText,
 	createElement,
 	firstChild,
 	getElements,
@@ -377,9 +378,20 @@ export function removeColumn(tbl: Element, index: number): void {
 /**
  * Merge the rectangle `(row1, col1)`–`(row2, col2)` into one cell.
  *
- * The top-left cell becomes the origin and keeps its content; every other cell in the
- * rectangle becomes a covered cell — flagged, given the spans PowerPoint repeats on a
- * region's first row and column, and emptied, since a covered cell is never rendered.
+ * The top-left cell becomes the origin; every other cell in the rectangle becomes a covered cell
+ * — flagged, given the spans PowerPoint repeats on a region's first row and column, and emptied,
+ * since a covered cell is never rendered.
+ *
+ * **The covered cells' text moves into the origin**, as PowerPoint's own Merge Cells does: each
+ * covered cell's paragraphs are appended to the origin's, in row-major order, keeping their runs
+ * and their formatting. A covered cell with no text contributes nothing, so merging over empty
+ * cells does not pad the origin with blank lines. This used to discard that text outright, which
+ * is not a defensible default for an editing API: a caller who wants it gone can clear the cells
+ * first, and one who did not expect to lose it had no way back.
+ *
+ * Ground truth is `test/read/fixtures/table-merge-encoding.pptx`, whose origin holds `1,1`, `1,2`,
+ * `2,1` and `2,2` as four paragraphs, plus a COM probe for the two cases that fixture cannot show:
+ * an empty covered cell (contributes no paragraph) and a bold, coloured one (keeps both).
  *
  * A rectangle whose boundary **cuts through** an existing merge is rejected rather than
  * silently widened. Widening would be the friendlier-looking choice and the wrong one: the
@@ -426,6 +438,15 @@ export function mergeCells(tbl: Element, row1: number, col1: number, row2: numbe
 
 	const origin = grid[r1]?.[c1]
 	if (!origin) return
+	// Before the covered cells are emptied, and in row-major order over the rectangle, which is
+	// the order PowerPoint appends them in.
+	for (let r = r1; r <= r2; r++) {
+		for (let c = c1; c <= c2; c++) {
+			if (r === r1 && c === c1) continue
+			const tc = grid[r]?.[c]
+			if (tc) moveCellParagraphs(tc, origin)
+		}
+	}
 	setSpan(origin, 'gridSpan', c2 - c1 + 1)
 	setSpan(origin, 'rowSpan', r2 - r1 + 1)
 	removeAttr(origin, 'hMerge')
@@ -473,6 +494,27 @@ export function unmergeCell(tbl: Element, row: number, col: number): void {
 
 	for (const tc of [origin, ...coveredCells(grid, region)]) {
 		for (const name of ['gridSpan', 'rowSpan', 'hMerge', 'vMerge']) removeAttr(tc, name)
+	}
+}
+
+/**
+ * Append `from`'s non-empty paragraphs to `into`'s text body, moving the nodes themselves so their
+ * runs and formatting come with them.
+ *
+ * A paragraph that carries no text is dropped rather than appended as a blank line: merging a 2x2
+ * whose second cell is empty gives an origin with three paragraphs, not four. Emptiness is measured
+ * by the text, not by the markup, because the two encodings of an empty cell differ and the caller
+ * meant the same thing by both -- PowerPoint writes a bare `<a:p>` for a cell never typed into,
+ * while this library writes a run holding an empty string for `{ text: '' }`.
+ */
+function moveCellParagraphs(from: Element, into: Element): void {
+	const source = firstChild(from, 'a:txBody')
+	const target = firstChild(into, 'a:txBody')
+	if (!source || !target) return
+	for (const p of getElements(source, 'a:p')) {
+		if (concatDrawingMLText(p) === null) continue
+		source.removeChild(p)
+		target.appendChild(p)
 	}
 }
 

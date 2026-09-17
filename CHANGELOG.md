@@ -294,6 +294,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **A merge keeps the text of the cells it covers.** `Table.mergeCells` emptied every cell the merge
+  covered, destroying content the caller never asked to lose. It now moves each covered cell's
+  paragraphs into the origin, in row-major order, keeping their runs and their formatting -- which
+  is what PowerPoint's own Merge Cells does. A cell with no text contributes nothing, so merging
+  over empty cells does not pad the origin with blank lines. **Downstream impact:** a caller who
+  relied on a merge clearing the covered text clears those cells before merging. The ground truth
+  is `table-merge-encoding.pptx`, whose merged origin holds `1,1`, `1,2`, `2,1` and `2,2` as four
+  paragraphs, plus a COM probe for the empty-cell and formatted-run cases it does not cover.
+
 - **`RunHyperlink` is now `Hyperlink`.** The interface describes `a:hlinkClick`, which is not
   run-specific: a shape carries the same element, with the same fields and the same relationship
   resolution. **Downstream impact:** a consumer importing `RunHyperlink` from `pptx-ts/read`

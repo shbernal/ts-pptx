@@ -71,3 +71,52 @@ describe("structural edits through a PowerPoint merge match PowerPoint's own (ta
 		assertEqual(JSON.stringify(spanGrid(table)), JSON.stringify(spanGrid(await tableOn(2))))
 	})
 })
+
+describe('Table.mergeCells keeps the text of the cells it covers', () => {
+	test("the origin holds each covered cell's paragraphs, row-major, as PowerPoint writes them", async () => {
+		// Slide 1's merged origin holds `1,1`, `1,2`, `2,1` and `2,2` as four paragraphs: that is
+		// PowerPoint's own Merge Cells, and it is what this reproduces. Merging used to empty the
+		// covered cells outright, so the three texts other than the origin's were destroyed.
+		const powerPoint = await tableOn(0)
+		const expected = powerPoint.cell(0, 0).text
+		assertEqual(expected, '1,1\n1,2\n2,1\n2,2', 'the fixture is what this test thinks it is')
+
+		const table = await tableOn(0)
+		table.unmergeCell(0, 0)
+		// Unmerging does not put the text back -- it never left the origin -- so the covered cells
+		// are re-filled to reconstruct the pre-merge table before merging again.
+		assertEqual(table.cell(0, 0).text, expected, 'unmerging leaves the origin holding all four')
+		table.cell(0, 0).text = '1,1'
+		table.cell(0, 1).text = '1,2'
+		table.cell(1, 0).text = '2,1'
+		table.cell(1, 1).text = '2,2'
+
+		table.mergeCells(0, 0, 1, 1)
+		assertEqual(table.cell(0, 0).text, expected, 'merging gathers them back in the same order')
+		for (const [r, c] of [
+			[0, 1],
+			[1, 0],
+			[1, 1],
+		]) {
+			assertEqual(table.cell(r, c).text, '', `the covered cell (${r},${c}) is emptied`)
+		}
+		assertEqual(table.cell(2, 0).text, '3,1', 'a cell outside the rectangle is untouched')
+	})
+
+	test('an empty covered cell adds no paragraph, and formatting comes with the text', async () => {
+		// Both from a COM probe of PowerPoint's Merge Cells, which the committed fixture cannot
+		// show: its four merged cells all carry plain text. A cell with nothing in it contributes
+		// nothing rather than a blank line, and a bold, coloured run keeps both.
+		const table = await tableOn(0)
+		table.unmergeCell(0, 0)
+		table.cell(0, 0).text = 'origin'
+		table.cell(0, 1).text = ''
+		table.cell(1, 0).text = 'tail'
+		table.cell(1, 1).text = ''
+
+		table.mergeCells(0, 0, 1, 1)
+		assertEqual(table.cell(0, 0).text, 'origin\ntail', 'the two empty cells add nothing')
+		const runs = table.cell(0, 0).textFrame.paragraphs.flatMap((paragraph) => paragraph.runs)
+		assertEqual(runs.length, 2, 'two runs, one per non-empty cell')
+	})
+})

@@ -690,7 +690,10 @@ describe('Table structural edits — merging', () => {
 		const origin = table.cell(0, 0)
 		assertEqual(origin.gridSpan, 2, 'the origin spans two columns')
 		assertEqual(origin.rowSpan, 2, 'and two rows')
-		assertEqual(origin.text, 'A1', 'and keeps its content')
+		// The covered cells' text moves into the origin, row-major, as PowerPoint's Merge Cells
+		// does. This used to assert `'A1'` alone, which was the old behaviour of discarding the
+		// other three written down as an expectation.
+		assertEqual(origin.text, ['A1', 'B1', 'A2', 'B2'].join('\n'), 'and gathers what it covered, row-major')
 		assert(table.cell(0, 1).isMergeContinuation, '(0,1) is covered')
 		assert(table.cell(1, 0).isMergeContinuation, '(1,0) is covered')
 		assert(table.cell(1, 1).isMergeContinuation, '(1,1) is covered')
