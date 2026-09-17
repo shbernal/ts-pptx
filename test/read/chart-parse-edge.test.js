@@ -10,7 +10,7 @@
 
 import { describe, test } from 'vitest'
 import { Chart, Part } from '../../dist/read.js'
-import { assertEqual } from '../helpers.js'
+import { assert, assertEqual } from '../helpers.js'
 
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 const NS =
@@ -159,5 +159,64 @@ describe('ChartSeries read model — name / index / caches', () => {
 
 	test('element_ exposes the underlying c:ser element', () => {
 		assertEqual(series(`<c:idx val="0"/>`).element_.localName, 'ser', 'series element_ is c:ser')
+	})
+})
+
+describe('ChartSeries read model — whether a fill is there', () => {
+	/** A one-group chart whose single `c:ser` carries `spPrInner` as its `c:spPr`; returns that series. */
+	function seriesWithSpPr(spPrInner) {
+		return chart(
+			`<c:chart><c:plotArea><c:barChart><c:ser><c:idx val="0"/>` +
+				`<c:spPr>${spPrInner}</c:spPr>` +
+				`</c:ser></c:barChart></c:plotArea></c:chart>`
+		).series[0]
+	}
+
+	// A fill is there when the element is there, whatever colour form it holds. The check used to
+	// ask whether the decoded `colorRef` carried an `srgb` or a `scheme` value -- two of the three
+	// literal forms `readColorRef` reads, and none of the forms it does not -- so a series filled
+	// with an `a:prstClr` reported no fill at all and re-authoring it dropped a fill the file states.
+	//
+	// Synthetic rather than a PowerPoint fixture, and deliberately so: `a:prstClr` and `a:sysClr`
+	// are legal in `a:solidFill` but are not what PowerPoint's colour picker writes for a series.
+	// Every chart across chart-series-shapes.pptx and mixed.pptx uses `a:srgbClr` or `a:schemeClr`.
+	// The ground truth here is the schema, not PowerPoint's authoring behaviour, so there is no
+	// fixture to author and this file's own header already covers hand-authored chart parts.
+	test('a preset colour is a fill, and its name is reported', () => {
+		const s = seriesWithSpPr('<a:solidFill><a:prstClr val="black"/></a:solidFill>')
+		assert(s.fill, 'a prstClr fill is a fill')
+		assertEqual(s.fill.colorRef.preset, 'black', 'the preset name is reported')
+		assertEqual(s.fill.colorRef.srgb, null, 'and it is not an srgb colour')
+		assertEqual(s.fill.noFill, false, 'a coloured series is not noFill')
+	})
+
+	test('a colour form the model does not decode is still a fill', () => {
+		// `a:sysClr` has no field on `ColorRef`, so every colour field stays null -- but the file
+		// states a fill, and reporting `null` would claim it states none.
+		const s = seriesWithSpPr('<a:solidFill><a:sysClr val="windowText" lastClr="000000"/></a:solidFill>')
+		assert(s.fill, 'a sysClr fill is still a fill')
+		assertEqual(s.fill.colorRef.srgb, null, 'sysClr is not decoded into a literal')
+		assertEqual(s.fill.colorRef.scheme, null, 'nor into a scheme token')
+	})
+
+	test('the forms that already worked still do', () => {
+		const srgb = seriesWithSpPr('<a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>')
+		assertEqual(srgb.fill.colorRef.srgb, 'FF0000', 'an srgb fill')
+		const scheme = seriesWithSpPr('<a:solidFill><a:schemeClr val="accent1"/></a:solidFill>')
+		assertEqual(scheme.fill.colorRef.scheme, 'accent1', 'a scheme fill')
+		const none = seriesWithSpPr('<a:noFill/>')
+		assert(none.fill, 'an explicit noFill is reported')
+		assertEqual(none.fill.noFill, true, 'as noFill')
+	})
+
+	test('a c:spPr that declares no fill choice still reads null', () => {
+		// The regression guard: it is easy to widen the test into reporting a fill for everything.
+		assertEqual(seriesWithSpPr('<a:ln w="12700"/>').fill, null, 'a line-only c:spPr inherits the theme')
+		assertEqual(
+			chart(`<c:chart><c:plotArea><c:barChart><c:ser><c:idx val="0"/></c:ser></c:barChart></c:plotArea></c:chart>`)
+				.series[0].fill,
+			null,
+			'a series with no c:spPr at all'
+		)
 	})
 })

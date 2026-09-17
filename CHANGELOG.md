@@ -1047,6 +1047,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ChartSeries.fill` reports a fill whatever colour it holds.** Whether a fill was there was
+  decided by looking for an `srgb` or a `scheme` value on the decoded colour, which is two of the
+  three literal forms the colour reader handles and none of the forms it does not. A series filled
+  with an `a:prstClr` or an `a:sysClr` reported no fill at all, so re-authoring it dropped a fill
+  the file states. The question is now answered by the element: an `a:solidFill` or an `a:noFill`
+  is a fill, and a `c:spPr` that declares neither still reads `null`.
+
 - **`app.xml` describes the deck it was built from.** `PresentationFormat` always said
   `On-screen Show (16:9)` and `HiddenSlides` always `0`, whatever the deck. PowerPoint rewrites
   both on its first save, so nothing was broken for someone opening the file, but anything reading

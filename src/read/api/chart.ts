@@ -379,10 +379,7 @@ export class ChartSeries {
 	 */
 	get fill(): ChartFill | null {
 		const spPr = firstChild(this.ser, 'c:spPr')
-		if (!spPr) return null
-		const solid = readSolid(spPr)
-		if (solid.colorRef.srgb === null && solid.colorRef.scheme === null && !solid.noFill) return null
-		return solid
+		return spPr ? readSolidFill(spPr) : null
 	}
 
 	/**
@@ -565,16 +562,21 @@ function readNumberFormat(parent: Element): AxisNumberFormat | null {
 }
 
 /**
- * Decode the solid colour of a series' `c:spPr`, and whether its fill is explicitly suppressed via
- * `a:noFill`. The chart part carries no theme context, so the colour is left unresolved and a
- * scheme token surfaces raw rather than flattened to hex.
+ * The solid fill (or explicit `a:noFill`) a series' `c:spPr` declares, or `null` when it declares
+ * neither and the series inherits the theme. The chart part carries no theme context, so the
+ * colour is left unresolved and a scheme token surfaces raw rather than flattened to hex.
+ *
+ * Whether a fill is *there* is decided by the element, not by the colour inside it. The caller
+ * used to ask whether the decoded `colorRef` carried an `srgb` or a `scheme` value -- two of the
+ * three literal forms {@link readColorRef} reads, and none of the forms it does not, such as
+ * `a:sysClr`. So a series filled with an `a:prstClr` reported no fill at all, and re-authoring it
+ * silently dropped a fill the file states.
  */
-function readSolid(container: Element): ChartFill {
+function readSolidFill(container: Element): ChartFill | null {
 	const solidFill = firstChild(container, 'a:solidFill')
-	return {
-		colorRef: readColorRef(solidFill ? firstChildElement(solidFill) : null, null),
-		noFill: !!firstChild(container, 'a:noFill'),
-	}
+	const noFill = !!firstChild(container, 'a:noFill')
+	if (!solidFill && !noFill) return null
+	return { colorRef: readColorRef(solidFill ? firstChildElement(solidFill) : null, null), noFill }
 }
 
 /** Resolve a `c:cat`/`c:val`/`c:tx` container to its cache element (`c:numCache`/`c:strCache`/literal). */
