@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   baked and noted under the new `slide.background.schemeToken` and `master.background.schemeToken`
   constructs.
 
+- **A scatter's custom data labels emit a valid part.** Every per-point `<c:dLbl>` carried a
+  `<c:showLeaderLines val="1"/>`, which `CT_DLbl` has no room for -- it is a child of `CT_DLbls`,
+  the plural container -- so a scatter with `showLabel` and a `custom` or `customXY` format failed
+  the schema validator at every point. Desktop PowerPoint opened it anyway, and nothing covered
+  scatter custom labels, so it went unseen. A COM probe settles what it was there for: drag a
+  scatter's data label away from its point and the `c:dLbl` PowerPoint writes records the offset in
+  `c:layout/c:manualLayout` and no leader line, in any spelling, on the label or on its container.
+
+- **A scatter's `customXY` labels emit valid field ids.** `a:fld/@id` is `ST_Guid`, whose pattern
+  admits upper-case hex only, and the ids were minted lower-case: six schema errors on the one
+  chart that exercised it. The `c16:uniqueId` beside them is upper-cased too, matching PowerPoint.
+
 - **A hyperlink in a SmartArt drawing cache resolves to its url.** A diagram stores its text twice,
   in `ppt/diagrams/data{N}.xml` and in the drawing cache PowerPoint rebuilds beside it, and each
   part holds its own relationships. `DiagramPoint.drawnShape.textFrame` was built with none, so a

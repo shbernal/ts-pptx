@@ -1728,6 +1728,65 @@ export default [
 		},
 	},
 	{
+		// `scatterCustomLabel` wrote `<c:showLeaderLines val="1"/>` inside every per-point
+		// `<c:dLbl>`, and `CT_DLbl` has no such child -- it is `CT_DLbls`', the plural container's.
+		// So every scatter with `showLabel` and a `custom` or `customXY` format was invalid at every
+		// point, and desktop PowerPoint opened it anyway. Nothing covered scatter custom labels,
+		// which is why it went unseen; these three are that gap.
+		name: 'scatter chart with custom per-point data labels',
+		fn: async () => {
+			const series = [
+				{ name: 'X-Axis', values: [0, 1, 2] },
+				{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
+			]
+			for (const format of ['custom', 'customXY']) {
+				const { buf } = await build((p) => {
+					p.addSlide().addChart(series, {
+						type: ChartType.scatter,
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						showLabel: true,
+						dataLabelFormatScatter: format,
+					})
+				})
+				await expectNoSchemaErrors(buf, `scatter-custom-labels-${format}`)
+			}
+		},
+	},
+	{
+		// The same emitter, reached through a combo subchart rather than a whole chart.
+		name: 'combo chart whose scatter subchart has custom per-point data labels',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: ChartType.bar,
+							data: [{ name: 'Bars', labels: ['A', 'B', 'C'], values: [3, 5, 2] }],
+						},
+						{
+							type: ChartType.scatter,
+							data: [
+								{ name: 'X-Axis', values: [0, 1, 2] },
+								{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
+							],
+							options: {
+								secondaryValAxis: true,
+								secondaryCatAxis: true,
+								showLabel: true,
+								dataLabelFormatScatter: 'custom',
+							},
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo-scatter-custom-labels')
+		},
+	},
+	{
 		name: 'scatter chart with independent axis format codes',
 		fn: async () => {
 			const { buf } = await build((p) => {

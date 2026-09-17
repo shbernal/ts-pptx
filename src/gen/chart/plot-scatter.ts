@@ -59,8 +59,10 @@ function customXYRuns(obj: OptsChartDataInternal, opts: ChartOptsInternal): stri
 	const lang = chartLang(opts)
 	const literal = (text: string): string =>
 		el('a:r', null, [raw(voidEl('a:rPr', { lang, baseline: 0, dirty: 0 })), raw(el('a:t', null, text))])
+	// Upper-cased: `a:fld/@id` is `ST_Guid`, whose pattern is `[0-9A-F]` only, so a lower-case
+	// nibble is a schema error the validator reports at every field. `getUuid` emits lower case.
 	const field = (type: 'XVALUE' | 'YVALUE', text: string): string =>
-		el('a:fld', { id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}`, type }, [
+		el('a:fld', { id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx').toUpperCase()}}`, type }, [
 			raw(voidEl('a:rPr', { lang, baseline: 0 })),
 			raw(el('a:pPr', null, raw(voidEl('a:defRPr', null)))),
 			raw(el('a:t', null, text)),
@@ -124,10 +126,19 @@ function scatterCustomLabel(
 			spPr: TRANSPARENT_LABEL_SPPR,
 			dLblPos: dLblPosEl(opts),
 			flags: dLblShowFlags({}),
-			// Hard-coded on, unlike the four sites that read `showLeaderLines`. Left as it was: a
-			// moved custom label with no leader line is a different chart, and settling which of the
-			// two readings is right is a change of behaviour rather than of shape.
-			showLeaderLines: voidEl('c:showLeaderLines', { val: 1 }),
+			// No `c:showLeaderLines` here. It used to be written hard-coded on, and `CT_DLbl` has no
+			// such child -- it belongs to `CT_DLbls`, the plural container -- so every scatter with
+			// `showLabel` and a `custom` or `customXY` format failed the schema validator at every
+			// point. Desktop PowerPoint opened it anyway, and no schema case covered scatter custom
+			// labels, so it went unseen.
+			//
+			// It was kept on the reasoning that a moved custom label with no leader line is a
+			// different chart. A COM probe settles that: drag a scatter's data label away from its
+			// point in PowerPoint and the `c:dLbl` it writes carries `c:idx`, a
+			// `c:layout/c:manualLayout` holding the drag offset, `c:tx`, the six show flags and an
+			// `extLst` of `c15:showDataLabelsRange` and `c16:uniqueId`. No leader line, in any
+			// spelling, and none on the enclosing `c:dLbls` either. PowerPoint records nothing there,
+			// so neither do we.
 			extLst,
 		},
 		'c:dLbl'
@@ -201,7 +212,9 @@ export const makeScatterPlot: PlotBuilder = (chartType, data, opts, valAxisId, c
 			// per build, for the reason {@link customXYRuns} gives about the `a:fld` ids.
 			let labels = ''
 			if (opts.showLabel) {
-				const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
+				// Upper-cased for the same reason as the `a:fld` ids above, and to match what
+				// PowerPoint writes: `{00000001-10AD-4F37-A175-DD7655EB2B6B}`.
+				const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx').toUpperCase()
 				const isCustom = opts.dataLabelFormatScatter === 'custom' || opts.dataLabelFormatScatter === 'customXY'
 				if (dataLabels(obj)[0] && isCustom) {
 					labels += el(
