@@ -225,6 +225,11 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			'biLevel',
 			'clrChange',
 			'objectLock',
+			// `line` is read by the picture emitter (`gen/slide/objects/image.ts`) and was the one
+			// option it reads that this list left out, so `addImage({ line })` -- documented, with
+			// two examples -- was dropped here and the picture came out with no border at all. The
+			// read side was reading such a border correctly the whole time; nothing could write one.
+			'line',
 		]),
 		rotate: opt.rotate ?? 0,
 		flipV: opt.flipV || false,

@@ -360,6 +360,11 @@ function pictureCall(shape: Picture, ctx: MapContext): CallIr | null {
 		// `ImageBaseProps.shadow` takes the same `ShadowProps` every other shape does; a picture's
 		// shadow was read and never mapped.
 		shadow: shadowOption(shape, notes),
+		// Nor was its border, though `ImageBaseProps.line` takes the same `ShapeLineProps` and the
+		// read side has always reported a picture's own `p:spPr/a:ln`. It goes through the shared
+		// `lineOption`, so a picture's outline takes the same colour ladder and the same loss notes
+		// as every other shape's.
+		line: lineOption(shape, notes),
 		// `crop`, not `sizing`. Both exist and they are not interchangeable: `crop` is
 		// `a:srcRect` emitted verbatim as percentage edge insets — the exact model the read
 		// model reports — while `sizing: 'crop'` cuts a window in *displayed inches* against

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pptxToScript` keeps a picture's border, and `addImage({ line })` writes one.** Two halves of
+  one loss. `ImageBaseProps.line` is documented with two worked examples and the picture emitter
+  reads it, but the definer's option allow-list named every other option that emitter reads and not
+  this one, so the border was dropped on the way in and the picture came out with none. Nothing
+  reported it, because a dropped option looks exactly like one never passed. The converter never
+  mapped a picture's outline either, though the read side has always reported `p:spPr/a:ln`. A
+  picture's border now goes through the same `lineOption` every other shape's does, so it takes
+  the same colour ladder and the same loss notes.
+
 - **A table reports all six of its Table Style Options, and `pptxToScript` keeps them.**
   `Table.lastRowFooter`, `bandedColumns`, `firstColumnHeader` and `lastColumnFooter` join
   `firstRowHeader` and `bandedRows`. All six are `a:tblPr` flags that decide which regions of the

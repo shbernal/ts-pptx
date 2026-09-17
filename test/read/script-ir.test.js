@@ -236,6 +236,32 @@ describe('deck IR — geometry', () => {
 			'each freeform clip reports the guides and connection sites PowerPoint wrote beside its path'
 		)
 	})
+
+	test('a picture carries its own border', async () => {
+		// `ImageBaseProps.line` takes the same `ShapeLineProps` every other shape does, and a
+		// picture's `p:spPr/a:ln` has always read back -- but the mapper never emitted it, so a
+		// bordered picture converted to a borderless one with no note. (The write side dropped the
+		// option too; image-border.test.js covers that half.)
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addImage({
+				data: PNG_1X1,
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+				objectName: 'bordered',
+				line: { color: '0088CC', width: 2, dashType: 'dash' },
+			})
+		})
+		const ir = readModelToIr(presentation)
+		const call = allCalls(ir).find((candidate) => candidate.method === 'addImage')
+		assert(call, 'the picture emits an addImage call')
+		const line = call.args[0].line
+		assert(line, `the call carries a line; got ${JSON.stringify(call.args[0])}`)
+		assertEqual(line.color, '0088CC', 'its colour')
+		assertEqual(line.width, 2, 'its width')
+		assertEqual(line.dashType, 'dash', 'its dash')
+	})
 })
 
 describe('deck IR — connectors', () => {
