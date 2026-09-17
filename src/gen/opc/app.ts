@@ -7,8 +7,10 @@
 
 import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
+import type { PresLayout } from '../../types/index.js'
 import { el, raw } from '../oxml/el.js'
 import { OOXML_NS } from '../../ooxml/namespaces.js'
+import { presentationFormatLabel } from '../../ooxml/slide-size.js'
 
 /** This part is pretty-printed, one element per line, at three nesting depths. */
 const INDENT_1 = '\n\t'
@@ -33,11 +35,17 @@ function headingPair(name: string, count: number): string[] {
 
 /**
  * Creates `docProps/app.xml`
+ *
+ * `PresentationFormat` and `HiddenSlides` were constants -- `On-screen Show (16:9)` and `0` --
+ * whatever the deck. PowerPoint rewrites both on its first save, so nothing broke, but until then
+ * a 4:3 deck and a deck with hidden slides each stated something false to anything reading the
+ * package without opening it. Both are known here, so both are reported.
  * @param {PresSlideInternal[]} slides - Presenation Slides
  * @param {string} company - "Company" metadata
+ * @param {PresLayout} presLayout - the deck's slide size, which names its presentation format
  * @returns XML
  */
-export function makeXmlApp(slides: PresSlideInternal[], company: string): string {
+export function makeXmlApp(slides: PresSlideInternal[], company: string, presLayout: PresLayout): string {
 	const headingPairs = el(
 		'vt:vector',
 		{ size: 6, baseType: 'variant' },
@@ -72,11 +80,11 @@ export function makeXmlApp(slides: PresSlideInternal[], company: string): string
 				raw(el('TotalTime', null, 0, PROP)),
 				raw(el('Words', null, 0, PROP)),
 				raw(el('Application', null, 'Microsoft Office PowerPoint', PROP)),
-				raw(el('PresentationFormat', null, 'On-screen Show (16:9)', PROP)),
+				raw(el('PresentationFormat', null, presentationFormatLabel(presLayout.width, presLayout.height), PROP)),
 				raw(el('Paragraphs', null, 0, PROP)),
 				raw(el('Slides', null, slides.length, PROP)),
 				raw(el('Notes', null, slides.length, PROP)),
-				raw(el('HiddenSlides', null, 0, PROP)),
+				raw(el('HiddenSlides', null, slides.filter((slide) => slide.hidden).length, PROP)),
 				raw(el('MMClips', null, 0, PROP)),
 				raw(el('ScaleCrop', null, 'false', PROP)),
 				raw(el('HeadingPairs', null, raw(headingPairs), { ...PROP, closePrefix: INDENT_1 })),

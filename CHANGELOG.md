@@ -1039,6 +1039,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`app.xml` describes the deck it was built from.** `PresentationFormat` always said
+  `On-screen Show (16:9)` and `HiddenSlides` always `0`, whatever the deck. PowerPoint rewrites
+  both on its first save, so nothing was broken for someone opening the file, but anything reading
+  the package without opening it read the constant. The format now names the deck's own size, using
+  PowerPoint's own labels read back from decks it re-saved: `On-screen Show (4:3)`, `(16:9)` and
+  `(16:10)`, `Widescreen` for the 13.333in x 7.5in `LAYOUT_WIDE`, and `Custom` for any other size.
+  `HiddenSlides` counts the slides marked hidden. **Downstream impact:** the showcase decks are all
+  `LAYOUT_WIDE`, so their `PresentationFormat` moves from `On-screen Show (16:9)` to `Widescreen`,
+  which is what PowerPoint calls that size.
+
 - **`p:grpSpPr` lands in schema order in every legal group.** The successor list it is inserted
   before was written out by hand and named five of `CT_GroupShape`'s seven children, missing
   `p:contentPart` (ink) and `p:extLst`. A group whose only children were one of those got its

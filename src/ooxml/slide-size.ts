@@ -15,3 +15,32 @@ export const ABSENT_SLIDE_SIZE_EMU: Readonly<{ widthEmu: number; heightEmu: numb
 	widthEmu: 9144000,
 	heightEmu: 6858000,
 })
+
+/**
+ * The label PowerPoint shows for a slide size, as `docProps/app.xml`'s `<PresentationFormat>`
+ * spells it.
+ *
+ * These five strings are PowerPoint's own, read back from decks it re-saved. A deck whose
+ * `p:sldSz` carries `type="screen4x3"`, `"screen16x9"` or `"screen16x10"` gets the matching
+ * on-screen label; `LAYOUT_WIDE`'s 13.333in × 7.5in is recognised as `Widescreen` from its
+ * dimensions alone, with no `type` at all; anything else is `Custom`.
+ *
+ * Matched on exact EMU rather than on aspect ratio: the ratio of 10in × 7.5in and of
+ * 13.333in × 10in is the same, and PowerPoint labels only the first of them 4:3.
+ */
+const PRESENTATION_FORMATS: ReadonlyArray<readonly [number, number, string]> = Object.freeze([
+	[9144000, 6858000, 'On-screen Show (4:3)'],
+	[9144000, 5143500, 'On-screen Show (16:9)'],
+	[9144000, 5715000, 'On-screen Show (16:10)'],
+	[12192000, 6858000, 'Widescreen'],
+])
+
+/**
+ * `<PresentationFormat>` for a deck of this size, or `Custom` for one that matches no standard
+ * size. `app.xml` used to say `On-screen Show (16:9)` whatever the deck.
+ * @param widthEmu - the deck's slide width in EMU
+ * @param heightEmu - the deck's slide height in EMU
+ */
+export function presentationFormatLabel(widthEmu: number, heightEmu: number): string {
+	return PRESENTATION_FORMATS.find(([cx, cy]) => cx === widthEmu && cy === heightEmu)?.[2] ?? 'Custom'
+}

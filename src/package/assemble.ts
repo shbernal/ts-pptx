@@ -356,7 +356,7 @@ export async function buildPackageParts(
 				})
 			)
 			zip.add('_rels/.rels', makeXmlRootRels(hasCustomProps))
-			zip.add('docProps/app.xml', makeXmlApp(pres.slides, pres.company))
+			zip.add('docProps/app.xml', makeXmlApp(pres.slides, pres.company, pres.presLayout))
 			zip.add('docProps/core.xml', makeXmlCore(pres.title, pres.subject, pres.author, pres.revision))
 			if (hasCustomProps) {
 				zip.add('docProps/custom.xml', makeXmlCustomProperties(source.customProperties))
