@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { DefaultTheme } from 'vitepress'
-import { defineConfig } from 'vitepress'
+import { type DefaultTheme, defineConfig } from 'vitepress'
 import { mermaidFences } from '../../www/diagrams/fence'
 
 const configDir = path.dirname(fileURLToPath(import.meta.url))
