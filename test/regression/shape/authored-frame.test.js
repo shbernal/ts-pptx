@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert, captureDiagnostics } from '../../helpers.js'
+import { defineRegressionSuite, build, readEntry, assert, assertIncludes, captureDiagnostics } from '../../helpers.js'
 
 // Every definer spelled its own default for an omitted `x`/`y`/`w`/`h`, and they disagreed on what
 // "omitted" meant. `w: 0, h: 0` gave media a 2in square, a chart half the slide and an image its
@@ -44,7 +44,7 @@ defineRegressionSuite('Authored frame defaults', [
 	{
 		name: 'a slide zoom with no geometry is reported rather than silently drawn at zero size',
 		fn: async () => {
-			const { codes } = await captureDiagnostics(() =>
+			const { codes, messages } = await captureDiagnostics(() =>
 				build((p) => {
 					const host = p.addSlide()
 					p.addSlide()
@@ -52,6 +52,26 @@ defineRegressionSuite('Authored frame defaults', [
 				})
 			)
 			assert(codes.includes('frame/zero-extent'), `expected frame/zero-extent; got ${codes.join(', ')}`)
+			// A zoom is the one definer whose default extent is zero, so a caller who stated no frame
+			// used to be told "w is 0 and h is 0" -- our default quoted back as if they had written it.
+			const text = (messages ?? []).join(' | ')
+			assertIncludes(text, 'no w or h was given', `the message names what was missing; got ${text}`)
+		},
+	},
+	{
+		// The other half of the same distinction: a zero the caller did write is still quoted.
+		name: 'a zero the caller stated is quoted back, beside an axis they left out',
+		fn: async () => {
+			const { messages } = await captureDiagnostics(() =>
+				build((p) => {
+					const host = p.addSlide()
+					p.addSlide()
+					host.addSlideZoom(/** @type {any} */ ({ target: 2, w: 0, h: 2 }))
+				})
+			)
+			const text = (messages ?? []).join(' | ')
+			assertIncludes(text, 'w is 0', `the stated zero is named; got ${text}`)
+			assert(!text.includes('no default size'), `and it is not blamed on the default; got ${text}`)
 		},
 	},
 	{

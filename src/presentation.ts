@@ -70,7 +70,7 @@ import {
 	type PresentationAuthorContext,
 	type PresentationAuthors,
 } from './families/shared.js'
-import { getUuid } from './gen/utils.js'
+import { bracedGuid } from './gen/utils.js'
 import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 import { pickDefined, setOrClear } from './options-internal.js'
@@ -815,7 +815,7 @@ export default class PresentationCore {
 		const newSection: SectionInternalProps = {
 			_type: 'user',
 			_slides: [],
-			_id: `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`,
+			_id: bracedGuid(),
 			title: section.title,
 		}
 
@@ -913,7 +913,7 @@ export default class PresentationCore {
 				this._sections.push({
 					title: `Default-${this._sections.filter((sect) => sect._type === 'default').length + 1}`,
 					_type: 'default',
-					_id: `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`,
+					_id: bracedGuid(),
 					_slides: [newSlide],
 				})
 			}

@@ -45,6 +45,18 @@ export function getUuid(uuidFormat: string): string {
 }
 
 /**
+ * A fresh v4 GUID in the braced, upper-case form OOXML attributes carry:
+ * `{XXXXXXXX-XXXX-4XXX-YXXX-XXXXXXXXXXXX}`.
+ *
+ * That is the spelling `p14:section@id` and `zmPr@id` both want, and it was written out three
+ * times -- once as `zoomGuid` in `gen/define/zoom.ts` and twice inline in `presentation.ts`.
+ * Nothing forced the three to agree, so a fix to the pattern in one was a fix in one.
+ */
+export function bracedGuid(): string {
+	return `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
+}
+
+/**
  * Practical maximum length for a `p:cNvPr` object name. PowerPoint does not
  * enforce a hard spec limit, but very long names are a strong signal of a bug
  * and are unwieldy in the Selection Pane.

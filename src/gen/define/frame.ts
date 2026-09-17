@@ -34,6 +34,11 @@ function isZeroCoord(value: Coord | undefined): boolean {
  *
  * A zero `w` or `h` draws nothing along that axis, so it warns `frame/zero-extent`. A line is the
  * exception: it is drawn with no height or no width on purpose, and its definer says so.
+ *
+ * The warning distinguishes a zero the caller wrote from one that came from the definer's own
+ * default, because the two are not the same news. Zoom is the one definer whose default extent is
+ * zero, so a caller who stated no frame at all was told "w is 0 and h is 0" -- a quotation of our
+ * default, describing nothing they had written and naming nothing they could change.
  * @param given - the caller's frame
  * @param defaults - the definer's default for each axis it defaults
  * @param api - the method the caller called, opening the warning
@@ -54,9 +59,12 @@ export function resolveAuthoredFrame<K extends Axis>(
 	}
 	const zero = (['w', 'h'] as const).filter((axis) => isZeroCoord(frame[axis]))
 	if (zero.length > 0 && !zeroExtentAllowed) {
-		const stated = zero.map((axis) => `${axis} is ${String(frame[axis])}`).join(' and ')
 		const missing = zero.map((axis) => (axis === 'w' ? 'width' : 'height')).join(' and no ')
-		warn('frame/zero-extent', `${api}: ${stated}, so the object has no ${missing} and may not be visible.`)
+		const stated = (axis: 'w' | 'h'): boolean => given[axis] !== undefined && given[axis] !== null
+		const cause = zero.some(stated)
+			? zero.map((axis) => (stated(axis) ? `${axis} is ${String(frame[axis])}` : `no ${axis} was given`)).join(' and ')
+			: `no ${zero.join(' or ')} was given and this object has no default size`
+		warn('frame/zero-extent', `${api}: ${cause}, so the object has no ${missing} and may not be visible.`)
 	}
 	return frame as Record<K, Coord> & AuthoredFrame
 }

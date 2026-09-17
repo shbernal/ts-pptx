@@ -10,13 +10,14 @@ import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { SectionZoomProps, SlideZoomProps, SummaryZoomProps } from '../../types/zoom.js'
 import type {
+	ObjectOptionsInternal,
 	PresSlideInternal,
 	SectionInternalProps,
 	SlideObject,
 	ZoomInternal,
 	ZoomTileInternal,
 } from '../../types/internal.js'
-import { getNewRelId, getUuid } from '../utils.js'
+import { bracedGuid, getNewRelId } from '../utils.js'
 import { clampRangedInput, getSmartParseNumber } from '../../units-internal.js'
 import { framedObjectOptions } from './object-options.js'
 import { registerPreviewImage } from './preview-image.js'
@@ -27,11 +28,6 @@ const ZOOM_API = { slide: 'addSlideZoom', section: 'addSectionZoom', summary: 'a
 
 /** The longest `zmPr@transitionDur` written, in milliseconds: the largest signed 32-bit integer. */
 const MAX_TRANSITION_DUR_MS = 2147483647
-
-/** A fresh, braced, upper-case v4 GUID for a `zmPr@id`. */
-function zoomGuid(): string {
-	return `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
-}
 
 /** Register a `.../slide` rel (used by the fallback picture's `hlinkClick`) to a 1-based slide number. */
 function registerSlideRel(target: PresSlideInternal, slideNum: number): number {
@@ -73,22 +69,42 @@ function resolveZoomSettings(
 	return { returnToParent: !!opts.returnToParent, transitionDur }
 }
 
-/** Shared object-name + object-scaffold for all three variants. */
+/**
+ * A zoom's resolved options: its Selection Pane name and its frame.
+ *
+ * Split from {@link pushZoomObject} so the Summary grid can lay itself out inside the *resolved*
+ * frame. It used to re-read `opts.w ?? 0` and `opts.h ?? 0` for the grid while the emitted object
+ * took its frame from here, so the same input was parsed twice by two expressions that nothing
+ * held together.
+ *
+ * A zoom has no default size, unlike every other framed object: `{ w: 0, h: 0 }` is what the
+ * caller gets when they state no frame, and `resolveAuthoredFrame` says so rather than quoting the
+ * zero back at them.
+ */
+function zoomObjectOptions(
+	target: PresSlideInternal,
+	variant: ZoomInternal['variant'],
+	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps
+): ObjectOptionsInternal {
+	// A zoom's options declare no `altText`, and its emitter writes none.
+	return framedObjectOptions(target, SlideObjectType.zoom, opts, {
+		label: ZOOM_LABEL[variant],
+		kind: 'zoom',
+		api: ZOOM_API[variant],
+		defaults: { x: 0, y: 0, w: 0, h: 0 },
+	})
+}
+
+/** Shared object-scaffold for all three variants. */
 function pushZoomObject(
 	target: PresSlideInternal,
 	variant: ZoomInternal['variant'],
-	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps,
+	options: ObjectOptionsInternal,
 	zoom: Omit<ZoomInternal, 'variant'>
 ): void {
 	const newObject: SlideObject = {
 		_type: SlideObjectType.zoom,
-		// A zoom's options declare no `altText`, and its emitter writes none.
-		options: framedObjectOptions(target, SlideObjectType.zoom, opts, {
-			label: ZOOM_LABEL[variant],
-			kind: 'zoom',
-			api: ZOOM_API[variant],
-			defaults: { x: 0, y: 0, w: 0, h: 0 },
-		}),
+		options,
 		zoom: { variant, ...zoom },
 	}
 	target._slideObjects.push(newObject)
@@ -120,8 +136,8 @@ export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoo
 
 	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, slideNum)
-	const tile: ZoomTileInternal = { sldId, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
-	pushZoomObject(target, 'slide', opts, {
+	const tile: ZoomTileInternal = { sldId, previewRid, fallbackSlideRid, zmPrId: bracedGuid() }
+	pushZoomObject(target, 'slide', zoomObjectOptions(target, 'slide', opts), {
 		tiles: [tile],
 		...settings,
 	})
@@ -151,8 +167,8 @@ export function addSectionZoomDefinition(
 
 	const previewRid = registerPreviewImage(target, opts.coverImage, 'a zoom `coverImage`')
 	const fallbackSlideRid = registerSlideRel(target, firstSlide._slideNum)
-	const tile: ZoomTileInternal = { sectionId: section._id, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
-	pushZoomObject(target, 'section', opts, {
+	const tile: ZoomTileInternal = { sectionId: section._id, previewRid, fallbackSlideRid, zmPrId: bracedGuid() }
+	pushZoomObject(target, 'section', zoomObjectOptions(target, 'section', opts), {
 		tiles: [tile],
 		...settings,
 	})
@@ -179,10 +195,13 @@ export function addSummaryZoomDefinition(
 	}
 	const settings = resolveZoomSettings(opts, 'summary')
 
+	const options = zoomObjectOptions(target, 'summary', opts)
+
 	// Grid geometry (EMU). Tiles preserve the slide aspect ratio; the grid is centered in the frame,
 	// last row left-aligned (matching PowerPoint). See the Summary oracle in plan `foamy-imagining-narwhal`.
-	const frameCx = getSmartParseNumber(opts.w ?? 0, 'X', target._presLayout)
-	const frameCy = getSmartParseNumber(opts.h ?? 0, 'Y', target._presLayout)
+	// The frame is the one `options` carries, not a second reading of `opts`.
+	const frameCx = getSmartParseNumber(options.w ?? 0, 'X', target._presLayout)
+	const frameCy = getSmartParseNumber(options.h ?? 0, 'Y', target._presLayout)
 	const ar = target._presLayout.width / target._presLayout.height
 	const n = targets.length
 	const cols = Math.ceil(Math.sqrt(n))
@@ -214,12 +233,12 @@ export function addSummaryZoomDefinition(
 			sectionId: section._id,
 			previewRid,
 			fallbackSlideRid: registerSlideRel(target, firstSlide._slideNum),
-			zmPrId: zoomGuid(),
+			zmPrId: bracedGuid(),
 			grid: { x: originX + c * (tileW + gap), y: originY + r * (tileH + gap), cx: tileW, cy: tileH },
 		})
 	})
 
-	pushZoomObject(target, 'summary', opts, {
+	pushZoomObject(target, 'summary', options, {
 		tiles,
 		...settings,
 	})

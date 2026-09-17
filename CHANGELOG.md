@@ -1039,6 +1039,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A zoom with no frame is told what is missing, not shown its own default.** A zoom is the one
+  framed object with no default size, so a caller who stated no `w`/`h` was warned `frame/zero-extent`
+  with "w is 0 and h is 0" -- the library's default quoted back as though they had written it. The
+  warning now distinguishes a zero the caller stated from an axis they left out, on every definer.
+
 - **An invalid number is refused by name rather than coerced, at five more sites.** Silent
   coercion of invalid input is a footgun, and these five broke that rule in two different ways.
   - A master text-style level's `marginLeft` and `indent` reached their clamps only when they were
