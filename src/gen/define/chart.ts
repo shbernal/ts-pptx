@@ -133,7 +133,9 @@ function normalizeErrorBars(
 				)
 			}
 			const stated = width ?? size
-			if (stated != null) vetted.widthEmu = lineWidthToEmu(stated)
+			// Named as the caller spelled it, `width` or the pre-4.0 `size`, so a refusal is actionable.
+			if (stated != null)
+				vetted.widthEmu = lineWidthToEmu(stated, `${option}.${width !== undefined ? 'width' : 'size'}`)
 			return vetted
 		})
 }

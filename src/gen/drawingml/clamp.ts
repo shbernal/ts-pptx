@@ -69,6 +69,16 @@ const FONT_SIZE: ClampSpec = {
 	max: 400000,
 }
 
+/**
+ * The smallest font size `a:defRPr@sz`/`a:rPr@sz` can carry, in points, taken from the clamp
+ * itself so a caller that has to floor a computed size uses the emitter's own bound rather than
+ * a second copy of it.
+ *
+ * The measured-fit pass needs it: shrinking a cell to the 25% scale floor turns a 1pt cell into
+ * 0.2pt, and the clamp then warned about a `fontSize` the caller never wrote.
+ */
+export const MIN_FONT_SIZE_PT = FONT_SIZE.min / FONT_SIZE.perUnit
+
 const CHAR_SPACING: ClampSpec = {
 	code: 'text/char-spacing-out-of-range',
 	nonFiniteCode: 'coord/non-finite',

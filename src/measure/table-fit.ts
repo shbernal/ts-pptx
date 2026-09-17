@@ -22,6 +22,7 @@ import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
 import { CELL_INHERITED_TEXT_KEYS } from '../gen/table/cell-inherit.js'
+import { MIN_FONT_SIZE_PT } from '../gen/drawingml/clamp.js'
 import type { TableCellInternal } from '../types/internal.js'
 import type {
 	Coord,
@@ -76,9 +77,15 @@ export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu 
  * Bake a reduced font size onto a cell's runs by factor `f` (< 1). The cell's options and runs are
  * replaced with scaled copies, never edited in place. The cell itself is the stored slide model,
  * so `applyMeasuredFit` puts the authored options and runs back once the write is built.
+ *
+ * The shrunk size never goes below {@link MIN_FONT_SIZE_PT}, the emitter's own bound. It used to
+ * have no minimum, so a 1pt cell taken to the 25% scale floor was baked as 0.2pt and
+ * `clampFontSizeSz` then warned that "fontSize 0.2 is outside the valid range" -- a value the
+ * caller never stated and cannot act on. Their input was valid; only our scaling was out of range.
  */
 export function scaleCellFontSizes(cell: TableCellInternal, eff: RunOpts, f: number): void {
-	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side
+	// floor: stay on the conservative (smaller) side, then lift to the smallest size a run can carry
+	const shrink = (sizePt: number): number => Math.max(MIN_FONT_SIZE_PT, Math.floor(sizePt * f * 10) / 10)
 	const baseSize = Number(eff.fontSize ?? DEF_FONT_SIZE)
 	cell.options = { ...cell.options, fontSize: shrink(baseSize) }
 	if (Array.isArray(cell.text)) {
@@ -276,11 +283,3 @@ export function computeTableLayout(
 		heightExact: rowExact.every(Boolean),
 	}
 }
-
-/**
- * Build the `MetricsResolver` both the export pass and `measureText` use, so they
- * agree run-for-run: exact registered metrics → conservative heuristic for any
- * **named** face without exact metrics → `undefined` only for an unnamed
- * (theme-default) face that cannot be guessed. `onHeuristic` is called with each
- * named face that fell back to the heuristic (for the export pass's warn-once).
- */

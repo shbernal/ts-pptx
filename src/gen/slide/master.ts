@@ -13,7 +13,7 @@ import { createColorElement, rejectEmptyColor } from '../drawingml/color.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { buAutoNumEl, buCharEl } from '../drawingml/bullet.js'
 import { clampFontSizeSz, clampParaIndentInchesEmu, clampParaMarginInchesEmu } from '../drawingml/clamp.js'
-import { HUNDREDTHS_PER_POINT } from '../../units.js'
+import { EMU_PER_INCH, HUNDREDTHS_PER_POINT } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { defaultRelIdStart, slideObjectRelationsToXml, slideObjectToXml } from './object.js'
@@ -170,24 +170,61 @@ function masterBulletXml(
 	return '' // otherStyle: no bullet element by default
 }
 
+/**
+ * One length-valued override on a master text-style level, in EMU, or the level's default when the
+ * caller stated something we cannot use.
+ *
+ * `marginLeft` and `indent` used to reach their clamps only when they were finite numbers and fall
+ * back in silence otherwise, so `NaN`, `Infinity` and a string such as `'0.5in'` all became the
+ * Office default with nothing said -- while `fontSize` on the very same level warned for exactly
+ * those inputs. Silent coercion of invalid input is a footgun: the deck comes out wrong and the
+ * caller has nothing to go on.
+ *
+ * `undefined` is the caller stating nothing, which is not a problem and is not reported.
+ * @param stated - the caller's value, in inches
+ * @param option - the option's name, as `MasterTextStyleLevel` spells it
+ * @param fallback - the level's default, already in EMU
+ * @param resolve - the clamp that converts a usable value to EMU
+ */
+function masterLevelLength<T extends number | undefined>(
+	stated: number | undefined,
+	option: string,
+	fallback: T,
+	resolve: (inches: number) => number
+): number | T {
+	if (stated === undefined) return fallback
+	if (typeof stated === 'number' && Number.isFinite(stated)) return resolve(stated)
+	// A level with no default of its own omits the attribute; say so rather than quoting `NaN` in.
+	const kept = fallback === undefined ? 'the level default' : `${fallback / EMU_PER_INCH}in`
+	warn(
+		'master/invalid-text-style-length',
+		`master textStyles ${option} "${String(stated)}" is invalid; keeping ${kept}.`
+	)
+	return fallback
+}
+
 /** Serialize one `<a:lvlNpPr>` from its default, layering an optional caller override. */
 function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverride: MasterTextStyleLevel = {}): string {
-	const marL =
-		typeof levelOverride.marginLeft === 'number' && Number.isFinite(levelOverride.marginLeft)
-			? clampParaMarginInchesEmu(levelOverride.marginLeft, 'master textStyles marginLeft')
-			: base.marL
-	const indentEmu =
-		typeof levelOverride.indent === 'number' && Number.isFinite(levelOverride.indent)
-			? clampParaIndentInchesEmu(levelOverride.indent, 'master textStyles indent')
-			: base.indent
+	const marL = masterLevelLength(levelOverride.marginLeft, 'marginLeft', base.marL, (inches) =>
+		clampParaMarginInchesEmu(inches, 'master textStyles marginLeft')
+	)
+	const indentEmu = masterLevelLength(levelOverride.indent, 'indent', base.indent, (inches) =>
+		clampParaIndentInchesEmu(inches, 'master textStyles indent')
+	)
 	const algn = (levelOverride.align && masterAlignAttr(levelOverride.align)) || base.algn
 
 	let sz = base.sz
-	if (typeof levelOverride.fontSize === 'number') {
-		if (!Number.isFinite(levelOverride.fontSize) || levelOverride.fontSize <= 0)
+	// `!== undefined` rather than `typeof === 'number'`: a string such as `'18pt'` is as much a
+	// stated value we cannot use as `NaN` is, and it used to fall through to the default unreported.
+	if (levelOverride.fontSize !== undefined) {
+		if (
+			typeof levelOverride.fontSize !== 'number' ||
+			!Number.isFinite(levelOverride.fontSize) ||
+			levelOverride.fontSize <= 0
+		)
 			warn(
 				'master/invalid-text-style-font-size',
-				`master textStyles fontSize "${levelOverride.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
+				`master textStyles fontSize "${String(levelOverride.fontSize)}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
 		else sz = clampFontSizeSz(levelOverride.fontSize, 'master textStyles fontSize')
 	}

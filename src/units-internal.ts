@@ -532,9 +532,16 @@ function clampLengthEmu(
  * Convert a line width (points) to EMU clamped into ST_LineWidth (0..20116800 EMU,
  * i.e. 0-1584pt). Out-of-range widths make PowerPoint report the package as needing
  * repair, so clamp into range and warn.
+ *
+ * `label` is what the refusal quotes back, the way {@link clampFontSizeSz} already names the nine
+ * options that reach it. Every caller used to be reported as `line width`, so a `NaN` error-bar
+ * `width` or a series `lineSize` threw "line width must be a number from 0 to 1584" and named
+ * nothing the caller had written.
+ * @param widthPts - the caller's width in points
+ * @param label - the option as the caller spells it, e.g. `errorBars.width`
  */
-export function lineWidthToEmu(widthPts: number | string): number {
-	return clampLengthEmu(widthPts, 20116800, 'line/width-out-of-range', 'line width', '0-1584pt')
+export function lineWidthToEmu(widthPts: number | string, label = 'line width'): number {
+	return clampLengthEmu(widthPts, 20116800, 'line/width-out-of-range', label, '0-1584pt')
 }
 
 /**

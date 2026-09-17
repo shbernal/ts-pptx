@@ -5,6 +5,7 @@ import {
 	build,
 	readEntry,
 	assert,
+	assertEqual,
 	assertIncludes,
 	assertNotIncludes,
 } from '../../helpers.js'
@@ -125,6 +126,57 @@ defineRegressionSuite('Master text styles', [
 			assertIncludes(lvl1, '<a:buChar char="&#x2022;"/>', 'lvl1 falls back to the default bullet')
 			assertNotIncludes(xml, 'ZZ', 'the code never reaches the part')
 			assert(codes.includes('bullet/invalid-character-code'), `the caller is told; got ${JSON.stringify(codes)}`)
+		},
+	},
+	{
+		// `marginLeft` and `indent` reached their clamps only when they were finite numbers and fell
+		// back in silence otherwise, while `fontSize` on the same level warned for exactly those
+		// inputs. The three now answer the same way, and `fontSize` covers a non-number too.
+		name: 'an unusable marginLeft, indent or fontSize warns and keeps the level default',
+		fn: async () => {
+			const { result: xml, codes } = await captureDiagnostics(async () => {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({
+						title: 'BAD_NUMBERS',
+						textStyles: {
+							body: [{ marginLeft: Number.NaN, indent: '0.5in', fontSize: '18pt' }],
+						},
+					})
+					p.addSlide({ masterTitle: 'BAD_NUMBERS' })
+				})
+				return masterXml(zip)
+			})
+			const lvl1 = xml.slice(xml.indexOf('<a:lvl1pPr marL='), xml.indexOf('<a:lvl2pPr'))
+			assertIncludes(lvl1, 'marL="342900"', 'marginLeft keeps the level default')
+			assertIncludes(lvl1, 'indent="-342900"', 'indent keeps the level default')
+			assertIncludes(lvl1, 'sz="3200"', 'fontSize keeps the level default')
+			assertNotIncludes(xml, '0.5in', 'the stated string never reaches the part')
+			assertEqual(
+				codes.filter((code) => code === 'master/invalid-text-style-length').length,
+				2,
+				`marginLeft and indent are each reported; got ${JSON.stringify(codes)}`
+			)
+			assert(
+				codes.includes('master/invalid-text-style-font-size'),
+				`a non-number fontSize is reported too; got ${JSON.stringify(codes)}`
+			)
+		},
+	},
+	{
+		name: 'a level that states nothing is silent',
+		fn: async () => {
+			// `undefined` is the caller saying nothing, which is not a problem and must not warn.
+			const { codes } = await captureDiagnostics(async () =>
+				build((p) => {
+					p.defineSlideMaster({ title: 'QUIET', textStyles: { body: [{ fontSize: 18 }] } })
+					p.addSlide({ masterTitle: 'QUIET' })
+				})
+			)
+			assertEqual(
+				codes.filter((code) => code.startsWith('master/invalid-text-style')).length,
+				0,
+				`nothing is reported; got ${JSON.stringify(codes)}`
+			)
 		},
 	},
 	{

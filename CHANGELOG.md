@@ -1039,6 +1039,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An invalid number is refused by name rather than coerced, at five more sites.** Silent
+  coercion of invalid input is a footgun, and these five broke that rule in two different ways.
+  - A master text-style level's `marginLeft` and `indent` reached their clamps only when they were
+    finite numbers and fell back to the Office default in silence otherwise, so `NaN`, `Infinity`
+    and a string such as `'0.5in'` all vanished without a word, while `fontSize` on the same level
+    warned for exactly those inputs. All three now report, under the new
+    `master/invalid-text-style-length` code for the two lengths, and `fontSize` covers a
+    non-number too.
+  - A run inherits a paragraph option from its shape when its own value is falsy, and `NaN` is
+    falsy. So a run's `lineSpacing: NaN` quietly took the shape's spacing, while the same `NaN`
+    written on the shape was refused. `NaN` is not "unstated" and now reaches the clamp that names
+    it.
+  - `paraSpaceBefore` and `paraSpaceAfter` dropped a non-finite value with no diagnostic. The
+    guard was truthiness plus `> 0`, and its comment claimed a non-finite value was left to reach
+    the converter that refuses it; `NaN` short-circuited before it ever got there.
+  - Every `lineWidthToEmu` refusal was labelled `line width`, an option that appears nowhere in
+    the API, so a `NaN` error-bar `width` or series `lineSize` named nothing the caller had
+    written. Each caller now passes its own spelling: `line: width`, `outline.size`,
+    `series "…" errorBars.width` (or `.size`) and `lineSize`. **Downstream impact:** a consumer
+    matching on the old message text should match on the `line/width-out-of-range` or
+    `coord/non-finite` code instead.
+  - A table cell shrunk to fit had no lower bound, so a 1pt cell taken to the 25% scale floor was
+    baked as 0.2pt and the emitter then warned that "fontSize 0.2 is outside the valid range" -- a
+    value the caller never stated. The shrink now stops at the smallest size a run can carry.
+
 - **A slide link on a layout or master object resolves, and is bounds-checked.** A relationship
   target resolves against the part that states it, and the internal slide link was spelled
   `slide2.xml` whatever the part, by a function that serves slides, layouts and the master alike.

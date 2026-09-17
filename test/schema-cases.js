@@ -2430,8 +2430,10 @@ export default [
 			} finally {
 				console.warn = origWarn
 			}
+			// `line: width` is how the shape's own option is spelled. Every refusal used to say
+			// `line width` whatever the caller had set, which named no option in the API.
 			assert(
-				warnings.some((w) => w.includes('transparency')) && warnings.some((w) => w.includes('line width')),
+				warnings.some((w) => w.includes('transparency')) && warnings.some((w) => w.includes('line: width')),
 				'expected warnings for out-of-range shape options'
 			)
 			await expectNoSchemaErrors(buf, 'shape-bounded-attrs-clamped')

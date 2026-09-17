@@ -285,7 +285,11 @@ export function borderLine(
 ): string {
 	return el(
 		name,
-		{ w: lineWidthToEmu(resolveBorderWidth(border, spec.defaultWidth)), cap: spec.cap, ...spec.extraAttrs },
+		{
+			w: lineWidthToEmu(resolveBorderWidth(border, spec.defaultWidth), 'border.width'),
+			cap: spec.cap,
+			...spec.extraAttrs,
+		},
 		[
 			genXmlColorSelection(
 				solidPaint(namedColorOr(border.color, spec.defaultColor, 'border.color'), border.transparency)

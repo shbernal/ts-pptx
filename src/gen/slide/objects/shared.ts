@@ -175,12 +175,19 @@ export function cNvPrHyperlink(link: HyperlinkPropsInternal | undefined): string
  * @returns the `<a:ln>` element
  */
 export function genXmlShapeLine(ln: ShapeLineProps): string {
-	return el('a:ln', { w: mapStated(ln.width, lineWidthToEmu) ?? null, cap: ln.cap ? createLineCap(ln.cap) : null }, [
-		raw(genXmlLineFill(ln)),
-		ln.dashType ? raw(voidEl('a:prstDash', { val: resolveDash(ln.dashType, 'solid', 'line: dashType') })) : null,
-		raw(lineEndEl('a:headEnd', ln.beginArrowType, 'line: beginArrowType')),
-		raw(lineEndEl('a:tailEnd', ln.endArrowType, 'line: endArrowType')),
-	])
+	return el(
+		'a:ln',
+		{
+			w: mapStated(ln.width, (width) => lineWidthToEmu(width, 'line: width')) ?? null,
+			cap: ln.cap ? createLineCap(ln.cap) : null,
+		},
+		[
+			raw(genXmlLineFill(ln)),
+			ln.dashType ? raw(voidEl('a:prstDash', { val: resolveDash(ln.dashType, 'solid', 'line: dashType') })) : null,
+			raw(lineEndEl('a:headEnd', ln.beginArrowType, 'line: beginArrowType')),
+			raw(lineEndEl('a:tailEnd', ln.endArrowType, 'line: endArrowType')),
+		]
+	)
 }
 
 /** A box in EMU, the one argument every transform emitter takes. */

@@ -477,7 +477,7 @@ function seriesFill(opts: ChartOptsInternal, serColor: string): string {
 export function seriesStroke(opts: ChartOptsInternal, color: string, serIndex: number, sizePt?: number): string {
 	const widthPt = sizePt ?? opts.lineSize ?? 2
 	if (widthPt === 0) return el('a:ln', null, raw(voidEl('a:noFill')))
-	return el('a:ln', { w: lineWidthToEmu(widthPt), cap: createLineCap(opts.lineCap) }, [
+	return el('a:ln', { w: lineWidthToEmu(widthPt, 'lineSize'), cap: createLineCap(opts.lineCap) }, [
 		raw(chartColorLineFill(color)),
 		raw(voidEl('a:prstDash', { val: seriesDash(opts, serIndex) })),
 		raw(voidEl('a:round')),

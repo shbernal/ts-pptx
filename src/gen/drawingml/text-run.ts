@@ -204,13 +204,14 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		if (indentLevel) paragraphPropXml += ` lvl="${indentLevel}"`
 
 		// OPTION: Paragraph Spacing: Before/After
-		// `NaN` is falsy, so truthiness plus `> 0` is the whole guard. A non-finite value is
-		// deliberately left to reach `ptToHundredths`, which refuses it — dropping the attribute
-		// here instead would silently lose a spacing the caller asked for.
-		if (opts.paraSpaceBefore && opts.paraSpaceBefore > 0) {
+		// A non-finite value is left to reach `ptToHundredths`, which refuses it by name; dropping
+		// the attribute here instead would silently lose a spacing the caller asked for. The guard
+		// used to be truthiness plus `> 0`, which claimed to do that and did the opposite: `NaN` is
+		// falsy, so only `Infinity` ever got through and `NaN` was dropped without a word.
+		if (emitsParagraphSpacing(opts.paraSpaceBefore)) {
 			strXmlParaSpc += el('a:spcBef', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceBefore) })))
 		}
-		if (opts.paraSpaceAfter && opts.paraSpaceAfter > 0) {
+		if (emitsParagraphSpacing(opts.paraSpaceAfter)) {
 			strXmlParaSpc += el('a:spcAft', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceAfter) })))
 		}
 
@@ -436,7 +437,7 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		if (opts.outline && typeof opts.outline === 'object') {
 			runProps += el(
 				'a:ln',
-				{ w: lineWidthToEmu(mapStated(opts.outline.size, (size) => size) ?? 0.75) },
+				{ w: lineWidthToEmu(mapStated(opts.outline.size, (size) => size) ?? 0.75, 'outline.size') },
 				raw(genXmlColorSelection(namedColorOr(opts.outline.color, 'FFFFFF', 'outline.color')))
 			)
 		}
@@ -700,6 +701,27 @@ const PARAGRAPH_INHERITABLE_OPTIONS = ['rtlMode', 'tabStops'] as const
  * falsy test would silently swap a run's explicit `0` for the shape's value.
  */
 const PARAGRAPH_ZERO_IS_STATED = ['paraMarginLeft', 'paraIndent'] as const
+/**
+ * Whether a value is a number the caller stated and no clamp can use -- `NaN` or `±Infinity`.
+ *
+ * It exists to keep such a value out of {@link PARAGRAPH_FALSY_IS_UNSTATED}'s inheritance. `NaN`
+ * is falsy, so it read as "the caller said nothing" and took the shape's value instead of reaching
+ * the clamp, whose `nonFiniteCode` is the whole point of naming a bad input rather than guessing at
+ * one.
+ */
+const isUnusableNumber = (value: unknown): boolean => typeof value === 'number' && !Number.isFinite(value)
+
+/**
+ * Whether `<a:spcBef>`/`<a:spcAft>` is written for a paragraph spacing value.
+ *
+ * `0` and a negative value are dropped, as they always were: the schema's `a:spcPts@val` is
+ * unsigned, and `0` is how a caller says "none". A non-finite value is *not* dropped -- it is
+ * passed on so {@link ptToHundredths} refuses it by name, which is what the old guard's comment
+ * claimed to do while `NaN &&` short-circuited it into silence.
+ */
+const emitsParagraphSpacing = (value: number | undefined): value is number =>
+	value !== undefined && (isUnusableNumber(value) || value > 0)
+
 const PARAGRAPH_FALSY_IS_UNSTATED = [
 	'align',
 	'lineSpacing',
@@ -757,7 +779,12 @@ export function renderTextParagraphsXml(
 			const paraOptions = textObj.options as TextPropsOptions & Record<string, unknown>
 			const paraShapeOptions = opts as ObjectOptions & Record<string, unknown>
 			for (const key of PARAGRAPH_FALSY_IS_UNSTATED) {
-				setOrClear(paraOptions, key, paraOptions[key] || paraShapeOptions[key])
+				// `NaN` is falsy, but it is not "unstated": it is a value the caller wrote and we
+				// cannot use. Inheriting over it hid it from the clamp that refuses it by name, so a
+				// run's `lineSpacing: NaN` quietly took the shape's spacing while a shape-level `NaN`
+				// was refused -- the same input, answered two ways depending on where it was written.
+				const stated = paraOptions[key]
+				setOrClear(paraOptions, key, isUnusableNumber(stated) ? stated : stated || paraShapeOptions[key])
 			}
 			for (const key of [...PARAGRAPH_ZERO_IS_STATED, ...PARAGRAPH_INHERITABLE_OPTIONS]) {
 				setOrClear(paraOptions, key, paraOptions[key] ?? paraShapeOptions[key])

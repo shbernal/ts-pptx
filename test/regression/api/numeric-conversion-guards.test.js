@@ -303,6 +303,70 @@ defineRegressionSuite('Numeric conversion guards', [
 		},
 	},
 	{
+		// The paragraph options a run inherits from its shape were taken whenever the run's own value
+		// was falsy, and `NaN` is falsy. So a run's `NaN` quietly became the shape's value, while the
+		// same `NaN` written on the shape was refused -- one input, answered two ways depending on
+		// where it was written. `NaN` is not "unstated"; it is a value the caller wrote and no clamp
+		// can use, so it reaches the clamp that names it.
+		name: 'a NaN paragraph option on a run is refused rather than inherited from the shape',
+		fn: async () => {
+			// `lineSpacingMultiple` is a percentage, so its clamp names `percent/non-finite`.
+			const cases = [
+				['lineSpacing', 40, 'coord/non-finite'],
+				['lineSpacingMultiple', 1.5, 'percent/non-finite'],
+				['paraSpaceBefore', 10, 'coord/non-finite'],
+				['paraSpaceAfter', 10, 'coord/non-finite'],
+			]
+			for (const [option, shapeValue, code] of cases) {
+				assertEqual(
+					await codeFrom((p) =>
+						p.addSlide().addText([{ text: 'x', options: { [option]: NaN } }], { ...BOX, [option]: shapeValue })
+					),
+					code,
+					`NaN ${option} on a run, with the shape stating ${shapeValue}`
+				)
+			}
+			// The zero that means "unstated" still inherits: this is the behaviour `NaN` was riding on.
+			const { zip } = await build((p) =>
+				p.addSlide().addText([{ text: 'x', options: { lineSpacing: 0 } }], { ...BOX, lineSpacing: 40 })
+			)
+			assertIncludes(
+				await readEntry(zip, 'ppt/slides/slide1.xml'),
+				'<a:spcPts val="4000"/>',
+				"a run's 0 still takes the shape's spacing"
+			)
+		},
+	},
+	{
+		// Every refusal was labelled `line width`, whatever the caller had actually set, so the
+		// message named an option that appears in no API. Each caller now passes its own spelling.
+		name: 'a refused line width names the option the caller set',
+		fn: async () => {
+			const cases = [
+				['line: width', (p) => p.addSlide().addShape('rect', { ...BOX, line: { color: 'FF0000', width: NaN } })],
+				['outline.size', (p) => p.addSlide().addText('x', { ...BOX, outline: { color: 'FF0000', size: NaN } })],
+				[
+					'series "S" errorBars.width',
+					(p) =>
+						p.addSlide().addChart([{ name: 'S', labels: ['a'], values: [1], errorBars: { width: NaN } }], {
+							...BOX,
+							type: 'bar',
+						}),
+				],
+				[
+					'lineSize',
+					(p) =>
+						p.addSlide().addChart([{ name: 'S', labels: ['a'], values: [1] }], { ...BOX, type: 'line', lineSize: NaN }),
+				],
+			]
+			for (const [label, buildFn] of cases) {
+				const err = await caught(() => build(buildFn))
+				assertEqual(err?.code, 'coord/non-finite', `${label} is refused`)
+				assertIncludes(err?.message ?? '', label, `the message names ${label}`)
+			}
+		},
+	},
+	{
 		// A line width is a ranged number like any other: `Infinity` clamps to the top of
 		// ST_LineWidth and warns. It used to collapse to `w="0"` without a word.
 		name: 'an infinite line width clamps to the top of ST_LineWidth and warns',

@@ -164,6 +164,7 @@ export type DiagnosticCode =
 	| 'media/invalid-loop-count'
 	| 'theme/invalid-color-override'
 	| 'master/invalid-text-style-font-size'
+	| 'master/invalid-text-style-length'
 	| 'master/too-many-text-style-levels'
 	| 'notes/hyperlink-slide-unsupported'
 	// HTML table conversion
