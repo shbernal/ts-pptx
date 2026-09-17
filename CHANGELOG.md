@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A table reports all six of its Table Style Options, and `pptxToScript` keeps them.**
+  `Table.lastRowFooter`, `bandedColumns`, `firstColumnHeader` and `lastColumnFooter` join
+  `firstRowHeader` and `bandedRows`. All six are `a:tblPr` flags that decide which regions of the
+  table style paint, `addTable` writes every one of them, and the style resolver has always read all
+  six -- but four could not be read back, so a table converted to a script lost its footer row, its
+  banded columns and its first and last column emphasis with nothing to say so. The resolver now
+  reads them through the same getters, so what a caller sees and what decides the painting cannot
+  drift apart. The ground truth is a fourth table in `table-styles.pptx` with every Table Style
+  Options checkbox ticked.
+
 - **`customGeometry` reads the freeform a picture is clipped to.**
   - The getter moved from `AutoShape` to `Shape`, beside `presetGeometry`. A picture clipped to a
     freeform carries the path in its `p:spPr/a:custGeom`. PowerPoint writes that when Merge Shapes

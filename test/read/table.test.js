@@ -84,6 +84,40 @@ describe('Table read model', () => {
 			'at least one table has a header first row'
 		)
 	})
+
+	test('all six Table Style Options read back', async () => {
+		// Two of the six were readable and four were not, though the style resolver has always
+		// needed all six to decide which regions paint. `table-styles.pptx`'s fourth table has
+		// every checkbox ticked, which PowerPoint writes as
+		// `<a:tblPr firstRow="1" firstCol="1" lastRow="1" lastCol="1" bandRow="1" bandCol="1">`.
+		const presentation = await openFixture('table-styles')
+		const tables = presentation.slides
+			.flatMap((slide) => slide.shapes)
+			.filter((shape) => shape.shapeType === 'graphicFrame')
+			.filter((frame) => frame.table)
+			.map((frame) => frame.table)
+		const all = tables.find((table) => table.lastColumnFooter)
+		assert(all, `expected a table with every look flag; got ${tables.length} table(s)`)
+		for (const flag of [
+			'firstRowHeader',
+			'lastRowFooter',
+			'bandedRows',
+			'bandedColumns',
+			'firstColumnHeader',
+			'lastColumnFooter',
+		]) {
+			assertEqual(all[flag], true, `${flag} is on`)
+		}
+
+		// The regression guard, and the reason four of these were never missed: a table that ticks
+		// only two must still read the other four as false.
+		const twoOnly = tables.find((table) => table.firstRowHeader && !table.lastColumnFooter)
+		assert(twoOnly, 'expected a table with only the two original flags')
+		assertEqual(twoOnly.bandedRows, true, 'its banded rows are on')
+		assertEqual(twoOnly.lastRowFooter, false, 'and its footer row is off')
+		assertEqual(twoOnly.firstColumnHeader, false, 'and its first column is off')
+		assertEqual(twoOnly.bandedColumns, false, 'and its banded columns are off')
+	})
 })
 
 describe('Table cell editing', () => {

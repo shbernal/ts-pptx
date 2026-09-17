@@ -8,8 +8,10 @@
 #
 # NOTE: the tblStyleLst@def (default table style) CANNOT be set via COM — PowerPoint
 # exposes no equivalent of Word's SetDefaultTableStyle / Excel's DefaultTableStyle
-# (Table has only ApplyStyle + a read-only Style). Setting a non-Accent-1 default is
-# therefore a one-click manual step; see test/read/fixtures/README.md.
+# (Table has only ApplyStyle + a read-only Style). It used to be a one-click manual
+# step, which meant re-running this recipe silently reset the default to Office's own
+# Accent 1 and the fixture stopped being what the import tests read. The @def is now
+# rewritten in the saved package below, so the recipe reproduces the fixture whole.
 $ErrorActionPreference = 'Stop'
 
 # --- repo-relative roots (this recipe lives in test/read/fixtures/authoring/) ---
@@ -51,11 +53,50 @@ try {
         $top += 150
     }
 
+    # A fourth table with every Table Style Options checkbox ticked, so `a:tblPr` carries all six
+    # region flags. The other three tables give only firstRow and bandRow, which is what the read
+    # model happened to expose; the four that were unreadable had no fixture to be read from.
+    $shape = $slide.Shapes.AddTable(4, 4, 60, $top, 480, 140)
+    $shape.Name = 'tbl-all-look-flags'
+    $tbl = $shape.Table
+    $tbl.Cell(1, 1).Shape.TextFrame.TextRange.Text = 'all six regions'
+    $tbl.ApplyStyle('{F5AB1C69-6EDB-4FF4-983F-18BD219EF322}', $true)
+    $tbl.FirstRow = $true       # a:tblPr/@firstRow
+    $tbl.LastRow = $true        # a:tblPr/@lastRow
+    $tbl.FirstCol = $true       # a:tblPr/@firstCol
+    $tbl.LastCol = $true        # a:tblPr/@lastCol
+    $tbl.HorizBanding = $true   # a:tblPr/@bandRow
+    $tbl.VertBanding = $true    # a:tblPr/@bandCol
+    Write-Output "  tbl-all-look-flags     <- every Table Style Options checkbox"
+
     if (Test-Path $out) { Remove-Item $out -Force }
     $pres.SaveAs($out)
     $pres.Saved = $true
     $pres.Close()
     $pp.Quit()
+    $pp = $null
+
+    # --- set tblStyleLst@def, which COM cannot ---------------------------------
+    # A non-Office default is the point of the fixture: `importSlideMasters({ tableStyles })`
+    # has to carry the SOURCE deck's default across, and a fixture defaulting to Office's own
+    # Accent 1 cannot tell a carried-over default from an untouched one. The attribute names a
+    # style this part already defines, so nothing here invents a reference.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::Open($out, 'Update')
+    try {
+        $entry = $zip.Entries | Where-Object { $_.FullName -eq 'ppt/tableStyles.xml' }
+        $reader = New-Object System.IO.StreamReader($entry.Open())
+        $xml = $reader.ReadToEnd()
+        $reader.Close()
+        $xml = [regex]::Replace($xml, 'def="\{[0-9A-Fa-f-]+\}"', ('def="' + $STYLES[0].Guid + '"'))
+        $stream = $entry.Open()
+        $stream.SetLength(0)
+        $writer = New-Object System.IO.StreamWriter($stream, (New-Object System.Text.UTF8Encoding($false)))
+        $writer.Write($xml)
+        $writer.Flush()
+        $writer.Close()
+        Write-Output ("  tblStyleLst@def        <- {0}" -f $STYLES[0].Guid)
+    } finally { $zip.Dispose() }
 }
 finally {
     if ($pres -ne $null) { [void][Runtime.InteropServices.Marshal]::ReleaseComObject($pres) }

@@ -106,8 +106,14 @@ export function tableCall(frame: GraphicFrame, table: Table, ctx: MapContext): C
 		// flatten it into a copy on every cell, which is a different package for the same
 		// picture. See `TableProps.tableFill`.
 		tableFill: tableFill(table, ctx),
+		// All six Table Style Options, not the two the read model used to expose: each decides
+		// which region of the table style paints, and a missing one is a differently styled table.
 		hasHeader: table.firstRowHeader ? true : undefined,
+		hasFooter: table.lastRowFooter ? true : undefined,
 		hasBandedRows: table.bandedRows ? true : undefined,
+		hasBandedColumns: table.bandedColumns ? true : undefined,
+		hasFirstColumn: table.firstColumnHeader ? true : undefined,
+		hasLastColumn: table.lastColumnFooter ? true : undefined,
 		colW: columnWidths.every((w) => w === null) ? undefined : columnWidths.map((w) => inches(w ?? 0)),
 		// An auto row among fixed ones is `null`, the silent spelling of an unpinned row. It used to be
 		// `0`, which `addTable` rejects as not a height, with a `table/invalid-row-height` warning.

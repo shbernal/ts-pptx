@@ -83,13 +83,15 @@ export class Table {
 		if (!style) return null
 		return {
 			style,
+			// Through the public getters, so the six a caller reads and the six that decide which
+			// style regions paint cannot come to disagree.
 			flags: {
-				firstRow: this.#tblPrFlag('firstRow'),
-				lastRow: this.#tblPrFlag('lastRow'),
-				firstCol: this.#tblPrFlag('firstCol'),
-				lastCol: this.#tblPrFlag('lastCol'),
-				bandRow: this.#tblPrFlag('bandRow'),
-				bandCol: this.#tblPrFlag('bandCol'),
+				firstRow: this.firstRowHeader,
+				lastRow: this.lastRowFooter,
+				firstCol: this.firstColumnHeader,
+				lastCol: this.lastColumnFooter,
+				bandRow: this.bandedRows,
+				bandCol: this.bandedColumns,
 			},
 			rowCount: this.rowCount,
 			colCount: this.columnCount,
@@ -186,14 +188,43 @@ export class Table {
 		return solidFillColor(firstChild(this.tbl, 'a:tblPr'), 'a:schemeClr')
 	}
 
-	/** Whether the first row is styled as a header (`a:tblPr/@firstRow`). */
+	/**
+	 * Whether the first row is styled as a header (`a:tblPr/@firstRow`), which `addTable` writes
+	 * from `hasHeader`.
+	 *
+	 * This and the five below are PowerPoint's Table Style Options, the six flags that decide which
+	 * regions of the table style paint. Two of them were readable and four were not, although
+	 * {@link resolvedStyle} has always read all six to resolve a cell: `addTable` writes every one,
+	 * so a table read back and re-authored lost its footer row, its banded columns and its first
+	 * and last column emphasis with nothing to say so.
+	 */
 	get firstRowHeader(): boolean {
 		return this.#tblPrFlag('firstRow')
 	}
 
-	/** Whether rows are banded (`a:tblPr/@bandRow`). */
+	/** Whether the last row is styled as a footer (`a:tblPr/@lastRow`), from `addTable`'s `hasFooter`. */
+	get lastRowFooter(): boolean {
+		return this.#tblPrFlag('lastRow')
+	}
+
+	/** Whether rows are banded (`a:tblPr/@bandRow`), from `addTable`'s `hasBandedRows`. */
 	get bandedRows(): boolean {
 		return this.#tblPrFlag('bandRow')
+	}
+
+	/** Whether columns are banded (`a:tblPr/@bandCol`), from `addTable`'s `hasBandedColumns`. */
+	get bandedColumns(): boolean {
+		return this.#tblPrFlag('bandCol')
+	}
+
+	/** Whether the first column is emphasised (`a:tblPr/@firstCol`), from `addTable`'s `hasFirstColumn`. */
+	get firstColumnHeader(): boolean {
+		return this.#tblPrFlag('firstCol')
+	}
+
+	/** Whether the last column is emphasised (`a:tblPr/@lastCol`), from `addTable`'s `hasLastColumn`. */
+	get lastColumnFooter(): boolean {
+		return this.#tblPrFlag('lastCol')
 	}
 
 	/**
