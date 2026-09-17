@@ -48,6 +48,25 @@ export function toMediaDataUri(payload: string, contentType: string): string {
 }
 
 /**
+ * Where the payload begins in an inline `data:` URI, or `-1` when the value carries no
+ * `base64,` header and is therefore raw base64 already.
+ *
+ * The one reading of that header, because the two functions below used to spell it separately and
+ * disagree: {@link hasBase64Header} lower-cased before looking, {@link decodeBase64ToBytes} did
+ * not. RFC 2397 does not case the `;base64` token, so `data:image/png;BASE64,…` passed every
+ * definer's check and then decoded from index 0, which `atob` rejects. The media part was written
+ * empty, with nothing said. One search means the two can no longer answer differently.
+ *
+ * Matched with a regular expression rather than by lower-casing and indexing, because
+ * `toLowerCase` is not length-preserving for every code point and a shifted index would slice the
+ * payload apart.
+ */
+function base64PayloadStart(data: string): number {
+	const match = /base64,/i.exec(data)
+	return match ? match.index + match[0].length : -1
+}
+
+/**
  * Decode a base64 image payload (raw base64 or a `data:` URI) to bytes.
  * - tolerant of the `data:[mime];base64,` prefix and of whitespace in the payload
  * @param {string} b64 - base64 string or data URI
@@ -56,8 +75,8 @@ export function toMediaDataUri(payload: string, contentType: string): string {
 export function decodeBase64ToBytes(b64: string): Uint8Array | null {
 	if (!b64) return null
 	// Strip any `data:...;base64,` prefix and surrounding whitespace
-	const comma = b64.indexOf('base64,')
-	const payload = (comma >= 0 ? b64.slice(comma + 'base64,'.length) : b64).replace(/\s/g, '')
+	const start = base64PayloadStart(b64)
+	const payload = (start >= 0 ? b64.slice(start) : b64).replace(/\s/g, '')
 	if (!payload) return null
 	try {
 		const binary = atob(payload)
@@ -75,5 +94,5 @@ export function decodeBase64ToBytes(b64: string): Uint8Array | null {
  * @param data - the caller's `data`
  */
 export function hasBase64Header(data: unknown): boolean {
-	return typeof data === 'string' && data.toLowerCase().includes('base64,')
+	return typeof data === 'string' && base64PayloadStart(data) >= 0
 }

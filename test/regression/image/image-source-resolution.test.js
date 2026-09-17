@@ -9,6 +9,7 @@
 // in the cases below.
 
 import { describe, test } from 'vitest'
+import { decodeBase64ToBytes, hasBase64Header } from '../../../src/media/base64.ts'
 import { dataUriMediaType, imageExtensionForSource } from '../../../src/media/content-type.ts'
 import {
 	PNG_1X1,
@@ -63,7 +64,45 @@ describe('dataUriMediaType', () => {
 	})
 })
 
+describe('the base64 header', () => {
+	test('is found in any case, by both the check and the decoder', () => {
+		// RFC 2397 does not case the `;base64` token. The check lower-cased before looking and the
+		// decoder did not, so `;BASE64,` passed validation and then decoded from index 0 -- which
+		// `atob` rejects -- and the media part was written empty with nothing said.
+		const expected = decodeBase64ToBytes(PNG_1X1)
+		assert(expected !== null && expected.length > 0, 'the lower-case spelling decodes')
+		for (const spelling of ['BASE64,', 'Base64,', 'bAsE64,']) {
+			const cased = PNG_1X1.replace('base64,', spelling)
+			assert(hasBase64Header(cased), `${spelling} passes the check`)
+			const bytes = decodeBase64ToBytes(cased)
+			assert(bytes !== null, `${spelling} decodes`)
+			assertEqual(Array.from(bytes).join(), Array.from(expected).join(), `${spelling} gives the same bytes`)
+		}
+	})
+
+	test('is optional, and the payload is not re-cased', () => {
+		// The payload is case-significant, so only the search may ignore case.
+		const raw = PNG_1X1.slice(PNG_1X1.indexOf('base64,') + 'base64,'.length)
+		const fromRaw = decodeBase64ToBytes(raw)
+		const fromUri = decodeBase64ToBytes(`data:${PNG_1X1}`)
+		assert(fromRaw !== null && fromUri !== null, 'both spellings decode')
+		assertEqual(Array.from(fromRaw).join(), Array.from(fromUri).join(), 'a bare payload gives the same bytes')
+		assert(!hasBase64Header(raw), 'a bare payload states no header')
+	})
+})
+
 describe('image sources through the definers', () => {
+	test('an upper-case base64 header writes the real bytes, not an empty part', async () => {
+		const { zip } = await build((p) => {
+			p.addSlide().addImage({ data: `data:${PNG_1X1.replace('base64,', 'BASE64,')}`, x: 1, y: 1, w: 1, h: 1 })
+		})
+		const parts = await mediaParts(zip)
+		assertEqual(parts.length, 1, 'one media part')
+		const { name, bytes } = parts[0]
+		assert(bytes.length > 0, `${name} is not empty`)
+		assert(bytes[0] === 0x89 && bytes[1] === 0x50, `${name} is a PNG, not the caller's text`)
+	})
+
 	test('a metafile data URI is written as an emf or wmf part with its own content type', async () => {
 		// The type used to be read with a pattern that stopped at the `-`, so both came out as `.png`
 		// parts declared `image/png`.

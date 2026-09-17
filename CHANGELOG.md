@@ -1039,6 +1039,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A `data:` URI whose `base64` token is not lower-case decodes.** The check the definers run
+  before embedding inline bytes lower-cased the value before looking for the header, and the
+  decoder beside it searched for a lower-case `base64,` only. RFC 2397 does not case that token,
+  so `data:image/png;BASE64,…` passed validation and then decoded from the start of the URI,
+  which `atob` rejects: the media part was written empty, with nothing said. Both now ask one
+  helper where the payload begins.
+
 - **`pptxToScript` keeps a picture's clip.** A picture cropped to a preset shape, or clipped to a
   freeform, converted to a plain rectangle with no note to say so, though `addImage` takes both.
   The converter now prints `shape`, with its adjust values, for a preset other than `rect`, and
