@@ -17,6 +17,10 @@
 	"excludePrivate": true,
 	"excludeProtected": true,
 	"hideGenerator": true,
+	"hidePageHeader": true,
+	"hideBreadcrumbs": true,
+	"disableSources": true,
+	"parametersFormat": "table",
 	"intentionallyNotExported": [
 		"MediaBaseProps",
 		"OleObjectBaseProps",

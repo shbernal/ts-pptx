@@ -60,17 +60,31 @@ function titleFromMarkdown(markdown, filePath) {
 }
 
 /**
+ * The import specifier a module page documents, for a module directory's `README.md`, or `undefined`
+ * for any other page.
+ * @param {string} rel - path relative to the output directory, `/`-separated
+ * @returns {string | undefined}
+ */
+function moduleSpecifierFor(rel) {
+	const name = rel.match(/^([\w-]+)\/README\.md$/)?.[1]
+	return name === undefined ? undefined : specifierByModule.get(name)
+}
+
+/**
  * @param {string} filePath
  * @param {string} markdown
  * @returns {string}
  */
 function frontmatterFor(filePath, markdown) {
 	const rel = path.relative(outDir, filePath).split(path.sep).join('/')
-	const title = rel === 'index.md' ? 'API reference' : titleFromMarkdown(markdown, filePath)
+	const specifier = moduleSpecifierFor(rel)
+	const title = rel === 'index.md' ? 'API reference' : (specifier ?? titleFromMarkdown(markdown, filePath))
 	const summary =
 		rel === 'index.md'
 			? 'Generated TypeDoc reference for the public TsPptx package exports.'
-			: `Generated TypeDoc reference for ${title}.`
+			: specifier
+				? `Generated TypeDoc reference for the ${specifier} entry point.`
+				: `Generated TypeDoc reference for ${title}.`
 
 	return [
 		'---',
@@ -126,6 +140,9 @@ mkdirSync(outDir, { recursive: true })
 // compiler API, so TypeDoc cannot import it. See tools/api-docs/README.md. `cwd` stays the
 // repo root, which is what keeps every root-relative path in typedoc.docs.json working, and
 // TypeDoc resolves its markdown plugin relative to its own install rather than to cwd.
+// Interface properties stay headed sections, not `interfacePropertiesFormat: "table"`: a table
+// cell flattens a long property doc (lists, paragraphs, `**Default**` blocks), and the
+// `<a id="property-…">` anchors it adds would be escaped to text by `escapeVueUnsafeHtml`.
 try {
 	await runNodeBin('typedoc', ['--options', 'typedoc.docs.json'], {
 		from: path.join(root, 'tools', 'api-docs'),
@@ -200,6 +217,11 @@ function moduleSummary(sourcePath) {
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 /** @type {string[]} */
 const landingEntries = []
+/**
+ * TypeDoc module name (the entry file's basename) to the specifier it is imported from.
+ * @type {Map<string, string>}
+ */
+const specifierByModule = new Map()
 /** @type {string[]} */
 const problems = []
 for (const [subpath, target] of Object.entries(pkg.exports)) {
@@ -223,6 +245,7 @@ for (const [subpath, target] of Object.entries(pkg.exports)) {
 		)
 		continue
 	}
+	specifierByModule.set(name, specifier)
 	try {
 		landingEntries.push(
 			`- [\`${specifier}\`](${name}/README.md): ${moduleSummary(path.join(root, 'src', `${name}.ts`))}`
@@ -248,18 +271,18 @@ writeFileSync(
 	'utf8'
 )
 
-// TypeDoc's own root `README.md` is a flat list of module names, and every member page's
-// breadcrumb links it. The breadcrumbs are pointed at the landing page written above instead, and
-// the flat list is removed, so no page leads a reader to the list the landing page replaces.
+// Every generated page is given the site's anchor slugs, Vue-safe HTML and frontmatter, and each
+// module page is headed by its import specifier rather than TypeDoc's module name. TypeDoc's own
+// root `README.md`, a flat list of module names the landing page replaces, is removed; with page
+// headers and breadcrumbs hidden nothing links it, and `docs:check` reports a link that comes back.
 const typedocRootReadme = path.join(outDir, 'README.md')
 for (const filePath of walkMarkdown(outDir)) {
 	if (filePath === typedocRootReadme) continue
 	const markdown = readFileSync(filePath, 'utf8')
 	const withoutFrontmatter = markdown.startsWith('---\n') ? markdown.replace(/^---\n[\s\S]*?\n---\n+/, '') : markdown
-	/** @param {string} target @returns {string} */
-	const fromHere = (target) => path.relative(path.dirname(filePath), target).split(path.sep).join('/')
-	const body = withoutFrontmatter
-		.replaceAll(`](${fromHere(typedocRootReadme)})`, `](${fromHere(path.join(outDir, 'index.md'))})`)
+	const specifier = moduleSpecifierFor(path.relative(outDir, filePath).split(path.sep).join('/'))
+	const headed = specifier ? withoutFrontmatter.replace(/^#\s+.+$/m, `# ${specifier}`) : withoutFrontmatter
+	const body = headed
 		// TypeDoc names a member's anchor after the member (`#element_`), while the site slugs the
 		// heading it renders (`element\_` becomes `element`). A link keeps working only with the
 		// site's spelling, so every in-reference anchor is put through the same slug.

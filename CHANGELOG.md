@@ -259,6 +259,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **API reference pages are shorter and name each module by its import specifier.**
+  - No `Defined in` source lines, and no repeated page header or breadcrumb trail above each
+    page's heading.
+  - Function parameters are a table of name, type and description.
+  - A module page is titled and headed by the specifier it is imported from (`pptx-ts/read`,
+    `pptx-ts`), matching the landing page, instead of the entry file's name (`read`, `index`).
+  - Interface properties stay headed sections: a table cell would flatten their lists,
+    paragraphs and defaults into one line.
+
 - **Breaking: `PptxSlideElement.id` is typed `number`.** It was `string | number`, but inspection
   only ever produced a number: the shape's `p:cNvPr/@id`, or `zIndex + 1` when the attribute is
   missing. **Migration:** drop any branch on a string id; code that treated it as a number is
