@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { DefaultTheme } from 'vitepress'
 import { defineConfig } from 'vitepress'
 import { mermaidFences } from '../../www/diagrams/fence'
 
@@ -44,6 +45,20 @@ const sidebar = docsConfig.navigation.map((group) => ({
 	})),
 }))
 
+// `docs:api` writes the API reference's own sidebar next to the pages it generates. Without it the
+// API pages fall back to the guide sidebar rather than an empty one.
+function readApiSidebar(): DefaultTheme.SidebarItem[] | undefined {
+	try {
+		return JSON.parse(
+			readFileSync(path.join(docsDir, 'reference', 'api', 'sidebar.json'), 'utf8')
+		) as DefaultTheme.SidebarItem[]
+	} catch {
+		return undefined
+	}
+}
+
+const apiSidebar = readApiSidebar()
+
 export default defineConfig({
 	base: process.env.VITEPRESS_BASE ?? '/ts-pptx/',
 	cleanUrls: true,
@@ -65,7 +80,8 @@ export default defineConfig({
 		search: {
 			provider: 'local',
 		},
-		sidebar,
+		// VitePress picks the longest key that prefixes the route, so the API key wins under it.
+		sidebar: apiSidebar ? { '/reference/api/': apiSidebar, '/': sidebar } : { '/': sidebar },
 	},
 	vite: {
 		build: {

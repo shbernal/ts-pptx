@@ -259,6 +259,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The API reference has its own sidebar.**
+  - Under `/reference/api/`, the site sidebar lists every entry point as a collapsed group, and
+    each group splits its members by kind (classes, interfaces, functions, and so on), in the
+    order the module page lists them. Before, the sidebar linked only the landing page.
+  - Guide pages keep the guide sidebar.
+
 - **API reference pages are shorter and name each module by its import specifier.**
   - No `Defined in` source lines, and no repeated page header or breadcrumb trail above each
     page's heading.

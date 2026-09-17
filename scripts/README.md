@@ -46,7 +46,8 @@ are in every aggregate the repo has.
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `coverage-project.mjs` | Library | Re-expresses the browser lane's hits in the Node report's own instrumentation maps, so merging can move counts but never the denominator | `coverage-merge.mjs` |
-| `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
+| `docs-api.mjs` | Generator | TypeDoc → markdown API pages, and `docs/reference/api/sidebar.json`, the site sidebar for them | `docs:check`, `docs:prepare` |
+| `docs-api-sidebar.mjs` | Library | Builds the API reference sidebar from each module's `README.md`, failing on a page it would leave out | `docs-api.mjs` |
 | `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`, so `check:core`; twice more inside `docs:build` (source tree, then build), which is in `verify:full` and `docs.yml` |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing, the docs walk, the repository-only directories, the site's base URL and page routes, shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
@@ -148,7 +149,7 @@ That indirection is gone too; every recipe there now resolves from its own locat
 
 **A shebang marks an entry point.** Anything invoked as a command — by `package.json`,
 `lefthook.yml`, `playwright.config.ts` or a human — starts with `#!/usr/bin/env node`.
-The five library modules (`docs-frontmatter`, `pack-utils`, `pptx-parts`, `ratchet-utils`, `script-utils`)
+The six library modules (`docs-api-sidebar`, `docs-frontmatter`, `pack-utils`, `pptx-parts`, `ratchet-utils`, `script-utils`)
 have none, so the first line tells you which kind of file you opened. The **exec bit is
 deliberately not part of this**: every script is invoked as `node scripts/x.mjs`, never
 `./scripts/x.mjs`, so all files are tracked `100644` and `core.filemode` is `false` on

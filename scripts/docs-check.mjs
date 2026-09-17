@@ -49,10 +49,11 @@ const NAV_EXEMPT = new Set(['doc-index', 'index'])
 /**
  * Generated page *trees*, exempt from the navigation check by prefix rather than by name.
  *
- * TypeDoc emits a few hundred pages under `docs/reference/api/`, and the sidebar links the
- * one entry point (`reference/api/index`) rather than every symbol — so these are exempt
- * from the orphan direction but must stay eligible for the nav direction, which is why they
- * are not in `NAV_EXEMPT` above.
+ * TypeDoc emits a few hundred pages under `docs/reference/api/`. `docs/docs.json` lists only
+ * the landing page (`reference/api/index`); the site's sidebar for the rest is written by
+ * `docs:api` itself, which fails when it leaves a generated page out. So these are exempt
+ * from the orphan direction here but must stay eligible for the nav direction, which is why
+ * they are not in `NAV_EXEMPT` above.
  *
  * The prefix form is also what keeps the verdict a property of the repo rather than of the
  * machine, the same concern `scripts/path-refs.mjs` documents at length: this tree is

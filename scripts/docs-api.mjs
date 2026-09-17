@@ -2,13 +2,15 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { apiSidebar } from './docs-api-sidebar.mjs'
 import { siteHeadingSlug } from './docs-frontmatter.mjs'
 import { ROOT, parseCliOrExit, repoRel, runNodeBin } from './script-utils.mjs'
 
 // No flags, but `--help` still has to answer and `--bogus` still has to report itself in one
 // line -- and both have to happen BEFORE the generator writes anything.
 parseCliOrExit(process.argv.slice(2), {
-	usage: `Generate the TypeDoc markdown reference into docs/reference/api.
+	usage: `Generate the TypeDoc markdown reference into docs/reference/api, and the site sidebar
+for it into docs/reference/api/sidebar.json.
 
   pnpm run docs:api
 
@@ -293,3 +295,17 @@ for (const filePath of walkMarkdown(outDir)) {
 	writeFileSync(filePath, `${frontmatterFor(filePath, safeBody)}${safeBody}`, 'utf8')
 }
 rmSync(typedocRootReadme, { force: true })
+
+// The API reference's own sidebar, which `docs/.vitepress/config.mts` serves under `/reference/api/`.
+try {
+	const sidebar = apiSidebar(
+		outDir,
+		[...specifierByModule].map(([name, specifier]) => ({ name, specifier }))
+	)
+	writeFileSync(path.join(outDir, 'sidebar.json'), `${JSON.stringify(sidebar, null, '\t')}\n`, 'utf8')
+} catch (error) {
+	for (const problem of (error instanceof Error ? error.message : String(error)).split('\n')) {
+		console.error(`docs:api: ${problem}`)
+	}
+	process.exit(1)
+}
