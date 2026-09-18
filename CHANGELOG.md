@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   baked and noted under the new `slide.background.schemeToken` and `master.background.schemeToken`
   constructs.
 
+- **A combo chart's legend entries are numbered by the measured type rank.** Once a combo's
+  subcharts sit on different axis groups, PowerPoint lists their series by chart type rather than
+  in the order given, and deleting an entry addresses it by position -- so a wrong order deletes
+  the wrong entry. Only bar's lead over line and scatter had been measured, and everything else
+  kept its given order. Every ordered pair has now been measured in both directions, off PowerPoint
+  renders read by swatch colour: the rank is area, bar, then line and radar tied, then scatter,
+  with the primary axis group listed first between two of equal rank. Bubble cannot be in a combo
+  at all, so it has no rank. **Downstream impact:** a combo holding an area or radar subchart on a
+  second axis group, with another subchart hiding its legend entries, previously deleted the wrong
+  ones.
+
 - **A scatter's custom data labels emit a valid part.** Every per-point `<c:dLbl>` carried a
   `<c:showLeaderLines val="1"/>`, which `CT_DLbl` has no room for -- it is a child of `CT_DLbls`,
   the plural container -- so a scatter with `showLabel` and a `custom` or `customXY` format failed

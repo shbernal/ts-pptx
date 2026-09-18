@@ -441,18 +441,49 @@ function makeDataTableXml(rel: SlideRelChart): string {
 }
 
 /**
+ * Where each chart type sits in the order a combo chart's legend lists its series, once the
+ * subcharts are on different axis groups. Lower is listed first, and an equal rank is a real tie.
+ *
+ * Measured off PowerPoint renders, every ordered pair in both directions, by
+ * `test/read/fixtures/authoring/probe-combo-legend-order.mjs` and its reader. The rank beats the
+ * axis group in every pairing: area leads bar even with bar on the primary axis. Line and radar
+ * tie -- both orderings of that pair listed the *other* subchart first, which is not a rank -- and
+ * the tie is broken by the axis group below.
+ *
+ * Bubble is absent because it cannot be in a combo at all: `addChart` refuses it, citing
+ * PowerPoint, so there is no pairing to rank.
+ */
+const LEGEND_TYPE_RANK: ReadonlyMap<ChartType, number> = new Map([
+	[ChartType.area, 0],
+	[ChartType.bar, 1],
+	[ChartType.line, 2],
+	[ChartType.radar, 2],
+	[ChartType.scatter, 3],
+])
+
+/**
  * A combo chart's subcharts in the order its legend lists their series.
  *
  * Read off PowerPoint renders (`test/read/fixtures/authoring/probe-combo-legend-order.mjs`). On one
  * axis group the legend follows the order the subcharts are given in, which is plotArea order. Once
- * they sit on different axis groups the bar subcharts come first, whichever axis they are on. How the
- * other types rank against each other there is not measured, so they keep their given order.
+ * they sit on different axis groups it reorders by chart type ({@link LEGEND_TYPE_RANK}), and two
+ * subcharts of equal rank are listed primary axis group first, whatever order they were given in.
+ *
+ * A type the rank does not name sorts last and keeps its given order among its peers, which is
+ * where an unmeasured sixth type would land. The sort is stable, so that is the old behaviour for
+ * anything the probe has not reached.
  */
 function legendOrder(chartOptions: ChartOptsInternal, types: ChartMultiInternal[]): ChartMultiInternal[] {
 	const secondary = types.map((type) => plotsOnSecondaryAxes(resolveSubchartOptions(chartOptions, type.options)))
 	if (secondary.every((onSecondary) => onSecondary === secondary[0])) return types
-	const isBar = (type: ChartMultiInternal): boolean => asChartType(type.type) === ChartType.bar
-	return [...types.filter(isBar), ...types.filter((type) => !isBar(type))]
+	const rankOf = (type: ChartMultiInternal): number =>
+		LEGEND_TYPE_RANK.get(asChartType(type.type)) ?? LEGEND_TYPE_RANK.size
+	// `map` to indices and sort those: `Array.prototype.sort` is stable, and the index keeps the
+	// given order as the last tiebreak without relying on that.
+	return types
+		.map((type, index) => ({ type, index, rank: rankOf(type), onSecondary: secondary[index] === true }))
+		.sort((a, b) => a.rank - b.rank || Number(a.onSecondary) - Number(b.onSecondary) || a.index - b.index)
+		.map((entry) => entry.type)
 }
 
 /**
