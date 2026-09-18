@@ -1,22 +1,22 @@
 {
 	"composed": {
-		"initial": 64512,
-		"total": 149504
+		"initial": 68608,
+		"total": 152576
 	},
 	"composed-charts": {
-		"initial": 87040,
-		"total": 172032
+		"initial": 92160,
+		"total": 177152
 	},
 	"text": {
-		"initial": 106496,
-		"total": 191488
+		"initial": 112640,
+		"total": 197632
 	},
 	"text-shape-image": {
-		"initial": 106496,
-		"total": 191488
+		"initial": 112640,
+		"total": 197632
 	},
 	"full": {
-		"initial": 106496,
-		"total": 191488
+		"initial": 112640,
+		"total": 197632
 	}
 }

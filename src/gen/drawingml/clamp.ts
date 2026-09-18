@@ -10,6 +10,7 @@
 import { EMU_PER_INCH, EMU_PER_POINT, HUNDREDTHS_PER_POINT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { clampRangedInput, inch2Emu, ptsToEmuLenient } from '../../units-internal.js'
 import type { DiagnosticCode, InvalidOptionErrorCode } from '../../codes.js'
+import { MAX_FONT_SIZE_PT, MIN_FONT_SIZE_PT } from '../../constants-internal.js'
 
 /**
  * One clamped text measure: how to convert the caller's value, what range the schema type
@@ -62,22 +63,14 @@ const FONT_SIZE: ClampSpec = {
 	code: 'font/size-out-of-range',
 	nonFiniteCode: 'coord/non-finite',
 	label: 'fontSize',
-	range: '1-4000pt',
+	range: `${MIN_FONT_SIZE_PT}-${MAX_FONT_SIZE_PT}pt`,
 	convert: ptToHundredths,
 	perUnit: HUNDREDTHS_PER_POINT,
-	min: 100,
-	max: 400000,
+	// Derived from the two points constants rather than restated in hundredths: the measured-fit
+	// pass floors a shrunk cell at the same minimum, and a bound stated twice is one that can drift.
+	min: MIN_FONT_SIZE_PT * HUNDREDTHS_PER_POINT,
+	max: MAX_FONT_SIZE_PT * HUNDREDTHS_PER_POINT,
 }
-
-/**
- * The smallest font size `a:defRPr@sz`/`a:rPr@sz` can carry, in points, taken from the clamp
- * itself so a caller that has to floor a computed size uses the emitter's own bound rather than
- * a second copy of it.
- *
- * The measured-fit pass needs it: shrinking a cell to the 25% scale floor turns a 1pt cell into
- * 0.2pt, and the clamp then warned about a `fontSize` the caller never wrote.
- */
-export const MIN_FONT_SIZE_PT = FONT_SIZE.min / FONT_SIZE.perUnit
 
 const CHAR_SPACING: ClampSpec = {
 	code: 'text/char-spacing-out-of-range',

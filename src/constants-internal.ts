@@ -44,6 +44,18 @@ export const DEF_CHART_BORDER = { type: 'solid', color: '363636', width: 1 } as 
 export const DEF_CHART_GRIDLINE: OptsChartGridLine = { color: '888888', dashType: 'solid', width: 1, cap: 'flat' }
 export const DEF_FONT_COLOR = '000000'
 export const DEF_FONT_SIZE = 12
+/**
+ * The bounds of `ST_TextFontSize`, in points: the smallest and largest size an `a:rPr@sz` or an
+ * `a:defRPr@sz` can carry. PowerPoint reports a package outside them as needing repair.
+ *
+ * Here rather than beside the clamp that enforces them (`gen/drawingml/clamp.ts`) because the
+ * measured-fit pass needs the minimum too, to stop shrinking a cell before it goes out of range,
+ * and `measure` is a published entry point: importing the clamp module for one number pulled the
+ * whole of it into that bundle. Two plain numbers inline instead, and the clamp derives its own
+ * range from them, so there is still one place the bound is stated.
+ */
+export const MIN_FONT_SIZE_PT = 1
+export const MAX_FONT_SIZE_PT = 4000
 export const DEF_FONT_TITLE_SIZE = 18
 export const DEF_PRES_LAYOUT = 'LAYOUT_16x9'
 export const DEF_PRES_LAYOUT_NAME = 'DEFAULT'

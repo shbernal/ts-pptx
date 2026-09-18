@@ -7,7 +7,7 @@
  * the columns it covers — which is what `walkTableGrid` exists to hand out.
  */
 
-import { DEF_FONT_SIZE } from '../constants-internal.js'
+import { DEF_FONT_SIZE, MIN_FONT_SIZE_PT } from '../constants-internal.js'
 import { type GridPlacement, tableColCount, walkTableGrid } from '../gen/table/grid.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import {
@@ -22,7 +22,6 @@ import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text
 import { makeRegistryResolver, type FontMetricsRegistry } from './font-metrics.js'
 import { extractParagraphs, type RunOpts } from './paragraphs.js'
 import { CELL_INHERITED_TEXT_KEYS } from '../gen/table/cell-inherit.js'
-import { MIN_FONT_SIZE_PT } from '../gen/drawingml/clamp.js'
 import type { TableCellInternal } from '../types/internal.js'
 import type {
 	Coord,
