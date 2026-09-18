@@ -52,6 +52,10 @@ export class Table {
 	 * `[MS-OE376]` style the deck does not materialise. This is what supplies the
 	 * banded-row / header shading a cell with no own fill inherits — read the
 	 * resolved per-cell colour off {@link TableCell.resolvedFill}.
+	 *
+	 * Resolved afresh on every read, not through the per-instance memo the cells share, so an
+	 * edit made through the returned `element_` shows in the next read's `name`. A caller reads
+	 * this once per table; the memo exists for the per-cell path that reads it hundreds of times.
 	 */
 	get resolvedStyle(): ResolvedTableStyle | null {
 		return resolveTableStyle(this.opc, this.styleId)
