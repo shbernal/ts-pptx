@@ -421,7 +421,17 @@ covers what counts as render evidence.
 ### `docs:check` fails
 
 `docs:check` runs `docs:api` first, which regenerates `docs/reference/api/` with TypeDoc, then
-`scripts/docs-check.mjs`. The second step reports:
+`scripts/docs-check.mjs`.
+
+The first step fails on a TypeDoc **warning**, not just an error: `treatWarningsAsErrors` is set
+in `typedoc.docs.json`. A warning there means the published reference is wrong in a way nobody
+will notice otherwise, most often a `{@link}` to an internal symbol, which renders as plain text
+where a reader expects a link. Name such a symbol in backticks instead, and say it is internal.
+A symbol referenced by a documented type but deliberately unexported goes in that file's
+`intentionallyNotExported` list; an entry there that stops matching anything is itself a warning,
+so the list cannot rot.
+
+The second step reports:
 
 - a missing or empty frontmatter field, or a `doc_type` outside the allowed list;
 - an unbalanced code fence;

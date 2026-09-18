@@ -77,7 +77,9 @@ export interface ThemeContext extends ColorContext {
 	/**
 	 * The theme's `a:fontScheme`, for resolving a `+mj-*`/`+mn-*` major/minor font
 	 * token (the placeholder-inherited typeface chain bottoms out in one) to a
-	 * literal face name via {@link resolveThemeFont}. `null`/absent leaves such a
+	 * literal face name via `resolveThemeFont` in this module. (Named rather than linked: it is
+	 * internal, so a reference link to it resolves to nothing in the published reference.)
+	 * `null`/absent leaves such a
 	 * token unresolved.
 	 */
 	fontScheme?: Element | null
@@ -103,7 +105,8 @@ export interface ThemeContext extends ColorContext {
 	 */
 	defaultTextStyle?: Element | null
 	/**
-	 * Memo for the placeholder lookups {@link findPlaceholder} performs against
+	 * Memo for the placeholder lookups `findPlaceholder` (`read/oxml/placeholder-inherit.ts`)
+	 * performs against
 	 * {@link layoutRoot} and {@link masterRoot}, keyed by tier, placeholder type and `idx`.
 	 *
 	 * The lookup is a full subtree scan, and reading one run's five inherited properties used

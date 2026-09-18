@@ -190,7 +190,9 @@ export function emuToInches(emu: number): number {
  * uncalled.
  *
  * **The policy, and its one exception.** Every EMU→points conversion goes through here or through
- * {@link ./read/api/coords.ptFromEmu}, which is this with a `null` passed along. The exception is
+ * `ptFromEmu` in `src/read/api/coords.ts`, which is this with a `null` passed along. (Named rather
+ * than linked: it is internal, so a reference link to it resolves to nothing in the published
+ * reference.) The exception is
  * `measure/*` — `fit.ts`, `paragraphs.ts`, `table-fit.ts` — where an inner box is computed as
  * `(extent - inset - inset) / EMU_PER_POINT` and then guarded with `!(x > 0)`. That guard is
  * written NaN-first on purpose: a box that cannot be measured is skipped, not reported. This

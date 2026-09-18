@@ -112,7 +112,8 @@ export function warnOnce(code: DiagnosticCode, message: string, detail?: Readonl
 }
 
 /**
- * Clear the {@link warnOnce} dedupe set, so a condition already reported reports again.
+ * Clear the `warnOnce` dedupe set, so a condition already reported reports again. (`warnOnce` is
+ * internal and carries no page of its own, so it is named rather than linked.)
  *
  * Call it between builds in a host that builds more than one deck per process and wants each
  * build's diagnostics complete. Without it, deck two is silent about anything deck one already
