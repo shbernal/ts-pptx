@@ -16,6 +16,7 @@ import type { OpcPackage } from '../../opc/package.js'
 import type { FlattenContext } from './flatten.js'
 import { resolveSlideColorContext, resolveSlideThemeParts } from '../theme-context.js'
 import { backgroundElementOf } from '../slide-background.js'
+import { TABLE_STYLES_CONTENT_TYPE } from '../../../ooxml/rel-types.js'
 
 /**
  * The background the slide effectively inherits from its source subgraph: the layout's
@@ -41,7 +42,8 @@ function effectiveBackground(
  *
  * The presentation's default text style rides along, because a run in a shape that is not a
  * placeholder inherits its size, weight and colour from it, and the rebind would hand that run the
- * destination's instead. The flatten pass bakes those values onto the run.
+ * destination's instead. The flatten pass bakes those values onto the run. The source table styles
+ * ride along for the same bake in table cells, which must leave what a table style states to it.
  * @param {OpcPackage} sourceOpc - the source package to read
  * @param {string} slidePartName - partname of the source slide
  * @return {FlattenContext} the context {@link flattenSlide} / {@link flattenShape} resolve against
@@ -52,5 +54,6 @@ export function sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: strin
 	return {
 		...ctx,
 		inheritedBackground: effectiveBackground(sourceOpc, parts.slideRoot, parts.layoutPartName, parts.masterPartName),
+		tableStyles: sourceOpc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]?.dom.documentElement ?? null,
 	}
 }

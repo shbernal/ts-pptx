@@ -1326,6 +1326,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     paste writes the source face literally.
   - Measured with `test/read/fixtures/authoring/probe-default-text-style-paste.ps1`.
 
+- **A `preserve` import keeps what a table cell took from the source master.**
+  - A table cell's text takes its size from the slide master's `p:otherStyle`, and its bold and
+    italic too where the table style states none. A `preserve` import rebinds the slide to the
+    destination master and baked nothing for table cells, so a cell's text changed size, and could
+    lose or gain italic, between two decks whose masters differ there. `importSlide` and
+    `importShape` now write those values onto each cell run that states none of its own, leaving
+    what the table style states to it.
+  - PowerPoint's Keep Source Formatting paste gets the same look another way: it writes nothing
+    onto the cells and keeps the slide on a copy of the source master. Measured with
+    `test/read/fixtures/authoring/probe-table-text-paste.ps1`.
+
 - **`removeSlide` takes the slide out of custom shows and sections.**
   - The removed slide's `p14:sldId` stayed in its section, and its `p:sld` stayed in any custom
     show while the relationship it named was removed. It now leaves both, as PowerPoint does when

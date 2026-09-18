@@ -27,7 +27,9 @@
  *    Typeface (`a:latin`) is deliberately *not* baked — it re-binds along with `fontRef`.
  *    A shape that is not a placeholder takes the same properties from the presentation's
  *    `p:defaultTextStyle` instead, which the rebind swaps for the destination's, so those
- *    are baked from the source one.
+ *    are baked from the source one. A table cell's text takes its size from the master's
+ *    `p:otherStyle`, and its weight too where the table style states none, so those are
+ *    baked from the source master.
  * 4. **Placeholder-inherited geometry** — a placeholder with no own `a:xfrm` takes position and
  *    size from the matching source layout/master placeholder; without baking it, a title snaps
  *    to the destination default and often clips off-canvas.
@@ -43,6 +45,7 @@
 import {
 	OOXML_NS,
 	attr,
+	boolAttr,
 	childElements,
 	createElement,
 	descendantsByTag,
@@ -102,6 +105,7 @@ import {
 } from '../../../ooxml/sequence.js'
 import { THEME_COLOR_SLOTS } from '../../../ooxml/st-enums.js'
 import { cSldOf, nvPrOf } from '../../oxml/slide-dom.js'
+import { resolveTableCellTextStyle, type TableConditionFlags } from '../table-style-resolve.js'
 
 /**
  * A {@link ThemeContext} plus the one thing only the flatten pass needs to write from.
@@ -118,6 +122,12 @@ export interface FlattenContext extends ThemeContext {
 	 * before flattening so the background survives rebinding to the destination master.
 	 */
 	inheritedBackground?: Element | null
+	/**
+	 * The *source* deck's `a:tblStyleLst` (`tableStyles.xml`), or `null` when it has none. A table
+	 * cell's bold and italic come from its table style before `p:otherStyle`, so the cell-text bake
+	 * has to know what the style states to leave it the last word.
+	 */
+	tableStyles?: Element | null
 }
 
 /**
@@ -129,8 +139,9 @@ export interface FlattenContext extends ThemeContext {
  * 3. bake each placeholder's effective geometry (inherited `a:xfrm`) onto the
  *    shape so a rebind cannot move or resize it;
  * 4. bake each placeholder run's effective colour and size/weight (inherited from
- *    the source layout/master text styles) explicitly onto the run, and each other
- *    shape's run the ones it takes from the source `p:defaultTextStyle`;
+ *    the source layout/master text styles) explicitly onto the run, each other
+ *    shape's run the ones it takes from the source `p:defaultTextStyle`, and each
+ *    table cell's run the ones it takes from the source `p:otherStyle`;
  * 5. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
  *
  * Steps run in this order so the inherited/materialized backgrounds are present
@@ -146,6 +157,7 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderRunColors(slideRoot, ctx)
 	resolvePlaceholderRunSizes(slideRoot, ctx)
 	resolveDefaultTextStyleRuns(slideRoot, ctx)
+	resolveTableCellRuns(slideRoot, ctx)
 	resolveSchemeColors(slideRoot, ctx)
 }
 
@@ -180,6 +192,7 @@ export function flattenShape(shapeRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderRunColors(shapeRoot, ctx)
 	resolvePlaceholderRunSizes(shapeRoot, ctx)
 	resolveDefaultTextStyleRuns(shapeRoot, ctx)
+	resolveTableCellRuns(shapeRoot, ctx)
 	resolvePlaceholderBodyPr(shapeRoot, ctx)
 	resolvePlaceholderListStyle(shapeRoot, ctx) // before resolveSchemeColors: cloned levels carry schemeClr
 	resolveSchemeColors(shapeRoot, ctx)
@@ -527,7 +540,7 @@ function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): vo
  * this one and travels with the shape. Placeholders are left to the placeholder passes: they resolve
  * through their layout and master, and the measurement covered plain shapes only. Typeface
  * re-binds here as it does for every other tier. A table cell's text is not a `p:sp` run and
- * resolves through the master's `p:otherStyle`, so it is not visited.
+ * resolves through the master's `p:otherStyle` instead, which {@link resolveTableCellRuns} bakes.
  */
 function resolveDefaultTextStyleRuns(root: Element, ctx: FlattenContext): void {
 	const defaults = ctx.defaultTextStyle
@@ -557,6 +570,77 @@ function resolveDefaultTextStyleRuns(root: Element, ctx: FlattenContext): void {
 			}
 		}
 	}
+}
+
+/**
+ * Bake what a table cell's runs take from the source master's `p:otherStyle`: size, and bold and
+ * italic where the cell's table style states neither, per paragraph level, wherever the run, its
+ * paragraph and the cell's own list style state none of them.
+ *
+ * Cell text resolves through `p:otherStyle`, not `p:defaultTextStyle` (`TableCell.textFrame`), and
+ * the rebind swaps the source master for the destination's, so without this a cell's text changes
+ * size between two decks whose masters differ there. PowerPoint's Keep Source Formatting paste
+ * writes nothing onto the cells; it keeps them on a copy of the source master instead
+ * (`test/read/fixtures/authoring/probe-table-text-paste.ps1`), which is the look this pins.
+ *
+ * The table style travels with the slide, so what it states is left to it. Where the table names a
+ * style the source does not define, a built-in PowerPoint draws from its own definition, and bold
+ * and italic are left alone because what that style states is unknown. A cell's colour and face do
+ * not come from `p:otherStyle` at all, so they are not visited.
+ */
+function resolveTableCellRuns(root: Element, ctx: FlattenContext): void {
+	const txStyles = ctx.masterRoot ? firstChild(ctx.masterRoot, 'p:txStyles') : null
+	const otherStyle = txStyles && firstChild(txStyles, 'p:otherStyle')
+	if (!otherStyle) return
+	for (const tbl of descendantsByTag(root, OOXML_NS.a, 'tbl')) {
+		const tblPr = firstChild(tbl, 'a:tblPr')
+		const idEl = tblPr && firstChild(tblPr, 'a:tableStyleId')
+		const styleId = idEl?.textContent?.trim() || null
+		const style = styleId ? sourceTableStyle(ctx, styleId) : null
+		const styleUnknown = styleId !== null && style === null
+		const flag = (name: keyof TableConditionFlags) => (tblPr ? boolAttr(tblPr, name) === true : false)
+		const flags: TableConditionFlags = {
+			firstRow: flag('firstRow'),
+			lastRow: flag('lastRow'),
+			firstCol: flag('firstCol'),
+			lastCol: flag('lastCol'),
+			bandRow: flag('bandRow'),
+			bandCol: flag('bandCol'),
+		}
+		const rows = getElements(tbl, 'a:tr')
+		const grid = firstChild(tbl, 'a:tblGrid')
+		const colCount = grid ? getElements(grid, 'a:gridCol').length : 0
+		rows.forEach((tr, rowIndex) => {
+			getElements(tr, 'a:tc').forEach((tc, colIndex) => {
+				const txBody = firstChild(tc, 'a:txBody')
+				if (!txBody) return
+				const styled = style
+					? resolveTableCellTextStyle(style, flags, rowIndex, colIndex, rows.length, colCount, ctx)
+					: null
+				const cellLst = firstChild(txBody, 'a:lstStyle')
+				for (const p of getElements(txBody, 'a:p')) {
+					const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
+					if (runs.length === 0) continue
+					const pPr = firstChild(p, 'a:pPr')
+					const level = (pPr && numberValue(attr(pPr, 'lvl'))) ?? 0
+					const defRPr = lstStyleLevelDefRPr(otherStyle, level)
+					if (!defRPr) continue
+					const props: RunProps = {
+						sz: attr(defRPr, 'sz'),
+						b: styleUnknown || styled?.bold != null ? null : attr(defRPr, 'b'),
+						i: styleUnknown || styled?.italic != null ? null : attr(defRPr, 'i'),
+					}
+					for (const run of runs) writeRunProps(run, props, pPr, cellLst, level)
+				}
+			})
+		})
+	}
+}
+
+/** The source deck's `a:tblStyle` with this id, or `null` when the source defines none. */
+function sourceTableStyle(ctx: FlattenContext, styleId: string): Element | null {
+	if (!ctx.tableStyles) return null
+	return getElements(ctx.tableStyles, 'a:tblStyle').find((st) => attr(st, 'styleId') === styleId) ?? null
 }
 
 /** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */

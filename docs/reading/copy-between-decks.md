@@ -177,7 +177,7 @@ const [before, after] = deck.importSlides([
 3. It writes the slide's effective background onto the slide as literal values, taking the slide's own background, else the source layout's, else the source master's.
 4. It resolves each shape's `p:style` line, fill and effect references against the source theme into explicit line, fill and effect.
 5. It gives each placeholder that has no `a:xfrm` of its own the position and size of the matching placeholder on the source layout, else the source master.
-6. It gives each run that sets no colour, size, bold or italic of its own the values it inherited from the source placeholder, layout and master text styles. A run outside a placeholder takes them from the source deck's default text style.
+6. It gives each run that sets no colour, size, bold or italic of its own the values it inherited from the source placeholder, layout and master text styles. A run outside a placeholder takes them from the source deck's default text style. A run in a table cell takes its size from the source master's `p:otherStyle`, and its bold and italic too where the table style states none.
 7. It rewrites each `a:schemeClr` as the `a:srgbClr` the source theme gives it, keeping transforms such as `lumMod` and `shade`.
 
 Typefaces (`a:latin`) and `fontRef` references stay symbolic, so text takes this deck's theme fonts. Steps 3 to 7 use the source values read in step 1, so binding to this deck's layout in step 2 does not change them.
