@@ -1144,6 +1144,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `LAYOUT_WIDE`, so their `PresentationFormat` moves from `On-screen Show (16:9)` to `Widescreen`,
   which is what PowerPoint calls that size.
 
+- **`p:sldSz` declares the size type its `app.xml` label stands for.** A 4:3, 16:9 or 16:10
+  on-screen deck now carries `type="screen4x3"`, `"screen16x9"` or `"screen16x10"`, as PowerPoint
+  writes it. PowerPoint's label follows the type rather than the dimensions, so a deck written
+  without it was relabelled `Custom` on its first save, contradicting the label `app.xml` had
+  stated. The type is taken from the dimensions, so a `defineLayout` at exactly one of those sizes
+  gets it too. Widescreen and every other size stay untyped, which is the schema's `custom`
+  default and what PowerPoint writes for widescreen. **Downstream impact:** `presentation.xml`
+  changes for decks at the three on-screen sizes; the `LAYOUT_WIDE` showcase decks do not move.
+
 - **`p:grpSpPr` lands in schema order in every legal group.** The successor list it is inserted
   before was written out by hand and named five of `CT_GroupShape`'s seven children, missing
   `p:contentPart` (ink) and `p:extLst`. A group whose only children were one of those got its

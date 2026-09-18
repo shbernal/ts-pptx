@@ -16,24 +16,37 @@ export const ABSENT_SLIDE_SIZE_EMU: Readonly<{ widthEmu: number; heightEmu: numb
 	heightEmu: 6858000,
 })
 
+/** The `ST_SlideSizeType` values a written deck can carry; `custom` is the schema default. */
+export type SlideSizeType = 'screen4x3' | 'screen16x9' | 'screen16x10'
+
 /**
- * The label PowerPoint shows for a slide size, as `docProps/app.xml`'s `<PresentationFormat>`
- * spells it.
+ * The standard slide sizes, each with the label PowerPoint shows for it, as `docProps/app.xml`'s
+ * `<PresentationFormat>` spells it, and the `p:sldSz/@type` PowerPoint writes for it.
  *
- * These five strings are PowerPoint's own, read back from decks it re-saved. A deck whose
- * `p:sldSz` carries `type="screen4x3"`, `"screen16x9"` or `"screen16x10"` gets the matching
- * on-screen label; `LAYOUT_WIDE`'s 13.333in × 7.5in is recognised as `Widescreen` from its
- * dimensions alone, with no `type` at all; anything else is `Custom`.
+ * The labels are PowerPoint's own, read back from decks it re-saved, and three of them follow
+ * `@type` rather than the dimensions: a deck re-saved from `type="screen16x9"` comes back
+ * `On-screen Show (16:9)`, while the same dimensions set through `PageSetup`, which writes no type,
+ * come back `Custom`. `LAYOUT_WIDE`'s 13.333in × 7.5in is recognised as `Widescreen` from its
+ * dimensions alone, and PowerPoint writes it with no `type` at all. Anything else is `Custom`.
+ *
+ * One table for both, so the label `app.xml` states and the type `presentation.xml` declares
+ * cannot disagree about a deck.
  *
  * Matched on exact EMU rather than on aspect ratio: the ratio of 10in × 7.5in and of
  * 13.333in × 10in is the same, and PowerPoint labels only the first of them 4:3.
  */
-const PRESENTATION_FORMATS: ReadonlyArray<readonly [number, number, string]> = Object.freeze([
-	[9144000, 6858000, 'On-screen Show (4:3)'],
-	[9144000, 5143500, 'On-screen Show (16:9)'],
-	[9144000, 5715000, 'On-screen Show (16:10)'],
-	[12192000, 6858000, 'Widescreen'],
+const STANDARD_SLIDE_SIZES: ReadonlyArray<
+	Readonly<{ cx: number; cy: number; label: string; type: SlideSizeType | undefined }>
+> = Object.freeze([
+	{ cx: 9144000, cy: 6858000, label: 'On-screen Show (4:3)', type: 'screen4x3' },
+	{ cx: 9144000, cy: 5143500, label: 'On-screen Show (16:9)', type: 'screen16x9' },
+	{ cx: 9144000, cy: 5715000, label: 'On-screen Show (16:10)', type: 'screen16x10' },
+	{ cx: 12192000, cy: 6858000, label: 'Widescreen', type: undefined },
 ])
+
+function standardSlideSize(widthEmu: number, heightEmu: number) {
+	return STANDARD_SLIDE_SIZES.find(({ cx, cy }) => cx === widthEmu && cy === heightEmu)
+}
 
 /**
  * `<PresentationFormat>` for a deck of this size, or `Custom` for one that matches no standard
@@ -42,5 +55,18 @@ const PRESENTATION_FORMATS: ReadonlyArray<readonly [number, number, string]> = O
  * @param heightEmu - the deck's slide height in EMU
  */
 export function presentationFormatLabel(widthEmu: number, heightEmu: number): string {
-	return PRESENTATION_FORMATS.find(([cx, cy]) => cx === widthEmu && cy === heightEmu)?.[2] ?? 'Custom'
+	return standardSlideSize(widthEmu, heightEmu)?.label ?? 'Custom'
+}
+
+/**
+ * `p:sldSz/@type` for a deck of this size, or `undefined` where PowerPoint writes none: at the
+ * widescreen size, and at any size that is not standard.
+ *
+ * Taken from the dimensions, not from the layout's name, so a `defineLayout` at exactly
+ * 10in × 5.625in is typed as the on-screen 16:9 size it is, as its `app.xml` label already says.
+ * @param widthEmu - the deck's slide width in EMU
+ * @param heightEmu - the deck's slide height in EMU
+ */
+export function slideSizeType(widthEmu: number, heightEmu: number): SlideSizeType | undefined {
+	return standardSlideSize(widthEmu, heightEmu)?.type
 }

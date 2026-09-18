@@ -13,6 +13,7 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { lvlPPr, themeFontDefRPr } from '../drawingml/list-style.js'
 import { OOXML_NS, PML_ROOT_NS } from '../../ooxml/namespaces.js'
 import { MIN_SLIDE_MASTER_ID } from '../../ooxml/ids.js'
+import { slideSizeType } from '../../ooxml/slide-size.js'
 
 function defaultTextStyleLevel(idy: number, marL: number): string {
 	return lvlPPr(idy, { marL, algn: 'l' }, [raw(themeFontDefRPr('mn', { sz: 1800, kern: 1200 }))])
@@ -101,7 +102,8 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 		pres.slides.map((slide) => raw(voidEl('p:sldId', { id: slide._slideId, 'r:id': `rId${slide._rId}` })))
 	)
 
-	const sldSz = voidEl('p:sldSz', { cx: pres.presLayout.width, cy: pres.presLayout.height })
+	const { width, height } = pres.presLayout
+	const sldSz = voidEl('p:sldSz', { cx: width, cy: height, type: slideSizeType(width, height) })
 	const notesSz = voidEl('p:notesSz', { cx: pres.presLayout.height, cy: pres.presLayout.width })
 
 	// Embedded fonts (CT_Presentation index 7 — after notesSz, before defaultTextStyle).

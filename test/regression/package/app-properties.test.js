@@ -40,6 +40,45 @@ defineRegressionSuite('app.xml extended properties', [
 		},
 	},
 	{
+		// PowerPoint's label follows `@type`, so a deck that states the label without the type is
+		// relabelled `Custom` on its first save. Widescreen is the one standard size PowerPoint
+		// itself writes untyped.
+		name: 'p:sldSz declares the type the PresentationFormat label stands for',
+		fn: async () => {
+			const cases = [
+				['LAYOUT_4x3', ' type="screen4x3"'],
+				['LAYOUT_16x9', ' type="screen16x9"'],
+				['LAYOUT_16x10', ' type="screen16x10"'],
+				['LAYOUT_WIDE', ''],
+			]
+			for (const [layout, type] of cases) {
+				const { zip, pres } = await build((p) => {
+					p.layout = layout
+					p.addSlide()
+				})
+				const { width, height } = pres.presLayout
+				const xml = await readEntry(zip, 'ppt/presentation.xml')
+				const expected = `<p:sldSz cx="${width}" cy="${height}"${type}/>`
+				assert(xml.includes(expected), `${layout}: expected ${expected}`)
+			}
+		},
+	},
+	{
+		name: 'a custom layout at a standard size takes that size type, and any other none',
+		fn: async () => {
+			const sldSzOf = async (width, height) => {
+				const { zip } = await build((p) => {
+					p.defineLayout({ name: 'Mine', width, height })
+					p.layout = 'Mine'
+					p.addSlide()
+				})
+				return /<p:sldSz [^>]*>/.exec(await readEntry(zip, 'ppt/presentation.xml'))[0]
+			}
+			assert((await sldSzOf(10, 5.625)).includes('type="screen16x9"'), 'a 16:9 on-screen defineLayout')
+			assert(!(await sldSzOf(11.7, 8.3)).includes('type='), 'an A4 defineLayout is custom, the default')
+		},
+	},
+	{
 		name: 'a size PowerPoint has no label for is Custom',
 		fn: async () => {
 			const xml = await appXml((p) => {
