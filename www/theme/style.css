@@ -49,6 +49,16 @@
 	min-width: calc(var(--mermaid-natural-width, 0px) * 0.75);
 }
 
+/* Mermaid draws a node label as a `<p>` inside a `<foreignObject>` it has already sized, at
+   its own 1.5 line-height. VitePress's `.vp-doc p` reaches that `<p>` and sets 28px, so every
+   line is 4px taller than the box reserved for it and a label of three lines or more runs
+   through the bottom border. Restating the line-height mermaid measured with is the fix; the
+   margin goes with it, for the same reason and from the same rule. */
+.mermaid-diagram foreignObject p {
+	margin: 0;
+	line-height: 1.5;
+}
+
 .mermaid-diagram__failure {
 	border-left: 3px solid var(--vp-c-brand-1);
 	padding-left: 0.75rem;
