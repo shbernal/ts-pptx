@@ -428,8 +428,17 @@ covers what counts as render evidence.
 - a `docs.json` navigation entry with no page, or a page in no navigation group;
 - a broken relative link or site route, or a relative link that leaves `docs/`;
 - a relative link from a served page into `docs/contributing/`, which the site does not
-  build. The message prints the GitHub URL to use instead.
+  build. The message prints the GitHub URL to use instead;
+- a link whose `#anchor` names no heading on the page it points at, including one pointing
+  within the same page.
 
 `docs/reference/api/` is gitignored and rebuilt on every run, so an edit there is lost. A
-wrong API page comes from the TSDoc in `src/`: fix it there. The check resolves a link's
-path and ignores its `#anchor`, so a heading rename that breaks an anchor passes it.
+wrong API page comes from the TSDoc in `src/`: fix it there.
+
+An anchor is resolved against the headings the target page actually defines, plus its
+explicit `{#id}` and `<a id>`/`<a name>` targets, so a heading rename that leaves a link
+behind is an error rather than a silent dead link. The slug is generated the way the page
+that *links* it is read: the site's scheme for a served page, GitHub's for one under
+`docs/contributing/`, which is read on GitHub and never built into the site. The two differ,
+so the same heading can have two spellings and each link is checked under the one that will
+be used.

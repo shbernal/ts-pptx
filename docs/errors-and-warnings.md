@@ -29,6 +29,7 @@ Errors and warnings share one vocabulary, `TsPptxCode`. A code names a condition
 - The code is API. Adding a code is back-compatible. Removing or renaming one is a breaking change, and the changelog records it.
 - The message is not API. Its wording can change in any release. Do not parse it, and do not assert on it in tests.
 - A condition keeps its code whichever way it reaches you. `media/load-failed` is a thrown `MediaError` by default and a warning under `onMediaError: 'placeholder'`.
+- Two codes reach you both ways. `media/load-failed` is the option above. `layout/invalid-definition` splits on what the input is: `defineLayout()` **throws** it for a non-object or a missing `name`, because a layout is registered and selected under its name and there is nothing to key on, and **warns** it for a `width` or `height` that is absent or not a number. A warning there is not a promise that the layout registered: the side is still converted, so `'10'` registers at 10in and `null` at the 1in minimum, while an absent value, `'abc'` and `NaN` reach the converter and throw `coord/non-finite` naming the side.
 - `DiagnosticCode` and `ErrorCode` are closed unions. An editor completes them, and TypeScript rejects a comparison against a code that does not exist.
 
 ## Errors
