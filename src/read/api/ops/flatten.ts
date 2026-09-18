@@ -93,6 +93,7 @@ import {
 	CSLD_AFTER_BG,
 	LN_SLOTS,
 	RPR_FILL_AFTER,
+	RUN_AFTER_RPR,
 	SHAPE_AFTER_SPPR,
 	SPPR_AFTER_XFRM,
 	SPPR_EFFECT_AFTER,
@@ -399,7 +400,7 @@ function bakePlaceholderRunProperty<T>(
 /** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
 function writeRunColor(run: Element, color: ResolvedColorRef): void {
 	const doc = ownerDocumentOf(run)
-	const rPr = getOrAddChild(run, 'a:rPr', ['a:t'])
+	const rPr = getOrAddChild(run, 'a:rPr', RUN_AFTER_RPR)
 	const fill = createElement(doc, 'a:solidFill')
 	const srgb = createElement(doc, 'a:srgbClr')
 	setAttr(srgb, 'val', color.hex)
@@ -656,7 +657,7 @@ function writeRunProps(
 		const value = props[name]
 		if (value == null) continue
 		if (slideDefinesProp(name, run, pPr, slideLst, level)) continue
-		rPr ??= getOrAddChild(run, 'a:rPr', ['a:t'])
+		rPr ??= getOrAddChild(run, 'a:rPr', RUN_AFTER_RPR)
 		setAttr(rPr, name, value)
 	}
 }

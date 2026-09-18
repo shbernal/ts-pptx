@@ -335,6 +335,17 @@ export const CSLD_AFTER_BG = successorsOf(COMMON_SLIDE_DATA_SEQUENCE, 'p:bg')
 /** Successors of `p:tnLst` inside `p:timing`. */
 export const TIMING_AFTER_TNLST = successorsOf(SLIDE_TIMING_SEQUENCE, 'p:tnLst')
 
+// --- a:r / a:fld -------------------------------------------------------------
+
+/**
+ * `CT_TextField` (`a:fld`), in declaration order. `CT_RegularTextRun` (`a:r`) is the same without
+ * `a:pPr`, so one successor list places an `a:rPr` in either.
+ */
+const TEXT_FIELD_SEQUENCE: readonly SequenceStep[] = ['a:rPr', 'a:pPr', 'a:t']
+
+/** Successors of `a:rPr` inside a run or a field. */
+export const RUN_AFTER_RPR = successorsOf(TEXT_FIELD_SEQUENCE, 'a:rPr')
+
 // --- p:txBody ----------------------------------------------------------------
 
 /** `CT_TextBody` (`p:txBody`, and `a:txBody` in a table cell), in declaration order. */

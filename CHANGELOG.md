@@ -1337,6 +1337,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     onto the cells and keeps the slide on a copy of the source master. Measured with
     `test/read/fixtures/authoring/probe-table-text-paste.ps1`.
 
+- **A field whose inherited formatting a `preserve` import bakes stays schema-valid.** The bake
+  created a missing `a:rPr` in front of the field's `a:t`, but `CT_TextField` orders its children
+  `a:rPr`, `a:pPr`, `a:t`, so a field (`a:fld`) that carried an `a:pPr` and no `a:rPr` came out
+  with the two in the wrong order. The `a:rPr` now goes before both.
+
 - **`removeSlide` takes the slide out of custom shows and sections.**
   - The removed slide's `p14:sldId` stayed in its section, and its `p:sld` stayed in any custom
     show while the relationship it named was removed. It now leaves both, as PowerPoint does when
