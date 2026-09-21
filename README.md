@@ -107,17 +107,17 @@ loads the one ESM build.
 
 ts-pptx is an independent derivative of
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS), detached at its v4.0.1. Both were
-measured on 2026-09-15 by building the same 22 deck intents with each library and reading
+measured on 2026-09-21 by building the same 22 deck intents with each library and reading
 the bytes that came out.
 
 - **Construct coverage:** ts-pptx emitted 21 of 22, pptxgenjs 10 of 22. Nothing in the
   corpus is emitted by pptxgenjs and not by ts-pptx.
 - **Schema validity:** of the decks each library built, 21 of 21 ts-pptx decks and 0 of 10
   pptxgenjs decks validate with no error against the Open XML SDK.
-- **Adoption:** pptxgenjs is downloaded 10,900,438 times a month, against 1,680 for
+- **Adoption:** pptxgenjs is downloaded 10,539,687 times a month, against 1,780 for
   ts-pptx. If a large installed base matters to you more than the differences above, use
   pptxgenjs.
-- **Activity:** last commit on the default branch, 2026-09-10 for ts-pptx and 2025-06-26
+- **Activity:** last commit on the default branch, 2026-09-15 for ts-pptx and 2025-06-26
   for pptxgenjs. Last npm publish, 2026-08-29 and 2025-06-26.
 
 Where the two libraries part company is on the [comparison page](docs/comparison.md), and

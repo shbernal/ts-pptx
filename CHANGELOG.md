@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-09-21
+
 ### Added
+
+- **The demos page shows the showcase deck one slide at a time.** The page built the deck in the
+  tab, rendered it through `pptx-html` and mounted the whole rendered document in an iframe, so
+  eleven slides were a scroll box inside the page and the renderer's own card styling fought the
+  site's. Each slide now goes into its own shadow root, inside a stage with a filmstrip, the
+  speaker notes the renderer already produced and a collapsible list of the differences it
+  declares. A shadow root also scopes ids, which is what stopped slide 11 painting slide 1's
+  gradient: `url(#pxh-p0)` is minted per slide and collided only because one document held them
+  all. Two further defects are bugs in `pptx-html` 0.2 and are corrected by the page on the way
+  in, since `docs/demos.md` claims the renderer does not approximate: percentage line spacing is
+  rewritten as the unitless multiple PowerPoint means by it, and a group's `transform` is dropped,
+  because the model already places a group's children in slide coordinates and the wrapper applied
+  the offset a second time. Nothing here changes the library; the page is `www/demos/`.
 
 - **A solid background keeps its theme colour as a token, and `pptxToScript` says when it cannot.**
   The background mapper read the resolved colour and only the resolved colour, so a slide or layout
@@ -171,7 +186,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `scripts/comparison/snapshot.json`, and `comparison:check` runs in `verify` and in CI's
   `check:static`: drift between the snapshot and any rendered file fails the build for
   every contributor. Refreshing the snapshot (`comparison:measure`) needs the network and
-  is a release step, documented in `docs/RELEASING.md`.
+  is a release step, documented in `docs/contributing/releasing.md`.
 
 - **`Presentation.appProperties` reads `docProps/app.xml`.** The write API has had a
   `pptx.company` setter since the beginning and the read model could not see the part it
@@ -324,6 +339,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer needs one.
 
 ### Changed
+
+- **Three measured speedups, none of which moves a byte or changes a value.** Each was found by
+  timing a workload rather than by reading for slow-looking code, and each was a cache or a count
+  that its own callers defeated.
+
+  - **The read model memoizes six answers it used to recompute per call.** Resolving what a run
+    inherits from a placeholder scans a layout and a master subtree, and colour, size, face, bold
+    and italic each walked the tier chain themselves, so five resolved values cost ten subtree
+    scans and a paragraph paid it again per run. The memo sits on the theme context, which is
+    where the roots are captured and so exactly as long as the answer is valid: five accessor
+    passes over a 60-slide deck go from 168 ms to 70 ms. `partsByContentType` is an index instead
+    of a filter over the whole part list, dropped when the part set changes, and a relationship
+    target is resolved once rather than per candidate part during an orphan prune, which is
+    `removeSlide` sixty times over from 25 ms to 10 ms. A table resolves its style graph once per
+    proxy rather than once per cell, and indexes the cell directly: reading a 20x8 table cell by
+    cell did 160 style resolutions and built about 3,000 objects. `Theme.color` parses
+    `a:clrScheme` once, and `Slide.background` stops re-walking to the theme for part names.
+  - **The table auto-pager counts a row's covered columns as the placements arrive.** Both of its
+    questions went through a scan of every placement in the table, once per row, which is
+    quadratic in a table of any width. On 8,000 rows of short text with no spans at all, pure
+    overhead, that is 1,036 ms to 83 ms.
+  - **Package assembly decodes a shared media part once and builds the theme once.** After media
+    de-duplication a logo on every slide is one part behind many relationships, and each
+    relationship decoded it again; `theme1.xml` and `theme2.xml` were built separately from the
+    same source. The zip keys entries by path and a re-added key keeps its position, so neither
+    change can move a byte.
 
 - **A merge keeps the text of the cells it covers.** `Table.mergeCells` emptied every cell the merge
   covered, destroying content the caller never asked to lose. It now moves each covered cell's
@@ -719,7 +760,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A chart option that is not a number now throws instead of silently taking the default.**
   BREAKING for a caller passing `NaN` or a non-number where a number is declared.
   `clampRangedInput` states the library's one policy for a value outside a schema range, and
-  `docs/diagnostics.md` describes it: a finite value has a nearest legal neighbour, so it
+  `docs/contributing/development.md` describes it: a finite value has a nearest legal neighbour, so it
   clamps and warns; a value that is not a number at all has none, so the request is discarded
   and that throws. The chart clamp answered `undefined` for the second case — discarding the
   request and reporting nothing — so `holeSize: NaN` quietly took the default while
@@ -854,7 +895,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`exactOptionalPropertyTypes` is on, and a few published types widen to say what they
   always did.** The flag distinguishes a missing key from one present and holding
   `undefined`; the library now draws that line deliberately rather than by accident, with
-  the rule written down in `docs/development.md` ("Absent versus present-but-`undefined`")
+  the rule written down in `docs/contributing/development.md` ("Absent versus present-but-`undefined`")
   and its two helpers in `src/options-internal.ts`.
 
   Nothing about the emitted OOXML changes: every step of the series was gated on
@@ -875,7 +916,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **An out-of-range percentage has one answer, and three options stop having their own.**
   `bullet.size`, `fit.fontScale` and `fit.lnSpcReduction` used to *reject* a value outside
   their range: warn, and emit no attribute at all. That is the combination
-  `docs/diagnostics.md` ("Warn or throw?") exists to rule out, because the request is
+  `docs/contributing/development.md` ("Warn or throw?") exists to rule out, because the request is
   discarded and reported as a warning, and the caller reads the warning while getting a
   deck whose bullet is silently back at its inherited size. All three now go through the
   same clamp every other percentage option already used:
@@ -892,7 +933,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dropped, omit the option instead — that is still how you leave the value inherited. A
   `NaN` reaching any of the three is now an `InvalidOptionError` rather than a warning; so
   is a numeric *string* (`bullet.size: '80'`), which the coercing `Number()` in front of
-  that option used to accept. The rule is written down in `docs/diagnostics.md` under
+  that option used to accept. The rule is written down in `docs/contributing/development.md` under
   "The rule applied: an out-of-range number".
 
 - **`import/slide-size-unknown` now means what its name says, at every import entry point.**
@@ -953,7 +994,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Migration:** this renames defaulted objects only. Anything authored with an explicit
   `objectName` is untouched, as are master and layout placeholders, which default to their
   declared name. A consumer that matched on a generated name — `'Shape 0'`, `'Chart 0'` —
-  should add 1, or better, set `objectName` explicitly: `docs/reference/object-identity.md`
+  should add 1, or better, set `objectName` explicitly: `docs/reference/object-names.md`
   has always said generated names are not a stable identity.
 
 - **BREAKING: the 20 `_`-prefixed internal fields are off the public type surface.**
@@ -1007,6 +1048,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line, arrows, shadow, glow, `p:style` — to `shape-paint.ts`, leaving the five per-kind call
   builders behind. `script/verify/diff.ts` was on the same list and is not split: the construct
   table it was mostly made of is now one table, and 565 lines is no longer oversized.
+
+- **A shape's `width`/`height` setters reject `0`.** They went through a private EMU guard that
+  accepted a zero extent and rejected a negative one under its own `coord/negative`; every other
+  read-side extent setter already applied `checkPositiveEmu`, whose rule is
+  `ST_PositiveCoordinate` — no room for zero or below, and a zero-size shape is a degenerate
+  result rather than a small one. `shape.width = 0` now throws `coord/not-positive`.
+  `coord/negative` is retired; nothing else raised it. **Migration:** an intentional zero-size
+  shape has to be spelled some other way; the `left`/`top` setters are unaffected, since a shape
+  may legitimately sit off the left or top edge.
 
 ### Deprecated
 
@@ -1101,7 +1151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`CONNECTOR_PRESETS` is no longer exported.** Its only consumer was
   `connectorPresetFor`, eleven lines below it in the same file, and
-  `docs/architecture.md` puts internal OOXML generators off the published surface unless
+  `docs/contributing/architecture.md` puts internal OOXML generators off the published surface unless
   deliberately exposed. **Migration:** name a connector by its `ConnectorType`
   (`'straight' | 'elbow' | 'curved'`), or by the `CONNECTOR_PRESET_NAME` union, which is
   still public.
@@ -1125,7 +1175,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Migration:** use `fill: { image }` for a picture interior. A stroke can still be
   `solid`, `gradient` or `pattern`.
 
+- **`ChartPropsBase.axisPos`.** It was declared and read by nothing — the only `axisPos` in
+  the emitters is a local in `makeValAxis` computed from `barDir` and the axis id, and the
+  category and series axes hardcode their own placement — so `{ axisPos: 't' }` still emitted
+  `<c:axPos val="b"/>`. It was the one fully dead option in a sweep of all 213 names in the
+  chart types. **Migration:** delete the option; it never placed anything. Per-axis placement
+  would want `catAxisLabelPos`-style naming rather than one key shared across three axes.
+
 ### Fixed
+
+- **A master names its layouts by the relationship ids its own rels part gives them.**
+  `makeXmlMaster` numbered each `<p:sldLayoutId r:id>` as `_rels.length + idx + 1`, while
+  `slideObjectRelationsToXml`, which writes `slideMaster1.xml.rels` with the layouts as its first
+  default relationships, numbered them from one past the highest id across the master's hyperlink,
+  chart and media relationships. The two agree only while the master holds none of those, and
+  package assembly treats the master as a media and chart target, so a single registered
+  relationship there would have pointed every layout reference at the wrong one. `defaultRelIdStart`
+  in `src/gen/slide/object.ts` states the numbering once and both functions read it. Nothing
+  registers such a relationship today, so every showcase part is byte-identical; the new test
+  injects one and fails on the old formula.
 
 - **`ChartSeries.fill` reports a fill whatever colour it holds.** Whether a fill was there was
   decided by looking for an `srgb` or a `scheme` value on the decoded colour, which is two of the
@@ -2917,11 +2985,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     repair. `width: -5` is truthy too, so `cx="-4572000"` reached the file.
   - `defineLayout(undefined)` warned `layout/invalid-definition` and then threw a raw
     `TypeError` on the next line's `layout.name` — after a warning describing the very
-    input that could not survive, and against `docs/errors.md`'s statement that every
+    input that could not survive, and against `docs/errors-and-warnings.md`'s statement that every
     failure this library raises is a `TsPptxError`.
 
   Both dimensions now go through the same clamp-and-warn the rest of the library's
-  out-of-range options use (`docs/diagnostics.md`), under the new diagnostic code
+  out-of-range options use (`docs/contributing/development.md`), under the new diagnostic code
   `layout/size-out-of-range`, and a non-object argument throws
   `InvalidOptionError('layout/invalid-definition')`. A numeric string is still advice
   rather than an error: it warns and the layout is defined, as before.
@@ -2979,8 +3047,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported the expected deck's slide count while the loop above it walked the longer of the
   two.
 
-### Fixed
-
 - **`pptx.tableLayout()` and the file disagreed about `cy`.** `cy` is the already-resolved
   EMU table height the auto-pager and the measured-fit pass stamp onto a table's options, and
   only the fit pass read it. So `addTable(rows, { cy })` with no `h` produced a file whose
@@ -2997,19 +3063,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is something the caller wrote on purpose. `{ colW: [2, NaN] }` now warns
   `table/invalid-col-width`; a *missing* slot stays silent, which is the same line `rowH`
   draws.
-
-### Changed
-
-- **A shape's `width`/`height` setters reject `0`.** They went through a private EMU guard that
-  accepted a zero extent and rejected a negative one under its own `coord/negative`; every other
-  read-side extent setter already applied `checkPositiveEmu`, whose rule is
-  `ST_PositiveCoordinate` — no room for zero or below, and a zero-size shape is a degenerate
-  result rather than a small one. `shape.width = 0` now throws `coord/not-positive`.
-  `coord/negative` is retired; nothing else raised it. **Migration:** an intentional zero-size
-  shape has to be spelled some other way; the `left`/`top` setters are unaffected, since a shape
-  may legitimately sit off the left or top edge.
-
-### Fixed
 
 - **`tableToSlides` wrote its working state into the caller's options object.** Every definer
   copies its options bag before touching it, each with a comment saying why; this path did
@@ -3035,8 +3088,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without the coercion. So a master with `_margin: 0` took the master branch in two of them
   and the caller branch in the third, and a master with `_margin: "0.25"` resolved in two and
   was ignored in the third. All three read `resolveSlideMarginsInches` now.
-
-### Fixed
 
 - **Four read getters gave a different answer for the same OOXML depending on which
   accessor reached it.** All four change additively: values that were `null` or wrong become
@@ -3069,8 +3120,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The two attribute-decoding fixes above are the read-side half of the shared parsers; the
   substrate landed earlier and this is the behaviour it changes.
-
-### Fixed
 
 - **Four chart options the emitters dropped or inverted.** None is reachable from the
   showcase decks, so the byte-identity harness had nothing to say about any of them; each
@@ -3110,17 +3159,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Added `valAxisMinorUnit`.** `c:minorUnit` is legal on a `c:valAx` and both sibling axes
   already took a minor unit; only the value axis was missing one.
-
-### Removed
-
-- **`ChartPropsBase.axisPos`.** It was declared and read by nothing — the only `axisPos` in
-  the emitters is a local in `makeValAxis` computed from `barDir` and the axis id, and the
-  category and series axes hardcode their own placement — so `{ axisPos: 't' }` still emitted
-  `<c:axPos val="b"/>`. It was the one fully dead option in a sweep of all 213 names in the
-  chart types. **Migration:** delete the option; it never placed anything. Per-axis placement
-  would want `catAxisLabelPos`-style naming rather than one key shared across three axes.
-
-### Fixed
 
 - **Six options reached an OOXML attribute unchecked.** `ST_Double`, `ST_Percentage`,
   `ST_Skip` and `ST_TextAnchoringType` all reject a `NaN` or an out-of-vocabulary string, so
@@ -3268,7 +3306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   count) to pin the old geometry.
 
 - **`shadow.transparency` and `shadow.angle` follow the project's own out-of-range rule.**
-  Both were the third option `docs/diagnostics.md` names as the tempting wrong one: they
+  Both were the third option `docs/contributing/development.md` names as the tempting wrong one: they
   reported a warning *and* discarded the request, so the caller read a diagnostic and got a
   shadow they had not asked for. Four behaviours change, and none of them for an input that
   was already in range — every showcase deck emits byte-identically:
@@ -3420,7 +3458,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error on the number a caller places the next shape against, reported as pinned. A
   negative entry reached the file as `<a:tr h="-914400">`, and a stringified one
   (`rowH: ['1']`, reachable from untyped JS) was honoured by the writer and rejected by
-  `tableLayout()`. `docs/measured-text-fit.md` states the invariant this broke: a
+  `tableLayout()`. `docs/text-fit.md` states the invariant this broke: a
   layout-time prediction must never disagree with what the export then bakes.
 
   All four now call `resolveTableRowHeightEmu`, beside the `resolveTableColWidthsEmu` the
@@ -7247,6 +7285,8 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[4.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v4.0.0
+[3.7.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.7.0
 [3.6.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.6.0
 [3.5.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.5.0
 [3.4.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.4.0

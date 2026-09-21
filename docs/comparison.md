@@ -15,7 +15,7 @@ doc_type: "overview"
 
 # ts-pptx vs PptxGenJS
 
-ts-pptx 3.7.0 and pptxgenjs 4.0.1 were measured on 2026-09-15 by building the same 22 deck
+ts-pptx 3.7.0 and pptxgenjs 4.0.1 were measured on 2026-09-21 by building the same 22 deck
 intents with each library and reading the bytes that came out. ts-pptx descends from
 pptxgenjs, detached at its v4.0.1 ([lineage](getting-started/introduction.md#lineage)), so
 every difference below comes from running both rather than from either one describing
@@ -34,8 +34,8 @@ itself.
   upgrade: [porting from PptxGenJS](comparison-syntax.md) lists the calls that change.
 - **No SmartArt on the write side, in either library.** It is not a difference between
   them, but it is a real gap in both.
-- **Adoption is not close.** pptxgenjs was downloaded 10,900,438 times in the last month,
-  against 1,680 for ts-pptx. That gap buys answers that already exist, examples written by
+- **Adoption is not close.** pptxgenjs was downloaded 10,539,687 times in the last month,
+  against 1,780 for ts-pptx. That gap buys answers that already exist, examples written by
   people other than the maintainer, and good odds that a bug on a common path was hit by
   someone else first. If that outweighs the differences below, use pptxgenjs.
 
@@ -45,9 +45,9 @@ itself.
 |---|---|---|
 | Intents emitted | 21 of 22 | 10 of 22 |
 | Decks with no schema error | 21 of 21 | 0 of 10 |
-| Hello world, bundled and gzipped | 103.3 KiB | 123.3 KiB |
+| Hello world, bundled and gzipped | 104.1 KiB | 123.2 KiB |
 | Runtime dependencies, transitive | 3 | 18 |
-| Installed size, with dependencies | 10.7 MiB | 6.6 MiB |
+| Installed size, with dependencies | 10.7 MiB | 6.7 MiB |
 
 The bundled size is what a browser program fetches before its first line runs. [How the
 comparison was measured](comparison-method.md#package-hygiene) has every install and
@@ -96,19 +96,24 @@ measured](comparison-method.md#schema-validity) lists each distinct error.
 
 <TimingRatio />
 
+Compressed, which is what a file you intend to keep gets, ts-pptx is faster on every deck,
+by 21% on average. Stored, with compression turned off, it is slower on every deck, by 46%
+on average: its XML generation and package assembly cost more than pptxgenjs, and its
+compressor more than makes that back.
+
 Each cell is the ts-pptx median divided by the pptxgenjs median for the same deck, so a
 figure below 1× means ts-pptx took less time.
 
 | Deck | Compressed | Stored |
 |---|---|---|
-| Hello world | 0.49× | 1.33× |
-| Text deck | 0.65× | 1.26× |
-| Table deck | 0.65× | 1.06× |
-| Chart deck | 0.69× | 0.95× |
-| Full deck | 0.79× | 1.31× |
-| 50 slides | 0.80× | 1.21× |
-| 200 slides | 0.75× | 1.21× |
-| 500 slides | 0.78× | 1.23× |
+| Hello world | 0.64× | 1.47× |
+| Text deck | 0.74× | 1.38× |
+| Table deck | 0.77× | 1.94× |
+| Chart deck | 0.81× | 1.44× |
+| Full deck | 0.76× | 1.45× |
+| 50 slides | 0.98× | 1.33× |
+| 200 slides | 0.84× | 1.39× |
+| 500 slides | 0.75× | 1.29× |
 
 The milliseconds, the machine they were taken on, and why the two settings point in
 opposite directions are in [how the comparison was
@@ -134,16 +139,16 @@ measure history as much as merit.
 |---|---|---|
 | Repository | [shbernal/ts-pptx](https://github.com/shbernal/ts-pptx) | [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS) |
 | Default branch | `master` | `master` |
-| Last commit on the default branch | 2026-09-10 | 2025-06-26 |
+| Last commit on the default branch | 2026-09-15 | 2025-06-26 |
 | Last npm publish | 2026-08-29 | 2025-06-26 |
-| Downloads, last month | 1,680 | 10,900,438 |
-| Stars | 2 | 6,165 |
-| Open issues | 0 | 232 |
+| Downloads, last month | 1,780 | 10,539,687 |
+| Stars | 2 | 6,184 |
+| Open issues | 0 | 233 |
 | Open pull requests | 0 | 65 |
-| Source lines | 67,678 | 10,125 |
-| Test lines | 76,333 | 0 |
-| Test suite | 13 test scripts, 363 spec files under `test/` | no test script, no spec file, no test directory |
-| Statement coverage | 95.55% (node lane only) | no automated suite |
+| Source lines | 68,498 | 10,125 |
+| Test lines | 78,132 | 0 |
+| Test suite | 13 test scripts, 370 spec files under `test/` | no test script, no spec file, no test directory |
+| Statement coverage | 95.63% (node lane only) | no automated suite |
 
 [How the comparison was measured](comparison-method.md#project-health) says how each of
 these figures is taken.

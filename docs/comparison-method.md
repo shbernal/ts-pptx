@@ -20,7 +20,7 @@ Every figure on [ts-pptx vs PptxGenJS](comparison.md) comes from
 either page is edited by hand. This page is the method behind those figures and the full
 tables they summarise.
 
-Measured on 2026-09-15: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-21: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm (published 2025-06-26).
 
 ## The corpus
@@ -188,7 +188,7 @@ own cannot tell them apart.
 - `/ppt/charts/chart1.xml`: `The element has unexpected child element
   'http://schemas.openxmlformats.org/drawingml/2006/chart:axId'.`
 - `/ppt/presentation.xml`: `The attribute 'id' has invalid value
-  '{f07f2693-3e62-fdb6-0d4c-93b723073eea}'. The Pattern constraint failed. The expected
+  '{d1284d43-bd99-70d1-24f1-515cd268a88d}'. The Pattern constraint failed. The expected
   pattern is \{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\}.`
 
 ## Package hygiene
@@ -199,8 +199,8 @@ is measured against a development checkout with its dependencies hoisted flat.
 
 |  | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Installed size, with dependencies | 10.7 MiB | 6.6 MiB | +61% |
-| Installed size, the package alone | 6.0 MiB | 2.5 MiB | +142% |
+| Installed size, with dependencies | 10.7 MiB | 6.7 MiB | +61% |
+| Installed size, the package alone | 6.1 MiB | 2.5 MiB | +145% |
 | Runtime dependencies, transitive | 3 | 18 | -83% |
 
 The last column is ts-pptx measured against pptxgenjs, so a positive number is ours
@@ -242,11 +242,11 @@ are on [porting from PptxGenJS](comparison-syntax.md).
 
 | Program | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Hello world | 103.3 KiB | 123.3 KiB | -16% |
-| Text deck | 103.6 KiB | 123.6 KiB | -16% |
-| Table deck | 103.4 KiB | 123.5 KiB | -16% |
-| Chart deck | 103.5 KiB | 123.5 KiB | -16% |
-| Full deck | 103.8 KiB | 123.8 KiB | -16% |
+| Hello world | 104.1 KiB | 123.2 KiB | -16% |
+| Text deck | 104.4 KiB | 123.6 KiB | -16% |
+| Table deck | 104.3 KiB | 123.4 KiB | -16% |
+| Chart deck | 104.3 KiB | 123.5 KiB | -16% |
+| Full deck | 104.6 KiB | 123.8 KiB | -15% |
 
 The column is nearly flat, and that is the result. From hello world to full deck, ts-pptx
 grows by 0.5 KiB and pptxgenjs by 0.5 KiB, which is about what the programs' own literals
@@ -302,14 +302,14 @@ intend to keep gets. This is the table that matters.
 
 | Deck | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Hello world | 11 ms | 23 ms | -51% |
-| Text deck | 18 ms | 27 ms | -35% |
-| Table deck | 14 ms | 22 ms | -35% |
-| Chart deck | 29 ms | 42 ms | -31% |
-| Full deck | 20 ms | 26 ms | -21% |
-| 50 slides | 212 ms | 264 ms | -20% |
-| 200 slides | 719 ms | 962 ms | -25% |
-| 500 slides | 1941 ms | 2493 ms | -22% |
+| Hello world | 4.4 ms | 6.9 ms | -36% |
+| Text deck | 5.9 ms | 8.0 ms | -26% |
+| Table deck | 5.3 ms | 6.9 ms | -23% |
+| Chart deck | 10 ms | 12 ms | -19% |
+| Full deck | 6.2 ms | 8.2 ms | -24% |
+| 50 slides | 85 ms | 87 ms | -2% |
+| 200 slides | 291 ms | 347 ms | -16% |
+| 500 slides | 716 ms | 952 ms | -25% |
 
 ### Stored, the control
 
@@ -318,14 +318,21 @@ library's own work: building the XML and assembling the package.
 
 | Deck | ts-pptx | pptxgenjs | Difference |
 |---|---|---|---|
-| Hello world | 4.6 ms | 3.5 ms | +33% |
-| Text deck | 5.5 ms | 4.3 ms | +26% |
-| Table deck | 4.7 ms | 4.4 ms | +6% |
-| Chart deck | 14 ms | 15 ms | -5% |
-| Full deck | 12 ms | 9.4 ms | +31% |
-| 50 slides | 142 ms | 117 ms | +21% |
-| 200 slides | 533 ms | 442 ms | +21% |
-| 500 slides | 1344 ms | 1092 ms | +23% |
+| Hello world | 1.3 ms | 0.9 ms | +47% |
+| Text deck | 1.7 ms | 1.2 ms | +38% |
+| Table deck | 1.8 ms | 0.9 ms | +94% |
+| Chart deck | 5.2 ms | 3.6 ms | +44% |
+| Full deck | 3.3 ms | 2.3 ms | +45% |
+| 50 slides | 45 ms | 34 ms | +33% |
+| 200 slides | 185 ms | 133 ms | +39% |
+| 500 slides | 486 ms | 378 ms | +29% |
+
+The two tables point in opposite directions, and that is the finding. Stored, ts-pptx is
+slower on every deck, by 46% on average, so our XML generation and package assembly cost
+more than upstream's. Compressed, ts-pptx is faster on every deck, by 21% on average,
+because fflate deflates faster than JSZip does and the compressor dominates the total. A
+consumer writing a file they intend to keep gets the first table. A consumer who has
+turned compression off gets the second, and should know that is where we are behind.
 
 The measurement is a median over repeated rounds, taken after a warm-up that is thrown
 away, with the two libraries interleaved and the order alternated so that a machine which
@@ -334,7 +341,7 @@ and writing it are both inside the clock; constructing the presentation object i
 
 **The milliseconds belong to the machine that took them and do not transfer; the ratios
 mostly do.** These were taken on Intel(R) Core(TM) Ultra 5 235U (14 cores) under Node
-v24.20.0 on win32, on 2026-09-15. Repeating a run on the same machine moves a difference
+v24.20.0 on win32, on 2026-09-21. Repeating a run on the same machine moves a difference
 by a few points in either direction, so read the columns for their direction and rough
 size rather than for their last digit.
 
@@ -363,12 +370,12 @@ measured here can weigh. The row is about an automated suite, and the coverage f
 beside it exists for ts-pptx only because there is a suite to instrument.
 
 ts-pptx is published under two names carrying the same bytes, `pptx-ts` and
-`@shbernal/ts-pptx`. The download figure is their sum (`pptx-ts` 356, `@shbernal/ts-pptx`
-1,324), because either name alone understates the total, and the canonical name alone
+`@shbernal/ts-pptx`. The download figure is their sum (`pptx-ts` 365, `@shbernal/ts-pptx`
+1,415), because either name alone understates the total, and the canonical name alone
 happens to understate it by most.
 
 The pptxgenjs column shows no npm release since 2025-06-26 and no commit on `master` since
 2025-06-26. That is what the two APIs report, and it is all these pages say about it: from
 outside, a stable library that has stopped needing changes looks exactly like one between
 maintainers, and this measurement cannot tell them apart. It is worth weighing either way,
-next to 232 open issues and 65 open pull requests.
+next to 233 open issues and 65 open pull requests.

@@ -21,7 +21,7 @@ the 10 intents both libraries build in the comparison corpus, 7 are called with 
 code. This page is the rest: the calls that change, what changes around them, and then
 every intent and program in the corpus as code in both libraries.
 
-Measured on 2026-09-15: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
+Measured on 2026-09-21: ts-pptx 3.7.0 built from this repository, against pptxgenjs 4.0.1
 installed from npm.
 
 ## The calls that change
