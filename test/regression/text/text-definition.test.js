@@ -484,6 +484,31 @@ defineRegressionSuite('Text definition', [
 		},
 	},
 	{
+		// Both call forms, because they were broken at different times and one of them hid the other.
+		// The array form has been baking black for as long as the default read a single bag: its runs
+		// have always had bags of their own. The string form was spared by the aliasing described
+		// above until that aliasing was removed, and its regression is what got this looked at --
+		// which made it easy to record the older half as collateral of the newer one. Asserting the
+		// array form here is what stops the next reading of this code from restoring the guard that
+		// only ever protected the string form.
+		name: 'the array form of placeholder-targeting text states no colour either',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'INHERITS_ARRAY',
+					objects: [{ placeholder: { options: { name: 'body', type: 'body', x: 1, y: 1, w: 8, h: 3 }, text: 'B' } }],
+				})
+				p.addSlide({ masterTitle: 'INHERITS_ARRAY' }).addText(
+					[{ text: 'First paragraph' }, { text: 'Second paragraph' }],
+					{ placeholder: 'body' }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertNotIncludes(xml, 'srgbClr', 'no paragraph states a literal colour')
+			assertNotIncludes(xml, 'solidFill', 'no paragraph states a fill for one to sit in')
+		},
+	},
+	{
 		// The other half of the same rule: suppressing the default must not suppress a colour the
 		// caller asked for. It survives because `color` is one of `RUN_INHERITABLE_OPTIONS`, so the
 		// run takes the shape's at emit time rather than from the default above.
