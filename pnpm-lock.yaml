@@ -195,8 +195,8 @@ importers:
         specifier: 7.0.2001
         version: 7.0.2001
       pptx-html:
-        specifier: ^0.2.0
-        version: 0.2.0(mathml2omml@0.5.0)(temml@0.13.5)
+        specifier: ^0.2.1
+        version: 0.2.1(mathml2omml@0.5.0)(temml@0.13.5)
       publint:
         specifier: ^0.3.24
         version: 0.3.24
@@ -1270,8 +1270,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@shbernal/ts-pptx@3.7.0':
-    resolution: {integrity: sha512-AlXHm/KSbF4usqj0ufIGTr6Eg73zYF+EUEDD2WREZcHHRgPTdroY/oUoDYW1lddagUzI5zteW5EGpBm45bXPyw==}
+  '@shbernal/ts-pptx@4.0.1':
+    resolution: {integrity: sha512-w0JaRzaxbYlVLXBmQVVA7Tw74D6m4OCkpddQMTleMmb1Tae10/D+hbyDqKmAKTbbnwt53cywsHBY8vbD4r7GBg==}
     engines: {node: '>=24'}
     peerDependencies:
       mathml2omml: ^0.5.0
@@ -2959,8 +2959,8 @@ packages:
     resolution: {integrity: sha512-RRuzqDtt5Y9h3quz5hWhK+TPnsmVs6WwSU6LkJMeY4HstUEDuYTG8UJSdawMRzmzAtV+KEoG8N3Qg2qLy5vM/A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  pptx-html@0.2.0:
-    resolution: {integrity: sha512-0dpdVJ42ggBMO1Tmh73YFWhewvJzu6BR9QeQWYtPw26D44H1lKNGk3rqTHYRhudSPvysz/vFJYwI5teNBTtTkQ==}
+  pptx-html@0.2.1:
+    resolution: {integrity: sha512-aOE0FovBdHn5IlYCQErEYj+GQ4hU8u1PEEM4oQsuiwA+k/HJbRrPrTOmFyh2YXhpMbKIWL4dirTvVmmFjbUz4g==}
     engines: {node: '>=24'}
 
   preact@10.29.8:
@@ -4209,7 +4209,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.63.3':
     optional: true
 
-  '@shbernal/ts-pptx@3.7.0(mathml2omml@0.5.0)(temml@0.13.5)':
+  '@shbernal/ts-pptx@4.0.1(mathml2omml@0.5.0)(temml@0.13.5)':
     dependencies:
       '@xmldom/xmldom': 0.9.12
       fflate: 0.8.3
@@ -5939,9 +5939,9 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  pptx-html@0.2.0(mathml2omml@0.5.0)(temml@0.13.5):
+  pptx-html@0.2.1(mathml2omml@0.5.0)(temml@0.13.5):
     dependencies:
-      '@shbernal/ts-pptx': 3.7.0(mathml2omml@0.5.0)(temml@0.13.5)
+      '@shbernal/ts-pptx': 4.0.1(mathml2omml@0.5.0)(temml@0.13.5)
     transitivePeerDependencies:
       - mathml2omml
       - temml

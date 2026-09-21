@@ -31,10 +31,8 @@ preview can only appear if the bytes are a deck a reader can open.
   KPI cards and speaker notes. Kestrel Analytics is fictional.
 - **The renderer** is a separate library. `pptx-html` reads a package into a slide model and
   renders that model; it does not approximate. Where it cannot model something it says so,
-  and those declarations are listed under the preview. The page corrects two things in what it
-  draws, both renderer bugs in `pptx-html` 0.2: line spacing is written as a plain multiple
-  rather than a percentage, so a large title no longer paints its lines over each other, and
-  a grouped shape is no longer offset twice.
+  and those declarations are listed under the preview. The page draws what it is given: it
+  cuts the rendered document into one slide per frame and changes nothing else about it.
 - **The build button** builds the same deck again and saves it, through the browser
   runtime's own file-writing path. Open the result in PowerPoint: that, not the picture
   above, is the output this library is judged on.

@@ -1,6 +1,6 @@
 import { Window } from 'happy-dom'
 import { describe, expect, it } from 'vitest'
-import { counted, slideList, splitDeck, summarizeNotes, unitlessLineHeights } from '../../../www/demos/deck-preview.ts'
+import { counted, slideList, splitDeck, summarizeNotes } from '../../../www/demos/deck-preview.ts'
 
 /**
  * The demos page's pure helpers.
@@ -89,20 +89,6 @@ describe('counted', () => {
 	})
 })
 
-describe('unitlessLineHeights', () => {
-	it('turns a percentage into the multiple PowerPoint meant', () => {
-		expect(unitlessLineHeights('margin:0;line-height:105%')).toBe('margin:0;line-height:1.05')
-		expect(unitlessLineHeights('line-height: 130%;color:red')).toBe('line-height:1.3;color:red')
-	})
-
-	it('leaves exact spacing and unitless values alone', () => {
-		// `spcPts` is a fixed height in points: the one line height that should not scale
-		// with the text.
-		expect(unitlessLineHeights('line-height:18px')).toBe('line-height:18px')
-		expect(unitlessLineHeights('line-height:1.2')).toBe('line-height:1.2')
-	})
-})
-
 /** A rendered deck document in the renderer's shape, cut down to what `splitDeck` reads. */
 function renderedDeck() {
 	const slide = (number, body) =>
@@ -116,7 +102,7 @@ function renderedDeck() {
 					'<g data-pxh-node="s1.sp3" transform="translate(100 200)"><path d="M 0 0"/></g></g>' +
 					'<g data-pxh-node="s1.sp4" transform="translate(300 400)">' +
 					'<g data-pxh-node="s1.sp4.r0c0" transform="translate(0 0)"><path d="M 0 0"/></g></g>' +
-					'<foreignObject><div xmlns="http://www.w3.org/1999/xhtml"><p style="margin:0;line-height:120%">' +
+					'<foreignObject><div xmlns="http://www.w3.org/1999/xhtml"><p style="margin:0;line-height:1.2">' +
 					'<span contenteditable="true">Title</span></p></div></foreignObject>' +
 					'<image data-pxh-asset="logo.png"/>'
 			)}
@@ -135,7 +121,7 @@ function renderedDeck() {
 
 describe('splitDeck', () => {
 	it("cuts one piece per slide, with that slide's speaker notes and nothing else", () => {
-		const { slides, styles, aspectRatio } = splitDeck(renderedDeck(), new Set(['s1.sp2']))
+		const { slides, styles, aspectRatio } = splitDeck(renderedDeck())
 
 		expect(slides.map((slide) => slide.number)).toEqual([1, 2])
 		// The declared differences sit in the same aside, as a list; only the paragraphs
@@ -146,23 +132,26 @@ describe('splitDeck', () => {
 		expect(aspectRatio).toBeCloseTo(16 / 9, 3)
 	})
 
-	it('drops the transform of a named group, and of nothing else', () => {
-		const [first] = splitDeck(renderedDeck(), new Set(['s1.sp2'])).slides
-		const doc = new Window().document
-		doc.body.innerHTML = first.markup
-
-		expect(doc.querySelector('[data-pxh-node="s1.sp2"]').hasAttribute('transform')).toBe(false)
-		// The group's child is already in slide coordinates and keeps its own placement.
-		expect(doc.querySelector('[data-pxh-node="s1.sp3"]').getAttribute('transform')).toBe('translate(100 200)')
-		// A table also nests node-addressed `<g>`s, but its cells are placed against it.
-		expect(doc.querySelector('[data-pxh-node="s1.sp4"]').getAttribute('transform')).toBe('translate(300 400)')
-	})
-
-	it('fixes line heights, turns editing off and inlines pictures', () => {
+	it('leaves every transform where the renderer put it', () => {
+		// The page used to strip a group's transform, because `pptx-html` 0.2.0 offset a
+		// group's children twice. That is fixed in 0.2.1 and the correction is gone, so
+		// what the renderer drew is what arrives -- including a table's, which was never
+		// the bug and would have broken had the fix been written structurally.
 		const [first] = splitDeck(renderedDeck()).slides
 		const doc = new Window().document
 		doc.body.innerHTML = first.markup
 
+		expect(doc.querySelector('[data-pxh-node="s1.sp2"]').getAttribute('transform')).toBe('translate(100 200)')
+		expect(doc.querySelector('[data-pxh-node="s1.sp4"]').getAttribute('transform')).toBe('translate(300 400)')
+	})
+
+	it('turns editing off and inlines pictures, and rewrites nothing else', () => {
+		const [first] = splitDeck(renderedDeck()).slides
+		const doc = new Window().document
+		doc.body.innerHTML = first.markup
+
+		// The paragraph's own line height is the renderer's to state; 0.2.1 writes the
+		// unitless multiple PowerPoint means, and the page passes it through.
 		expect(doc.querySelector('p').getAttribute('style')).toBe('margin:0;line-height:1.2')
 		expect(doc.querySelector('[contenteditable]')).toBeNull()
 		expect(doc.querySelector('image').getAttribute('href')).toBe('data:image/png;base64,iVBORw0K')

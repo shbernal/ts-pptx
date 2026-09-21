@@ -9,7 +9,7 @@
  * that `pptx-html` depends on. See `www/README.md` for why those are deliberately two
  * copies.
  */
-import { eachNode, importDeck, renderDeck } from 'pptx-html'
+import { importDeck, renderDeck } from 'pptx-html'
 import { build, compose, showcase } from 'ts-pptx-demos-showcases/quarterly-review'
 
 /**
@@ -86,7 +86,7 @@ export async function previewDeck(
 	})
 
 	return {
-		...splitDeck(parse(html), groupIds(render.slides)),
+		...splitDeck(parse(html)),
 		warnings,
 		fidelity: render.slides.flatMap((slide) =>
 			slide.fidelity.map((note) => ({
@@ -120,27 +120,20 @@ export const SLIDE_FRAME_CSS = `
  * gradient ids per slide, so in one document slide 11's `url(#pxh-p0)` paints slide 1's
  * gradient. A shadow root scopes ids, so each slide gets its own.
  *
- * Four edits on the way out, and none of them touches the model:
+ * Two edits on the way out, and neither touches the model:
  *
- * - **Line heights become unitless.** See {@link unitlessLineHeights}.
- * - **Groups lose their transform.** The model places a group's children in slide
- *   coordinates, and `pptx-html` 0.2 says as much in its group renderer, but it still
- *   wraps them in the group's own `translate`. Every grouped shape lands twice as far from
- *   the origin, and the showcase's KPI cards partly leave the slide. Upstream's fix is to
- *   drop that transform, and this does the same. Groups are named by id from the model,
- *   because the markup cannot tell them apart: a table's cells are node-addressed `<g>`s
- *   too, and they are placed relative to the table, so its transform has to stay. A group
- *   inherited from a layout or master carries no id and keeps its offset.
  * - **Editing is off.** The renderer marks every run `contenteditable`, because its document
  *   is meant to be edited and parsed back. Nothing parses this one, so a stray click
  *   should not put a caret in the slide.
  * - **Pictures are inlined as data URIs.** The document resolves them with a script, and
  *   `innerHTML` in a shadow root runs no scripts.
+ *
+ * It used to be four. The other two corrected renderer bugs in `pptx-html` 0.2.0: a group's
+ * children were offset twice, and percentage line spacing was written as a CSS percentage
+ * rather than the multiple PowerPoint means by it. Both are fixed in 0.2.1, which is the
+ * floor in `package.json`, so the page draws what the renderer gives it.
  */
-export function splitDeck(
-	doc: Document,
-	groups: ReadonlySet<string> = new Set()
-): Omit<DeckPreview, 'warnings' | 'fidelity'> {
+export function splitDeck(doc: Document): Omit<DeckPreview, 'warnings' | 'fidelity'> {
 	const styles = [...doc.querySelectorAll('style')].map((style) => style.textContent ?? '').join('\n')
 	const assetUrl = assetUrls(doc)
 
@@ -148,12 +141,6 @@ export function splitDeck(
 	for (const section of doc.querySelectorAll('section[data-pxh-slide]')) {
 		const slide = section.cloneNode(true) as Element
 		for (const node of slide.querySelectorAll('[contenteditable]')) node.removeAttribute('contenteditable')
-		for (const node of slide.querySelectorAll('[style*="line-height"]')) {
-			node.setAttribute('style', unitlessLineHeights(node.getAttribute('style') ?? ''))
-		}
-		for (const node of slide.querySelectorAll('g[data-pxh-node]')) {
-			if (groups.has(node.getAttribute('data-pxh-node') ?? '')) node.removeAttribute('transform')
-		}
 		for (const node of slide.querySelectorAll('[data-pxh-asset]')) {
 			const url = assetUrl.get(node.getAttribute('data-pxh-asset') ?? '')
 			if (url) node.setAttribute(node.tagName.toLowerCase() === 'image' ? 'href' : 'src', url)
@@ -172,17 +159,6 @@ export function splitDeck(
 	return { slides, styles, aspectRatio: width > 0 && height > 0 ? width / height : 16 / 9 }
 }
 
-/** The id of every group on every slide, nested ones included. */
-function groupIds(slides: ReadonlyArray<{ nodes: Parameters<typeof eachNode>[0] }>): Set<string> {
-	const ids = new Set<string>()
-	for (const slide of slides) {
-		eachNode(slide.nodes, (node) => {
-			if (node.kind === 'group') ids.add(node.id)
-		})
-	}
-	return ids
-}
-
 /** The document's inline asset block, as data URIs keyed by manifest name. */
 function assetUrls(doc: Document): Map<string, string> {
 	const urls = new Map<string, string>()
@@ -199,23 +175,6 @@ function assetUrls(doc: Document): Map<string, string> {
 		urls.set(name, `data:${types.get(name) ?? 'application/octet-stream'};base64,${base64}`)
 	}
 	return urls
-}
-
-/**
- * Rewrite `line-height: 130%` as `line-height: 1.3`.
- *
- * PowerPoint's percentage line spacing is a multiple of each line's own font size, which in
- * CSS is a unitless number. The renderer writes a percentage on the paragraph instead, and
- * a percentage resolves once, against the paragraph's font size, before the runs inherit
- * it. The runs carry the real size, so a 44pt title gets 16.8px lines and its two lines
- * paint on top of each other. Upstream already writes single spacing as a unitless number;
- * the fix is to do the same for every percentage.
- */
-export function unitlessLineHeights(style: string): string {
-	return style.replace(
-		/line-height:\s*(\d+(?:\.\d+)?)%/g,
-		(_, percent: string) => `line-height:${Number(percent) / 100}`
-	)
 }
 
 /** "1 difference", "4 differences". */
