@@ -75,7 +75,7 @@ import { extractSlides as extractSlidesFrom } from './gen/extract-slides.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 import { pickDefined, setOrClear } from './options-internal.js'
 
-const VERSION = '4.0.0'
+const VERSION = '4.0.1'
 
 function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 	return {

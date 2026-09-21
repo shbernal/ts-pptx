@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-09-21
+
+### Fixed
+
+- **Text targeting a placeholder no longer has black written into it.** `addText('x', { placeholder:
+  'title' })` emitted an explicit `<a:solidFill><a:srgbClr val="000000"/></a:solidFill>` on the run,
+  so text whose whole purpose is to take its colour from the layout or master stopped following the
+  theme: a recoloured master left the slide's own text black. The colour default has always been
+  suppressed for placeholder-targeting text, but it tested the bag it was handed, and `cleanOpts`
+  runs once for the shape and again for each of its runs, where a run carries only what the caller
+  wrote on that run. So the shape was spared and the run inside it was not. It read as correct for
+  as long as the string shorthand handed one options object to both, which is how 4.0.0 introduced
+  it: removing that aliasing, so a run no longer inherits the shape's `shadow`, took the key this
+  default was reading. The question asked is now whether the *text* targets a placeholder. A colour
+  the caller does state still arrives, through `RUN_INHERITABLE_OPTIONS`, and nothing else about the
+  default changes. **Downstream impact:** a deck built with 4.0.0 carries the baked colour in the
+  file; rebuilding with this version restores inheritance. Every byte-identity gate stayed green
+  through the regression, because no showcase deck states an inherited placeholder colour, which is
+  also why the new coverage goes through the emitted package rather than the corpus.
+
 ## [4.0.0] - 2026-09-21
 
 ### Added
@@ -7285,6 +7305,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[4.0.1]: https://github.com/shbernal/ts-pptx/releases/tag/v4.0.1
 [4.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v4.0.0
 [3.7.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.7.0
 [3.6.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.6.0
