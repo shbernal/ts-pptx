@@ -392,163 +392,574 @@
 /* --- the demos page ------------------------------------------------------------- */
 
 /*
- * Wider than the prose column it sits in. A slide is 16:9 and the point of the page, and
- * at the reading width the default theme sets it comes out too small to read.
- *
- * The break-out is done with the component's own geometry — centre on the parent, then
- * pull back by half its own width — rather than by overriding `.VPDoc .content-container`.
- * Reaching into the default theme's class names is the thing this stylesheet otherwise
- * does not do, and it would break on any release that renames a container.
+ * Every rule below is scoped under `.deck-viewer`. The component sits inside `.vp-doc`,
+ * whose element rules (`.vp-doc h2`, `.vp-doc p`, `.vp-doc li + li`) outrank a lone class.
+ * Two classes outrank them without naming a default-theme class here.
  */
-.deck-preview {
-	position: relative;
-	left: 50%;
-	transform: translateX(-50%);
+.deck-viewer {
+	--deck-stage: var(--vp-c-bg-soft);
+	--deck-ring: var(--vp-c-brand-1);
 	margin: 2rem 0 3rem;
-	width: min(1080px, 100%);
 }
 
-@media (min-width: 960px) {
-	.deck-preview {
-		width: min(1080px, calc(100vw - 22rem));
-	}
+.dark .deck-viewer {
+	--deck-stage: #111114;
 }
 
-.deck-preview__head {
+.deck-viewer .deck-viewer__head {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 1rem 2rem;
-	align-items: flex-start;
+	gap: 1.25rem 2rem;
+	align-items: flex-end;
 	justify-content: space-between;
+	margin-bottom: 1.25rem;
 }
 
-.deck-preview__title {
+.deck-viewer .deck-viewer__heading {
+	flex: 1 1 22rem;
+	min-width: 0;
+}
+
+.deck-viewer .deck-viewer__eyebrow {
+	display: inline-flex;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0 0 0.5rem;
+	color: var(--vp-c-brand-1);
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	line-height: 1.4;
+	text-transform: uppercase;
+}
+
+.deck-viewer .deck-viewer__live {
+	border-radius: 50%;
+	background: currentColor;
+	width: 0.45rem;
+	height: 0.45rem;
+	box-shadow: 0 0 0 3px var(--vp-c-brand-soft);
+}
+
+.deck-viewer .deck-viewer__title {
 	margin: 0;
 	border: 0;
 	padding: 0;
-	font-size: 1.35rem;
-	line-height: 1.4;
+	font-size: 1.5rem;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+	line-height: 1.3;
 }
 
-.deck-preview__blurb {
-	margin: 0.35rem 0 0;
-	max-width: 46ch;
+.deck-viewer .deck-viewer__blurb {
+	margin: 0.4rem 0 0;
 	color: var(--vp-c-text-2);
-	font-size: 0.9rem;
+	font-size: 0.925rem;
+	line-height: 1.5;
 }
 
-.deck-preview__download {
+.deck-viewer .deck-viewer__download {
 	display: flex;
 	flex-direction: column;
-	gap: 0.5rem;
+	gap: 0.4rem;
 	align-items: flex-end;
 }
 
-.deck-preview button {
+/* Once the header wraps, the button sits under the blurb and lines up with it. */
+@media (max-width: 640px) {
+	.deck-viewer .deck-viewer__download {
+		align-items: flex-start;
+	}
+}
+
+.deck-viewer button {
+	font: inherit;
+	cursor: pointer;
+}
+
+.deck-viewer button:disabled {
+	cursor: not-allowed;
+}
+
+/* The component's own line icons. The slides are SVG too, but they sit in shadow roots
+   this rule cannot reach. */
+.deck-viewer svg {
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 1.75;
+}
+
+.deck-viewer .deck-viewer__build {
+	display: inline-flex;
+	gap: 0.5rem;
+	align-items: center;
+	border: 0;
+	border-radius: 999px;
+	background: var(--vp-c-brand-3);
+	padding: 0.6rem 1.15rem 0.6rem 0.95rem;
+	color: #fff;
+	font-size: 0.9rem;
+	font-weight: 600;
+	line-height: 1.2;
+	transition: background-color 0.2s;
+}
+
+.deck-viewer .deck-viewer__build svg {
+	width: 1.1rem;
+	height: 1.1rem;
+}
+
+.deck-viewer .deck-viewer__build:hover:not(:disabled) {
+	background: var(--vp-c-brand-2);
+}
+
+.deck-viewer .deck-viewer__build:disabled {
+	opacity: 0.6;
+}
+
+.deck-viewer .deck-viewer__note {
+	margin: 0;
+	color: var(--vp-c-text-3);
+	font-size: 0.78rem;
+	line-height: 1.4;
+}
+
+.deck-viewer .deck-viewer__note code {
+	font-size: 0.75rem;
+}
+
+.deck-viewer .deck-viewer__note--bad {
+	color: var(--vp-c-danger-1);
+}
+
+/* The player: stage, toolbar and filmstrip read as one object on one surface. */
+.deck-viewer .deck-viewer__player {
 	border: 1px solid var(--vp-c-divider);
-	border-radius: 8px;
-	background: var(--vp-c-bg-soft);
-	padding: 0.45rem 0.9rem;
+	border-radius: 16px;
+	background: var(--deck-stage);
+	overflow: hidden;
+}
+
+.deck-viewer .deck-viewer__stage {
+	position: relative;
+	outline: none;
+	padding: clamp(0.75rem, 3vw, 2.25rem) clamp(0.75rem, 4.5vw, 3.75rem);
+}
+
+.deck-viewer .deck-viewer__stage:focus-visible {
+	box-shadow: inset 0 0 0 2px var(--deck-ring);
+}
+
+.deck-viewer .deck-viewer__canvas {
+	position: relative;
+	margin: 0 auto;
+	border-radius: 6px;
+	background: var(--vp-c-bg);
+	aspect-ratio: var(--deck-aspect);
+	overflow: hidden;
+	box-shadow:
+		0 1px 2px rgba(0, 0, 0, 0.08),
+		0 12px 32px -8px rgba(0, 0, 0, 0.3);
+}
+
+.deck-viewer .slide-frame {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
+.deck-viewer .deck-viewer__placeholder {
+	display: flex;
+	position: absolute;
+	inset: 0;
+	flex-direction: column;
+	gap: 1rem;
+	align-items: center;
+	justify-content: center;
+	background:
+		linear-gradient(100deg, transparent 30%, var(--vp-c-bg-soft) 50%, transparent 70%) 0 0 / 250% 100%,
+		var(--vp-c-bg-alt);
+	padding: 1.5rem;
+	color: var(--vp-c-text-2);
+	font-size: 0.9rem;
+	text-align: center;
+	animation: deck-viewer-shimmer 1.6s linear infinite;
+}
+
+.deck-viewer .deck-viewer__placeholder[role='alert'] {
+	background: var(--vp-c-bg-alt);
+	animation: none;
+}
+
+.deck-viewer .deck-viewer__spinner {
+	border: 2px solid var(--vp-c-divider);
+	border-top-color: var(--vp-c-brand-1);
+	border-radius: 50%;
+	width: 1.5rem;
+	height: 1.5rem;
+	animation: deck-viewer-spin 0.8s linear infinite;
+}
+
+@keyframes deck-viewer-shimmer {
+	to {
+		background-position:
+			-250% 0,
+			0 0;
+	}
+}
+
+@keyframes deck-viewer-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.deck-viewer .deck-viewer__retry,
+.deck-viewer .deck-viewer__tool {
+	display: inline-flex;
+	gap: 0.4rem;
+	align-items: center;
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 999px;
+	background: var(--vp-c-bg);
+	padding: 0.35rem 0.8rem;
 	color: var(--vp-c-text-1);
-	font-size: 0.875rem;
+	font-size: 0.8rem;
 	font-weight: 500;
 	line-height: 1.2;
 	transition:
 		border-color 0.2s,
-		background-color 0.2s;
+		color 0.2s;
 }
 
-.deck-preview button:hover:not(:disabled) {
+.deck-viewer .deck-viewer__tool svg {
+	width: 0.95rem;
+	height: 0.95rem;
+}
+
+.deck-viewer .deck-viewer__retry:hover,
+.deck-viewer .deck-viewer__tool:hover {
 	border-color: var(--vp-c-brand-1);
 	color: var(--vp-c-brand-1);
 }
 
-.deck-preview button:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
+/* Round arrows over the slide's edges, quiet until the stage is hovered or focused. */
+.deck-viewer .deck-viewer__arrow {
+	display: grid;
+	position: absolute;
+	top: 50%;
+	place-items: center;
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 50%;
+	background: var(--vp-c-bg);
+	width: 2.5rem;
+	height: 2.5rem;
+	color: var(--vp-c-text-1);
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+	opacity: 0;
+	transform: translateY(-50%);
+	transition:
+		opacity 0.2s,
+		color 0.2s,
+		border-color 0.2s;
 }
 
-.deck-preview__download button {
-	border-color: transparent;
-	background: var(--vp-c-brand-3);
-	color: #fff;
+.deck-viewer .deck-viewer__arrow svg {
+	width: 1.15rem;
+	height: 1.15rem;
+	stroke-width: 2;
 }
 
-.deck-preview__download button:hover:not(:disabled) {
-	background: var(--vp-c-brand-2);
-	color: #fff;
+.deck-viewer .deck-viewer__arrow--prev {
+	left: clamp(0.25rem, 1.5vw, 1rem);
 }
 
-.deck-preview__note {
-	margin: 0;
-	color: var(--vp-c-text-2);
-	font-size: 0.8rem;
+.deck-viewer .deck-viewer__arrow--next {
+	right: clamp(0.25rem, 1.5vw, 1rem);
 }
 
-.deck-preview__note--bad {
-	color: var(--vp-c-danger-1, #b4451f);
+.deck-viewer .deck-viewer__stage:hover .deck-viewer__arrow:not(:disabled),
+.deck-viewer .deck-viewer__stage:focus-within .deck-viewer__arrow:not(:disabled) {
+	opacity: 1;
 }
 
-.deck-preview__bar {
+.deck-viewer .deck-viewer__arrow:hover:not(:disabled) {
+	border-color: var(--vp-c-brand-1);
+	color: var(--vp-c-brand-1);
+}
+
+/* No hover on a touch screen, so the arrows stay visible there. */
+@media (hover: none) {
+	.deck-viewer .deck-viewer__arrow:not(:disabled) {
+		opacity: 0.9;
+	}
+}
+
+/* Full screen: the stage alone, the slide as large as the screen allows. */
+.deck-viewer .deck-viewer__stage.is-fullscreen {
+	display: grid;
+	place-items: center;
+	background: #0b0b0d;
+	padding: 2vmin;
+}
+
+.deck-viewer .deck-viewer__stage.is-fullscreen .deck-viewer__canvas {
+	border-radius: 0;
+	width: min(100%, calc((100vh - 4vmin) * var(--deck-aspect)));
+}
+
+.deck-viewer .deck-viewer__stage.is-fullscreen .deck-viewer__arrow:not(:disabled) {
+	opacity: 0.85;
+}
+
+.deck-viewer .deck-viewer__toolbar {
 	display: flex;
-	gap: 0.75rem;
+	gap: 1rem;
 	align-items: center;
-	margin: 1.25rem 0 0.5rem;
+	border-top: 1px solid var(--vp-c-divider);
+	padding: 0.6rem 1rem;
 	color: var(--vp-c-text-2);
-	font-size: 0.85rem;
+	font-size: 0.825rem;
+}
+
+.deck-viewer .deck-viewer__counter {
+	min-width: 3.5rem;
 	font-variant-numeric: tabular-nums;
 }
 
-.deck-preview__frame {
+.deck-viewer .deck-viewer__counter strong {
+	color: var(--vp-c-text-1);
+	font-weight: 600;
+}
+
+.deck-viewer .deck-viewer__hint {
+	flex: 1;
+	color: var(--vp-c-text-3);
+	font-size: 0.78rem;
+}
+
+@media (hover: none), (max-width: 640px) {
+	.deck-viewer .deck-viewer__hint {
+		visibility: hidden;
+	}
+}
+
+.deck-viewer .deck-viewer__strip {
+	display: flex;
+	position: relative;
+	gap: 0.75rem;
+	margin: 0;
+	border-top: 1px solid var(--vp-c-divider);
+	padding: 0.9rem 1rem 1rem;
+	overflow-x: auto;
+	list-style: none;
+	scrollbar-width: thin;
+}
+
+.deck-viewer .deck-viewer__strip li {
+	flex: 0 0 auto;
+	margin: 0;
+}
+
+.deck-viewer .deck-viewer__thumb {
 	display: block;
-	border: 1px solid var(--vp-c-divider);
-	border-radius: 10px;
-	background: var(--vp-c-bg-soft);
-	width: 100%;
-	height: min(72vh, 640px);
+	position: relative;
+	border: 0;
+	border-radius: 6px;
+	background: var(--vp-c-bg);
+	padding: 0;
+	width: clamp(6.5rem, 14vw, 8.5rem);
+	aspect-ratio: var(--deck-aspect);
+	overflow: hidden;
+	box-shadow: 0 0 0 1px var(--vp-c-divider);
+	opacity: 0.7;
+	transition:
+		opacity 0.2s,
+		box-shadow 0.2s,
+		transform 0.2s;
 }
 
-.deck-preview__frame--empty {
-	background-image: linear-gradient(135deg, var(--vp-c-bg-soft) 0%, var(--vp-c-bg-alt) 100%);
+.deck-viewer .deck-viewer__thumb .slide-frame {
+	pointer-events: none;
 }
 
-.deck-preview__failure {
-	margin: 0.75rem 0 0;
+.deck-viewer .deck-viewer__thumb:hover {
+	opacity: 1;
+	transform: translateY(-2px);
+}
+
+.deck-viewer .deck-viewer__thumb:focus-visible {
+	outline: 2px solid var(--deck-ring);
+	outline-offset: 2px;
+}
+
+.deck-viewer .deck-viewer__thumb.is-current {
+	opacity: 1;
+	box-shadow: 0 0 0 2px var(--deck-ring);
+}
+
+.deck-viewer .deck-viewer__thumb-number {
+	position: absolute;
+	bottom: 0.3rem;
+	left: 0.3rem;
+	border-radius: 4px;
+	background: rgba(0, 0, 0, 0.62);
+	padding: 0.05rem 0.35rem;
+	color: #fff;
+	font-size: 0.68rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.4;
+}
+
+.deck-viewer .deck-viewer__notes {
+	margin-top: 1rem;
 	border-left: 3px solid var(--vp-c-brand-1);
+	border-radius: 0 10px 10px 0;
+	background: var(--vp-c-bg-soft);
+	padding: 0.85rem 1.1rem;
+	font-size: 0.9rem;
+	line-height: 1.6;
+}
+
+.deck-viewer .deck-viewer__notes p {
+	margin: 0;
+	line-height: 1.6;
+}
+
+.deck-viewer .deck-viewer__notes p + p {
+	margin-top: 0.35rem;
+}
+
+.deck-viewer .deck-viewer__label {
+	color: var(--vp-c-text-3);
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+.deck-viewer .deck-viewer__muted {
+	color: var(--vp-c-text-2);
+}
+
+.deck-viewer .deck-viewer__failure {
+	margin: 1rem 0 0;
+	border-left: 3px solid var(--vp-c-danger-1);
 	padding-left: 0.75rem;
 	color: var(--vp-c-text-2);
 	font-size: 0.85rem;
 }
 
-.deck-preview__ledger {
-	margin-top: 1.25rem;
+.deck-viewer .deck-viewer__ledger {
+	margin-top: 1rem;
 	border: 1px solid var(--vp-c-divider);
-	border-radius: 10px;
-	padding: 0.75rem 1rem;
-	font-size: 0.85rem;
+	border-radius: 12px;
+	font-size: 0.875rem;
 }
 
-.deck-preview__ledger summary {
+.deck-viewer .deck-viewer__ledger summary {
+	display: flex;
+	gap: 0.75rem;
+	align-items: center;
+	padding: 0.8rem 1.1rem;
+	font-weight: 500;
+	list-style: none;
 	cursor: pointer;
-	font-weight: 500;
 }
 
-.deck-preview__ledger p {
-	margin: 0.75rem 0;
-	color: var(--vp-c-text-2);
+.deck-viewer .deck-viewer__ledger summary::-webkit-details-marker {
+	display: none;
 }
 
-.deck-preview__ledger dt {
-	margin-top: 0.75rem;
-	font-weight: 500;
-}
-
-.deck-preview__ledger dd {
-	margin: 0.2rem 0 0;
-	color: var(--vp-c-text-2);
-}
-
-.deck-preview__slides {
+.deck-viewer .deck-viewer__ledger summary::before {
+	flex: none;
+	border-right: 1.75px solid currentColor;
+	border-bottom: 1.75px solid currentColor;
+	width: 0.45rem;
+	height: 0.45rem;
 	color: var(--vp-c-text-3);
-	font-weight: 400;
+	content: '';
+	transform: rotate(-45deg);
+	transition: transform 0.2s;
+}
+
+.deck-viewer .deck-viewer__ledger[open] summary::before {
+	transform: rotate(45deg);
+}
+
+.deck-viewer .deck-viewer__count {
+	margin-left: auto;
+	border-radius: 999px;
+	background: var(--vp-c-default-soft);
+	padding: 0.1rem 0.6rem;
+	color: var(--vp-c-text-2);
+	font-size: 0.75rem;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.deck-viewer .deck-viewer__ledger > p {
+	margin: 0;
+	border-top: 1px solid var(--vp-c-divider);
+	padding: 0.8rem 1.1rem;
+	font-size: 0.85rem;
+	line-height: 1.55;
+}
+
+.deck-viewer .deck-viewer__differences {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.deck-viewer .deck-viewer__differences li {
+	margin: 0;
+	border-top: 1px solid var(--vp-c-divider);
+	padding: 0.8rem 1.1rem;
+}
+
+.deck-viewer .deck-viewer__difference-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem 0.5rem;
+	align-items: center;
+}
+
+.deck-viewer .deck-viewer__differences p {
+	margin: 0.4rem 0 0;
+	color: var(--vp-c-text-2);
+	font-size: 0.85rem;
+	line-height: 1.55;
+}
+
+.deck-viewer .deck-viewer__pill {
+	border-radius: 999px;
+	background: var(--vp-c-brand-soft);
+	padding: 0.05rem 0.55rem;
+	color: var(--vp-c-brand-1);
+	font-size: 0.72rem;
+	font-weight: 600;
+	line-height: 1.5;
+}
+
+.deck-viewer .deck-viewer__pill--quiet {
+	background: var(--vp-c-default-soft);
+	color: var(--vp-c-text-2);
+}
+
+.deck-viewer .deck-viewer__slides {
+	margin-left: auto;
+	color: var(--vp-c-text-3);
+	font-size: 0.78rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.deck-viewer *,
+	.deck-viewer *::before {
+		transition: none !important;
+		animation: none !important;
+	}
 }

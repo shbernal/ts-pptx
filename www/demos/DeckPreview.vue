@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
 	buildDeckBytes,
+	counted,
 	DECK,
 	downloadDeck,
 	failureMessage,
@@ -9,6 +10,7 @@ import {
 	slideList,
 	summarizeNotes,
 } from './deck-preview.ts'
+import SlideFrame from './SlideFrame.vue'
 
 // `preview` runs on mount; `download` runs on the button. Two states rather than one
 // because either can fail on its own, and a failed render must not be reported as a
@@ -23,18 +25,23 @@ const download = ref({ status: 'idle', error: '' })
 // Gating on mount makes "not ready yet" a state the page can show and a test can wait for.
 const ready = ref(false)
 
-const frame = ref(null)
 const slide = ref(1)
+const stage = ref(null)
+const strip = ref(null)
+const fullscreen = ref(false)
 
-const notes = computed(() => (preview.value.deck ? summarizeNotes(preview.value.deck.notes) : []))
-const slideCount = computed(() => preview.value.deck?.slideCount ?? 0)
+const deck = computed(() => preview.value.deck)
+const slideCount = computed(() => deck.value?.slides.length ?? 0)
+const current = computed(() => deck.value?.slides[slide.value - 1] ?? null)
+const differences = computed(() => (deck.value ? summarizeNotes(deck.value.fidelity) : []))
+const aspect = computed(() => ({ '--deck-aspect': String(deck.value?.aspectRatio ?? 16 / 9) }))
 
 async function render() {
 	preview.value = { status: 'rendering', deck: null, error: '' }
 	try {
-		const deck = await previewDeck(await buildDeckBytes())
-		preview.value = { status: 'ready', deck, error: '' }
+		const built = await previewDeck(await buildDeckBytes())
 		slide.value = 1
+		preview.value = { status: 'ready', deck: built, error: '' }
 	} catch (error) {
 		preview.value = { status: 'failed', deck: null, error: failureMessage(error) }
 	}
@@ -50,131 +57,201 @@ async function saveDeck() {
 	}
 }
 
-/** The rendered document is same-origin (`srcdoc`), so its slides are reachable directly. */
-function frameDocument() {
-	return frame.value?.contentDocument ?? null
-}
-
 function goTo(number) {
-	const target = Math.min(Math.max(number, 1), slideCount.value)
-	slide.value = target
-
-	const view = frame.value?.contentWindow
-	const section = frameDocument()?.querySelector(`[data-pxh-slide="${target}"]`)
-	if (!view || !section) return
-	// Scroll the frame's own document, rather than `section.scrollIntoView()`. That call
-	// would also scroll *this* page to bring the frame into view, which pulls these very
-	// buttons off screen — pressing Next would move the control you pressed it with.
-	view.scrollTo({ top: section.getBoundingClientRect().top + view.scrollY })
+	if (!slideCount.value) return
+	slide.value = Math.min(Math.max(number, 1), slideCount.value)
 }
 
-/**
- * Follow the iframe's own scrolling, so dragging its scrollbar moves the counter too.
- * Whichever slide's top edge is nearest the top of the frame is the one being read.
- */
-function syncFromScroll() {
-	const doc = frameDocument()
-	if (!doc) return
-	let nearest = slide.value
-	let best = Infinity
-	for (const section of doc.querySelectorAll('[data-pxh-slide]')) {
-		const distance = Math.abs(section.getBoundingClientRect().top)
-		if (distance < best) {
-			best = distance
-			nearest = Number(section.getAttribute('data-pxh-slide'))
-		}
+// Keys anywhere in the player, the way a slide show takes them. Only unmodified keys, so
+// Alt+Left still goes back a page. Up, Down and Space are left alone: they scroll the
+// page, and a thumbnail that has focus still needs Space to press it.
+function onKey(event) {
+	if (event.altKey || event.ctrlKey || event.metaKey) return
+	const target = {
+		ArrowLeft: slide.value - 1,
+		PageUp: slide.value - 1,
+		ArrowRight: slide.value + 1,
+		PageDown: slide.value + 1,
+		Home: 1,
+		End: slideCount.value,
+	}[event.key]
+	if (target !== undefined) {
+		event.preventDefault()
+		goTo(target)
+	} else if (event.key === 'f') {
+		event.preventDefault()
+		toggleFullscreen()
 	}
-	slide.value = nearest
 }
 
-let scrollTarget = null
-
-function detachScroll() {
-	scrollTarget?.removeEventListener('scroll', syncFromScroll)
-	scrollTarget = null
+function toggleFullscreen() {
+	if (document.fullscreenElement) document.exitFullscreen()
+	else stage.value?.requestFullscreen?.()
 }
 
-function onFrameLoad() {
-	detachScroll()
-	scrollTarget = frame.value?.contentWindow ?? null
-	scrollTarget?.addEventListener('scroll', syncFromScroll, { passive: true })
+function onFullscreenChange() {
+	fullscreen.value = document.fullscreenElement === stage.value
+	if (fullscreen.value) stage.value?.focus()
 }
 
-watch(() => preview.value.status, detachScroll)
-onBeforeUnmount(detachScroll)
+// Keep the current thumbnail in view. The strip is scrolled directly rather than through
+// `scrollIntoView()`, which would also scroll the page and pull the stage away from the
+// reader pressing the arrow keys.
+watch(slide, async (number) => {
+	await nextTick()
+	const list = strip.value
+	const thumb = list?.querySelector(`[data-slide="${number}"]`)
+	if (!list || !thumb) return
+	const left = thumb.offsetLeft - (list.clientWidth - thumb.offsetWidth) / 2
+	list.scrollTo({ left, behavior: 'smooth' })
+})
 
 onMounted(() => {
 	ready.value = true
+	document.addEventListener('fullscreenchange', onFullscreenChange)
 	render()
 })
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
 </script>
 
 <template>
-	<section class="deck-preview">
-		<header class="deck-preview__head">
-			<div>
-				<h2 class="deck-preview__title">{{ DECK.title }}</h2>
-				<p class="deck-preview__blurb">{{ DECK.description }}</p>
+	<section class="deck-viewer" :style="aspect">
+		<header class="deck-viewer__head">
+			<div class="deck-viewer__heading">
+				<p class="deck-viewer__eyebrow">
+					<span class="deck-viewer__live" aria-hidden="true" />
+					Built in this tab
+				</p>
+				<h2 class="deck-viewer__title">{{ DECK.title }}</h2>
+				<p class="deck-viewer__blurb">{{ DECK.description }}</p>
 			</div>
-			<div role="group" aria-label="Download" class="deck-preview__download">
-				<button type="button" :disabled="!ready || download.status === 'saving'" @click="saveDeck">
-					{{ download.status === 'saving' ? 'Building…' : `Build ${DECK.fileName}` }}
+			<div role="group" aria-label="Download" class="deck-viewer__download">
+				<button type="button" class="deck-viewer__build" :disabled="!ready || download.status === 'saving'" @click="saveDeck">
+					<svg viewBox="0 0 20 20" aria-hidden="true">
+						<path d="M10 3v9m0 0-3.5-3.5M10 12l3.5-3.5M4 15.5h12" />
+					</svg>
+					{{ download.status === 'saving' ? 'Building…' : 'Build the .pptx' }}
 				</button>
-				<p v-if="download.status === 'saved'" role="status" class="deck-preview__note">
+				<p v-if="download.status === 'saved'" role="status" class="deck-viewer__note">
 					Built <code>{{ DECK.fileName }}</code>. Check your downloads.
 				</p>
-				<p v-else-if="download.status === 'failed'" role="alert" class="deck-preview__note deck-preview__note--bad">
+				<p v-else-if="download.status === 'failed'" role="alert" class="deck-viewer__note deck-viewer__note--bad">
 					{{ download.error }}
 				</p>
+				<p v-else class="deck-viewer__note">{{ DECK.fileName }}</p>
 			</div>
 		</header>
 
-		<div class="deck-preview__bar">
-			<template v-if="preview.status === 'ready'">
-				<button type="button" :disabled="slide <= 1" aria-label="Previous slide" @click="goTo(slide - 1)">←</button>
-				<span aria-live="polite">Slide {{ slide }} of {{ slideCount }}</span>
-				<button type="button" :disabled="slide >= slideCount" aria-label="Next slide" @click="goTo(slide + 1)">→</button>
-			</template>
-			<span v-else-if="preview.status === 'rendering'">Building the deck and rendering it…</span>
-			<button v-else type="button" @click="render">Try again</button>
+		<div class="deck-viewer__player" @keydown="onKey">
+			<div
+				ref="stage"
+				class="deck-viewer__stage"
+				:class="{ 'is-fullscreen': fullscreen }"
+				tabindex="0"
+				role="region"
+				aria-roledescription="slide viewer"
+				:aria-label="deck ? `Slide ${slide} of ${slideCount}` : 'Slide viewer'"
+			>
+				<div class="deck-viewer__canvas">
+					<SlideFrame v-if="current" :key="current.number" :markup="current.markup" :styles="deck.styles" />
+					<div v-else-if="preview.status === 'rendering'" class="deck-viewer__placeholder">
+						<span class="deck-viewer__spinner" aria-hidden="true" />
+						<span>Building the deck and rendering it…</span>
+					</div>
+					<div v-else class="deck-viewer__placeholder" role="alert">
+						<span>The preview could not be rendered: {{ preview.error }}</span>
+						<button type="button" class="deck-viewer__retry" @click="render">Try again</button>
+					</div>
+				</div>
+				<template v-if="deck">
+					<button
+						type="button"
+						class="deck-viewer__arrow deck-viewer__arrow--prev"
+						:disabled="slide <= 1"
+						aria-label="Previous slide"
+						@click="goTo(slide - 1)"
+					>
+						<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" /></svg>
+					</button>
+					<button
+						type="button"
+						class="deck-viewer__arrow deck-viewer__arrow--next"
+						:disabled="slide >= slideCount"
+						aria-label="Next slide"
+						@click="goTo(slide + 1)"
+					>
+						<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" /></svg>
+					</button>
+				</template>
+			</div>
+
+			<div v-if="deck" class="deck-viewer__toolbar">
+				<span class="deck-viewer__counter" aria-live="polite">
+					<strong>{{ slide }}</strong> / {{ slideCount }}
+				</span>
+				<span class="deck-viewer__hint">Use ← → to move between slides</span>
+				<button type="button" class="deck-viewer__tool" @click="toggleFullscreen">
+					<svg viewBox="0 0 20 20" aria-hidden="true">
+						<path v-if="fullscreen" d="M8 3v5H3m9-5v5h5M8 17v-5H3m9 5v-5h5" />
+						<path v-else d="M3 8V3h5m4 0h5v5M3 12v5h5m4 0h5v-5" />
+					</svg>
+					{{ fullscreen ? 'Exit full screen' : 'Full screen' }}
+				</button>
+			</div>
+
+			<ol v-if="deck" ref="strip" class="deck-viewer__strip" aria-label="Slides">
+				<li v-for="item in deck.slides" :key="item.number">
+					<button
+						type="button"
+						class="deck-viewer__thumb"
+						:class="{ 'is-current': item.number === slide }"
+						:data-slide="item.number"
+						:aria-label="`Slide ${item.number}`"
+						:aria-current="item.number === slide ? 'true' : undefined"
+						@click="goTo(item.number)"
+					>
+						<SlideFrame :markup="item.markup" :styles="deck.styles" aria-hidden="true" />
+						<span class="deck-viewer__thumb-number">{{ item.number }}</span>
+					</button>
+				</li>
+			</ol>
 		</div>
 
-		<p v-if="preview.status === 'failed'" role="alert" class="deck-preview__failure">
-			The preview could not be rendered: {{ preview.error }}
+		<div v-if="current" class="deck-viewer__notes">
+			<p class="deck-viewer__label">Speaker notes</p>
+			<p v-for="(line, index) in current.notes" :key="index">{{ line }}</p>
+			<p v-if="!current.notes.length" class="deck-viewer__muted">This slide has no notes.</p>
+		</div>
+
+		<p v-if="deck?.warnings.length" role="alert" class="deck-viewer__failure">
+			The renderer reported {{ counted(deck.warnings.length, 'warning') }}:
+			{{ deck.warnings.join('; ') }}
 		</p>
 
-		<iframe
-			v-if="preview.status === 'ready'"
-			ref="frame"
-			class="deck-preview__frame"
-			title="Rendered slides"
-			:srcdoc="preview.deck.html"
-			@load="onFrameLoad"
-		/>
-		<div v-else class="deck-preview__frame deck-preview__frame--empty" />
-
-		<p v-if="preview.deck?.warnings.length" role="alert" class="deck-preview__failure">
-			The renderer reported {{ preview.deck.warnings.length }} warning(s):
-			{{ preview.deck.warnings.join('; ') }}
-		</p>
-
-		<details v-if="notes.length" class="deck-preview__ledger">
-			<summary>All {{ notes.length }} declared difference(s), across the deck</summary>
-			<p>
-				The renderer prints these beside the slide they apply to; this is the same set
-				gathered up, in its vocabulary rather than one invented here. They describe what a
-				reader would and would not carry back out of this package: a construct that is
-				<em>carried</em> untouched raises no note at all.
+		<details v-if="differences.length" class="deck-viewer__ledger">
+			<summary>
+				<span>What the renderer says it could not carry back</span>
+				<span class="deck-viewer__count">{{ counted(differences.length, 'difference') }}</span>
+			</summary>
+			<p class="deck-viewer__muted">
+				The renderer declares these per slide; this is the same set gathered up, in its
+				vocabulary rather than one invented here. They describe what a reader would and would
+				not carry back out of this package: a construct that is <em>carried</em> untouched
+				raises no note at all.
 			</p>
-			<dl>
-				<template v-for="note in notes" :key="note.key">
-					<dt>
-						<code>{{ note.construct }}</code>: {{ note.disposition }} ({{ note.cause }})
-						<span class="deck-preview__slides">slide{{ note.slides.length === 1 ? '' : 's' }} {{ slideList(note.slides) }}</span>
-					</dt>
-					<dd>{{ note.detail }}</dd>
-				</template>
-			</dl>
+			<ul class="deck-viewer__differences">
+				<li v-for="note in differences" :key="note.key">
+					<div class="deck-viewer__difference-head">
+						<code>{{ note.construct }}</code>
+						<span class="deck-viewer__pill">{{ note.disposition }}</span>
+						<span class="deck-viewer__pill deck-viewer__pill--quiet">{{ note.cause }}</span>
+						<span class="deck-viewer__slides">
+							slide{{ note.slides.length === 1 ? '' : 's' }} {{ slideList(note.slides) }}
+						</span>
+					</div>
+					<p>{{ note.detail }}</p>
+				</li>
+			</ul>
 		</details>
 	</section>
 </template>

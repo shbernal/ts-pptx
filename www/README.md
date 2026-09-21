@@ -25,7 +25,8 @@ www/
     MermaidDiagram.vue  the component a fence becomes; redraws on a colour mode change
   demos/
     deck-preview.ts    the pipeline and its types — plain TS, typechecked, unit-tested
-    DeckPreview.vue    the markup and the wiring around it
+    DeckPreview.vue    the slide viewer: stage, filmstrip, notes and the build button
+    SlideFrame.vue     one slide in a shadow root, which keeps the site's CSS out of it
 ```
 
 VitePress only looks for a theme at `<root>/.vitepress/theme`, so `docs/.vitepress/theme/index.ts`

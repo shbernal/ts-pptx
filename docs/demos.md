@@ -13,14 +13,14 @@ aside: false
 
 # Demos
 
-The deck below is **built in this tab**. No server renders it, nothing is uploaded, and no
-picture of a slide is stored anywhere: the page runs the same showcase module that
-`pnpm demos:build quarterly-review` runs, gets a `.pptx` back as bytes, and hands those
-bytes to [`pptx-html`](https://www.npmjs.com/package/pptx-html), which reads the package
-and paints its slides as SVG.
+The deck below is **built in this tab**. Nothing is uploaded, and no picture of a slide is
+stored anywhere. The page runs the same showcase module that
+`pnpm demos:build quarterly-review` runs, gets a `.pptx` back as bytes, and hands those bytes
+to [`pptx-html`](https://www.npmjs.com/package/pptx-html), which reads the package and paints
+each slide as SVG.
 
-That round trip is the point. A preview drawn from a screenshot would prove nothing about
-the package; this one can only appear if the bytes are a deck a reader can open.
+That round trip is the point. A screenshot would prove nothing about the package, but this
+preview can only appear if the bytes are a deck a reader can open.
 
 <DeckPreview />
 
@@ -31,8 +31,11 @@ the package; this one can only appear if the bytes are a deck a reader can open.
   KPI cards and speaker notes. Kestrel Analytics is fictional.
 - **The renderer** is a separate library. `pptx-html` reads a package into a slide model and
   renders that model; it does not approximate. Where it cannot model something it says so,
-  and those declarations are listed under the preview.
-- **The download button** builds the same deck again and saves it, through the browser
+  and those declarations are listed under the preview. The page corrects two things in what it
+  draws, both renderer bugs in `pptx-html` 0.2: line spacing is written as a plain multiple
+  rather than a percentage, so a large title no longer paints its lines over each other, and
+  a grouped shape is no longer offset twice.
+- **The build button** builds the same deck again and saves it, through the browser
   runtime's own file-writing path. Open the result in PowerPoint: that, not the picture
   above, is the output this library is judged on.
 
