@@ -457,4 +457,47 @@ defineRegressionSuite('Text definition', [
 			assertNonVisualDrawingProperty(xml, { name: 'subhead' }, 'the named placeholder')
 		},
 	},
+	{
+		// The colour default must not reach text that targets a placeholder, and the run is the half
+		// that got missed: `cleanOpts` runs for the shape and again for each of its runs, and a run
+		// carries only what the caller wrote on that run, so `addText('x', { placeholder: 'title' })`
+		// reaches the default with a bag that says nothing about placeholders.
+		//
+		// It read as correct for as long as the string shorthand handed ONE options object to both
+		// the shape and its lone run: the run's bag was the shape's and did carry the key. Once that
+		// aliasing went -- a run must not inherit the shape's `shadow` -- the default started writing
+		// an explicit black `a:solidFill` onto text whose whole purpose is to take the layout's
+		// colour. A deck built that way stops following its theme, and nothing said so: no showcase
+		// deck states an inherited placeholder colour, so every byte-identity gate stayed green.
+		name: 'text targeting a placeholder states no colour, on the run as well as the shape',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'INHERITS',
+					objects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 }, text: 'T' } }],
+				})
+				p.addSlide({ masterTitle: 'INHERITS' }).addText('Inherited', { placeholder: 'title' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertNotIncludes(xml, 'srgbClr', 'a placeholder run states no literal colour')
+			assertNotIncludes(xml, 'solidFill', 'a placeholder run states no fill for one to sit in')
+		},
+	},
+	{
+		// The other half of the same rule: suppressing the default must not suppress a colour the
+		// caller asked for. It survives because `color` is one of `RUN_INHERITABLE_OPTIONS`, so the
+		// run takes the shape's at emit time rather than from the default above.
+		name: 'a colour stated on placeholder-targeting text still reaches the run',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'STATED',
+					objects: [{ placeholder: { options: { name: 'title', type: 'title', x: 1, y: 1, w: 8, h: 1 }, text: 'T' } }],
+				})
+				p.addSlide({ masterTitle: 'STATED' }).addText('Stated', { placeholder: 'title', color: 'FF0000' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(xml, '<a:srgbClr val="FF0000"/>', 'the stated colour')
+		},
+	},
 ])

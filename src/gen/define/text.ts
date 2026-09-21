@@ -104,7 +104,25 @@ export function addTextDefinition(
 		// STEP 1: Set some options
 		{
 			// A.1: Color (placeholders should inherit their colors or override them, so don't default them)
-			if (!itemOpts.placeholder) {
+			//
+			// The question is whether the TEXT targets a placeholder, which is not the same as
+			// whether this bag says so. `cleanOpts` runs once for the object and again for each of
+			// its runs, and a run states only what the caller wrote on that run: `addText('x', {
+			// placeholder: 'title' })` reaches this line a second time with a bag carrying no
+			// `placeholder` key at all. Testing `itemOpts` alone therefore skipped the default for
+			// the shape and applied it to the run inside it, which is how an explicit black
+			// `a:solidFill` landed on text whose whole point is to inherit the layout's colour.
+			//
+			// It went unnoticed because the bare-string overload used to hand ONE options object to
+			// both the shape and its lone run, so the run's bag was the shape's and did carry the
+			// key. That aliasing was removed deliberately (a run must not inherit the shape's
+			// `shadow`), and this default was reading it.
+			//
+			// Suppressing the default here does not lose a colour the caller stated on the shape:
+			// `color` is in `RUN_INHERITABLE_OPTIONS`, so a run takes the shape's at emit time. What
+			// it stops writing is the fallback nobody asked for.
+			const targetsPlaceholder = Boolean(itemOpts.placeholder ?? objectOptions.placeholder) || isPlaceholder
+			if (!targetsPlaceholder) {
 				// A hyperlink run with no color configured anywhere inherits the theme hyperlink color
 				// (a:schemeClr hlink, and folHlink once visited), which PowerPoint applies automatically
 				// when the run carries no explicit fill. Defaulting it to DEF_FONT_COLOR would emit a
