@@ -38,7 +38,7 @@ jobs:
     name: Publish package
     if: github.repository == 'shbernal/pptx-ts'
     needs: gate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment: npm-publish
 
     steps:
@@ -140,7 +140,7 @@ jobs:
     name: GitHub Release
     if: github.repository == 'shbernal/pptx-ts' && github.event_name != 'workflow_run'
     needs: publish
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
 
@@ -191,7 +191,7 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_repository.full_name == github.repository &&
       github.event.workflow_run.head_sha == github.sha
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment: npm-publish
 
     steps:

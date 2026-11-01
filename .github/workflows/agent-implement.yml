@@ -39,7 +39,7 @@ jobs:
   gate:
     name: Gate
     if: vars.AGENTS_ENABLED == 'true' && (github.event_name != 'issues' || github.event.label.name == 'agent:ready')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write
@@ -91,7 +91,7 @@ jobs:
     name: Implement
     needs: gate
     if: needs.gate.outputs.issue
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     permissions:
       contents: read
@@ -178,7 +178,7 @@ jobs:
   publish:
     name: Publish
     needs: [gate, implement]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions: {}
 
@@ -296,7 +296,7 @@ jobs:
     name: Report a failure
     needs: [gate, implement, publish]
     if: failure() && needs.gate.outputs.issue
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write
